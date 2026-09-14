@@ -1,0 +1,1080 @@
+import { placeGraphCallout } from "./graph-callout";
+import { ExportDialog } from "./ExportDialog";
+import { InlineCreate } from "./InlineCreate";
+import {
+  creationDraft,
+  editEntity,
+  type Creation,
+  type CreationKind,
+} from "./authoring";
+import {
+  InlineRenameInput,
+  onInlineRename,
+  startInlineRename,
+} from "./InlineRename";
+import { ContextMenu } from "./ContextMenu";
+import { keyHint } from "./keyboard";
+import { styledRadius } from "../domain/graph-style";
+import { layoutOptions } from "../shared/layout-options";
+import { kindLabel } from "../domain/model";
+import { GpuDraw } from "./GpuDraw";
+import { useEffect, useRef, useState } from "react";
+import {
+  act,
+  request,
+  graph,
+  onGraph,
+  onCommand,
+  panel,
+  savePanel,
+  state,
+  report,
+  command,
+  useSnapshot,
+} from "./client";
+import {
+  Draw,
+  render,
+  fit,
+  bounds,
+  screenPoint,
+  exportScene,
+  type Camera,
+} from "./scene";
+import type { GraphNode } from "../domain/viewport";
+export function GraphPanel() {
+  useSnapshot();
+  const canvasRef = useRef<HTMLCanvasElement>(null),
+    miniRef = useRef<HTMLCanvasElement>(null),
+    camera = useRef<Camera>(panel("graph.camera", { x: 0, y: 0, zoom: 1 })),
+    needsFit = useRef(!panel("graph.camera", null)),
+    dirty = useRef(true),
+    hover = useRef<string | null>(null),
+    [info, setInfo] = useState(graph),
+    [context, setContext] = useState<{
+      x: number;
+      y: number;
+      iri: string;
+    } | null>(null);
+  const [renaming, setRenaming] = useState<{
+      iri: string;
+      name: string;
+    } | null>(null),
+    renameHost = useRef<HTMLDivElement>(null);
+  const [exportDialog, setExportDialog] = useState<string | null>(null);
+  const createHost = useRef<HTMLDivElement>(null),
+    createLink = useRef<SVGPathElement>(null),
+    spotlight = useRef<string | null>(null);
+  const [creating, setCreating] = useState<
+      (Creation & { anchorIri?: string; linked: boolean }) | null
+    >(null),
+    [blankMenu, setBlankMenu] = useState<{
+      x: number;
+      y: number;
+      point: { x: number; y: number };
+    } | null>(null);
+  useEffect(() => {
+    spotlight.current = creating?.anchorIri ?? context?.iri ?? null;
+    dirty.current = true;
+  }, [creating, context]);
+  useEffect(() => {
+    if (!creating) return;
+    const host = createHost.current!,
+      canvas = canvasRef.current!,
+      win = host.ownerDocument.defaultView!;
+    let frame = 0;
+    const place = () => {
+      const n = graph?.nodes.find((n) => n.iri === creating.anchorIri);
+      if (creating.anchorIri && !n) {
+        setCreating(null);
+        return;
+      }
+      const width = Math.min(320, Math.max(1, canvas.clientWidth - 16));
+      host.style.width = width + "px";
+      const height = (host.firstElementChild as HTMLElement).scrollHeight + 2;
+      if (n) {
+        const anchor = {
+          ...screenPoint(n, camera.current),
+          radius:
+            styledRadius(n, graph!.stylesheet, n.iri) * camera.current.zoom,
+          labelWidth: Math.min(240, n.label.length * 7 + 16),
+        };
+        if (
+          anchor.x + anchor.radius < 0 ||
+          anchor.y + anchor.radius < 0 ||
+          anchor.x - anchor.radius > canvas.clientWidth ||
+          anchor.y - anchor.radius > canvas.clientHeight
+        ) {
+          setCreating(null);
+          return;
+        }
+        const box = placeGraphCallout(
+          { width: canvas.clientWidth, height: canvas.clientHeight },
+          { width, height },
+          anchor,
+        );
+        host.style.width = box.width + "px";
+        host.style.maxHeight = box.height + "px";
+        host.style.left = box.x + "px";
+        host.style.top = box.y + "px";
+        host.dataset.side = box.side;
+        createLink.current?.setAttribute(
+          "d",
+          `M ${box.start.x} ${box.start.y} L ${box.end.x} ${box.end.y}`,
+        );
+      } else {
+        const p = screenPoint(
+          creating.position ?? { x: 0, y: 0 },
+          camera.current,
+        );
+        host.style.maxHeight = Math.max(1, canvas.clientHeight - 16) + "px";
+        host.style.left =
+          Math.max(8, Math.min(canvas.clientWidth - width - 8, p.x)) + "px";
+        host.style.top =
+          Math.max(8, Math.min(canvas.clientHeight - height - 8, p.y)) + "px";
+      }
+      frame = win.requestAnimationFrame(place);
+    };
+    place();
+    return () => win.cancelAnimationFrame(frame);
+  }, [creating]);
+  const closeCreation = () => {
+    setCreating(null);
+    canvasRef.current?.focus();
+  };
+  useEffect(() => {
+    if (!creating) return;
+    const host = createHost.current!,
+      doc = host.ownerDocument;
+    const outside = (event: PointerEvent) => {
+      if (!host.contains(event.target as Node)) setCreating(null);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Escape" ||
+        event.isComposing ||
+        event.defaultPrevented ||
+        doc.querySelector("dialog[open],[role=menu]")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeCreation();
+    };
+    doc.addEventListener("pointerdown", outside, true);
+    doc.addEventListener("keydown", escape, true);
+    return () => {
+      doc.removeEventListener("pointerdown", outside, true);
+      doc.removeEventListener("keydown", escape, true);
+    };
+  }, [creating]);
+  const positionBeside = (iri: string) => {
+    const n = graph?.nodes.find((n) => n.iri === iri),
+      canvas = canvasRef.current!;
+    if (!n) return undefined;
+    const p = screenPoint(n, camera.current),
+      offset =
+        styledRadius(n, graph!.stylesheet, iri) * camera.current.zoom + 80;
+    return {
+      x:
+        n.x +
+        (p.x < canvas.clientWidth / 2 ? offset : -offset) / camera.current.zoom,
+      y: n.y,
+    };
+  };
+  const createAt = (
+    kind: CreationKind,
+    p?: { x: number; y: number },
+    anchorIri?: string,
+  ) => {
+    const canvas = canvasRef.current!;
+    p ??= { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
+    const draft = creationDraft(
+      kind,
+      anchorIri
+        ? positionBeside(anchorIri)
+        : {
+            x: (p.x - camera.current.x) / camera.current.zoom,
+            y: (p.y - camera.current.y) / camera.current.zoom,
+          },
+    );
+    setCreating({
+      ...draft,
+      parent: anchorIri ?? draft.parent,
+      anchorIri,
+      linked: !!anchorIri,
+    });
+    setBlankMenu(null);
+  };
+  useEffect(
+    () =>
+      onInlineRename(canvasRef.current!, () => {
+        const e = state?.entities.find((e) => e.iri === state?.selected),
+          n = graph?.nodes.find((n) => n.iri === e?.iri),
+          canvas = canvasRef.current!;
+        if (!e || !n) return;
+        const p = screenPoint(n, camera.current);
+        if (
+          p.x < 100 ||
+          p.x > canvas.clientWidth - 100 ||
+          p.y < 30 ||
+          p.y > canvas.clientHeight - 70
+        ) {
+          camera.current = {
+            ...camera.current,
+            x: canvas.clientWidth / 2 - n.x * camera.current.zoom,
+            y: canvas.clientHeight / 2 - n.y * camera.current.zoom,
+          };
+          dirty.current = true;
+          savePanel("graph.camera", camera.current);
+        }
+        setRenaming({ iri: e.iri, name: e.name });
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (!renaming) return;
+    const win = canvasRef.current!.ownerDocument.defaultView!;
+    let frame = 0;
+    const place = () => {
+      const el = renameHost.current,
+        canvas = canvasRef.current,
+        n = graph?.nodes.find((n) => n.iri === renaming.iri);
+      if (!el || !canvas || !n) {
+        setRenaming(null);
+        return;
+      }
+      const width = Math.min(240, canvas.clientWidth - 16),
+        p = screenPoint(n, camera.current);
+      el.style.width = width + "px";
+      el.style.left =
+        Math.max(8, Math.min(canvas.clientWidth - width - 8, p.x - width / 2)) +
+        "px";
+      el.style.top =
+        Math.max(
+          8,
+          Math.min(
+            canvas.clientHeight - el.offsetHeight - 8,
+            p.y +
+              styledRadius(n, graph!.stylesheet, n.iri) * camera.current.zoom +
+              4,
+          ),
+        ) + "px";
+      frame = win.requestAnimationFrame(place);
+    };
+    place();
+    return () => win.cancelAnimationFrame(frame);
+  }, [renaming]);
+  const [limitText, setLimitText] = useState(String(graph?.budget ?? 1000));
+  useEffect(() => setLimitText(String(info?.budget ?? 1000)), [info?.budget]);
+  const setLimit = async (value: number) => {
+    try {
+      await request("budget", { value });
+      savePanel("graph.limit", value);
+    } catch (e) {
+      report((e as Error).message, true);
+      setLimitText(String(graph?.budget ?? 1000));
+    }
+  };
+  const fitNow = (record = false) => {
+    const el = canvasRef.current;
+    if (graph && el) {
+      camera.current = fit(graph, el.clientWidth, el.clientHeight);
+      dirty.current = true;
+      savePanel("graph.camera", camera.current, record);
+    }
+  };
+  const exportGraph = (format = "png") => setExportDialog(format);
+  useEffect(() => {
+    const canvas = canvasRef.current!,
+      win = canvas.ownerDocument.defaultView!,
+      gl = canvas.getContext("webgl2", {
+        antialias: true,
+        alpha: false,
+        preserveDrawingBuffer: false,
+      }),
+      ctx = gl ? null : canvas.getContext("2d")!;
+    let draw: Draw = gl ? new GpuDraw(gl, 1, 1) : new Draw(ctx, 1, 1),
+      contextLost = false;
+    canvas.dataset.backend = gl ? "webgl2" : "canvas2d";
+    const lost = (e: Event) => {
+      e.preventDefault();
+      contextLost = true;
+      report("Restoring the graph graphics context...");
+    };
+    const restored = () => {
+      if (gl) {
+        draw = new GpuDraw(gl, w, h);
+        contextLost = false;
+        dirty.current = true;
+        report("Graph graphics context restored.");
+      }
+    };
+    canvas.addEventListener("webglcontextlost", lost);
+    canvas.addEventListener("webglcontextrestored", restored);
+    let raf = 0,
+      w = 0,
+      h = 0,
+      last = 0,
+      frameCount = 0;
+    const samples: number[] = [];
+    const paint = () => {
+      raf = win.requestAnimationFrame(paint);
+      if (
+        contextLost ||
+        !dirty.current ||
+        !graph ||
+        canvas.clientWidth < 1 ||
+        canvas.clientHeight < 1
+      )
+        return;
+      const start = performance.now(),
+        ratio = win.devicePixelRatio || 1;
+      width();
+      if (needsFit.current) {
+        fitNow();
+        needsFit.current = false;
+      }
+      draw.width = w;
+      draw.height = h;
+      if (draw instanceof GpuDraw) draw.beginFrame();
+      else ctx!.setTransform(ratio, 0, 0, ratio, 0, 0);
+      render(
+        draw,
+        graph,
+        camera.current,
+        canvas.ownerDocument.documentElement.dataset.theme === "dark",
+        spotlight.current ?? state?.selected ?? null,
+        spotlight.current ? null : hover.current,
+        900,
+        { spotlight: spotlight.current ?? undefined },
+      );
+      canvas.dataset.spotlight = spotlight.current ?? "";
+      if (draw instanceof GpuDraw) draw.endFrame();
+      drawMini();
+      dirty.current = false;
+      samples.push(performance.now() - start);
+      if (samples.length > 600) samples.shift();
+      canvas.dispatchEvent(
+        new CustomEvent("axiom:frame", {
+          detail: {
+            milliseconds: samples.at(-1),
+            time: performance.now(),
+          },
+        }),
+      );
+      frameCount++;
+      canvas.dataset.draws = String(frameCount);
+      canvas.dataset.p95 = String(
+        samples.slice().sort((a, b) => a - b)[
+          Math.floor(samples.length * 0.95)
+        ] ?? 0,
+      );
+      last = performance.now();
+    };
+    const width = () => {
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      const ratio = win.devicePixelRatio || 1;
+      if (
+        canvas.width !== Math.round(w * ratio) ||
+        canvas.height !== Math.round(h * ratio)
+      ) {
+        canvas.width = Math.round(w * ratio);
+        canvas.height = Math.round(h * ratio);
+      }
+    };
+    const drawMini = () => {
+      const mini = miniRef.current;
+      if (!mini || !graph) return;
+      const m = mini.getContext("2d")!,
+        b = bounds(graph, 20),
+        k = Math.min(144 / b.width, 94 / b.height),
+        x = (150 - b.width * k) / 2 - b.x * k,
+        y = (100 - b.height * k) / 2 - b.y * k;
+      m.clearRect(0, 0, 150, 100);
+      m.fillStyle = "#6cb8f6";
+      for (const n of graph.nodes) {
+        m.beginPath();
+        m.arc(n.x * k + x, n.y * k + y, 1.4, 0, 2 * Math.PI);
+        m.fill();
+      }
+      m.strokeStyle = "#d19a43";
+      m.lineWidth = 1;
+      m.strokeRect(
+        (-camera.current.x / camera.current.zoom) * k + x,
+        (-camera.current.y / camera.current.zoom) * k + y,
+        (w / camera.current.zoom) * k,
+        (h / camera.current.zoom) * k,
+      );
+    };
+    const ro = new ResizeObserver(() => {
+      dirty.current = true;
+    });
+    ro.observe(canvas);
+    let metadata = graph,
+      epoch = state?.datasetEpoch;
+    const un = onGraph(() => {
+      if (epoch !== state?.datasetEpoch) {
+        epoch = state?.datasetEpoch;
+        needsFit.current = true;
+      }
+      dirty.current = true;
+      if (metadata !== graph) {
+        metadata = graph;
+        setInfo(graph);
+      }
+    });
+    raf = win.requestAnimationFrame(paint);
+    const theme = new MutationObserver(() => {
+      dirty.current = true;
+    });
+    theme.observe(canvas.ownerDocument.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    const off = onCommand((id) => {
+      if (id === "ui.restore:graph.camera") {
+        camera.current = panel("graph.camera", camera.current);
+        dirty.current = true;
+      }
+      if (id === "graph.fit" || id === "graph.fit.manual") {
+        command("view.graph");
+        win.requestAnimationFrame(() => fitNow(id === "graph.fit.manual"));
+      }
+      if (id.startsWith("graph.pan.")) {
+        const dir = id.slice(10);
+        camera.current = {
+          ...camera.current,
+          x:
+            camera.current.x +
+            (dir === "left" ? 40 : dir === "right" ? -40 : 0),
+          y: camera.current.y + (dir === "up" ? 40 : dir === "down" ? -40 : 0),
+        };
+        dirty.current = true;
+        savePanel("graph.camera", camera.current);
+      }
+      if (id.startsWith("graph.zoom.")) {
+        const old = camera.current,
+          k = Math.max(
+            0.05,
+            Math.min(5, old.zoom * (id.endsWith(".out") ? 1 / 1.2 : 1.2)),
+          ),
+          x = canvas.clientWidth / 2,
+          y = canvas.clientHeight / 2;
+        camera.current = {
+          x: x - ((x - old.x) * k) / old.zoom,
+          y: y - ((y - old.y) * k) / old.zoom,
+          zoom: k,
+        };
+        dirty.current = true;
+        savePanel("graph.camera", camera.current);
+      }
+      if (id === "graph.create") {
+        command("view.graph");
+        win.requestAnimationFrame(() => createAt("Class"));
+      }
+      if (id === "graph.relayout" && graph)
+        void act("layout", { mode: graph.choice });
+      if (id.startsWith("graph.layout."))
+        void act("layout", { mode: id.slice(13) }).then(() => fitNow());
+      if (id === "graph.cancelLayout") void act("cancelLayout");
+      if (id === "graph.freeze") void act("freeze");
+      if (id === "graph.clear") void act("clear");
+      if (
+        [
+          "graph.expand",
+          "graph.collapse",
+          "graph.pin",
+          "graph.remove",
+        ].includes(id) &&
+        state?.selected
+      )
+        void act(id.slice(6) as "expand", { iri: state.selected });
+      if (id === "graph.export") exportGraph();
+      if (id === "graph.export.svg") void exportGraph("svg");
+      if (id === "graph.export.png") void exportGraph("png");
+    });
+    return () => {
+      win.cancelAnimationFrame(raf);
+      if (draw instanceof GpuDraw) draw.dispose();
+      canvas.removeEventListener("webglcontextlost", lost);
+      canvas.removeEventListener("webglcontextrestored", restored);
+      ro.disconnect();
+      theme.disconnect();
+      un();
+      off();
+      savePanel("graph.camera", camera.current, false);
+    };
+  }, []);
+  const point = (e: { clientX: number; clientY: number }) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const hit = (p: { x: number; y: number }): GraphNode | undefined => {
+    if (!graph) return;
+    let best: GraphNode | undefined,
+      dist = Infinity;
+    for (const n of graph.nodes) {
+      const s = screenPoint(n, camera.current),
+        d = Math.hypot(p.x - s.x, p.y - s.y);
+      if (
+        d <=
+          Math.max(
+            9,
+            styledRadius(n, graph.stylesheet, state?.selected) *
+              camera.current.zoom +
+              4,
+          ) &&
+        d < dist
+      ) {
+        best = n;
+        dist = d;
+      }
+    }
+    return best;
+  };
+  const drag = useRef<{
+    node?: GraphNode;
+    x: number;
+    y: number;
+    cx: number;
+    cy: number;
+    moved: boolean;
+    last: number;
+  } | null>(null);
+  const finishDrag = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d?.node && d.moved)
+      void act("drag", {
+        iri: d.node.iri,
+        x: d.node.x,
+        y: d.node.y,
+        dragging: false,
+      });
+    savePanel("graph.camera", camera.current);
+  };
+  const selected = state?.selected;
+  const selection = graph?.nodes.find((n) => n.iri === selected);
+  return (
+    <section
+      className="panel graph-panel"
+      aria-label="Graph panel"
+      data-panel="graph"
+    >
+      <div className="panel-toolbar">
+        <button
+          onClick={() => createAt("Class")}
+          title="Add a class or instance at the graph center (Insert)"
+        >
+          Add entity
+        </button>
+        <button
+          onClick={() => fitNow(true)}
+          title={"Fit graph (" + keyHint("graph.fit") + ")"}
+        >
+          Fit
+        </button>
+        <button
+          onClick={() => void act("layout", { mode: graph?.choice ?? "auto" })}
+        >
+          Relayout
+        </button>
+        <select
+          aria-label="Graph layout"
+          value={info?.choice ?? "auto"}
+          onChange={(e) =>
+            void act("layout", { mode: e.target.value }).then(() => fitNow())
+          }
+        >
+          {layoutOptions.map((m) => (
+            <option key={m.id} value={m.id} title={m.description}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <button
+          aria-pressed={info?.frozen ?? false}
+          onClick={() => void act("freeze")}
+        >
+          {info?.frozen ? "Resume" : "Freeze"}
+        </button>
+        <button onClick={() => command("graph.styles")}>Styles</button>
+        {info?.layoutPending && (
+          <button onClick={() => void act("cancelLayout")}>
+            Cancel layout
+          </button>
+        )}
+        <span className="toolbar-spacer" />
+        <button
+          disabled={!info?.nodes.length}
+          onClick={() => void exportGraph()}
+        >
+          Export
+        </button>
+      </div>
+      <div className="canvas-host">
+        <canvas
+          ref={canvasRef}
+          aria-label={
+            "Ontology graph, " +
+            (info?.nodes.length ?? 0) +
+            " nodes. Arrows select, Alt+arrows pan, plus and minus zoom, Enter expands, P pins, F fits."
+          }
+          role="listbox"
+          aria-activedescendant={
+            info?.nodes.some((n) => n.iri === selected)
+              ? "graph-option-" +
+                info.nodes.findIndex((n) => n.iri === selected)
+              : undefined
+          }
+          tabIndex={0}
+          data-testid="graph-canvas"
+          data-rename-iri={
+            info?.nodes.some((n) => n.iri === selected) ? selected : undefined
+          }
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            setContext(null);
+            setBlankMenu(null);
+            const p = point(e),
+              node = hit(p);
+            canvasRef.current!.focus();
+            canvasRef.current!.setPointerCapture(e.pointerId);
+            drag.current = {
+              node,
+              x: p.x,
+              y: p.y,
+              cx: camera.current.x,
+              cy: camera.current.y,
+              moved: false,
+              last: 0,
+            };
+            if (node) void act("select", { iri: node.iri });
+          }}
+          onPointerMove={(e) => {
+            const p = point(e),
+              d = drag.current;
+            if (d) {
+              d.moved ||= Math.hypot(p.x - d.x, p.y - d.y) > 3;
+              if (!d.moved) return;
+              if (d.node) {
+                d.node.x = (p.x - camera.current.x) / camera.current.zoom;
+                d.node.y = (p.y - camera.current.y) / camera.current.zoom;
+                if (performance.now() - d.last > 20) {
+                  d.last = performance.now();
+                  void act("drag", {
+                    iri: d.node.iri,
+                    x: d.node.x,
+                    y: d.node.y,
+                    dragging: true,
+                  });
+                }
+              } else {
+                camera.current = {
+                  ...camera.current,
+                  x: d.cx + p.x - d.x,
+                  y: d.cy + p.y - d.y,
+                };
+              }
+              dirty.current = true;
+            } else {
+              const n = hit(p);
+              if (hover.current !== n?.iri) {
+                hover.current = n?.iri ?? null;
+                canvasRef.current!.title = n
+                  ? n.label + " · " + n.degree + " neighbours"
+                  : "";
+                dirty.current = true;
+              }
+              canvasRef.current!.style.cursor = n ? "grab" : "default";
+            }
+          }}
+          onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
+          onPointerUp={(e) => {
+            const d = drag.current;
+            if (d?.node && d.moved)
+              void act("drag", {
+                iri: d.node.iri,
+                x: d.node.x,
+                y: d.node.y,
+                dragging: false,
+              });
+            drag.current = null;
+            if (canvasRef.current!.hasPointerCapture(e.pointerId))
+              canvasRef.current!.releasePointerCapture(e.pointerId);
+            savePanel("graph.camera", camera.current);
+          }}
+          onDoubleClick={(e) => {
+            const p = point(e),
+              n = hit(p);
+            if (n)
+              void act("select", { iri: n.iri }).then(() =>
+                startInlineRename(n.iri, {
+                  document: canvasRef.current!.ownerDocument,
+                  panel: "graph",
+                }),
+              );
+            else createAt("Class", p);
+          }}
+          onWheel={(e) => {
+            e.currentTarget.dataset.wheels = String(
+              +(e.currentTarget.dataset.wheels ?? 0) + 1,
+            );
+            const p = point(e),
+              old = camera.current,
+              k = Math.max(
+                0.05,
+                Math.min(5, old.zoom * Math.exp(-e.deltaY * 0.0015)),
+              );
+            camera.current = {
+              x: p.x - ((p.x - old.x) * k) / old.zoom,
+              y: p.y - ((p.y - old.y) * k) / old.zoom,
+              zoom: k,
+            };
+            dirty.current = true;
+            savePanel("graph.camera", camera.current);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            const n = hit(point(e));
+            if (n) {
+              void act("select", { iri: n.iri });
+              setContext({
+                x: e.clientX,
+                y: e.clientY,
+                iri: n.iri,
+              });
+            } else
+              setBlankMenu({ x: e.clientX, y: e.clientY, point: point(e) });
+          }}
+          onKeyDown={(e) => {
+            if (!graph) return;
+            const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+            if (keys.includes(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+              e.preventDefault();
+              const index = graph.nodes.findIndex(
+                  (n) => n.iri === state?.selected,
+                ),
+                next =
+                  graph.nodes[
+                    (Math.max(0, index) +
+                      (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1) +
+                      graph.nodes.length) %
+                      graph.nodes.length
+                  ];
+              if (next) void act("select", { iri: next.iri });
+            } else if (
+              (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) &&
+              state?.selected
+            ) {
+              e.preventDefault();
+              const n = graph.nodes.find((n) => n.iri === state?.selected);
+              if (n) {
+                const p = screenPoint(n, camera.current),
+                  r = e.currentTarget.getBoundingClientRect();
+                setContext({ iri: n.iri, x: r.x + p.x, y: r.y + p.y });
+              }
+            } else if (e.key === "Escape") setContext(null);
+          }}
+        >
+          {info?.nodes.map((n, i) => (
+            <span
+              key={n.iri}
+              id={"graph-option-" + i}
+              role="option"
+              aria-selected={n.iri === selected}
+            >
+              {n.label}, {kindLabel(n.kind)}, {n.degree} neighbours
+              {n.pinned ? ", pinned" : ""}
+            </span>
+          ))}
+        </canvas>
+        {creating && (
+          <>
+            {creating.anchorIri && (
+              <svg className="graph-create-link" aria-hidden="true">
+                <path ref={createLink} />
+              </svg>
+            )}
+            <div
+              className="graph-create"
+              ref={createHost}
+              data-anchor-iri={creating.anchorIri}
+            >
+              <InlineCreate
+                draft={creating}
+                dismissible
+                close={closeCreation}
+                getPosition={() =>
+                  creating.anchorIri
+                    ? positionBeside(creating.anchorIri)
+                    : creating.position
+                }
+                onRelationshipChange={(kind, parent) =>
+                  setCreating((current) =>
+                    current
+                      ? {
+                          ...current,
+                          anchorIri:
+                            current.linked &&
+                            (kind === "Class" || kind === "Individual") &&
+                            graph?.nodes.some((n) => n.iri === parent)
+                              ? parent
+                              : undefined,
+                        }
+                      : null,
+                  )
+                }
+              />
+            </div>
+          </>
+        )}
+        {renaming && (
+          <div className="graph-inline-rename" ref={renameHost}>
+            <InlineRenameInput
+              iri={renaming.iri}
+              name={renaming.name}
+              finish={(restore) => {
+                setRenaming(null);
+                if (restore) canvasRef.current?.focus();
+              }}
+            />
+          </div>
+        )}
+        {!info?.nodes.length && (
+          <div className="empty-canvas">
+            <strong>The graph is empty</strong>
+            <p>Choose a class in the hierarchy, then show it in the graph.</p>
+            <button
+              onClick={() =>
+                void act("seed", {
+                  iris: [
+                    state?.ontology.example
+                      ? NS_PIZZA
+                      : "http://www.w3.org/2002/07/owl#Thing",
+                  ],
+                })
+              }
+            >
+              Show {state?.ontology.example ? "Pizza" : "Thing"}
+            </button>
+          </div>
+        )}
+        <canvas
+          ref={miniRef}
+          width={150}
+          height={100}
+          className="minimap"
+          aria-label="Graph minimap"
+          onClick={(e) => {
+            if (!graph) return;
+            const b = bounds(graph, 20),
+              k = Math.min(144 / b.width, 94 / b.height),
+              r = e.currentTarget.getBoundingClientRect(),
+              wx = (e.clientX - r.left - (150 - b.width * k) / 2) / k + b.x,
+              wy = (e.clientY - r.top - (100 - b.height * k) / 2) / k + b.y;
+            camera.current = {
+              ...camera.current,
+              x: canvasRef.current!.clientWidth / 2 - wx * camera.current.zoom,
+              y: canvasRef.current!.clientHeight / 2 - wy * camera.current.zoom,
+            };
+            dirty.current = true;
+            savePanel("graph.camera", camera.current);
+          }}
+        />
+      </div>
+      <div className="graph-footer">
+        <label>
+          Visible node limit{" "}
+          <input
+            aria-label="Visible node limit slider"
+            type="range"
+            min="100"
+            max="3000"
+            step="1"
+            value={info?.budget ?? 1000}
+            onChange={(e) => void setLimit(+e.target.value)}
+          />
+          <input
+            className="node-limit"
+            type="number"
+            aria-label="Visible node limit"
+            min="100"
+            max="3000"
+            step="1"
+            value={limitText}
+            onChange={(e) => setLimitText(e.target.value)}
+            onBlur={() => void setLimit(Number(limitText))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setLimitText(String(info?.budget ?? 1000));
+              }
+            }}
+          />
+          <output>
+            {info?.nodes.length.toLocaleString("en-GB") ?? 0} /
+            {info?.budget.toLocaleString("en-GB") ?? 1000} displayed
+          </output>
+        </label>
+        <select
+          aria-label="Eviction policy"
+          value={info?.evictionMode ?? "degree"}
+          onChange={(e) => void act("eviction", { mode: e.target.value })}
+        >
+          <option value="degree">Distant, low degree</option>
+          <option value="lru">Least recently used</option>
+          <option value="refuse">Refuse new nodes</option>
+        </select>
+        <span>
+          {info?.mode} · {info?.edges.length.toLocaleString("en-GB")}{" "}
+          relationships · {info?.hidden.toLocaleString("en-GB")} held back
+        </span>
+      </div>
+      <div className="graph-selection" aria-live="polite">
+        {selection ? (
+          <>
+            <strong>{selection.label}</strong>
+            <button onClick={() => command("research.open")}>Research</button>
+            <span>{selection.degree} neighbours</span>
+            <button onClick={() => void act("expand", { iri: selection.iri })}>
+              Expand
+            </button>
+            <button
+              onClick={() => void act("collapse", { iri: selection.iri })}
+            >
+              Collapse
+            </button>
+            <button
+              aria-pressed={selection.pinned}
+              onClick={() => void act("pin", { iri: selection.iri })}
+            >
+              {selection.pinned ? "Unpin" : "Pin"}
+            </button>
+          </>
+        ) : (
+          <span>
+            Double-click blank space to create a class or instance. Double-click
+            a node to edit its label.
+          </span>
+        )}
+      </div>
+      {exportDialog && graph && (
+        <ExportDialog
+          graph={graph}
+          camera={{ ...camera.current }}
+          size={{
+            width: canvasRef.current!.clientWidth,
+            height: canvasRef.current!.clientHeight,
+          }}
+          initialFormat={exportDialog}
+          close={() => setExportDialog(null)}
+        />
+      )}
+      {blankMenu && (
+        <ContextMenu
+          document={canvasRef.current!.ownerDocument}
+          x={blankMenu.x}
+          y={blankMenu.y}
+          label="Graph canvas actions"
+          close={() => setBlankMenu(null)}
+          actions={[
+            {
+              label: "New class here",
+              key: "C",
+              run: () => createAt("Class", blankMenu.point),
+            },
+            {
+              label: "New instance here",
+              key: "I",
+              run: () => createAt("Individual", blankMenu.point),
+            },
+            { label: "Dismiss", key: "D", run: () => setBlankMenu(null) },
+          ]}
+        />
+      )}
+      {context && (
+        <ContextMenu
+          document={canvasRef.current?.ownerDocument ?? document}
+          x={context.x}
+          y={context.y}
+          label="Graph node actions"
+          close={() => setContext(null)}
+          actions={[
+            {
+              label: "Edit details",
+              enabled: !!state?.entities.some((e) => e.iri === context.iri),
+              key: "T",
+              run: () => {
+                editEntity(context.iri);
+                setContext(null);
+              },
+            },
+            {
+              label: "New instance",
+              key: "W",
+              enabled: !!state?.entities.some(
+                (e) =>
+                  e.iri === context.iri &&
+                  ["Class", "Defined"].includes(e.kind),
+              ),
+              run: () => {
+                createAt("Individual", undefined, context.iri);
+                setContext(null);
+              },
+            },
+            ...[
+              ["Expand", "expand", "E"],
+              ["Collapse", "collapse", "C"],
+              ["Pin / unpin", "pin", "P"],
+              ["Remove from view", "remove", "R"],
+            ].map(([label, method, key]) => ({
+              label,
+              key,
+              run: () => {
+                void act(method as "expand", { iri: context.iri });
+                setContext(null);
+              },
+            })),
+            {
+              label: "Rename",
+              key: "N",
+              enabled:
+                !!state?.entities.some((e) => e.iri === context.iri) &&
+                context.iri !== "http://www.w3.org/2002/07/owl#Thing",
+              run: () => {
+                setContext(null);
+                startInlineRename(context.iri, {
+                  document: canvasRef.current!.ownerDocument,
+                  panel: "graph",
+                });
+              },
+            },
+            {
+              label: "Copy IRI",
+              key: "I",
+              run: () => {
+                void window.axiom.copy(context.iri);
+                setContext(null);
+              },
+            },
+            {
+              label: "Research...",
+              key: "S",
+              run: () => {
+                command("research.open");
+                setContext(null);
+              },
+            },
+            { label: "Dismiss", key: "D", run: () => setContext(null) },
+          ]}
+        />
+      )}
+    </section>
+  );
+}
+const NS_PIZZA = "http://www.co-ode.org/ontologies/pizza/pizza.owl#Pizza";
