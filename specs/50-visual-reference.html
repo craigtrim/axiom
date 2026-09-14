@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom — Visual Reference</title>
+<style>
+/* ============================================================================
+   Token catalogue, reproduced verbatim from the reference implementation.
+   This page binds the same tokens the product does, so every sample below is
+   the real value rather than an approximation of it.
+   ========================================================================== */
+:root {
+  --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
+  --fs-caption: 12px; --fs-body: 14px; --fs-subtitle: 16px; --fs-title: 20px; --fs-code: 13px;
+  --lh-body: 1.5; --lh-code: 1.55;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+  --h-control: 28px; --h-row: 32px; --h-tree-row: 24px; --h-titlebar: 32px; --h-commandbar: 40px; --h-statusbar: 26px;
+  --r-control: 4px; --r-card: 8px; --r-window: 8px;
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-exit: 140ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+}
+:root, [data-theme="light"] {
+  --ground: #F3F3F3; --surface: #FFFFFF; --surface-alt: #FAFAFA; --surface-sunken: #EDEDED;
+  --canvas: #F7F7F9; --canvas-grid: #E4E4EA;
+  --stroke: #E1E1E1; --stroke-strong: #C4C4C4; --stroke-divider: #EAEAEA;
+  --text: #1B1B1B; --text-secondary: #5A5A5A; --text-disabled: #8A8A8A; --text-on-accent: #FFFFFF;
+  --accent: #0F6CBD; --accent-hover: #115EA3; --accent-pressed: #0C3B5E; --accent-subtle: #EFF6FC; --accent-border: #B4D6FA;
+  --layer-hover: rgba(0,0,0,0.037); --layer-pressed: rgba(0,0,0,0.07); --layer-selected: #EAF3FB;
+  --shadow-flyout: 0 8px 16px rgba(0,0,0,0.14), 0 0 2px rgba(0,0,0,0.12);
+  --shadow-dialog: 0 32px 64px rgba(0,0,0,0.24), 0 0 8px rgba(0,0,0,0.20);
+  --ok: #0E700E; --warn: #8A5200; --danger: #B10E1C; --danger-subtle: #FDF3F4;
+  --e-class: #0F6CBD; --e-defined: #B36A00; --e-individual: #0E7C66; --e-objprop: #7A46C0; --e-dataprop: #A8446F; --e-literal: #6A6A6A;
+}
+[data-theme="dark"] {
+  --ground: #202020; --surface: #2B2B2B; --surface-alt: #272727; --surface-sunken: #1A1A1A;
+  --canvas: #17171A; --canvas-grid: #27272C;
+  --stroke: #3D3D3D; --stroke-strong: #565656; --stroke-divider: #343434;
+  --text: #F5F5F5; --text-secondary: #C2C2C2; --text-disabled: #8C8C8C; --text-on-accent: #06121C;
+  --accent: #6CB8F6; --accent-hover: #8CC8F8; --accent-pressed: #479EF5; --accent-subtle: #11293E; --accent-border: #2B5C86;
+  --layer-hover: rgba(255,255,255,0.06); --layer-pressed: rgba(255,255,255,0.10); --layer-selected: #143349;
+  --shadow-flyout: 0 8px 16px rgba(0,0,0,0.50), 0 0 2px rgba(0,0,0,0.60);
+  --shadow-dialog: 0 32px 64px rgba(0,0,0,0.60), 0 0 8px rgba(0,0,0,0.60);
+  --ok: #79CE79; --warn: #E3A13C; --danger: #FF9A9A; --danger-subtle: #3B1F21;
+  --e-class: #6CB8F6; --e-defined: #E3A13C; --e-individual: #5FCFB4; --e-objprop: #C09BF0; --e-dataprop: #F095C0; --e-literal: #ABABAB;
+}
+
+/* ── page chrome (specification artefact, not product UI) ─────────────────── */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--ground); color: var(--text);
+  font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-control); }
+.layout { display: grid; grid-template-columns: 268px minmax(0,1fr); gap: var(--sp-8); max-width: 1560px; margin: 0 auto; padding: var(--sp-6); }
+nav.toc { position: sticky; top: var(--sp-6); align-self: start; max-height: calc(100vh - 48px); overflow: auto; }
+nav.toc h2 { font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: var(--sp-5) 0 var(--sp-2); }
+nav.toc a { display: block; padding: 5px var(--sp-2); border-radius: var(--r-control); color: var(--text-secondary); text-decoration: none; font-size: var(--fs-caption); }
+nav.toc a:hover { background: var(--layer-hover); color: var(--text); }
+main { min-width: 0; }
+section { margin-bottom: var(--sp-8); scroll-margin-top: var(--sp-4); }
+h1 { font-family: var(--font-display); font-size: 30px; margin: 0 0 var(--sp-2); }
+h2 { font-family: var(--font-display); font-size: 22px; margin: var(--sp-8) 0 var(--sp-3); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--stroke); }
+h3 { font-size: var(--fs-subtitle); margin: var(--sp-6) 0 var(--sp-3); }
+p { max-width: 74ch; color: var(--text-secondary); }
+p strong { color: var(--text); }
+code { font-family: var(--font-mono); font-size: var(--fs-code); }
+.lede { font-size: var(--fs-subtitle); color: var(--text-secondary); max-width: 74ch; }
+.statusline { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3);
+  background: var(--accent-subtle); border: 1px solid var(--accent-border); border-radius: var(--r-card); color: var(--text); font-size: var(--fs-caption); }
+.card { background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card); padding: var(--sp-5); }
+.grid { display: grid; gap: var(--sp-3); }
+.specimen { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center;
+  background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card); padding: var(--sp-4); }
+.specimen--alt { background: var(--surface-alt); }
+.specimen--canvas { background: var(--canvas); }
+.caption { font-size: var(--fs-caption); color: var(--text-secondary); margin-top: var(--sp-2); }
+table { width: 100%; border-collapse: collapse; font-size: var(--fs-caption); background: var(--surface);
+  border: 1px solid var(--stroke); border-radius: var(--r-card); overflow: hidden; }
+th { text-align: left; font-weight: 600; color: var(--text-secondary); padding: var(--sp-2) var(--sp-3); background: var(--surface-alt); border-bottom: 1px solid var(--stroke); }
+td { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--stroke-divider); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.mono, th.mono { font-family: var(--font-mono); }
+.pass { color: var(--ok); font-weight: 600; }
+.fail { color: var(--danger); font-weight: 600; }
+
+/* swatches */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px,1fr)); gap: var(--sp-3); }
+.sw { background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card); overflow: hidden; }
+.sw__chip { height: 60px; border-bottom: 1px solid var(--stroke); }
+.sw__body { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.sw__name { font-family: var(--font-mono); font-size: 11.5px; }
+.sw__val { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+.sw__use { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+/* product component replicas */
+.btn { display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--h-control); padding: 0 var(--sp-3);
+  border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--text);
+  font-family: inherit; font-size: var(--fs-body); line-height: 1; cursor: default; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out); }
+.btn:hover { background: var(--layer-hover); }
+.btn:active { background: var(--layer-pressed); }
+.btn--primary { background: var(--accent); color: var(--text-on-accent); font-weight: 600; }
+.btn--primary:hover { background: var(--accent-hover); }
+.btn--danger-primary { background: var(--danger); color: #FFFFFF; font-weight: 600; }
+.btn--outline { border-color: var(--stroke-strong); background: var(--surface); }
+.btn--danger { color: var(--danger); }
+.btn[disabled] { color: var(--text-disabled); pointer-events: none; }
+.btn--icon { width: var(--h-control); padding: 0; justify-content: center; }
+.btn.is-active { background: var(--layer-selected); }
+.field { height: var(--h-control); padding: 0 var(--sp-2); border: 1px solid var(--stroke-strong);
+  border-bottom-width: 2px; border-radius: var(--r-control); background: var(--surface); color: var(--text);
+  font-family: inherit; font-size: var(--fs-body); }
+.field:focus { outline: none; border-bottom-color: var(--accent); }
+.field--invalid { border-color: var(--danger); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2);
+  border-radius: 11px; border: 1px solid var(--stroke); background: var(--surface-alt);
+  font-size: var(--fs-caption); color: var(--text-secondary); }
+.chip--accent { background: var(--accent-subtle); border-color: var(--accent-border); color: var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.tabstrip { display: flex; gap: 2px; border-bottom: 1px solid var(--stroke-divider); }
+.tab { position: relative; height: var(--h-row); padding: 0 var(--sp-3); border: 0; background: none;
+  color: var(--text-secondary); font: inherit; font-size: var(--fs-body); cursor: default; }
+.tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: 0; height: 2px; background: var(--accent); border-radius: 1px; }
+.treerow { display: flex; align-items: center; gap: 6px; height: var(--h-tree-row); padding: 0 var(--sp-2); border-radius: var(--r-control); }
+.treerow.is-hover { background: var(--layer-hover); }
+.treerow.is-selected { background: var(--layer-selected); font-weight: 600; }
+.treerow .meta { margin-left: auto; font-size: var(--fs-caption); color: var(--text-secondary); }
+.axiom { display: flex; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-control);
+  font-family: var(--font-mono); font-size: var(--fs-code); }
+.axiom--inferred { border-left: 2px solid var(--e-defined); background: var(--layer-hover); }
+.axiom .k { color: var(--text-secondary); }
+.axiom a { color: var(--accent); text-decoration: none; }
+.note { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--surface-alt);
+  border: 1px dashed var(--stroke-strong); border-radius: var(--r-control); font-size: var(--fs-caption); color: var(--text-secondary); }
+.menu { min-width: 216px; padding: var(--sp-1); background: var(--surface); border: 1px solid var(--stroke);
+  border-radius: var(--r-card); box-shadow: var(--shadow-flyout); }
+.menu__item { display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: var(--h-row); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-control); background: none; color: var(--text); font: inherit; text-align: left; cursor: default; }
+.menu__item:hover { background: var(--layer-hover); }
+.menu__item .kbd { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-caption); color: var(--text-secondary); }
+.menu__label { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-caption); color: var(--text-secondary); }
+.menu__sep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--stroke-divider); }
+.dialog { width: 420px; background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card);
+  box-shadow: var(--shadow-dialog); padding: var(--sp-6); }
+.dialog h4 { font-family: var(--font-display); font-size: var(--fs-subtitle); margin: 0 0 var(--sp-2); }
+.formrow { display: grid; gap: var(--sp-1); margin-bottom: var(--sp-3); }
+.formrow label { font-size: var(--fs-caption); color: var(--text-secondary); }
+.formrow .err { font-size: var(--fs-caption); color: var(--danger); }
+.req { color: var(--danger); }
+.toast { display: flex; align-items: center; gap: var(--sp-2); max-width: 560px; padding: var(--sp-2) var(--sp-3);
+  background: var(--surface); border: 1px solid var(--stroke); border-left: 3px solid var(--warn);
+  border-radius: var(--r-control); box-shadow: var(--shadow-flyout); font-size: var(--fs-caption); }
+.toast--info { border-left-color: var(--accent); }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--stroke-strong); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton { height: 10px; width: 180px; border-radius: 5px;
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--layer-hover) 37%, var(--surface-sunken) 63%);
+  background-size: 400% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+@keyframes shimmer { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+.meter { width: 200px; height: 6px; border-radius: 3px; background: var(--surface-sunken); border: 1px solid var(--stroke-divider); overflow: hidden; }
+.meter__fill { height: 100%; background: var(--accent); }
+.meter__fill.is-near { background: var(--warn); }
+.meter__fill.is-full { background: var(--danger); }
+.statusbar { display: flex; align-items: center; gap: var(--sp-3); height: var(--h-statusbar); padding: 0 var(--sp-3);
+  background: var(--surface-alt); border: 1px solid var(--stroke); border-radius: var(--r-control);
+  font-size: var(--fs-caption); color: var(--text-secondary); }
+.statusbar b { color: var(--text); font-family: var(--font-mono); }
+.emptystate { display: grid; justify-items: center; gap: var(--sp-2); padding: var(--sp-8); text-align: center; color: var(--text-secondary); }
+.emptystate strong { color: var(--text); }
+.icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.icongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px,1fr)); gap: var(--sp-2); }
+.iconcell { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); border: 1px solid var(--stroke);
+  border-radius: var(--r-control); background: var(--surface); font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+.typerow { display: flex; align-items: baseline; gap: var(--sp-4); padding: var(--sp-2) 0; border-bottom: 1px solid var(--stroke-divider); }
+.typerow .meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); min-width: 220px; }
+.spacerow { display: flex; align-items: center; gap: var(--sp-3); padding: 5px 0; }
+.spacebar { height: 14px; background: var(--accent); border-radius: 2px; }
+figure { margin: 0 0 var(--sp-6); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--stroke); border-radius: var(--r-card); background: var(--surface); }
+figcaption { font-size: var(--fs-caption); color: var(--text-secondary); margin-top: var(--sp-2); }
+figcaption b { color: var(--text); }
+.themebar { position: fixed; top: var(--sp-4); right: var(--sp-4); z-index: 20; display: flex; gap: var(--sp-2);
+  padding: var(--sp-2); background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card); box-shadow: var(--shadow-flyout); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } }
+</style>
+</head>
+<body>
+
+<svg class="visually-hidden" aria-hidden="true">
+  <symbol id="i-chevron" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.25"/><path d="m10.2 10.2 3.3 3.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+  <symbol id="i-close" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-min" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+  <symbol id="i-max" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></symbol>
+  <symbol id="i-class" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="2.5"/></symbol>
+  <symbol id="i-defined" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="2.5"/><path d="M6 8h4M8 6v4"/></symbol>
+  <symbol id="i-individual" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5"/></symbol>
+  <symbol id="i-objprop" viewBox="0 0 16 16"><path d="M8 2.5 13.5 8 8 13.5 2.5 8Z"/></symbol>
+  <symbol id="i-dataprop" viewBox="0 0 16 16"><path d="M8 2.5 13 5.2v5.6L8 13.5 3 10.8V5.2Z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 16 16"><path d="M9.5 2 14 6.5l-2.2.7-2 2 .3 2.6L8 14l-2.4-3.2L2 9.9l2.2-1.9 2-2L6.9 3.8Z"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/><circle cx="8" cy="8" r="6"/></symbol>
+  <symbol id="i-collapse" viewBox="0 0 16 16"><path d="M3 8h10"/><circle cx="8" cy="8" r="6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.6"/><path d="M8 .8v2M8 13.2v2M.8 8h2M13.2 8h2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5 5 13.5h6l.5-9M6.8 7v4M9.2 7v4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.2 12.5 8 5 12.8Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.8A5.8 5.8 0 0 1 6.2 3a5.8 5.8 0 1 0 6.8 6.8Z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.8v.8"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.2 14.5 13.5h-13Z"/><path d="M8 6.4v3.2M8 11.4v.6"/></symbol>
+  <symbol id="i-zoomin" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.25"/><path d="m10.2 10.2 3.3 3.3M5 7h4M7 5v4"/></symbol>
+  <symbol id="i-zoomout" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.25"/><path d="m10.2 10.2 3.3 3.3M5 7h4"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
+  <symbol id="i-layout" viewBox="0 0 16 16"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="7" cy="12" r="2"/><path d="M5.6 5.1 10.4 4.4M11.2 6.7 8.3 10.4M5.6 10.6 5 6"/></symbol>
+  <symbol id="i-table" viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.5 6.5h11M6.5 6.5v6.5"/></symbol>
+  <symbol id="i-code" viewBox="0 0 16 16"><path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4"/></symbol>
+  <symbol id="i-db" viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M6.5 3v10"/></symbol>
+  <symbol id="i-panel-r" viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M9.5 3v10"/></symbol>
+  <symbol id="i-dock" viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.5 9.5h11"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 16 16"><path d="M4 7h6a3 3 0 0 1 0 6H7"/><path d="M6.5 4.5 4 7l2.5 2.5"/></symbol>
+  <symbol id="i-save" viewBox="0 0 16 16"><path d="M3 3h7.5L13 5.5V13H3Z"/><path d="M5.5 3v3.5h5V3M5.5 13v-3.5h5V13"/></symbol>
+  <symbol id="i-export" viewBox="0 0 16 16"><path d="M8 2.5v7M5.5 7.5 8 10l2.5-2.5"/><path d="M2.8 11v1.7h10.4V11"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13.2 7.2a5.2 5.2 0 1 1-1.6-3.6"/><path d="M13.4 2.4v3.2h-3.2"/></symbol>
+  <symbol id="i-image" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1.5"/><circle cx="6" cy="6.5" r="1"/><path d="m3.5 11 3-3 2.5 2.5L11 9l2 2"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 16 16"><path d="M2.5 3.5h11l-4.2 5v4.2l-2.6 1V8.5Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 16 16"><circle cx="4" cy="11.5" r="2.2"/><circle cx="12" cy="11.5" r="2.2"/><circle cx="8" cy="4" r="2.4"/><path d="M6.6 5.9 5.2 9.6M9.4 5.9l1.4 3.7M6.2 11.5h3.6"/></symbol>
+</svg>
+
+<div class="themebar">
+  <button class="btn btn--outline" type="button" id="themeToggle" aria-pressed="false">
+    <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg><span id="themeLabel">Dark theme</span>
+  </button>
+</div>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <h2>Foundations</h2>
+  <a href="#about">About this page</a>
+  <a href="#colour">Colour tokens</a>
+  <a href="#contrast">Contrast audit</a>
+  <a href="#type">Typography</a>
+  <a href="#spacing">Spacing &amp; metrics</a>
+  <a href="#shape">Radii &amp; elevation</a>
+  <a href="#motion">Motion</a>
+  <a href="#icons">Icon set</a>
+  <a href="#entity">Entity encoding</a>
+  <h2>Components</h2>
+  <a href="#buttons">Buttons</a>
+  <a href="#inputs">Fields &amp; selects</a>
+  <a href="#chips">Chips &amp; status</a>
+  <a href="#tabs">Tabs</a>
+  <a href="#tree">Tree rows</a>
+  <a href="#tablec">Table</a>
+  <a href="#inspector">Inspector rows</a>
+  <a href="#menus">Menus</a>
+  <a href="#dialog">Dialog</a>
+  <a href="#toast">Toast &amp; progress</a>
+  <a href="#graphoverlay">Graph overlays</a>
+  <a href="#empty">Empty states</a>
+  <h2>Diagrams</h2>
+  <a href="#fig1">1 · System architecture</a>
+  <a href="#fig2">2 · Boot sequence</a>
+  <a href="#fig3">3 · Store structure</a>
+  <a href="#fig4">4 · Triple-source dispatch</a>
+  <a href="#fig5">5 · Selection bus</a>
+  <a href="#fig6">6 · Expansion &amp; eviction</a>
+  <a href="#fig7">7 · Eviction ordering</a>
+  <a href="#fig8">8 · Force layout</a>
+  <a href="#fig9">9 · Hierarchy layout</a>
+  <a href="#fig10">10 · Radial layout</a>
+  <a href="#fig11">11 · Cluster grid</a>
+  <a href="#fig12">12 · Render passes</a>
+  <a href="#fig13">13 · Label placement</a>
+  <a href="#fig14">14 · Graph workbench</a>
+  <a href="#fig15">15 · Class tree</a>
+  <a href="#fig16">16 · Individuals table</a>
+  <a href="#fig17">17 · SPARQL console</a>
+  <a href="#fig18">18 · Export layout</a>
+  <a href="#fig19">19 · Entity encoding</a>
+  <a href="#fig20">20 · Theme comparison</a>
+</nav>
+
+<main>
+<section id="about">
+  <h1>Axiom — Visual Reference</h1>
+  <p class="lede">The rendered companion to <code>40-design-system.md</code> and <code>41-component-library.md</code>. Every sample on this page binds the same tokens the product does, so what you see is the real value rather than a picture of it.</p>
+  <p><strong>Status: Normative</strong> for the values it renders; where this page and the two markdown documents disagree, the markdown governs and the disagreement is a defect in this page.</p>
+  <p>This is a specification artefact, not application UI. It is not part of the product and nothing here should be shipped as a screen.</p>
+  <div class="statusline">
+    <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+    <span>Diagrams are referenced as sibling files in <code>diagrams/</code> rather than inlined, so each stays individually editable and diffable in the repository — that was a requirement of the suite, and inlining would have defeated it.</span>
+  </div>
+</section>
+
+<section id="colour">
+  <h2>Colour tokens</h2>
+  <p>Toggle the theme with the control at the top right; every swatch below re-reads its value live. The dark values were authored against their own grounds, not derived from the light ones.</p>
+
+  <h3>Grounds and surfaces</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--ground)"></div><div class="sw__body"><div class="sw__name">--ground</div><div class="sw__val" data-val="--ground"></div><div class="sw__use">The workspace behind every panel</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--surface)"></div><div class="sw__body"><div class="sw__name">--surface</div><div class="sw__val" data-val="--surface"></div><div class="sw__use">Panel body, flyouts, dialogs</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--surface-alt)"></div><div class="sw__body"><div class="sw__name">--surface-alt</div><div class="sw__val" data-val="--surface-alt"></div><div class="sw__use">Status bar, dock head, table head</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--surface-sunken)"></div><div class="sw__body"><div class="sw__name">--surface-sunken</div><div class="sw__val" data-val="--surface-sunken"></div><div class="sw__use">Code editor ground, meter track</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--canvas)"></div><div class="sw__body"><div class="sw__name">--canvas</div><div class="sw__val" data-val="--canvas"></div><div class="sw__use">Graph ground — deeper than the panels</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--canvas-grid)"></div><div class="sw__body"><div class="sw__name">--canvas-grid</div><div class="sw__val" data-val="--canvas-grid"></div><div class="sw__use">The dot field on the canvas</div></div></div>
+  </div>
+
+  <h3>Strokes</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--stroke)"></div><div class="sw__body"><div class="sw__name">--stroke</div><div class="sw__val" data-val="--stroke"></div><div class="sw__use">Card and panel borders</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--stroke-strong)"></div><div class="sw__body"><div class="sw__name">--stroke-strong</div><div class="sw__val" data-val="--stroke-strong"></div><div class="sw__use">Field and outline-button boundary; every graph edge</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--stroke-divider)"></div><div class="sw__body"><div class="sw__name">--stroke-divider</div><div class="sw__val" data-val="--stroke-divider"></div><div class="sw__use">Row separators — never read by the renderer</div></div></div>
+  </div>
+
+  <h3>Text</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--text)"></div><div class="sw__body"><div class="sw__name">--text</div><div class="sw__val" data-val="--text"></div><div class="sw__use">Body and headings</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--text-secondary)"></div><div class="sw__body"><div class="sw__name">--text-secondary</div><div class="sw__val" data-val="--text-secondary"></div><div class="sw__use">Captions, section titles, metadata</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--text-disabled)"></div><div class="sw__body"><div class="sw__name">--text-disabled</div><div class="sw__val" data-val="--text-disabled"></div><div class="sw__use">Disabled controls; SPARQL comments</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--text-on-accent)"></div><div class="sw__body"><div class="sw__name">--text-on-accent</div><div class="sw__val" data-val="--text-on-accent"></div><div class="sw__use">Label on a filled accent surface</div></div></div>
+  </div>
+
+  <h3>Accent</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--accent)"></div><div class="sw__body"><div class="sw__name">--accent</div><div class="sw__val" data-val="--accent"></div><div class="sw__use">Selection, primary action, focus ring</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--accent-hover)"></div><div class="sw__body"><div class="sw__name">--accent-hover</div><div class="sw__val" data-val="--accent-hover"></div><div class="sw__use">Primary button hover</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--accent-pressed)"></div><div class="sw__body"><div class="sw__name">--accent-pressed</div><div class="sw__val" data-val="--accent-pressed"></div><div class="sw__use">Primary button pressed</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--accent-subtle)"></div><div class="sw__body"><div class="sw__name">--accent-subtle</div><div class="sw__val" data-val="--accent-subtle"></div><div class="sw__use">Accent chip ground, match highlight</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--accent-border)"></div><div class="sw__body"><div class="sw__name">--accent-border</div><div class="sw__val" data-val="--accent-border"></div><div class="sw__use">Accent chip boundary</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--layer-selected)"></div><div class="sw__body"><div class="sw__name">--layer-selected</div><div class="sw__val" data-val="--layer-selected"></div><div class="sw__use">Selected tree row and table row</div></div></div>
+  </div>
+
+  <h3>Semantic</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--ok)"></div><div class="sw__body"><div class="sw__name">--ok</div><div class="sw__val" data-val="--ok"></div><div class="sw__use">Query success</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--warn)"></div><div class="sw__body"><div class="sw__name">--warn</div><div class="sw__val" data-val="--warn"></div><div class="sw__use">Eviction notice, pin marker, budget meter near full</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--danger)"></div><div class="sw__body"><div class="sw__name">--danger</div><div class="sw__val" data-val="--danger"></div><div class="sw__use">Validation failure, destructive action</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--danger-subtle)"></div><div class="sw__body"><div class="sw__name">--danger-subtle</div><div class="sw__val" data-val="--danger-subtle"></div><div class="sw__use">Error status ground</div></div></div>
+  </div>
+
+  <h3>Entity kinds</h3>
+  <div class="swatches">
+    <div class="sw"><div class="sw__chip" style="background:var(--e-class)"></div><div class="sw__body"><div class="sw__name">--e-class</div><div class="sw__val" data-val="--e-class"></div><div class="sw__use">Class · rounded square</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--e-defined)"></div><div class="sw__body"><div class="sw__name">--e-defined</div><div class="sw__val" data-val="--e-defined"></div><div class="sw__use">Defined class · rounded square with cross</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--e-individual)"></div><div class="sw__body"><div class="sw__name">--e-individual</div><div class="sw__val" data-val="--e-individual"></div><div class="sw__use">Individual · circle</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--e-objprop)"></div><div class="sw__body"><div class="sw__name">--e-objprop</div><div class="sw__val" data-val="--e-objprop"></div><div class="sw__use">Object property · diamond</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--e-dataprop)"></div><div class="sw__body"><div class="sw__name">--e-dataprop</div><div class="sw__val" data-val="--e-dataprop"></div><div class="sw__use">Data property · hexagon</div></div></div>
+    <div class="sw"><div class="sw__chip" style="background:var(--e-literal)"></div><div class="sw__body"><div class="sw__name">--e-literal</div><div class="sw__val" data-val="--e-literal"></div><div class="sw__use">Declared but never referenced</div></div></div>
+  </div>
+</section>
+
+<section id="contrast">
+  <h2>Contrast audit</h2>
+  <p>Ratios computed from the hex values by WCAG 2.x relative luminance. Translucent interaction layers were composited over their ground first.</p>
+  <table>
+    <thead><tr><th>Foreground</th><th>Background</th><th class="mono">Light</th><th class="mono">Dark</th><th>Threshold</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--text</td><td class="mono">--surface</td><td class="mono">15.9:1</td><td class="mono">13.6:1</td><td>4.5:1</td><td class="pass">Pass</td></tr>
+      <tr><td class="mono">--text-secondary</td><td class="mono">--surface</td><td class="mono">7.0:1</td><td class="mono">8.1:1</td><td>4.5:1</td><td class="pass">Pass</td></tr>
+      <tr><td class="mono">--text-secondary</td><td class="mono">--ground</td><td class="mono">6.3:1</td><td class="mono">9.2:1</td><td>4.5:1</td><td class="pass">Pass</td></tr>
+      <tr><td class="mono">--accent</td><td class="mono">--surface</td><td class="mono">5.1:1</td><td class="mono">7.3:1</td><td>4.5:1</td><td class="pass">Pass</td></tr>
+      <tr><td class="mono">--accent</td><td class="mono">--surface-sunken</td><td class="mono">4.60:1</td><td class="mono">8.9:1</td><td>4.5:1</td><td class="pass">Pass — tightest margin in the suite</td></tr>
+      <tr><td class="mono">--text-on-accent</td><td class="mono">--accent</td><td class="mono">5.1:1</td><td class="mono">7.3:1</td><td>4.5:1</td><td class="pass">Pass</td></tr>
+      <tr><td class="mono">--stroke-strong</td><td class="mono">--surface</td><td class="mono">1.74:1</td><td class="mono">1.93:1</td><td>3:1</td><td class="fail">Fail — sole field boundary and every graph edge</td></tr>
+      <tr><td class="mono">--stroke-strong</td><td class="mono">--canvas</td><td class="mono">1.63:1</td><td class="mono">2.44:1</td><td>3:1</td><td class="fail">Fail</td></tr>
+      <tr><td class="mono">--e-individual (IRI token)</td><td class="mono">--surface-sunken</td><td class="mono">4.38:1</td><td class="mono">7.6:1</td><td>4.5:1</td><td class="fail">Fail in light</td></tr>
+      <tr><td class="mono">--text-disabled (comment token)</td><td class="mono">--surface-sunken</td><td class="mono">2.95:1</td><td class="mono">5.1:1</td><td>4.5:1</td><td class="fail">Fail in light — readable text, not a disabled control</td></tr>
+    </tbody>
+  </table>
+  <p class="caption">The three failures are recorded as defects rather than silently corrected; correcting them is a change to the product, which this suite documents rather than performs.</p>
+</section>
+
+<section id="type">
+  <h2>Typography</h2>
+  <div class="card">
+    <div class="typerow"><span class="meta">--fs-display · 28/1.2 · 600</span><span style="font-family:var(--font-display);font-size:28px;font-weight:600">Ontology workbench</span></div>
+    <div class="typerow"><span class="meta">--fs-title · 20/1.3 · 600</span><span style="font-family:var(--font-display);font-size:20px;font-weight:600">Pizza ontology — graph view</span></div>
+    <div class="typerow"><span class="meta">--fs-subtitle · 16/1.4 · 600</span><span style="font-size:16px;font-weight:600">Entity inspector</span></div>
+    <div class="typerow"><span class="meta">--fs-body · 14/1.5 · 400</span><span style="font-size:14px">Every pizza must have exactly one base.</span></div>
+    <div class="typerow"><span class="meta">--fs-body · 14/1.5 · 600</span><span style="font-size:14px;font-weight:600">Margherita</span></div>
+    <div class="typerow"><span class="meta">--fs-caption · 12/1.5 · 400</span><span style="font-size:12px;color:var(--text-secondary)">1,204 neighbours held back by the budget</span></div>
+    <div class="typerow"><span class="meta">--fs-code · 13/1.55 · mono</span><span style="font-family:var(--font-mono);font-size:13px">pizza:hasTopping some pizza:MozzarellaTopping</span></div>
+    <div class="typerow" style="border:0"><span class="meta">graph label · 12.5 · 600</span><span style="font-size:12.5px;font-weight:600">NamedPizza</span></div>
+  </div>
+  <p class="caption">Monospace is reserved for IRIs, query text, identifiers and numeric table columns — anywhere character alignment or exactness carries meaning.</p>
+</section>
+
+<section id="spacing">
+  <h2>Spacing &amp; control metrics</h2>
+  <div class="card">
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-1 · 4px</span><span class="spacebar" style="width:4px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-2 · 8px</span><span class="spacebar" style="width:8px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-3 · 12px</span><span class="spacebar" style="width:12px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-4 · 16px</span><span class="spacebar" style="width:16px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-5 · 20px</span><span class="spacebar" style="width:20px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-6 · 24px</span><span class="spacebar" style="width:24px"></span></div>
+    <div class="spacerow"><span class="meta" style="font-family:var(--font-mono);font-size:11px;min-width:120px">--sp-8 · 32px</span><span class="spacebar" style="width:32px"></span></div>
+  </div>
+  <table style="margin-top:var(--sp-3)">
+    <thead><tr><th>Token</th><th class="mono">Value</th><th>Applies to</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--h-control</td><td class="mono">28px</td><td>Buttons, fields, selects</td></tr>
+      <tr><td class="mono">--h-row</td><td class="mono">32px</td><td>Table rows, menu items, tabs, panel headers</td></tr>
+      <tr><td class="mono">--h-tree-row</td><td class="mono">24px</td><td>Hierarchy tree rows</td></tr>
+      <tr><td class="mono">--h-titlebar</td><td class="mono">32px</td><td>Window title bar</td></tr>
+      <tr><td class="mono">--h-commandbar</td><td class="mono">40px</td><td>Command bar</td></tr>
+      <tr><td class="mono">--h-statusbar</td><td class="mono">26px</td><td>Status bar</td></tr>
+    </tbody>
+  </table>
+  <p class="caption">The script constant <code>ROW_H = 32</code> duplicates <code>--h-row</code> rather than deriving from it. A native implementation should read one source.</p>
+</section>
+
+<section id="shape">
+  <h2>Radii &amp; elevation</h2>
+  <div class="specimen">
+    <div style="width:96px;height:64px;background:var(--surface-alt);border:1px solid var(--stroke);border-radius:var(--r-control)"></div>
+    <span class="sw__name">--r-control · 4px</span>
+    <div style="width:96px;height:64px;background:var(--surface-alt);border:1px solid var(--stroke);border-radius:var(--r-card)"></div>
+    <span class="sw__name">--r-card · 8px</span>
+  </div>
+  <div class="specimen" style="margin-top:var(--sp-3);background:var(--ground)">
+    <div style="width:180px;height:76px;background:var(--surface);border:1px solid var(--stroke);border-radius:var(--r-card);box-shadow:var(--shadow-flyout);display:grid;place-items:center;font-size:var(--fs-caption);color:var(--text-secondary)">--shadow-flyout</div>
+    <div style="width:180px;height:76px;background:var(--surface);border:1px solid var(--stroke);border-radius:var(--r-card);box-shadow:var(--shadow-dialog);display:grid;place-items:center;font-size:var(--fs-caption);color:var(--text-secondary)">--shadow-dialog</div>
+  </div>
+  <p class="caption">Panels separate by ground layering, never by shadow. Shadow is reserved for surfaces that float above the window: flyouts and dialogs.</p>
+</section>
+
+<section id="motion">
+  <h2>Motion</h2>
+  <table>
+    <thead><tr><th>Token</th><th class="mono">Value</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--dur-fast</td><td class="mono">120ms</td><td>State feedback: hover, press, selection</td></tr>
+      <tr><td class="mono">--dur-base</td><td class="mono">200ms</td><td>Panel and flyout transitions, toast entrance</td></tr>
+      <tr><td class="mono">--dur-exit</td><td class="mono">140ms</td><td>Exits, at 70% of the entrance — declared, not yet referenced</td></tr>
+      <tr><td class="mono">--ease-out</td><td class="mono">cubic-bezier(0.16, 1, 0.3, 1)</td><td>Entrances</td></tr>
+      <tr><td class="mono">--ease-in</td><td class="mono">cubic-bezier(0.7, 0, 0.84, 0)</td><td>Exits — declared, not yet referenced</td></tr>
+    </tbody>
+  </table>
+  <p class="caption">Only <code>transform</code> and <code>opacity</code> may be animated. Under <code>prefers-reduced-motion</code> every duration collapses to 0.01ms; the force simulation is not currently gated by it, which is recorded as a defect.</p>
+</section>
+
+<section id="icons">
+  <h2>Icon set</h2>
+  <p>One outlined family, 1.5px stroke, 16px and 20px sizes. Filled and outlined are never mixed at the same hierarchy level, and emoji are never used as functional icons.</p>
+  <div class="icongrid" id="icongrid"></div>
+  <p class="caption">Five symbols are defined and not yet referenced — <code>i-pin</code>, <code>i-expand</code>, <code>i-collapse</code>, <code>i-trash</code>, <code>i-filter</code> — and <code>i-check</code> currently carries two unrelated meanings (query success, and commit rename). Both are recorded in the design-system document.</p>
+</section>
+
+<section id="entity">
+  <h2>Entity encoding</h2>
+  <div class="specimen specimen--canvas">
+    <svg width="700" height="96" role="img" aria-label="The five Entity kinds drawn as their shapes at three degrees each">
+      <g id="entityDemo"></g>
+    </svg>
+  </div>
+  <p class="caption">Shape carries the kind; colour reinforces it. A reader with any common colour-vision deficiency, or a greyscale print, loses nothing. See <a href="#fig19">Figure 19</a> for radii and the decoration layer.</p>
+</section>
+
+<section id="buttons">
+  <h2>Buttons</h2>
+  <div class="specimen">
+    <button class="btn btn--primary" type="button">Create class</button>
+    <button class="btn btn--outline" type="button">Cancel</button>
+    <button class="btn" type="button">Clear</button>
+    <button class="btn btn--danger" type="button">Delete</button>
+    <button class="btn btn--danger-primary" type="button">Delete class</button>
+    <button class="btn is-active" type="button">Toggled on</button>
+    <button class="btn" type="button" disabled>Disabled</button>
+    <button class="btn btn--icon btn--outline" type="button" aria-label="Fit to view"><svg class="icon" aria-hidden="true"><use href="#i-fit"/></svg></button>
+    <button class="btn btn--outline" type="button"><svg class="icon" aria-hidden="true"><use href="#i-export"/></svg>Export<svg class="icon" style="transform:rotate(90deg)" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+  </div>
+  <p class="caption">The danger-primary variant exists because the reference build applies an inline <code>style="background:var(--danger)"</code> to a primary button in the delete dialog, breaking its own no-hard-coded-values rule. This variant is the specified replacement.</p>
+</section>
+
+<section id="inputs">
+  <h2>Fields &amp; selects</h2>
+  <div class="specimen">
+    <input class="field" type="text" placeholder="Filter hierarchy" aria-label="Filter hierarchy" style="width:220px">
+    <input class="field" type="text" value="TruffleTopping" aria-label="Class name" style="width:180px">
+    <input class="field field--invalid" type="text" value="Truffle Topping" aria-label="Class name, invalid" style="width:180px">
+    <select class="field" aria-label="Eviction policy"><option>Evict by distance, then degree</option><option>Evict least recently touched</option><option>Refuse and warn</option></select>
+  </div>
+  <div class="formrow" style="max-width:340px;margin-top:var(--sp-3)">
+    <label for="vrName">Class name <span class="req" aria-hidden="true">*</span><span class="visually-hidden">required</span></label>
+    <input class="field field--invalid" id="vrName" value="Truffle Topping">
+    <span class="err">Names cannot contain spaces — use CamelCase, as the rest of the ontology does.</span>
+  </div>
+  <p class="caption">Labels are persistently visible; a placeholder never stands in for one. Validation runs on blur, and every message names the cause and the remedy.</p>
+</section>
+
+<section id="chips">
+  <h2>Chips &amp; status</h2>
+  <div class="specimen">
+    <span class="chip"><span class="dot" style="background:var(--e-class)"></span>Class</span>
+    <span class="chip">generated demo data</span>
+    <span class="chip chip--accent">Basic graph patterns · FILTER · LIMIT</span>
+    <span class="chip">12,000 rows</span>
+    <div class="statusbar" style="margin-left:auto">
+      <span><svg class="icon" aria-hidden="true" style="vertical-align:-3px"><use href="#i-db"/></svg> pizza.owl</span>
+      <span>Store <b>87,239</b> triples</span>
+      <span>In view <b>62</b> nodes</span>
+      <span>Layout <b>Hierarchy (auto)</b></span>
+      <span>Zoom <b>100%</b></span>
+    </div>
+  </div>
+</section>
+
+<section id="tabs">
+  <h2>Tabs</h2>
+  <div class="specimen" style="display:block">
+    <div class="tabstrip" role="tablist" aria-label="Example">
+      <button class="tab" role="tab" aria-selected="true" type="button">Classes <span style="font-size:var(--fs-caption);color:var(--text-secondary);font-weight:400">114</span></button>
+      <button class="tab" role="tab" aria-selected="false" type="button">Properties <span style="font-size:var(--fs-caption);color:var(--text-secondary)">14</span></button>
+    </div>
+  </div>
+</section>
+
+<section id="tree">
+  <h2>Tree rows</h2>
+  <div class="specimen" style="display:block;max-width:400px">
+    <div class="treerow" style="padding-left:4px"><svg class="icon" style="width:14px;height:14px" aria-hidden="true"><use href="#i-chevron"/></svg><svg class="icon" style="width:14px;height:14px;color:var(--e-class)" aria-hidden="true"><use href="#i-class"/></svg><span>Food</span></div>
+    <div class="treerow is-selected" style="padding-left:18px"><svg class="icon" style="width:14px;height:14px;transform:rotate(90deg)" aria-hidden="true"><use href="#i-chevron"/></svg><svg class="icon" style="width:14px;height:14px;color:var(--e-class)" aria-hidden="true"><use href="#i-class"/></svg><span>Pizza</span><span class="meta">22</span></div>
+    <div class="treerow is-hover" style="padding-left:32px"><span style="width:14px"></span><svg class="icon" style="width:14px;height:14px;color:var(--e-defined)" aria-hidden="true"><use href="#i-defined"/></svg><span>CheesyPizza</span></div>
+    <div class="treerow" style="padding-left:32px"><span style="width:14px"></span><svg class="icon" style="width:14px;height:14px;color:var(--e-class)" aria-hidden="true"><use href="#i-class"/></svg><span style="background:var(--accent-subtle);border-radius:2px;padding:0 2px">Margherita</span><span class="meta">4,550</span></div>
+    <div class="treerow" style="padding-left:32px"><span style="width:14px"></span><svg class="icon" style="width:14px;height:14px;color:var(--e-objprop)" aria-hidden="true"><use href="#i-objprop"/></svg><span>hasTopping</span></div>
+  </div>
+  <p class="caption">Indentation is <code>4 + depth × 14</code> pixels applied to the row itself, so hover and selection fills always span the full panel width. The fourth row shows the filter-match highlight.</p>
+</section>
+
+<section id="tablec">
+  <h2>Table</h2>
+  <table style="max-width:760px">
+    <thead><tr><th>Individual</th><th>Type</th><th class="mono">Order ref</th><th>Branch</th><th class="mono" style="text-align:right">Price</th><th class="mono" style="text-align:right">Rating</th></tr></thead>
+    <tbody>
+      <tr style="background:var(--layer-selected)"><td>Pizza_000001</td><td>Margherita</td><td class="mono">AX-100000</td><td>Shoreditch</td><td class="mono" style="text-align:right">£8.94</td><td class="mono" style="text-align:right">4 / 5</td></tr>
+      <tr><td>Pizza_000002</td><td>Four Seasons</td><td class="mono">AX-100001</td><td>Camden</td><td class="mono" style="text-align:right">£12.18</td><td class="mono" style="text-align:right">3 / 5</td></tr>
+      <tr><td>Pizza_000003</td><td>Cajun</td><td class="mono">AX-100002</td><td>Soho</td><td class="mono" style="text-align:right">£13.02</td><td class="mono" style="text-align:right">5 / 5</td></tr>
+    </tbody>
+  </table>
+  <p class="caption">Numeric columns are monospaced and right-aligned so magnitudes line up. See <a href="#fig16">Figure 16</a> for the virtualisation arithmetic and the editor states.</p>
+</section>
+
+<section id="inspector">
+  <h2>Inspector rows</h2>
+  <div class="specimen" style="display:block;max-width:560px">
+    <div class="axiom"><span class="k">⊑</span><span><a href="#">pizza:NamedPizza</a></span></div>
+    <div class="axiom"><span class="k">⊑</span><span><a href="#">pizza:hasTopping</a> some <a href="#">pizza:MozzarellaTopping</a></span></div>
+    <div class="axiom"><span class="k">≡</span><span><a href="#">pizza:Pizza</a> and <a href="#">pizza:hasTopping</a> some <a href="#">pizza:CheeseTopping</a></span></div>
+    <div class="axiom axiom--inferred"><span class="k">⊑</span><span>pizza:CheesyPizza <span style="color:var(--text-secondary)">— inferred</span></span></div>
+    <div class="note" style="margin-top:var(--sp-2)"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>No reasoner has run. This build shows asserted axioms only; inferred axioms would appear above, marked with the amber rule.</span></div>
+  </div>
+</section>
+
+<section id="menus">
+  <h2>Menus</h2>
+  <div class="specimen" style="align-items:flex-start">
+    <div class="menu">
+      <div class="menu__label">pizza:Margherita</div>
+      <button class="menu__item" type="button">Expand neighbours<span class="kbd">+4.5k</span></button>
+      <button class="menu__item" type="button">Expand 20 only</button>
+      <button class="menu__item" type="button">Collapse neighbourhood</button>
+      <div class="menu__sep"></div>
+      <button class="menu__item" type="button">Focus here<span class="kbd">reseeds view</span></button>
+      <button class="menu__item" type="button">Pin — never evict</button>
+      <button class="menu__item" type="button">Remove from view<span class="kbd">Del</span></button>
+    </div>
+    <div class="menu">
+      <div class="menu__label">Export the graph exactly as laid out</div>
+      <button class="menu__item" type="button"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>PNG, 2×<span class="kbd">screen</span></button>
+      <button class="menu__item" type="button"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>PNG, 3×<span class="kbd">print</span></button>
+      <button class="menu__item" type="button"><svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>SVG vector<span class="kbd">editable</span></button>
+      <div class="menu__sep"></div>
+      <button class="menu__item" type="button"><svg class="icon" aria-hidden="true"><use href="#i-export"/></svg>Copy image to clipboard</button>
+    </div>
+  </div>
+</section>
+
+<section id="dialog">
+  <h2>Dialog</h2>
+  <div class="specimen" style="background:rgba(0,0,0,.30);padding:var(--sp-8)">
+    <div class="dialog">
+      <h4>Delete Margherita?</h4>
+      <p style="margin:0 0 var(--sp-4)">This class has 4,550 direct instances. Subclasses are reparented to NamedPizza; instances keep their type assertion and will dangle.</p>
+      <div style="display:flex;justify-content:flex-end;gap:var(--sp-2)">
+        <button class="btn btn--outline" type="button">Cancel</button>
+        <button class="btn btn--danger-primary" type="button">Delete class</button>
+      </div>
+    </div>
+  </div>
+  <p class="caption">The confirmation body states the actual consequence in real numbers rather than a generic warning. Destructive actions are visually distinct and always confirmed.</p>
+</section>
+
+<section id="toast">
+  <h2>Toast &amp; progress</h2>
+  <div class="specimen" style="display:block">
+    <div class="toast"><svg class="icon" style="color:var(--warn)" aria-hidden="true"><use href="#i-warn"/></svg><span>Budget held at 1,000. Paged out 37 nodes furthest from the focus (Pizza_004812, Pizza_004813, Pizza_004814, …) to make room for Margherita.</span><button class="btn btn--icon" type="button" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="toast toast--info" style="margin-top:var(--sp-2)"><svg class="icon" style="color:var(--accent)" aria-hidden="true"><use href="#i-info"/></svg><span>Saved axiom-graph-hierarchy-20260911-1724@2x.png — 2416 × 1544 px, 412 KB.</span></div>
+    <div style="display:flex;gap:var(--sp-4);align-items:center;margin-top:var(--sp-4)">
+      <span class="spinner" aria-hidden="true"></span><span style="font-size:var(--fs-caption);color:var(--text-secondary)">Evaluating…</span>
+      <span class="skeleton" aria-hidden="true"></span>
+      <span class="meter"><span class="meter__fill" style="width:62%"></span></span>
+      <span class="meter"><span class="meter__fill is-near" style="width:84%"></span></span>
+      <span class="meter"><span class="meter__fill is-full" style="width:100%"></span></span>
+    </div>
+  </div>
+  <p class="caption">Transient messages auto-dismiss after 6,000ms and live in an ARIA live region. Severity is carried by the left rule and the icon, never by colour alone.</p>
+</section>
+
+<section id="graphoverlay">
+  <h2>Graph overlay controls</h2>
+  <div class="specimen specimen--canvas" style="align-items:flex-start;gap:var(--sp-5)">
+    <div style="padding:var(--sp-1);background:var(--surface);border:1px solid var(--stroke);border-radius:var(--r-card);box-shadow:var(--shadow-flyout);display:flex;gap:var(--sp-1);align-items:center;flex-wrap:wrap">
+      <button class="btn btn--icon" type="button" aria-label="Zoom in"><svg class="icon" aria-hidden="true"><use href="#i-zoomin"/></svg></button>
+      <button class="btn btn--icon" type="button" aria-label="Zoom out"><svg class="icon" aria-hidden="true"><use href="#i-zoomout"/></svg></button>
+      <button class="btn btn--icon" type="button" aria-label="Fit"><svg class="icon" aria-hidden="true"><use href="#i-fit"/></svg></button>
+      <select class="field" aria-label="Layout algorithm" style="width:142px"><option>Auto layout</option><option>Force-directed</option><option>Hierarchy</option><option>Radial</option><option>Cluster grid</option></select>
+      <button class="btn btn--icon" type="button" aria-label="Re-run layout"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+      <button class="btn btn--icon is-active" type="button" aria-label="Freeze simulation"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg></button>
+      <button class="btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-export"/></svg>Export</button>
+    </div>
+    <div style="width:264px;padding:var(--sp-3);background:var(--surface);border:1px solid var(--stroke);border-radius:var(--r-card);box-shadow:var(--shadow-flyout)">
+      <div style="display:flex;gap:var(--sp-2)"><span style="flex:1;font-size:var(--fs-caption);font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.02em">Viewport budget</span><span style="font-family:var(--font-mono)">1,000</span></div>
+      <input type="range" min="100" max="3000" step="100" value="1000" style="width:100%;accent-color:var(--accent)" aria-label="Maximum nodes on screen">
+      <span class="meter" style="width:100%;display:block"><span class="meter__fill" style="width:6%"></span></span>
+      <div style="display:flex;gap:6px;margin-top:var(--sp-2);font-size:var(--fs-caption)"><span style="flex:1;color:var(--text-secondary)">In view</span><span style="font-family:var(--font-mono)">62 nodes</span></div>
+      <div style="display:flex;gap:6px;font-size:var(--fs-caption)"><span style="flex:1;color:var(--text-secondary)">Hidden neighbours</span><span style="font-family:var(--font-mono)">1,204</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="empty">
+  <h2>Empty states</h2>
+  <div class="specimen" style="display:block">
+    <div class="emptystate">
+      <svg class="icon" style="width:28px;height:28px;color:var(--text-disabled)" aria-hidden="true"><use href="#i-layout"/></svg>
+      <strong>Nothing in the viewport yet</strong>
+      <p style="margin:0;max-width:44ch;font-size:var(--fs-caption)">The graph never loads an ontology wholesale. Pick a class in the hierarchy, a row in the individuals table, or run a query, and expand outward from there.</p>
+      <button class="btn btn--primary" type="button">Start from Pizza</button>
+    </div>
+  </div>
+  <p class="caption">An empty state explains why it is empty and what to do next. A blank panel is never acceptable.</p>
+</section>
+
+<section id="diagrams">
+  <h2>Diagrams</h2>
+  <p>Twenty authored SVG figures. Each is a separate file in <code>diagrams/</code> so it stays editable and diffable; open any of them directly to read it at full size.</p>
+
+  <figure id="fig1"><img src="diagrams/01-system-architecture.svg" alt="Module blocks grouped into data, graph, surfaces and chrome layers, with their dependency edges."><figcaption><b>Figure 1 · System architecture.</b> Illustrates <code>10-architecture.md</code>, “Module decomposition”.</figcaption></figure>
+  <figure id="fig2"><img src="diagrams/02-boot-sequence.svg" alt="The ordered steps of application start, with preconditions noted."><figcaption><b>Figure 2 · Boot sequence.</b> Illustrates <code>10-architecture.md</code>, “Boot sequence”.</figcaption></figure>
+  <figure id="fig3"><img src="diagrams/03-store-structure.svg" alt="The three data tiers side by side with their size characteristics."><figcaption><b>Figure 3 · Store structure.</b> Illustrates <code>11-data-model-and-store.md</code>, “The three-tier data strategy”.</figcaption></figure>
+  <figure id="fig4"><img src="diagrams/04-triple-source-dispatch.svg" alt="How a query pattern is routed to a static scan, an index lookup or a full sweep."><figcaption><b>Figure 4 · Triple-source dispatch.</b> Illustrates <code>11-data-model-and-store.md</code> and <code>32-sparql-console.md</code>, “The triple source”.</figcaption></figure>
+  <figure id="fig5"><img src="diagrams/05-selection-bus.svg" alt="The four Surfaces and the inspector arranged around the central selection function."><figcaption><b>Figure 5 · Selection bus.</b> Illustrates <code>10-architecture.md</code>, “Cross-surface selection”.</figcaption></figure>
+  <figure id="fig6"><img src="diagrams/06-expansion-and-eviction.svg" alt="The flow from expanding a node through admission, budget check, eviction and the user-facing report."><figcaption><b>Figure 6 · Expansion and eviction.</b> Illustrates <code>20-graph-viewport-and-budget.md</code>, “Admission” and “Eviction”.</figcaption></figure>
+  <figure id="fig7"><img src="diagrams/07-eviction-ordering.svg" alt="A viewport at budget with candidates annotated by distance, degree and touch clock, showing which leave first."><figcaption><b>Figure 7 · Eviction ordering.</b> Illustrates <code>20-graph-viewport-and-budget.md</code>, “Eviction”.</figcaption></figure>
+  <figure id="fig8"><img src="diagrams/08-layout-force.svg" alt="A Barnes-Hut quadtree over a node field with the opening-angle criterion illustrated."><figcaption><b>Figure 8 · Force layout.</b> Illustrates <code>21-layout-algorithms.md</code>, “Force-directed”.</figcaption></figure>
+  <figure id="fig9"><img src="diagrams/09-layout-hierarchy.svg" alt="The four Sugiyama phases shown over the same small class hierarchy."><figcaption><b>Figure 9 · Hierarchy layout.</b> Illustrates <code>21-layout-algorithms.md</code>, “Hierarchy (Sugiyama)”.</figcaption></figure>
+  <figure id="fig10"><img src="diagrams/10-layout-radial.svg" alt="Depth rings from a focus node with wedges sized by subtree leaf count."><figcaption><b>Figure 10 · Radial layout.</b> Illustrates <code>21-layout-algorithms.md</code>, “Radial tree”.</figcaption></figure>
+  <figure id="fig11"><img src="diagrams/11-layout-grid.svg" alt="Type-clustered blocks with group frames and titles."><figcaption><b>Figure 11 · Cluster grid.</b> Illustrates <code>21-layout-algorithms.md</code>, “Type-clustered grid”.</figcaption></figure>
+  <figure id="fig12"><img src="diagrams/12-render-passes.svg" alt="The numbered draw order as a stack, each pass labelled world space or screen space."><figcaption><b>Figure 12 · Render passes.</b> Illustrates <code>22-graph-rendering-and-export.md</code>, “Draw order”.</figcaption></figure>
+  <figure id="fig13"><img src="diagrams/13-label-placement.svg" alt="The greedy label collision pass showing accepted and dropped labels."><figcaption><b>Figure 13 · Label placement.</b> Illustrates <code>22-graph-rendering-and-export.md</code>, “Label placement”.</figcaption></figure>
+  <figure id="fig14"><img src="diagrams/14-wireframe-graph-workbench.svg" alt="The full application window with every region labelled."><figcaption><b>Figure 14 · Graph workbench.</b> Illustrates <code>20-graph-viewport-and-budget.md</code> and <code>10-architecture.md</code>.</figcaption></figure>
+  <figure id="fig15"><img src="diagrams/15-wireframe-class-tree.svg" alt="The tree panel and inspector in detail with their parts labelled."><figcaption><b>Figure 15 · Class tree and inspector.</b> Illustrates <code>30-class-tree-and-inspector.md</code>.</figcaption></figure>
+  <figure id="fig16"><img src="diagrams/16-wireframe-individuals-table.svg" alt="The individuals table with filter bar, sortable header, virtualised rows and an active cell editor."><figcaption><b>Figure 16 · Individuals table.</b> Illustrates <code>31-individuals-table.md</code>.</figcaption></figure>
+  <figure id="fig17"><img src="diagrams/17-wireframe-sparql-console.svg" alt="The SPARQL console with editor, examples rail, status line and result grid."><figcaption><b>Figure 17 · SPARQL console.</b> Illustrates <code>32-sparql-console.md</code>.</figcaption></figure>
+  <figure id="fig18"><img src="diagrams/18-export-layout.svg" alt="The exported image anatomy with header, scene and legend footer and exact heights."><figcaption><b>Figure 18 · Export layout.</b> Illustrates <code>22-graph-rendering-and-export.md</code>, “Export”.</figcaption></figure>
+  <figure id="fig19"><img src="diagrams/19-entity-encoding.svg" alt="The five Entity kinds at four degrees, with the radius formula and the decoration layer."><figcaption><b>Figure 19 · Entity encoding.</b> Illustrates <code>40-design-system.md</code> and <code>22-graph-rendering-and-export.md</code>.</figcaption></figure>
+  <figure id="fig20"><img src="diagrams/20-theme-comparison.svg" alt="The same panel fragment in light and dark with every token annotated."><figcaption><b>Figure 20 · Theme comparison.</b> Illustrates <code>40-design-system.md</code>, “The complete token catalogue”.</figcaption></figure>
+</section>
+
+<section>
+  <p class="caption">Axiom visual reference · generated as part of the specification suite · see <a href="README.md">README.md</a> for the document map.</p>
+</section>
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* live token values */
+  const cs = () => getComputedStyle(document.documentElement);
+  function paintValues() {
+    const s = cs();
+    document.querySelectorAll('[data-val]').forEach(el => {
+      el.textContent = s.getPropertyValue(el.dataset.val).trim().toUpperCase();
+    });
+  }
+
+  /* icon grid, built from the sprite so it can never drift from it */
+  const grid = document.getElementById('icongrid');
+  [...document.querySelectorAll('symbol')].forEach(sym => {
+    const cell = document.createElement('div');
+    cell.className = 'iconcell';
+    cell.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#' + sym.id + '"/></svg><span>' + sym.id + '</span>';
+    grid.appendChild(cell);
+  });
+
+  /* entity shape demo, drawn with the same geometry the renderer uses */
+  const KINDS = [
+    { label: 'Class', token: '--e-class', shape: 'rect' },
+    { label: 'Defined', token: '--e-defined', shape: 'rect', mark: true },
+    { label: 'Individual', token: '--e-individual', shape: 'circle' },
+    { label: 'Object prop', token: '--e-objprop', shape: 'diamond' },
+    { label: 'Data prop', token: '--e-dataprop', shape: 'hex' }
+  ];
+  const NS = 'http://www.w3.org/2000/svg';
+  const host = document.getElementById('entityDemo');
+  KINDS.forEach((k, i) => {
+    const cx = 70 + i * 140;
+    [8.5, 12, 17].forEach((r, j) => {
+      const x = cx + (j - 1) * 38, y = 40;
+      let el;
+      if (k.shape === 'circle') {
+        el = document.createElementNS(NS, 'circle');
+        el.setAttribute('cx', x); el.setAttribute('cy', y); el.setAttribute('r', r);
+      } else if (k.shape === 'diamond') {
+        el = document.createElementNS(NS, 'path');
+        el.setAttribute('d', 'M' + x + ' ' + (y - r) + 'L' + (x + r) + ' ' + y + 'L' + x + ' ' + (y + r) + 'L' + (x - r) + ' ' + y + 'Z');
+      } else if (k.shape === 'hex') {
+        const pts = [];
+        for (let a = 0; a < 6; a++) {
+          const ang = Math.PI / 6 + a * Math.PI / 3;
+          pts.push((x + Math.cos(ang) * r).toFixed(1) + ',' + (y + Math.sin(ang) * r).toFixed(1));
+        }
+        el = document.createElementNS(NS, 'polygon');
+        el.setAttribute('points', pts.join(' '));
+      } else {
+        const s = r * 0.92;
+        el = document.createElementNS(NS, 'rect');
+        el.setAttribute('x', x - s); el.setAttribute('y', y - s);
+        el.setAttribute('width', s * 2); el.setAttribute('height', s * 2);
+        el.setAttribute('rx', Math.min(5, r * 0.45));
+      }
+      el.setAttribute('fill', 'var(' + k.token + ')');
+      host.appendChild(el);
+      if (k.mark) {
+        const m = document.createElementNS(NS, 'path');
+        m.setAttribute('d', 'M' + (x - r * 0.4) + ' ' + y + 'H' + (x + r * 0.4) + 'M' + x + ' ' + (y - r * 0.4) + 'V' + (y + r * 0.4));
+        m.setAttribute('stroke', 'var(--canvas)');
+        m.setAttribute('stroke-width', '2');
+        host.appendChild(m);
+      }
+    });
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', cx); t.setAttribute('y', 80);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', '11');
+    t.setAttribute('fill', 'var(--text-secondary)');
+    t.setAttribute('font-family', 'var(--font-ui)');
+    t.textContent = k.label;
+    host.appendChild(t);
+  });
+
+  /* theme */
+  const btn = document.getElementById('themeToggle');
+  const lbl = document.getElementById('themeLabel');
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    btn.setAttribute('aria-pressed', String(t === 'dark'));
+    lbl.textContent = t === 'dark' ? 'Light theme' : 'Dark theme';
+    btn.querySelector('use').setAttribute('href', t === 'dark' ? '#i-sun' : '#i-moon');
+    paintValues();
+  }
+  btn.addEventListener('click', () => {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+  setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>
