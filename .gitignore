@@ -8,3 +8,5 @@ coverage/
 *.pfx
 *.cer
 .env
+things-i-need
+archive/*.zip
