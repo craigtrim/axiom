@@ -1,0 +1,1038 @@
+{
+  "classes": [
+    {
+      "iri": "pizza:DomainConcept",
+      "parents": ["owl:Thing"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "The root of the ontology's own vocabulary, below owl:Thing."
+    },
+    {
+      "iri": "pizza:Food",
+      "parents": ["pizza:DomainConcept"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:Pizza",
+      "parents": ["pizza:Food"],
+      "kind": "Class",
+      "axioms": "SubClassOf: pizza:hasBase some pizza:PizzaBase<br>SubClassOf: pizza:hasCountryOfOrigin max 1",
+      "disjoint": ["pizza:PizzaBase", "pizza:PizzaTopping"],
+      "spiciness": "",
+      "comment": "A pizza. Every pizza must have exactly one base and may carry any number of toppings."
+    },
+    {
+      "iri": "pizza:PizzaBase",
+      "parents": ["pizza:Food"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": ["pizza:Pizza", "pizza:PizzaTopping"],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PizzaTopping",
+      "parents": ["pizza:Food"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": ["pizza:Pizza", "pizza:PizzaBase"],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:IceCream",
+      "parents": ["pizza:Food"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "Present in the ontology mainly to demonstrate disjointness with Pizza."
+    },
+    {
+      "iri": "pizza:Spiciness",
+      "parents": ["pizza:DomainConcept"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "A value partition. Every topping is Mild, Medium or Hot — never two at once."
+    },
+    {
+      "iri": "pizza:Hot",
+      "parents": ["pizza:Spiciness"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:Medium",
+      "parents": ["pizza:Spiciness"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:Mild",
+      "parents": ["pizza:Spiciness"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:Country",
+      "parents": ["pizza:DomainConcept"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "An enumerated class: America, England, France, Germany, Italy."
+    },
+    {
+      "iri": "pizza:DeepPanBase",
+      "parents": ["pizza:PizzaBase"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": ["pizza:ThinAndCrispyBase"],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:ThinAndCrispyBase",
+      "parents": ["pizza:PizzaBase"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": ["pizza:DeepPanBase"],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:CheeseTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:FishTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:FruitTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:HerbSpiceTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:MeatTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:NutTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SauceTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:VegetableTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:FourCheesesTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:GoatsCheeseTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:GorgonzolaTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:MozzarellaTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "SubClassOf: pizza:hasCountryOfOrigin value pizza:Italy",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:ParmesanTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "SubClassOf: pizza:hasCountryOfOrigin value pizza:Italy",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SoyCheeseTopping",
+      "parents": ["pizza:CheeseTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:AnchoviesTopping",
+      "parents": ["pizza:FishTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:MixedSeafoodTopping",
+      "parents": ["pizza:FishTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PrawnsTopping",
+      "parents": ["pizza:FishTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SultanaTopping",
+      "parents": ["pizza:FruitTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:CajunSpiceTopping",
+      "parents": ["pizza:HerbSpiceTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Hot",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:RosemaryTopping",
+      "parents": ["pizza:HerbSpiceTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:ChickenTopping",
+      "parents": ["pizza:MeatTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:HamTopping",
+      "parents": ["pizza:MeatTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:HotSpicedBeefTopping",
+      "parents": ["pizza:MeatTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Hot",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PeperoniSausageTopping",
+      "parents": ["pizza:MeatTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Medium",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SalamiTopping",
+      "parents": ["pizza:MeatTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Medium",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PineKernels",
+      "parents": ["pizza:NutTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:TobascoPepperSauce",
+      "parents": ["pizza:SauceTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Hot",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PepperTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:GreenPepperTopping",
+      "parents": ["pizza:PepperTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:JalapenoPepperTopping",
+      "parents": ["pizza:PepperTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "SubClassOf: pizza:hasSpiciness some pizza:Hot",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PeperonataTopping",
+      "parents": ["pizza:PepperTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SweetPepperTopping",
+      "parents": ["pizza:PepperTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:ArtichokeTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:AsparagusTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:CaperTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:GarlicTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:LeekTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:MushroomTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:OliveTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:OnionTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:PetitPoisTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:RocketTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SpinachTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SundriedTomatoTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:TomatoTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:NamedPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Class",
+      "axioms": "",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "A pizza that appears on a menu with a fixed topping list."
+    },
+    {
+      "iri": "pizza:CheesyPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasTopping some pizza:CheeseTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:InterestingPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasTopping min 3 pizza:PizzaTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:MeatyPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasTopping some pizza:MeatTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:ThinAndCrispyPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasBase some pizza:ThinAndCrispyBase",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SpicyPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasTopping some pizza:SpicyTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:VegetarianPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasTopping only pizza:VegetarianTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:NonVegetarianPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and not pizza:VegetarianPizza",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:RealItalianPizza",
+      "parents": ["pizza:Pizza"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:Pizza and pizza:hasCountryOfOrigin value pizza:Italy and pizza:hasBase only pizza:ThinAndCrispyBase",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:SpicyTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:PizzaTopping and pizza:hasSpiciness some pizza:Hot",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:VegetarianTopping",
+      "parents": ["pizza:PizzaTopping"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:PizzaTopping and not pizza:MeatTopping and not pizza:FishTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": ""
+    },
+    {
+      "iri": "pizza:CheeseyVegetableTopping",
+      "parents": ["pizza:VegetableTopping"],
+      "kind": "Defined",
+      "axioms": "EquivalentTo: pizza:CheeseTopping and pizza:VegetableTopping",
+      "disjoint": [],
+      "spiciness": "",
+      "comment": "Deliberately unsatisfiable in the tutorial — the two parents are disjoint."
+    }
+  ],
+  "pizzas": [
+    {
+      "iri": "pizza:American",
+      "toppings": [
+        "pizza:MozzarellaTopping",
+        "pizza:PeperoniSausageTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:AmericanHot",
+      "toppings": [
+        "pizza:JalapenoPepperTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:PeperoniSausageTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Cajun",
+      "toppings": [
+        "pizza:CajunSpiceTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OnionTopping",
+        "pizza:PeperonataTopping",
+        "pizza:PrawnsTopping",
+        "pizza:TobascoPepperSauce",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Capricciosa",
+      "toppings": [
+        "pizza:AnchoviesTopping",
+        "pizza:CaperTopping",
+        "pizza:HamTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OliveTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Caprina",
+      "toppings": [
+        "pizza:GoatsCheeseTopping",
+        "pizza:SundriedTomatoTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Fiorentina",
+      "toppings": [
+        "pizza:GarlicTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OliveTopping",
+        "pizza:ParmesanTopping",
+        "pizza:SpinachTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:FourSeasons",
+      "toppings": [
+        "pizza:AnchoviesTopping",
+        "pizza:CaperTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:MushroomTopping",
+        "pizza:OliveTopping",
+        "pizza:PeperoniSausageTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:FruttiDiMare",
+      "toppings": [
+        "pizza:GarlicTopping",
+        "pizza:MixedSeafoodTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Giardiniera",
+      "toppings": [
+        "pizza:LeekTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:MushroomTopping",
+        "pizza:OliveTopping",
+        "pizza:PetitPoisTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:LaReine",
+      "toppings": [
+        "pizza:HamTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:MushroomTopping",
+        "pizza:OliveTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Margherita",
+      "toppings": ["pizza:MozzarellaTopping", "pizza:TomatoTopping"]
+    },
+    {
+      "iri": "pizza:Mushroom",
+      "toppings": [
+        "pizza:MozzarellaTopping",
+        "pizza:MushroomTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Napoletana",
+      "toppings": [
+        "pizza:AnchoviesTopping",
+        "pizza:CaperTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OliveTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Parmense",
+      "toppings": [
+        "pizza:AsparagusTopping",
+        "pizza:HamTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:ParmesanTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:PolloAdAstra",
+      "toppings": [
+        "pizza:ChickenTopping",
+        "pizza:GarlicTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OnionTopping",
+        "pizza:SweetPepperTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:PrinceCarlo",
+      "toppings": [
+        "pizza:LeekTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:ParmesanTopping",
+        "pizza:RosemaryTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:QuattroFormaggi",
+      "toppings": ["pizza:FourCheesesTopping", "pizza:TomatoTopping"]
+    },
+    {
+      "iri": "pizza:Rosa",
+      "toppings": [
+        "pizza:GorgonzolaTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Siciliana",
+      "toppings": [
+        "pizza:GarlicTopping",
+        "pizza:HamTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OliveTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:SloppyGiuseppe",
+      "toppings": [
+        "pizza:GreenPepperTopping",
+        "pizza:HotSpicedBeefTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OnionTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Soho",
+      "toppings": [
+        "pizza:GarlicTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OliveTopping",
+        "pizza:ParmesanTopping",
+        "pizza:RocketTopping",
+        "pizza:TomatoTopping"
+      ]
+    },
+    {
+      "iri": "pizza:Veneziana",
+      "toppings": [
+        "pizza:CaperTopping",
+        "pizza:MozzarellaTopping",
+        "pizza:OnionTopping",
+        "pizza:PineKernels",
+        "pizza:SultanaTopping",
+        "pizza:TomatoTopping"
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "iri": "pizza:hasIngredient",
+      "parent": "",
+      "domain": "pizza:Food",
+      "range": "pizza:Food",
+      "characteristics": ["Transitive"],
+      "inverse": "pizza:isIngredientOf"
+    },
+    {
+      "iri": "pizza:hasBase",
+      "parent": "pizza:hasIngredient",
+      "domain": "pizza:Pizza",
+      "range": "pizza:PizzaBase",
+      "characteristics": ["Functional", "InverseFunctional"],
+      "inverse": "pizza:isBaseOf"
+    },
+    {
+      "iri": "pizza:hasTopping",
+      "parent": "pizza:hasIngredient",
+      "domain": "pizza:Pizza",
+      "range": "pizza:PizzaTopping",
+      "characteristics": ["InverseFunctional"],
+      "inverse": "pizza:isToppingOf"
+    },
+    {
+      "iri": "pizza:isIngredientOf",
+      "parent": "",
+      "domain": "pizza:Food",
+      "range": "pizza:Food",
+      "characteristics": ["Transitive"],
+      "inverse": "pizza:hasIngredient"
+    },
+    {
+      "iri": "pizza:isBaseOf",
+      "parent": "pizza:isIngredientOf",
+      "domain": "pizza:PizzaBase",
+      "range": "pizza:Pizza",
+      "characteristics": ["Functional"],
+      "inverse": "pizza:hasBase"
+    },
+    {
+      "iri": "pizza:isToppingOf",
+      "parent": "pizza:isIngredientOf",
+      "domain": "pizza:PizzaTopping",
+      "range": "pizza:Pizza",
+      "characteristics": ["Functional"],
+      "inverse": "pizza:hasTopping"
+    },
+    {
+      "iri": "pizza:hasSpiciness",
+      "parent": "",
+      "domain": "pizza:PizzaTopping",
+      "range": "pizza:Spiciness",
+      "characteristics": ["Functional"],
+      "inverse": ""
+    },
+    {
+      "iri": "pizza:hasCountryOfOrigin",
+      "parent": "",
+      "domain": "",
+      "range": "pizza:Country",
+      "characteristics": [],
+      "inverse": ""
+    }
+  ],
+  "demoClasses": [
+    {
+      "iri": "demo:Order",
+      "comment": "Generated demo data. One physical pizza produced at a branch."
+    },
+    {
+      "iri": "demo:Customer",
+      "comment": "Generated demo data."
+    }
+  ],
+  "dataProperties": [
+    {
+      "iri": "demo:orderRef",
+      "range": "xsd:string",
+      "domain": "demo:Order",
+      "comment": "Human-readable order reference."
+    },
+    {
+      "iri": "demo:branch",
+      "range": "xsd:string",
+      "domain": "demo:Order",
+      "comment": "Branch that produced the pizza."
+    },
+    {
+      "iri": "demo:priceGBP",
+      "range": "xsd:decimal",
+      "domain": "demo:Order",
+      "comment": "Price paid, in pounds sterling."
+    },
+    {
+      "iri": "demo:preparedAt",
+      "range": "xsd:dateTime",
+      "domain": "demo:Order",
+      "comment": "Timestamp the pizza left the oven."
+    },
+    {
+      "iri": "demo:rating",
+      "range": "xsd:integer",
+      "domain": "demo:Order",
+      "comment": "Customer rating, 1 to 5."
+    }
+  ],
+  "branches": [
+    "Soho",
+    "Shoreditch",
+    "Camden",
+    "Clerkenwell",
+    "Borough",
+    "Islington"
+  ],
+  "firstNames": [
+    "Ada",
+    "Bruno",
+    "Chidi",
+    "Dara",
+    "Elif",
+    "Farid",
+    "Greta",
+    "Hana",
+    "Idris",
+    "Jonna",
+    "Kofi",
+    "Lena",
+    "Milo",
+    "Nadia",
+    "Omar",
+    "Petra",
+    "Quinn",
+    "Rosa",
+    "Sami",
+    "Tariq",
+    "Ursula",
+    "Viktor",
+    "Wren",
+    "Xiulan",
+    "Yusuf",
+    "Zara"
+  ],
+  "lastNames": [
+    "Abara",
+    "Bianchi",
+    "Costa",
+    "Duarte",
+    "Esposito",
+    "Ferrari",
+    "Greco",
+    "Haddad",
+    "Ionescu",
+    "Jensen",
+    "Kowalski",
+    "Lombardi",
+    "Moreau",
+    "Novak",
+    "Okafor",
+    "Peeters",
+    "Quintana",
+    "Rossi",
+    "Sato",
+    "Tremblay",
+    "Ueda",
+    "Varga",
+    "Weber",
+    "Yilmaz",
+    "Zanetti"
+  ],
+  "prices": {
+    "Margherita": 8.5,
+    "Mushroom": 9,
+    "American": 10.5,
+    "AmericanHot": 11,
+    "Napoletana": 11.5,
+    "Veneziana": 11,
+    "Capricciosa": 12.5,
+    "FourSeasons": 12.5,
+    "LaReine": 11.5,
+    "Siciliana": 12,
+    "Soho": 12,
+    "Fiorentina": 12,
+    "Giardiniera": 11,
+    "Caprina": 12,
+    "Cajun": 13.5,
+    "FruttiDiMare": 14,
+    "Parmense": 12.5,
+    "PolloAdAstra": 12.5,
+    "PrinceCarlo": 12,
+    "QuattroFormaggi": 12,
+    "Rosa": 11.5,
+    "SloppyGiuseppe": 12
+  }
+}

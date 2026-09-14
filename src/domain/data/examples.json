@@ -1,0 +1,37 @@
+[
+  {
+    "Title": "Named pizzas and their toppings",
+    "Note": "Walks the flattened hasTopping restrictions.",
+    "Text": "PREFIX pizza: <http://www.co-ode.org/ontologies/pizza/pizza.owl#>\n\nSELECT ?pizza ?topping WHERE {\n  ?pizza rdfs:subClassOf pizza:NamedPizza .\n  ?pizza pizza:hasTopping ?topping .\n}\nLIMIT 200"
+  },
+  {
+    "Title": "Every hot topping",
+    "Note": "The Spiciness value partition in use.",
+    "Text": "PREFIX pizza: <http://www.co-ode.org/ontologies/pizza/pizza.owl#>\n\nSELECT ?topping WHERE {\n  ?topping pizza:hasSpiciness pizza:Hot .\n}"
+  },
+  {
+    "Title": "Pizzas carrying a cheese topping",
+    "Note": "A two-hop join through the topping hierarchy.",
+    "Text": "PREFIX pizza: <http://www.co-ode.org/ontologies/pizza/pizza.owl#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT DISTINCT ?pizza WHERE {\n  ?pizza pizza:hasTopping ?topping .\n  ?topping rdfs:subClassOf pizza:CheeseTopping .\n}"
+  },
+  {
+    "Title": "Expensive Shoreditch orders",
+    "Note": "FILTER over the generated dataset.",
+    "Text": "PREFIX demo: <http://example.org/pizzeria#>\n\nSELECT ?order ?price ?ref WHERE {\n  ?order demo:branch \"Shoreditch\" .\n  ?order demo:priceGBP ?price .\n  ?order demo:orderRef ?ref .\n  FILTER (?price > 13)\n}\nORDER BY DESC(?price)\nLIMIT 100"
+  },
+  {
+    "Title": "Five-star orders and customers",
+    "Note": "Joins generated individuals to customers.",
+    "Text": "PREFIX demo: <http://example.org/pizzeria#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?order ?customer ?name WHERE {\n  ?order demo:rating 5 .\n  ?order demo:orderedBy ?customer .\n  ?customer rdfs:label ?name .\n}\nLIMIT 150"
+  },
+  {
+    "Title": "Everything asserted about Margherita",
+    "Note": "An open predicate and object.",
+    "Text": "PREFIX pizza: <http://www.co-ode.org/ontologies/pizza/pizza.owl#>\n\nSELECT ?predicate ?object WHERE {\n  pizza:Margherita ?predicate ?object .\n}"
+  },
+  {
+    "Title": "Which pizzas does Soho sell most?",
+    "Note": "No aggregates yet — this returns the raw rows to count.",
+    "Text": "PREFIX demo: <http://example.org/pizzeria#>\n\nSELECT ?order ?type WHERE {\n  ?order demo:branch \"Soho\" .\n  ?order a ?type .\n}\nLIMIT 500"
+  }
+]
