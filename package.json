@@ -1,0 +1,55 @@
+{
+  "name": "axiom-ontology-workbench",
+  "productName": "Axiom",
+  "version": "1.0.0",
+  "description": "A desktop ontology workbench",
+  "author": "Craig Trim",
+  "private": true,
+  "main": "dist/main/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build && electron .",
+    "dev": "npm start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm test && npm run build && playwright test",
+    "package": "npm run build && node scripts/package.mjs",
+    "benchmark": "tsx tests/performance/benchmark.ts",
+    "format": "prettier --write src tests scripts package.json tsconfig.json playwright.config.ts vitest.config.ts",
+    "benchmark:desktop": "npm run build && node scripts/desktop-benchmark.mjs"
+  },
+  "dependencies": {
+    "ag-grid-community": "36.1.0",
+    "ag-grid-react": "36.1.0",
+    "elkjs": "0.12.0",
+    "exiftool-vendored.exe": "13.59.2",
+    "flexlayout-react": "0.11.0",
+    "jsonld-streaming-parser": "^5.0.1",
+    "monaco-editor": "0.56.0",
+    "n3": "^2.7.12",
+    "rdfxml-streaming-parser": "^3.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@electron/packager": "20.3.0",
+    "@playwright/test": "1.63.0",
+    "@types/n3": "^1.26.4",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/utif": "^3.0.6",
+    "electron": "44.3.0",
+    "esbuild": "^0.25.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "dompurify": "3.4.15"
+  },
+  "type": "module"
+}

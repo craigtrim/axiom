@@ -1,0 +1,30 @@
+name: Electron desktop
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright test
+      - run: npm audit --audit-level=moderate
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: axiom-windows-x64
+          path: |
+            artifacts/electron-*/Axiom-win32-x64/**
+            artifacts/latest-electron.json
+            artifacts/playwright-report/**
+            artifacts/test-results/**

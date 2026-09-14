@@ -1,0 +1,6 @@
+archive/
+specs/
+node_modules/
+dist/
+artifacts/
+*.ico
