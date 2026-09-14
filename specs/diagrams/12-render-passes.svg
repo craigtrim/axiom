@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1100" width="1280" height="1100" role="img" aria-labelledby="fig12-title fig12-desc">
+<title id="fig12-title">Figure 12 — The ten render passes, in draw order</title>
+<desc id="fig12-desc">A stack of ten slabs. The bottom slab is painted first and the top slab last. Passes one and two are screen space; the world transform is then pushed and passes three to seven are world space; the transform is popped and passes eight to ten are screen space again. Each slab names its pass, its space, and the condition under which it is skipped.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .pn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:14px;font-weight:600;fill:#FFFFFF;text-anchor:middle}
+  .pt{font-size:14px;font-weight:600;fill:#1B1B1B}
+  .pd{font-size:11.5px;fill:#5A5A5A}
+  .tag{font-size:10.5px;font-weight:600;letter-spacing:.08em}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .slab{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .xf{fill:#EFF6FC;stroke:#0F6CBD;stroke-width:1.5}
+  .ax{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="1100" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 12</text>
+<text class="title" x="32" y="58">Render passes — one function, ten passes, two coordinate spaces</text>
+<text class="sub" x="32" y="80">renderScene() draws the screen canvas, the minimap and every export with the same code. Geometry lives in world space; every piece of text lives in screen space at a fixed point size.</text>
+
+<path class="ax" marker-end="url(#ar)" d="M76 1030 L76 352"/>
+<text class="lab" x="60" y="1052">PAINTED FIRST</text>
+<text class="lab" x="60" y="340">PAINTED LAST</text>
+
+<rect class="slab" x="120" y="984" width="520" height="54" rx="8"/>
+<rect x="120" y="984" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="984" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="1016">1</text>
+<text class="pt" x="182" y="1008">Background</text>
+<text class="pd" x="182" y="1028">o.background, falling back to the --canvas token</text>
+<rect x="560" y="998" width="66" height="18" rx="9" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1.5"/>
+<text class="tag" x="593" y="1011" text-anchor="middle" fill="#5A5A5A">SCREEN</text>
+<text class="mns" x="700" y="1004">c.fillRect(0, 0, o.w, o.h)</text>
+<text class="ps" x="700" y="1022">Export passes an explicit background so the picture is opaque; the minimap clears first instead.</text>
+
+<rect class="slab" x="120" y="918" width="520" height="54" rx="8"/>
+<rect x="120" y="918" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="918" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="950">2</text>
+<text class="pt" x="182" y="942">Dot grid</text>
+<text class="pd" x="182" y="962">skipped when o.grid === false, or when the step falls below 11px</text>
+<rect x="560" y="932" width="66" height="18" rx="9" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1.5"/>
+<text class="tag" x="593" y="945" text-anchor="middle" fill="#5A5A5A">SCREEN</text>
+<text class="mns" x="700" y="938">const step = 34 * k;  if (step &gt; 11) { … }</text>
+<text class="ps" x="700" y="956">Drawn in screen space and offset by view.x % step, so the dots stay crisp 1.5px squares at</text>
+<text class="ps" x="700" y="974">every zoom and the field appears to slide under the graph rather than scale with it.</text>
+
+<rect class="xf" x="120" y="876" width="520" height="30" rx="4"/>
+<text class="mn" x="134" y="896">c.save(); c.translate(view.x, view.y); c.scale(k, k);</text>
+<text class="mns" x="700" y="896">— world space begins. From here every stroke width is divided by k to hold its screen weight.</text>
+
+<rect class="slab" x="120" y="810" width="520" height="54" rx="8"/>
+<rect x="120" y="810" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="810" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="842">3</text>
+<text class="pt" x="182" y="834">Radial rings</text>
+<text class="pd" x="182" y="854">radial layout only, centred on G.ringOrigin</text>
+<rect x="566" y="824" width="60" height="18" rx="9" fill="#EFF6FC" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="tag" x="596" y="837" text-anchor="middle" fill="#0F6CBD">WORLD</text>
+<text class="mns" x="700" y="830">c.lineWidth = 1 / k · stroke = --canvas-grid</text>
+<text class="ps" x="700" y="848">One arc per entry in G.radialRings. The origin is the focus node's position after centring,</text>
+<text class="ps" x="700" y="866">not the world origin, so the rings track the tree they belong to.</text>
+
+<rect class="slab" x="120" y="744" width="520" height="54" rx="8"/>
+<rect x="120" y="744" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="744" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="776">4</text>
+<text class="pt" x="182" y="768">Cluster frames</text>
+<text class="pd" x="182" y="788">grid layout only, one rounded rect per block</text>
+<rect x="566" y="758" width="60" height="18" rx="9" fill="#EFF6FC" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="tag" x="596" y="771" text-anchor="middle" fill="#0F6CBD">WORLD</text>
+<text class="mns" x="700" y="764">roundRect(c, b.x, b.y, b.w, b.h, 10) · stroke = --stroke</text>
+<text class="ps" x="700" y="782">Frames are geometry, so they zoom. Their titles are text, so they do not — see pass 8.</text>
+
+<rect class="slab" x="120" y="678" width="520" height="54" rx="8"/>
+<rect x="120" y="678" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="678" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="710">5</text>
+<text class="pt" x="182" y="702">Edges</text>
+<text class="pd" x="182" y="722">three routings: orthogonal in hierarchy, fanned when parallel, otherwise straight</text>
+<rect x="566" y="692" width="60" height="18" rx="9" fill="#EFF6FC" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="tag" x="596" y="705" text-anchor="middle" fill="#0F6CBD">WORLD</text>
+<text class="mns" x="700" y="698">alpha: hovered 1 · non-adjacent 0.18 · structural 0.72 · incidental 0.48</text>
+<text class="ps" x="700" y="716">rdf:type is dashed at [5/k, 5/k]. Parallel edges between the same pair are offset by</text>
+<text class="ps" x="700" y="734">(mi − (mn − 1) / 2) × 22 along the normal, so they fan instead of stacking.</text>
+
+<rect class="slab" x="120" y="612" width="520" height="54" rx="8"/>
+<rect x="120" y="612" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="612" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="644">6</text>
+<text class="pt" x="182" y="636">Arrowheads</text>
+<text class="pd" x="182" y="656">skipped entirely below 42% zoom</text>
+<rect x="566" y="626" width="60" height="18" rx="9" fill="#EFF6FC" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="tag" x="596" y="639" text-anchor="middle" fill="#0F6CBD">WORLD</text>
+<text class="mns" x="700" y="632">if (k &gt; 0.42) { … }  tip at b.r + 2.5 back along the edge · size 6 / k</text>
+<text class="ps" x="700" y="650">The tip is set back by the target's radius so the head touches the shape, not its centre.</text>
+<text class="ps" x="700" y="668">Direction is taken from the last control point, so a fanned edge points along its curve.</text>
+
+<rect class="slab" x="120" y="546" width="520" height="54" rx="8"/>
+<rect x="120" y="546" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="546" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="578">7</text>
+<text class="pt" x="182" y="570">Nodes</text>
+<text class="pd" x="182" y="590">selection ring, shape fill, defined mark, focus outline, pin dot — in that order</text>
+<rect x="566" y="560" width="60" height="18" rx="9" fill="#EFF6FC" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="tag" x="596" y="573" text-anchor="middle" fill="#0F6CBD">WORLD</text>
+<text class="mns" x="700" y="566">ring r + 7/k at 2.5/k · focus outline r + 3/k at 1.8/k · pin dot 3.4/k + 1</text>
+<text class="ps" x="700" y="584">Hovering dims every node that is not the hovered node or one of its neighbours to alpha 0.25.</text>
+<text class="ps" x="700" y="602">See Figure 19 for the full encoding of shape, colour and marker.</text>
+
+<rect class="xf" x="120" y="504" width="520" height="30" rx="4"/>
+<text class="mn" x="134" y="524">c.restore();</text>
+<text class="mns" x="700" y="524">— world space ends. Text from here on is placed by projecting world coordinates by hand.</text>
+
+<rect class="slab" x="120" y="438" width="520" height="54" rx="8"/>
+<rect x="120" y="438" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="438" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="470">8</text>
+<text class="pt" x="182" y="462">Cluster titles</text>
+<text class="pd" x="182" y="482">grid layout only, and only above 22% zoom</text>
+<rect x="560" y="452" width="66" height="18" rx="9" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1.5"/>
+<text class="tag" x="593" y="465" text-anchor="middle" fill="#5A5A5A">SCREEN</text>
+<text class="mns" x="700" y="458">sx = b.x * k + view.x + 12 · sy = b.y * k + view.y + 22</text>
+<text class="ps" x="700" y="476">600 12px for the label, 400 11px for the count, offset 46 past the measured label width.</text>
+<text class="ps" x="700" y="494">Culled when the projected origin falls more than 200px outside the viewport.</text>
+
+<rect class="slab" x="120" y="372" width="520" height="54" rx="8"/>
+<rect x="120" y="372" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="372" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="404">9</text>
+<text class="pt" x="182" y="396">Node labels</text>
+<text class="pd" x="182" y="416">greedy collision pass — see Figure 13</text>
+<rect x="560" y="386" width="66" height="18" rx="9" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1.5"/>
+<text class="tag" x="593" y="399" text-anchor="middle" fill="#5A5A5A">SCREEN</text>
+<text class="mns" x="700" y="392">strokeText with the background colour at 3.5px, then fillText — a halo, not a box</text>
+<text class="ps" x="700" y="410">600 12.5px for entities, 400 11px for individuals. Capped at 900 labels on screen and</text>
+<text class="ps" x="700" y="428">4,000 in an export, because an export is read at a size a screen never is.</text>
+
+<rect class="slab" x="120" y="306" width="520" height="54" rx="8"/>
+<rect x="120" y="306" width="46" height="54" rx="8" fill="#0F6CBD"/>
+<rect x="154" y="306" width="12" height="54" fill="#0F6CBD"/>
+<text class="pn" x="143" y="338">10</text>
+<text class="pt" x="182" y="330">Hidden-neighbour badges</text>
+<text class="pd" x="182" y="350">skipped when o.badges === false, or below 30% zoom</text>
+<rect x="560" y="320" width="66" height="18" rx="9" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1.5"/>
+<text class="tag" x="593" y="333" text-anchor="middle" fill="#5A5A5A">SCREEN</text>
+<text class="mns" x="700" y="326">'+' + (h &gt; 9999 ? round(h/1000) + 'k' : h &gt; 999 ? (h/1000).toFixed(1) + 'k' : h)</text>
+<text class="ps" x="700" y="344">A 14px pill on the node's upper right, filled with --surface and stroked, so it stays</text>
+<text class="ps" x="700" y="362">readable over any node colour. Last pass, so nothing can paint over it.</text>
+
+<rect class="slab" x="700" y="140" width="548" height="140" rx="8"/>
+<text class="pt" x="720" y="168">What is not in renderScene()</text>
+<text class="ps" x="720" y="192">drawMinimap() paints a second canvas from the same node set, with no labels, no badges</text>
+<text class="ps" x="720" y="210">and no grid — a shape, not a reading surface.</text>
+<text class="ps" x="720" y="232">drawExportChrome() runs after renderScene() on the export canvas only, adding the header</text>
+<text class="ps" x="720" y="250">band and the legend footer. See Figure 18.</text>
+<text class="ps" x="720" y="272">Neither is ever drawn on the workbench canvas, and renderScene() knows about neither.</text>
+
+<rect class="slab" x="120" y="140" width="520" height="140" rx="8"/>
+<text class="pt" x="140" y="168">The rule the split enforces</text>
+<text class="ps" x="140" y="192">Anything that carries meaning through its position and</text>
+<text class="ps" x="140" y="210">size is world space, and zooms.</text>
+<text class="ps" x="140" y="232">Anything that has to be read — a label, a count, a</text>
+<text class="ps" x="140" y="250">badge, a title — is screen space, and does not.</text>
+<text class="ps" x="140" y="272">Type never shrinks below its designed size.</text>
+
+<text class="cap" x="32" y="1078">Figure 12 · Render passes. Illustrates 22-graph-rendering-and-export.md, “Draw order” and “World space and screen space”. [src: renderScene(), draw(), drawMinimap()]</text>
+</svg>

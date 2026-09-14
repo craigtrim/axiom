@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1340" width="1280" height="1340" role="img" aria-labelledby="fig6-title fig6-desc">
+<title id="fig6-title">Figure 6 — Expansion, admission, budget check, eviction and the report</title>
+<desc id="fig6-desc">A vertical flow from a user expanding a node to the toast that reports what happened. The steps are: the gesture, expandNode, neighboursOf, the wanted and slice lists, addToView, the budget check, the three overflow modes, node creation, edge linking, the simulation wake-up, the returned report, the toast, and the budget meter update.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .st{font-size:13px;font-weight:600;fill:#1B1B1B}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .note{font-size:11.5px;fill:#5A5A5A}
+  .noteh{font-size:11.5px;fill:#1B1B1B}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .yn{font-size:11px;font-weight:600;fill:#0F6CBD}
+  .n{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#FFFFFF}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .dia{fill:#EFF6FC;stroke:#0F6CBD;stroke-width:1.5}
+  .mode{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .toast{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .edge{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+  .thin{stroke:#E1E1E1;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="1340" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 6</text>
+<text class="title" x="32" y="58">Expansion to eviction to report — the whole admission path</text>
+<text class="sub" x="32" y="80">Nothing enters the viewport except through addToView(), and addToView() never exceeds the budget. The user is always told what it cost.</text>
+
+<path class="edge" d="M360 174 L360 204"/>
+<path class="edge" d="M360 268 L360 298"/>
+<path class="edge" d="M360 362 L360 392"/>
+<path class="edge" d="M360 456 L360 486"/>
+<path class="edge" d="M360 550 L360 580"/>
+<path class="edge" d="M360 764 L360 794"/>
+<path class="edge" d="M360 858 L360 888"/>
+<path class="edge" d="M360 952 L360 982"/>
+<path class="edge" d="M360 1046 L360 1076"/>
+<path class="edge" d="M360 1140 L360 1170"/>
+
+<circle cx="96" cy="142" r="12" fill="#0F6CBD"/><text class="n" x="96" y="146" text-anchor="middle">1</text>
+<rect class="card" x="120" y="110" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="134">User gesture</text>
+<text class="mns" x="136" y="156">dblclick a node · context menu Expand · Enter on the selection</text>
+<path class="thin" d="M644 142 L696 142"/>
+<text class="note" x="700" y="130">Four entry points, one path. “Expand 20 only” passes limit = 20;</text>
+<text class="note" x="700" y="146">every other gesture leaves limit undefined, which means the budget.</text>
+<text class="note" x="700" y="162">Reveal in graph and Send page to graph enter at step 5 instead.</text>
+
+<circle cx="96" cy="236" r="12" fill="#0F6CBD"/><text class="n" x="96" y="240" text-anchor="middle">2</text>
+<rect class="card" x="120" y="204" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="228">expandNode(u, limit)</text>
+<text class="mns" x="136" y="250">const n = G.nodes.get(u); if (!n) return null;</text>
+<path class="thin" d="M644 236 L696 236"/>
+<text class="note" x="700" y="230">Precondition: the node must already be in the viewport. Expanding</text>
+<text class="note" x="700" y="246">something that is not shown is not an expansion, it is a seed.</text>
+
+<circle cx="96" cy="330" r="12" fill="#0F6CBD"/><text class="n" x="96" y="334" text-anchor="middle">3</text>
+<rect class="card" x="120" y="298" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="322">neighboursOf(u) → { list, total }</text>
+<text class="mns" x="136" y="344">list capped at NEIGHBOUR_CAP = 4000 · total is the honest degree</text>
+<path class="thin" d="M644 330 L696 330"/>
+<text class="note" x="700" y="318">The cap is on the returned list, not on the count. total feeds the</text>
+<text class="note" x="700" y="334">node radius and the hidden-neighbour badge, so a class with 100,000</text>
+<text class="note" x="700" y="350">instances still reports 100,000 while costing one bucket read.</text>
+
+<circle cx="96" cy="424" r="12" fill="#0F6CBD"/><text class="n" x="96" y="428" text-anchor="middle">4</text>
+<rect class="card" x="120" y="392" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="416">Candidate list</text>
+<text class="mns" x="136" y="438">wanted = list not already in view · slice = wanted.slice(0, cap)</text>
+<path class="thin" d="M644 424 L696 424"/>
+<text class="note" x="700" y="412">cap = limit ?? G.budget. Neighbours already on screen are dropped</text>
+<text class="note" x="700" y="428">here, before the budget is ever consulted — re-expanding a node that</text>
+<text class="note" x="700" y="444">is fully shown costs nothing and evicts nothing.</text>
+
+<circle cx="96" cy="518" r="12" fill="#0F6CBD"/><text class="n" x="96" y="522" text-anchor="middle">5</text>
+<rect class="card" x="120" y="486" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="510">addToView(slice, { dist: n.dist + 1, seed: n })</text>
+<text class="mns" x="136" y="532">already-present IRIs: touched = ++G.clock, dist = min(dist, existing)</text>
+<path class="thin" d="M644 518 L696 518"/>
+<text class="note" x="700" y="506">Touching an existing node refreshes its LRU clock and can only lower</text>
+<text class="note" x="700" y="522">its graph distance, never raise it. That is what stops a node drifting</text>
+<text class="note" x="700" y="538">outward in the eviction order just because it was reached again.</text>
+
+<polygon class="dia" points="200,620 360,580 520,620 360,660"/>
+<text class="mn" x="360" y="616" text-anchor="middle">fresh.length ≤ room ?</text>
+<text class="mns" x="360" y="632" text-anchor="middle">room = G.budget − G.nodes.size</text>
+<path class="edge" marker-end="url(#ara)" d="M360 660 L360 700"/>
+<text class="yn" x="372" y="684">yes — admit all</text>
+<path class="edge" d="M520 620 L696 620"/>
+<text class="yn" x="560" y="612">no — over budget</text>
+
+<rect class="mode" x="700" y="560" width="548" height="124" rx="8"/>
+<text class="lab" x="716" y="582">ON OVERFLOW — G.evictMode, set from the budget panel</text>
+<text class="noteh" x="716" y="604">refuse</text>
+<text class="note" x="800" y="604">refused = fresh.length − max(0, room); the list is truncated. Nothing leaves.</text>
+<text class="noteh" x="716" y="628">degree</text>
+<text class="note" x="800" y="628">need = fresh.length − room; evictionOrder() sorted by distance, then</text>
+<text class="note" x="800" y="644">in-view degree, then touch clock. See Figure 7.</text>
+<text class="noteh" x="716" y="668">lru</text>
+<text class="note" x="800" y="668">the same eviction, ordered by n.touched alone — oldest touch leaves first.</text>
+<path class="edge" d="M974 684 L974 690 L360 690"/>
+<circle cx="360" cy="690" r="4" fill="#0F6CBD"/>
+<text class="note" x="700" y="706">If eviction cannot free enough — every remaining node is pinned or focused — the shortfall becomes refused and the slice is truncated again.</text>
+
+<circle cx="96" cy="732" r="12" fill="#0F6CBD"/><text class="n" x="96" y="736" text-anchor="middle">6</text>
+<rect class="card" x="120" y="700" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="724">makeNode() for each admitted IRI</text>
+<text class="mns" x="136" y="746">golden-angle seeding around the expanded node · r = nodeRadius(total, kind)</text>
+<path class="thin" d="M644 732 L696 732"/>
+<text class="note" x="700" y="726">a = seq × 2.399963229728653, rad = 34 × √(seq mod 240 + 1). A new</text>
+<text class="note" x="700" y="742">neighbourhood arrives already spread out rather than as a spike.</text>
+
+<circle cx="96" cy="826" r="12" fill="#0F6CBD"/><text class="n" x="96" y="830" text-anchor="middle">7</text>
+<rect class="card" x="120" y="794" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="818">linkNode() for each admitted node</text>
+<text class="mns" x="136" y="840">an edge exists only when both endpoints are in view · shownDeg++ on both</text>
+<path class="thin" d="M644 826 L696 826"/>
+<text class="note" x="700" y="814">Edges are created in a second pass, after every node exists, so a</text>
+<text class="note" x="700" y="830">neighbourhood admitted together is linked together. hiddenNeighbours(n)</text>
+<text class="note" x="700" y="846">= max(0, n.deg − n.shownDeg) is what the +n badge reports.</text>
+
+<circle cx="96" cy="920" r="12" fill="#0F6CBD"/><text class="n" x="96" y="924" text-anchor="middle">8</text>
+<rect class="card" x="120" y="888" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="912">Wake the simulation</text>
+<text class="mns" x="136" y="934">G.alpha = Math.max(G.alpha, 0.9); G.rev++;</text>
+<path class="thin" d="M644 920 L696 920"/>
+<text class="note" x="700" y="914">G.rev is part of layoutKey(), so the next stepLayout() sees a changed</text>
+<text class="note" x="700" y="930">key and relayouts. Alpha is raised, never reset, so a burst of</text>
+<text class="note" x="700" y="946">expansions does not restart the cooling schedule from scratch.</text>
+
+<circle cx="96" cy="1014" r="12" fill="#0F6CBD"/><text class="n" x="96" y="1018" text-anchor="middle">9</text>
+<rect class="card" x="120" y="982" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="1006">Return the report</text>
+<text class="mns" x="136" y="1028">{ added, evicted, refused, evictedNames, requested, totalDegree }</text>
+<path class="thin" d="M644 1014 L696 1014"/>
+<text class="note" x="700" y="1008">evictedNames holds at most three labels — enough to name what went,</text>
+<text class="note" x="700" y="1024">not enough to become a wall of text. expandNode() then sets</text>
+<text class="note" x="700" y="1040">n.expanded only when nothing was truncated and nothing was refused.</text>
+
+<circle cx="96" cy="1108" r="12" fill="#0F6CBD"/><text class="n" x="96" y="1112" text-anchor="middle">10</text>
+<rect class="card" x="120" y="1076" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="1100">reportView(rep, label)</text>
+<text class="mns" x="136" y="1122">refused wins over evicted; a clean expansion says nothing at all</text>
+<path class="thin" d="M644 1108 L696 1108"/>
+<rect class="toast" x="700" y="1070" width="548" height="76" rx="4"/>
+<rect x="700" y="1070" width="3" height="76" fill="#8A5200"/>
+<text class="note" x="716" y="1090">refused → “Budget reached at 1,000 nodes. 412 neighbours of Pizza</text>
+<text class="note" x="716" y="1106">Topping were left out — raise the budget or unpin something.”</text>
+<text class="note" x="716" y="1126">evicted → “Budget held at 1,000. Paged out 38 nodes furthest from the</text>
+<text class="note" x="716" y="1142">focus (Cajun, Caprina, Capricciosa, …) to make room for Pizza Topping.”</text>
+
+<circle cx="96" cy="1202" r="12" fill="#0F6CBD"/><text class="n" x="96" y="1206" text-anchor="middle">11</text>
+<rect class="card" x="120" y="1170" width="520" height="64" rx="8"/>
+<text class="st" x="136" y="1194">updateBudgetUI() and the next frame</text>
+<text class="mns" x="136" y="1216">meter width · is-near ≥ 75% · is-full ≥ 98% · in view · hidden · zoom</text>
+<path class="thin" d="M644 1202 L696 1202"/>
+<text class="note" x="700" y="1190">The meter changes colour and the in-view and hidden-neighbour counts</text>
+<text class="note" x="700" y="1206">are rewritten. On the next animation frame stepLayout() notices the</text>
+<text class="note" x="700" y="1222">new layoutKey() and re-runs the chosen layout over the new node set.</text>
+
+<text class="cap" x="32" y="1282">Figure 6 · Expansion and eviction. Illustrates 20-graph-viewport-and-budget.md, “Admission” and “Overflow policy”. [src: expandNode(), addToView(), evictionOrder(), reportView()]</text>
+<text class="cap" x="32" y="1302">The invariant the whole path exists to protect: G.nodes.size never exceeds G.budget, whatever the user asks for, and the user is never silently given less than they asked for.</text>
+</svg>

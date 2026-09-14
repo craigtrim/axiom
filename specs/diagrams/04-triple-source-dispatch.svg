@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1240" width="1280" height="1240" role="img" aria-labelledby="fig4-title fig4-desc">
+<title id="fig4-title">Figure 4 — How scan() routes a triple pattern to a source</title>
+<desc id="fig4-desc">A vertical decision flow. A triple pattern enters scan as subject, predicate and object, any of which may be unbound. Four triple sources run in sequence down a central spine: the static arrays, the rdf:type source, the DEMO_PRED accessor source, and the rdfs:label source. Each source begins with a predicate test; if the predicate cannot match, the spine falls straight through to the next source. Within a source, a bound subject yields a point lookup and an unbound subject yields an index bucket or a full sweep, each terminal annotated with its cost.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .lab{font-size:12px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .gloss{font-size:11px;fill:#5A5A5A}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .dtxt{font-size:11.5px;font-weight:600;fill:#1B1B1B}
+  .yn{font-size:11px;font-weight:600;fill:#0F6CBD}
+  .cost{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;font-weight:600;fill:#0F6CBD}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .stage{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .dia{fill:#EFF6FC;stroke:#0F6CBD;stroke-width:1.5}
+  .term{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .edge{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+  .spine{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="1240" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 4</text>
+<text class="title" x="32" y="58">Triple source dispatch inside scan(s, p, o)</text>
+<text class="sub" x="32" y="80">scan() is a generator. The four sources run in sequence and their yields concatenate — this is a routing flow, not an exclusive choice. null means unbound.</text>
+
+<rect class="card" x="60" y="104" width="260" height="56" rx="8"/>
+<text class="mn" x="76" y="128">scan(s, p, o)</text>
+<text class="gloss" x="76" y="148">a pattern from the BGP matcher</text>
+
+<rect class="stage" x="700" y="104" width="548" height="56" rx="8"/>
+<text class="lab" x="716" y="126">COST NOTATION USED ON EVERY TERMINAL</text>
+<text class="mns" x="716" y="148">t = TBox triples · r = flattened restrictions · n = individuals · c = customers · k = bucket size</text>
+
+<path class="spine" d="M190 160 L190 180"/>
+
+<!-- SOURCE 1 -->
+<rect class="stage" x="32" y="180" width="1216" height="120" rx="8"/>
+<text class="lab" x="52" y="206">SOURCE 1 · STATIC TRIPLES</text>
+<text class="gloss" x="340" y="206">unconditional — every pattern reaches this source</text>
+<circle cx="190" cy="250" r="5" fill="#0F6CBD"/>
+<path class="spine" d="M190 180 L190 300"/>
+<path class="edge" marker-end="url(#ar)" d="M196 250 L696 250"/>
+<rect class="term" x="700" y="228" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="246">for (arr of [store.tbox, store.rbox]) — linear filter</text>
+<text class="gloss" x="714" y="263">each bound term prunes by equality; literals compare through termEq()</text>
+<text class="cost" x="1216" y="246" text-anchor="end">O(t + r)</text>
+
+<!-- SOURCE 2 -->
+<rect class="stage" x="32" y="320" width="1216" height="320" rx="8"/>
+<text class="lab" x="52" y="346">SOURCE 2 · rdf:type</text>
+<text class="gloss" x="340" y="346">types are never materialised; they are reconstructed from the record array</text>
+<path class="spine" d="M190 300 L190 320"/>
+<polygon class="dia" points="80,400 190,364 300,400 190,436"/>
+<text class="dtxt" x="190" y="396" text-anchor="middle">p = rdf:type</text>
+<text class="dtxt" x="190" y="412" text-anchor="middle">or p unbound?</text>
+<path class="spine" marker-end="url(#ara)" d="M190 436 L190 636"/>
+<text class="yn" x="200" y="470">no — fall through</text>
+<path class="edge" marker-end="url(#ar)" d="M300 400 L456 400"/>
+<text class="yn" x="340" y="392">yes</text>
+<polygon class="dia" points="460,400 560,368 660,400 560,432"/>
+<text class="dtxt" x="560" y="404" text-anchor="middle">s bound?</text>
+<path class="edge" d="M660 400 L680 400"/>
+<path class="edge" marker-end="url(#ar)" d="M680 400 L680 368 L696 368"/>
+<path class="edge" marker-end="url(#ar)" d="M680 400 L680 432 L696 432"/>
+<text class="yn" x="666" y="358">yes</text>
+<rect class="term" x="700" y="346" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="364">store.indIndex.get(s)</text>
+<text class="gloss" x="714" y="381">one hash lookup, then a single yield if the object also matches</text>
+<text class="cost" x="1216" y="364" text-anchor="end">O(1)</text>
+<rect class="term" x="700" y="410" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="428">store.customers.find(x =&gt; x.iri === s)</text>
+<text class="gloss" x="714" y="445">the one linear probe in the hot path; customers are few by construction</text>
+<text class="cost" x="1216" y="428" text-anchor="end">O(c)</text>
+<path class="edge" marker-end="url(#ar)" d="M560 432 L560 484"/>
+<text class="yn" x="570" y="466">no</text>
+<polygon class="dia" points="460,520 560,488 660,520 560,552"/>
+<text class="dtxt" x="560" y="524" text-anchor="middle">o bound?</text>
+<path class="edge" d="M660 520 L680 520"/>
+<path class="edge" marker-end="url(#ar)" d="M680 520 L680 498 L696 498"/>
+<text class="yn" x="666" y="490">yes</text>
+<rect class="term" x="700" y="476" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="494">store.byType.get(o) — one bucket, yielded whole</text>
+<text class="gloss" x="714" y="511">demo:Order and demo:Customer are special-cased and sweep instead</text>
+<text class="cost" x="1216" y="494" text-anchor="end">O(k)</text>
+<path class="edge" marker-end="url(#ar)" d="M560 552 L560 578 L696 578"/>
+<text class="yn" x="570" y="572">no</text>
+<rect class="term" x="700" y="556" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="574">sweep store.inds, then store.customers</text>
+<text class="gloss" x="714" y="591">the unbound-subject, unbound-object case: every individual is typed</text>
+<text class="cost" x="1216" y="574" text-anchor="end">O(n + c)</text>
+
+<!-- SOURCE 3 -->
+<rect class="stage" x="32" y="660" width="1216" height="220" rx="8"/>
+<text class="lab" x="52" y="686">SOURCE 3 · DEMO_PRED</text>
+<text class="gloss" x="340" y="686">the data properties of a generated order, computed from the record on demand</text>
+<polygon class="dia" points="80,730 190,694 300,730 190,766"/>
+<text class="dtxt" x="190" y="726" text-anchor="middle">p in DEMO_PRED</text>
+<text class="dtxt" x="190" y="742" text-anchor="middle">or p unbound?</text>
+<path class="spine" marker-end="url(#ara)" d="M190 766 L190 876"/>
+<text class="yn" x="200" y="800">no — fall through</text>
+<path class="edge" marker-end="url(#ar)" d="M300 730 L456 730"/>
+<text class="yn" x="340" y="722">yes</text>
+<polygon class="dia" points="460,730 560,698 660,730 560,762"/>
+<text class="dtxt" x="560" y="734" text-anchor="middle">s bound?</text>
+<path class="edge" d="M660 730 L680 730"/>
+<path class="edge" marker-end="url(#ar)" d="M680 730 L680 712 L696 712"/>
+<text class="yn" x="666" y="704">yes</text>
+<rect class="term" x="700" y="690" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="708">indIndex.get(s), then DEMO_PRED[p](rec)</text>
+<text class="gloss" x="714" y="725">the accessor builds the literal; no triple is stored for it, ever</text>
+<text class="cost" x="1216" y="708" text-anchor="end">O(1)</text>
+<path class="edge" marker-end="url(#ar)" d="M560 762 L560 790 L696 790"/>
+<text class="yn" x="570" y="784">no</text>
+<rect class="term" x="700" y="768" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="786">for (rec of store.inds) — accessor applied to every record</text>
+<text class="gloss" x="714" y="803">repeated once per predicate when p is unbound: six sweeps, not one</text>
+<text class="cost" x="1216" y="786" text-anchor="end">O(n) × preds</text>
+<text class="gloss" x="714" y="838">preds = p !== null ? (DEMO_PRED[p] ? [p] : []) : Object.keys(DEMO_PRED) — an unbound predicate is the expensive shape,</text>
+<text class="gloss" x="714" y="854">which is why every shipped example query binds its predicate.</text>
+
+<!-- SOURCE 4 -->
+<rect class="stage" x="32" y="900" width="1216" height="180" rx="8"/>
+<text class="lab" x="52" y="926">SOURCE 4 · rdfs:label</text>
+<text class="gloss" x="340" y="926">only generated customers carry a label; entity names come from the TBox source</text>
+<polygon class="dia" points="80,970 190,934 300,970 190,1006"/>
+<text class="dtxt" x="190" y="966" text-anchor="middle">p = rdfs:label</text>
+<text class="dtxt" x="190" y="982" text-anchor="middle">or p unbound?</text>
+<path class="spine" marker-end="url(#ara)" d="M190 1006 L190 1116"/>
+<text class="yn" x="200" y="1040">no — fall through</text>
+<path class="edge" marker-end="url(#ar)" d="M300 970 L456 970"/>
+<text class="yn" x="340" y="962">yes</text>
+<polygon class="dia" points="460,970 560,938 660,970 560,1002"/>
+<text class="dtxt" x="560" y="974" text-anchor="middle">s bound?</text>
+<path class="edge" d="M660 970 L680 970"/>
+<path class="edge" marker-end="url(#ar)" d="M680 970 L680 952 L696 952"/>
+<text class="yn" x="666" y="944">yes</text>
+<rect class="term" x="700" y="930" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="948">store.customers.find(...) then lit(c.name)</text>
+<text class="gloss" x="714" y="965">yields at most one solution</text>
+<text class="cost" x="1216" y="948" text-anchor="end">O(c)</text>
+<path class="edge" marker-end="url(#ar)" d="M560 1002 L560 1030 L696 1030"/>
+<text class="yn" x="570" y="1024">no</text>
+<rect class="term" x="700" y="1008" width="530" height="44" rx="4"/>
+<text class="mn" x="714" y="1026">for (c of store.customers) — yield every label</text>
+<text class="gloss" x="714" y="1043">filtered by o through termEq() when the object is bound</text>
+<text class="cost" x="1216" y="1026" text-anchor="end">O(c)</text>
+
+<rect class="card" x="60" y="1116" width="420" height="56" rx="8"/>
+<text class="mn" x="76" y="1140">generator returns</text>
+<text class="gloss" x="76" y="1160">the BGP matcher stops early once SOLUTION_CAP is reached</text>
+
+<text class="cap" x="32" y="1200">Figure 4 · Triple source dispatch. Illustrates 32-sparql-console.md, “Pattern matching and the triple sources”. [src: scan()]</text>
+<text class="cap" x="32" y="1220">The rule the diagram encodes: a bound predicate prunes whole sources, and a bound subject converts a sweep into a lookup. A pattern that binds neither pays for all four sources.</text>
+</svg>

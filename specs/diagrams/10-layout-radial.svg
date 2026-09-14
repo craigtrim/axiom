@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960" role="img" aria-labelledby="fig10-title fig10-desc">
+<title id="fig10-title">Figure 10 — Radial layout: depth rings and leaf-count wedges</title>
+<desc id="fig10-desc">A focus node at the centre with three depth rings around it. Each child of the focus owns an angular wedge whose width is proportional to the number of leaves in its subtree, and every descendant is placed inside its parent's wedge. Two wedges are shaded to contrast a four-leaf subtree with a one-leaf subtree. Panels on the right give the ring radius rule with worked numbers, the leaf-count table, the handling of multiple roots and orphans, and what happens after placement.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .nl{font-size:11px;fill:#1B1B1B}
+  .rl{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#0F6CBD}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .canvas{fill:#F7F7F9;stroke:#C4C4C4;stroke-width:1.5}
+  .ring{fill:none;stroke:#E4E4EA;stroke-width:1.5}
+  .ed{stroke:#C4C4C4;stroke-width:1.5;fill:none}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+</style>
+<rect width="1280" height="960" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 10</text>
+<text class="title" x="32" y="58">Radial layout — depth rings from the focus, wedges by subtree leaf count</text>
+<text class="sub" x="32" y="80">Seventeen nodes, focus pizza:Pizza. Ring radii are drawn to scale at 75%; the annotated values are the world-space radii the algorithm produces.</text>
+
+<rect class="canvas" x="32" y="104" width="672" height="776" rx="8"/>
+
+<path d="M368 470 L368 180 A290 290 0 0 1 587 660 Z" fill="#0F6CBD" fill-opacity="0.07"/>
+<path d="M368 470 L211 226 A290 290 0 0 1 368 180 Z" fill="#B36A00" fill-opacity="0.09"/>
+
+<circle class="ring" cx="368" cy="470" r="88.5"/>
+<circle class="ring" cx="368" cy="470" r="177"/>
+<circle class="ring" cx="368" cy="470" r="265.5"/>
+
+<path class="ed" d="M368 470 L449 433"/>
+<path class="ed" d="M368 470 L393 555"/>
+<path class="ed" d="M368 470 L280 483"/>
+<path class="ed" d="M368 470 L343 385"/>
+<path class="ed" d="M449 433 L464 321"/>
+<path class="ed" d="M449 433 L543 445"/>
+<path class="ed" d="M449 433 L529 543"/>
+<path class="ed" d="M393 555 L464 619"/>
+<path class="ed" d="M393 555 L368 647"/>
+<path class="ed" d="M280 483 L272 619"/>
+<path class="ed" d="M280 483 L193 495"/>
+<path class="ed" d="M280 483 L234 354"/>
+<path class="ed" d="M464 321 L443 215"/>
+<path class="ed" d="M464 321 L569 296"/>
+<path class="ed" d="M272 619 L224 693"/>
+<path class="ed" d="M193 495 L126 580"/>
+<path class="ed" d="M193 495 L105 432"/>
+
+<circle cx="368" cy="470" r="16" fill="none" stroke="#1B1B1B" stroke-width="1.8"/>
+<rect x="357" y="459" width="22" height="22" rx="5" fill="#0F6CBD"/>
+<text class="nl" x="368" y="452" text-anchor="middle">Pizza — focus, depth 0</text>
+
+<rect x="439" y="424" width="19" height="19" rx="4.5" fill="#0F6CBD"/>
+<text class="nl" x="463" y="437">Named Pizza · 4 leaves</text>
+<rect x="384" y="546" width="19" height="19" rx="4.5" fill="#0F6CBD"/>
+<text class="nl" x="407" y="559">Pizza Base · 2</text>
+<rect x="271" y="474" width="19" height="19" rx="4.5" fill="#0F6CBD"/>
+<text class="nl" x="266" y="487" text-anchor="end">Pizza Topping · 4</text>
+<polygon points="343,375 353,385 343,395 333,385" fill="#7A46C0"/>
+<text class="nl" x="329" y="389" text-anchor="end">has Topping · 1</text>
+
+<rect x="456" y="313" width="17" height="17" rx="4" fill="#B36A00"/>
+<path d="M461 321.5 L468 321.5 M464.5 318 L464.5 325" stroke="#F7F7F9" stroke-width="1.6"/>
+<text class="nl" x="478" y="325">Margherita · 2</text>
+<rect x="535" y="437" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="557" y="449">Mushroom</text>
+<rect x="521" y="535" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="543" y="547">American</text>
+<rect x="456" y="611" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="478" y="623">Deep Pan Base</text>
+<rect x="360" y="639" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="368" y="673" text-anchor="middle">Thin and Crispy Base</text>
+<rect x="264" y="611" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="258" y="623" text-anchor="end">Cheese Topping</text>
+<rect x="185" y="487" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="179" y="499" text-anchor="end">Vegetable Topping · 2</text>
+<rect x="226" y="346" width="17" height="17" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="220" y="358" text-anchor="end">Meat Topping</text>
+
+<circle cx="443" cy="215" r="8" fill="#0E7C66"/>
+<text class="nl" x="443" y="201" text-anchor="middle">AX-100042</text>
+<circle cx="569" cy="296" r="8" fill="#0E7C66"/>
+<text class="nl" x="581" y="300">AX-100043</text>
+<rect x="216" y="685" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="224" y="719" text-anchor="middle">Mozzarella</text>
+<rect x="118" y="572" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="126" y="606" text-anchor="middle">Tomato Topping</text>
+<rect x="97" y="424" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<text class="nl" x="105" y="418" text-anchor="middle">Mushroom Topping</text>
+
+<text class="rl" x="431" y="533">ring 1 · r = 118</text>
+<text class="rl" x="493" y="595">ring 2 · r = 236</text>
+<text class="rl" x="556" y="658">ring 3 · r = 354</text>
+
+<text class="lab" x="52" y="856">SHADED: NAMED PIZZA OWNS 4 OF 11 LEAVES → 130.9° · HAS TOPPING OWNS 1 OF 11 → 32.7° · EVERY DESCENDANT STAYS INSIDE ITS PARENT’S WEDGE</text>
+
+<rect class="card" x="720" y="104" width="528" height="192" rx="8"/>
+<text class="h" x="740" y="132">The ring radius rule</text>
+<text class="mn" x="740" y="156">radii[0] = 0;</text>
+<text class="mn" x="740" y="174">for (let d = 1; d &lt;= maxD; d++)</text>
+<text class="mn" x="740" y="192">  radii[d] = Math.max(radii[d−1] + 118,</text>
+<text class="mn" x="740" y="210">                      countAt[d] * 52 / (2π));</text>
+<text class="ps" x="740" y="234">Two constraints, whichever binds: a minimum gap of 118 between rings, and</text>
+<text class="ps" x="740" y="252">enough circumference to seat every node at that depth 52 apart.</text>
+<text class="mns" x="740" y="276">d1: max(118, 4×52/2π = 33) = 118  ·  d2: max(236, 66) = 236  ·  d3: max(354, 41) = 354</text>
+
+<rect class="card" x="720" y="312" width="528" height="192" rx="8"/>
+<text class="h" x="740" y="340">Wedges by subtree leaf count</text>
+<text class="ps" x="740" y="362">Leaves are counted in reverse BFS order, so no recursion is needed: a node with</text>
+<text class="ps" x="740" y="380">no children counts 1, otherwise it sums its children.</text>
+<text class="mn" x="740" y="404">Named Pizza 4 = Margherita 2 + Mushroom 1 + American 1</text>
+<text class="mn" x="740" y="422">Pizza Base 2 · Pizza Topping 4 · has Topping 1</text>
+<text class="mn" x="740" y="440">Pizza 11 — the sum of its four children</text>
+<text class="ps" x="740" y="464">span(child) = (a1 − a0) × leaves(child) / Σ leaves(children). A subtree gets the</text>
+<text class="ps" x="740" y="482">angle its content needs, so a broad branch is never squeezed beside a thin one.</text>
+
+<rect class="card" x="720" y="520" width="528" height="164" rx="8"/>
+<text class="h" x="740" y="548">Roots, orphans and the origin</text>
+<text class="ps" x="740" y="570">Roots are the focus set intersected with the view. With no focus, the node with</text>
+<text class="ps" x="740" y="588">the highest in-view degree is used instead, so the layout always has a centre.</text>
+<text class="ps" x="740" y="610">Several roots share the full circle in proportion to their leaf counts, starting</text>
+<text class="ps" x="740" y="628">at −π/2 — straight up — so the first branch is always at twelve o’clock.</text>
+<text class="ps" x="740" y="650">A node the BFS never reaches is an orphan: maxD is incremented and the orphans</text>
+<text class="ps" x="740" y="668">are spread evenly around that extra outer ring rather than piled at the centre.</text>
+
+<rect class="card" x="720" y="700" width="528" height="180" rx="8"/>
+<text class="h" x="740" y="728">After placement</text>
+<text class="mns" x="740" y="750">resolveCollisions(3) · G.radialRings = radii.slice(1) · centreNodes(nodes)</text>
+<text class="ps" x="740" y="774">Three collision passes nudge apart anything the wedge arithmetic still overlapped —</text>
+<text class="ps" x="740" y="792">a node's radius grows with its degree, so equal angles are not equal space.</text>
+<text class="ps" x="740" y="814">The rings are drawn in world space, so the origin is recorded after centring:</text>
+<text class="mns" x="740" y="836">G.ringOrigin = position of roots[0] — not (0, 0)</text>
+<text class="ps" x="740" y="858">Velocities are zeroed. Radial is computed once; there is nothing to freeze.</text>
+
+<text class="cap" x="32" y="916">Figure 10 · Radial layout. Illustrates 21-layout-algorithms.md, “Radial”. [src: layoutRadial(), renderScene() ring pass]</text>
+<text class="cap" x="32" y="936">chooseLayout() reaches radial when the focus set holds at most two nodes and more than fourteen nodes are in view — a neighbourhood being read outward from one thing.</text>
+</svg>

@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1120" width="1280" height="1120" role="img" aria-labelledby="fig9-title fig9-desc">
+<title id="fig9-title">Figure 9 — The four Sugiyama phases over one class hierarchy</title>
+<desc id="fig9-desc">Four panels over the same ten-node hierarchy. Panel one assigns layers by longest path. Panel two orders each layer by a depth-first traversal from the roots. Panel three runs the median heuristic over a disturbed row, showing the median key for each node and the re-sorted result with its crossings removed. Panel four packs each row by label width and then relaxes the coordinates toward the neighbour means, clamped by the immediate left and right neighbours.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .ph{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .phs{font-size:12px;fill:#5A5A5A}
+  .nd{font-size:11px;fill:#1B1B1B;text-anchor:middle}
+  .badge{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#0F6CBD;text-anchor:middle}
+  .lay{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .p{font-size:11.5px;fill:#1B1B1B}
+  .ps{font-size:11.5px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .warn{font-size:11px;font-weight:600;fill:#B36A00}
+  .ok{font-size:11px;font-weight:600;fill:#0E700E}
+  .panel{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .box{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .ed{stroke:#C4C4C4;stroke-width:1.5;fill:none}
+  .edx{stroke:#B36A00;stroke-width:1.5;fill:none}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .brk{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="1120" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 9</text>
+<text class="title" x="32" y="58">Hierarchy layout — Sugiyama in four phases</text>
+<text class="sub" x="32" y="80">The same ten-node view throughout: Pizza and Pizza Topping with their subclasses, and one generated order typed pizza:Margherita. Only subClassOf, subPropertyOf and rdf:type edges take part.</text>
+
+<!-- PANEL 1 -->
+<rect class="panel" x="32" y="104" width="600" height="460" rx="8"/>
+<text class="ph" x="52" y="134">Phase 1 — layer assignment</text>
+<text class="phs" x="52" y="154">Longest path, memoised, cycle-safe. layer(u) = max over parents of layer(p) + 1.</text>
+
+<path class="ed" d="M130 246 L130 226 L180 226 L180 206"/>
+<path class="ed" d="M300 246 L300 226 L420 226 L420 206"/>
+<path class="ed" d="M480 246 L480 226 L420 226 L420 206"/>
+<path class="ed" d="M110 306 L110 286 L130 286 L130 266"/>
+<path class="ed" d="M210 306 L210 286 L130 286 L130 266"/>
+<path class="ed" d="M330 306 L330 286 L300 286 L300 266"/>
+<path class="ed" d="M480 306 L480 286 L480 286 L480 266"/>
+<path class="ed" d="M110 366 L110 346 L110 346 L110 326"/>
+
+<rect class="box" x="156" y="185" width="48" height="22" rx="4"/><rect x="156" y="185" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="182" y="200">Pizza</text>
+<rect class="box" x="371" y="185" width="98" height="22" rx="4"/><rect x="371" y="185" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="422" y="200">Pizza Topping</text>
+<text class="lay" x="560" y="200">layer 0</text>
+
+<rect class="box" x="88" y="245" width="84" height="22" rx="4"/><rect x="88" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="131" y="260">Named Pizza</text>
+<rect class="box" x="248" y="245" width="104" height="22" rx="4"/><rect x="248" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="301" y="260">Cheese Topping</text>
+<rect class="box" x="419" y="245" width="122" height="22" rx="4"/><rect x="419" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="481" y="260">Vegetable Topping</text>
+<text class="lay" x="560" y="290">layer 1</text>
+
+<rect class="box" x="71" y="305" width="78" height="22" rx="4"/><rect x="71" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="111" y="320">Margherita</text>
+<rect class="box" x="177" y="305" width="66" height="22" rx="4"/><rect x="177" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="211" y="320">Mushroom</text>
+<rect class="box" x="291" y="305" width="78" height="22" rx="4"/><rect x="291" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="331" y="320">Mozzarella</text>
+<rect class="box" x="429" y="305" width="103" height="22" rx="4"/><rect x="429" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="481" y="320">Tomato Topping</text>
+<text class="lay" x="560" y="350">layer 2</text>
+
+<rect class="box" x="74" y="365" width="72" height="22" rx="4"/><rect x="74" y="365" width="3" height="22" fill="#0E7C66"/><text class="nd" x="111" y="380">AX-100042</text>
+<text class="lay" x="560" y="380">layer 3</text>
+<text class="mns" x="160" y="380">rdf:type is a layering edge, so an instance sits under its class</text>
+
+<rect class="inner" x="52" y="404" width="560" height="144" rx="4"/>
+<text class="mn" x="66" y="424">const depthOf = (u) =&gt; { if (layer.has(u)) return layer.get(u);</text>
+<text class="mn" x="66" y="440">  if (mark.get(u) === 1) return 0; … }</text>
+<text class="ps" x="66" y="462">The mark guard makes a cycle terminate at depth 0 rather than recurse forever.</text>
+<text class="ps" x="66" y="480">A node with no hierarchy edge at all is not left at layer 0: it is placed one row</text>
+<text class="ps" x="66" y="498">under the deepest neighbour it has by any predicate — property nodes land near</text>
+<text class="ps" x="66" y="516">the classes they relate rather than floating along the top edge.</text>
+<text class="ps" x="66" y="538">Each node has at most one hierarchy parent here, so every edge spans exactly one layer.</text>
+
+<!-- PANEL 2 -->
+<rect class="panel" x="648" y="104" width="600" height="460" rx="8"/>
+<text class="ph" x="668" y="134">Phase 2 — initial ordering</text>
+<text class="phs" x="668" y="154">Depth-first from the roots, so siblings start adjacent. Badges are the DFS index.</text>
+
+<path class="ed" d="M726 246 L726 226 L746 226 L746 206"/>
+<path class="ed" d="M896 246 L896 226 L746 226 L746 206"/>
+<path class="ed" d="M1056 246 L1056 226 L916 226 L916 206"/>
+<path class="ed" d="M716 306 L716 286 L726 286 L726 266"/>
+<path class="ed" d="M836 306 L836 286 L896 286 L896 266"/>
+<path class="ed" d="M966 306 L966 286 L1056 286 L1056 266"/>
+<path class="ed" d="M1066 306 L1066 286 L1056 286 L1056 266"/>
+<path class="ed" d="M966 366 L966 346 L966 326"/>
+
+<rect class="box" x="677" y="185" width="98" height="22" rx="4"/><rect x="677" y="185" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="728" y="200">Pizza Topping</text>
+<text class="badge" x="783" y="200">0</text>
+<rect class="box" x="892" y="185" width="48" height="22" rx="4"/><rect x="892" y="185" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="918" y="200">Pizza</text>
+<text class="badge" x="950" y="200">5</text>
+
+<rect class="box" x="674" y="245" width="104" height="22" rx="4"/><rect x="674" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="727" y="260">Cheese Topping</text>
+<text class="badge" x="788" y="260">1</text>
+<rect class="box" x="835" y="245" width="122" height="22" rx="4"/><rect x="835" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="897" y="260">Vegetable Topping</text>
+<text class="badge" x="967" y="260">3</text>
+<rect class="box" x="1014" y="245" width="84" height="22" rx="4"/><rect x="1014" y="245" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="1057" y="260">Named Pizza</text>
+<text class="badge" x="1110" y="260">6</text>
+
+<rect class="box" x="677" y="305" width="78" height="22" rx="4"/><rect x="677" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="717" y="320">Mozzarella</text>
+<text class="badge" x="765" y="320">2</text>
+<rect class="box" x="785" y="305" width="103" height="22" rx="4"/><rect x="785" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="837" y="320">Tomato Topping</text>
+<text class="badge" x="898" y="320">4</text>
+<rect class="box" x="928" y="305" width="78" height="22" rx="4"/><rect x="928" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="968" y="320">Margherita</text>
+<text class="badge" x="1016" y="320">7</text>
+<rect class="box" x="1034" y="305" width="66" height="22" rx="4"/><rect x="1034" y="305" width="3" height="22" fill="#0F6CBD"/><text class="nd" x="1068" y="320">Mushroom</text>
+<text class="badge" x="1110" y="320">9</text>
+
+<rect class="box" x="931" y="365" width="72" height="22" rx="4"/><rect x="931" y="365" width="3" height="22" fill="#0E7C66"/><text class="nd" x="968" y="380">AX-100042</text>
+<text class="badge" x="1013" y="380">8</text>
+
+<rect class="inner" x="668" y="404" width="560" height="144" rx="4"/>
+<text class="mn" x="682" y="424">for (const n of nodes) stack.push(n.iri);</text>
+<text class="mn" x="682" y="440">for (const n of rows[0]) stack.push(n.iri);   /* roots pop first */</text>
+<text class="ps" x="682" y="462">Every node is pushed, then the roots are pushed again on top, so the traversal always</text>
+<text class="ps" x="682" y="480">starts at a root and still reaches anything the roots cannot — in reverse admission order.</text>
+<text class="ps" x="682" y="498">Children are pushed in descending name order so they pop in ascending order.</text>
+<text class="ps" x="682" y="520">Rows are then sorted by DFS index, which makes each subtree contiguous. For a</text>
+<text class="ps" x="682" y="538">single-parent hierarchy this initial order is already crossing-free.</text>
+
+<!-- PANEL 3 -->
+<rect class="panel" x="32" y="580" width="600" height="460" rx="8"/>
+<text class="ph" x="52" y="610">Phase 3 — crossing reduction</text>
+<text class="phs" x="52" y="630">Median heuristic, eight passes alternating upward and downward. Skipped entirely if any row exceeds 260 nodes.</text>
+
+<text class="lab" x="52" y="656">BEFORE — A ROW WHOSE ORDER HAS BEEN DISTURBED · 3 CROSSINGS</text>
+<rect class="box" x="58" y="666" width="104" height="22" rx="4"/><text class="nd" x="110" y="681">Cheese Topping</text>
+<rect class="box" x="219" y="666" width="122" height="22" rx="4"/><text class="nd" x="281" y="681">Vegetable Topping</text>
+<rect class="box" x="398" y="666" width="84" height="22" rx="4"/><text class="nd" x="441" y="681">Named Pizza</text>
+<rect class="box" x="61" y="726" width="78" height="22" rx="4"/><text class="nd" x="101" y="741">Margherita</text>
+<rect class="box" x="177" y="726" width="78" height="22" rx="4"/><text class="nd" x="217" y="741">Mozzarella</text>
+<rect class="box" x="289" y="726" width="66" height="22" rx="4"/><text class="nd" x="323" y="741">Mushroom</text>
+<rect class="box" x="399" y="726" width="103" height="22" rx="4"/><text class="nd" x="451" y="741">Tomato Topping</text>
+<path class="edx" d="M101 726 L101 707 L441 707 L441 688"/>
+<path class="ed" d="M217 726 L217 707 L110 707 L110 688"/>
+<path class="edx" d="M323 726 L323 707 L441 707 L441 688"/>
+<path class="edx" d="M451 726 L451 707 L281 707 L281 688"/>
+<text class="mns" x="510" y="681">positions 0, 1, 2</text>
+<text class="mns" x="516" y="741">parent → 2, 0, 2, 1</text>
+
+<rect class="inner" x="52" y="762" width="560" height="76" rx="4"/>
+<text class="mn" x="66" y="782">median(u, up) — the median position of u's parents in the row above; −1 keeps index i</text>
+<text class="mn" x="66" y="800">Margherita → 2 · Mozzarella → 0 · Mushroom → 2 · Tomato Topping → 1</text>
+<text class="mns" x="66" y="820">r.sort((a, b) =&gt; (key[a] − key[b]) || (pos[a] − pos[b]))   — ties keep their previous order</text>
+
+<text class="lab" x="52" y="862">AFTER — ONE PASS · 0 CROSSINGS</text>
+<rect class="box" x="58" y="872" width="104" height="22" rx="4"/><text class="nd" x="110" y="887">Cheese Topping</text>
+<rect class="box" x="219" y="872" width="122" height="22" rx="4"/><text class="nd" x="281" y="887">Vegetable Topping</text>
+<rect class="box" x="398" y="872" width="84" height="22" rx="4"/><text class="nd" x="441" y="887">Named Pizza</text>
+<rect class="box" x="61" y="932" width="78" height="22" rx="4"/><text class="nd" x="101" y="947">Mozzarella</text>
+<rect class="box" x="177" y="932" width="103" height="22" rx="4"/><text class="nd" x="229" y="947">Tomato Topping</text>
+<rect class="box" x="330" y="932" width="78" height="22" rx="4"/><text class="nd" x="370" y="947">Margherita</text>
+<rect class="box" x="438" y="932" width="66" height="22" rx="4"/><text class="nd" x="472" y="947">Mushroom</text>
+<path class="ed" d="M101 932 L101 913 L110 913 L110 894"/>
+<path class="ed" d="M229 932 L229 913 L281 913 L281 894"/>
+<path class="ed" d="M370 932 L370 913 L441 913 L441 894"/>
+<path class="ed" d="M472 932 L472 913 L441 913 L441 894"/>
+<text class="ok" x="520" y="947">order restored</text>
+<text class="ps" x="52" y="988">The comparator only ever sees hierarchy edges. Restriction and domain-range edges are drawn but never</text>
+<text class="ps" x="52" y="1006">optimised, and no dummy vertices are inserted, so a route that jogs across a row is a route, not a node.</text>
+<text class="ps" x="52" y="1024">The pass is a safeguard: when the DFS order is already clean, eight passes confirm it and change nothing.</text>
+
+<!-- PANEL 4 -->
+<rect class="panel" x="648" y="580" width="600" height="460" rx="8"/>
+<text class="ph" x="668" y="610">Phase 4 — coordinate relaxation</text>
+<text class="phs" x="668" y="630">Pack each row by label width, centre it, then twelve passes of median-seeking with a hard neighbour clamp.</text>
+
+<text class="lab" x="668" y="656">PACKED — widthOf(n) = min(200, max(2r + 18, label.length × 6.8 + 16)) · gapX = 20</text>
+<rect class="box" x="674" y="666" width="104" height="22" rx="4"/><text class="nd" x="726" y="681">Cheese Topping</text>
+<rect class="box" x="798" y="666" width="122" height="22" rx="4"/><text class="nd" x="859" y="681">Vegetable Topping</text>
+<rect class="box" x="940" y="666" width="84" height="22" rx="4"/><text class="nd" x="982" y="681">Named Pizza</text>
+<rect class="box" x="674" y="726" width="78" height="22" rx="4"/><text class="nd" x="713" y="741">Mozzarella</text>
+<rect class="box" x="772" y="726" width="103" height="22" rx="4"/><text class="nd" x="823" y="741">Tomato Topping</text>
+<rect class="box" x="895" y="726" width="78" height="22" rx="4"/><text class="nd" x="934" y="741">Margherita</text>
+<rect class="box" x="993" y="726" width="66" height="22" rx="4"/><text class="nd" x="1026" y="741">Mushroom</text>
+<path class="ed" d="M713 726 L713 707 L726 707 L726 688"/>
+<path class="ed" d="M823 726 L823 707 L859 707 L859 688"/>
+<path class="ed" d="M934 726 L934 707 L982 707 L982 688"/>
+<path class="ed" d="M1026 726 L1026 707 L982 707 L982 688"/>
+<text class="mns" x="1074" y="681">rows are centred</text>
+<text class="mns" x="1074" y="741">on x = 0 after packing</text>
+
+<rect class="inner" x="668" y="762" width="560" height="118" rx="4"/>
+<text class="lab" x="682" y="782">ONE NODE, ONE PASS — Margherita seeking its parent’s x</text>
+<path class="brk" d="M760 800 L760 830"/>
+<path class="brk" d="M1140 800 L1140 830"/>
+<path class="brk" d="M760 815 L1140 815"/>
+<text class="mns" x="766" y="798">lo = left.x + left.w/2 + gapX + n.w/2</text>
+<text class="mns" x="1134" y="798" text-anchor="end">hi = right.x − right.w/2 − gapX − n.w/2</text>
+<circle cx="880" cy="815" r="5" fill="#C4C4C4"/><text class="mns" x="856" y="846">n.x now</text>
+<circle cx="1010" cy="815" r="5" fill="#0F6CBD"/><text class="mns" x="978" y="846">want (clamped)</text>
+<path class="brk" d="M886 815 L1000 815" marker-end="none"/>
+<circle cx="952" cy="815" r="5" fill="#0F6CBD" fill-opacity="0.35"/>
+<text class="mns" x="906" y="866">n.x += (want − n.x) × 0.55 — 55% of the way, every pass</text>
+
+<text class="ps" x="668" y="904">Within a row the nodes are relaxed in descending in-view degree, so the best-connected node claims its</text>
+<text class="ps" x="668" y="922">position first and the rest settle around it. If lo &gt; hi the row is already tight and the node does not move.</text>
+<text class="ps" x="668" y="940">Passes alternate: even passes seek the mean of the parents, odd passes the mean of the children.</text>
+<text class="mn" x="668" y="966">rows.forEach((r, i) =&gt; { for (const n of r) { n.y = i * 124; n.vx = 0; n.vy = 0; } });</text>
+<text class="ps" x="668" y="990">gapY is a constant 124, so layer depth reads at a glance and the whole figure is then centred by</text>
+<text class="ps" x="668" y="1008">centreNodes(). Velocities are zeroed: a hierarchy layout is computed once, never simulated.</text>
+
+<text class="cap" x="32" y="1076">Figure 9 · Hierarchy layout. Illustrates 21-layout-algorithms.md, “Hierarchy (Sugiyama)”. [src: layoutHierarchy()]</text>
+<text class="cap" x="32" y="1096">Phases 1 and 2 are always executed; phase 3 is skipped when a row exceeds 260 nodes; phase 4 always runs. The result is deterministic — the same view always lays out identically.</text>
+</svg>

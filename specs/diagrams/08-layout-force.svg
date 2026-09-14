@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 940" width="1280" height="940" role="img" aria-labelledby="fig8-title fig8-desc">
+<title id="fig8-title">Figure 8 — Barnes–Hut quadtree and the opening-angle criterion</title>
+<desc id="fig8-desc">A square root cell over a field of bodies, subdivided into quadrants. Three distant quadrants each satisfy the opening-angle test and are replaced by a single centre of mass, drawn as a cross with one dashed force arrow to the target node. The quadrant containing the target fails the test and is descended into; three of its four children then pass and are approximated, and the fourth, which holds the target, is evaluated body by body with solid arrows. Panels on the right give the criterion, the worked numbers for one approximated cell and one descended cell, and the depth and distance guards.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .cl{font-size:11px;font-weight:600;fill:#0F6CBD}
+  .cf{font-size:11px;font-weight:600;fill:#B36A00}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .canvas{fill:#F7F7F9;stroke:#C4C4C4;stroke-width:1.5}
+  .q1{stroke:#C4C4C4;stroke-width:1.5;fill:none}
+  .q2{stroke:#C4C4C4;stroke-width:1.5;fill:none;stroke-dasharray:4 4}
+  .app{fill:#EFF6FC;stroke:#0F6CBD;stroke-width:1.5}
+  .fail{fill:none;stroke:#B36A00;stroke-width:1.5;stroke-dasharray:7 4}
+  .fa{stroke:#0F6CBD;stroke-width:1.5;fill:none;stroke-dasharray:6 4}
+  .fb{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="940" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 8</text>
+<text class="title" x="32" y="58">Force layout — the Barnes–Hut quadtree and its opening angle</text>
+<text class="sub" x="32" y="80">One repulsion pass for the target node n. A cell far enough away is collapsed to a single centre of mass; a cell too close is opened and its children tested in turn.</text>
+
+<rect class="card" x="32" y="100" width="760" height="764" rx="8"/>
+<rect class="canvas" x="60" y="140" width="700" height="700" rx="4"/>
+<text class="lab" x="60" y="130">ROOT CELL — SQUARE BY CONSTRUCTION: span = max(2, x1−x0, y1−y0) + 8</text>
+
+<path class="q1" d="M410 140 L410 840"/>
+<path class="q1" d="M60 490 L760 490"/>
+<path class="q2" d="M235 490 L235 840"/>
+<path class="q2" d="M60 665 L410 665"/>
+<path class="q2" d="M147 665 L147 840"/>
+<path class="q2" d="M60 752 L235 752"/>
+
+<rect class="fail" x="60" y="490" width="350" height="350"/>
+
+<circle cx="160" cy="230" r="5" fill="#C4C4C4"/><circle cx="300" cy="250" r="5" fill="#C4C4C4"/>
+<circle cx="210" cy="330" r="5" fill="#C4C4C4"/><circle cx="280" cy="380" r="5" fill="#C4C4C4"/>
+<circle cx="150" cy="420" r="5" fill="#C4C4C4"/><circle cx="330" cy="190" r="5" fill="#C4C4C4"/>
+<circle cx="520" cy="210" r="5" fill="#C4C4C4"/><circle cx="640" cy="190" r="5" fill="#C4C4C4"/>
+<circle cx="700" cy="300" r="5" fill="#C4C4C4"/><circle cx="560" cy="330" r="5" fill="#C4C4C4"/>
+<circle cx="660" cy="380" r="5" fill="#C4C4C4"/><circle cx="600" cy="250" r="5" fill="#C4C4C4"/>
+<circle cx="480" cy="560" r="5" fill="#C4C4C4"/><circle cx="620" cy="600" r="5" fill="#C4C4C4"/>
+<circle cx="700" cy="700" r="5" fill="#C4C4C4"/><circle cx="540" cy="740" r="5" fill="#C4C4C4"/>
+<circle cx="640" cy="790" r="5" fill="#C4C4C4"/><circle cx="520" cy="660" r="5" fill="#C4C4C4"/>
+<circle cx="110" cy="530" r="5" fill="#C4C4C4"/><circle cx="180" cy="545" r="5" fill="#C4C4C4"/>
+<circle cx="140" cy="610" r="5" fill="#C4C4C4"/><circle cx="200" cy="620" r="5" fill="#C4C4C4"/>
+<circle cx="280" cy="530" r="5" fill="#C4C4C4"/><circle cx="360" cy="545" r="5" fill="#C4C4C4"/>
+<circle cx="300" cy="620" r="5" fill="#C4C4C4"/><circle cx="380" cy="625" r="5" fill="#C4C4C4"/>
+<circle cx="275" cy="710" r="5" fill="#C4C4C4"/><circle cx="370" cy="720" r="5" fill="#C4C4C4"/>
+<circle cx="300" cy="800" r="5" fill="#C4C4C4"/><circle cx="380" cy="805" r="5" fill="#C4C4C4"/>
+<circle cx="190" cy="700" r="6" fill="#5A5A5A"/>
+<circle cx="200" cy="820" r="6" fill="#5A5A5A"/>
+<circle cx="120" cy="700" r="6" fill="#5A5A5A"/>
+
+<path class="fa" marker-end="url(#ara)" d="M230 300 L110 786"/>
+<path class="fa" marker-end="url(#ara)" d="M600 280 L112 792"/>
+<path class="fa" marker-end="url(#ara)" d="M580 690 L116 798"/>
+<path class="fa" marker-end="url(#ara)" d="M150 560 L100 786"/>
+<path class="fa" marker-end="url(#ara)" d="M320 580 L112 790"/>
+<path class="fa" marker-end="url(#ara)" d="M320 760 L116 796"/>
+<path class="fb" marker-end="url(#ar)" d="M190 700 L108 790"/>
+<path class="fb" marker-end="url(#ar)" d="M200 820 L112 804"/>
+<path class="fb" marker-end="url(#ar)" d="M120 700 L100 788"/>
+
+<path d="M222 292 L238 308 M238 292 L222 308" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="230" cy="300" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="248" y="296">NW · approximated</text>
+<text class="mns" x="248" y="310">m, cx, cy from qAccumulate()</text>
+
+<path d="M592 272 L608 288 M608 272 L592 288" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="600" cy="280" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="618" y="276">NE · approximated</text>
+<text class="mns" x="618" y="290">see the worked numbers</text>
+
+<path d="M572 682 L588 698 M588 682 L572 698" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="580" cy="690" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="598" y="686">SE · approximated</text>
+
+<path d="M142 552 L158 568 M158 552 L142 568" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="150" cy="560" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="60" y="510">SW·NW approximated</text>
+
+<path d="M312 572 L328 588 M328 572 L312 588" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="320" cy="580" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="243" y="510">SW·NE approximated</text>
+
+<path d="M312 752 L328 768 M328 752 L312 768" stroke="#0F6CBD" stroke-width="2.5"/>
+<circle cx="320" cy="760" r="11" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="cl" x="243" y="685">SW·SE approximated — marginal</text>
+
+<text class="cf" x="66" y="508">SW quadrant fails the test → opened</text>
+<text class="cf" x="66" y="682">SW·SW holds n → opened to its bodies</text>
+
+<circle cx="100" cy="800" r="9" fill="#0F6CBD"/>
+<circle cx="100" cy="800" r="14" fill="none" stroke="#1B1B1B" stroke-width="1.8"/>
+<text class="p" x="70" y="832">n — the node being repelled</text>
+
+<text class="lab" x="60" y="858">DASHED ARROW = ONE APPROXIMATED CELL · SOLID ARROW = ONE BODY-TO-BODY TERM · SIX CELL TERMS AND THREE BODY TERMS REPLACE TWENTY-NINE</text>
+
+<rect class="card" x="816" y="100" width="432" height="186" rx="8"/>
+<text class="h" x="836" y="128">The criterion</text>
+<text class="mn" x="836" y="152">const THETA2 = 0.66;   /* theta = 0.81 */</text>
+<text class="mn" x="836" y="172">const w = q.x1 − q.x0;</text>
+<text class="mn" x="836" y="192">if (!q.k || w * w &lt; THETA2 * d2) { … }</text>
+<text class="ps" x="836" y="216">d2 is the squared distance from n to the cell's centre of</text>
+<text class="ps" x="836" y="234">mass. Comparing squares keeps the hot path free of a square</text>
+<text class="ps" x="836" y="252">root, which is why the constant is θ² and not θ.</text>
+<text class="ps" x="836" y="274">A leaf — no children — is always taken as-is.</text>
+
+<rect class="card" x="816" y="302" width="432" height="190" rx="8"/>
+<text class="h" x="836" y="330">Worked: the NE cell is approximated</text>
+<text class="mns" x="836" y="352">cell width w = 350 · centre of mass at (600, 280)</text>
+<text class="mns" x="836" y="370">n at (100, 800) → dx = 500, dy = −520</text>
+<text class="mn" x="836" y="392">d2 = 500² + 520² = 520,400</text>
+<text class="mn" x="836" y="412">w²  = 122,500</text>
+<text class="mn" x="836" y="432">θ²·d2 = 0.66 × 520,400 = 343,464</text>
+<text class="p" x="836" y="456">122,500 &lt; 343,464 → approximate. Six bodies collapse into</text>
+<text class="p" x="836" y="474">one term: n.vx += dx × (q.mass × alpha / d2).</text>
+
+<rect class="card" x="816" y="508" width="432" height="186" rx="8"/>
+<text class="h" x="836" y="536">Worked: the SW cell is opened</text>
+<text class="mns" x="836" y="558">same width w = 350 · centre of mass at (245, 655)</text>
+<text class="mn" x="836" y="580">d2 = 145² + 145² = 42,050</text>
+<text class="mn" x="836" y="600">θ²·d2 = 27,753   …and w² = 122,500</text>
+<text class="p" x="836" y="624">122,500 &gt; 27,753 → the cell subtends too wide an angle, so</text>
+<text class="p" x="836" y="642">its mass cannot stand in for its parts. qRepel() recurses into</text>
+<text class="p" x="836" y="660">all four children and tests each on its own terms.</text>
+<text class="ps" x="836" y="682">Three of the four then pass; only the cell holding n opens again.</text>
+
+<rect class="card" x="816" y="710" width="432" height="154" rx="8"/>
+<text class="h" x="836" y="738">Guards and cost</text>
+<text class="mns" x="836" y="760">depth &gt; 22 || (q.x1 − q.x0) &lt; 0.5 → q.extra bucket</text>
+<text class="ps" x="836" y="778">Coincident bodies would subdivide forever, so past the guard they</text>
+<text class="ps" x="836" y="796">share a leaf and are always compared pairwise.</text>
+<text class="mns" x="836" y="818">if (d2 &lt; 9) d2 = 9;   charge = 210 + r × 16</text>
+<text class="ps" x="836" y="836">The clamp stops two touching nodes producing an infinite force.</text>
+<text class="ps" x="836" y="854">Net cost: O(n log n) per tick instead of O(n²).</text>
+
+<text class="cap" x="32" y="898">Figure 8 · Barnes–Hut repulsion. Illustrates 21-layout-algorithms.md, “Force-directed: repulsion”. [src: QNode(), qInsert(), qAccumulate(), qRepel(), forceTick()]</text>
+<text class="cap" x="32" y="918">Attraction is separate: every edge is a Hooke spring with target 48 + ra + rb, plus 26 more for a non-structural predicate, stiffness scaled by the lesser endpoint degree.</text>
+</svg>

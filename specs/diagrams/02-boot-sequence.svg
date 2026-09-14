@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 1500" width="1140" height="1500" role="img" aria-labelledby="fig2-title fig2-desc">
+<title id="fig2-title">Figure 2 — Boot sequence of init()</title>
+<desc id="fig2-desc">A vertical flow of the twenty-three ordered steps performed by init(), grouped into six phases: store construction, canvas acquisition, first paint of the surfaces, event wiring, first view, and the frame loop. Each step carries its precondition on the right.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .phase{font-size:12px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#1B1B1B}
+  .num{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#FFFFFF}
+  .pre{font-size:11px;fill:#5A5A5A}
+  .hard{font-size:11px;fill:#1B1B1B}
+  .step{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .flow{stroke:#C4C4C4;stroke-width:1.5;fill:none}
+  .brk{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+</style>
+<rect width="1140" height="1500" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 2</text>
+<text class="title" x="32" y="58">Boot sequence — the ordered steps of init()</text>
+<text class="sub" x="32" y="80">Entry point: document.addEventListener('DOMContentLoaded', init). Steps run synchronously, top to bottom; a filled marker denotes a hard precondition.</text>
+<text class="sub" x="32" y="100">A hard precondition means the step throws, or silently paints nothing, if the condition is not already true.</text>
+
+<path class="flow" d="M190 162 L190 1394"/>
+
+<rect class="brk" x="44" y="140" width="0" height="0"/>
+<path class="brk" d="M60 146 L48 146 L48 346 L60 346"/>
+<text class="phase" x="52" y="240" transform="rotate(-90 52 240)">STORE CONSTRUCTION</text>
+<path class="brk" d="M60 370 L48 370 L48 514 L60 514"/>
+<text class="phase" x="52" y="442" transform="rotate(-90 52 442)">CANVAS</text>
+<path class="brk" d="M60 538 L48 538 L48 962 L60 962"/>
+<text class="phase" x="52" y="750" transform="rotate(-90 52 750)">FIRST PAINT OF THE SURFACES</text>
+<path class="brk" d="M60 986 L48 986 L48 1018 L60 1018"/>
+<text class="phase" x="52" y="1002" transform="rotate(-90 52 1002)">WIRING</text>
+<path class="brk" d="M60 1042 L48 1042 L48 1354 L60 1354"/>
+<text class="phase" x="52" y="1198" transform="rotate(-90 52 1198)">FIRST VIEW</text>
+<path class="brk" d="M60 1378 L48 1378 L48 1410 L60 1410"/>
+<text class="phase" x="52" y="1394" transform="rotate(-90 52 1394)">LOOP</text>
+
+<circle cx="190" cy="162" r="12" fill="#0F6CBD"/><text class="num" x="190" y="166" text-anchor="middle">1</text>
+<rect class="step" x="210" y="140" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="168">buildTBox()</text>
+<circle cx="650" cy="162" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="158">No precondition. Materialises store.ent and store.tbox from CLASS_SPEC.</text>
+<text class="pre" x="664" y="173">Must complete before anything else reads the Store.</text>
+
+<circle cx="190" cy="218" r="12" fill="#0F6CBD"/><text class="num" x="190" y="222" text-anchor="middle">2</text>
+<rect class="step" x="210" y="196" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="224">generateIndividuals(12000)</text>
+<circle cx="650" cy="218" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="214">Requires buildTBox(): every record carries a pizza: class IRI as rec.type.</text>
+<text class="pre" x="664" y="229">Resets inds, indIndex, byType and customers; bumps store.version.</text>
+
+<circle cx="190" cy="274" r="12" fill="#0F6CBD"/><text class="num" x="190" y="278" text-anchor="middle">3</text>
+<rect class="step" x="210" y="252" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="280">buildReverseIndex()</text>
+<circle cx="650" cy="274" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="270">Requires the complete entity set. Walks restrictions, equivalents, domain</text>
+<text class="pre" x="664" y="285">and range to build revRestriction: filler IRI to list of referring entities.</text>
+
+<circle cx="190" cy="330" r="12" fill="#0F6CBD"/><text class="num" x="190" y="334" text-anchor="middle">4</text>
+<rect class="step" x="210" y="308" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="336">buildRBox()</text>
+<circle cx="650" cy="330" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="326">Requires the complete entity set. Flattens every some- and value-restriction</text>
+<text class="pre" x="664" y="341">into store.rbox so a query matches it without walking blank nodes.</text>
+
+<circle cx="190" cy="386" r="12" fill="#0F6CBD"/><text class="num" x="190" y="390" text-anchor="middle">5</text>
+<rect class="step" x="210" y="364" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="392">canvasEl, ctx, miniEl, mctx</text>
+<circle cx="650" cy="386" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="382">Requires the DOM: #canvas and #minimap must both exist. Everything in the</text>
+<text class="pre" x="664" y="397">renderer and the export path assumes these four bindings are non-null.</text>
+
+<circle cx="190" cy="442" r="12" fill="#0F6CBD"/><text class="num" x="190" y="446" text-anchor="middle">6</text>
+<rect class="step" x="210" y="420" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="448">refreshPalette()</text>
+<circle cx="650" cy="442" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="438">Requires data-theme to be resolved on documentElement. Snapshots the</text>
+<text class="pre" x="664" y="453">computed custom properties into palette; must re-run on every theme change.</text>
+
+<circle cx="190" cy="498" r="12" fill="#0F6CBD"/><text class="num" x="190" y="502" text-anchor="middle">7</text>
+<rect class="step" x="210" y="476" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="504">resizeCanvas()</text>
+<text class="pre" x="664" y="494">Requires both canvases and window.devicePixelRatio. Sets the backing store</text>
+<text class="pre" x="664" y="509">to clientWidth × dpr, dpr capped at 2, and applies the dpr transform.</text>
+
+<circle cx="190" cy="554" r="12" fill="#0F6CBD"/><text class="num" x="190" y="558" text-anchor="middle">8</text>
+<rect class="step" x="210" y="532" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="560">UI.expanded ← DEFAULT_OPEN</text>
+<text class="pre" x="664" y="550">No precondition. Opens owl:Thing, pizza:DomainConcept, pizza:Food,</text>
+<text class="pre" x="664" y="565">pizza:Pizza and pizza:PizzaTopping so the tree lands on something useful.</text>
+
+<circle cx="190" cy="610" r="12" fill="#0F6CBD"/><text class="num" x="190" y="614" text-anchor="middle">9</text>
+<rect class="step" x="210" y="588" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="616">renderLegend()</text>
+<text class="pre" x="664" y="613">Requires KIND_META. Emits one legend item per Entity kind, plus the pinned</text>
+<text class="pre" x="664" y="628">swatch and the plus-n gloss; colour comes from the token in KIND_META.colour.</text>
+
+<circle cx="190" cy="666" r="12" fill="#0F6CBD"/><text class="num" x="190" y="670" text-anchor="middle">10</text>
+<rect class="step" x="210" y="644" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="672">renderTree()</text>
+<text class="pre" x="664" y="669">Requires the TBox and UI.expanded. Renders only open rows, so the cost is</text>
+<text class="pre" x="664" y="684">proportional to what is visible rather than to the class count.</text>
+
+<circle cx="190" cy="722" r="12" fill="#0F6CBD"/><text class="num" x="190" y="726" text-anchor="middle">11</text>
+<rect class="step" x="210" y="700" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="728">renderTableHead()</text>
+<text class="pre" x="664" y="725">Requires COLS only. Writes the --cols grid template that the header and</text>
+<text class="pre" x="664" y="740">every row share, so columns cannot drift apart.</text>
+
+<circle cx="190" cy="778" r="12" fill="#0F6CBD"/><text class="num" x="190" y="782" text-anchor="middle">12</text>
+<rect class="step" x="210" y="756" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="784">populateFilterOptions()</text>
+<circle cx="650" cy="778" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="774">Requires store.byType, which only exists after generateIndividuals(). Builds</text>
+<text class="pre" x="664" y="789">the type and branch option lists with their per-type counts.</text>
+
+<circle cx="190" cy="834" r="12" fill="#0F6CBD"/><text class="num" x="190" y="838" text-anchor="middle">13</text>
+<rect class="step" x="210" y="812" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="840">applyFilters()</text>
+<text class="pre" x="664" y="837">Requires renderTableHead() and the populated selects. Produces TBL.rows and</text>
+<text class="pre" x="664" y="852">calls renderTableRows() for the visible window only.</text>
+
+<circle cx="190" cy="890" r="12" fill="#0F6CBD"/><text class="num" x="190" y="894" text-anchor="middle">14</text>
+<rect class="step" x="210" y="868" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="896">renderInspector()</text>
+<text class="pre" x="664" y="893">UI.selection is still null at this point, so the empty state renders. Proving</text>
+<text class="pre" x="664" y="908">the empty state on boot is deliberate, not incidental.</text>
+
+<circle cx="190" cy="946" r="12" fill="#0F6CBD"/><text class="num" x="190" y="950" text-anchor="middle">15</text>
+<rect class="step" x="210" y="924" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="952">updateStoreUI()</text>
+<text class="pre" x="664" y="949">Requires the Store. Writes the status-bar triple, class and individual counts;</text>
+<text class="pre" x="664" y="964">tripleCount() counts generated triples rather than materialising them.</text>
+
+<circle cx="190" cy="1002" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1006" text-anchor="middle">16</text>
+<rect class="step" x="210" y="980" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1008">wire()</text>
+<circle cx="650" cy="1002" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="998">Requires every element wire() addresses to exist, which is why it follows the</text>
+<text class="pre" x="664" y="1013">first paint rather than preceding it. Binds pointer, keyboard and splitter handlers.</text>
+
+<circle cx="190" cy="1058" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1062" text-anchor="middle">17</text>
+<rect class="step" x="210" y="1036" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1064">seedView([pizza:Pizza])</text>
+<circle cx="650" cy="1058" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="1054">Requires the adjacency index and a sized canvas. Clears the view, sets the</text>
+<text class="pre" x="664" y="1069">focus set, admits the seed, expands it, then calls relayout() and fitView().</text>
+
+<circle cx="190" cy="1114" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1118" text-anchor="middle">18</text>
+<rect class="step" x="210" y="1092" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1120">expandNode(pizza:NamedPizza, 30)</text>
+<text class="pre" x="664" y="1110">Requires pizza:NamedPizza to be in the view already, which the seed expansion</text>
+<text class="pre" x="664" y="1125">guarantees. The explicit cap of 30 keeps the first frame well inside the budget.</text>
+
+<circle cx="190" cy="1170" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1174" text-anchor="middle">19</text>
+<rect class="step" x="210" y="1148" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1176">relayout({ fresh: true })</text>
+<text class="pre" x="664" y="1166">Re-run after the expansion so the layout sees the final node set. fresh forces</text>
+<text class="pre" x="664" y="1181">deterministic phyllotaxis seeding rather than resuming from the old positions.</text>
+
+<circle cx="190" cy="1226" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1230" text-anchor="middle">20</text>
+<rect class="step" x="210" y="1204" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1232">fitView()</text>
+<circle cx="650" cy="1226" r="4" fill="#0F6CBD"/>
+<text class="hard" x="664" y="1222">Requires canvasEl.clientWidth to be non-zero, so it must follow layout on a</text>
+<text class="pre" x="664" y="1237">canvas that has been laid out. Clamps scale to the range 0.05 to 1.9.</text>
+
+<circle cx="190" cy="1282" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1286" text-anchor="middle">21</text>
+<rect class="step" x="210" y="1260" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1288">selectEntity(pizza:Pizza)</text>
+<text class="pre" x="664" y="1278">Populates the inspector, marks the tree row, and writes the status-bar selection</text>
+<text class="pre" x="664" y="1293">field. See Figure 5 for the full bus.</text>
+
+<circle cx="190" cy="1338" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1342" text-anchor="middle">22</text>
+<rect class="step" x="210" y="1316" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1344">updateBudgetUI()</text>
+<text class="pre" x="664" y="1334">Requires G to be in its final boot state. Writes the meter width and its near</text>
+<text class="pre" x="664" y="1349">and full states, the in-view counts, the zoom, and the empty-state visibility.</text>
+
+<circle cx="190" cy="1394" r="12" fill="#0F6CBD"/><text class="num" x="190" y="1398" text-anchor="middle">23</text>
+<rect class="step" x="210" y="1372" width="420" height="44" rx="4"/>
+<text class="mn" x="226" y="1400">requestAnimationFrame(frame)</text>
+<text class="pre" x="664" y="1390">Starts the loop: frame() calls stepLayout() then draw(), and re-schedules itself</text>
+<text class="pre" x="664" y="1405">for the life of the window. stepLayout() relayouts only when layoutKey() changes.</text>
+
+<text class="cap" x="32" y="1450">Figure 2 · Boot sequence. Illustrates 10-architecture.md, “Start-up order”, and 60-implementation-plan.md, “Phase gates”. [src: init()]</text>
+<text class="cap" x="32" y="1470">The order is load-bearing: the Store is complete before any Surface paints, every Surface has painted before wire() binds to it, and the first view is seeded only once the canvas has a size.</text>
+</svg>

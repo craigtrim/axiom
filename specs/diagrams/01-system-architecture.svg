@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 940" width="1280" height="940" role="img" aria-labelledby="fig1-title fig1-desc">
+<title id="fig1-title">Figure 1 — Axiom module architecture</title>
+<desc id="fig1-desc">Four layered bands — Data, Graph, Surfaces and Chrome — each holding four module blocks, with dependency arrows running from a dependant module to the module it depends on. The Data band holds the Store, the TBox builder, the ABox generator, the adjacency index and the resolver. The Graph band holds the viewport, the layout engines, the renderer and export. The Surfaces band holds the class tree, the inspector, the individuals table and the SPARQL console. The Chrome band holds the selection bus, notifications, input wiring and the boot loop.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .band{font-size:12px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .bt{font-size:13px;font-weight:600;fill:#1B1B1B}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .el{font-size:11px;fill:#5A5A5A}
+  .ela{font-size:11px;fill:#0F6CBD}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .bandbox{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .edge{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+  .edgea{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+  .edged{stroke:#0F6CBD;stroke-width:1.5;fill:none;stroke-dasharray:6 4}
+</style>
+<rect width="1280" height="940" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 1</text>
+<text class="title" x="32" y="58">Axiom module architecture</text>
+<text class="sub" x="32" y="80">Modules taken from the section banners of the reference implementation. An arrow points from the dependant to what it depends on.</text>
+
+<rect class="bandbox" x="32" y="100" width="1208" height="182" rx="8"/>
+<text class="band" x="44" y="126">DATA</text>
+<rect class="card" x="150" y="136" width="252" height="128" rx="8"/>
+<text class="bt" x="164" y="160">Store</text>
+<text class="mn" x="164" y="182">store.ent   iri to entity</text>
+<text class="mn" x="164" y="198">store.tbox  materialised triples</text>
+<text class="mn" x="164" y="214">store.inds  compact records</text>
+<text class="mn" x="164" y="230">store.indIndex / store.byType</text>
+<text class="mn" x="164" y="246">store.customers / store.rbox</text>
+<rect class="card" x="424" y="136" width="252" height="58" rx="8"/>
+<text class="bt" x="438" y="160">TBox builder</text>
+<text class="mn" x="438" y="180">buildTBox() CLASS_SPEC addEntity()</text>
+<rect class="card" x="424" y="206" width="252" height="58" rx="8"/>
+<text class="bt" x="438" y="230">ABox generator</text>
+<text class="mn" x="438" y="250">generateIndividuals() rnd() LCG</text>
+<rect class="card" x="698" y="136" width="252" height="100" rx="8"/>
+<text class="bt" x="712" y="160">Adjacency</text>
+<text class="mn" x="712" y="182">neighboursOf()  cap 4000</text>
+<text class="mn" x="712" y="198">buildReverseIndex()</text>
+<text class="mn" x="712" y="214">customerIndex()  versioned</text>
+<rect class="card" x="972" y="136" width="252" height="100" rx="8"/>
+<text class="bt" x="986" y="160">Resolver and counts</text>
+<text class="mn" x="986" y="182">resolve() labelOf() kindOf()</text>
+<text class="mn" x="986" y="198">tripleCount() classCount()</text>
+<text class="mn" x="986" y="214">shorten() localName() humanise()</text>
+<path class="edge" marker-end="url(#ar)" d="M424 165 L404 165"/>
+<path class="edge" marker-end="url(#ar)" d="M424 235 L404 235"/>
+<path class="edge" d="M824 236 L824 252"/>
+<path class="edge" d="M1098 236 L1098 252"/>
+<path class="edge" marker-end="url(#ar)" d="M1098 252 L404 252"/>
+<text class="el" x="600" y="248">read-only access to the Store</text>
+
+<rect class="bandbox" x="32" y="326" width="1208" height="170" rx="8"/>
+<text class="band" x="44" y="352">GRAPH</text>
+<rect class="card" x="150" y="362" width="252" height="100" rx="8"/>
+<text class="bt" x="164" y="386">Viewport and budget</text>
+<text class="mn" x="164" y="408">G  addToView()  evictionOrder()</text>
+<text class="mn" x="164" y="424">expandNode() collapseNode()</text>
+<text class="mn" x="164" y="440">seedView() removeFromView()</text>
+<rect class="card" x="424" y="362" width="252" height="100" rx="8"/>
+<text class="bt" x="438" y="386">Layout engines</text>
+<text class="mn" x="438" y="408">chooseLayout() relayout()</text>
+<text class="mn" x="438" y="424">layoutForce() layoutHierarchy()</text>
+<text class="mn" x="438" y="440">layoutRadial() layoutGrid()</text>
+<rect class="card" x="698" y="362" width="252" height="100" rx="8"/>
+<text class="bt" x="712" y="386">Renderer</text>
+<text class="mn" x="712" y="408">renderScene() placeLabels()</text>
+<text class="mn" x="712" y="424">nodePath() drawMinimap()</text>
+<text class="mn" x="712" y="440">reads G.nodes and G.edges</text>
+<rect class="card" x="972" y="362" width="252" height="100" rx="8"/>
+<text class="bt" x="986" y="386">Export</text>
+<text class="mn" x="986" y="408">renderExportCanvas()</text>
+<text class="mn" x="986" y="424">drawExportChrome()</text>
+<text class="mn" x="986" y="440">exportPNG() exportSVG()</text>
+<path class="edge" marker-end="url(#ar)" d="M424 412 L404 412"/>
+<path class="edge" marker-end="url(#ar)" d="M698 412 L678 412"/>
+<path class="edge" marker-end="url(#ar)" d="M972 412 L952 412"/>
+<path class="edgea" marker-end="url(#ara)" d="M276 362 L276 304 L824 304 L824 240"/>
+<text class="ela" x="440" y="299">neighboursOf() — degree, edges and expansion candidates</text>
+
+<rect class="bandbox" x="32" y="540" width="1208" height="154" rx="8"/>
+<text class="band" x="44" y="566">SURFACES</text>
+<rect class="card" x="150" y="572" width="252" height="94" rx="8"/>
+<text class="bt" x="164" y="596">Class / property tree</text>
+<text class="mn" x="164" y="618">renderTree() treeChildren()</text>
+<text class="mn" x="164" y="634">computeFilter() beginRename()</text>
+<text class="mn" x="164" y="650">subtreeSize() toggleTreeNode()</text>
+<rect class="card" x="424" y="572" width="252" height="94" rx="8"/>
+<text class="bt" x="438" y="596">Entity inspector</text>
+<text class="mn" x="438" y="618">renderInspector() section()</text>
+<text class="mn" x="438" y="634">axiom() entityLink()</text>
+<text class="mn" x="438" y="650">revealInGraph()</text>
+<rect class="card" x="698" y="572" width="252" height="94" rx="8"/>
+<text class="bt" x="712" y="596">Individuals table</text>
+<text class="mn" x="712" y="618">applyFilters() renderTableRows()</text>
+<text class="mn" x="712" y="634">beginCellEdit() commitCell()</text>
+<text class="mn" x="712" y="650">virtualised, ROW_H 32</text>
+<rect class="card" x="972" y="572" width="252" height="94" rx="8"/>
+<text class="bt" x="986" y="596">SPARQL console</text>
+<text class="mn" x="986" y="618">tokenize() parseQuery()</text>
+<text class="mn" x="986" y="634">evaluate() scan() runQuery()</text>
+<text class="mn" x="986" y="650">highlight() renderQueryResults()</text>
+<path class="edgea" d="M550 572 L550 518"/>
+<path class="edgea" d="M824 572 L824 518"/>
+<path class="edgea" d="M1098 572 L1098 518"/>
+<path class="edgea" d="M276 572 L276 518"/>
+<path class="edgea" marker-end="url(#ara)" d="M1098 518 L276 518 L276 464"/>
+<text class="ela" x="592" y="513">seedView() · addToView() · revealInGraph()</text>
+<path class="edged" d="M276 666 L276 686"/>
+<path class="edged" d="M550 666 L550 686"/>
+<path class="edged" d="M824 666 L824 686"/>
+<path class="edged" d="M1098 666 L1098 686"/>
+<path class="edged" marker-end="url(#ara)" d="M1098 686 L112 686 L112 176 L146 176"/>
+<text class="ela" x="600" y="681">every Surface reads the Store directly — none of them copies it</text>
+
+<rect class="bandbox" x="32" y="738" width="1208" height="154" rx="8"/>
+<text class="band" x="44" y="764">CHROME</text>
+<rect class="card" x="150" y="770" width="252" height="94" rx="8"/>
+<text class="bt" x="164" y="794">Selection bus</text>
+<text class="mn" x="164" y="816">selectEntity(iri, opts)</text>
+<text class="mn" x="164" y="832">UI.selection  UI.expanded</text>
+<text class="mn" x="164" y="848">one writer, four readers</text>
+<rect class="card" x="424" y="770" width="252" height="94" rx="8"/>
+<text class="bt" x="438" y="794">Notifications and flyouts</text>
+<text class="mn" x="438" y="816">showToast() reportView()</text>
+<text class="mn" x="438" y="832">openMenu() closeMenus()</text>
+<text class="mn" x="438" y="848">openDialog() setTheme()</text>
+<rect class="card" x="698" y="770" width="252" height="94" rx="8"/>
+<text class="bt" x="712" y="794">Input wiring</text>
+<text class="mn" x="712" y="816">wire() wireCanvas() hitTest()</text>
+<text class="mn" x="712" y="832">wireSplitter() wireGlobalSearch()</text>
+<text class="mn" x="712" y="848">pointer and keyboard handlers</text>
+<rect class="card" x="972" y="770" width="252" height="94" rx="8"/>
+<text class="bt" x="986" y="794">Boot and frame loop</text>
+<text class="mn" x="986" y="816">init()  see Figure 2</text>
+<text class="mn" x="986" y="832">frame() requestAnimationFrame</text>
+<text class="mn" x="986" y="848">stepLayout() then draw()</text>
+<path class="edge" marker-end="url(#ar)" d="M250 770 L250 670"/>
+<path class="edge" marker-end="url(#ar)" d="M330 770 L330 722 L550 722 L550 670"/>
+<path class="edge" marker-end="url(#ar)" d="M698 800 L678 800"/>
+<path class="edge" marker-end="url(#ar)" d="M972 800 L952 800"/>
+<path class="edge" marker-end="url(#ar)" d="M150 806 L90 806 L90 412 L146 412"/>
+<text class="el" x="360" y="718">renders the inspector</text>
+<path class="edge" marker-end="url(#ar)" d="M1098 770 L1098 716 L1258 716 L1258 344 L824 344 L824 358"/>
+<text class="el" x="850" y="340">frame loop drives stepLayout() then draw()</text>
+
+<text class="cap" x="32" y="918">Figure 1 · Module architecture. Illustrates 10-architecture.md, “Module map” and “Dependency rules”. Module names follow the source section banners; identifiers are verbatim. The band order is a strict dependency order — nothing in Data references anything above it.</text>
+</svg>

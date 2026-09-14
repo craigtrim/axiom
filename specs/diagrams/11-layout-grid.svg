@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 990" width="1280" height="990" role="img" aria-labelledby="fig11-title fig11-desc">
+<title id="fig11-title">Figure 11 — Cluster grid layout: type-clustered blocks with frames and titles</title>
+<desc id="fig11-desc">Five blocks packed left to right and wrapped into two rows. Each block groups the nodes that share a key — the type of a generated individual, the first parent of a class, or the entity kind — sorted by label and packed into a square-ish grid of thirty-six pixel cells. Every block carries a rounded frame, a title and a count. Dimension brackets mark the cell pitch, the twelve pixel inset, the thirty-six pixel title band, the forty pixel gap between blocks and the forty-eight pixel gap between rows.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .bt{font-size:12px;font-weight:600;fill:#1B1B1B}
+  .bc{font-size:11px;fill:#5A5A5A}
+  .dim{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#0F6CBD}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .canvas{fill:#F7F7F9;stroke:#C4C4C4;stroke-width:1.5}
+  .frame{fill:none;stroke:#E1E1E1;stroke-width:1.5}
+  .dl{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+</style>
+<rect width="1280" height="990" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 11</text>
+<text class="title" x="32" y="58">Cluster grid — one block per type, drawn at true scale</text>
+<text class="sub" x="32" y="80">Eighty-five nodes in five blocks. When a thousand individuals of one class arrive, relaxation is just noise; alignment is not. Every dimension shown is the literal constant.</text>
+
+<rect class="canvas" x="32" y="104" width="800" height="596" rx="8"/>
+
+<rect class="frame" x="60" y="180" width="348" height="226" rx="10"/>
+<rect class="frame" x="448" y="180" width="276" height="190" rx="10"/>
+<rect class="frame" x="60" y="454" width="204" height="154" rx="10"/>
+<rect class="frame" x="304" y="454" width="168" height="118" rx="10"/>
+<rect class="frame" x="512" y="454" width="132" height="82" rx="10"/>
+
+<text class="bt" x="72" y="202">Margherita</text><text class="bc" x="186" y="202">40</text>
+<text class="bt" x="460" y="202">Mushroom</text><text class="bc" x="568" y="202">24</text>
+<text class="bt" x="72" y="476">American</text><text class="bc" x="178" y="476">12</text>
+<text class="bt" x="316" y="476">Cheese Topping</text><text class="bc" x="454" y="476">6</text>
+<text class="bt" x="524" y="476">Object property</text><text class="bc" x="662" y="476">3</text>
+
+<circle cx="90" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="270" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="306" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="342" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="378" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="270" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="306" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="342" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="378" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="270" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="306" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="342" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="378" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="270" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="306" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="342" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="378" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="378" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="378" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="378" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="378" r="6.5" fill="#0E7C66"/>
+<circle cx="478" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="514" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="550" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="586" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="622" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="658" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="694" cy="234" r="6.5" fill="#0E7C66"/>
+<circle cx="478" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="514" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="550" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="586" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="622" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="658" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="694" cy="270" r="6.5" fill="#0E7C66"/>
+<circle cx="478" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="514" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="550" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="586" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="622" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="658" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="694" cy="306" r="6.5" fill="#0E7C66"/>
+<circle cx="478" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="514" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="550" cy="342" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="508" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="508" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="508" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="508" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="508" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="544" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="544" r="6.5" fill="#0E7C66"/>
+<circle cx="162" cy="544" r="6.5" fill="#0E7C66"/>
+<circle cx="198" cy="544" r="6.5" fill="#0E7C66"/>
+<circle cx="234" cy="544" r="6.5" fill="#0E7C66"/>
+<circle cx="90" cy="580" r="6.5" fill="#0E7C66"/>
+<circle cx="126" cy="580" r="6.5" fill="#0E7C66"/>
+<rect x="326" y="500" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<rect x="362" y="500" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<rect x="398" y="500" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<rect x="434" y="500" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<rect x="326" y="536" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<rect x="362" y="536" width="16" height="16" rx="4" fill="#0F6CBD"/>
+<polygon points="542,499 551,508 542,517 533,508" fill="#7A46C0"/>
+<polygon points="578,499 587,508 578,517 569,508" fill="#7A46C0"/>
+<polygon points="614,499 623,508 614,517 605,508" fill="#7A46C0"/>
+
+<path class="dl" d="M90 218 L90 210 M126 218 L126 210 M90 214 L126 214"/>
+<text class="dim" x="132" y="218">CELL_G = 36</text>
+<path class="dl" d="M60 396 L60 388 M72 396 L72 388 M60 392 L72 392"/>
+<text class="dim" x="78" y="396">12 inset</text>
+<path class="dl" d="M52 180 L44 180 M52 216 L44 216 M48 180 L48 216"/>
+<text class="dim" x="36" y="200" text-anchor="end">36</text>
+<path class="dl" d="M408 172 L408 164 M448 172 L448 164 M408 168 L448 168"/>
+<text class="dim" x="428" y="160" text-anchor="middle">40 between blocks</text>
+<path class="dl" d="M52 406 L44 406 M52 454 L44 454 M48 406 L48 454"/>
+<text class="dim" x="36" y="434" text-anchor="end">48</text>
+<path class="dl" d="M644 490 L662 490 L662 470"/>
+<text class="dim" x="672" y="494">count sits 46 past the title,</text>
+<text class="dim" x="672" y="510">so on a narrow block it falls</text>
+<text class="dim" x="672" y="526">outside the frame — by design</text>
+<path class="dl" d="M724 384 L740 384"/>
+<text class="dim" x="746" y="388">targetW = 703 forced the wrap</text>
+
+<text class="lab" x="60" y="656">BLOCK ORDER IS DESCENDING NODE COUNT — 40, 24, 12, 6, 3 — SO THE LARGEST CLUSTER ANCHORS THE TOP-LEFT AND THE PACKING DEGRADES GRACEFULLY</text>
+<text class="lab" x="60" y="676">NODES WITHIN A BLOCK ARE SORTED BY LABEL, SO THE SAME VIEW ALWAYS PRODUCES THE SAME GRID</text>
+
+<rect class="card" x="848" y="104" width="400" height="200" rx="8"/>
+<text class="h" x="868" y="132">The grouping key</text>
+<text class="mns" x="868" y="154">keyOf(n), in order:</text>
+<text class="mn" x="868" y="176">1  store.indIndex.get(iri) → rec.type</text>
+<text class="mn" x="868" y="194">2  kind === individual → demo:Customer</text>
+<text class="mn" x="868" y="212">3  entity.parents[0]</text>
+<text class="mn" x="868" y="230">4  'kind:' + n.kind</text>
+<text class="ps" x="868" y="254">A generated order clusters by its pizza type; a class</text>
+<text class="ps" x="868" y="272">clusters under its parent; anything left clusters by</text>
+<text class="ps" x="868" y="290">kind, and takes its title from KIND_META.</text>
+
+<rect class="card" x="848" y="320" width="400" height="210" rx="8"/>
+<text class="h" x="868" y="348">Block geometry</text>
+<text class="mn" x="868" y="372">cols = max(1, ceil(sqrt(n × 1.8)))</text>
+<text class="mn" x="868" y="390">rows = ceil(n / cols)</text>
+<text class="mn" x="868" y="408">w = cols × 36 + 24 · h = rows × 36 + 46</text>
+<text class="ps" x="868" y="432">The 1.8 factor makes a block wider than tall, which</text>
+<text class="ps" x="868" y="450">reads better in a landscape viewport than a square.</text>
+<text class="mns" x="868" y="474">40 nodes → cols 9, rows 5, 348 × 226</text>
+<text class="mns" x="868" y="492">24 nodes → cols 7, rows 4, 276 × 190</text>
+<text class="mns" x="868" y="510">3 nodes  → cols 3, rows 1, 132 × 82</text>
+
+<rect class="card" x="848" y="546" width="400" height="188" rx="8"/>
+<text class="h" x="868" y="574">Packing the blocks</text>
+<text class="mn" x="868" y="598">targetW = max(700, sqrt(Σ w×h) × 1.6)</text>
+<text class="ps" x="868" y="622">The target width follows the total area, so a view with</text>
+<text class="ps" x="868" y="640">one huge block does not become a single endless row.</text>
+<text class="mns" x="868" y="664">Σ area = 193,152 → sqrt = 439 → targetW = 703</text>
+<text class="ps" x="868" y="688">Blocks flow left to right; a block that would cross</text>
+<text class="ps" x="868" y="706">targetW starts a new row 48 below the tallest block</text>
+<text class="ps" x="868" y="724">in the row it just left.</text>
+
+<rect class="card" x="848" y="750" width="400" height="178" rx="8"/>
+<text class="h" x="868" y="778">Frames and titles</text>
+<text class="ps" x="868" y="800">Frames are drawn in world space with roundRect radius 10</text>
+<text class="ps" x="868" y="818">and the --stroke token, so they scale with the zoom.</text>
+<text class="ps" x="868" y="840">Titles are drawn in screen space at a fixed 12px, offset</text>
+<text class="ps" x="868" y="858">(+12, +22) from the block origin, and suppressed entirely</text>
+<text class="ps" x="868" y="876">below 22% zoom where they would be unreadable anyway.</text>
+<text class="mns" x="868" y="900">G.groupBlocks holds x, y, w, h, label and count after</text>
+<text class="mns" x="868" y="918">centreNodes() has shifted everything.</text>
+
+<rect class="card" x="32" y="716" width="800" height="212" rx="8"/>
+<text class="h" x="52" y="744">Why alignment beats relaxation here</text>
+<text class="p" x="52" y="770">chooseLayout() reaches grid on two tests: more than 300 nodes where over 55% of the edges are rdf:type,</text>
+<text class="p" x="52" y="788">or more than 500 nodes regardless of shape. Both describe the same situation — a wall of instances.</text>
+<text class="ps" x="52" y="816">A force simulation over a thousand instances of one class produces a disc. Every node has the same degree,</text>
+<text class="ps" x="52" y="834">the same single edge to the same parent, and the same charge, so the simulation has no information to</text>
+<text class="ps" x="52" y="852">separate them with. The result costs a second of CPU and tells the reader nothing they did not already know.</text>
+<text class="ps" x="52" y="878">A grid tells them the count at a glance, groups by type without a legend, sorts by label so a specific row</text>
+<text class="ps" x="52" y="896">can be found by eye, and is deterministic — the same query always lands the same node in the same cell.</text>
+<text class="mns" x="52" y="918">Velocities are zeroed and the layout is computed once, so the freeze control is disabled and says why.</text>
+
+<text class="cap" x="32" y="962">Figure 11 · Cluster grid layout. Illustrates 21-layout-algorithms.md, “Cluster grid”, and 20-graph-viewport-and-budget.md, “Layout selection”. [src: layoutGrid(), chooseLayout(), renderScene() group pass]</text>
+</svg>

@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 880" width="1280" height="880" role="img" aria-labelledby="fig5-title fig5-desc">
+<title id="fig5-title">Figure 5 — The selection bus</title>
+<desc id="fig5-desc">selectEntity sits at the centre. Seven producers surround it — the class tree, the create dialogs, the graph canvas, global search, the individuals table, the SPARQL console and the inspector's own axiom links — each with an arrow labelled by the interaction that triggers it. Three outbound arrows carry the effect: the inspector is rebuilt, the tree row is marked, the status bar selection field is written, and the graph's selected node is set.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .ct{font-size:13px;font-weight:600;fill:#1B1B1B}
+  .kind{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .hubid{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:14px;font-weight:600;fill:#1B1B1B}
+  .tagin{font-size:11px;font-weight:600;fill:#0F6CBD}
+  .tagout{font-size:11px;font-weight:600;fill:#5A5A5A}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .hub{fill:#EFF6FC;stroke:#0F6CBD;stroke-width:1.5}
+  .rdr{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .in{stroke:#0F6CBD;stroke-width:1.5;fill:none}
+  .out{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="880" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 5</text>
+<text class="title" x="32" y="58">The selection bus — one writer, four Surfaces and the inspector</text>
+<text class="sub" x="32" y="80">Blue arrows call selectEntity(); grey arrows are what it does in return. No Surface ever writes another Surface's selection state directly.</text>
+
+<rect class="card" x="60" y="140" width="320" height="140" rx="8"/>
+<text class="kind" x="76" y="164">SURFACE 1</text>
+<text class="ct" x="76" y="184">Class / property tree</text>
+<text class="mn" x="76" y="206">click a row → selectEntity(iri)</text>
+<text class="mn" x="76" y="222">ArrowUp / ArrowDown → selectEntity(iri)</text>
+<text class="mn" x="76" y="238">dblclick → selectEntity(iri, {reveal:true})</text>
+<text class="mn" x="76" y="254">Enter → selectEntity(iri, {reveal:true})</text>
+<text class="mns" x="76" y="270">a twisty click toggles only; it never selects</text>
+
+<rect class="card" x="60" y="380" width="320" height="140" rx="8"/>
+<text class="kind" x="76" y="404">AUTHORING</text>
+<text class="ct" x="76" y="424">Create dialogs</text>
+<text class="mn" x="76" y="446">newClassDialog() on commit →</text>
+<text class="mn" x="76" y="462">  selectEntity(iri, {reveal:true})</text>
+<text class="mn" x="76" y="478">newIndividualDialog() on commit →</text>
+<text class="mn" x="76" y="494">  selectEntity(iri, {reveal:true})</text>
+<text class="mns" x="76" y="510">a new entity always lands in the graph</text>
+
+<rect class="card" x="60" y="620" width="320" height="150" rx="8"/>
+<text class="kind" x="76" y="644">SURFACE 2</text>
+<text class="ct" x="76" y="664">Graph canvas</text>
+<text class="mn" x="76" y="686">mouseup without drag → selectEntity(iri)</text>
+<text class="mn" x="76" y="702">contextmenu → selectEntity(iri), then menu</text>
+<text class="mn" x="76" y="718">drag then release → no selection change</text>
+<text class="mn" x="76" y="734">click empty canvas → G.selected = null</text>
+<text class="mns" x="76" y="754">never passes reveal — the node is already in view</text>
+
+<rect class="card" x="470" y="140" width="340" height="96" rx="8"/>
+<text class="kind" x="486" y="164">CHROME</text>
+<text class="ct" x="486" y="184">Global search (Ctrl+F)</text>
+<text class="mn" x="486" y="206">click a hit → selectEntity(iri, {reveal:true})</text>
+<text class="mn" x="486" y="222">Enter → the first hit, revealed</text>
+
+<rect class="card" x="900" y="140" width="320" height="140" rx="8"/>
+<text class="kind" x="916" y="164">SURFACE 3</text>
+<text class="ct" x="916" y="184">Individuals table</text>
+<text class="mn" x="916" y="206">click a row → selectEntity(iri)</text>
+<text class="mn" x="916" y="222">dblclick a row →</text>
+<text class="mn" x="916" y="238">  selectEntity(iri, {reveal:true})</text>
+<text class="mns" x="916" y="258">a click on an editable cell selects the row</text>
+<text class="mns" x="916" y="272">and starts the editor in the same gesture</text>
+
+<rect class="card" x="900" y="620" width="320" height="150" rx="8"/>
+<text class="kind" x="916" y="644">SURFACE 4</text>
+<text class="ct" x="916" y="664">SPARQL console</text>
+<text class="mn" x="916" y="686">click an IRI cell →</text>
+<text class="mn" x="916" y="702">  selectEntity(iri, {reveal:true})</text>
+<text class="mns" x="916" y="722">literal cells are not links — there is no</text>
+<text class="mns" x="916" y="736">entity behind them to select</text>
+<text class="mns" x="916" y="754">Send results to graph bypasses the bus</text>
+
+<rect class="rdr" x="900" y="380" width="320" height="140" rx="8"/>
+<text class="kind" x="916" y="404">READER</text>
+<text class="ct" x="916" y="424">Status bar</text>
+<text class="mn" x="916" y="450">#stSelection ←</text>
+<text class="mn" x="916" y="466">  KIND_META[e.kind].label</text>
+<text class="mn" x="916" y="482">  + ' · ' + labelOf(u)</text>
+<text class="mns" x="916" y="502">falls back to “No selection” when resolve() misses</text>
+
+<rect class="card" x="470" y="620" width="340" height="160" rx="8"/>
+<text class="kind" x="486" y="644">READER AND PRODUCER</text>
+<text class="ct" x="486" y="664">Entity inspector</text>
+<text class="mns" x="486" y="686">read: renderInspector() rebuilds the whole panel</text>
+<text class="mns" x="486" y="702">from resolve(UI.selection) — no diffing, no state</text>
+<text class="mn" x="486" y="726">write: click an axiom link →</text>
+<text class="mn" x="486" y="742">  selectEntity(iri)   — no reveal</text>
+<text class="mns" x="486" y="762">Reveal in graph is a separate toolbar action</text>
+
+<rect class="hub" x="470" y="380" width="340" height="140" rx="8"/>
+<text class="hubid" x="486" y="406">selectEntity(u, opts)</text>
+<text class="mn" x="486" y="428">UI.selection = u</text>
+<text class="mn" x="486" y="444">G.selected = u   only if G.nodes.has(u)</text>
+<text class="mns" x="486" y="466">then, unconditionally:</text>
+<text class="mn" x="486" y="484">renderInspector() · renderTreeSelection()</text>
+<text class="mn" x="486" y="500">$('stSelection').textContent = …</text>
+<text class="mn" x="486" y="514">if (opts.reveal) revealInGraph(u)</text>
+
+<path class="in" marker-end="url(#ara)" d="M380 180 L440 180 L440 400 L466 400"/>
+<text class="tagin" x="448" y="300">select · reveal</text>
+<path class="in" marker-end="url(#ara)" d="M380 450 L466 450"/>
+<text class="tagin" x="392" y="442">reveal</text>
+<path class="in" marker-end="url(#ara)" d="M380 690 L415 690 L415 495 L466 495"/>
+<text class="tagin" x="423" y="600">select</text>
+<path class="in" marker-end="url(#ara)" d="M640 236 L640 376"/>
+<text class="tagin" x="650" y="320">reveal</text>
+<path class="in" marker-end="url(#ara)" d="M900 180 L840 180 L840 400 L814 400"/>
+<text class="tagin" x="832" y="300" text-anchor="end">select · reveal</text>
+<path class="in" marker-end="url(#ara)" d="M900 690 L865 690 L865 495 L814 495"/>
+<text class="tagin" x="857" y="600" text-anchor="end">reveal</text>
+<path class="in" marker-end="url(#ara)" d="M470 660 L435 660 L435 470 L466 470"/>
+<text class="tagin" x="380" y="560">axiom link → select</text>
+
+<path class="out" marker-end="url(#ar)" d="M640 520 L640 616"/>
+<text class="tagout" x="650" y="570">renderInspector()</text>
+<path class="out" marker-end="url(#ar)" d="M814 450 L896 450"/>
+<text class="tagout" x="822" y="442">writes</text>
+<path class="out" marker-end="url(#ar)" d="M500 380 L500 330 L170 330 L170 284"/>
+<text class="tagout" x="190" y="324">renderTreeSelection() — marks and scrolls the row</text>
+<path class="out" marker-end="url(#ar)" d="M540 520 L540 570 L200 570 L200 616"/>
+<text class="tagout" x="220" y="564">G.selected — draws the focus ring on the node</text>
+
+<text class="cap" x="32" y="830">Figure 5 · Selection bus. Illustrates 10-architecture.md, “The selection bus”, and 30-class-tree-and-inspector.md, “Selection contract”. [src: selectEntity(), wire(), wireCanvas(), revealInGraph()]</text>
+<text class="cap" x="32" y="850">The contract: a single-click selects, a double-click selects and reveals, and every Surface reaches the others only through this one function. Two crossings are drawn where routes must pass; neither is a connection.</text>
+</svg>

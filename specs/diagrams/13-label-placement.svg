@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960" role="img" aria-labelledby="fig13-title fig13-desc">
+<title id="fig13-title">Figure 13 — The greedy label collision pass</title>
+<desc id="fig13-desc">Ten nodes with their candidate labels. Labels are placed in descending priority order; each accepted label reserves a rectangle and any later candidate whose rectangle overlaps a reserved one is dropped rather than drawn. Two labels are dropped here. A table on the right gives every candidate's priority arithmetic and its outcome, and panels below describe the spatial hash used for the overlap test and the culling and truncation rules.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .nl{font-size:12.5px;font-weight:600;fill:#1B1B1B;text-anchor:middle}
+  .nli{font-size:11px;fill:#1B1B1B;text-anchor:middle}
+  .drop{font-size:12.5px;font-weight:600;fill:#8A8A8A;text-anchor:middle}
+  .dropi{font-size:11px;fill:#8A8A8A;text-anchor:middle}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11.5px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .ok{font-size:11px;font-weight:600;fill:#0E700E}
+  .no{font-size:11px;font-weight:600;fill:#B10E1C}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .canvas{fill:#F7F7F9;stroke:#C4C4C4;stroke-width:1.5}
+  .keep{fill:none;stroke:#0F6CBD;stroke-width:1.5}
+  .dr{fill:none;stroke:#B10E1C;stroke-width:1.5;stroke-dasharray:4 3}
+  .rowline{stroke:#EAEAEA;stroke-width:1}
+  .ed{stroke:#C4C4C4;stroke-width:1.5;fill:none}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .bk{fill:none;stroke:#E4E4EA;stroke-width:1.5}
+</style>
+<rect width="1280" height="960" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 13</text>
+<text class="title" x="32" y="58">Label placement — highest priority wins the space, the rest are simply not drawn</text>
+<text class="sub" x="32" y="80">Ten candidates, eight accepted, two dropped. Nothing is shrunk, nudged or leadered: a label that cannot be placed legibly is omitted, and zooming in reveals it.</text>
+
+<rect class="card" x="32" y="104" width="616" height="560" rx="8"/>
+<text class="h" x="52" y="132">The result on screen</text>
+<text class="ps" x="52" y="152">Blue rectangles are the reserved boxes; they are never painted in the product.</text>
+<rect class="canvas" x="48" y="160" width="584" height="488" rx="4"/>
+
+<path class="ed" d="M180 240 L380 250"/>
+<path class="ed" d="M380 250 L520 320"/>
+<path class="ed" d="M180 240 L140 380"/>
+<path class="ed" d="M380 250 L300 400"/>
+<path class="ed" d="M300 400 L370 400"/>
+<path class="ed" d="M520 320 L430 430"/>
+<path class="ed" d="M300 400 L520 470"/>
+<path class="ed" d="M300 400 L548 482"/>
+<path class="ed" d="M300 400 L500 505"/>
+
+<circle cx="180" cy="240" r="18" fill="none" stroke="#1B1B1B" stroke-width="1.8"/>
+<rect x="168" y="228" width="24" height="24" rx="5" fill="#0F6CBD"/>
+<rect class="keep" x="161" y="255" width="38" height="16" rx="2"/>
+<text class="nl" x="180" y="267">Pizza</text>
+
+<circle cx="380" cy="250" r="19" fill="none" stroke="#0F6CBD" stroke-width="2.5"/>
+<rect x="369" y="239" width="22" height="22" rx="5" fill="#0F6CBD"/>
+<rect class="keep" x="335" y="264" width="90" height="16" rx="2"/>
+<text class="nl" x="380" y="276">Pizza Topping</text>
+
+<rect x="510" y="310" width="21" height="21" rx="5" fill="#0F6CBD"/>
+<rect class="keep" x="479" y="333" width="82" height="16" rx="2"/>
+<text class="nl" x="520" y="345">Named Pizza</text>
+
+<rect x="130" y="370" width="20" height="20" rx="5" fill="#0F6CBD"/>
+<circle cx="132" cy="372" r="4.5" fill="#8A5200"/>
+<rect class="keep" x="91" y="392" width="98" height="16" rx="2"/>
+<text class="nl" x="140" y="404">Cheese Topping</text>
+
+<rect x="290" y="390" width="20" height="20" rx="5" fill="#B36A00"/>
+<path d="M296 400 L304 400 M300 396 L300 404" stroke="#F7F7F9" stroke-width="2"/>
+<rect class="keep" x="263" y="412" width="74" height="16" rx="2"/>
+<text class="nl" x="300" y="424">Margherita</text>
+
+<rect x="421" y="421" width="18" height="18" rx="5" fill="#0F6CBD"/>
+<rect class="keep" x="396" y="441" width="68" height="16" rx="2"/>
+<text class="nl" x="430" y="453">Mushroom</text>
+
+<rect x="361" y="391" width="18" height="18" rx="5" fill="#0F6CBD"/>
+<rect class="dr" x="334" y="411" width="72" height="16" rx="2"/>
+<text class="drop" x="370" y="423">Mozzarella</text>
+<text class="no" x="412" y="423">dropped</text>
+
+<circle cx="520" cy="470" r="6" fill="#0E7C66"/>
+<rect class="keep" x="486" y="478" width="68" height="16" rx="2"/>
+<text class="nli" x="520" y="490">AX-100042</text>
+
+<circle cx="548" cy="482" r="6" fill="#0E7C66"/>
+<rect class="dr" x="514" y="490" width="68" height="16" rx="2"/>
+<text class="dropi" x="548" y="502">AX-100043</text>
+<text class="no" x="590" y="502">dropped</text>
+
+<circle cx="500" cy="505" r="6" fill="#0E7C66"/>
+<rect class="keep" x="466" y="513" width="68" height="16" rx="2"/>
+<text class="nli" x="500" y="525">AX-100044</text>
+
+<text class="mns" x="64" y="580">rect = { x: sx − tw/2 − 3, y: sy − 2, w: tw + 6, h: 16 }</text>
+<text class="mns" x="64" y="598">sx = n.x × k + view.x   ·   sy = n.y × k + view.y + n.r × k + 4</text>
+<text class="ps" x="64" y="622">The label sits below the node by its own radius plus four, so it never covers the shape it names.</text>
+
+<rect class="card" x="664" y="104" width="584" height="560" rx="8"/>
+<text class="h" x="684" y="132">Candidates in priority order</text>
+<text class="mns" x="684" y="154">prio = (focus ? 4000) + (selected ? 3000) + (hovered ? 2000)</text>
+<text class="mns" x="684" y="170">     + (pinned ? 900) + n.r × 18 + n.shownDeg</text>
+
+<text class="lab" x="684" y="200">NODE</text>
+<text class="lab" x="880" y="200">STATE</text>
+<text class="lab" x="1010" y="200">r×18</text>
+<text class="lab" x="1072" y="200">deg</text>
+<text class="lab" x="1120" y="200">PRIO</text>
+<text class="lab" x="1190" y="200">RESULT</text>
+<path class="rowline" d="M684 208 L1228 208"/>
+
+<text class="p" x="684" y="230">Pizza</text><text class="ps" x="880" y="230">focus</text>
+<text class="mn" x="1010" y="230">234</text><text class="mn" x="1072" y="230">6</text><text class="mn" x="1120" y="230">4240</text><text class="ok" x="1190" y="230">drawn</text>
+<path class="rowline" d="M684 240 L1228 240"/>
+<text class="p" x="684" y="262">Pizza Topping</text><text class="ps" x="880" y="262">selected</text>
+<text class="mn" x="1010" y="262">216</text><text class="mn" x="1072" y="262">5</text><text class="mn" x="1120" y="262">3221</text><text class="ok" x="1190" y="262">drawn</text>
+<path class="rowline" d="M684 272 L1228 272"/>
+<text class="p" x="684" y="294">Named Pizza</text><text class="ps" x="880" y="294">hovered</text>
+<text class="mn" x="1010" y="294">198</text><text class="mn" x="1072" y="294">4</text><text class="mn" x="1120" y="294">2202</text><text class="ok" x="1190" y="294">drawn</text>
+<path class="rowline" d="M684 304 L1228 304"/>
+<text class="p" x="684" y="326">Cheese Topping</text><text class="ps" x="880" y="326">pinned</text>
+<text class="mn" x="1010" y="326">180</text><text class="mn" x="1072" y="326">3</text><text class="mn" x="1120" y="326">1083</text><text class="ok" x="1190" y="326">drawn</text>
+<path class="rowline" d="M684 336 L1228 336"/>
+<text class="p" x="684" y="358">Margherita</text><text class="ps" x="880" y="358">—</text>
+<text class="mn" x="1010" y="358">180</text><text class="mn" x="1072" y="358">3</text><text class="mn" x="1120" y="358">183</text><text class="ok" x="1190" y="358">drawn</text>
+<path class="rowline" d="M684 368 L1228 368"/>
+<text class="p" x="684" y="390">Mushroom</text><text class="ps" x="880" y="390">—</text>
+<text class="mn" x="1010" y="390">162</text><text class="mn" x="1072" y="390">2</text><text class="mn" x="1120" y="390">164</text><text class="ok" x="1190" y="390">drawn</text>
+<path class="rowline" d="M684 400 L1228 400"/>
+<rect x="676" y="400" width="552" height="32" fill="#FDF3F4"/>
+<text class="p" x="684" y="422">Mozzarella</text><text class="ps" x="880" y="422">—</text>
+<text class="mn" x="1010" y="422">162</text><text class="mn" x="1072" y="422">2</text><text class="mn" x="1120" y="422">164</text><text class="no" x="1190" y="422">dropped</text>
+<path class="rowline" d="M684 432 L1228 432"/>
+<text class="p" x="684" y="454">AX-100042</text><text class="ps" x="880" y="454">—</text>
+<text class="mn" x="1010" y="454">108</text><text class="mn" x="1072" y="454">1</text><text class="mn" x="1120" y="454">109</text><text class="ok" x="1190" y="454">drawn</text>
+<path class="rowline" d="M684 464 L1228 464"/>
+<rect x="676" y="464" width="552" height="32" fill="#FDF3F4"/>
+<text class="p" x="684" y="486">AX-100043</text><text class="ps" x="880" y="486">—</text>
+<text class="mn" x="1010" y="486">108</text><text class="mn" x="1072" y="486">1</text><text class="mn" x="1120" y="486">109</text><text class="no" x="1190" y="486">dropped</text>
+<path class="rowline" d="M684 496 L1228 496"/>
+<text class="p" x="684" y="518">AX-100044</text><text class="ps" x="880" y="518">—</text>
+<text class="mn" x="1010" y="518">108</text><text class="mn" x="1072" y="518">1</text><text class="mn" x="1120" y="518">109</text><text class="ok" x="1190" y="518">drawn</text>
+<path class="rowline" d="M684 528 L1228 528"/>
+
+<rect class="inner" x="684" y="544" width="544" height="102" rx="4"/>
+<text class="ps" x="698" y="566">Ties keep their sort order, so equal candidates resolve deterministically — the same view</text>
+<text class="ps" x="698" y="584">always drops the same labels, which matters for an export a reader will compare against another.</text>
+<text class="ps" x="698" y="608">Mozzarella loses to Margherita on the third term alone: identical state, identical radius, and</text>
+<text class="ps" x="698" y="626">one fewer in-view edge. AX-100043 loses to AX-100042 on position in the sorted array.</text>
+
+<rect class="card" x="32" y="680" width="616" height="212" rx="8"/>
+<text class="h" x="52" y="708">The overlap test — a 96px spatial hash</text>
+<rect class="bk" x="52" y="724" width="96" height="48"/>
+<rect class="bk" x="148" y="724" width="96" height="48"/>
+<rect class="bk" x="244" y="724" width="96" height="48"/>
+<rect class="bk" x="52" y="772" width="96" height="48"/>
+<rect class="bk" x="148" y="772" width="96" height="48"/>
+<rect class="bk" x="244" y="772" width="96" height="48"/>
+<rect class="keep" x="110" y="756" width="90" height="16" rx="2"/>
+<text class="mns" x="356" y="742">B = 96</text>
+<text class="ps" x="356" y="764">A rectangle is registered in every bucket it touches —</text>
+<text class="ps" x="356" y="782">the one above spans two — and a candidate is tested</text>
+<text class="ps" x="356" y="800">only against the rectangles in the buckets it would</text>
+<text class="ps" x="356" y="818">occupy. Cost is proportional to local density, not to</text>
+<text class="ps" x="356" y="836">the number of labels already placed.</text>
+<text class="mns" x="52" y="860">if (r.x &lt; q.x + q.w &amp;&amp; r.x + r.w &gt; q.x &amp;&amp; r.y &lt; q.y + q.h &amp;&amp; r.y + r.h &gt; q.y) return true;</text>
+<text class="ps" x="52" y="880">Plain axis-aligned rectangle intersection. No padding beyond the 3px and 2px already baked into the rect.</text>
+
+<rect class="card" x="664" y="680" width="584" height="212" rx="8"/>
+<text class="h" x="684" y="708">Culling, truncation and the cap</text>
+<text class="mns" x="684" y="732">if (sx &lt; −240 || sy &lt; −40 || sx &gt; o.w + 240 || sy &gt; o.h + 40) continue;</text>
+<text class="ps" x="684" y="752">The horizontal margin is wide because a label is centred on its node and a long one can reach</text>
+<text class="ps" x="684" y="770">well past it; the vertical margin is narrow because a label is only ever 16px tall.</text>
+<text class="mns" x="684" y="794">n.label.length &gt; 30 ? n.label.slice(0, 28) + '…' : n.label</text>
+<text class="ps" x="684" y="814">Truncation happens before measuring, so an over-long IRI local name cannot monopolise a row.</text>
+<text class="mns" x="684" y="838">maxLabels: 900 on screen · 4,000 in an export</text>
+<text class="ps" x="684" y="858">The loop breaks at the cap, so the cost of a dense view is bounded even before the collision</text>
+<text class="ps" x="684" y="876">test. The highest-priority 900 are the ones that survive, which is the right 900.</text>
+
+<text class="cap" x="32" y="922">Figure 13 · Label placement. Illustrates 22-graph-rendering-and-export.md, “Label collision pass”. [src: placeLabels(), shortLabel(), labelFont()]</text>
+<text class="cap" x="32" y="942">Why the result stays legible: every drawn label is at its designed point size, has a 3.5px halo in the background colour, and is guaranteed not to touch another. Density costs coverage, never clarity.</text>
+</svg>

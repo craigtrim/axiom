@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960" role="img" aria-labelledby="fig3-title fig3-desc">
+<title id="fig3-title">Figure 3 — The three tiers of the Axiom store</title>
+<desc id="fig3-desc">Three columns side by side. Tier one is the materialised TBox triple array, a few thousand entries of subject, predicate and object. Tier two is the flattened restriction triple array built by buildRBox, holding only some- and value-restrictions. Tier three is the compact individual record array with its three indexes: indIndex by IRI, byType by class, and byCustomer built lazily and stamped with the store version. Each tier is annotated with its size characteristic and the reason it is stored that way.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .tier{font-size:11px;font-weight:600;fill:#0F6CBD;letter-spacing:.08em}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:16px;font-weight:600;fill:#1B1B1B}
+  .id{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#0F6CBD}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .lab{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.08em}
+  .p{font-size:12px;fill:#1B1B1B}
+  .ps{font-size:12px;fill:#5A5A5A}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+  .row{fill:#FFFFFF;stroke:#E1E1E1;stroke-width:1}
+  .edge{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+</style>
+<rect width="1280" height="960" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 3</text>
+<text class="title" x="32" y="58">Store structure — three tiers, three different bargains</text>
+<text class="sub" x="32" y="80">One store object, three storage strategies. Each tier is shaped by how it is read, not by how it was authored.</text>
+
+<!-- TIER 1 -->
+<rect class="card" x="32" y="104" width="384" height="716" rx="8"/>
+<text class="tier" x="52" y="132">TIER 1 · MATERIALISED</text>
+<text class="h" x="52" y="158">TBox triples</text>
+<text class="id" x="52" y="180">store.tbox : Array&lt;[s, p, o]&gt;</text>
+<text class="ps" x="52" y="202">Written once by buildTBox(). o is an IRI string, or a</text>
+<text class="ps" x="52" y="218">literal object { lit, dt } produced by lit().</text>
+
+<rect class="inner" x="52" y="234" width="344" height="176" rx="4"/>
+<text class="lab" x="66" y="256">SUBJECT · PREDICATE · OBJECT</text>
+<rect class="row" x="66" y="266" width="316" height="22" rx="2"/>
+<text class="mn" x="74" y="281">pizza:Pizza      rdfs:subClassOf pizza:Food</text>
+<rect class="row" x="66" y="292" width="316" height="22" rx="2"/>
+<text class="mn" x="74" y="307">pizza:Pizza      rdf:type        owl:Class</text>
+<rect class="row" x="66" y="318" width="316" height="22" rx="2"/>
+<text class="mn" x="74" y="333">pizza:hasTopping rdfs:domain     pizza:Pizza</text>
+<rect class="row" x="66" y="344" width="316" height="22" rx="2"/>
+<text class="mn" x="74" y="359">pizza:Margherita rdfs:label      "Margherita"</text>
+<rect class="row" x="66" y="370" width="316" height="22" rx="2"/>
+<text class="mns" x="74" y="385">… one entry per asserted TBox axiom</text>
+
+<text class="lab" x="52" y="446">SIZE CHARACTERISTIC</text>
+<text class="p" x="52" y="468">Bounded and small. It tracks the number of authored</text>
+<text class="p" x="52" y="486">axioms, not the data: a few thousand entries, stable</text>
+<text class="p" x="52" y="504">across every dataset size the Dataset menu offers.</text>
+<text class="mns" x="52" y="526">store.tbox.length is the first term of tripleCount().</text>
+
+<text class="lab" x="52" y="566">WHY IT IS STORED THIS WAY</text>
+<text class="ps" x="52" y="588">The TBox is authored, small, and read in every</text>
+<text class="ps" x="52" y="606">direction — subject-bound, predicate-bound, object-</text>
+<text class="ps" x="52" y="624">bound and wholly unbound. No single index would</text>
+<text class="ps" x="52" y="642">serve all four, and at this size none needs to: a</text>
+<text class="ps" x="52" y="660">linear array walk is already fast enough, and it keeps</text>
+<text class="ps" x="52" y="678">scan() honest — one code path, no special cases.</text>
+<text class="ps" x="52" y="702">Materialising also makes the TBox the one tier that</text>
+<text class="ps" x="52" y="720">can be serialised straight back out to OWL.</text>
+<rect class="inner" x="52" y="740" width="344" height="62" rx="4"/>
+<text class="lab" x="66" y="762">COST OF THE CHOICE</text>
+<text class="ps" x="66" y="782">Every scan touches every TBox triple. Acceptable only</text>
+<text class="ps" x="66" y="796">because the array cannot grow with the dataset.</text>
+
+<!-- TIER 2 -->
+<rect class="card" x="448" y="104" width="384" height="716" rx="8"/>
+<text class="tier" x="468" y="132">TIER 2 · FLATTENED</text>
+<text class="h" x="468" y="158">Restriction triples</text>
+<text class="id" x="468" y="180">store.rbox : Array&lt;[s, p, o]&gt;</text>
+<text class="ps" x="468" y="202">Derived by buildRBox() from entity restrictions and</text>
+<text class="ps" x="468" y="218">equivalents. Never authored, never serialised.</text>
+
+<rect class="inner" x="468" y="234" width="344" height="176" rx="4"/>
+<text class="lab" x="482" y="256">SOURCE AXIOM</text>
+<rect class="row" x="482" y="266" width="316" height="40" rx="2"/>
+<text class="mn" x="490" y="282">pizza:Margherita ⊑</text>
+<text class="mn" x="490" y="298">  hasTopping some MozzarellaTopping</text>
+<path class="edge" marker-end="url(#ar)" d="M640 310 L640 336"/>
+<text class="mns" x="652" y="327">buildRBox()</text>
+<text class="lab" x="482" y="356">FLATTENED TRIPLE</text>
+<rect class="row" x="482" y="364" width="316" height="36" rx="2"/>
+<text class="mn" x="490" y="379">pizza:Margherita pizza:hasTopping</text>
+<text class="mn" x="490" y="393">  pizza:MozzarellaTopping</text>
+
+<text class="lab" x="468" y="446">SIZE CHARACTERISTIC</text>
+<text class="p" x="468" y="468">Smallest tier. One entry per some- or value-restriction</text>
+<text class="p" x="468" y="486">target — hundreds, not thousands. Only q === 'some'</text>
+<text class="p" x="468" y="504">and q === 'value' are flattened.</text>
+<text class="mns" x="468" y="526">only · max · exactly · not are deliberately excluded.</text>
+
+<text class="lab" x="468" y="566">WHY IT IS STORED THIS WAY</text>
+<text class="ps" x="468" y="588">In OWL an existential restriction is a blank-node class</text>
+<text class="ps" x="468" y="606">expression, so a naive triple store would force every</text>
+<text class="ps" x="468" y="624">query to walk owl:Restriction, owl:onProperty and</text>
+<text class="ps" x="468" y="642">owl:someValuesFrom to answer one question. Flattening</text>
+<text class="ps" x="468" y="660">it to a direct subject-predicate-object row lets the</text>
+<text class="ps" x="468" y="678">console express the useful query in one pattern.</text>
+<text class="ps" x="468" y="702">It is kept apart from store.tbox because it is derived:</text>
+<text class="ps" x="468" y="720">rebuild it, never edit it, never export it as asserted.</text>
+<rect class="inner" x="468" y="740" width="344" height="62" rx="4"/>
+<text class="lab" x="482" y="762">COST OF THE CHOICE</text>
+<text class="ps" x="482" y="782">The flattening is lossy — cardinality and universal</text>
+<text class="ps" x="482" y="796">restrictions are invisible to a query over this tier.</text>
+
+<!-- TIER 3 -->
+<rect class="card" x="864" y="104" width="384" height="716" rx="8"/>
+<text class="tier" x="884" y="132">TIER 3 · COMPACT RECORDS</text>
+<text class="h" x="884" y="158">Individual records + indexes</text>
+<text class="id" x="884" y="180">store.inds : Array&lt;Record&gt;</text>
+<text class="ps" x="884" y="202">Ten scalar fields per individual. No triple object is</text>
+<text class="ps" x="884" y="218">ever allocated for an individual, at any dataset size.</text>
+
+<rect class="inner" x="884" y="234" width="344" height="176" rx="4"/>
+<text class="lab" x="898" y="256">RECORD SHAPE</text>
+<rect class="row" x="898" y="264" width="316" height="54" rx="2"/>
+<text class="mn" x="906" y="280">{ i, iri, type, typeName, ref,</text>
+<text class="mn" x="906" y="295">  branch, price, ts, rating, cust }</text>
+<text class="mns" x="906" y="311">cust is an integer offset into store.customers</text>
+<text class="lab" x="898" y="338">INDEXES OVER THE SAME ARRAY</text>
+<rect class="row" x="898" y="346" width="150" height="26" rx="2"/>
+<text class="mn" x="906" y="363">indIndex  iri→rec</text>
+<rect class="row" x="1064" y="346" width="150" height="26" rx="2"/>
+<text class="mn" x="1072" y="363">byType  cls→rec[]</text>
+<rect class="row" x="898" y="376" width="316" height="26" rx="2"/>
+<text class="mn" x="906" y="393">byCustomer  cust→rec[]   lazy, version-stamped</text>
+
+<text class="lab" x="884" y="446">SIZE CHARACTERISTIC</text>
+<text class="p" x="884" y="468">Linear in the individual count and nothing else. Seven</text>
+<text class="p" x="884" y="486">triples per pizza and two per customer are counted by</text>
+<text class="p" x="884" y="504">tripleCount(), never materialised.</text>
+<text class="mns" x="884" y="526">100,000 pizzas ⇒ 766,000 triples reported, 0 allocated.</text>
+
+<text class="lab" x="884" y="566">WHY IT IS STORED THIS WAY</text>
+<text class="ps" x="884" y="588">A triple array for the ABox would cost seven objects</text>
+<text class="ps" x="884" y="606">and seven strings per individual, and would still need</text>
+<text class="ps" x="884" y="624">the same indexes on top. The record array gives the</text>
+<text class="ps" x="884" y="642">table its rows directly, gives scan() its bindings</text>
+<text class="ps" x="884" y="660">through DEMO_PRED accessor functions, and gives</text>
+<text class="ps" x="884" y="678">neighboursOf() its instance lists through byType.</text>
+<text class="ps" x="884" y="702">byCustomer is rebuilt only when store.version moves,</text>
+<text class="ps" x="884" y="720">so an edit invalidates it without an explicit flush.</text>
+<rect class="inner" x="884" y="740" width="344" height="62" rx="4"/>
+<text class="lab" x="898" y="762">COST OF THE CHOICE</text>
+<text class="ps" x="898" y="782">Only the predicates named in DEMO_PRED exist for the</text>
+<text class="ps" x="898" y="796">ABox. The record shape is the ABox schema.</text>
+
+<rect class="inner" x="32" y="844" width="1216" height="60" rx="8"/>
+<text class="lab" x="52" y="866">REPORTED STORE SIZE</text>
+<text class="mn" x="52" y="890">tripleCount() = store.tbox.length + store.inds.length * 7 + store.customers.length * 2      // rbox is derived, so it is not counted</text>
+
+<text class="cap" x="32" y="936">Figure 3 · Store tiers. Illustrates 11-data-model-and-store.md, “Three tiers” and “Why the ABox is not triples”. [src: buildTBox(), buildRBox(), generateIndividuals(), tripleCount()]</text>
+</svg>
