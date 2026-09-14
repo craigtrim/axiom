@@ -1,0 +1,13 @@
+1. I should be able to edit graph styules likes a CSS
+2. double-clicking a node in taxonomy should expand it not find it in the grdaph
+3. every node in taxonomy should be right-clickable with a ctx menu
+4. there should be a variety of researched and well known layout algorithms I can apply to the visual graph
+5. ctrL+z should undo the latest move in the graph view.  For example, if I expanded something, ctrl+z undoes that.  In general, ctrl+z should undo anything
+6. I need a way to plugin into Ollama.  I want pre-built prompts, like a way to expand a given instance node (or something) with synonyms, and also a way to expand a class with new sub-classes or more instances, based on existing isntances.  I'l;l have to define this myself, but that's what I want.  Could also plugin to Codex if it exists on PATH.  Actually, it should show if CODEX or CLAUDE exist on path.  Forget ollama
+7. I need a way to click on a given node and research it online or via LLM.  The research would be contextual; not jsu8t the nmdoe itself, but as the node exists in a context (dbpedia, other ontologies, online, wikipeidia, etc)
+8. Integrate with Mutato
+9. Why not have the view auto adapt to a widescreen monitor if it finds itself in that resolution?  Just a thought.
+10.  I need seemless transition betwween aximon and an underlying file.  I like the notion of aximon read/write an owl/ttle/rdfxml whatever file, but maybe also a secondary file that's optional but contains all preferences, logs, etc.  We need some concept of a user session so that what a user did can be reconstructed.  Like hey what's that query I ran 3 days ago type thing.  Needs some thought, because stuff like this needs an itnerface first class interface in the app too (menu driven, like history or something)
+11.  I assume there is a light-theme, dark-theme.  Light-Theme should be the default.
+12. For testing purposes, I want you to download at least 25 well known industry ontologies of different formats (RDF/XML, OWL, TTL, etc) and ensure you can import them, view them, edit them etc without any problems.  Ensure that you can create a workspace and close the workspace and re-open the workspace.  This should be part of your standard testing suite.
+13.  point axiom at the windows file system at a given point and have it use the windows file system and meta data to reconstruct the W3C Prov metamodel (as best it can) based on existing file evidence.  invent nothing!  But use   EVERY SINGLE ASPECT OF METADATA AVAILABLE defer nothing, look deeply, to create that.  This is basically creating an ontology (instance of w3c prov) from a file system.  Very useful!
