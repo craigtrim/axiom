@@ -1,8 +1,16 @@
 # Axiom Ontology Workbench
 
+[![Electron desktop](https://github.com/craigtrim/axiom/actions/workflows/build.yml/badge.svg)](https://github.com/craigtrim/axiom/actions/workflows/build.yml)
+![Version](https://img.shields.io/badge/version-1.0.0-informational)
+![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4?logo=windows&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-44.3.0-47848F?logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/React-19.3.0-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-22.12%2B-5FA04E?logo=nodedotjs&logoColor=white)
+
 Axiom is a Windows desktop application built with Electron and TypeScript. It provides native File/Edit/View menus and a workbench whose panes can be resized, rearranged, grouped, floated and detached into separate windows.
 
-The previous WinUI implementation is preserved in [archive/](archive/README.md). Electron is the only active application.
+The previous WinUI implementation is recorded in [archive/](archive/README.md); its source archive is kept outside version control. Electron is the only active application.
 
 ## Run a packaged build
 
