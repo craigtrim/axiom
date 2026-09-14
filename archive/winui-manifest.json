@@ -1,0 +1,516 @@
+{
+  "archive": "axiom-winui-20260912.zip",
+  "sha256": "06dd6acb72a4ee12b4700502c05529c2ea9ce4b11769154186e1ecd469996170",
+  "files": [
+    {
+      "path": "src/Axiom.App/app.manifest",
+      "sha256": "9d0726c6433433af94f025dab45b30d95ad73541549cb512647411e4406faaa5",
+      "bytes": 550
+    },
+    {
+      "path": "src/Axiom.App/App.xaml",
+      "sha256": "38f2e37b4423db95b7d04b5198092ec7eae26ab6f22e0193601b2011f377baef",
+      "bytes": 418
+    },
+    {
+      "path": "src/Axiom.App/Axiom.App.csproj",
+      "sha256": "365a1f28c9470c8cef5098e4b75605e32eae47734be22123f5ebd2c00f945cdb",
+      "bytes": 1887
+    },
+    {
+      "path": "src/Axiom.App/GraphCanvas.cs",
+      "sha256": "2479070521c4a2131de690e2e2d7aacde66ee0ef02ded1376740fc5dbb3b5bd2",
+      "bytes": 3271
+    },
+    {
+      "path": "src/Axiom.App/GraphDiagnostics.cs",
+      "sha256": "3ab569a4ebcf1be3ee60d6e3481fe279be5ee3ede7ac4e92753c2f8239ce577f",
+      "bytes": 4059
+    },
+    {
+      "path": "src/Axiom.App/GraphExport.cs",
+      "sha256": "5179cf220d175f87452a35076a654a7ca4a762297d23ec3e4d4960a50128e7b2",
+      "bytes": 4316
+    },
+    {
+      "path": "src/Axiom.App/GraphPeer.cs",
+      "sha256": "47ab8b9bc14e475d49fceef22112906b677c8efbbfb1e85323da2b0c6529e27b",
+      "bytes": 4442
+    },
+    {
+      "path": "src/Axiom.App/GraphPerformance.cs",
+      "sha256": "c710cf4dfe15b77216175f346c1aea12cc3b008da6498e57c752020af11ee181",
+      "bytes": 4899
+    },
+    {
+      "path": "src/Axiom.App/GraphView.cs",
+      "sha256": "014735607121b12369a6b4871efffae541f4875bcc782f625a3ddc374a790264",
+      "bytes": 24355
+    },
+    {
+      "path": "src/Axiom.App/GridHeader.cs",
+      "sha256": "59c6e25580f3ff766dd178be72cb9b3a3b1c84cb86e9a29b7327cf1a1a9bcd1a",
+      "bytes": 1439
+    },
+    {
+      "path": "src/Axiom.App/GridPeer.cs",
+      "sha256": "6d660de8780675dd6393cfa7cae58083159234bc71b611d32e46d8a893b25524",
+      "bytes": 9710
+    },
+    {
+      "path": "src/Axiom.App/HierarchyEditing.cs",
+      "sha256": "c68ea102902312001d2a3354d580a732f555d17835c05db2f4713a2e92ae7386",
+      "bytes": 2668
+    },
+    {
+      "path": "src/Axiom.App/HierarchyView.cs",
+      "sha256": "3f2f2c27b6dd1aadd5543f08e83ee83e009bc5a3fcae73488c71d616ed8d17c3",
+      "bytes": 7570
+    },
+    {
+      "path": "src/Axiom.App/IndividualsView.cs",
+      "sha256": "c44ee8099164d57357b3cfdce2edd4167d0bc53a9eaabb83451a043e9dcb78dc",
+      "bytes": 6655
+    },
+    {
+      "path": "src/Axiom.App/InspectorView.cs",
+      "sha256": "ca50c7e646fdf4051892f950d5c91abd61b809587888db2a5805a9c45ed72b2f",
+      "bytes": 7876
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.cs",
+      "sha256": "ec59a1b4be7d35f55762de3164ec2d13805074f29cd2e292aa3bff76da00f54d",
+      "bytes": 15728
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.Diagnostics.cs",
+      "sha256": "d8b5dee26680530d245922ef5751b6208aa8d82effe0a1a555fe953f12180ebe",
+      "bytes": 4228
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.Dialogs.cs",
+      "sha256": "ceb35e29bb4f4a91d352265bd755714f2a9c906c1e84a576930330cb7be6719f",
+      "bytes": 9113
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.Performance.cs",
+      "sha256": "a9bfcd1c4daba0a3cfd0d10bb0f165dc91e397edb8bc9f50f8fa68ec71aeb03b",
+      "bytes": 5335
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.Responsive.cs",
+      "sha256": "da44e391b4cc982015b8139ceb32ead13aa2f74d0d499438355a9e17f7048df6",
+      "bytes": 1879
+    },
+    {
+      "path": "src/Axiom.App/MainWindow.Surfaces.cs",
+      "sha256": "cd2ba6655db41c4a98574d5474efa31f0f121f917df49dc414eda4ade2078a9f",
+      "bytes": 1654
+    },
+    {
+      "path": "src/Axiom.App/ProfileDraw.cs",
+      "sha256": "e1d06ca86dcfe037b59f159b87a5b3f945f62b5695a4f871245b2ec6db6e5b49",
+      "bytes": 3361
+    },
+    {
+      "path": "src/Axiom.App/Program.cs",
+      "sha256": "8378eaafbc83b42fce411ce26926a4dc2a33ad2a1499adb52aa9253a8b6a8f2c",
+      "bytes": 1214
+    },
+    {
+      "path": "src/Axiom.App/QueryView.cs",
+      "sha256": "0d02d1da27447074517742fb75aff2e6673a82baba7f2d1aae988a2f32048f04",
+      "bytes": 11970
+    },
+    {
+      "path": "src/Axiom.App/TabStrip.cs",
+      "sha256": "858370f8ef23262252c2df1f8e900d577dab1bc4cd595d7883687da7c61d7389",
+      "bytes": 3518
+    },
+    {
+      "path": "src/Axiom.App/Theme.cs",
+      "sha256": "592bed07c6347b2603be780528a2059745a3bacc2c7bc5155507a6363ddb4c06",
+      "bytes": 5696
+    },
+    {
+      "path": "src/Axiom.App/Ui.cs",
+      "sha256": "be6de89f458662028bb5ba20d6b21397559991ec5c41ad71333ac0251a15d83c",
+      "bytes": 3109
+    },
+    {
+      "path": "src/Axiom.App/VirtualGrid.cs",
+      "sha256": "9aa3b2ffbbe769546cd39b40c5118b934abca64090bba8c694d78942b4939a6c",
+      "bytes": 20933
+    },
+    {
+      "path": "src/Axiom.App/Win2DDraw.cs",
+      "sha256": "b45ec519688d5925a21b998d2f503e06d1ca81c35dfb098de2f040004b29f06a",
+      "bytes": 24556
+    },
+    {
+      "path": "src/Axiom.App/WindowCapture.cs",
+      "sha256": "53ab3959c27034d6fd0d3c1b707665d23c75529d0496c321520e43c92f49a2a5",
+      "bytes": 3320
+    },
+    {
+      "path": "src/Axiom.App/WrapRow.cs",
+      "sha256": "9a5ff2e463cc86db66017c04e2f03b92780f278eea9d2b8b1f8ac3fb46bf1b99",
+      "bytes": 1886
+    },
+    {
+      "path": "src/Axiom.Core/Axiom.Core.csproj",
+      "sha256": "d29df30ab4cd2b3cde9f59287f8e4ec25ec3dee6f18190bd746b042ce00d89b0",
+      "bytes": 180
+    },
+    {
+      "path": "src/Axiom.Core/ComputedLayouts.cs",
+      "sha256": "e93b2502d51e30f57a93210b38a8f78c5c99def137f94957160db0e6a1f7c5e9",
+      "bytes": 10870
+    },
+    {
+      "path": "src/Axiom.Core/DesignTokens.cs",
+      "sha256": "b8a9fc1836ddeb58eff508a3022cbf90087bd7b085e3d7be6d2b94097d7689f1",
+      "bytes": 2560
+    },
+    {
+      "path": "src/Axiom.Core/Domain.cs",
+      "sha256": "2834d2d00df3b1c0553e2d09545cae5304fe17552b741775d8fb56d012d4d1f6",
+      "bytes": 6470
+    },
+    {
+      "path": "src/Axiom.Core/ForceLayout.cs",
+      "sha256": "06ff8347c89d44ea9a4dc0cb0a91d126be56af517f1e5aa339d0f5a820aeebd2",
+      "bytes": 9969
+    },
+    {
+      "path": "src/Axiom.Core/FrameGuard.cs",
+      "sha256": "1db7feb9b44014debdc571335fbe63d2e1928515037438deb65728a0e4c1454f",
+      "bytes": 454
+    },
+    {
+      "path": "src/Axiom.Core/HitIndex.cs",
+      "sha256": "9fb7ee062056b6d9d9cba2be55ab9c9877d4fa36faf8f9ce4819eca024dafa30",
+      "bytes": 1883
+    },
+    {
+      "path": "src/Axiom.Core/Layouts.cs",
+      "sha256": "b67b8f1fe987421d04a9203df7ec7e7b922ddbf5966c92c607f4fb8bf4835d1e",
+      "bytes": 3502
+    },
+    {
+      "path": "src/Axiom.Core/Mutations.cs",
+      "sha256": "fd556513451ece1a970472fd176f5ace5ef289edecad0ac19599e18ccd30c250",
+      "bytes": 9509
+    },
+    {
+      "path": "src/Axiom.Core/Query.cs",
+      "sha256": "878209be7ba90f420b1e296fa2d0e028a0a088eda23f6c41d0be7dff8cca62f6",
+      "bytes": 14366
+    },
+    {
+      "path": "src/Axiom.Core/QueryExamples.cs",
+      "sha256": "b804dfdc72eaa16d6a34b8916cd9b79e65fcf1bb112d29ae5c15851930d07068",
+      "bytes": 1264
+    },
+    {
+      "path": "src/Axiom.Core/Rendering.cs",
+      "sha256": "0147ddee5f52d6eca26543ef06eafecb16bd11fe2be8460b18871782ca668133",
+      "bytes": 15579
+    },
+    {
+      "path": "src/Axiom.Core/Selection.cs",
+      "sha256": "f2d79863331fd150d88f8338d40c998c2c232b935fb69acac0331d3f4d49fae8",
+      "bytes": 612
+    },
+    {
+      "path": "src/Axiom.Core/Store.cs",
+      "sha256": "725ddf68cdc5fe6e84c380bd8e519682c76b101099ff25d31fa30713bd2ef7e3",
+      "bytes": 11061
+    },
+    {
+      "path": "src/Axiom.Core/SvgDraw.cs",
+      "sha256": "f9ad045ea0e75fec43804afe45b548e6626ff997651e014a8a237132527bfd2d",
+      "bytes": 4854
+    },
+    {
+      "path": "src/Axiom.Core/TableModel.cs",
+      "sha256": "f56b7697cfb39822d6fd1a79b0a09ec41f3146b0772bcb838793c31c0e8ea1aa",
+      "bytes": 4250
+    },
+    {
+      "path": "src/Axiom.Core/TripleSource.cs",
+      "sha256": "8e5cda26ccf0cde4e5388a928daf6d4f8fe64651fdac5674dfc60264bc8abe1d",
+      "bytes": 3705
+    },
+    {
+      "path": "src/Axiom.Core/Viewport.cs",
+      "sha256": "f8951075d8c8b2ba4b72b46bbc3711c568d45cde4d54b48139051418e4dfd623",
+      "bytes": 11005
+    },
+    {
+      "path": "src/Axiom.Core/Data/examples.json",
+      "sha256": "fdb7004837949b79ac6589f0a221cbfdc9ad9ede1b7a8aa80e99e5e3b1aecac7",
+      "bytes": 2251
+    },
+    {
+      "path": "src/Axiom.Core/Data/tokens.json",
+      "sha256": "de7438f01b78a1096b0df6fd88e6ebbbf81b0c144b65d912becc709cf41a415d",
+      "bytes": 3701
+    },
+    {
+      "path": "src/Axiom.Fixture/Axiom.Fixture.csproj",
+      "sha256": "ef6189d3124c80f8ec85c96a1fbba82c2804c305c044040d38c17c049eaa761f",
+      "bytes": 241
+    },
+    {
+      "path": "src/Axiom.Fixture/PizzaFixture.cs",
+      "sha256": "c73255a0647599ddf553d58ea4dbd8a67ab46dec4b0ee49c743fb84f6beafe27",
+      "bytes": 8256
+    },
+    {
+      "path": "src/Axiom.Fixture/Data/pizza.json",
+      "sha256": "b7d8e8506b0fc9be4eaee1cfc1ce6d583dfd919af47eeca4176e1eb5767cce17",
+      "bytes": 26268
+    },
+    {
+      "path": "tests/Axiom.Tests/AccessibilityLayoutTests.cs",
+      "sha256": "4e0b651c0075391cb2f1e593b1b2aa39474c95f22e0ff8d624865fcd336e9970",
+      "bytes": 3302
+    },
+    {
+      "path": "tests/Axiom.Tests/Axiom.Tests.csproj",
+      "sha256": "dfb8a2412b1c6fad4004ef5aba05cbd0238f3f880b1bf58fee6a178a59e0177f",
+      "bytes": 558
+    },
+    {
+      "path": "tests/Axiom.Tests/BadgeContractTests.cs",
+      "sha256": "17e53b290232faaa1162b6d439257ffe5f0a9d777856a828d2429b4fd37279df",
+      "bytes": 2683
+    },
+    {
+      "path": "tests/Axiom.Tests/CreationContractTests.cs",
+      "sha256": "8038d633f5987d12b81a22d3e9ddaffb79877b070a762962dce36ec884809166",
+      "bytes": 4165
+    },
+    {
+      "path": "tests/Axiom.Tests/ExportContractTests.cs",
+      "sha256": "7c362462e1859c3aeb1ef9080dfe56432fda24ed5de4bc4665bdfa0a29bd2452",
+      "bytes": 2632
+    },
+    {
+      "path": "tests/Axiom.Tests/FixtureTests.cs",
+      "sha256": "edd2aefa94cebd4a3ba6fb61cb530e6fcaa797a5c260144ef8cb8400a6ad0711",
+      "bytes": 6878
+    },
+    {
+      "path": "tests/Axiom.Tests/ForceReuseTests.cs",
+      "sha256": "afad2645e13ec32172f914377c9926cd529b153c8e13e3317683a72e8be3295d",
+      "bytes": 1956
+    },
+    {
+      "path": "tests/Axiom.Tests/HardeningTests.cs",
+      "sha256": "7e3c0b083e43ba7ee6c8fe0fc30c128dfa11a1f0156079a4f441236899697927",
+      "bytes": 2688
+    },
+    {
+      "path": "tests/Axiom.Tests/HitIndexTests.cs",
+      "sha256": "a87bc1d5eff7775cf32fef798c8d708b8066caad51138a39740f8d1f30d4908c",
+      "bytes": 1146
+    },
+    {
+      "path": "tests/Axiom.Tests/MutationTableTests.cs",
+      "sha256": "4ba72d0fe7a4e1a83392e470a7087e4dbee52af706e702ff9f3fe4a630567c8b",
+      "bytes": 4528
+    },
+    {
+      "path": "tests/Axiom.Tests/ParallelRouteTests.cs",
+      "sha256": "4c2db461a223ae7a87bf20ffda33c45e23de87f7447f7a5375f10280cbb6072f",
+      "bytes": 1565
+    },
+    {
+      "path": "tests/Axiom.Tests/QueryErrorTests.cs",
+      "sha256": "2034640e8a639c5da2746778760e4ae50be358ce5bd796205cf51828ee08c436",
+      "bytes": 2161
+    },
+    {
+      "path": "tests/Axiom.Tests/QueryTests.cs",
+      "sha256": "6dc9aef0692f6769f71da8ff75b15681aea1dac1ef3b7f37036b2820e23a2371",
+      "bytes": 5071
+    },
+    {
+      "path": "tests/Axiom.Tests/RenderingTests.cs",
+      "sha256": "3d7242f86a9267709fb429d249313bfb04feef483aef7279642ca45239e7b371",
+      "bytes": 2372
+    },
+    {
+      "path": "tests/Axiom.Tests/ScaleLayoutTests.cs",
+      "sha256": "31df9bb75596d62592e28760279458cb066d8ae6fb16fe8e54d59c2789e61a7c",
+      "bytes": 2769
+    },
+    {
+      "path": "tests/Axiom.Tests/SelectionInspectorTests.cs",
+      "sha256": "ae280a4c7188c839b5c86d52b102922f6e76f2a65c70cd4a50bacfe029bd94c2",
+      "bytes": 2223
+    },
+    {
+      "path": "tests/Axiom.Tests/ViewportTests.cs",
+      "sha256": "9bf5e790ee938657dbda7bed472861b116026c69a60215924e47cec82a01b4a4",
+      "bytes": 5524
+    },
+    {
+      "path": "tests/Axiom.UiTests/Axiom.UiTests.csproj",
+      "sha256": "42166241eb502eea593a2d1d79f5dcb16cf0ee1862a45720d51d6f95513ba2be",
+      "bytes": 265
+    },
+    {
+      "path": "tests/Axiom.UiTests/DialogJourneys.cs",
+      "sha256": "95b28e11fb151bae7ee1a151275a1eb6ca9b8f76a6da4f0a459695a421dd8a99",
+      "bytes": 6900
+    },
+    {
+      "path": "tests/Axiom.UiTests/NativeTableProbe.cs",
+      "sha256": "b77bb58921398071b38edeabe8327bf9848c5f55ec04f3c7d28ae61406ede665",
+      "bytes": 2915
+    },
+    {
+      "path": "tests/Axiom.UiTests/Program.cs",
+      "sha256": "af2997cda473b24e8254e965b73cc38c09be39d08de8413d314aac9099413b55",
+      "bytes": 14675
+    },
+    {
+      "path": "tools/Axiom.Benchmarks/Axiom.Benchmarks.csproj",
+      "sha256": "d5b088e72980b36c016b9ae071a6f50144614011b89c549d435a7611fd95963f",
+      "bytes": 309
+    },
+    {
+      "path": "tools/Axiom.Benchmarks/Program.cs",
+      "sha256": "cf9a7b4539187656ea1334281d34bd5ca01d9239c6473d72207897054a942ee1",
+      "bytes": 2916
+    },
+    {
+      "path": "packaging/AppxManifest.xml",
+      "sha256": "ea7e73507f14c15696a05be87bb8bf5a8b31f0f25e248215d07b00172398f0f1",
+      "bytes": 1282
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "sha256": "4b05629a1f669715ad0358ce18081dae31f18a0c2f3505c7ff13c019e2875351",
+      "bytes": 1111
+    },
+    {
+      "path": ".github/workflows/desktop-validation.yml",
+      "sha256": "6e0aa95415284d46ee463d747d9afbee1f4c4fef373e226ad3565840dd5e7bf9",
+      "bytes": 807
+    },
+    {
+      "path": "docs/decisions.md",
+      "sha256": "2a2dc71f326312f7a96d246b8be474c5cf27a967218c1303e4f35095ae18b3e7",
+      "bytes": 4132
+    },
+    {
+      "path": "docs/progress.md",
+      "sha256": "c4cc3cf05c878e728f62330ec2410a015e8bcade5edc44d5d8503733a4f93ace",
+      "bytes": 2392
+    },
+    {
+      "path": "docs/release-0.1.1.md",
+      "sha256": "8328f05e0d892e23642457582b07694d1437cb041a93592ed7cde8864836f1fc",
+      "bytes": 2098
+    },
+    {
+      "path": "docs/traceability.csv",
+      "sha256": "94d247cc29257df8419d55629736fe4f57a16c224d4beff739823b395c4963db",
+      "bytes": 1696521
+    },
+    {
+      "path": "docs/verification.md",
+      "sha256": "4153d5a2f9488cee751efdf2544c3fe17298c42f004d04ac21812d0a607476f8",
+      "bytes": 11028
+    },
+    {
+      "path": "Axiom.sln",
+      "sha256": "e1ef14547b5cc9e21f39a913a759d5cef96959a68236f755dd14b68c3c5db978",
+      "bytes": 4407
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "eade88c32341053a38d9639f0c3bcb6f10bda996730bf5d9de312e1550a4c217",
+      "bytes": 181
+    },
+    {
+      "path": "global.json",
+      "sha256": "d310c1ea542e657c8e52752e34dc330114db5b452c43fe0c0f320edefbf1a1f8",
+      "bytes": 80
+    },
+    {
+      "path": "README.md",
+      "sha256": "7d383fd8be21cc292ca0757fa52414352600e482a4eb423c30069dad744a2842",
+      "bytes": 5259
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "14849f18f7ce867f3abed1bc58dd87399836b57908124413d7eaf6ab7ca3c984",
+      "bytes": 80
+    },
+    {
+      "path": ".editorconfig",
+      "sha256": "4e295606b58d5b56c20d2195a5ef9512bd9285f2c34c972bbd41abaaa6929c82",
+      "bytes": 333
+    },
+    {
+      "path": "scripts/analyze-presentmon.mjs",
+      "sha256": "3af7957c4e42a3568763c8add4586ea8343714f946cc49f33f3ada59e854e5fc",
+      "bytes": 4968
+    },
+    {
+      "path": "scripts/build-assets.ps1",
+      "sha256": "02c229c5506d5a052f6a441672c669772cd81bb03f0fa1044bb6361fa01fba62",
+      "bytes": 1349
+    },
+    {
+      "path": "scripts/build-bundle.ps1",
+      "sha256": "fd089355d719b1eba72c686469f69d89402e5e415312796363d0db7f164eb447",
+      "bytes": 2689
+    },
+    {
+      "path": "scripts/build-package.ps1",
+      "sha256": "a198dc065b0cb0561c687c4c7bf62a562f7016d3619d86c7862702ef20b5ef65",
+      "bytes": 3382
+    },
+    {
+      "path": "scripts/measure-frames.ps1",
+      "sha256": "bee6a47a18d7e51d9f7fe80c3e901e7c1d53464642f42e597f42b4a419652f27",
+      "bytes": 2466
+    },
+    {
+      "path": "scripts/run.ps1",
+      "sha256": "000e4c13525801e84b743bdc5217c5a7a360ed2c86347bd317b11de2c3a6f1b4",
+      "bytes": 437
+    },
+    {
+      "path": "scripts/traceability.mjs",
+      "sha256": "063269f1879ee5d40a56336f69d0123a7abfad1d9d88bd1db4ef56814dcf3b1d",
+      "bytes": 6038
+    },
+    {
+      "path": "scripts/transcribe-examples.mjs",
+      "sha256": "9f664a29094c528d08f44a1c19c9b5885e4a3bfbaab17bc21bd79fadc8eeee4b",
+      "bytes": 713
+    },
+    {
+      "path": "scripts/transcribe-fixture.mjs",
+      "sha256": "1e74fd4846371c7656e6a64037236a1f142260cb9c9e9c43208ac446802f9ede",
+      "bytes": 2198
+    },
+    {
+      "path": "scripts/transcribe-tokens.mjs",
+      "sha256": "9b1377cdbb626c392a61103e4707ed28e73d3447d5f377ab8bda1a944f59e716",
+      "bytes": 1075
+    },
+    {
+      "path": "scripts/verify.ps1",
+      "sha256": "4bdf724b4dae56897a5f497fb694ea5b2543e8cdbe731f42a7eb21a36ea3539c",
+      "bytes": 1106
+    }
+  ]
+}

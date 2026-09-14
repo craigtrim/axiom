@@ -1,0 +1,33 @@
+$ErrorActionPreference = 'Stop'
+$taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($taskRoot -ne 'D:\git\axiom') { throw 'Unexpected workspace root.' }
+$taskManifest = Get-Content -LiteralPath (Join-Path $taskRoot 'archive/winui-manifest.json') -Raw | ConvertFrom-Json
+$taskZipPath = Join-Path $taskRoot ('archive/' + $taskManifest.archive)
+if ((Get-FileHash -LiteralPath $taskZipPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $taskManifest.sha256) { throw 'Archive hash mismatch.' }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$taskZip = [IO.Compression.ZipFile]::OpenRead($taskZipPath)
+try {
+ foreach ($taskFile in $taskManifest.files) {
+  $taskEntry = $taskZip.GetEntry($taskFile.path)
+  if (-not $taskEntry) { throw ('Missing archived entry: ' + $taskFile.path) }
+  $taskStream = $taskEntry.Open()
+  try { $taskHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($taskStream)).ToLowerInvariant() } finally { $taskStream.Dispose() }
+  if ($taskHash -ne $taskFile.sha256) { throw ('Archived entry hash mismatch: ' + $taskFile.path) }
+ }
+} finally { $taskZip.Dispose() }
+$taskDirectories = @('src/Axiom.App','src/Axiom.Core','src/Axiom.Fixture','tests/Axiom.Tests','tests/Axiom.UiTests','tools','packaging','.tools')
+$taskFiles = @('Axiom.sln','Directory.Build.props','global.json') + @($taskManifest.files | Where-Object { $_.path.StartsWith('scripts/') -or $_.path.StartsWith('.github/') -or $_.path.StartsWith('docs/') } | ForEach-Object { $_.path })
+foreach ($taskRelative in $taskDirectories + $taskFiles) {
+ $taskTarget = [IO.Path]::GetFullPath((Join-Path $taskRoot $taskRelative))
+ if (-not $taskTarget.StartsWith($taskRoot + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw ('Target leaves workspace: ' + $taskTarget) }
+ if (Test-Path -LiteralPath $taskTarget) { Write-Output ('Retiring ' + $taskTarget); Remove-Item -LiteralPath $taskTarget -Recurse -Force }
+}
+$taskArtifacts = Join-Path $taskRoot 'artifacts'
+foreach ($taskItem in Get-ChildItem -LiteralPath $taskArtifacts) {
+ if ($taskItem.Name -match '^(release-(x64|arm64)-|bundle-|frames-|presentmon-)' -or ($taskItem.PSIsContainer -eq $false -and $taskItem.Name -ne 'latest-electron.json')) {
+  $taskTarget = [IO.Path]::GetFullPath($taskItem.FullName)
+  if (-not $taskTarget.StartsWith($taskArtifacts + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Artifact target leaves workspace.' }
+  Remove-Item -LiteralPath $taskTarget -Recurse -Force
+ }
+}
+Write-Output ('Verified archive and retired ' + $taskManifest.files.Count + ' original authored files from the active implementation.')
