@@ -1,0 +1,328 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1300" width="1280" height="1300" role="img" aria-labelledby="fig14-title fig14-desc">
+<title id="fig14-title">Figure 14 — The Axiom application window</title>
+<desc id="fig14-desc">A labelled wireframe of the whole window: a 32 pixel title bar, a 40 pixel command bar, a three-column workspace holding the 280 pixel hierarchy panel, the graph canvas with its overlay controls, and the 320 pixel inspector, a 288 pixel bottom dock holding the individuals table, and a 26 pixel status bar. Twenty-seven numbered callouts key to a list below the wireframe.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .u{font-size:11px;fill:#1B1B1B}
+  .us{font-size:11px;fill:#5A5A5A}
+  .uc{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .ub{font-size:11px;font-weight:600;fill:#1B1B1B}
+  .uw{font-size:11px;fill:#FFFFFF}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .cn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;font-weight:600;fill:#FFFFFF;text-anchor:middle}
+  .key{font-size:11.5px;fill:#1B1B1B}
+  .keys{font-size:11.5px;fill:#5A5A5A}
+  .win{fill:#F3F3F3;stroke:#C4C4C4;stroke-width:1.5}
+  .surf{fill:#FFFFFF;stroke:none}
+  .alt{fill:#FAFAFA;stroke:none}
+  .div{stroke:#EAEAEA;stroke-width:1}
+  .strk{stroke:#E1E1E1;stroke-width:1}
+  .ctl{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1}
+  .ghost{fill:none;stroke:#C4C4C4;stroke-width:1}
+  .canvas{fill:#F7F7F9}
+  .float{fill:#FFFFFF;stroke:#E1E1E1;stroke-width:1}
+  .acc{fill:#0F6CBD}
+  .sel{fill:#EAF3FB}
+  .lead{stroke:#0F6CBD;stroke-width:1}
+</style>
+<rect width="1280" height="1300" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 14</text>
+<text class="title" x="32" y="58">Application window — every region, at its specified size</text>
+<text class="sub" x="32" y="80">Drawn at a 1200 × 860 client area. Bar heights, panel widths and row heights are the literal token values; the canvas takes whatever is left.</text>
+<text class="sub" x="32" y="100">Callout numbers key to the list below. Overlay controls are drawn in their true anchor positions except where the key says otherwise.</text>
+
+<rect class="win" x="40" y="150" width="1200" height="860" rx="8"/>
+
+<!-- title bar -->
+<path class="div" d="M40 182 L1240 182"/>
+<rect x="52" y="158" width="16" height="16" rx="4" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="us" x="76" y="170">pizza.owl — Axiom Ontology Workbench</text>
+<path class="strk" d="M1102 150 L1102 182"/>
+<text class="us" x="1125" y="170" text-anchor="middle">—</text>
+<text class="us" x="1171" y="170" text-anchor="middle">□</text>
+<text class="us" x="1217" y="170" text-anchor="middle">✕</text>
+<circle cx="52" cy="142" r="9" fill="#0F6CBD"/><text class="cn" x="52" y="146">1</text>
+<circle cx="1217" cy="142" r="9" fill="#0F6CBD"/><text class="cn" x="1217" y="146">2</text>
+
+<!-- command bar -->
+<rect class="surf" x="41" y="183" width="1198" height="38"/>
+<path class="strk" d="M40 221 L1240 221"/>
+<rect class="ghost" x="48" y="188" width="96" height="28" rx="4"/><text class="u" x="60" y="206">+ New class</text>
+<rect class="ghost" x="148" y="188" width="124" height="28" rx="4"/><text class="u" x="160" y="206">◦ New individual</text>
+<path class="strk" d="M282 193 L282 211"/>
+<rect class="ghost" x="292" y="188" width="28" height="28" rx="4"/><text class="us" x="306" y="206" text-anchor="middle">↺</text>
+<rect class="ghost" x="324" y="188" width="28" height="28" rx="4"/><text class="us" x="338" y="206" text-anchor="middle">▤</text>
+<path class="strk" d="M358 193 L358 211"/>
+<rect class="ghost" x="368" y="188" width="104" height="28" rx="4"/><text class="u" x="380" y="206">▤ Dataset ⌄</text>
+<path class="strk" d="M482 193 L482 211"/>
+<rect class="ctl" x="492" y="188" width="260" height="28" rx="4"/>
+<path class="strk" d="M492 214 L752 214" stroke="#C4C4C4" stroke-width="2"/>
+<text class="us" x="522" y="206">Search entities  (Ctrl+F)</text>
+<rect class="ghost" x="1108" y="188" width="28" height="28" rx="4" fill="#EAF3FB"/><text class="us" x="1122" y="206" text-anchor="middle">▥</text>
+<rect class="ghost" x="1140" y="188" width="28" height="28" rx="4" fill="#EAF3FB"/><text class="us" x="1154" y="206" text-anchor="middle">▧</text>
+<rect class="ghost" x="1172" y="188" width="28" height="28" rx="4" fill="#EAF3FB"/><text class="us" x="1186" y="206" text-anchor="middle">▤</text>
+<rect class="ghost" x="1204" y="188" width="28" height="28" rx="4"/><text class="us" x="1218" y="206" text-anchor="middle">☾</text>
+<circle cx="96" cy="234" r="9" fill="#0F6CBD"/><text class="cn" x="96" y="238">4</text>
+<circle cx="306" cy="234" r="9" fill="#0F6CBD"/><text class="cn" x="306" y="238">5</text>
+<circle cx="420" cy="234" r="9" fill="#0F6CBD"/><text class="cn" x="420" y="238">6</text>
+<circle cx="622" cy="234" r="9" fill="#0F6CBD"/><text class="cn" x="622" y="238">7</text>
+<circle cx="1170" cy="234" r="9" fill="#0F6CBD"/><text class="cn" x="1170" y="238">8</text>
+<circle cx="28" cy="202" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="206">3</text>
+
+<!-- left panel -->
+<rect class="surf" x="41" y="222" width="279" height="473"/>
+<path class="div" d="M40 254 L320 254"/>
+<text class="ub" x="52" y="242">Classes</text><text class="us" x="102" y="242">96</text>
+<text class="us" x="132" y="242">Properties</text><text class="us" x="196" y="242">14</text>
+<rect class="acc" x="50" y="250" width="52" height="2" rx="1"/>
+<path class="div" d="M40 298 L320 298"/>
+<rect class="ctl" x="48" y="262" width="228" height="28" rx="4"/>
+<text class="us" x="78" y="280">Filter hierarchy</text>
+<rect class="ghost" x="282" y="262" width="28" height="28" rx="4"/><text class="us" x="296" y="280" text-anchor="middle">+</text>
+
+<text class="us" x="56" y="318">⌄</text><rect x="70" y="307" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="88" y="318">Thing</text>
+<text class="us" x="72" y="342">⌄</text><rect x="86" y="331" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="104" y="342">Domain Concept</text>
+<text class="us" x="88" y="366">⌄</text><rect x="102" y="355" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="120" y="366">Food</text>
+<rect class="sel" x="44" y="374" width="272" height="24" rx="4"/>
+<text class="us" x="104" y="390">⌄</text><rect x="118" y="379" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="ub" x="136" y="390">Pizza</text><text class="us" x="288" y="390">31</text>
+<text class="us" x="120" y="414">⌄</text><rect x="134" y="403" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="414">Named Pizza</text><text class="us" x="288" y="414">22</text>
+<rect x="150" y="427" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="168" y="438">Margherita</text>
+<rect x="150" y="451" width="12" height="12" rx="3" fill="#B36A00"/><text class="u" x="168" y="462">Cheesy Pizza</text>
+<text class="us" x="104" y="486">›</text><rect x="118" y="475" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="136" y="486">Pizza Base</text><text class="us" x="294" y="486">2</text>
+<text class="us" x="104" y="510">⌄</text><rect x="118" y="499" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="136" y="510">Pizza Topping</text><text class="us" x="288" y="510">41</text>
+<text class="us" x="120" y="534">›</text><rect x="134" y="523" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="534">Cheese Topping</text><text class="us" x="294" y="534">6</text>
+<text class="us" x="120" y="558">›</text><rect x="134" y="547" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="558">Meat Topping</text><text class="us" x="294" y="558">5</text>
+<text class="us" x="120" y="582">›</text><rect x="134" y="571" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="582">Vegetable Topping</text><text class="us" x="288" y="582">14</text>
+<text class="us" x="88" y="606">›</text><rect x="102" y="595" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="120" y="606">Spiciness</text><text class="us" x="294" y="606">3</text>
+<text class="us" x="88" y="630">›</text><rect x="102" y="619" width="12" height="12" rx="3" fill="#0F6CBD"/><text class="u" x="120" y="630">Country</text><text class="us" x="294" y="630">1</text>
+<circle cx="28" cy="240" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="244">10</text>
+<circle cx="28" cy="280" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="284">11</text>
+<circle cx="28" cy="390" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="394">12</text>
+<circle cx="28" cy="600" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="604">9</text>
+
+<rect x="320" y="222" width="1" height="473" fill="#E1E1E1"/>
+<circle cx="320" cy="672" r="9" fill="#0F6CBD"/><text class="cn" x="320" y="676">13</text>
+
+<!-- graph -->
+<rect class="canvas" x="321" y="222" width="598" height="473"/>
+<g fill="#E4E4EA">
+<rect x="345" y="246" width="2" height="2"/><rect x="379" y="246" width="2" height="2"/><rect x="413" y="246" width="2" height="2"/><rect x="447" y="246" width="2" height="2"/><rect x="481" y="246" width="2" height="2"/><rect x="515" y="246" width="2" height="2"/><rect x="549" y="246" width="2" height="2"/><rect x="583" y="246" width="2" height="2"/><rect x="617" y="246" width="2" height="2"/><rect x="651" y="246" width="2" height="2"/><rect x="685" y="246" width="2" height="2"/><rect x="719" y="246" width="2" height="2"/><rect x="753" y="246" width="2" height="2"/><rect x="787" y="246" width="2" height="2"/><rect x="821" y="246" width="2" height="2"/><rect x="855" y="246" width="2" height="2"/><rect x="889" y="246" width="2" height="2"/>
+<rect x="345" y="348" width="2" height="2"/><rect x="379" y="348" width="2" height="2"/><rect x="413" y="348" width="2" height="2"/><rect x="447" y="348" width="2" height="2"/><rect x="481" y="348" width="2" height="2"/><rect x="515" y="348" width="2" height="2"/><rect x="549" y="348" width="2" height="2"/><rect x="583" y="348" width="2" height="2"/><rect x="617" y="348" width="2" height="2"/><rect x="651" y="348" width="2" height="2"/><rect x="685" y="348" width="2" height="2"/><rect x="719" y="348" width="2" height="2"/><rect x="753" y="348" width="2" height="2"/><rect x="787" y="348" width="2" height="2"/><rect x="821" y="348" width="2" height="2"/><rect x="855" y="348" width="2" height="2"/><rect x="889" y="348" width="2" height="2"/>
+<rect x="345" y="450" width="2" height="2"/><rect x="379" y="450" width="2" height="2"/><rect x="413" y="450" width="2" height="2"/><rect x="447" y="450" width="2" height="2"/><rect x="481" y="450" width="2" height="2"/><rect x="515" y="450" width="2" height="2"/><rect x="549" y="450" width="2" height="2"/><rect x="583" y="450" width="2" height="2"/><rect x="617" y="450" width="2" height="2"/><rect x="651" y="450" width="2" height="2"/><rect x="685" y="450" width="2" height="2"/><rect x="719" y="450" width="2" height="2"/><rect x="753" y="450" width="2" height="2"/><rect x="787" y="450" width="2" height="2"/><rect x="821" y="450" width="2" height="2"/><rect x="855" y="450" width="2" height="2"/><rect x="889" y="450" width="2" height="2"/>
+<rect x="345" y="552" width="2" height="2"/><rect x="379" y="552" width="2" height="2"/><rect x="413" y="552" width="2" height="2"/><rect x="447" y="552" width="2" height="2"/><rect x="481" y="552" width="2" height="2"/><rect x="515" y="552" width="2" height="2"/><rect x="549" y="552" width="2" height="2"/><rect x="583" y="552" width="2" height="2"/><rect x="617" y="552" width="2" height="2"/><rect x="651" y="552" width="2" height="2"/><rect x="685" y="552" width="2" height="2"/><rect x="719" y="552" width="2" height="2"/><rect x="753" y="552" width="2" height="2"/><rect x="787" y="552" width="2" height="2"/><rect x="821" y="552" width="2" height="2"/><rect x="855" y="552" width="2" height="2"/><rect x="889" y="552" width="2" height="2"/>
+</g>
+<path d="M470 380 L560 340 M470 380 L540 440 M560 340 L640 370 M540 440 L610 470 M640 370 L700 420" stroke="#C4C4C4" stroke-width="1.5" fill="none"/>
+<rect x="459" y="369" width="22" height="22" rx="5" fill="#0F6CBD"/>
+<circle cx="470" cy="380" r="16" fill="none" stroke="#1B1B1B" stroke-width="1.8"/>
+<rect x="550" y="331" width="18" height="18" rx="4" fill="#0F6CBD"/>
+<rect x="531" y="431" width="18" height="18" rx="4" fill="#B36A00"/>
+<polygon points="640,361 649,370 640,379 631,370" fill="#7A46C0"/>
+<circle cx="610" cy="470" r="8" fill="#0E7C66"/>
+<polygon points="708,420 704,427 696,427 692,420 696,413 704,413" fill="#A8446F"/>
+<text class="us" x="470" y="404" text-anchor="middle">Pizza</text>
+<text class="us" x="559" y="362" text-anchor="middle">Named Pizza</text>
+<text class="us" x="540" y="462" text-anchor="middle">Cheesy Pizza</text>
+
+<rect class="float" x="333" y="234" width="298" height="68" rx="8"/>
+<rect class="ghost" x="339" y="240" width="28" height="24" rx="4"/><text class="us" x="353" y="256" text-anchor="middle">+</text>
+<rect class="ghost" x="369" y="240" width="28" height="24" rx="4"/><text class="us" x="383" y="256" text-anchor="middle">−</text>
+<rect class="ghost" x="399" y="240" width="28" height="24" rx="4"/><text class="us" x="413" y="256" text-anchor="middle">⛶</text>
+<path class="strk" d="M433 242 L433 262"/>
+<rect class="ctl" x="439" y="240" width="146" height="24" rx="4"/><text class="us" x="447" y="256">Auto layout   ⌄</text>
+<rect class="ghost" x="589" y="240" width="28" height="24" rx="4"/><text class="us" x="603" y="256" text-anchor="middle">↻</text>
+<rect class="ghost" x="339" y="270" width="28" height="24" rx="4" fill="#EAF3FB"/><text class="us" x="353" y="286" text-anchor="middle">◍</text>
+<path class="strk" d="M373 272 L373 292"/>
+<rect class="ghost" x="379" y="270" width="84" height="24" rx="4"/><text class="us" x="389" y="286">Export ⌄</text>
+<rect class="ghost" x="467" y="270" width="52" height="24" rx="4"/><text class="us" x="477" y="286">Clear</text>
+
+<rect class="float" x="643" y="234" width="264" height="180" rx="8"/>
+<text class="uc" x="655" y="252">VIEWPORT BUDGET</text><text class="mn" x="895" y="252" text-anchor="end">1,000</text>
+<rect x="655" y="262" width="240" height="4" rx="2" fill="#E1E1E1"/>
+<circle cx="751" cy="264" r="7" fill="#0F6CBD"/>
+<rect x="655" y="280" width="240" height="6" rx="3" fill="#EDEDED" stroke="#EAEAEA" stroke-width="1"/>
+<rect x="655" y="280" width="151" height="6" rx="3" fill="#0F6CBD"/>
+<text class="us" x="655" y="306">In view</text><text class="mn" x="895" y="306" text-anchor="end">628 nodes</text>
+<text class="us" x="655" y="324">Hidden neighbours</text><text class="mn" x="895" y="324" text-anchor="end">11,842</text>
+<text class="us" x="655" y="348">On overflow</text>
+<rect class="ctl" x="655" y="356" width="240" height="28" rx="4"/>
+<text class="us" x="663" y="374">Evict by distance, then degree  ⌄</text>
+
+<rect class="float" x="727" y="563" width="180" height="120" rx="4"/>
+<rect x="769" y="596" width="96" height="54" fill="none" stroke="#0F6CBD" stroke-width="1.5"/>
+<circle cx="790" cy="612" r="2.5" fill="#C4C4C4"/><circle cx="812" cy="624" r="2.5" fill="#C4C4C4"/><circle cx="836" cy="606" r="2.5" fill="#C4C4C4"/><circle cx="858" cy="634" r="2.5" fill="#C4C4C4"/><circle cx="800" cy="642" r="2.5" fill="#C4C4C4"/>
+
+<rect class="float" x="333" y="637" width="300" height="46" rx="4"/>
+<rect x="343" y="648" width="10" height="10" rx="2.5" fill="#0F6CBD"/><text class="us" x="359" y="657">Class</text>
+<rect x="399" y="648" width="10" height="10" rx="2.5" fill="#B36A00"/><text class="us" x="415" y="657">Defined class</text>
+<circle cx="501" cy="653" r="5" fill="#0E7C66"/><text class="us" x="511" y="657">Individual</text>
+<polygon points="577,648 582,653 577,658 572,653" fill="#7A46C0"/><text class="us" x="588" y="657">Object</text>
+<polygon points="348,672 344,676 336,676 332,672 336,668 344,668" fill="#A8446F"/>
+<text class="us" x="359" y="676">Data property</text>
+<circle cx="443" cy="672" r="4" fill="#8A5200"/><text class="us" x="453" y="676">pinned</text>
+<text class="us" x="509" y="676">+n = held back by the budget</text>
+
+<rect class="float" x="380" y="570" width="460" height="38" rx="4"/>
+<rect x="380" y="570" width="3" height="38" fill="#8A5200"/>
+<text class="us" x="396" y="594">⚠  Budget held at 1,000. Paged out 38 nodes furthest from the focus…</text>
+<rect class="ghost" x="800" y="578" width="24" height="22" rx="4"/><text class="us" x="812" y="594" text-anchor="middle">✕</text>
+
+<circle cx="340" cy="214" r="9" fill="#0F6CBD"/><text class="cn" x="340" y="218">15</text>
+<circle cx="900" cy="214" r="9" fill="#0F6CBD"/><text class="cn" x="900" y="218">16</text>
+<circle cx="736" cy="700" r="9" fill="#0F6CBD"/><text class="cn" x="736" y="704">17</text>
+<circle cx="346" cy="700" r="9" fill="#0F6CBD"/><text class="cn" x="346" y="704">18</text>
+<circle cx="860" cy="589" r="9" fill="#0F6CBD"/><text class="cn" x="860" y="593">19</text>
+<circle cx="620" cy="528" r="9" fill="#0F6CBD"/><text class="cn" x="620" y="532">14</text>
+
+<rect x="919" y="222" width="1" height="473" fill="#E1E1E1"/>
+
+<!-- inspector -->
+<rect class="surf" x="920" y="222" width="320" height="473"/>
+<path class="div" d="M920 254 L1240 254"/>
+<text class="uc" x="932" y="242">ENTITY</text>
+<rect class="ghost" x="1172" y="226" width="28" height="24" rx="4"/><text class="us" x="1186" y="242" text-anchor="middle">✓</text>
+<rect class="ghost" x="1204" y="226" width="28" height="24" rx="4"/><text class="us" x="1218" y="242" text-anchor="middle">◎</text>
+<rect x="932" y="270" width="14" height="14" rx="3.5" fill="#0F6CBD"/>
+<text class="ub" x="954" y="282">Pizza</text>
+<rect class="ghost" x="954" y="292" width="46" height="18" rx="9"/><circle cx="966" cy="301" r="4" fill="#0F6CBD"/><text class="us" x="974" y="305">Class</text>
+<text class="mns" x="932" y="328">http://www.co-ode.org/ontologies/pizza/</text>
+<text class="mns" x="932" y="342">pizza.owl#Pizza</text>
+<text class="uc" x="932" y="368">ANNOTATIONS</text><path class="div" d="M1024 364 L1228 364"/>
+<text class="mns" x="932" y="388">rdfs:comment</text>
+<text class="us" x="932" y="404">A pizza. Every pizza must have exactly one base</text>
+<text class="us" x="932" y="418">and may carry any number of toppings.</text>
+<text class="uc" x="932" y="444">SUBCLASS OF</text><path class="div" d="M1010 440 L1228 440"/>
+<text class="mns" x="932" y="464">⊑   pizza:Food</text>
+<text class="mns" x="932" y="482">⊑   pizza:hasBase some pizza:PizzaBase</text>
+<text class="mns" x="932" y="500">⊑   pizza:hasCountryOfOrigin max 1</text>
+<text class="uc" x="932" y="526">DISJOINT WITH</text><path class="div" d="M1016 522 L1228 522"/>
+<text class="mns" x="932" y="546">⊥   pizza:PizzaBase</text>
+<text class="mns" x="932" y="564">⊥   pizza:PizzaTopping</text>
+<text class="uc" x="932" y="590">USAGE</text><path class="div" d="M972 586 L1228 586"/>
+<text class="us" x="932" y="608">Subclasses</text><text class="u" x="1040" y="608">9</text>
+<text class="us" x="932" y="626">Descendants</text><text class="u" x="1040" y="626">31</text>
+<text class="us" x="932" y="644">Direct instances</text><text class="u" x="1040" y="644">0</text>
+<rect x="932" y="656" width="296" height="30" rx="4" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1" stroke-dasharray="4 3"/>
+<text class="us" x="942" y="675">ⓘ  No reasoner has run — asserted axioms only.</text>
+<circle cx="1252" cy="240" r="9" fill="#0F6CBD"/><text class="cn" x="1252" y="244">21</text>
+<circle cx="1252" cy="450" r="9" fill="#0F6CBD"/><text class="cn" x="1252" y="454">20</text>
+
+<rect x="40" y="695" width="1200" height="1" fill="#E1E1E1"/>
+<circle cx="28" cy="696" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="700">22</text>
+
+<!-- dock -->
+<rect class="alt" x="41" y="696" width="1198" height="32"/>
+<path class="div" d="M40 728 L1240 728"/>
+<text class="ub" x="52" y="716">▤ Individuals</text><text class="us" x="130" y="716">12,000</text>
+<text class="us" x="180" y="716">‹› SPARQL</text>
+<rect class="acc" x="50" y="724" width="118" height="2" rx="1"/>
+<rect class="ghost" x="1204" y="700" width="28" height="24" rx="4"/><text class="us" x="1218" y="716" text-anchor="middle">−</text>
+<rect class="surf" x="41" y="729" width="1198" height="255"/>
+<path class="div" d="M40 772 L1240 772"/>
+<text class="us" x="52" y="755">Type</text>
+<rect class="ctl" x="84" y="736" width="170" height="28" rx="4"/><text class="us" x="92" y="755">All types (12,000)  ⌄</text>
+<text class="us" x="264" y="755">Branch</text>
+<rect class="ctl" x="310" y="736" width="140" height="28" rx="4"/><text class="us" x="318" y="755">All branches  ⌄</text>
+<rect class="ctl" x="460" y="736" width="200" height="28" rx="4"/><text class="us" x="490" y="755">Filter individuals</text>
+<rect class="ghost" x="668" y="736" width="56" height="28" rx="4"/><text class="us" x="680" y="755">Reset</text>
+<rect class="ghost" x="1020" y="740" width="80" height="20" rx="10"/><text class="us" x="1032" y="755">12,000 rows</text>
+<rect class="ghost" x="1108" y="736" width="124" height="28" rx="4"/><text class="us" x="1118" y="755">◎ Send page to graph</text>
+
+<rect class="alt" x="41" y="773" width="1198" height="31"/>
+<path class="strk" d="M40 804 L1240 804"/>
+<text class="uc" x="52" y="793">INDIVIDUAL</text><text class="acc" x="132" y="793" font-size="11">↑</text>
+<text class="uc" x="299" y="793">TYPE</text>
+<text class="uc" x="492" y="793">ORDER REF</text>
+<text class="uc" x="600" y="793">BRANCH</text>
+<text class="uc" x="724" y="793">PRICE</text>
+<text class="uc" x="816" y="793">RATING</text>
+<text class="uc" x="900" y="793">PREPARED</text>
+<text class="uc" x="1048" y="793">CUSTOMER</text>
+<path class="div" d="M287 773 L287 804 M480 773 L480 804 M588 773 L588 804 M712 773 L712 804 M804 773 L804 804 M888 773 L888 804 M1036 773 L1036 804"/>
+
+<rect class="sel" x="41" y="805" width="1198" height="31"/>
+<circle cx="60" cy="820" r="5" fill="#0E7C66"/><text class="u" x="74" y="824">Pizza_000001</text>
+<text class="u" x="299" y="824">Margherita</text><text class="mn" x="492" y="824">AX-100000</text>
+<text class="u" x="600" y="824">Soho</text><text class="mn" x="796" y="824" text-anchor="end">£9.12</text>
+<text class="mn" x="872" y="824" text-anchor="end">4 / 5</text><text class="u" x="900" y="824">03 Aug, 14:22</text><text class="u" x="1048" y="824">Wren Kowalski</text>
+<path class="div" d="M40 836 L1240 836"/>
+<circle cx="60" cy="852" r="5" fill="#0E7C66"/><text class="u" x="74" y="856">Pizza_000002</text>
+<text class="u" x="299" y="856">Four Seasons</text><text class="mn" x="492" y="856">AX-100001</text>
+<text class="u" x="600" y="856">Camden</text><text class="mn" x="796" y="856" text-anchor="end">£12.88</text>
+<text class="mn" x="872" y="856" text-anchor="end">5 / 5</text><text class="u" x="900" y="856">11 Aug, 19:04</text><text class="u" x="1048" y="856">Idris Rossi</text>
+<path class="div" d="M40 868 L1240 868"/>
+<circle cx="60" cy="884" r="5" fill="#0E7C66"/><text class="u" x="74" y="888">Pizza_000003</text>
+<text class="u" x="299" y="888">Siciliana</text><text class="mn" x="492" y="888">AX-100002</text>
+<text class="u" x="600" y="888">Borough</text><text class="mn" x="796" y="888" text-anchor="end">£11.40</text>
+<text class="mn" x="872" y="888" text-anchor="end">3 / 5</text><text class="u" x="900" y="888">22 Aug, 12:39</text><text class="u" x="1048" y="888">Hana Duarte</text>
+<path class="div" d="M40 900 L1240 900"/>
+<circle cx="60" cy="916" r="5" fill="#0E7C66"/><text class="u" x="74" y="920">Pizza_000004</text>
+<text class="u" x="299" y="920">Veneziana</text><text class="mn" x="492" y="920">AX-100003</text>
+<text class="u" x="600" y="920">Islington</text><text class="mn" x="796" y="920" text-anchor="end">£10.96</text>
+<text class="mn" x="872" y="920" text-anchor="end">2 / 5</text><text class="u" x="900" y="920">07 Aug, 20:11</text><text class="u" x="1048" y="920">Omar Bianchi</text>
+<path class="div" d="M40 932 L1240 932"/>
+<circle cx="60" cy="948" r="5" fill="#0E7C66"/><text class="u" x="74" y="952">Pizza_000005</text>
+<text class="u" x="299" y="952">Cajun</text><text class="mn" x="492" y="952">AX-100004</text>
+<text class="u" x="600" y="952">Shoreditch</text><text class="mn" x="796" y="952" text-anchor="end">£13.04</text>
+<text class="mn" x="872" y="952" text-anchor="end">5 / 5</text><text class="u" x="900" y="952">29 Aug, 18:47</text><text class="u" x="1048" y="952">Zara Okafor</text>
+<path class="div" d="M40 964 L1240 964"/>
+<circle cx="28" cy="712" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="716">23</text>
+<circle cx="28" cy="750" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="754">24</text>
+<circle cx="28" cy="790" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="794">25</text>
+<circle cx="28" cy="880" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="884">26</text>
+
+<!-- status bar -->
+<rect class="alt" x="41" y="985" width="1198" height="24"/>
+<path class="strk" d="M40 984 L1240 984"/>
+<text class="us" x="52" y="1001">▤ pizza.owl</text>
+<path class="strk" d="M130 990 L130 1004"/>
+<text class="us" x="142" y="1001">Store</text><text class="mn" x="176" y="1001">96,128</text><text class="us" x="216" y="1001">triples</text>
+<text class="us" x="262" y="1001">Classes</text><text class="mn" x="308" y="1001">110</text>
+<text class="us" x="336" y="1001">Individuals</text><text class="mn" x="402" y="1001">13,505</text>
+<path class="strk" d="M448 990 L448 1004"/>
+<text class="u" x="460" y="1001">In view</text><text class="mn" x="502" y="1001">628</text><text class="u" x="528" y="1001">nodes ·</text><text class="mn" x="572" y="1001">1,204</text><text class="u" x="606" y="1001">triples</text>
+<text class="us" x="820" y="1001">Class · Pizza</text>
+<path class="strk" d="M900 990 L900 1004"/>
+<text class="us" x="912" y="1001">Layout</text><text class="mn" x="954" y="1001">Radial (auto)</text>
+<path class="strk" d="M1050 990 L1050 1004"/>
+<text class="us" x="1062" y="1001">Zoom</text><text class="mn" x="1098" y="1001">86%</text>
+<circle cx="28" cy="997" r="9" fill="#0F6CBD"/><text class="cn" x="28" y="1001">27</text>
+
+<!-- key -->
+<text class="fig" x="32" y="1046">CALLOUT KEY</text>
+<text class="key" x="32" y="1068">1  Title bar — 32px, --ground, drag region, no menu</text>
+<text class="key" x="32" y="1086">2  Window controls — 46 × 32; close hovers to #C42B1C</text>
+<text class="key" x="32" y="1104">3  Command bar — 40px, --surface, bottom --stroke</text>
+<text class="key" x="32" y="1122">4  Primary actions — open a modal dialog</text>
+<text class="key" x="32" y="1140">5  Undo / Save — 28 × 28 icon-only, tooltipped</text>
+<text class="key" x="32" y="1158">6  Dataset flyout — regenerates the ABox in place</text>
+<text class="key" x="32" y="1176">7  Global search — 260px, Ctrl+F, live result flyout</text>
+<text class="key" x="32" y="1194">8  Panel toggles and theme — aria-pressed reflects state</text>
+<text class="key" x="32" y="1212">9  Hierarchy panel — --w-left, 280px default, resizable</text>
+<text class="key" x="436" y="1068">10  Hierarchy tabs — Classes and Properties, with counts</text>
+<text class="key" x="436" y="1086">11  Tree toolbar — filter field and add-subclass</text>
+<text class="key" x="436" y="1104">12  Tree row — 24px; twisty, kind icon, label, subtree count</text>
+<text class="key" x="436" y="1122">13  Vertical splitter — 1px wide, 7px pointer target</text>
+<text class="key" x="436" y="1140">14  Graph canvas — the only non-DOM surface in the window</text>
+<text class="key" x="436" y="1158">15  Graph toolbar — wraps at max-width calc(100% − 300px)</text>
+<text class="key" x="436" y="1176">16  Budget panel — 264px; slider, meter, counts, overflow mode</text>
+<text class="key" x="436" y="1194">17  Minimap — 180 × 120, viewport rectangle drawn in --accent</text>
+<text class="key" x="436" y="1212">18  Legend — one entry per Entity kind, plus pinned and +n</text>
+<text class="key" x="856" y="1068">19  Trace toast — role=status, 6s; drawn raised here, its true</text>
+<text class="keys" x="856" y="1086">      anchor is 24px from the canvas bottom, over the legend</text>
+<text class="key" x="856" y="1104">20  Inspector panel — --w-right, 320px default, resizable</text>
+<text class="key" x="856" y="1122">21  Inspector head — rename (F2) and reveal in graph</text>
+<text class="key" x="856" y="1140">22  Horizontal splitter — resizes the dock, 1px</text>
+<text class="key" x="856" y="1158">23  Dock tabs — Individuals and SPARQL; collapse at the right</text>
+<text class="key" x="856" y="1176">24  Filter bar — type, branch, text, reset, count, send to graph</text>
+<text class="key" x="856" y="1194">25  Table header — sortable columns, aria-sort on each</text>
+<text class="key" x="856" y="1212">26  Virtualised rows — 32px; only the visible window is in the DOM</text>
+<text class="key" x="856" y="1230">27  Status bar — 26px; store, view, selection, layout, zoom</text>
+
+<text class="cap" x="32" y="1268">Figure 14 · Application window. Illustrates 00-product-overview.md, “The window”, and 41-component-library.md, “Shell regions”. Sizes are the --h-titlebar, --h-commandbar, --h-statusbar, --h-row, --h-tree-row, --w-left, --w-right and --h-dock tokens.</text>
+<text class="cap" x="32" y="1288">Below 1180px the inspector and the legend are hidden rather than compressed; below 1024px the budget panel narrows to 210px. Panel widths persist across the session but are not stored.</text>
+</svg>

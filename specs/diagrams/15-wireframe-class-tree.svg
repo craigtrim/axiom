@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1010" width="1280" height="1010" role="img" aria-labelledby="fig15-title fig15-desc">
+<title id="fig15-title">Figure 15 — Hierarchy panel and inspector, in detail</title>
+<desc id="fig15-desc">The 280 pixel hierarchy panel and the 320 pixel inspector drawn at their specified sizes, with a magnified tree row showing the padding, twisty, icon, label and count, a panel of every row state, and magnified anatomies of the axiom row and the section header.</desc>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .h{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:15px;font-weight:600;fill:#1B1B1B}
+  .u{font-size:11px;fill:#1B1B1B}
+  .ub{font-size:11px;font-weight:600;fill:#1B1B1B}
+  .us{font-size:11px;fill:#5A5A5A}
+  .uc{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .acc{font-size:11px;fill:#0F6CBD}
+  .dim{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#0F6CBD}
+  .ps{font-size:11.5px;fill:#5A5A5A}
+  .card{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .panel{fill:#FFFFFF;stroke:#E1E1E1;stroke-width:1.5}
+  .div{stroke:#EAEAEA;stroke-width:1}
+  .strk{stroke:#E1E1E1;stroke-width:1}
+  .ctl{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1}
+  .ghost{fill:none;stroke:#C4C4C4;stroke-width:1}
+  .dl{stroke:#0F6CBD;stroke-width:1}
+  .inner{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1.5}
+</style>
+<rect width="1280" height="1010" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 15</text>
+<text class="title" x="32" y="58">Hierarchy panel and entity inspector — parts and states</text>
+<text class="sub" x="32" y="80">Both panels drawn at their default widths. Indentation, row height and every gap are the literal values from the implementation.</text>
+
+<rect class="card" x="32" y="104" width="320" height="620" rx="8"/>
+<text class="h" x="48" y="130">Hierarchy panel · 280px</text>
+<rect class="panel" x="48" y="140" width="280" height="560" rx="4"/>
+<path class="div" d="M48 172 L328 172"/>
+<text class="ub" x="60" y="160">Classes</text><text class="us" x="110" y="160">110</text>
+<text class="us" x="140" y="160">Properties</text><text class="us" x="204" y="160">14</text>
+<rect x="58" y="168" width="52" height="2" rx="1" fill="#0F6CBD"/>
+<path class="div" d="M48 216 L328 216"/>
+<rect class="ctl" x="56" y="180" width="228" height="28" rx="4"/>
+<text class="us" x="86" y="199">Filter hierarchy</text>
+<rect class="ghost" x="290" y="180" width="28" height="28" rx="4"/><text class="us" x="304" y="199" text-anchor="middle">+</text>
+
+<text class="us" x="56" y="233">⌄</text><rect x="74" y="222" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="96" y="233">Thing</text>
+<text class="us" x="70" y="257">⌄</text><rect x="88" y="246" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="110" y="257">Domain Concept</text>
+<text class="us" x="84" y="281">⌄</text><rect x="102" y="270" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="124" y="281">Food</text>
+<rect x="52" y="288" width="272" height="24" rx="4" fill="#EAF3FB"/>
+<text class="us" x="98" y="305">⌄</text><rect x="116" y="294" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="ub" x="138" y="305">Pizza</text>
+<text class="us" x="128" y="329">⌄</text><rect x="130" y="318" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="329">Named Pizza</text><text class="us" x="320" y="329" text-anchor="end">22</text>
+<rect x="144" y="342" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="166" y="353">American</text><text class="us" x="320" y="353" text-anchor="end">548</text>
+<rect x="144" y="366" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="166" y="377">Margherita</text><text class="us" x="320" y="377" text-anchor="end">561</text>
+<rect x="130" y="390" width="13" height="13" rx="3" fill="#B36A00"/>
+<path d="M134 397 L139 397 M136.5 394 L136.5 400" stroke="#FFFFFF" stroke-width="1.4"/>
+<text class="u" x="152" y="401">Cheesy Pizza</text>
+<rect x="130" y="414" width="13" height="13" rx="3" fill="#B36A00"/>
+<path d="M134 421 L139 421 M136.5 418 L136.5 424" stroke="#FFFFFF" stroke-width="1.4"/>
+<text class="u" x="152" y="425">Interesting Pizza</text>
+<text class="us" x="98" y="449">›</text><rect x="116" y="438" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="138" y="449">Pizza Base</text>
+<text class="us" x="98" y="473">⌄</text><rect x="116" y="462" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="138" y="473">Pizza Topping</text>
+<text class="us" x="112" y="497">›</text><rect x="130" y="486" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="497">Cheese Topping</text>
+<text class="us" x="112" y="521">›</text><rect x="130" y="510" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="521">Meat Topping</text>
+<text class="us" x="112" y="545">›</text><rect x="130" y="534" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="152" y="545">Vegetable Topping</text>
+<text class="us" x="84" y="569">›</text><rect x="102" y="558" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="124" y="569">Spiciness</text>
+<text class="us" x="84" y="593">›</text><rect x="102" y="582" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="124" y="593">Country</text>
+<text class="us" x="70" y="617">›</text><rect x="88" y="606" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="110" y="617">Order</text><text class="us" x="320" y="617" text-anchor="end">12,000</text>
+<text class="us" x="70" y="641">›</text><rect x="88" y="630" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="110" y="641">Customer</text><text class="us" x="320" y="641" text-anchor="end">1,500</text>
+<text class="ps" x="48" y="716">Only open rows exist in the DOM, so depth costs nothing.</text>
+
+<rect class="card" x="368" y="104" width="500" height="300" rx="8"/>
+<text class="h" x="388" y="130">Tree row anatomy · 1.6×</text>
+<rect class="panel" x="388" y="146" width="448" height="38" rx="6"/>
+<path class="dl" d="M388 196 L388 204 M394 196 L394 204 M388 200 L394 200"/>
+<text class="dim" x="400" y="204">4 + depth × 14</text>
+<rect class="ghost" x="394" y="152" width="26" height="26" rx="3"/>
+<text class="us" x="407" y="170" text-anchor="middle">⌄</text>
+<rect x="428" y="154" width="22" height="22" rx="5" fill="#0F6CBD"/>
+<text class="u" x="460" y="170" font-size="14">Vegetable Topping</text>
+<text class="us" x="826" y="170" text-anchor="end" font-size="12">14</text>
+<path class="dl" d="M394 216 L394 224 M420 216 L420 224 M394 220 L420 220"/>
+<text class="dim" x="426" y="224">twisty 16 — rotates 90° when open, visibility:hidden on a leaf</text>
+<path class="dl" d="M428 240 L428 248 M450 240 L450 248 M428 244 L450 244"/>
+<text class="dim" x="456" y="248">icon 14, tinted by KIND_META[kind].colour</text>
+<path class="dl" d="M460 264 L460 272 M820 264 L820 272 M460 268 L820 268"/>
+<text class="dim" x="460" y="288">label — od-fill, ellipsised; count is nowrap and only rendered when non-zero</text>
+<text class="mns" x="388" y="330">height 24 (--h-tree-row) · gap 6 · margin 0 4px · radius 4 (--r-control) · padding-right 8</text>
+<text class="ps" x="388" y="352">The count is the number of direct instances of the class, not the subtree size — the inspector</text>
+<text class="ps" x="388" y="370">reports both, and they answer different questions.</text>
+<text class="ps" x="388" y="392">aria-level is depth + 1; aria-expanded is omitted entirely on a leaf rather than set to false.</text>
+
+<rect class="card" x="368" y="420" width="500" height="304" rx="8"/>
+<text class="h" x="388" y="446">Row states</text>
+<rect x="388" y="458" width="448" height="24" rx="4" fill="#FFFFFF" stroke="#E1E1E1" stroke-width="1"/>
+<rect x="404" y="464" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="426" y="475">Rest</text>
+<text class="mns" x="700" y="475">transparent</text>
+<rect x="388" y="490" width="448" height="24" rx="4" fill="#F7F7F7" stroke="#E1E1E1" stroke-width="1"/>
+<rect x="404" y="496" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="426" y="507">Hover</text>
+<text class="mns" x="700" y="507">--layer-hover</text>
+<rect x="388" y="522" width="448" height="24" rx="4" fill="#EAF3FB"/>
+<rect x="404" y="528" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="ub" x="426" y="539">Selected — label turns 600, count turns --text</text>
+<text class="mns" x="700" y="539">--layer-selected</text>
+<rect x="388" y="554" width="448" height="24" rx="4" fill="#FFFFFF" stroke="#E1E1E1" stroke-width="1"/>
+<rect x="404" y="560" width="13" height="13" rx="3" fill="#0F6CBD"/>
+<rect x="422" y="558" width="86" height="16" rx="2" fill="#EFF6FC"/>
+<text class="u" x="426" y="571">Filter match</text>
+<text class="mns" x="700" y="571">--accent-subtle behind the label only</text>
+<rect x="388" y="586" width="448" height="24" rx="4" fill="#FFFFFF" stroke="#E1E1E1" stroke-width="1"/>
+<rect x="404" y="592" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="426" y="603">Leaf — the twisty keeps its space, loses its glyph</text>
+<rect x="388" y="618" width="448" height="24" rx="4" fill="#FFFFFF" stroke="#E1E1E1" stroke-width="1"/>
+<rect x="404" y="624" width="13" height="13" rx="3" fill="#0F6CBD"/>
+<rect x="422" y="622" width="120" height="20" rx="2" fill="#FFFFFF" stroke="#0F6CBD" stroke-width="1.5"/>
+<text class="u" x="428" y="636">Vegetable Toppin|</text>
+<text class="mns" x="700" y="636">rename, F2 — 20px inline input</text>
+<rect x="388" y="654" width="448" height="24" rx="4" fill="#FFFFFF" stroke="#0F6CBD" stroke-width="2"/>
+<rect x="404" y="660" width="13" height="13" rx="3" fill="#0F6CBD"/><text class="u" x="426" y="671">Keyboard focus — 2px --accent ring, 1px offset</text>
+<text class="ps" x="388" y="700">Arrow keys move the selection and scroll it into view; Right and Left open and close;</text>
+<text class="ps" x="388" y="716">Enter selects and reveals in the graph. A click on the twisty toggles without selecting.</text>
+
+<rect class="card" x="884" y="104" width="364" height="620" rx="8"/>
+<text class="h" x="904" y="130">Inspector · 320px</text>
+<rect class="panel" x="904" y="140" width="320" height="560" rx="4"/>
+<path class="div" d="M904 172 L1224 172"/>
+<text class="uc" x="916" y="160">ENTITY</text>
+<rect class="ghost" x="1156" y="144" width="28" height="24" rx="4"/><text class="us" x="1170" y="160" text-anchor="middle">✓</text>
+<rect class="ghost" x="1188" y="144" width="28" height="24" rx="4"/><text class="us" x="1202" y="160" text-anchor="middle">◎</text>
+<rect x="920" y="188" width="14" height="14" rx="3.5" fill="#B36A00"/>
+<path d="M924 195 L930 195 M927 192 L927 198" stroke="#FFFFFF" stroke-width="1.4"/>
+<text class="h" x="942" y="200" font-size="14">Cheesy Pizza</text>
+<rect class="ghost" x="942" y="210" width="98" height="18" rx="9" fill="#FAFAFA"/>
+<circle cx="954" cy="219" r="4" fill="#B36A00"/><text class="us" x="962" y="223">Defined class</text>
+<text class="mns" x="920" y="248">http://www.co-ode.org/ontologies/</text>
+<text class="mns" x="920" y="262">pizza/pizza.owl#CheesyPizza</text>
+<text class="uc" x="920" y="290">EQUIVALENT TO</text><path class="div" d="M1012 286 L1208 286"/>
+<rect x="920" y="296" width="288" height="42" rx="4" fill="#F7F7F7"/>
+<text class="mns" x="928" y="312">≡</text><text class="acc" x="948" y="312">pizza:Pizza</text>
+<text class="mns" x="948" y="328">and pizza:hasTopping some</text>
+<text class="acc" x="1090" y="328">pizza:Chees…</text>
+<text class="uc" x="920" y="360">SUBCLASS OF</text><path class="div" d="M1000 356 L1208 356"/>
+<text class="mns" x="928" y="378">⊑</text><text class="acc" x="948" y="378">pizza:Pizza</text>
+<text class="uc" x="920" y="406">ANNOTATIONS</text><path class="div" d="M1004 402 L1208 402"/>
+<text class="mns" x="928" y="424">rdfs:comment</text>
+<text class="us" x="920" y="442">A pizza carrying at least one cheese topping.</text>
+<text class="uc" x="920" y="470">USAGE</text><path class="div" d="M960 466 L1208 466"/>
+<text class="us" x="920" y="490">Subclasses</text><text class="u" x="1030" y="490">0</text>
+<text class="us" x="920" y="508">Descendants</text><text class="u" x="1030" y="508">0</text>
+<text class="us" x="920" y="526">Direct instances</text><text class="u" x="1030" y="526">0</text>
+<text class="uc" x="920" y="556">INFERRED AXIOMS</text><path class="div" d="M1032 552 L1208 552"/>
+<rect x="920" y="562" width="288" height="52" rx="4" fill="#FAFAFA" stroke="#C4C4C4" stroke-width="1" stroke-dasharray="4 3"/>
+<text class="us" x="930" y="580">ⓘ  No reasoner has run. This prototype shows</text>
+<text class="us" x="930" y="596">asserted axioms only; inferred axioms would</text>
+<text class="us" x="930" y="612">appear here, marked with the amber rule.</text>
+<text class="ps" x="904" y="716">Sections render only when they have content; there is no empty “Disjoint with” heading.</text>
+
+<rect class="card" x="32" y="740" width="600" height="200" rx="8"/>
+<text class="h" x="52" y="766">Axiom row anatomy · 1.6×</text>
+<rect x="52" y="778" width="560" height="34" rx="6" fill="#F7F7F7"/>
+<text class="mn" x="64" y="800" font-size="13">⊑</text>
+<text class="mn" x="96" y="800" font-size="13">pizza:hasTopping some</text>
+<text class="mn" x="270" y="800" font-size="13" fill="#0F6CBD">pizza:MozzarellaTopping</text>
+<path class="dl" d="M64 824 L64 832 M88 824 L88 832 M64 828 L88 828"/>
+<text class="dim" x="96" y="832">kind marker — flex:none, --text-secondary</text>
+<path class="dl" d="M96 848 L96 856 M604 848 L604 856 M96 852 L604 852"/>
+<text class="dim" x="96" y="872">body — od-fill, mono 13px, overflow-wrap:anywhere; every IRI is an --accent link</text>
+<text class="mns" x="52" y="898">padding 4px 8px · radius 4 · line-height 1.5 · hover fills with --layer-hover</text>
+<rect x="52" y="908" width="560" height="22" rx="4" fill="#F7F7F7"/>
+<rect x="52" y="908" width="2" height="22" fill="#B36A00"/>
+<text class="mn" x="64" y="923">inferred variant — 2px left rule in --e-defined, reserved for a future reasoner</text>
+
+<rect class="card" x="648" y="740" width="600" height="200" rx="8"/>
+<text class="h" x="668" y="766">Section header and empty state</text>
+<text class="uc" x="668" y="792">SUBCLASS OF</text>
+<path class="div" d="M748 788 L1090 788"/>
+<rect class="ghost" x="1100" y="780" width="128" height="18" rx="9" fill="#FAFAFA"/>
+<text class="us" x="1110" y="793">from Margherita</text>
+<text class="ps" x="668" y="816">Title is 12px 600 uppercase with 0.02em tracking in --text-secondary; the rule is a 1px</text>
+<text class="ps" x="668" y="832">--stroke-divider that absorbs the remaining width; the optional chip sits after it.</text>
+<rect x="668" y="846" width="560" height="76" rx="4" fill="#FAFAFA" stroke="#E1E1E1" stroke-width="1.5"/>
+<rect x="932" y="858" width="18" height="18" rx="4.5" fill="none" stroke="#8A8A8A" stroke-width="1.5"/>
+<text class="ub" x="948" y="896" text-anchor="middle">Nothing selected</text>
+<text class="us" x="948" y="912" text-anchor="middle">Pick a class in the hierarchy, a node in the graph, or a row in the individuals table.</text>
+
+<text class="cap" x="32" y="968">Figure 15 · Hierarchy panel and inspector. Illustrates 30-class-tree-and-inspector.md, “Tree row”, “Row states” and “Inspector sections”. [src: renderTree(), renderInspector(), section(), axiom()]</text>
+<text class="cap" x="32" y="988">Indentation is padding-left: 4 + depth × 14 px, applied to the row rather than to a wrapper, so the hover and selection fills always span the full panel width.</text>
+</svg>

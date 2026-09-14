@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960" role="img" aria-labelledby="fig17-title fig17-desc">
+<title id="fig17-title">Figure 17 — SPARQL console</title>
+<desc id="fig17-desc">The query Surface in the bottom dock: a command row with run and send-to-graph actions, a syntax-highlighted editor over a transparent textarea, a status line reporting rows, timing and store size, a virtualised result grid, and a right-hand rail of example queries. Annotations give the token colours, the evaluation pipeline and the error contract.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .ct{font-size:13px;font-weight:600;fill:#1B1B1B}
+  .kind{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .hd{font-size:11px;font-weight:600;fill:#5A5A5A}
+  .cell{font-size:12px;fill:#1B1B1B}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .kw{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#7A46C0;font-weight:600}
+  .var{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#0F6CBD}
+  .iri{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#0E7C66}
+  .str{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#A8446F}
+  .num{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:12px;fill:#8A5200}
+  .panel{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1.5}
+  .barfill{fill:#FAFAFA}
+  .sunken{fill:#EDEDED}
+  .btn{fill:#FFFFFF;stroke:#C4C4C4;stroke-width:1}
+  .prim{fill:#0F6CBD}
+  .chip{fill:#FAFAFA;stroke:#E1E1E1;stroke-width:1}
+  .rowline{stroke:#EAEAEA;stroke-width:1}
+  .ann{stroke:#0F6CBD;stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+  .anng{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+  .err{fill:#FDF3F4}
+</style>
+<rect width="1280" height="960" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 17</text>
+<text class="title" x="32" y="58">SPARQL console — editor, evaluator, results</text>
+<text class="sub" x="32" y="80">A real evaluator over basic graph patterns with FILTER, DISTINCT, ORDER BY and LIMIT. Not SPARQL 1.1; the divergences are enumerated rather than implied.</text>
+
+<rect class="panel" x="32" y="104" width="880" height="600" rx="8"/>
+
+<!-- command row -->
+<line x1="32.75" y1="148" x2="911.25" y2="148" stroke="#EAEAEA"/>
+<rect class="prim" x="48" y="115" width="122" height="28" rx="4"/>
+<path d="M62 122 L74 129 L62 136 z" fill="#FFFFFF"/>
+<text class="cell" x="80" y="133" fill="#FFFFFF" font-weight="600">Run</text>
+<text class="mns" x="112" y="133" fill="#FFFFFF" opacity=".8">Ctrl+Enter</text>
+<rect class="btn" x="180" y="115" width="176" height="28" rx="4"/>
+<text class="cell" x="196" y="133">Send results to graph</text>
+<rect class="chip" x="654" y="118" width="244" height="22" rx="11"/>
+<text class="mns" x="666" y="133">Basic graph patterns · FILTER · LIMIT</text>
+
+<!-- editor -->
+<rect class="sunken" x="32.75" y="148" width="878.5" height="196"/>
+<text class="kw" x="48" y="174">PREFIX</text>
+<text class="iri" x="106" y="174">pizza: &lt;http://www.co-ode.org/ontologies/pizza/pizza.owl#&gt;</text>
+<text class="kw" x="48" y="192">PREFIX</text>
+<text class="iri" x="106" y="192">rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;</text>
+<text class="kw" x="48" y="228">SELECT</text>
+<text class="kw" x="106" y="228">DISTINCT</text>
+<text class="var" x="184" y="228">?pizza</text>
+<text class="kw" x="242" y="228">WHERE</text>
+<text class="mn" x="292" y="228">{</text>
+<text class="var" x="72" y="246">?pizza</text>
+<text class="iri" x="130" y="246">pizza:hasTopping</text>
+<text class="var" x="282" y="246">?topping</text>
+<text class="mn" x="358" y="246">.</text>
+<text class="var" x="72" y="264">?topping</text>
+<text class="iri" x="148" y="264">rdfs:subClassOf</text>
+<text class="iri" x="292" y="264">pizza:CheeseTopping</text>
+<text class="mn" x="472" y="264">.</text>
+<text class="mn" x="48" y="282">}</text>
+<text class="kw" x="48" y="300">ORDER BY</text>
+<text class="var" x="130" y="300">?pizza</text>
+<text class="kw" x="48" y="318">LIMIT</text>
+<text class="num" x="98" y="318">200</text>
+<rect x="132" y="308" width="1.5" height="14" fill="#1B1B1B"/>
+
+<!-- status -->
+<rect class="barfill" x="32.75" y="344" width="878.5" height="34"/>
+<line x1="32.75" y1="344" x2="911.25" y2="344" stroke="#EAEAEA"/>
+<line x1="32.75" y1="378" x2="911.25" y2="378" stroke="#EAEAEA"/>
+<circle cx="58" cy="361" r="7" fill="none" stroke="#0E700E" stroke-width="1.5"/>
+<path d="M54.5 361 l2.5 2.5 l4.5 -5" stroke="#0E700E" stroke-width="1.5" fill="none"/>
+<text class="cell" x="74" y="365"><tspan font-weight="600">12</tspan> rows in <tspan font-weight="600">3 ms</tspan> over 87,239 triples · 12 distinct IRIs</text>
+
+<!-- result grid -->
+<rect x="32.75" y="378" width="878.5" height="32" fill="#FAFAFA"/>
+<line x1="32.75" y1="410" x2="911.25" y2="410" stroke="#E1E1E1"/>
+<text class="hd" x="48" y="398">?pizza</text>
+<g>
+  <text class="mn" x="48" y="430" fill="#0F6CBD">pizza:American</text>
+  <line class="rowline" x1="32.75" y1="442" x2="911.25" y2="442"/>
+  <text class="mn" x="48" y="462" fill="#0F6CBD">pizza:AmericanHot</text>
+  <line class="rowline" x1="32.75" y1="474" x2="911.25" y2="474"/>
+  <text class="mn" x="48" y="494" fill="#0F6CBD">pizza:Cajun</text>
+  <line class="rowline" x1="32.75" y1="506" x2="911.25" y2="506"/>
+  <text class="mn" x="48" y="526" fill="#0F6CBD">pizza:Capricciosa</text>
+  <line class="rowline" x1="32.75" y1="538" x2="911.25" y2="538"/>
+  <text class="mn" x="48" y="558" fill="#0F6CBD">pizza:Caprina</text>
+  <line class="rowline" x1="32.75" y1="570" x2="911.25" y2="570"/>
+  <text class="mns" x="48" y="590">⋮</text>
+</g>
+
+<!-- examples rail -->
+<line x1="700" y1="148" x2="700" y2="703" stroke="#EAEAEA"/>
+<rect x="700.5" y="148" width="210.75" height="555" fill="#FAFAFA"/>
+<text class="kind" x="716" y="172">EXAMPLE QUERIES</text>
+<g>
+  <text class="ct" x="716" y="200">Named pizzas and toppings</text>
+  <text class="cap" x="716" y="216">Walks the flattened restrictions.</text>
+  <text class="ct" x="716" y="246">Every hot topping</text>
+  <text class="cap" x="716" y="262">The Spiciness partition in use.</text>
+  <rect x="708" y="278" width="196" height="40" rx="4" fill="#EAF3FB"/>
+  <text class="ct" x="716" y="296">Pizzas carrying cheese</text>
+  <text class="cap" x="716" y="312">A two-hop join.</text>
+  <text class="ct" x="716" y="342">Expensive Shoreditch orders</text>
+  <text class="cap" x="716" y="358">FILTER over generated data.</text>
+  <text class="ct" x="716" y="388">Five-star orders and customers</text>
+  <text class="cap" x="716" y="404">Joins Individuals to customers.</text>
+  <text class="ct" x="716" y="434">Everything about Margherita</text>
+  <text class="cap" x="716" y="450">Open predicate and object.</text>
+  <text class="ct" x="716" y="480">Soho's best sellers</text>
+  <text class="cap" x="716" y="496">Raw rows — no aggregates yet.</text>
+</g>
+
+<!-- error state inset -->
+<rect class="panel" x="32" y="728" width="880" height="86" rx="8"/>
+<rect class="err" x="32.75" y="728.75" width="878.5" height="84.5" rx="8"/>
+<rect x="32.75" y="728.75" width="3" height="84.5" fill="#B10E1C"/>
+<text class="kind" x="52" y="752">STATUS LINE — ERROR</text>
+<text class="cell" x="52" y="776" fill="#B10E1C" font-weight="600">Unknown prefix “foaf:”.</text>
+<text class="cell" x="232" y="776" fill="#B10E1C">Declare it with PREFIX, or use one of: pizza: demo: rdf: rdfs: owl: xsd:</text>
+<text class="cap" x="52" y="798">Every error names the cause and the remedy. A message that says only “invalid” fails the contract.</text>
+
+<!-- annotations -->
+<text class="kind" x="952" y="122">TOKEN COLOURS</text>
+<rect class="anng" x="948" y="136" width="300" height="128" rx="8"/>
+<rect x="962" y="150" width="12" height="12" fill="#7A46C0"/><text class="mns" x="982" y="160">keyword  --e-objprop</text>
+<rect x="962" y="170" width="12" height="12" fill="#0F6CBD"/><text class="mns" x="982" y="180">variable  --accent</text>
+<rect x="962" y="190" width="12" height="12" fill="#0E7C66"/><text class="mns" x="982" y="200">IRI  --e-individual</text>
+<rect x="962" y="210" width="12" height="12" fill="#A8446F"/><text class="mns" x="982" y="220">literal  --e-dataprop</text>
+<rect x="962" y="230" width="12" height="12" fill="#8A5200"/><text class="mns" x="982" y="240">number  --warn</text>
+<text class="mns" x="962" y="258" fill="#B10E1C">IRI token measures 4.38:1 — under 4.5</text>
+
+<rect class="ann" x="948" y="284" width="300" height="176" rx="8"/>
+<text class="ct" x="962" y="306">Evaluation pipeline</text>
+<text class="mns" x="962" y="328">1  tokenize(text)</text>
+<text class="mns" x="962" y="344">2  parseQuery → {patterns, filters,</text>
+<text class="mns" x="962" y="360">     projection, order, limit}</text>
+<text class="mns" x="962" y="376">3  nested-loop join, pattern order</text>
+<text class="mns" x="962" y="392">     as written, over scan()</text>
+<text class="mns" x="962" y="408">4  FILTER → DISTINCT → ORDER → LIMIT</text>
+<text class="cap" x="962" y="430">Solutions cap at 200,000 and the</text>
+<text class="cap" x="962" y="446">truncation is reported, not hidden.</text>
+
+<rect class="anng" x="948" y="480" width="300" height="140" rx="8"/>
+<text class="ct" x="962" y="502">Editor construction</text>
+<text class="cap" x="962" y="522">A highlighted &lt;pre&gt; sits under a</text>
+<text class="cap" x="962" y="538">transparent textarea sharing its font,</text>
+<text class="cap" x="962" y="554">padding and wrapping. The caret is</text>
+<text class="cap" x="962" y="570">the textarea's; the colour is the pre's.</text>
+<text class="cap" x="962" y="590">Any divergence in metrics between the</text>
+<text class="cap" x="962" y="606">two misaligns every character.</text>
+
+<rect class="ann" x="948" y="640" width="300" height="128" rx="8"/>
+<text class="ct" x="962" y="662">Defect — PREFIX is rejected</text>
+<text class="cap" x="962" y="682">The tokeniser has no terminal for a bare</text>
+<text class="cap" x="962" y="698">prefix label, so “pizza:” lexes as a word</text>
+<text class="cap" x="962" y="714">plus a stray colon and every PREFIX line</text>
+<text class="cap" x="962" y="730">throws. All seven examples fail as shipped.</text>
+<text class="cap" x="962" y="750">They parse only with the PREFIX lines</text>
+<text class="cap" x="962" y="766">deleted, since all six labels are built in.</text>
+
+<line class="ann" x1="944" y1="192" x2="500" y2="228" marker-end="url(#ara)"/>
+<line class="ann" x1="944" y1="700" x2="360" y2="180" marker-end="url(#ara)"/>
+
+<text class="cap" x="32" y="866">Figure 17 · SPARQL console. Illustrates 32-sparql-console.md, “The editor”, “Evaluation”, “Results presentation” and “Error taxonomy”. [src: tokenize(), parseQuery(), evaluate(), scan(), highlight(), runQuery(), EXAMPLES]</text>
+<text class="cap" x="32" y="886">The result shown is the third example after its PREFIX lines are removed; as shipped the query does not reach the evaluator at all. The defect is recorded in the console document and in the defect register.</text>
+<text class="cap" x="32" y="906">The status line always states the Store size the query ran against, so a fast answer over a small Store is never mistaken for a fast answer over a large one.</text>
+<text class="cap" x="32" y="926">Result IRIs are activatable: clicking one drives the same selection bus the tree and the table use, so a query result is a way into the graph rather than a dead end.</text>
+</svg>

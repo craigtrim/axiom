@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 900" width="1280" height="900" role="img" aria-labelledby="fig18-title fig18-desc">
+<title id="fig18-title">Figure 18 — Anatomy of an exported graph image</title>
+<desc id="fig18-desc">The exported document in three bands: an 86-pixel header carrying the ontology name, the caption and the product name; the scene band sized to the viewport bounds plus 90 pixels of padding on every side; and a 58-pixel footer carrying the legend drawn with real node shapes and the edge key. Annotations give the scale back-off loop, the caption fields and the filename convention.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5A5A5A"/></marker>
+  <marker id="ara" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+  <marker id="dimL" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M10 0 L0 5 L10 10 z" fill="#0F6CBD"/></marker>
+  <marker id="dimR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#0F6CBD"/></marker>
+</defs>
+<style>
+  text{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+  .fig{font-size:12px;fill:#5A5A5A;letter-spacing:.10em}
+  .title{font-family:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:20px;font-weight:600;fill:#1B1B1B}
+  .sub{font-size:13px;fill:#5A5A5A}
+  .cap{font-size:12px;fill:#5A5A5A}
+  .ct{font-size:13px;font-weight:600;fill:#1B1B1B}
+  .kind{font-size:11px;font-weight:600;fill:#5A5A5A;letter-spacing:.06em}
+  .mn{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#1B1B1B}
+  .mns{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;font-size:11px;fill:#5A5A5A}
+  .dim{font-size:11px;font-weight:600;fill:#0F6CBD}
+  .surf{fill:#FFFFFF}
+  .canvas{fill:#F7F7F9}
+  .frame{fill:none;stroke:#C4C4C4;stroke-width:1.5}
+  .div{stroke:#E1E1E1;stroke-width:1}
+  .ann{stroke:#0F6CBD;stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+  .anng{stroke:#5A5A5A;stroke-width:1.5;fill:none}
+  .dimline{stroke:#0F6CBD;stroke-width:1}
+  .pad{fill:#EFF6FC;opacity:.7}
+</style>
+<rect width="1280" height="900" fill="#F3F3F3"/>
+<text class="fig" x="32" y="30">FIGURE 18</text>
+<text class="title" x="32" y="58">Anatomy of an exported graph image</text>
+<text class="sub" x="32" y="80">The export is rendered off-screen at its own size. It is never a crop of the on-screen panel, and it always states what it is a picture of.</text>
+
+<!-- ───────── the exported document ───────── -->
+<g>
+  <!-- header band -->
+  <rect class="surf" x="120" y="120" width="720" height="86"/>
+  <text class="ct" x="144" y="156" font-size="17">pizza.owl — graph view</text>
+  <text class="mns" x="144" y="180">Hierarchy layout · 62 nodes · 94 relationships · viewport budget 1,000 ·</text>
+  <text class="mns" x="144" y="194">1,204 neighbours held back · 11 Sep 2026, 17:24</text>
+  <text class="ct" x="816" y="156" text-anchor="end" font-size="11">Axiom Ontology Workbench</text>
+  <line class="div" x1="120" y1="206.5" x2="840" y2="206.5"/>
+
+  <!-- scene band -->
+  <rect class="canvas" x="120" y="206" width="720" height="400"/>
+  <rect class="pad" x="120" y="206" width="720" height="46"/>
+  <rect class="pad" x="120" y="560" width="720" height="46"/>
+  <rect class="pad" x="120" y="252" width="46" height="308"/>
+  <rect class="pad" x="794" y="252" width="46" height="308"/>
+
+  <!-- a small hierarchy scene -->
+  <g stroke="#C4C4C4" stroke-width="1.15" fill="none">
+    <path d="M480 290 V318 H330 V338"/>
+    <path d="M480 290 V318 H480 V338"/>
+    <path d="M480 290 V318 H630 V338"/>
+    <path d="M330 366 V392 H250 V412"/>
+    <path d="M330 366 V392 H410 V412"/>
+    <path d="M630 366 V392 H570 V412"/>
+    <path d="M630 366 V392 H690 V412"/>
+  </g>
+  <g fill="#0F6CBD">
+    <rect x="468" y="278" width="24" height="24" rx="5"/>
+    <rect x="320" y="338" width="20" height="20" rx="4"/>
+    <rect x="470" y="338" width="20" height="20" rx="4"/>
+    <rect x="620" y="338" width="20" height="20" rx="4"/>
+  </g>
+  <g fill="#B36A00">
+    <rect x="242" y="412" width="16" height="16" rx="3"/>
+    <rect x="402" y="412" width="16" height="16" rx="3"/>
+  </g>
+  <g fill="#0E7C66">
+    <circle cx="570" cy="420" r="7"/>
+    <circle cx="690" cy="420" r="7"/>
+  </g>
+  <g font-size="10" fill="#1B1B1B" text-anchor="middle" font-family="Segoe UI Variable Text, Segoe UI, system-ui, sans-serif">
+    <text x="480" y="316">Pizza</text>
+    <text x="330" y="372">NamedPizza</text>
+    <text x="480" y="372">CheesyPizza</text>
+    <text x="630" y="372">SpicyPizza</text>
+    <text x="250" y="440">Margherita</text>
+    <text x="410" y="440">Napoletana</text>
+    <text x="570" y="440">Pizza_000001</text>
+    <text x="690" y="440">Pizza_000002</text>
+  </g>
+
+  <!-- footer band -->
+  <line class="div" x1="120" y1="605.5" x2="840" y2="605.5"/>
+  <rect class="surf" x="120" y="606" width="720" height="58"/>
+  <rect x="140" y="628" width="13" height="13" rx="3" fill="#0F6CBD"/>
+  <text class="cap" x="160" y="639">Class</text>
+  <rect x="200" y="628" width="13" height="13" rx="3" fill="#B36A00"/>
+  <text class="cap" x="220" y="639">Defined class</text>
+  <circle cx="302" cy="634.5" r="6.5" fill="#0E7C66"/>
+  <text class="cap" x="314" y="639">Individual</text>
+  <path d="M380 628 L386.5 634.5 L380 641 L373.5 634.5 z" fill="#7A46C0"/>
+  <text class="cap" x="394" y="639">Object property</text>
+  <path d="M478 628.8 L483.6 632 v6.5 L478 641.7 L472.4 638.5 V632 z" fill="#A8446F"/>
+  <text class="cap" x="492" y="639">Data property</text>
+  <text class="cap" x="820" y="639" text-anchor="end" font-size="11">Dashed = rdf:type · solid = subClassOf · +n = held back</text>
+
+  <rect class="frame" x="120" y="120" width="720" height="544"/>
+</g>
+
+<!-- ───────── dimensions ───────── -->
+<line class="dimline" x1="96" y1="120" x2="96" y2="206" marker-start="url(#dimL)" marker-end="url(#dimR)"/>
+<text class="dim" x="88" y="168" text-anchor="end">86</text>
+<line class="dimline" x1="96" y1="206" x2="96" y2="606" marker-start="url(#dimL)" marker-end="url(#dimR)"/>
+<text class="dim" x="88" y="400" text-anchor="end">scene</text>
+<line class="dimline" x1="96" y1="606" x2="96" y2="664" marker-start="url(#dimL)" marker-end="url(#dimR)"/>
+<text class="dim" x="88" y="640" text-anchor="end">58</text>
+<line class="dimline" x1="120" y1="692" x2="166" y2="692" marker-start="url(#dimL)" marker-end="url(#dimR)"/>
+<text class="dim" x="143" y="710" text-anchor="middle">90</text>
+<line class="dimline" x1="794" y1="692" x2="840" y2="692" marker-start="url(#dimL)" marker-end="url(#dimR)"/>
+<text class="dim" x="817" y="710" text-anchor="middle">90</text>
+<text class="cap" x="200" y="710">padding, applied to the viewport bounds on all four sides</text>
+
+<!-- ───────── annotations ───────── -->
+<text class="kind" x="880" y="122">CAPTION FIELDS</text>
+<rect class="ann" x="876" y="136" width="372" height="150" rx="8"/>
+<text class="mns" x="890" y="158">LAYOUT_NAMES[G.layoutResolved]  + " layout"</text>
+<text class="mns" x="890" y="176">G.nodes.size                    + " nodes"</text>
+<text class="mns" x="890" y="194">G.edges.size                    + " relationships"</text>
+<text class="mns" x="890" y="212">G.budget                        "viewport budget"</text>
+<text class="mns" x="890" y="230">totalHidden()                   "held back"</text>
+<text class="mns" x="890" y="248">new Date()                      en-GB long form</text>
+<text class="cap" x="890" y="272">Every field is read at export time from live state.</text>
+
+<rect class="anng" x="876" y="306" width="372" height="158" rx="8"/>
+<text class="ct" x="890" y="328">Resolution and the back-off loop</text>
+<text class="mns" x="890" y="350">s = requestedScale            // 2 or 3</text>
+<text class="mns" x="890" y="366">while (w·s &gt; 9000 || h·s &gt; 9000) &amp;&amp; s &gt; 0.35</text>
+<text class="mns" x="890" y="382">    s ×= 0.8</text>
+<text class="cap" x="890" y="404">The cap exists because a 3,000-node radial drawing at</text>
+<text class="cap" x="890" y="420">3× would otherwise ask for a gigapixel surface. Backing</text>
+<text class="cap" x="890" y="436">off keeps the export possible; the achieved scale is</text>
+<text class="cap" x="890" y="452">reported in the filename and in the completion message.</text>
+
+<rect class="anng" x="876" y="484" width="372" height="126" rx="8"/>
+<text class="ct" x="890" y="506">Filename</text>
+<text class="mn" x="890" y="528">axiom-graph-hierarchy-20260911-1724@2x.png</text>
+<text class="cap" x="890" y="550">Stem is the product, the resolved layout mode and the</text>
+<text class="cap" x="890" y="566">local timestamp to the minute. Two exports of different</text>
+<text class="cap" x="890" y="582">layouts never collide; two of the same layout inside one</text>
+<text class="cap" x="890" y="598">minute do, which is the intended granularity.</text>
+
+<rect class="ann" x="876" y="630" width="372" height="112" rx="8"/>
+<text class="ct" x="890" y="652">Defect — the SVG path omits six elements</text>
+<text class="cap" x="890" y="672">The vector export leaves out the dot grid, arrowheads,</text>
+<text class="cap" x="890" y="688">the defined-class mark, the selection ring, pin markers</text>
+<text class="cap" x="890" y="704">and hidden-neighbour badges. The last of those breaks</text>
+<text class="cap" x="890" y="720">the contract this figure exists to document: an export</text>
+<text class="cap" x="890" y="736">must state what the Budget is holding back.</text>
+
+<line class="ann" x1="872" y1="200" x2="600" y2="188" marker-end="url(#ara)"/>
+<line class="anng" x1="872" y1="560" x2="700" y2="636" marker-end="url(#ar)"/>
+
+<text class="cap" x="32" y="792">Figure 18 · Export anatomy. Illustrates 22-graph-rendering-and-export.md, “Export” and “Export requirements”. [src: EXPORT_HEADER, EXPORT_FOOTER, EXPORT_MAX_PX, sceneBounds(), exportCaption(), drawExportChrome(), renderExportCanvas(), exportStem()]</text>
+<text class="cap" x="32" y="812">The blue bands mark the 90-pixel padding added to the viewport bounds before the canvas is sized. Header and footer are drawn over the filled background after the scene, so their bands are opaque.</text>
+<text class="cap" x="32" y="832">The legend is drawn with the same shape routine the renderer uses for nodes, so the key can never drift from the picture it explains.</text>
+<text class="cap" x="32" y="852">PNG at 2× and 3×, SVG, and clipboard copy all share this layout. The clipboard path renders at 2× and reports a permission failure with a fallback instruction rather than failing silently.</text>
+</svg>
