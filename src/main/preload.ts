@@ -1,0 +1,53 @@
+import { contextBridge, ipcRenderer } from "electron";
+import type {
+  AxiomBridge,
+  DomainMethod,
+  Preferences,
+} from "../shared/protocol";
+const listen = (channel: string, fn: (value: any) => void) => {
+  const handler = (_event: Electron.IpcRendererEvent, value: any) => fn(value);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+};
+const bridge: AxiomBridge = {
+  editors: {
+    dirty: (count) => ipcRenderer.send("editors:dirty", count),
+    flushed: (error) => ipcRenderer.send("editors:flushed", error),
+  },
+  provenance: {
+    choose: () => ipcRenderer.invoke("provenance:choose"),
+    start: (o) => ipcRenderer.invoke("provenance:start", o),
+    status: () => ipcRenderer.invoke("provenance:status"),
+    cancel: () => ipcRenderer.invoke("provenance:cancel"),
+    open: () => ipcRenderer.invoke("provenance:open"),
+    reveal: () => ipcRenderer.invoke("provenance:reveal"),
+  },
+  keyboard: {
+    modal: (active) => ipcRenderer.send("keyboard:modal", active),
+    menu: () => ipcRenderer.send("keyboard:menu"),
+    save: (settings) => ipcRenderer.invoke("keyboard:save", settings),
+    import: () => ipcRenderer.invoke("keyboard:import"),
+    export: (settings) => ipcRenderer.invoke("keyboard:export", settings),
+  },
+  research: {
+    assistants: () => ipcRenderer.invoke("research:assistants"),
+    run: (r) => ipcRenderer.invoke("research:run", r),
+    cancel: () => ipcRenderer.invoke("research:cancel"),
+    status: () => ipcRenderer.invoke("research:status"),
+    open: (url) => ipcRenderer.invoke("research:open", url),
+  },
+  request: <T>(method: DomainMethod, args?: Record<string, unknown>) =>
+    ipcRenderer.invoke("domain:request", method, args) as Promise<T>,
+  preferences: {
+    load: () => ipcRenderer.invoke("preferences:load"),
+    save: (p: Preferences) => ipcRenderer.invoke("preferences:save", p),
+  },
+  onEvent: (fn) => listen("domain:event", fn),
+  onCommand: (fn) => listen("command", fn),
+  menuState: (state) => ipcRenderer.send("menu:state", state),
+  command: (command) => ipcRenderer.send("command", command),
+  exportFile: (format, data) => ipcRenderer.invoke("export", format, data),
+  exportDocument: (input) => ipcRenderer.invoke("export:document", input),
+  copy: (text) => ipcRenderer.invoke("copy", text),
+};
+contextBridge.exposeInMainWorld("axiom", bridge);
