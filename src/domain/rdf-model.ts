@@ -24,6 +24,56 @@ export function identifier(label: string) {
   if (!/^\p{L}/u.test(name)) name = "Entity" + name;
   return name.slice(0, 200);
 }
+export function identifierParts(iri: string) {
+  const split =
+    Math.max(iri.lastIndexOf("#"), iri.lastIndexOf("/"), iri.lastIndexOf(":")) +
+    1;
+  return { namespace: iri.slice(0, split), name: iri.slice(split) };
+}
+export function isDefaultIdentifier(iri: string) {
+  if (iri.startsWith("_:")) return false;
+  const name = identifierParts(iri)
+    .name.normalize("NFKC")
+    .replace(/[\s_-]/gu, "");
+  return /^New(?:Class|Node|Entity|Individual|Instance|Property|ObjectProperty|DataProperty|AnnotationProperty)(?:[0-9]+)?$/i.test(
+    name,
+  );
+}
+export function uniqueLabelIri(
+  label: string,
+  namespace: string,
+  exists: (iri: string) => boolean,
+) {
+  const stem = identifier(label);
+  let candidate = namespace + stem,
+    suffix = 2;
+  while (exists(candidate)) candidate = namespace + stem + suffix++;
+  return candidate;
+}
+// Only placeholder identifiers follow labels. Established identifiers remain
+// stable even when they happen to match the old label's normalized spelling.
+export function labelledIri(
+  iri: string,
+  label: string,
+  exists: (iri: string) => boolean,
+) {
+  if (
+    !isDefaultIdentifier(iri) ||
+    !label.trim() ||
+    isDefaultIdentifier(identifier(label))
+  )
+    return iri;
+  return uniqueLabelIri(
+    label,
+    identifierParts(iri).namespace,
+    (candidate) => candidate !== iri && exists(candidate),
+  );
+}
+export function preferredLabel(statements: Triple[]) {
+  return statements
+    .filter((t) => t.predicate === LABEL && t.object.literal)
+    .sort((a, b) => rank(a.object.language) - rank(b.object.language))[0];
+}
 export function validLabel(input: unknown) {
   if (typeof input !== "string" || !input.trim())
     throw Error("A label is required.");
@@ -155,13 +205,11 @@ export function projectEntities(triples: Triple[]): Map<string, Entity> {
         ts
           .filter((t) => t.predicate === p && !t.object.literal)
           .map((t) => t.object.value);
-    const labels = ts
-      .filter((t) => t.predicate === LABEL && t.object.literal)
-      .sort((a, b) => rank(a.object.language) - rank(b.object.language));
-    if (labels[0]) {
-      e.label = labels[0].object.value;
+    const label = preferredLabel(ts);
+    if (label) {
+      e.label = label.object.value;
       e.name = e.label;
-      e.labelLanguage = labels[0].object.language;
+      e.labelLanguage = label.object.language;
     }
     e.comment =
       ts.find((t) => t.predicate === COMMENT && t.object.literal)?.object

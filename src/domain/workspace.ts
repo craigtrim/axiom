@@ -31,6 +31,7 @@ export interface Workspace {
     budget: number;
     layout: LayoutMode;
     stylesheet?: string;
+    routes?: { key: string; x: number; y: number }[];
   };
   selected: string | null;
 }
@@ -159,6 +160,30 @@ export function readWorkspace(input: unknown) {
       ![p.x, p.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 1e8)
     )
       throw Error("Invalid pinned node.");
+  if (
+    g.routes !== undefined &&
+    (!Array.isArray(g.routes) ||
+      g.routes.length > 100000 ||
+      g.routes.some((r) => {
+        if (
+          !r ||
+          !text(r.key, 40000) ||
+          ![r.x, r.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 1e8)
+        )
+          return true;
+        try {
+          const ids = JSON.parse(r.key);
+          return (
+            !Array.isArray(ids) ||
+            ids.length !== 3 ||
+            !ids.every((id) => text(id))
+          );
+        } catch {
+          return true;
+        }
+      }))
+  )
+    throw Error("Invalid edge route.");
   if (g.stylesheet !== undefined) parseGraphStyle(g.stylesheet);
   const store = new Store();
   if (doc.ontology) {
@@ -189,6 +214,9 @@ export function readWorkspace(input: unknown) {
   );
   const view = new Viewport(store),
     layouts = new Layouts(view, store);
+  view.routes = new Map(
+    (g.routes ?? []).map(({ key, x, y }) => [key, { x, y }]),
+  );
   view.setBudget(g.budget);
   view.seed(g.iris, true, false);
   view.focus = new Set(g.focus.filter((i) => view.nodes.has(i)));

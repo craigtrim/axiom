@@ -56,6 +56,24 @@ describe("RDF authoring and evidence preservation", () => {
       "https://example.org/Course",
     );
   });
+  it("renaming a property identifier retargets predicate assertions in their named graphs", async () => {
+    const before = "https://example.org/teaches",
+      after = "https://example.org/instructs";
+    const s = storeFromRdf(
+      await parseRdf(
+        "<https://example.org/g> { <https://example.org/teaches> a <http://www.w3.org/2002/07/owl#ObjectProperty>. <https://example.org/alice> <https://example.org/teaches> <https://example.org/course>. }",
+        "trig",
+      ),
+      "Properties",
+    );
+    s.updateEntity(before, s.entityStatements(before), after);
+    expect(
+      s.tbox.find((t) => t.subject === "https://example.org/alice"),
+    ).toMatchObject({ predicate: after, graph: "https://example.org/g" });
+    expect(s.tbox.some((t) => t.predicate === before)).toBe(false);
+    s.undo();
+    expect(s.tbox.some((t) => t.predicate === before)).toBe(true);
+  });
   it("does not synthesize RDF labels when opening imported entity details", async () => {
     const s = storeFromRdf(
       await parseRdf(

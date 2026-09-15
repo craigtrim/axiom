@@ -1,6 +1,9 @@
 import {
   displayName,
-  identifier,
+  uniqueLabelIri,
+  labelledIri,
+  isDefaultIdentifier,
+  preferredLabel,
   validLabel,
   projectEntities,
   validateStatement,
@@ -250,7 +253,11 @@ export class Store {
       const p = this.byPredicate.get(t.predicate) ?? [];
       p.push(t);
       this.byPredicate.set(t.predicate, p);
-      if (!t.object.literal && this.ontology.assertedOnly)
+      if (
+        !t.object.literal &&
+        (this.ontology.assertedOnly ||
+          (this.exists(t.subject) && this.exists(t.object.value)))
+      )
         this.addReverse(t.object.value, {
           iri: t.subject,
           predicate: t.predicate,
@@ -300,9 +307,12 @@ export class Store {
       for (const o of this.ordersFor(iri))
         add(o.iri, NS.demo + "orderedBy", false);
     } else if (e) {
-      if (this.ontology.assertedOnly)
-        for (const t of this.bySubject.get(iri) ?? [])
-          if (!t.object.literal) add(t.object.value, t.predicate, true);
+      for (const t of this.bySubject.get(iri) ?? [])
+        if (
+          !t.object.literal &&
+          (this.ontology.assertedOnly || this.exists(t.object.value))
+        )
+          add(t.object.value, t.predicate, true);
       const pred = e.kind.endsWith("Property") ? SUBPROPERTY : SUBCLASS;
       for (const p of e.parents) add(p, pred, true);
       for (const c of e.children) add(c, pred, false);
@@ -493,12 +503,9 @@ export class Store {
     }
   }
   mintIri(label: string) {
-    const stem = identifier(label);
-    let result = this.ontology.namespace + stem,
-      index = 2;
-    while (this.exists(result))
-      result = this.ontology.namespace + stem + index++;
-    return result;
+    return uniqueLabelIri(label, this.ontology.namespace, (iri) =>
+      this.exists(iri),
+    );
   }
   entityStatements(iri: string) {
     const e = this.entities.get(iri);
@@ -528,14 +535,6 @@ export class Store {
   updateEntity(iri: string, statements: Triple[], nextIri = iri) {
     if (!this.entities.has(iri))
       throw Error("The entity is no longer available.");
-    if (iri === THING && nextIri !== iri)
-      throw Error("The ontology root IRI cannot be changed.");
-    if (nextIri !== iri && this.ontology.example)
-      throw Error(
-        "The generated example uses fixed IRIs. Export it as RDF and reimport it before changing identifiers.",
-      );
-    if (nextIri !== iri && this.exists(nextIri))
-      throw Error("That IRI already exists.");
     if (!Array.isArray(statements) || statements.length > 100000)
       throw Error("Too many entity statements.");
     for (const t of statements) {
@@ -543,6 +542,20 @@ export class Store {
       if (t.subject !== iri)
         throw Error("All edited statements must describe this entity.");
     }
+    if (nextIri === iri)
+      nextIri = labelledIri(
+        iri,
+        preferredLabel(statements)?.object.value ?? "",
+        (candidate) => this.exists(candidate),
+      );
+    if (iri === THING && nextIri !== iri)
+      throw Error("The ontology root IRI cannot be changed.");
+    if (nextIri !== iri && this.ontology.example && !isDefaultIdentifier(iri))
+      throw Error(
+        "The generated example uses fixed IRIs. Export it as RDF and reimport it before changing identifiers.",
+      );
+    if (nextIri !== iri && this.exists(nextIri))
+      throw Error("That IRI already exists.");
     if (!statements.length)
       throw Error("Keep at least one statement for this entity.");
     const before = this.schemaState();
@@ -555,6 +568,7 @@ export class Store {
           .map((t) => ({
             ...t,
             subject: t.subject === iri ? nextIri : t.subject,
+            predicate: t.predicate === iri ? nextIri : t.predicate,
             object:
               !t.object.literal && t.object.value === iri
                 ? { ...t.object, value: nextIri }
@@ -594,6 +608,80 @@ export class Store {
     );
     return nextIri;
   }
+  editEdge(original: Triple, replacement?: Triple) {
+    validateStatement(original);
+    if (original.object.literal)
+      throw Error("Select a relationship between resources.");
+    const index = this.tbox.findIndex(
+      (t) => statementKey(t) === statementKey(original),
+    );
+    if (index < 0)
+      throw Error("This relationship changed. Select the edge again.");
+    if (replacement) {
+      validateStatement(replacement);
+      if (replacement.object.literal)
+        throw Error("Choose a resource as the edge target.");
+      if (
+        !this.entities.has(replacement.subject) ||
+        !this.entities.has(replacement.object.value)
+      )
+        throw Error("Choose existing ontology entities as the endpoints.");
+      if (replacement.graph !== original.graph)
+        throw Error("Keep the relationship in its original statement graph.");
+      if (statementKey(replacement) === statementKey(original)) return;
+      if (this.tbox.some((t) => statementKey(t) === statementKey(replacement)))
+        throw Error(
+          "That relationship already exists in this statement graph.",
+        );
+    }
+    const before = this.schemaState();
+    this.record(
+      replacement ? "Edit edge" : "Remove edge",
+      () => {
+        this.tbox.splice(
+          index,
+          1,
+          ...(replacement ? [structuredClone(replacement)] : []),
+        );
+        const projected = projectEntities(this.tbox);
+        if (this.ontology.assertedOnly)
+          for (const [iri, e] of projected) this.entities.set(iri, e);
+        const subjects = new Set([
+          original.subject,
+          ...(replacement ? [replacement.subject] : []),
+        ]);
+        const predicates = new Set([
+          original.predicate,
+          ...(replacement ? [replacement.predicate] : []),
+        ]);
+        for (const iri of subjects) {
+          const previous = this.entities.get(iri);
+          if (!previous) continue;
+          const next = projected.get(iri) ?? entity(iri, previous.kind);
+          if (this.ontology.assertedOnly) this.entities.set(iri, next);
+          else {
+            const merged = { ...previous };
+            if (predicates.has(SUBCLASS) || predicates.has(SUBPROPERTY))
+              merged.parents = next.parents;
+            if (predicates.has(TYPE)) merged.types = next.types;
+            if (predicates.has(NS.owl + "disjointWith"))
+              merged.disjoint = next.disjoint;
+            if (predicates.has(NS.rdfs + "domain")) merged.domain = next.domain;
+            if (predicates.has(NS.rdfs + "range")) merged.range = next.range;
+            if (predicates.has(NS.owl + "inverseOf"))
+              merged.inverse = next.inverse;
+            if (predicates.has(NS.owl + "equivalentClass"))
+              merged.equivalents = previous.equivalents
+                .filter((r) => r.shape !== "class")
+                .concat(next.equivalents.filter((r) => r.shape === "class"));
+            this.entities.set(iri, merged);
+          }
+        }
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+  }
   createProperty(
     label: string,
     kind: "ObjectProperty" | "DataProperty" | "AnnotationProperty",
@@ -628,6 +716,30 @@ export class Store {
     );
     return iri;
   }
+  replaceRdf(statements: Triple[]) {
+    const next = structuredClone(statements);
+    for (const t of next) validateStatement(t);
+    const projected = projectEntities(next);
+    const before = {
+      schema: this.schemaState(), ontology: structuredClone(this.ontology),
+      individuals: this.individuals, customers: this.customers,
+    };
+    this.record("Edit ontology source", () => {
+      this.tbox = structuredClone(next);
+      this.entities = new Map(structuredClone([...projected]));
+      this.ontology = { ...this.ontology, assertedOnly: true, example: false };
+      this.individuals = [];
+      this.customers = [];
+      this.indexGenerated();
+      this.rebuildSchema();
+    }, () => {
+      this.ontology = structuredClone(before.ontology);
+      this.individuals = before.individuals;
+      this.customers = before.customers;
+      this.indexGenerated();
+      this.restoreSchema(before.schema);
+    });
+  }
   private record(label: string, redo: () => void, undo: () => void) {
     redo();
     this.undoStack.push({ label, redo, undo });
@@ -639,9 +751,30 @@ export class Store {
     if (!e) throw Error("Generated individuals cannot be renamed.");
     if (iri === THING) throw Error("The ontology root cannot be renamed.");
     name = validLabel(name);
-    if (e.label === name) return;
+    const nextIri = labelledIri(iri, name, (candidate) =>
+      this.exists(candidate),
+    );
+    if (nextIri !== iri) {
+      const statements = this.entityStatements(iri),
+        target = statements.find(
+          (t) =>
+            t.predicate === LABEL &&
+            t.object.literal &&
+            (t.object.language ?? "") === (e.labelLanguage ?? "") &&
+            t.object.value === (e.label ?? e.name),
+        );
+      if (target) target.object.value = name;
+      else
+        statements.push({
+          subject: iri,
+          predicate: LABEL,
+          object: { literal: true, value: name },
+        });
+      return this.updateEntity(iri, statements, nextIri);
+    }
+    if (e.label === name) return iri;
     const before = this.schemaState(),
-      oldLabel=e.label??e.name,
+      oldLabel = e.label ?? e.name,
       language = e.labelLanguage;
     this.record(
       "Rename " + this.label(iri),
@@ -676,6 +809,7 @@ export class Store {
       },
       () => this.restoreSchema(before),
     );
+    return iri;
   }
   private schemaState() {
     return {

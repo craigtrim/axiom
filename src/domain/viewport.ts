@@ -24,6 +24,7 @@ export interface GraphEdge {
   target: string;
   parallelIndex: number;
   parallelCount: number;
+  bend?: { x: number; y: number };
 }
 export interface Admission {
   added: number;
@@ -41,6 +42,8 @@ export const nodeRadius = (degree: number, kind: Kind) =>
 export class Viewport {
   nodes = new Map<string, GraphNode>();
   edges = new Map<string, GraphEdge>();
+  routes = new Map<string, { x: number; y: number }>();
+  selectedEdge: string | null = null;
   focus = new Set<string>();
   budget = 1000;
   evictionMode = "degree";
@@ -140,6 +143,7 @@ export class Viewport {
           },
           key = edgeKey(e);
         if (!this.edges.has(key)) {
+          e.bend = this.routes.get(key);
           this.edges.set(key, e);
           this.nodes.get(e.source)!.shownDegree++;
           this.nodes.get(e.target)!.shownDegree++;
@@ -262,6 +266,7 @@ export class Viewport {
     this.edges.clear();
     this.focus.clear();
     this.selected = null;
+    this.selectedEdge = null;
     this.alpha = 0;
     this.revision++;
   }
@@ -272,6 +277,7 @@ export class Viewport {
         continue;
       }
       n.label = this.store.label(n.iri);
+      n.kind = this.store.kind(n.iri);
       n.degree = this.store.neighbours(n.iri).total;
       n.radius = nodeRadius(n.degree, n.kind);
       n.shownDegree = 0;
