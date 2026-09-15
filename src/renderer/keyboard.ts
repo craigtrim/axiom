@@ -97,7 +97,7 @@ export function installKeyboard(doc: Document) {
       match.command === "entity.search" &&
       doc.activeElement?.closest(".monaco-editor")
     )
-      command("query.find");
+      command(doc.activeElement?.closest('[data-panel="source"]') ? "source.find" : "query.find");
     else if (match.command === "edit.undo" || match.command === "edit.redo")
       command(match.command);
     else (win.axiom ?? window.axiom).command(match.command);

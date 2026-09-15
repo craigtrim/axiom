@@ -1,4 +1,10 @@
 import { syncEditorEpoch } from "./editor-drafts";
+import { graphQueryResults } from "./query-results";
+import {
+  queryResultId,
+  type QueryResultDocument,
+} from "../shared/query-history";
+import { flushQueryHistory, historyState } from "./query-history";
 import { beginCreation, takeEditorIri } from "./authoring";
 import { ProvenancePanel } from "./ProvenancePanel";
 import { EntityEditor } from "./EntityEditor";
@@ -28,6 +34,12 @@ import { GraphPanel } from "./GraphPanel";
 import { HierarchyPanel } from "./HierarchyPanel";
 import { InspectorPanel } from "./InspectorPanel";
 import { IndividualsPanel } from "./IndividualsPanel";
+const SourcePanel = lazy(() =>
+  import("./SourcePanel").then((m) => ({ default: m.SourcePanel })),
+);
+const QueryResultsPanel = lazy(() =>
+  import("./QueryResultsPanel").then((m) => ({ default: m.QueryResultsPanel })),
+);
 const QueryPanel = lazy(() =>
   import("./QueryPanel").then((m) => ({ default: m.QueryPanel })),
 );
@@ -44,6 +56,7 @@ import {
   useNotice,
   preferences,
   persist,
+  savePanel,
   onCommand,
   command,
   act,
@@ -66,6 +79,7 @@ const names: Record<string, string> = {
   query: "Query",
   research: "Research",
   provenance: "Filesystem provenance",
+  source: "Source",
 };
 const tab = (id: string) => ({
   type: "tab" as const,
@@ -180,6 +194,14 @@ export function restoreLayout(value: unknown): Model {
           if (typeof n.getConfig()?.iri !== "string") throw Error();
           return;
         }
+        if (id === "queryResults") {
+          if (
+            typeof n.getConfig()?.resultId !== "string" ||
+            n.getConfig().resultId.length > 100
+          )
+            throw Error();
+          return;
+        }
         if (!names[id] || seen.has(id)) throw Error();
         seen.add(id);
       }
@@ -192,6 +214,19 @@ export function restoreLayout(value: unknown): Model {
     );
     return Model.fromJson(defaultLayout());
   }
+}
+function rearrangedLayout(profile: "standard" | "wide", previous: Model) {
+  const next = Model.fromJson(defaultLayout(profile));
+  const target = next.getNodeById(
+    profile === "wide" ? "individuals-group" : "graph-group",
+  )!;
+  previous.visitNodes((n) => {
+    if (n instanceof TabNode && n.getComponent() === "queryResults")
+      next.doAction(
+        Actions.addTab(n.toJson(), target.getId(), DockLocation.CENTER, -1),
+      );
+  });
+  return next;
 }
 function widthRow(node: TabNode) {
   let branch = node.getParent();
@@ -302,7 +337,7 @@ export function App() {
     let n = m.getNodeById(id);
     if (!n) {
       const target =
-        id === "provenance"
+        id === "provenance" || id === "source"
           ? (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!)
           : id === "research"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
@@ -311,7 +346,7 @@ export function App() {
         Actions.addTab(
           tab(id),
           target.getId(),
-          id === "research" || id === "provenance"
+          id === "research" || id === "provenance" || id === "source"
             ? DockLocation.CENTER
             : id === "inspector"
               ? DockLocation.RIGHT
@@ -336,7 +371,7 @@ export function App() {
           ?.getDocument()
           ?.querySelector<HTMLElement>('[data-panel="' + id + '"]');
         const target = content?.querySelector<HTMLElement>(
-          id === "query"
+          id === "query" || id === "source"
             ? ".monaco-editor textarea"
             : id === "graph"
               ? "canvas"
@@ -348,6 +383,48 @@ export function App() {
       if (!focus()) setTimeout(focus, 40);
       saveLayout(m);
     }
+  };
+  const openResults = (result: QueryResultDocument) => {
+    const m = modelRef.current,
+      id = "results:" + result.id;
+    if (!m.getNodeById(id)) {
+      let existing: TabNode | undefined;
+      m.visitNodes((n) => {
+        if (
+          n instanceof TabNode &&
+          n.getComponent() === "queryResults" &&
+          n.getLayoutId() === Model.MAIN_LAYOUT_ID
+        )
+          existing = n;
+      });
+      const individuals = m.getNodeById("individuals")?.getParent();
+      const query = m.getNodeById("query")?.getParent();
+      const target =
+        existing?.getParent() ??
+        (individuals && individuals !== query
+          ? individuals
+          : (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!));
+      m.doAction(
+        Actions.addTab(
+          {
+            type: "tab",
+            id,
+            component: "queryResults",
+            name: "Query results · " + result.sequence,
+            helpText:
+              result.title +
+              (result.completedAt
+                ? " · " + new Date(result.completedAt).toLocaleString()
+                : ""),
+            config: { resultId: result.id },
+          },
+          target.getId(),
+          DockLocation.CENTER,
+          -1,
+        ),
+      );
+    }
+    show(id);
   };
   const openEditor = (iri: string) => {
     const m = modelRef.current,
@@ -556,8 +633,9 @@ export function App() {
           arrangement: preferences.arrangement ?? "auto",
         };
         const before = pendingLayout.current;
-        const m = Model.fromJson(
-          defaultLayout(mode === "auto" ? screenProfile() : mode),
+        const m = rearrangedLayout(
+          mode === "auto" ? screenProfile() : mode,
+          modelRef.current,
         );
         preferences.arrangement = mode;
         pendingLayout.current = null;
@@ -607,7 +685,9 @@ export function App() {
       }
       if (id === "workspace.capture") {
         preferences.layout = modelRef.current.toJson();
-        void window.axiom.preferences.save(preferences);
+        void flushQueryHistory()
+          .then(() => window.axiom.preferences.save(preferences, true))
+          .catch((e) => report(e.message, true));
       }
       if (id === "workspace.preferences")
         void window.axiom.preferences.load().then((p) => {
@@ -618,8 +698,15 @@ export function App() {
           setThemeVersion((n) => n + 1);
         });
       if (id === "file.provenance") show("provenance");
-      if (id === "entity.search") setSearch(true);
-      else if (id === "entity.showGraph") {
+      if (id === "entity.search") {
+        if (
+          focusedDocument().activeElement?.closest(
+            '[data-panel="source"] .monaco-editor',
+          )
+        )
+          command("source.find");
+        else setSearch(true);
+      } else if (id === "entity.showGraph") {
         show("graph");
         if (state?.selected)
           void act("seed", { iris: [state.selected] }).then(() =>
@@ -649,14 +736,49 @@ export function App() {
       if (id === "keyboard.changed") setThemeVersion((n) => n + 1);
       if (id === "help.shortcuts") setShortcuts(true);
       if (id === "search") {
-        if (focusedDocument().activeElement?.closest(".monaco-editor"))
-          command("query.find");
+        const focused = focusedDocument().activeElement;
+        if (focused?.closest('[data-panel="source"] .monaco-editor'))
+          command("source.find");
+        else if (focused?.closest(".monaco-editor")) command("query.find");
         else setSearch(true);
+      }
+      if (id === "query.format" || id === "query.generate") {
+        savePanel("query.pending", id, false);
+        show("query");
+        command("query.authoring");
+      }
+      if (id.startsWith("query.results:")) {
+        void window.axiom.queryHistory
+          .result(id.slice("query.results:".length))
+          .then((result) => {
+            if (result) openResults(result);
+            else
+              report(
+                "The saved query for these results could not be found.",
+                true,
+              );
+          })
+          .catch((e) => report(e.message, true));
       }
       if (id === "query.cancel") void act("cancelQuery");
       if (id === "query.graph") {
-        show("graph");
-        void act("queryGraph").then(() => command("graph.fit"));
+        const n = modelRef.current.getNodeById(active.current);
+        const last = historyState().view?.current.lastRun;
+        const resultId =
+          n instanceof TabNode && n.getComponent() === "queryResults"
+            ? n.getConfig().resultId
+            : last
+              ? queryResultId(last)
+              : undefined;
+        if (resultId) {
+          void window.axiom.queryHistory
+            .result(resultId)
+            .then((r) => {
+              if (r) return graphQueryResults(r);
+            })
+            .catch((e) => report(e.message, true));
+        } else
+          report("Run a query before sending its results to the graph.", true);
       }
       if (id === "query.run") {
         queueQuery();
@@ -684,7 +806,10 @@ export function App() {
         const wide = screenProfile() === "wide",
           present = !!modelRef.current.getNodeById("query-group");
         if (wide !== present) {
-          const m = Model.fromJson(defaultLayout(wide ? "wide" : "standard"));
+          const m = rearrangedLayout(
+            wide ? "wide" : "standard",
+            modelRef.current,
+          );
           setModel(m);
           saveLayout(m);
         }
@@ -838,6 +963,15 @@ export function App() {
           factory={(n) =>
             ({
               provenance: <ProvenancePanel />,
+              source: (
+                <Suspense
+                  fallback={
+                    <div className="startup">Opening source editor...</div>
+                  }
+                >
+                  <SourcePanel />
+                </Suspense>
+              ),
               entity: (
                 <EntityEditor
                   key={n.getConfig()?.iri ?? ""}
@@ -850,6 +984,18 @@ export function App() {
               inspector: <InspectorPanel />,
               research: <ResearchPanel />,
               individuals: <IndividualsPanel />,
+              queryResults: (
+                <Suspense
+                  fallback={
+                    <div className="startup">Opening query results...</div>
+                  }
+                >
+                  <QueryResultsPanel
+                    resultId={n.getConfig()?.resultId ?? ""}
+                    panelId={n.getId()}
+                  />
+                </Suspense>
+              ),
               query: (
                 <Suspense
                   fallback={

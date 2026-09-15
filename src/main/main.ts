@@ -1,5 +1,10 @@
+import { QueryHistoryService } from "./query-history-service";
+import examples from "../domain/data/examples.json";
 import { ProvenanceService } from "./provenance-service";
+import { FilePreviewService } from "./file-preview-service";
+import type { LinkedFile } from "../shared/source";
 import { exportDocument } from "./export-service";
+import { QueryAssistantService } from "./query-assistant-service";
 import { ResearchService } from "./research-service";
 import { layoutOptions } from "../shared/layout-options";
 import { THING } from "../domain/model";
@@ -71,6 +76,10 @@ const methods = new Set<DomainMethod>([
   "state",
   "regenerate",
   "select",
+  "selectEdge",
+  "edgeDocument",
+  "editEdge",
+  "routeEdge",
   "inspector",
   "table",
   "tableGraph",
@@ -95,11 +104,16 @@ const methods = new Set<DomainMethod>([
   "query",
   "cancelQuery",
   "queryPage",
+  "queryActivate",
+  "queryResult",
   "queryGraph",
   "serialize",
   "load",
   "importRdf",
   "rdfExport",
+  "sourceDocument",
+  "applySource",
+  "linkedFile",
   "entityDocument",
   "updateEntity",
   "createProperty",
@@ -109,6 +123,7 @@ const methods = new Set<DomainMethod>([
   "stylesheet",
   "uiHistory",
   "cancelLayout",
+  "queryContext",
   "researchContext",
   "applySuggestions",
 ]);
@@ -126,6 +141,19 @@ const research = new ResearchService(
   path.join(app.getPath("userData"), "research-runs"),
   (iri) => request("researchContext", { iri }),
 );
+const queryHistory = new QueryHistoryService(
+  path.join(app.getPath("userData"), "query-history.json"),
+  () => String(preferences.panelState?.["query.text"] ?? examples[0].Text),
+  (data) =>
+    mainWindow?.webContents.send("domain:event", {
+      type: "query-history",
+      data,
+    }),
+);
+const queryAssistant = new QueryAssistantService(
+  path.join(app.getPath("userData"), "query-runs"),
+  (instructions) => request("queryContext", { instructions }),
+);
 const provenance = new ProvenanceService(
   path.join(app.getPath("userData"), "provenance"),
   __dirname,
@@ -138,6 +166,21 @@ const provenance = new ProvenanceService(
       data: s,
     }),
 );
+const filePreviews = new FilePreviewService(async (file) => {
+  const image = await nativeImage.createThumbnailFromPath(file, {
+    width: 384,
+    height: 384,
+  });
+  if (image.isEmpty()) throw Error("The image could not be previewed.");
+  return { dataUrl: image.toDataURL(), ...image.getSize() };
+});
+async function resolveLinkedFile(iri: unknown) {
+  if (typeof iri !== "string" || iri.length > 10000)
+    throw Error("Invalid file entity.");
+  const file = await request<LinkedFile | null>("linkedFile", { iri });
+  if (!file) throw Error("This entity does not link to a filesystem file.");
+  return file;
+}
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
 let saveQueue = Promise.resolve();
 function savePreferences(p: Preferences) {
@@ -152,7 +195,24 @@ function savePreferences(p: Preferences) {
       try {
         await copyFile(settingsPath(), settingsPath() + ".bak");
       } catch {}
-      await rename(temp, settingsPath());
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await rename(temp, settingsPath());
+          break;
+        } catch (error) {
+          if (
+            attempt >= 4 ||
+            !["EPERM", "EBUSY", "EACCES"].includes(
+              (error as NodeJS.ErrnoException).code ?? "",
+            )
+          )
+            throw error;
+          // Windows file watchers can briefly retain a handle on the old file.
+          await new Promise((resolve) =>
+            setTimeout(resolve, 25 * (attempt + 1)),
+          );
+        }
+      }
     });
   return saveQueue;
 }
@@ -422,8 +482,18 @@ function refreshMenu() {
       ["Class", "Defined"].includes(selected.kind) &&
       selected.iri !== THING,
   );
-  for (const id of ["graph.expand", "graph.pin", "graph.remove"])
-    set(id, !!node);
+  const selectedEdge = lastState?.graph.edges.find(
+    (e) =>
+      JSON.stringify([e.source, e.predicate, e.target]) ===
+      lastState?.graph.selectedEdge,
+  );
+  set("graph.pin", !!node);
+  for (const id of ["graph.expand", "graph.remove"])
+    set(id, !!node || !!selectedEdge);
+  for (const id of ["edge.edit", "edge.remove"]) set(id, !!selectedEdge);
+  set("edge.resetRoute", !!selectedEdge?.bend);
+  for (const id of ["edge.next", "edge.previous"])
+    set(id, !!lastState?.graph.edges.length);
   set("graph.collapse", !!node && node.shownDegree > 0);
   for (const id of [
     "graph.fit",
@@ -514,7 +584,11 @@ app.whenReady().then(async () => {
         hasQueryResults = packet.event.data.hasResults;
       }
       if (packet.event.type === "selection" && lastState)
-        lastState = { ...lastState, selected: packet.event.data.iri };
+        lastState = {
+          ...lastState,
+          selected: packet.event.data.iri,
+          graph: { ...lastState.graph, selectedEdge: null },
+        };
       if (packet.event.type === "state") {
         lastState = packet.event.data;
         mainWindow?.setTitle(
@@ -645,6 +719,23 @@ app.whenReady().then(async () => {
     else editorFlush?.resolve();
     editorFlush = undefined;
   });
+  ipcMain.handle("files:open", async (event, iri) => {
+    authorised(event);
+    const file = await resolveLinkedFile(iri);
+    await stat(file.path);
+    const error = await shell.openPath(file.path);
+    if (error) throw Error(error);
+  });
+  ipcMain.handle("files:reveal", async (event, iri) => {
+    authorised(event);
+    const file = await resolveLinkedFile(iri);
+    await stat(file.path);
+    shell.showItemInFolder(file.path);
+  });
+  ipcMain.handle("files:thumbnail", async (event, iri) => {
+    authorised(event);
+    return filePreviews.thumbnail(await resolveLinkedFile(iri));
+  });
   ipcMain.handle("provenance:choose", async (event) => {
     authorised(event);
     if (provenance.status().status === "running")
@@ -680,6 +771,41 @@ app.whenReady().then(async () => {
     authorised(event);
     const file = provenance.status().evidencePath;
     if (file) shell.showItemInFolder(file);
+  });
+  ipcMain.handle("queryAssistant:assistants", (event) => {
+    authorised(event);
+    return queryAssistant.assistants();
+  });
+  ipcMain.handle("queryHistory:result", (event, id) => {
+    authorised(event);
+    return queryHistory.result(id);
+  });
+  ipcMain.handle("queryHistory:load", (event) => {
+    authorised(event);
+    return queryHistory.load();
+  });
+  ipcMain.handle("queryHistory:apply", (event, action) => {
+    authorised(event);
+    return queryHistory.apply(action);
+  });
+  ipcMain.handle("queryHistory:search", (event, text) => {
+    authorised(event);
+    return queryHistory.search(text);
+  });
+  ipcMain.handle("queryAssistant:run", async (event, input) => {
+    authorised(event);
+    const baseline = await queryHistory.baseline(input?.queryId);
+    const response = await queryAssistant.run(input);
+    await queryHistory.deliver(response, baseline);
+    return response;
+  });
+  ipcMain.handle("queryAssistant:status", (event) => {
+    authorised(event);
+    return queryAssistant.status();
+  });
+  ipcMain.handle("queryAssistant:cancel", (event) => {
+    authorised(event);
+    queryAssistant.cancel();
   });
   ipcMain.handle("research:assistants", (event) => {
     authorised(event);
@@ -787,16 +913,19 @@ app.whenReady().then(async () => {
     authorised(event);
     return preferences;
   });
-  ipcMain.handle("preferences:save", async (event, p: Preferences) => {
-    authorised(event);
-    if (!p || p.version !== 1 || JSON.stringify(p).length > 2000000)
-      throw Error("Invalid layout settings.");
-    const previousTheme = preferences.theme;
-    await savePreferences(p);
-    captureResolve?.();
-    nativeTheme.themeSource = preferences.theme;
-    if (previousTheme !== preferences.theme) installMenu();
-  });
+  ipcMain.handle(
+    "preferences:save",
+    async (event, p: Preferences, captured?: boolean) => {
+      authorised(event);
+      if (!p || p.version !== 1 || JSON.stringify(p).length > 2000000)
+        throw Error("Invalid layout settings.");
+      const previousTheme = preferences.theme;
+      await savePreferences(p);
+      if (captured === true) captureResolve?.();
+      nativeTheme.themeSource = preferences.theme;
+      if (previousTheme !== preferences.theme) installMenu();
+    },
+  );
   ipcMain.on("menu:state", (event, state: Record<string, boolean>) => {
     authorised(event);
     if (!state || typeof state !== "object") return;
@@ -905,6 +1034,7 @@ app.whenReady().then(async () => {
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
+  queryAssistant.cancel();
   provenance.close();
   research.cancel();
   if (closing) void worker?.terminate();
@@ -938,12 +1068,13 @@ async function importOntology() {
   if (!result.canceled) await importOntologyFile(result.filePaths[0]);
 }
 async function exportOntology() {
+  await flushEditors();
   const result = await dialog.showSaveDialog(mainWindow!, {
     title: "Export ontology",
     defaultPath: "ontology.ttl",
     filters: [
       { name: "Turtle", extensions: ["ttl"] },
-      { name: "RDF/XML", extensions: ["rdf"] },
+      { name: "RDF/XML / OWL", extensions: ["rdf", "owl"] },
       { name: "N-Triples", extensions: ["nt"] },
       { name: "TriG (named graphs)", extensions: ["trig"] },
       { name: "N-Quads (named graphs)", extensions: ["nq"] },

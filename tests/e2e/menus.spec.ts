@@ -331,6 +331,7 @@ journey(
     "view.inspector",
     "view.individuals",
     "view.query",
+    "view.source",
     "layout.reset",
     "palette",
   ],
@@ -341,6 +342,7 @@ journey(
       "inspector",
       "individuals",
       "query",
+      "source",
     ]) {
       await menu("view." + id);
       await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
@@ -349,6 +351,7 @@ journey(
       await menu("view." + id);
       await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
     }
+    await menu("view.graph");
     await menu("view.inspector");
     await menu("pane.move.left");
     const inspector = page.locator('[data-panel="inspector"]'),
@@ -666,7 +669,7 @@ journey(
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await expect.poll(() => enabled("query.graph")).toBe(false);
     await menu("query.run");
-    await expect(page.locator(".query-summary")).toContainText("103 displayed");
+    await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
     await menu("graph.clear");
     await page.locator(".monaco-editor textarea").focus();
     await menu("pane.close");
@@ -692,7 +695,7 @@ journey(
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await queryText("SELECT ?s WHERE { ?s a <" + NS.owl + "Class> . } LIMIT 5");
     await menu("query.run");
-    await expect(page.locator(".query-summary")).toContainText("5 displayed");
+    await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("5 displayed");
     await menu("query.graph");
     expect((await state()).graph.nodes.length).toBeLessThanOrEqual(
       (await state()).graph.budget,
@@ -855,7 +858,7 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await menu("query.run");
-  await expect(page.locator(".query-summary")).toContainText("6 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("6 displayed");
   await expect(
     page.getByRole("combobox", { name: "Example query" }),
   ).toBeDisabled();
@@ -863,8 +866,8 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
     "SELECT ?s WHERE { ?s a <http://example.org/ontology#Person> . }",
   );
   await menu("query.run");
-  await expect(page.locator(".query-summary")).toContainText("1 displayed");
-  await expect(page.locator(".query-results")).toContainText("Alice");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("1 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-results")).toContainText("Alice");
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText(" LIMIT 1");
@@ -923,7 +926,7 @@ test("New Workspace cancels an active query and clears old results", async () =>
   await expect.poll(() => enabled("query.cancel")).toBe(false);
   await expect.poll(() => enabled("query.graph")).toBe(false);
   await menu("query.run");
-  await expect(page.locator(".query-summary")).toContainText("1 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("1 displayed");
   await expect(page.locator(".query-error")).toHaveCount(0);
 });
 
@@ -1809,6 +1812,71 @@ journey(
     await menu("file.provenance");
     await expect(
       page.getByRole("region", { name: "Filesystem provenance" }),
+    ).toBeVisible();
+  },
+);
+
+journey(
+  "edge menu commands select, inspect, reroute and remove relationships",
+  ["edge.edit", "edge.next", "edge.previous", "edge.remove", "edge.resetRoute"],
+  async () => {
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      });
+    });
+    await menu("file.new");
+    await request("createClass", {
+      name: "Edge menu child",
+      parent: THING,
+      position: { x: 100, y: 0 },
+    });
+    await menu("edge.next");
+    const canvas = page.getByTestId("graph-canvas");
+    await expect
+      .poll(async () => !!(await state()).graph.selectedEdge)
+      .toBe(true);
+    const key = (await state()).graph.selectedEdge!;
+    await menu("edge.previous");
+    await expect(canvas).toHaveAttribute("data-selected-edge", key);
+    await menu("edge.edit");
+    await expect(
+      page.getByRole("region", { name: "Edge inspector" }),
+    ).toBeVisible();
+    await request("routeEdge", {
+      key,
+      bend: { x: 40, y: 80 },
+      datasetEpoch: (await state()).datasetEpoch,
+    });
+    await menu("edge.resetRoute");
+    await expect
+      .poll(async () => (await state()).graph.edges[0].bend)
+      .toBeUndefined();
+    const count = (await state()).classCount;
+    await menu("edge.remove");
+    await expect.poll(async () => (await state()).graph.edges.length).toBe(0);
+    expect((await state()).classCount).toBe(count);
+  },
+);
+
+journey(
+  "Query menus format text and open the agent composer",
+  ["query.format", "query.generate"],
+  async () => {
+    await queryText("select ?s where { ?s ?p ?o . } limit 3");
+    await menu("query.format");
+    await expect
+      .poll(async () =>
+        String(
+          (await page.evaluate(() => window.axiom.preferences.load()))
+            .panelState?.["query.text"],
+        ),
+      )
+      .toContain("SELECT ?s\nWHERE {");
+    await menu("query.generate");
+    await expect(
+      page.getByRole("region", { name: "Compose a SPARQL query" }),
     ).toBeVisible();
   },
 );

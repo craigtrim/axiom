@@ -87,11 +87,11 @@ test("native menus, fixture, table and query", async () => {
   await page
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(page.locator(".query-summary")).toContainText(
-    "103 displayed / 103 matches",
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
+    "103 displayed / 103 result rows",
   );
-  await expect(page.locator(".query-results .ag-row").first()).toBeVisible();
-  await expect(page.locator(".query-results .ag-row").first()).toBeInViewport();
+  await expect(page.locator(".query-results-panel:visible .query-results .ag-row").first()).toBeVisible();
+  await expect(page.locator(".query-results-panel:visible .query-results .ag-row").first()).toBeInViewport();
   await page.screenshot({ path: "artifacts/testing/workbench-query.png" });
   await menu("Individuals");
   await expect(page.locator('[data-panel="individuals"]')).toBeVisible();
@@ -308,7 +308,7 @@ test("keyboard commands, themes and accessible controls", async () => {
   await page.getByRole("textbox", { name: "Find a command" }).press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+Enter");
-  await expect(page.locator(".query-summary")).toContainText("103 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
   await menu("Individuals");
   const results = await new AxeBuilder({ page }).setLegacyMode().analyze();
   await test.info().attach("accessibility", {
@@ -523,12 +523,12 @@ test("Monaco remains editable in a detached query pane", async () => {
   await child
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(child.locator(".query-summary")).toContainText(
-    "5 displayed / 92 matches",
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
+    "5 displayed / 5 result rows",
   );
   await menu("Return all panes to main window");
   await expect.poll(() => application.windows().length).toBe(1);
-  await expect(page.locator(".query-summary")).toContainText("5 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("5 displayed");
 });
 
 test("a running query can be cancelled and followed by a fresh query", async () => {
@@ -558,15 +558,15 @@ test("a running query can be cancelled and followed by a fresh query", async () 
   await page
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(page.locator(".query-summary")).toContainText(
-    "103 displayed / 103 matches",
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
+    "103 displayed / 103 result rows",
   );
   await expect(page.locator(".query-error")).toHaveCount(0);
 });
 
 test("query menu can send retained results after its pane closes", async () => {
   await page.keyboard.press("Control+Enter");
-  await expect(page.locator(".query-summary")).toContainText("103 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
   await menu("Clear graph");
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "aria-label",

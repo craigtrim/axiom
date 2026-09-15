@@ -62,7 +62,11 @@ export const request = <T = unknown>(
     "inspector",
     "table",
     "queryPage",
+    "queryActivate",
+    "queryResult",
     "select",
+    "selectEdge",
+    "edgeDocument",
     "motion",
   ].includes(method)
     ? Promise.resolve()
@@ -151,7 +155,8 @@ export async function initialise() {
     if (type === "layout-error") report(data.message, true);
     if (type === "state") setState(data as Snapshot);
     if (type === "selection" && state) {
-      state = { ...state, selected: data.iri };
+      graph = { ...state.graph, selectedEdge: null };
+      state = { ...state, selected: data.iri, graph };
       for (const fn of stateListeners) fn();
       for (const fn of graphListeners) fn();
     }

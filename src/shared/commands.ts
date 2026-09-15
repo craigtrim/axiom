@@ -106,6 +106,7 @@ export const menuTree: MenuDefinition[] = [
       "Individuals",
       "Query",
       "Research",
+      "Source",
     ].map((label, i) =>
       c("view." + label.toLowerCase(), label, "View", app("Ctrl+" + (i + 1))),
     ),
@@ -165,7 +166,12 @@ export const menuTree: MenuDefinition[] = [
     c("graph.styles", "Edit graph stylesheet...", "Graph"),
     c("graph.freeze", "Freeze / resume", "Graph", at("graph", "Space")),
     null,
-    c("graph.expand", "Expand selected node", "Graph", at("graph", "Enter")),
+    c(
+      "graph.expand",
+      "Expand node or edit edge",
+      "Graph",
+      at("graph", "Enter"),
+    ),
     c(
       "graph.collapse",
       "Collapse selected node",
@@ -175,10 +181,22 @@ export const menuTree: MenuDefinition[] = [
     c("graph.pin", "Pin / unpin selected node", "Graph", at("graph", "P")),
     c(
       "graph.remove",
-      "Remove selected node from view",
+      "Remove selected node or edge",
       "Graph",
       at("graph", "Delete"),
     ),
+    menu("menu.edge", "Edges", "E", [
+      c("edge.edit", "Edit selected edge", "Graph > Edges"),
+      c("edge.remove", "Remove selected edge", "Graph > Edges"),
+      c("edge.resetRoute", "Reset edge route", "Graph > Edges"),
+      c("edge.next", "Select next edge", "Graph > Edges", at("graph", "E")),
+      c(
+        "edge.previous",
+        "Select previous edge",
+        "Graph > Edges",
+        at("graph", "Shift+E"),
+      ),
+    ]),
     c("graph.clear", "Clear graph", "Graph"),
     menu("menu.graphNavigation", "Pan and zoom", "Z", [
       ...["Left", "Right", "Up", "Down"].map((d) =>
@@ -207,6 +225,9 @@ export const menuTree: MenuDefinition[] = [
     c("query.run", "Run query", "Query", app("Ctrl+Enter")),
     c("query.cancel", "Cancel query", "Query", app("Ctrl+Shift+Enter")),
     c("query.graph", "Send results to graph", "Query"),
+    null,
+    c("query.format", "Format SPARQL", "Query", at("query", "Shift+Alt+F")),
+    c("query.generate", "Compose query with an agent", "Query"),
   ]),
   menu("menu.research", "Research", "R", [
     c("research.run", "Run research", "Research", at("research", "Ctrl+R")),

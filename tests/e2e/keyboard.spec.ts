@@ -353,7 +353,7 @@ test("keyboard help and palette show current shortcuts and pane navigation works
     page.getByRole("dialog", { name: "Command palette" }),
   ).toContainText("Ctrl+Shift+J");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".query-summary")).toContainText("103 displayed");
+  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
 });
 
 async function nativeKeys(keys: string[]) {
