@@ -93,9 +93,9 @@ for (const fixture of manifest)
         (iri) => window.axiom.request("select", { iri }),
         entity.iri,
       );
-      await expect(
-        page.locator('[data-panel="inspector"] .iri-block code'),
-      ).toHaveText(entity.iri);
+      const inspector = page.locator('[data-panel="inspector"]');
+      await inspector.getByText("Full identifier (IRI)", { exact: true }).click();
+      await expect(inspector.getByRole("textbox", { name: "Entity IRI", exact: true })).toHaveValue(entity.iri);
       await menu("entity.rename");
       const rename = page.getByRole("textbox", {
         name: "Rename entity",

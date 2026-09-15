@@ -1,4 +1,5 @@
 import { Parser, Writer, DataFactory } from "n3";
+import { sourcePrefixes } from "../shared/source";
 import { RdfXmlParser } from "rdfxml-streaming-parser";
 import { JsonLdParser } from "jsonld-streaming-parser";
 import type { Quad, Term as RdfTerm } from "@rdfjs/types";
@@ -10,12 +11,11 @@ export type RdfFormat =
 export function detectFormat(text: string, fileName: string): RdfFormat {
   const head = text.trimStart();
   if (
-    /^<\?xml|^<!DOCTYPE|^<[A-Za-z_][\s\S]*?\bxmlns[:=]/.test(
-      head.slice(0, 2000),
-    )
+    /^<\?xml|^<!DOCTYPE|^<[A-Za-z_][^>]*\bxmlns[:=]/.test(head.slice(0, 2000))
   )
     return "rdfxml";
   if (/^[{\[]/.test(head)) return "jsonld";
+  if (/\.(?:owl|rdf|xml)$/i.test(fileName) && /^(?:@prefix|@base|PREFIX|BASE)\b/i.test(head)) return "turtle";
   const ext = fileName.toLowerCase().split(".").pop();
   return ext === "nt"
     ? "ntriples"
@@ -98,6 +98,7 @@ export async function parseRdf(
   fileName: string,
   baseIRI: string,
   format = detectFormat(text, fileName),
+  options: { allowEmpty?: boolean; preserveBlankNodes?: boolean } = {},
 ) {
   if (Buffer.byteLength(text) > 128 * 1024 * 1024)
     throw Error("Ontology files must be 128 MB or smaller.");
@@ -151,7 +152,7 @@ export async function parseRdf(
           trig: "TriG",
         } as Record<string, string>
       )[format],
-      blankNodePrefix: "import",
+      blankNodePrefix: options.preserveBlankNodes ? "" : "import",
     });
     await new Promise<void>((resolve, reject) =>
       parser.parse(text, (error, quad) => {
@@ -166,7 +167,7 @@ export async function parseRdf(
       }),
     );
   }
-  if (!triples.length)
+  if (!triples.length && !options.allowEmpty)
     throw Error(
       "No RDF statements were found. OWL files must use an RDF serialization.",
     );
@@ -254,6 +255,7 @@ export async function writeRdf(
     );
   }
   const writer = new Writer({
+    ...(["turtle", "trig"].includes(format) ? { prefixes: sourcePrefixes } : {}),
     format: {
       turtle: "Turtle",
       ntriples: "N-Triples",
@@ -289,6 +291,7 @@ export async function writeRdf(
 const xml = (s: string) =>
   s
     .replaceAll("&", "&amp;")
+    .replaceAll("\r", "&#13;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
