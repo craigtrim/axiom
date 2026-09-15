@@ -13,6 +13,7 @@ import {
   focusedDocument,
   workbenchDocuments,
 } from "./client";
+import { entityRetargeted } from "./editor-drafts";
 import { THING } from "../domain/model";
 const renameEvent = "axiom:inline-rename",
   cancelEvent = "axiom:cancel-inline-rename";
@@ -75,10 +76,12 @@ export function InlineRenameInput({
   iri,
   name,
   finish,
+  keepNameIfEmpty = false,
 }: {
   iri: string;
   name: string;
   finish: (restoreFocus: boolean) => void;
+  keepNameIfEmpty?: boolean;
 }) {
   const snapshot = useSnapshot(),
     [value, setValue] = useState(name),
@@ -109,13 +112,13 @@ export function InlineRenameInput({
   useEffect(() => {
     if (
       snapshot?.datasetEpoch !== epoch.current ||
-      !snapshot.entities.some((e) => e.iri === iri)
+      (!busy.current && !snapshot.entities.some((e) => e.iri === iri))
     )
       end(false);
   }, [snapshot?.datasetEpoch, snapshot?.entities]);
   const submit = async (restore: boolean) => {
     if (done.current || busy.current) return;
-    if (value.trim() === name) {
+    if (value.trim() === name || (keepNameIfEmpty && !value.trim())) {
       end(restore);
       return;
     }
@@ -127,12 +130,14 @@ export function InlineRenameInput({
     setSaving(true);
     setError("");
     try {
-      await request("rename", {
+      const nextIri = await request<string>("rename", {
         iri,
         name: value,
         datasetEpoch: epoch.current,
       });
-      end(restore);
+      if (nextIri !== iri) entityRetargeted(iri, nextIri, epoch.current);
+      if (done.current && restore) finish(true);
+      else end(restore);
     } catch (e) {
       if (!done.current) {
         setError(

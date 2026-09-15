@@ -61,6 +61,9 @@ test.afterEach(async () => {
 test("natural labels create in the taxonomy and full entity details open beside the graph", async () => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await menu("file.new");
+  await expect(
+    page.getByRole("button", { name: "Classes · 1", exact: true }),
+  ).toBeVisible();
   await menu("entity.createClass");
   const form = page.getByRole("form", { name: "Create entity" });
   await expect(form).toBeVisible();
@@ -115,21 +118,52 @@ test("natural labels create in the taxonomy and full entity details open beside 
     )
     .toBe("Credit hours");
 });
-test("double-clicking graph space creates classes and instances at that position", async () => {
+test("double-clicking graph space creates a node with its name selected at that position", async () => {
   await menu("file.new");
   const canvas = page.getByTestId("graph-canvas");
   await canvas.dblclick({ position: { x: 55, y: 75 } });
   const form = page
     .locator(".graph-create")
     .getByRole("form", { name: "Create entity" });
-  await expect(form).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await form
-    .getByRole("textbox", { name: "New entity label" })
-    .fill("Graph class");
-  await form.getByRole("button", { name: "Create", exact: true }).click();
+  const input = page.locator(".graph-inline-rename").getByRole("textbox", {
+    name: "Rename entity",
+    exact: true,
+  });
   await expect(form).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("New class");
+  expect(
+    await input.evaluate((el: HTMLInputElement) => [
+      el.selectionStart,
+      el.selectionEnd,
+    ]),
+  ).toEqual([0, "New class".length]);
+  const created = await state(),
+    initial = created.entities.find((e) => e.label === "New class")!,
+    node = created.graph.nodes.find((n) => n.iri === initial.iri)!;
+  expect(initial.parents).toEqual(["http://www.w3.org/2002/07/owl#Thing"]);
+  expect(node.pinned).toBe(true);
+  await expect
+    .poll(async () => {
+      const c = (await page.evaluate(() => window.axiom.preferences.load()))
+        .panelState?.["graph.camera"] as { x: number; y: number; zoom: number };
+      return c
+        ? Math.max(
+            Math.abs(node.x * c.zoom + c.x - 55),
+            Math.abs(node.y * c.zoom + c.y - 75),
+          )
+        : Infinity;
+    })
+    .toBeLessThan(1);
+  await page.screenshot({ path: "artifacts/testing/graph-create-inline.png" });
+  await page.keyboard.type("Graph class");
+  await input.press("Enter");
+  await expect(input).toHaveCount(0);
+  await expect(canvas).toBeFocused();
   let s = await state();
+  expect(s.entities.some((e) => e.iri === initial.iri)).toBe(false);
+  expect(s.selected).toMatch(/#GraphClass$/);
   const cls = s.entities.find((e) => e.label === "Graph class")!;
   expect(s.graph.nodes.find((n) => n.iri === cls.iri)?.pinned).toBe(true);
   await canvas.click({ button: "right", position: { x: 155, y: 75 } });
@@ -146,6 +180,53 @@ test("double-clicking graph space creates classes and instances at that position
   expect(s.graph.nodes.length).toBeLessThanOrEqual(s.graph.budget);
   await page.screenshot({ path: "artifacts/testing/graph-creation.png" });
 });
+test("new graph nodes keep distinct defaults on blur, Escape and an empty name", async () => {
+  await menu("file.new");
+  const canvas = page.getByTestId("graph-canvas"),
+    input = page
+      .locator(".graph-inline-rename")
+      .getByRole("textbox", { name: "Rename entity", exact: true });
+  const iris: string[] = [];
+  for (const [index, action] of ["blur", "escape", "empty"].entries()) {
+    const name = "New class" + (index ? " " + (index + 1) : "");
+    await canvas.dblclick({ position: { x: 55 + index * 120, y: 75 } });
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(name);
+    iris.push((await state()).selected!);
+    if (action === "escape") {
+      await page.keyboard.type("Discard this name");
+      await input.press("Escape");
+    } else {
+      if (action === "empty") await input.fill(" ");
+      await canvas.click({ position: { x: 8, y: 8 } });
+    }
+    await expect(input).toHaveCount(0);
+    await expect(canvas).toBeFocused();
+    const s = await state();
+    expect(s.entities.find((e) => e.iri === iris[index])?.label).toBe(name);
+    expect(s.graph.nodes.find((n) => n.iri === iris[index])?.pinned).toBe(true);
+    expect(s.classCount).toBe(index + 2);
+  }
+  await menu("edit.undo");
+  await expect.poll(async () => (await state()).classCount).toBe(3);
+  expect((await state()).entities.some((e) => e.iri === iris[2])).toBe(false);
+  await menu("edit.redo");
+  await expect.poll(async () => (await state()).classCount).toBe(4);
+  await canvas.dblclick({ position: { x: 295, y: 75 } });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("New class 3");
+  await page.keyboard.type("Named on the canvas");
+  await canvas.click({ position: { x: 8, y: 8 } });
+  await expect(input).toHaveCount(0);
+  const s = await state();
+  expect(s.classCount).toBe(4);
+  expect(s.entities.some((e) => e.iri === iris[2])).toBe(false);
+  expect(
+    s.entities.find((e) => e.label === "Named on the canvas")?.iri,
+  ).toMatch(/#NamedOnTheCanvas$/);
+  expect(s.graph.nodes.length).toBeLessThanOrEqual(s.graph.budget);
+});
+
 test("Export offers real image formats, configurable scale and multi-page reports", async () => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
   let d = page.getByRole("dialog", { name: "Export", exact: true });
@@ -505,6 +586,20 @@ test("graph creation light dismissal works in a detached window", async () => {
   expect((await state()).classCount).toBe(1);
   await expect(canvas).toHaveAttribute("data-spotlight", "");
   await expect(child.locator(".graph-create-link")).toHaveCount(0);
+  await canvas.dblclick({ position: { x: 55, y: 75 } });
+  const input = child.locator(".graph-inline-rename").getByRole("textbox", {
+    name: "Rename entity",
+    exact: true,
+  });
+  await expect(popup).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("New class");
+  await child.keyboard.type("Detached class");
+  await canvas.click({ position: { x: 8, y: 8 } });
+  await expect(input).toHaveCount(0);
+  const result = await state();
+  expect(result.classCount).toBe(2);
+  expect(result.entities.some((e) => e.label === "Detached class")).toBe(true);
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
 });
@@ -619,7 +714,10 @@ test("new instance stays connected to its class through movement, themes, resizi
   await expect(
     popup.getByRole("button", { name: "Close create entity" }),
   ).toBeInViewport();
-  await checkPlacement();
+  // Resizing and fit persist the new camera asynchronously.
+  await expect(async () => {
+    await checkPlacement();
+  }).toPass({ timeout: 5000 });
   await popup
     .getByRole("textbox", { name: "New entity label" })
     .fill("First credit");

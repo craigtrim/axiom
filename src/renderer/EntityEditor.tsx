@@ -1,15 +1,9 @@
 import { useEffect, useState } from "react";
-import { request, useSnapshot, report } from "./client";
+import { useSnapshot } from "./client";
 import { editEntity } from "./authoring";
 import { displayName, LABEL, COMMENT } from "../domain/rdf-model";
-import { type Entity, type Triple, shorten, kindLabel } from "../domain/model";
-import {
-  type DocumentData,
-  getEditorDraft,
-  rememberEditorDraft,
-  discardEditorDraft,
-  applyEditorDraft,
-} from "./editor-drafts";
+import { type Triple, shorten, kindLabel } from "../domain/model";
+import { useEntityEditor } from "./useEntityEditor";
 export function EntityEditor({
   iri,
   panelId,
@@ -18,109 +12,28 @@ export function EntityEditor({
   panelId: string;
 }) {
   const s = useSnapshot()!,
-    [loaded, setLoaded] = useState<DocumentData | null>(null),
-    [triples, setTriples] = useState<Triple[]>([]),
-    [nextIri, setNextIri] = useState(iri),
-    [error, setError] = useState(""),
-    [saving, setSaving] = useState(false),
+    editor = useEntityEditor(iri),
     [page, setPage] = useState(0);
-  const reload = async (discard = false) => {
-    try {
-      const draft = getEditorDraft(iri, s.datasetEpoch);
-      if (draft && !discard) {
-        setLoaded(draft.loaded);
-        setTriples(draft.statements);
-        setNextIri(draft.nextIri);
-        return;
-      }
-      if (discard) discardEditorDraft(iri, s.datasetEpoch);
-      const d = await request<DocumentData>("entityDocument", { iri });
-      setLoaded(d);
-      setTriples(d.statements);
-      setNextIri(iri);
-      setPage(0);
-      setError("");
-    } catch (e) {
-      setLoaded(null);
-      setError((e as Error).message);
-    }
-  };
+  const {
+    loaded,
+    triples,
+    nextIri,
+    setTriples,
+    setNextIri,
+    value,
+    setLiteral,
+    changed,
+    error,
+    saving,
+    save,
+    reload,
+    stale,
+  } = editor;
   useEffect(() => {
-    void reload();
+    setPage(0);
   }, [iri, s.datasetEpoch]);
-  const changed =
-    !!loaded &&
-    (nextIri !== iri ||
-      JSON.stringify(triples) !== JSON.stringify(loaded.statements));
-  useEffect(() => {
-    if (loaded)
-      rememberEditorDraft({ iri, nextIri, statements: triples, loaded });
-  }, [iri, nextIri, triples, loaded]);
-  useEffect(() => {
-    const check = () => {
-      if (!getEditorDraft(iri, s.datasetEpoch)) void reload();
-    };
-    window.addEventListener("axiom-editor-drafts", check);
-    return () => window.removeEventListener("axiom-editor-drafts", check);
-  }, [iri, s.datasetEpoch]);
-  const stale =
-    loaded &&
-    (loaded.datasetEpoch !== s.datasetEpoch || loaded.version !== s.version);
-  const literalIndex = (ts: Triple[], predicate: string) => {
-    const preferred =
-      predicate === LABEL
-        ? ts.findIndex(
-            (t) =>
-              t.predicate === predicate &&
-              t.object.literal &&
-              (t.object.language ?? "") ===
-                (loaded?.entity.labelLanguage ?? ""),
-          )
-        : -1;
-    return preferred >= 0
-      ? preferred
-      : ts.findIndex((t) => t.predicate === predicate && t.object.literal);
-  };
-  const value = (predicate: string) =>
-    triples[literalIndex(triples, predicate)]?.object.value ?? "";
-  const setLiteral = (predicate: string, value: string) =>
-    setTriples((previous) => {
-      const i = literalIndex(previous, predicate);
-      if (i < 0)
-        return [
-          ...previous,
-          { subject: iri, predicate, object: { literal: true, value } },
-        ];
-      return previous.map((t, j) =>
-        i === j ? { ...t, object: { ...t.object, value } } : t,
-      );
-    });
   const edit = (index: number, t: Triple) =>
     setTriples((previous) => previous.map((x, i) => (i === index ? t : x)));
-  async function save() {
-    if (!loaded) return;
-    setSaving(true);
-    setError("");
-    try {
-      const result = await applyEditorDraft({
-        iri,
-        nextIri,
-        statements: triples,
-        loaded,
-      });
-      if (result === iri) await reload();
-      report("Entity changes applied.");
-    } catch (e) {
-      setError(
-        (e as Error).message.replace(
-          /^Error invoking remote method '[^']+': Error: /,
-          "",
-        ),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
   return (
     <section
       className="panel entity-editor"
