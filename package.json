@@ -16,9 +16,20 @@
     "package": "npm run build && node scripts/package.mjs",
     "benchmark": "tsx tests/performance/benchmark.ts",
     "format": "prettier --write src tests scripts package.json tsconfig.json playwright.config.ts vitest.config.ts",
-    "benchmark:desktop": "npm run build && node scripts/desktop-benchmark.mjs"
+    "benchmark:desktop": "npm run build && node scripts/desktop-benchmark.mjs",
+    "test:codex": "node scripts/test-codex.mjs",
+    "test:sparql": "vitest run tests/domain/sparql-conformance.test.ts tests/domain/sparql-literals.test.ts --reporter=default --reporter=json --outputFile=artifacts/sparql-conformance.json"
   },
   "dependencies": {
+    "@comunica/actor-function-factory-term-datatype": "5.4.0",
+    "@comunica/actor-function-factory-term-encode-for-uri": "5.4.0",
+    "@comunica/actor-function-factory-term-equality": "5.4.0",
+    "@comunica/actor-function-factory-term-lang": "5.4.0",
+    "@comunica/query-sparql-rdfjs": "5.4.1",
+    "@comunica/utils-expression-evaluator": "5.4.0",
+    "@traqula/generator-sparql-1-1": "1.3.1",
+    "@traqula/parser-sparql-1-1": "1.3.1",
+    "@traqula/rules-sparql-1-1": "1.3.0",
     "ag-grid-community": "36.1.0",
     "ag-grid-react": "36.1.0",
     "elkjs": "0.12.0",
@@ -44,6 +55,8 @@
     "electron": "44.3.0",
     "esbuild": "^0.25.0",
     "prettier": "^3.9.6",
+    "rdf-canonize": "5.0.0",
+    "saxes": "6.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "4.1.11"
