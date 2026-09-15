@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
+import { Modal } from "./Dialogs";
 import {
   request,
   useSnapshot,
@@ -24,12 +26,16 @@ export function ResearchPanel() {
     [provider, setProvider] = useState<AssistantId>(
       panel("research.provider", "codex"),
     ),
-    [template, setTemplate] = useState("research"),
+    [template, setTemplate] = useState(() => {
+      const saved = panel("research.template", "research");
+      return researchTemplates.some((t) => t.id === saved) ? saved : "research";
+    }),
     [prompts, setPrompts] = useState<Record<string, string>>(
       panel("research.templates", {}),
     ),
     [web, setWeb] = useState(panel("research.web", true)),
     [running, setRunning] = useState(false),
+    [activeEntity, setActiveEntity] = useState(""),
     [pendingAction, setPendingAction] = useState(""),
     [commandVersion, setCommandVersion] = useState(0),
     [response, setResponse] = useState<ResearchResponse>(),
@@ -62,6 +68,7 @@ export function ResearchPanel() {
         .then((s) => {
           if (!live) return;
           setRunning(s.running);
+          if (s.activeEntity) setActiveEntity(s.activeEntity);
           if (s.response)
             setResponse((old) =>
               old?.completedAt === s.response!.completedAt ? old : s.response,
@@ -121,6 +128,7 @@ export function ResearchPanel() {
       );
       return;
     }
+    setActiveEntity(context.entity.name);
     setRunning(true);
     setError("");
     setSelected([]);
@@ -183,223 +191,375 @@ export function ResearchPanel() {
     else if (pendingAction.startsWith("source."))
       open(researchUrl(pendingAction.slice(7) as "web", search));
   }, [pendingAction, context, assistants]);
+  const { compact } = usePaneLayout();
+  const [optionsOpen, setOptionsOpen] = useState(
+    panel("research.options", false),
+  );
+  const optionsRef = useRef<HTMLDivElement>(null);
+  const optionsButton = useRef<HTMLButtonElement>(null);
+  const [preview, setPreview] = useState<Document>();
+  const focusedOptions = !!optionsRef.current?.contains(
+    optionsRef.current.ownerDocument.activeElement,
+  );
+  useLayoutEffect(() => {
+    if (compact && focusedOptions) setOptionsOpen(true);
+  }, [compact, focusedOptions]);
+  const showOptions = !compact || optionsOpen || focusedOptions;
+  const assistant = assistants.find((a) => a.id === provider);
+  const activeTemplate = researchTemplates.find((t) => t.id === template)!;
+  const canRun =
+    !!context && !!assistant?.available && !!instructions.trim() && !running;
+  const apply = async () => {
+    if (!response || stale || applied || !selected.length) return;
+    try {
+      await request("applySuggestions", {
+        iri: response.context.entity.iri,
+        datasetEpoch: response.context.datasetEpoch,
+        version: response.context.version,
+        suggestions: selected.map((i) => response.result.suggestions[i]),
+      });
+      setApplied(true);
+      report("Research suggestions applied. Use Undo to revert the batch.");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
   return (
     <section
       className="panel research-panel"
       data-panel="research"
       aria-label="Ontology research"
     >
-      <h2>Research {context?.entity.name ?? "an entity"}</h2>
-      <p>
-        Select a class, property or individual. Its parents, children,
-        relationships and sample instances accompany your prompt.
-      </p>
-      <div className="research-controls">
-        <label>
-          Assistant
-          <select
-            aria-label="Research assistant"
-            value={provider}
-            onChange={(e) => {
-              setProvider(e.target.value as AssistantId);
-              savePanel("research.provider", e.target.value, false);
+      <div className="research-heading">
+        <h2 title={context?.entity.iri}>
+          Research {context?.entity.name ?? "an entity"}
+        </h2>
+        <PaneToolbar
+          label="Research actions"
+          collapseAt={1400}
+          secondary={
+            <>
+              <button onClick={() => void refresh()}>Refresh assistants</button>
+              <button
+                disabled={!context}
+                onClick={(event) =>
+                  setPreview(event.currentTarget.ownerDocument)
+                }
+              >
+                Preview prompt and ontology context
+              </button>
+              {(["wikipedia", "dbpedia", "ontologies", "web"] as const).map(
+                (source) => (
+                  <button
+                    key={source}
+                    disabled={!context}
+                    onClick={() => open(researchUrl(source, search))}
+                  >
+                    {
+                      {
+                        wikipedia: "Wikipedia",
+                        dbpedia: "DBpedia",
+                        ontologies: "Other ontologies",
+                        web: "Web search",
+                      }[source]
+                    }
+                  </button>
+                ),
+              )}
+            </>
+          }
+        >
+          {!running && (
+            <button
+              className="primary"
+              disabled={!canRun}
+              onClick={() => void run()}
+            >
+              Run research
+            </button>
+          )}
+          {running && (
+            <button
+              className="primary"
+              onClick={() =>
+                void window.axiom.research
+                  .cancel()
+                  .catch((e) => setError(e.message))
+              }
+            >
+              Cancel research
+            </button>
+          )}
+          <button
+            ref={optionsButton}
+            aria-expanded={showOptions}
+            aria-controls="research-options"
+            onClick={() => {
+              if (!compact) {
+                optionsRef.current
+                  ?.querySelector<HTMLElement>("select")
+                  ?.focus();
+                return;
+              }
+              const next = !optionsOpen;
+              setOptionsOpen(next);
+              savePanel("research.options", next, false);
             }}
           >
-            {assistants.map((a) => (
-              <option key={a.id} value={a.id} disabled={!a.available}>
-                {a.name}
-                {a.available ? "" : " (not found)"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button onClick={() => void refresh()}>Refresh assistants</button>
-      </div>
-      <p className="muted">
-        {assistants.find((a) => a.id === provider)?.message}
-      </p>
-      <label>
-        Prompt template
-        <select
-          aria-label="Research prompt template"
-          value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-        >
-          {researchTemplates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Instructions
-        <textarea
-          aria-label="Research instructions"
-          rows={7}
-          maxLength={20000}
-          value={instructions}
-          onChange={(e) => edit(e.target.value)}
-        />
-      </label>
-      <button
-        onClick={() =>
-          edit(researchTemplates.find((t) => t.id === template)!.instructions)
-        }
-      >
-        Restore default prompt
-      </button>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={web}
-          onChange={(e) => {
-            setWeb(e.target.checked);
-            savePanel("research.web", e.target.checked, false);
-          }}
-        />
-        Allow web research
-      </label>
-      {context && (
-        <details>
-          <summary>Preview prompt and ontology context</summary>
-          <pre className="research-context">
-            {buildResearchPrompt(context, instructions, web)}
-          </pre>
-          <p>
-            Showing up to 24 children, 12 instances and 40 relationships from{" "}
-            {context.counts.children} children, {context.counts.instances}{" "}
-            instances and {context.counts.relationships} relationships.
-          </p>
-        </details>
-      )}
-      <p>
-        Run sends the previewed context to the selected assistant using your
-        existing CLI sign-in. Suggestions are applied only when you select and
-        accept them.
-      </p>
-      <div className="research-controls">
-        <button
-          className="primary"
-          disabled={
-            !context ||
-            running ||
-            !assistants.find((a) => a.id === provider)?.available ||
-            !instructions.trim()
-          }
-          onClick={() => void run()}
-        >
-          {running ? "Researching..." : "Run research"}
-        </button>
-        {running && (
-          <button onClick={() => void window.axiom.research.cancel()}>
-            Cancel research
+            {compact && optionsOpen ? "Results" : "Options"}
           </button>
-        )}
+        </PaneToolbar>
       </div>
-      <div className="research-controls" aria-label="Research sources">
-        {(["wikipedia", "dbpedia", "ontologies", "web"] as const).map(
-          (source) => (
-            <button
-              key={source}
-              disabled={!context}
-              onClick={() => open(researchUrl(source, search))}
-            >
-              {
-                {
-                  wikipedia: "Wikipedia",
-                  dbpedia: "DBpedia",
-                  ontologies: "Other ontologies",
-                  web: "Web search",
-                }[source]
-              }
-            </button>
-          ),
+      <div className="pane-context research-status" role="status">
+        <span>
+          {assistant?.name ?? "No assistant"} · {activeTemplate.title} ·{" "}
+          {web ? "Web allowed" : "Web off"}
+          {instructions !== activeTemplate.instructions
+            ? " · Custom prompt"
+            : ""}
+        </span>
+        {running && (
+          <strong>Researching {activeEntity || "the requested entity"}…</strong>
+        )}
+        {!running && !context && <span>Select an entity to begin.</span>}
+        {!running && context && !assistant?.available && (
+          <span>Choose an available assistant in Options.</span>
+        )}
+        {!running && context && !instructions.trim() && (
+          <span>Enter instructions in Options.</span>
+        )}
+        {stale && !applied && (
+          <span className="stale">
+            The ontology changed. Run research again before applying
+            suggestions.
+          </span>
         )}
       </div>
       {error && (
-        <p role="alert" className="error">
+        <p role="alert" className="error pane-alert">
           {error}
         </p>
       )}
-      {response && (
-        <div className="research-result">
-          <h3>Results for {response.context.entity.name}</h3>
-          <p className="research-summary">{response.result.summary}</p>
-          {!!response.result.sources.length && (
-            <ul>
-              {response.result.sources.map((s, i) => (
-                <li key={i}>
-                  <button className="link" onClick={() => open(s.url)}>
-                    {s.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {!!response.result.suggestions.length && (
-            <>
-              <h3>Review suggestions</h3>
-              {response.result.suggestions.map((s, i) => (
-                <div className="research-suggestion" key={i}>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      aria-label={"Accept " + s.name}
-                      checked={selected.includes(i)}
-                      disabled={stale || applied}
-                      onChange={(e) =>
-                        setSelected((values) =>
-                          e.target.checked
-                            ? [...values, i]
-                            : values.filter((n) => n !== i),
-                        )
-                      }
-                    />
-                    <strong>{s.name}</strong> <span>{s.kind}</span>
-                  </label>
-                  <p>{s.description}</p>
-                  {s.sourceUrl && (
-                    <button className="link" onClick={() => open(s.sourceUrl)}>
-                      Source
-                    </button>
-                  )}
-                </div>
-              ))}
-              {stale && !applied && (
-                <p>
-                  The ontology has changed since this research. Run it again
-                  before applying suggestions.
-                </p>
-              )}
-              <button
-                disabled={stale || applied || !selected.length}
-                onClick={async () => {
-                  try {
-                    await request("applySuggestions", {
-                      iri: response.context.entity.iri,
-                      datasetEpoch: response.context.datasetEpoch,
-                      version: response.context.version,
-                      suggestions: selected.map(
-                        (i) => response.result.suggestions[i],
-                      ),
-                    });
-                    setApplied(true);
-                    report(
-                      "Research suggestions applied. Use Undo to revert the batch.",
-                    );
-                  } catch (e) {
-                    setError((e as Error).message);
-                  }
+      <div className="research-workspace">
+        <div
+          ref={optionsRef}
+          id="research-options"
+          className="research-options"
+          hidden={!showOptions}
+        >
+          <PaneDetails title="About research" className="research-help">
+            <p>
+              Select a class, property or individual. Its parents, children,
+              relationships and sample instances accompany your prompt.
+            </p>
+            <p>
+              Run sends the previewed context to the selected assistant using
+              your existing CLI sign-in. Suggestions are applied only when you
+              select and accept them.
+            </p>
+          </PaneDetails>
+          <div className="research-fields">
+            <label>
+              Assistant
+              <select
+                aria-label="Research assistant"
+                value={provider}
+                onChange={(event) => {
+                  setProvider(event.target.value as AssistantId);
+                  savePanel("research.provider", event.target.value, false);
                 }}
               >
-                {applied
-                  ? "Suggestions applied"
-                  : "Apply selected suggestions (" + selected.length + ")"}
-              </button>
-            </>
+                {assistants.map((a) => (
+                  <option key={a.id} value={a.id} disabled={!a.available}>
+                    {a.name}
+                    {a.available ? "" : " (not found)"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Prompt template
+              <select
+                aria-label="Research prompt template"
+                value={template}
+                onChange={(event) => {
+                  setTemplate(event.target.value);
+                  savePanel("research.template", event.target.value, false);
+                }}
+              >
+                {researchTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="research-instructions">
+              Instructions
+              <textarea
+                aria-label="Research instructions"
+                rows={7}
+                maxLength={20000}
+                value={instructions}
+                onChange={(event) => edit(event.target.value)}
+              />
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={web}
+                onChange={(event) => {
+                  setWeb(event.target.checked);
+                  savePanel("research.web", event.target.checked, false);
+                }}
+              />
+              Allow web research
+            </label>
+          </div>
+          <p className="muted research-assistant-status">
+            {assistant?.message}
+          </p>
+          <button onClick={() => edit(activeTemplate.instructions)}>
+            Restore default prompt
+          </button>
+          {context && (
+            <details>
+              <summary>Preview prompt and ontology context</summary>
+              <pre className="research-context" tabIndex={0}>
+                {buildResearchPrompt(context, instructions, web)}
+              </pre>
+              <p>
+                Showing up to 24 children, 12 instances and 40 relationships
+                from {context.counts.children} children,{" "}
+                {context.counts.instances} instances and{" "}
+                {context.counts.relationships} relationships.
+              </p>
+            </details>
           )}
         </div>
+        <div className="research-results" hidden={compact && showOptions}>
+          {!response && (
+            <div className="pane-empty">
+              <h3>
+                {running
+                  ? "Research in progress"
+                  : context
+                    ? "Ready to research " + context.entity.name
+                    : "Select an entity"}
+              </h3>
+              <p>
+                {running
+                  ? "Results will appear here. You can keep working in other views."
+                  : context
+                    ? "Run with the current options, or edit the instructions first."
+                    : "Choose a class, property or individual in another view."}
+              </p>
+            </div>
+          )}
+          {response && (
+            <div className="research-result">
+              <h3 className="research-result-title">
+                Results for {response.context.entity.name}
+              </h3>
+              <div className="research-findings">
+                {compact && (
+                  <p className="research-summary-excerpt">
+                    {response.result.summary.slice(0, 180)}
+                    {response.result.summary.length > 180 ? "…" : ""}
+                  </p>
+                )}
+                <PaneDetails
+                  title="Findings"
+                  className="research-findings-text"
+                >
+                  <p className="research-summary">{response.result.summary}</p>
+                </PaneDetails>
+                {!!response.result.sources.length && (
+                  <PaneDetails
+                    title={"Sources (" + response.result.sources.length + ")"}
+                    className="research-sources"
+                  >
+                    <ul>
+                      {response.result.sources.map((source, i) => (
+                        <li key={i}>
+                          <button
+                            className="link"
+                            onClick={() => open(source.url)}
+                          >
+                            {source.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </PaneDetails>
+                )}
+              </div>
+              {!!response.result.suggestions.length && (
+                <div className="research-review">
+                  <h3>Review suggestions</h3>
+                  {response.result.suggestions.map((suggestion, i) => (
+                    <div
+                      className="research-suggestion"
+                      key={response.completedAt + ":" + i}
+                    >
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          aria-label={"Accept " + suggestion.name}
+                          checked={selected.includes(i)}
+                          disabled={stale || applied}
+                          onChange={(event) =>
+                            setSelected((values) =>
+                              event.target.checked
+                                ? [...values, i]
+                                : values.filter((n) => n !== i),
+                            )
+                          }
+                        />
+                        <strong>{suggestion.name}</strong>
+                        <span>{suggestion.kind}</span>
+                      </label>
+                      <PaneDetails title="Description and source">
+                        <p>{suggestion.description}</p>
+                        {suggestion.sourceUrl && (
+                          <button
+                            className="link"
+                            onClick={() => open(suggestion.sourceUrl)}
+                          >
+                            Source
+                          </button>
+                        )}
+                      </PaneDetails>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {!!response?.result.suggestions.length && !(compact && showOptions) && (
+        <div className="pane-footer research-apply">
+          <button
+            disabled={stale || applied || !selected.length}
+            onClick={() => void apply()}
+          >
+            {applied
+              ? "Suggestions applied"
+              : "Apply selected suggestions (" + selected.length + ")"}
+          </button>
+        </div>
+      )}
+      {preview && context && (
+        <Modal
+          title="Research prompt preview"
+          document={preview}
+          close={() => setPreview(undefined)}
+        >
+          <pre className="research-context" tabIndex={0}>
+            {buildResearchPrompt(context, instructions, web)}
+          </pre>
+        </Modal>
       )}
     </section>
   );

@@ -10,6 +10,7 @@ const listen = (channel: string, fn: (value: any) => void) => {
   return () => ipcRenderer.removeListener(channel, handler);
 };
 const bridge: AxiomBridge = {
+  maximizeWindow: (url) => ipcRenderer.invoke("pane:maximizeWindow", url),
   editors: {
     dirty: (count) => ipcRenderer.send("editors:dirty", count),
     flushed: (error) => ipcRenderer.send("editors:flushed", error),

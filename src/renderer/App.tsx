@@ -1,3 +1,4 @@
+import { AdaptivePane } from "./AdaptivePane";
 import { syncEditorEpoch } from "./editor-drafts";
 import { graphQueryResults } from "./query-results";
 import {
@@ -336,17 +337,27 @@ export function App() {
     const m = modelRef.current;
     let n = m.getNodeById(id);
     if (!n) {
+      const dataSibling =
+        id === "query"
+          ? m.getNodeById("individuals")?.getParent()
+          : id === "individuals"
+            ? m.getNodeById("query")?.getParent()
+            : undefined;
       const target =
-        id === "provenance" || id === "source"
+        dataSibling ??
+        (id === "provenance" || id === "source"
           ? (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!)
           : id === "research"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
-            : m.getRootRow()!;
+            : m.getRootRow()!);
       m.doAction(
         Actions.addTab(
           tab(id),
           target.getId(),
-          id === "research" || id === "provenance" || id === "source"
+          dataSibling ||
+            id === "research" ||
+            id === "provenance" ||
+            id === "source"
             ? DockLocation.CENTER
             : id === "inspector"
               ? DockLocation.RIGHT
@@ -370,13 +381,18 @@ export function App() {
         const content = n
           ?.getDocument()
           ?.querySelector<HTMLElement>('[data-panel="' + id + '"]');
-        const target = content?.querySelector<HTMLElement>(
-          id === "query" || id === "source"
-            ? ".monaco-editor textarea"
-            : id === "graph"
-              ? "canvas"
-              : 'input,button,[tabindex="0"]',
-        );
+        const recovery = content
+          ?.closest('.adaptive-pane[data-pane-recovery="true"]')
+          ?.querySelector<HTMLElement>(".pane-recovery button");
+        const target =
+          recovery ??
+          content?.querySelector<HTMLElement>(
+            id === "query" || id === "source"
+              ? ".monaco-editor textarea"
+              : id === "graph"
+                ? "canvas"
+                : 'input,button,[tabindex="0"]',
+          );
         if (target && target.getBoundingClientRect().width > 0) target.focus();
         return !!target && target.getBoundingClientRect().width > 0;
       };
@@ -475,20 +491,23 @@ export function App() {
   const focusPane = (direction: number) => {
     const panels = [
         ...[...documents].flatMap((d) => [
-          ...d.querySelectorAll<HTMLElement>("[data-panel]"),
+          ...d.querySelectorAll<HTMLElement>("[data-pane-id]"),
         ]),
       ].filter(
         (e) =>
           e.getBoundingClientRect().width > 0 &&
           e.getBoundingClientRect().height > 0,
       ),
-      index = panels.findIndex((e) => e.dataset.panel === active.current),
+      index = panels.findIndex((e) => e.dataset.paneId === active.current),
       next = panels[(index + direction + panels.length) % panels.length];
     if (next) {
-      active.current = next.dataset.panel!;
+      active.current = next.dataset.paneId!;
       (
-        next.querySelector<HTMLElement>('input,button,canvas,[tabindex="0"]') ??
-        next
+        [
+          ...next.querySelectorAll<HTMLElement>(
+            'input:not(:disabled),button:not(:disabled),canvas,[tabindex="0"]',
+          ),
+        ].find((el) => el.checkVisibility() && !el.closest("[inert]")) ?? next
       ).focus();
     }
   };
@@ -873,17 +892,17 @@ export function App() {
       onFocusCapture={(e) => {
         rememberDocument((e.target as HTMLElement).ownerDocument);
         const p = (e.target as HTMLElement).closest<HTMLElement>(
-          "[data-panel]",
+          "[data-pane-id]",
         );
-        if (p) active.current = p.dataset.panel!;
+        if (p) active.current = p.dataset.paneId!;
         updatePaneMenu();
       }}
       onPointerDownCapture={(e) => {
         rememberDocument((e.target as HTMLElement).ownerDocument);
         const p = (e.target as HTMLElement).closest<HTMLElement>(
-          "[data-panel]",
+          "[data-pane-id]",
         );
-        if (p) active.current = p.dataset.panel!;
+        if (p) active.current = p.dataset.paneId!;
         updatePaneMenu();
       }}
     >
@@ -960,53 +979,80 @@ export function App() {
       <div className="docking-workspace">
         <Layout
           model={model}
-          factory={(n) =>
-            ({
-              provenance: <ProvenancePanel />,
-              source: (
-                <Suspense
-                  fallback={
-                    <div className="startup">Opening source editor...</div>
-                  }
-                >
-                  <SourcePanel />
-                </Suspense>
-              ),
-              entity: (
-                <EntityEditor
-                  key={n.getConfig()?.iri ?? ""}
-                  iri={n.getConfig()?.iri ?? ""}
-                  panelId={n.getId()}
-                />
-              ),
-              hierarchy: <HierarchyPanel />,
-              graph: <GraphPanel />,
-              inspector: <InspectorPanel />,
-              research: <ResearchPanel />,
-              individuals: <IndividualsPanel />,
-              queryResults: (
-                <Suspense
-                  fallback={
-                    <div className="startup">Opening query results...</div>
-                  }
-                >
-                  <QueryResultsPanel
-                    resultId={n.getConfig()?.resultId ?? ""}
-                    panelId={n.getId()}
-                  />
-                </Suspense>
-              ),
-              query: (
-                <Suspense
-                  fallback={
-                    <div className="startup">Opening query editor...</div>
-                  }
-                >
-                  <QueryPanel />
-                </Suspense>
-              ),
-            })[n.getComponent() ?? "graph"]
-          }
+          factory={(n) => (
+            <AdaptivePane
+              name={n.getName()}
+              paneId={n.getId()}
+              visual={n.getComponent() === "graph"}
+              maximize={() => {
+                const owner = n.getWindow();
+                if (owner && owner !== window) {
+                  void window.axiom
+                    .maximizeWindow(owner.location.href)
+                    .catch((error) => report(error.message, true));
+                  return;
+                }
+                const parent = n.getParent();
+                if (parent instanceof TabSetNode) {
+                  model.doAction(
+                    Actions.maximizeToggle(
+                      parent.getId(),
+                      parent.getLayoutId(),
+                    ),
+                  );
+                  saveLayout(model);
+                }
+              }}
+            >
+              {
+                {
+                  provenance: <ProvenancePanel />,
+                  source: (
+                    <Suspense
+                      fallback={
+                        <div className="startup">Opening source editor...</div>
+                      }
+                    >
+                      <SourcePanel />
+                    </Suspense>
+                  ),
+                  entity: (
+                    <EntityEditor
+                      key={n.getConfig()?.iri ?? ""}
+                      iri={n.getConfig()?.iri ?? ""}
+                      panelId={n.getId()}
+                    />
+                  ),
+                  hierarchy: <HierarchyPanel />,
+                  graph: <GraphPanel />,
+                  inspector: <InspectorPanel />,
+                  research: <ResearchPanel />,
+                  individuals: <IndividualsPanel />,
+                  queryResults: (
+                    <Suspense
+                      fallback={
+                        <div className="startup">Opening query results...</div>
+                      }
+                    >
+                      <QueryResultsPanel
+                        resultId={n.getConfig()?.resultId ?? ""}
+                        panelId={n.getId()}
+                      />
+                    </Suspense>
+                  ),
+                  query: (
+                    <Suspense
+                      fallback={
+                        <div className="startup">Opening query editor...</div>
+                      }
+                    >
+                      <QueryPanel />
+                    </Suspense>
+                  ),
+                }[n.getComponent() ?? "graph"]
+              }
+            </AdaptivePane>
+          )}
           onModelChange={saveLayout}
           supportsPopout={true}
           popoutURL="app://axiom/popout.html"

@@ -981,6 +981,19 @@ app.whenReady().then(async () => {
     );
     refreshMenu();
   });
+  ipcMain.handle("pane:maximizeWindow", (event, url: string) => {
+    authorised(event);
+    if (
+      typeof url !== "string" ||
+      !/^app:\/\/axiom\/popout\.html(?:\?id=[a-f0-9-]{36})?$/.test(url)
+    )
+      throw Error("Unknown pane window.");
+    const target = BrowserWindow.getAllWindows().find(
+      (win) => win.webContents.getURL() === url,
+    );
+    if (!target) throw Error("The pane window is no longer open.");
+    target.maximize();
+  });
   ipcMain.on("command", (event, id: string) => {
     authorised(event);
     if (commandById.has(id)) {

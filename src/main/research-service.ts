@@ -12,6 +12,7 @@ export type { AssistantCommand } from "./local-assistant";
 export class ResearchService {
   private runner: LocalAssistantRunner;
   private active = false;
+  private activeEntity?: string;
   private cancelled = false;
   private last?: ResearchResponse;
   private error?: string;
@@ -27,7 +28,12 @@ export class ResearchService {
     return this.runner.assistants();
   }
   status() {
-    return { running: this.active, response: this.last, error: this.error };
+    return {
+      running: this.active,
+      response: this.last,
+      error: this.error,
+      activeEntity: this.activeEntity,
+    };
   }
   cancel() {
     this.cancelled = true;
@@ -54,6 +60,7 @@ export class ResearchService {
     this.error = undefined;
     try {
       const context = await this.context(input.iri);
+      this.activeEntity = context.entity.name;
       if (
         context.datasetEpoch !== input.datasetEpoch ||
         context.version !== input.version
@@ -82,6 +89,7 @@ export class ResearchService {
       throw error;
     } finally {
       this.active = false;
+      this.activeEntity = undefined;
     }
   }
 }

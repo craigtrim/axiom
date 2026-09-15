@@ -75,9 +75,13 @@ async function createClass(name: string) {
 }
 async function queryText(text: string) {
   await menu("view.query");
+  const recover = page.locator('[data-pane-id="query"] .pane-recovery button');
+  if (await recover.isVisible()) await recover.click();
+  await expect(page.locator(".monaco-editor")).toBeVisible();
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.insertText(text);
+  await expect.poll(() => page.evaluate(async () => (await window.axiom.queryHistory.load()).current.text)).toBe(text);
 }
 test.beforeEach(async () => {
   expected = [];
@@ -345,11 +349,11 @@ journey(
       "source",
     ]) {
       await menu("view." + id);
-      await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
+      await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
       await menu("pane.close");
       await expect(page.locator('[data-panel="' + id + '"]')).toHaveCount(0);
       await menu("view." + id);
-      await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
+      await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
     }
     await menu("view.graph");
     await menu("view.inspector");
@@ -1171,13 +1175,14 @@ journey(
     await expect(pane).toBeVisible();
     await menu("view.research");
     await menu("research.refresh");
+    await pane.getByRole("button", { name: "Options", exact: true }).click();
     await pane
       .getByRole("combobox", { name: "Research prompt template" })
       .selectOption("subclasses");
     await pane
       .getByRole("textbox", { name: "Research instructions" })
       .fill("Suggest subclasses suited to this ontology.");
-    await pane
+    await pane.locator("#research-options")
       .getByText("Preview prompt and ontology context", { exact: true })
       .click();
     await expect(pane.locator(".research-context")).toContainText("Thing");
@@ -1188,6 +1193,8 @@ journey(
       .poll(() => app.evaluate(() => (globalThis as any).openedSources.length))
       .toBe(4);
     await menu("research.run");
+    const resultsButton = pane.getByRole("button", { name: "Results", exact: true });
+    if (await resultsButton.isVisible()) await resultsButton.click();
     await expect(pane.locator(".research-summary")).toContainText(
       "kind of Thing",
     );

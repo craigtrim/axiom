@@ -149,6 +149,7 @@ export interface Preferences {
   arrangement?: "auto" | "standard" | "wide" | "custom";
 }
 export interface AxiomBridge {
+  maximizeWindow(url: string): Promise<void>;
   editors: { dirty(count: number): void; flushed(error?: string): void };
   files: {
     open(iri: string): Promise<void>;
@@ -213,6 +214,7 @@ export interface AxiomBridge {
     status(): Promise<{
       running: boolean;
       response?: import("./research").ResearchResponse;
+      activeEntity?: string;
       error?: string;
     }>;
     open(url: string): Promise<void>;
