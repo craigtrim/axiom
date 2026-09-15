@@ -33,7 +33,7 @@ it("creates and queries native ontology classes and individuals with undo and re
     new AbortController().signal,
   );
   expect(query.rows).toHaveLength(1);
-  expect(query.rows[0][0].value).toBe(alice);
+  expect(query.rows[0][0]?.value).toBe(alice);
   s.undo();
   expect(s.exists(alice)).toBe(false);
   expect(s.instanceCount(person)).toBe(0);

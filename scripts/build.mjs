@@ -42,6 +42,13 @@ await Promise.all([
   }),
   build({
     ...base,
+    entryPoints: ["src/main/query-worker.ts"],
+    outfile: "dist/main/query-worker.cjs",
+    platform: "node",
+    format: "cjs",
+  }),
+  build({
+    ...base,
     entryPoints: ["src/main/provenance-worker.ts"],
     outfile: "dist/main/provenance-worker.cjs",
     platform: "node",

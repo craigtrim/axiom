@@ -1,5 +1,8 @@
 import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
+import { sourceDocument, applySource, linkedFile } from "../domain/source";
+import type { SourceDocument } from "../shared/source";
 import { validateStatement } from "../domain/rdf-model";
+import { queryContext } from "../domain/query-context";
 import { researchContext, applySuggestions } from "../domain/research";
 import { readWorkspace, buildEmptyStore } from "../domain/workspace";
 import { parentPort, Worker } from "node:worker_threads";
@@ -9,7 +12,7 @@ import { parseGraphStyle } from "../domain/graph-style";
 import { isLayoutMode, isExternalLayout } from "../shared/layout-options";
 import { buildStore, generate } from "../domain/fixture";
 import { Store } from "../domain/store";
-import { Viewport, admissionText } from "../domain/viewport";
+import { Viewport, admissionText, edgeKey } from "../domain/viewport";
 import { Layouts, type LayoutMode } from "../domain/layouts";
 import {
   NS,
@@ -24,7 +27,22 @@ import {
   type Triple,
   type Customer,
 } from "../domain/model";
-import { executeQuery, type QueryResult } from "../domain/query";
+import type { QueryResult } from "../domain/query";
+import { QueryRunner } from "./query-runner";
+const queryRunner = new QueryRunner();
+import { QueryResultCache } from "./query-result-cache";
+const queryResults = new QueryResultCache();
+let activeQueryKey = "";
+const querySummary = (id: number, r: QueryResult): QuerySummary => ({
+  id,
+  queryType: r.queryType,
+  columns: r.columns,
+  rowCount: r.rows.length,
+  total: r.total,
+  capped: r.capped,
+  milliseconds: r.milliseconds,
+  storeVersion: r.storeVersion,
+});
 import type {
   Snapshot,
   DomainMethod,
@@ -60,6 +78,8 @@ function captureFrame() {
   return {
     nodes: structuredClone([...view.nodes]),
     edges: structuredClone([...view.edges]),
+    routes: structuredClone([...view.routes]),
+    selectedEdge: view.selectedEdge,
     focus: [...view.focus],
     budget: view.budget,
     eviction: view.evictionMode,
@@ -79,6 +99,8 @@ function restoreFrame(frame: Frame) {
   stopExternal();
   view.nodes = new Map(structuredClone(frame.nodes));
   view.edges = new Map(structuredClone(frame.edges));
+  view.routes = new Map(structuredClone(frame.routes));
+  view.selectedEdge = frame.selectedEdge;
   view.focus = new Set(frame.focus);
   view.budget = frame.budget;
   view.evictionMode = frame.eviction;
@@ -184,6 +206,9 @@ const tracked = new Set<DomainMethod>([
   "createClass",
   "createProperty",
   "updateEntity",
+  "applySource",
+  "editEdge",
+  "routeEdge",
   "deleteClass",
   "editCell",
   "createIndividual",
@@ -250,6 +275,7 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 remove: "Remove node from view",
                 pin: "Pin node",
                 drag: "Move node",
+                routeEdge: "Reroute edge",
                 budget: "Change node limit",
                 eviction: "Change eviction policy",
                 layout: "Change graph layout",
@@ -302,6 +328,7 @@ function graph() {
     evictionMode: view.evictionMode,
     nodes: [...view.nodes.values()],
     edges: [...view.edges.values()],
+    selectedEdge: view.selectedEdge,
     focus: [...view.focus],
     budget: view.budget,
     hidden: view.hidden,
@@ -347,6 +374,8 @@ function snapshot(): Snapshot {
   };
 }
 function publish() {
+  if (view.selectedEdge && !view.edges.has(view.selectedEdge))
+    view.selectedEdge = null;
   emit("state", snapshot());
 }
 function changed(text: string, layout = false) {
@@ -355,6 +384,7 @@ function changed(text: string, layout = false) {
   publish();
 }
 function mutate(text: string) {
+  if (selected) view.selectedEdge = null;
   if (selected && !store.exists(selected)) selected = THING;
   dirty = true;
   tableCache = undefined;
@@ -391,6 +421,27 @@ const number = (
     throw Error("Invalid " + key + ".");
   return n;
 };
+function retargetGraph(iri: string, next: string) {
+  if (next !== iri) {
+    const node = view.nodes.get(iri);
+    if (node) {
+      view.nodes.delete(iri);
+      view.nodes.set(next, { ...node, iri: next });
+    }
+    view.routes = new Map(
+      [...view.routes].map(([key, point]) => [
+        JSON.stringify(
+          (JSON.parse(key) as string[]).map((value) =>
+            value === iri ? next : value,
+          ),
+        ),
+        point,
+      ]),
+    );
+    if (view.focus.delete(iri)) view.focus.add(next);
+    if (view.selected === iri) view.selected = next;
+  }
+}
 async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
   switch (method) {
     case "entityDocument": {
@@ -413,15 +464,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         object: { literal: false, value: THING },
       });
       selected = store.updateEntity(iri, a.statements as Triple[], next);
-      if (selected !== iri) {
-        const node = view.nodes.get(iri);
-        if (node) {
-          view.nodes.delete(iri);
-          view.nodes.set(selected, { ...node, iri: selected });
-        }
-        if (view.focus.delete(iri)) view.focus.add(selected);
-        if (view.selected === iri) view.selected = selected;
-      }
+      retargetGraph(iri, selected);
       mutate("Entity updated.");
       return selected;
     }
@@ -461,8 +504,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       });
       stopExternal();
       activeQuery?.abort();
+      activeQuery = undefined;
       queryId++;
       result = undefined;
+      queryResults.clear();
+      activeQueryKey = "";
       emit("query-state", { running: false, hasResults: false });
       const budget = view.budget;
       store = next;
@@ -501,6 +547,33 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         entities: store.entities.size,
       };
     }
+    case "sourceDocument":
+      return sourceDocument(store, datasetEpoch, a.format);
+    case "linkedFile":
+      return linkedFile(store, string(a, "iri"));
+    case "applySource": {
+      const epoch = datasetEpoch,
+        revision = documentRevision;
+      const existing = new Set(store.entities.keys());
+      const result = await applySource(
+        store,
+        datasetEpoch,
+        a as unknown as SourceDocument,
+        () => datasetEpoch === epoch && documentRevision === revision,
+      );
+      const added = [...store.entities.keys()].filter(
+        (iri) => !existing.has(iri) && !iri.startsWith("_:"),
+      );
+      view.refresh();
+      view.admit(
+        added.slice(
+          0,
+          Math.max(0, Math.min(40, view.budget - view.nodes.size)),
+        ),
+      );
+      mutate("Source changes applied to all views.");
+      return result;
+    }
     case "rdfExport":
       return writeRdf([...store.scan()], a.format as "turtle");
     case "reportData": {
@@ -524,6 +597,12 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         generatedAt: new Date().toISOString(),
       };
     }
+    case "queryContext":
+      return queryContext(
+        store,
+        string(a, "instructions", 12000),
+        datasetEpoch,
+      );
     case "researchContext":
       return researchContext(store, string(a, "iri", 10000), datasetEpoch);
     case "applySuggestions": {
@@ -559,8 +638,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       dirty = false;
       tableCache = undefined;
       activeQuery?.abort();
+      activeQuery = undefined;
       queryId++;
       result = undefined;
+      queryResults.clear();
+      activeQueryKey = "";
       emit("query-state", { running: false, hasResults: false });
       datasetEpoch++;
       changed(
@@ -595,8 +677,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       const size = number(a, "size", 1000, 100000);
       if (!sizes.includes(size)) throw Error("Unsupported dataset size.");
       activeQuery?.abort();
+      activeQuery = undefined;
       queryId++;
       result = undefined;
+      queryResults.clear();
+      activeQueryKey = "";
       emit("query-state", { running: false, hasResults: false });
       datasetEpoch++;
       const d = generate(size);
@@ -612,11 +697,126 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return true;
     }
+    case "selectEdge": {
+      const key = a.key === null ? null : string(a, "key", 40000);
+      if (key && !view.edges.has(key))
+        throw Error("This edge is no longer visible.");
+      view.selectedEdge = key;
+      selected = view.selected = null;
+      publish();
+      return true;
+    }
+    case "edgeDocument": {
+      const edge = view.edges.get(string(a, "key", 40000));
+      if (!edge) throw Error("This edge is no longer visible.");
+      const statements = store.tbox.filter(
+        (t) =>
+          t.subject === edge.source &&
+          t.predicate === edge.predicate &&
+          !t.object.literal &&
+          t.object.value === edge.target,
+      );
+      return {
+        edge,
+        statements,
+        datasetEpoch,
+        version: store.version,
+        reason: statements.length
+          ? undefined
+          : store.individualIndex.has(edge.source) ||
+              store.customerIndex.has(edge.source)
+            ? "This relationship belongs to generated sample data. Export and reimport the ontology to edit it."
+            : "This edge summarizes an ontology axiom. Its underlying axiom must be edited as a whole; the line can still be rerouted here.",
+      };
+    }
+    case "editEdge": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error("The ontology changed. Reload the edge before saving.");
+      const key = string(a, "key", 40000),
+        edge = view.edges.get(key);
+      if (!edge) throw Error("This edge is no longer visible.");
+      const original = a.original as Triple,
+        replacement = a.replacement as Triple | undefined;
+      validateStatement(original);
+      if (
+        original.subject !== edge.source ||
+        original.predicate !== edge.predicate ||
+        original.object.literal ||
+        original.object.value !== edge.target
+      )
+        throw Error("Choose a statement belonging to this edge.");
+      const endpoints = replacement
+        ? [replacement.subject, replacement.object?.value]
+        : [];
+      if (replacement) {
+        validateStatement(replacement);
+        const needed = new Set(endpoints.filter((iri) => !view.nodes.has(iri)))
+          .size;
+        const room =
+          view.budget -
+          view.nodes.size +
+          (view.evictionMode === "refuse"
+            ? 0
+            : view.evictionOrder().filter((n) => !endpoints.includes(n.iri))
+                .length);
+        if (needed > room)
+          throw Error(
+            "The graph is full. Make room for the new endpoint first.",
+          );
+      }
+      store.editEdge(original, replacement);
+      view.refresh();
+      if (replacement) view.admit(endpoints);
+      const next = replacement
+        ? edgeKey({
+            source: replacement.subject,
+            predicate: replacement.predicate,
+            target: replacement.object.value,
+          })
+        : null;
+      if (!view.edges.has(key)) {
+        const bend = view.routes.get(key);
+        view.routes.delete(key);
+        if (next && bend && !view.routes.has(next)) {
+          view.routes.set(next, bend);
+          const e = view.edges.get(next);
+          if (e) e.bend = bend;
+        }
+      }
+      selected = view.selected = null;
+      view.selectedEdge =
+        next && view.edges.has(next) ? next : view.edges.has(key) ? key : null;
+      dirty = true;
+      tableCache = undefined;
+      changed(replacement ? "Edge updated." : "Edge removed.");
+      return next;
+    }
+    case "routeEdge": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw Error("The workspace changed. Select the edge again.");
+      const key = string(a, "key", 40000),
+        edge = view.edges.get(key);
+      if (!edge) throw Error("This edge is no longer visible.");
+      const bend =
+        a.bend === null
+          ? undefined
+          : {
+              x: number(a.bend as Record<string, unknown>, "x", -1e8, 1e8),
+              y: number(a.bend as Record<string, unknown>, "y", -1e8, 1e8),
+            };
+      if (bend) view.routes.set(key, bend);
+      else view.routes.delete(key);
+      edge.bend = bend;
+      view.revision++;
+      changed(bend ? "Edge rerouted." : "Automatic edge route restored.");
+      return true;
+    }
     case "select":
       selected = string(a, "iri");
       if (!store.exists(selected))
         throw Error("This entity is no longer in the Store.");
       view.selected = selected;
+      view.selectedEdge = null;
       emit("selection", { iri: selected });
       return true;
     case "inspector": {
@@ -797,12 +997,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       view.clear();
       changed("Graph cleared.");
       return true;
-    case "rename":
+    case "rename": {
       if (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch)
         throw Error("The workspace changed. Rename the entity again.");
-      store.rename(string(a, "iri"), string(a, "name", 256));
+      const iri = string(a, "iri"),
+        next = store.rename(iri, string(a, "name", 256));
+      if (selected === iri) selected = next;
+      retargetGraph(iri, next);
       mutate("Entity renamed.");
-      return true;
+      return next;
+    }
     case "createClass":
       validateCreation(a);
       selected = store.createClass(
@@ -860,27 +1064,24 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       const controller = new AbortController();
       activeQuery = controller;
       const id = ++queryId;
+      const text = string(a, "text");
+      const key = typeof a.queryKey === "string" ? a.queryKey : activeQueryKey;
+      activeQueryKey = key;
       emit("query-state", { running: true, hasResults: !!result });
       try {
-        const snapshot = store.querySnapshot();
-        const r = await executeQuery(
-          snapshot,
-          string(a, "text"),
+        const r = await queryRunner.run(
+          store,
+          datasetEpoch,
+          text,
           controller.signal,
         );
         if (id !== queryId) throw Error("Query superseded.");
-        result = r;
-        resultId = id;
-        const summary: QuerySummary = {
-          id,
-          columns: r.columns,
-          rowCount: r.rows.length,
-          total: r.total,
-          capped: r.capped,
-          milliseconds: r.milliseconds,
-          storeVersion: r.storeVersion,
-        };
-        return summary;
+        queryResults.add(id, key, text, r);
+        if (activeQueryKey === key) {
+          result = r;
+          resultId = id;
+        }
+        return querySummary(id, r);
       } finally {
         if (id === queryId) {
           activeQuery = undefined;
@@ -891,19 +1092,43 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "cancelQuery":
       activeQuery?.abort();
       return true;
+    case "queryActivate": {
+      activeQueryKey = string(a, "key", 100);
+      const cached =
+        typeof a.id === "number"
+          ? queryResults.get(a.id, activeQueryKey)
+          : undefined;
+      result = cached?.result;
+      resultId = result && typeof a.id === "number" ? a.id : 0;
+      emit("query-state", { running: !!activeQuery, hasResults: !!result });
+      return result ? querySummary(resultId, result) : null;
+    }
+    case "queryResult": {
+      const cached = typeof a.id === "number" && a.epoch === datasetEpoch
+        ? queryResults.peek(a.id, string(a, "key", 100)) : undefined;
+      return cached ? querySummary(a.id as number, cached.result) : null;
+    }
     case "queryPage": {
-      if (!result || a.id !== resultId) return { rows: [], total: 0 };
+      const pageResult =
+        typeof a.id === "number" && (a.epoch === undefined || a.epoch === datasetEpoch)
+          ? queryResults.get(a.id, typeof a.key === "string" ? a.key : undefined)?.result : undefined;
+      if (!pageResult) return { rows: [], total: 0, retained: false };
       const start = Math.floor(number(a, "start", 0, 200000)),
         end = Math.floor(number(a, "end", start, start + 1000));
       return {
-        rows: result.rows.slice(start, end),
-        total: result.rows.length,
+        retained: true,
+        rows: pageResult.rows.slice(start, end),
+        total: pageResult.rows.length,
       };
     }
-    case "queryGraph":
-      if (result) {
+    case "queryGraph": {
+      const chosen = a.id === undefined ? result
+        : a.epoch === datasetEpoch && typeof a.id === "number"
+          ? queryResults.get(a.id, string(a, "key", 100))?.result : undefined;
+      if (a.id !== undefined && !chosen) throw Error("These results are no longer retained. Open the query and run it again.");
+      if (chosen) {
         view.seed(
-          result.iris.filter((i) => store.exists(i)).slice(0, view.budget),
+          chosen.iris.filter((i) => store.exists(i)).slice(0, view.budget),
           true,
           false,
         );
@@ -911,6 +1136,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         changed("Query results sent to graph.");
       }
       return true;
+    }
     case "serialize":
       return {
         format: "axiom-workspace",
@@ -931,6 +1157,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
             .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
           budget: view.budget,
           layout: layouts.choice,
+          routes: [...view.routes].map(([key, bend]) => ({ key, ...bend })),
           stylesheet,
         },
         selected,
@@ -951,8 +1178,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       stopExternal();
       stylesheet = next.stylesheet;
       activeQuery?.abort();
+      activeQuery = undefined;
       queryId++;
       result = undefined;
+      queryResults.clear();
+      activeQueryKey = "";
       emit("query-state", { running: false, hasResults: false });
       store = next.store;
       view = next.view;
