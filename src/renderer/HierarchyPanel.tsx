@@ -4,6 +4,8 @@ import { displayName } from "../domain/rdf-model";
 import { Fragment } from "react";
 import { EditableEntityName } from "./InlineRename";
 import { EntityMenu } from "./EntityMenu";
+import { TaxonomyAssistant } from "./TaxonomyAssistant";
+import type { TaxonomyMode } from "../shared/taxonomy-assistant";
 import { useEffect, useMemo, useState } from "react";
 import {
   useSnapshot,
@@ -19,6 +21,11 @@ export function HierarchyPanel() {
     [tab, setTab] = useState(panel("hierarchy.tab", "classes")),
     [filter, setFilter] = useState(""),
     [draft, setDraft] = useState<Creation | null>(null),
+    [discovery, setDiscovery] = useState<{
+      iri: string;
+      mode: TaxonomyMode;
+      doc: Document;
+    } | null>(null),
     [context, setContext] = useState<{
       iri: string;
       x: number;
@@ -360,11 +367,28 @@ export function HierarchyPanel() {
           Show in graph
         </button>
       </div>
+      {discovery && (
+        <TaxonomyAssistant
+          {...discovery}
+          close={() => setDiscovery(null)}
+          added={() => {
+            setFilter("");
+            setOpen((previous) => {
+              const next = new Set([...previous, discovery.iri]);
+              savePanel("hierarchy.open", [...next], false);
+              return next;
+            });
+          }}
+        />
+      )}
       {context && (
         <EntityMenu
           {...context}
           document={context.doc}
           close={() => setContext(null)}
+          taxonomy={(mode) =>
+            setDiscovery({ iri: context.iri, mode, doc: context.doc })
+          }
           branch={
             map.get(context.iri)?.children.length
               ? {

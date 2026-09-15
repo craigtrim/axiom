@@ -46,6 +46,13 @@ const bridge: AxiomBridge = {
     cancel: () => ipcRenderer.invoke("queryAssistant:cancel"),
     status: () => ipcRenderer.invoke("queryAssistant:status"),
   },
+  taxonomyAssistant: {
+    run: (input) => ipcRenderer.invoke("taxonomyAssistant:run", input),
+    status: () => ipcRenderer.invoke("taxonomyAssistant:status"),
+    cancel: (id) => ipcRenderer.invoke("taxonomyAssistant:cancel", id),
+    apply: (id, indices) =>
+      ipcRenderer.invoke("taxonomyAssistant:apply", id, indices),
+  },
   research: {
     assistants: () => ipcRenderer.invoke("research:assistants"),
     run: (r) => ipcRenderer.invoke("research:run", r),

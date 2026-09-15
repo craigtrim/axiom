@@ -557,6 +557,47 @@ a {
   box-shadow: var(--shadow-dialog);
   overflow: auto;
 }
+.modal:has(.taxonomy-assistant) {
+  width: min(760px, 90vw);
+}
+.taxonomy-assistant p,
+.taxonomy-assistant code {
+  overflow-wrap: anywhere;
+}
+.taxonomy-context {
+  padding: 12px;
+  background: var(--surface-alt, var(--surface));
+  border: 1px solid var(--stroke);
+  border-radius: 6px;
+}
+.taxonomy-context > ul {
+  max-height: 220px;
+  overflow: auto;
+}
+.taxonomy-assistant .taxonomy-choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.taxonomy-choice input {
+  flex-shrink: 0;
+}
+.taxonomy-suggestions {
+  list-style: none;
+  padding: 0;
+}
+.taxonomy-suggestions > li {
+  border-top: 1px solid var(--stroke);
+  padding: 16px 0;
+}
+.taxonomy-assistant footer {
+  position: sticky;
+  bottom: -24px;
+  background: var(--surface);
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
 .modal::backdrop {
   background: #0007;
 }
@@ -859,6 +900,8 @@ a {
 }
 
 .entity-context-menu {
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
   position: fixed;
   z-index: 10000;
   display: flex;
@@ -872,6 +915,7 @@ a {
   box-shadow: 0 6px 28px #0004;
 }
 .entity-context-menu button {
+  flex-shrink: 0;
   text-align: left;
   border: 0;
   background: transparent;

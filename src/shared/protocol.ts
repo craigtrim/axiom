@@ -133,6 +133,9 @@ export type DomainMethod =
   | "uiHistory"
   | "cancelLayout"
   | "queryContext"
+  | "taxonomyContext"
+  | "validateTaxonomySuggestions"
+  | "applyTaxonomySuggestions"
   | "researchContext"
   | "applySuggestions";
 export interface Preferences {
@@ -192,6 +195,14 @@ export interface AxiomBridge {
     ): Promise<import("./query-assistant").QueryAssistantResponse>;
     cancel(): Promise<void>;
     status(): Promise<import("./query-assistant").QueryAssistantStatus>;
+  };
+  taxonomyAssistant: {
+    run(
+      input: import("./taxonomy-assistant").TaxonomyRequest,
+    ): Promise<import("./taxonomy-assistant").TaxonomyResponse>;
+    status(): Promise<import("./taxonomy-assistant").TaxonomyStatus>;
+    cancel(id: string): Promise<void>;
+    apply(id: string, indices: number[]): Promise<string[]>;
   };
   research: {
     assistants(): Promise<import("./research").AssistantInfo[]>;

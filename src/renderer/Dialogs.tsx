@@ -7,13 +7,15 @@ export function Modal({
   title,
   close,
   children,
+  document: owner,
 }: {
   title: string;
   close: () => void;
   children: ReactNode;
+  document?: Document;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
-    target = useRef(focusedDocument());
+    target = useRef(owner ?? focusedDocument());
   useEffect(() => {
     const d = ref.current!,
       previous = target.current.activeElement as HTMLElement | null;

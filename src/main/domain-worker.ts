@@ -4,6 +4,12 @@ import type { SourceDocument } from "../shared/source";
 import { validateStatement } from "../domain/rdf-model";
 import { queryContext } from "../domain/query-context";
 import { researchContext, applySuggestions } from "../domain/research";
+import {
+  taxonomyContext,
+  validateTaxonomySuggestions,
+  applyTaxonomySuggestions,
+} from "../domain/taxonomy-assistant";
+import { taxonomyMode } from "../shared/taxonomy-assistant";
 import { readWorkspace, buildEmptyStore } from "../domain/workspace";
 import { parentPort, Worker } from "node:worker_threads";
 import path from "node:path";
@@ -217,6 +223,7 @@ const tracked = new Set<DomainMethod>([
   "stylesheet",
   "regenerate",
   "applySuggestions",
+  "applyTaxonomySuggestions",
 ]);
 let dragBefore: Frame | undefined;
 async function operate(method: DomainMethod, args: Record<string, unknown>) {
@@ -286,6 +293,10 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 stylesheet: "Change graph styles",
                 regenerate: "Regenerate dataset",
                 applySuggestions: "Apply research suggestions",
+                applyTaxonomySuggestions:
+                  args.mode === "children"
+                    ? "Add child classes"
+                    : "Add named instances",
               } as Record<string, string>
             )[method] ?? method),
       bytes:
@@ -603,6 +614,38 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         string(a, "instructions", 12000),
         datasetEpoch,
       );
+    case "taxonomyContext":
+      return taxonomyContext(
+        store,
+        string(a, "iri", 10000),
+        taxonomyMode(a.mode),
+        datasetEpoch,
+      );
+    case "validateTaxonomySuggestions":
+    case "applyTaxonomySuggestions": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error(
+          "The ontology changed. Find suggestions again before adding them.",
+        );
+      const iri = string(a, "iri", 10000),
+        mode = taxonomyMode(a.mode);
+      if (method === "validateTaxonomySuggestions")
+        return validateTaxonomySuggestions(store, iri, mode, a.suggestions);
+      const created = applyTaxonomySuggestions(
+        store,
+        iri,
+        mode,
+        a.suggestions as import("../shared/taxonomy-assistant").TaxonomySuggestion[],
+      );
+      selected = iri;
+      mutate(
+        "Added " +
+          created.length +
+          (mode === "children" ? " child classes." : " named instances.") +
+          " Undo restores the previous ontology.",
+      );
+      return created;
+    }
     case "researchContext":
       return researchContext(store, string(a, "iri", 10000), datasetEpoch);
     case "applySuggestions": {
@@ -1104,14 +1147,21 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return result ? querySummary(resultId, result) : null;
     }
     case "queryResult": {
-      const cached = typeof a.id === "number" && a.epoch === datasetEpoch
-        ? queryResults.peek(a.id, string(a, "key", 100)) : undefined;
+      const cached =
+        typeof a.id === "number" && a.epoch === datasetEpoch
+          ? queryResults.peek(a.id, string(a, "key", 100))
+          : undefined;
       return cached ? querySummary(a.id as number, cached.result) : null;
     }
     case "queryPage": {
       const pageResult =
-        typeof a.id === "number" && (a.epoch === undefined || a.epoch === datasetEpoch)
-          ? queryResults.get(a.id, typeof a.key === "string" ? a.key : undefined)?.result : undefined;
+        typeof a.id === "number" &&
+        (a.epoch === undefined || a.epoch === datasetEpoch)
+          ? queryResults.get(
+              a.id,
+              typeof a.key === "string" ? a.key : undefined,
+            )?.result
+          : undefined;
       if (!pageResult) return { rows: [], total: 0, retained: false };
       const start = Math.floor(number(a, "start", 0, 200000)),
         end = Math.floor(number(a, "end", start, start + 1000));
@@ -1122,10 +1172,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       };
     }
     case "queryGraph": {
-      const chosen = a.id === undefined ? result
-        : a.epoch === datasetEpoch && typeof a.id === "number"
-          ? queryResults.get(a.id, string(a, "key", 100))?.result : undefined;
-      if (a.id !== undefined && !chosen) throw Error("These results are no longer retained. Open the query and run it again.");
+      const chosen =
+        a.id === undefined
+          ? result
+          : a.epoch === datasetEpoch && typeof a.id === "number"
+            ? queryResults.get(a.id, string(a, "key", 100))?.result
+            : undefined;
+      if (a.id !== undefined && !chosen)
+        throw Error(
+          "These results are no longer retained. Open the query and run it again.",
+        );
       if (chosen) {
         view.seed(
           chosen.iris.filter((i) => store.exists(i)).slice(0, view.budget),

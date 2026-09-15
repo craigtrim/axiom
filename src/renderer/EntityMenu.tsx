@@ -10,6 +10,7 @@ export function EntityMenu({
   document: doc,
   close,
   branch,
+  taxonomy,
 }: {
   iri: string;
   x: number;
@@ -17,6 +18,9 @@ export function EntityMenu({
   document: Document;
   close: () => void;
   branch?: { open: boolean; toggle: () => void };
+  taxonomy?: (
+    mode: import("../shared/taxonomy-assistant").TaxonomyMode,
+  ) => void;
 }) {
   const s = useSnapshot()!,
     entity = s.entities.find((e) => e.iri === iri),
@@ -88,6 +92,13 @@ export function EntityMenu({
       run: () => command("research.open"),
     },
   ];
+  if (taxonomy) {
+    const enabled = !!entity && ["Class", "Defined"].includes(entity.kind);
+    actions.push(
+      { label: "Add children", enabled, run: () => taxonomy("children") },
+      { label: "Find instances", enabled, run: () => taxonomy("instances") },
+    );
+  }
   return (
     <ContextMenu
       document={doc}
@@ -96,7 +107,9 @@ export function EntityMenu({
       close={close}
       actions={actions.map((a, i) => ({
         ...a,
-        key: ["B", "S", "A", "P", "N", "I", "R", "D", "T", "C", "E"][i],
+        key: ["B", "S", "A", "P", "N", "I", "R", "D", "T", "C", "E", "H", "F"][
+          i
+        ],
         run: () => run(a.run),
       }))}
     />

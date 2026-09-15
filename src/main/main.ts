@@ -6,6 +6,7 @@ import type { LinkedFile } from "../shared/source";
 import { exportDocument } from "./export-service";
 import { QueryAssistantService } from "./query-assistant-service";
 import { ResearchService } from "./research-service";
+import { TaxonomyAssistantService } from "./taxonomy-assistant-service";
 import { layoutOptions } from "../shared/layout-options";
 import { THING } from "../domain/model";
 import { readPreferences } from "../shared/preferences";
@@ -124,6 +125,9 @@ const methods = new Set<DomainMethod>([
   "uiHistory",
   "cancelLayout",
   "queryContext",
+  "taxonomyContext",
+  "validateTaxonomySuggestions",
+  "applyTaxonomySuggestions",
   "researchContext",
   "applySuggestions",
 ]);
@@ -140,6 +144,26 @@ function request<T = unknown>(
 const research = new ResearchService(
   path.join(app.getPath("userData"), "research-runs"),
   (iri) => request("researchContext", { iri }),
+);
+const taxonomyAssistant = new TaxonomyAssistantService(
+  path.join(app.getPath("userData"), "taxonomy-runs"),
+  (input) => request("taxonomyContext", { iri: input.iri, mode: input.mode }),
+  (context, suggestions) =>
+    request("validateTaxonomySuggestions", {
+      iri: context.selected.iri,
+      mode: context.mode,
+      datasetEpoch: context.datasetEpoch,
+      version: context.version,
+      suggestions,
+    }),
+  (context, suggestions) =>
+    request("applyTaxonomySuggestions", {
+      iri: context.selected.iri,
+      mode: context.mode,
+      datasetEpoch: context.datasetEpoch,
+      version: context.version,
+      suggestions,
+    }),
 );
 const queryHistory = new QueryHistoryService(
   path.join(app.getPath("userData"), "query-history.json"),
@@ -807,6 +831,24 @@ app.whenReady().then(async () => {
     authorised(event);
     queryAssistant.cancel();
   });
+  ipcMain.handle("taxonomyAssistant:run", (event, input) => {
+    authorised(event);
+    return taxonomyAssistant.run(input);
+  });
+  ipcMain.handle("taxonomyAssistant:status", (event) => {
+    authorised(event);
+    return taxonomyAssistant.status();
+  });
+  ipcMain.handle("taxonomyAssistant:cancel", (event, id) => {
+    authorised(event);
+    if (typeof id !== "string" || !id || id.length > 100)
+      throw Error("Invalid request ID.");
+    taxonomyAssistant.cancel(id);
+  });
+  ipcMain.handle("taxonomyAssistant:apply", (event, id, indices) => {
+    authorised(event);
+    return taxonomyAssistant.apply(id, indices);
+  });
   ipcMain.handle("research:assistants", (event) => {
     authorised(event);
     return research.assistants();
@@ -1034,6 +1076,7 @@ app.whenReady().then(async () => {
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
+  taxonomyAssistant.cancel();
   queryAssistant.cancel();
   provenance.close();
   research.cancel();
