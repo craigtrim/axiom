@@ -3,4 +3,5 @@ specs/
 node_modules/
 dist/
 artifacts/
+tests/conformance/w3c/
 *.ico
