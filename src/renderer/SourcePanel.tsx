@@ -1,3 +1,4 @@
+import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
@@ -220,7 +221,41 @@ export function SourcePanel() {
       data-panel="source"
       aria-label="Ontology source editor"
     >
-      <div className="panel-toolbar">
+      <PaneToolbar
+        label="Source actions"
+        secondary={
+          <>
+            <button
+              disabled={busy}
+              onClick={() => {
+                setSourceDraft();
+                setError("");
+                setReload((n) => n + 1);
+              }}
+            >
+              {draft ? "Discard draft and reload" : "Reload from ontology"}
+            </button>
+            <button
+              disabled={!snapshot.selected || loading}
+              onClick={findSelected}
+            >
+              Find selected entity
+            </button>
+            <button
+              disabled={busy || loading}
+              onClick={() => window.axiom.command("file.exportOntology")}
+            >
+              Export...
+            </button>
+          </>
+        }
+      >
+        <button
+          disabled={!draft || busy || loading || stale}
+          onClick={() => void apply()}
+        >
+          Apply changes
+        </button>
         <label>
           Format{" "}
           <select
@@ -240,32 +275,7 @@ export function SourcePanel() {
             ))}
           </select>
         </label>
-        <button
-          disabled={!draft || busy || loading || stale}
-          onClick={() => void apply()}
-        >
-          Apply changes
-        </button>
-        <button
-          disabled={busy}
-          onClick={() => {
-            setSourceDraft();
-            setError("");
-            setReload((n) => n + 1);
-          }}
-        >
-          {draft ? "Discard draft and reload" : "Reload from ontology"}
-        </button>
-        <button disabled={!snapshot.selected || loading} onClick={findSelected}>
-          Find selected entity
-        </button>
-        <button
-          disabled={busy || loading}
-          onClick={() => window.axiom.command("file.exportOntology")}
-        >
-          Export...
-        </button>
-      </div>
+      </PaneToolbar>
       <div className="source-status" role="status">
         {loading
           ? "Loading source..."
@@ -292,10 +302,12 @@ export function SourcePanel() {
         </p>
       )}
       {doc?.namedGraphs && (
-        <p className="source-message muted">
-          This document contains named graphs. TriG, N-Quads and JSON-LD
-          preserve them.
-        </p>
+        <PaneDetails title="Named graph formats" className="source-format-help">
+          <p className="source-message muted">
+            This document contains named graphs. TriG, N-Quads and JSON-LD
+            preserve them.
+          </p>
+        </PaneDetails>
       )}
       <div ref={host} className="source-editor" />
     </section>

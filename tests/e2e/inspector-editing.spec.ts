@@ -164,7 +164,7 @@ test("inspector edits identifier, label, comment and parent together while prese
   await fields()
     .getByRole("combobox", { name: "Subclass of 1", exact: true })
     .selectOption(b);
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   const next = a.replace(/Alpha$/, "CourseCredit");
@@ -260,7 +260,7 @@ test("inspector and details share drafts across selection changes, reject confli
   await expect(
     fields().getByRole("textbox", { name: "Entity label", exact: true }),
   ).toHaveValue("Shared label");
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect(
@@ -273,14 +273,16 @@ test("inspector and details share drafts across selection changes, reject confli
     (iri) => window.axiom.request("rename", { iri, name: "Graph change" }),
     a,
   );
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  await expect(fields().getByRole("alert")).toContainText("changed since");
+  await expect(inspector().getByRole("alert")).toContainText("changed since");
   expect((await state()).entities.find((e) => e.iri === a)!.label).toBe(
     "Graph change",
   );
-  await fields().getByRole("button", { name: "Reload", exact: true }).click();
+  await inspector()
+    .getByRole("button", { name: "Reload", exact: true })
+    .click();
   await expect(
     editor.getByRole("textbox", { name: "Entity label", exact: true }),
   ).toHaveValue("Graph change");
@@ -422,7 +424,7 @@ test("property domain, range and inverse are editable in the inspector", async (
       .getByRole("combobox", { name: name + " 1", exact: true })
       .selectOption(iri);
   }
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect
@@ -437,7 +439,7 @@ test("property domain, range and inverse are editable in the inspector", async (
   await fields()
     .getByRole("button", { name: "Remove Range 1", exact: true })
     .click();
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect
@@ -506,7 +508,7 @@ test("default identifiers follow label drafts in both editors and become stable 
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Course Credit");
   await expect(name).toHaveValue("CourseCredit");
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   const next = old.replace(/NewClass$/, "CourseCredit");
@@ -516,7 +518,7 @@ test("default identifiers follow label drafts in both editors and become stable 
   ).toHaveValue(next);
   await label.fill("Credit hours");
   await expect(name).toHaveValue("CourseCredit");
-  await fields()
+  await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect
@@ -549,7 +551,7 @@ test("a saved placeholder mismatch is recognized by its spelling and its repair 
     fields().getByRole("textbox", { name: "Entity name", exact: true }),
   ).toHaveValue("CourseCredit");
   await expect(
-    fields().getByRole("button", { name: "Apply changes", exact: true }),
+    inspector().getByRole("button", { name: "Apply changes", exact: true }),
   ).toBeEnabled();
   const file = path.resolve("artifacts/testing/repaired-name.axiom");
   await app.evaluate(({ dialog }, file) => {

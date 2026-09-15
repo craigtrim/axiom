@@ -1,3 +1,4 @@
+import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import { request, useSnapshot, onCommand } from "./client";
 import { resetEdgeRoute } from "./edge-actions";
@@ -13,6 +14,7 @@ import {
 import { displayName } from "../domain/rdf-model";
 import type { EdgeDocument } from "../shared/protocol";
 export function EdgeInspector({ edgeId }: { edgeId: string }) {
+  const { compact } = usePaneLayout();
   const s = useSnapshot()!,
     [data, setData] = useState<EdgeDocument | null>(null),
     [source, setSource] = useState(""),
@@ -117,12 +119,36 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
       data-panel="inspector"
       aria-label="Edge inspector"
     >
-      <div className="panel-toolbar">
-        <strong>Edge</strong>
-        <button onClick={() => void load()} disabled={busy}>
-          Reload edge
-        </button>
-      </div>
+      <PaneToolbar
+        label="Edge actions"
+        secondary={
+          <button onClick={() => void load()} disabled={busy}>
+            Reload edge
+          </button>
+        }
+      >
+        {" "}
+        {!!data?.statements.length && (
+          <div className="edge-editor-actions">
+            <button
+              type="button"
+              onClick={() => void save()}
+              className="primary"
+              aria-label="Apply edge changes"
+              disabled={busy || stale}
+            >
+              {compact ? "Apply" : "Apply edge changes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void save(true)}
+              disabled={busy || stale}
+            >
+              Remove edge
+            </button>
+          </div>
+        )}
+      </PaneToolbar>
       <form
         className="edge-editor inspector-content"
         onSubmit={(e) => {
@@ -206,26 +232,7 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
                 The ontology changed. Reload this edge before saving.
               </p>
             )}
-            {!!data.statements.length && (
-              <div className="edge-editor-actions">
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={busy || stale}
-                >
-                  Apply edge changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void save(true)}
-                  disabled={busy || stale}
-                >
-                  Remove edge
-                </button>
-              </div>
-            )}
-            <section className="inspector-section">
-              <h3>Route</h3>
+            <PaneDetails className="inspector-section" title="Route">
               <p>
                 Drag the middle handle to bend the line. Drag an endpoint onto a
                 node to reconnect it. Use the From and To fields to choose any
@@ -238,7 +245,7 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
               >
                 Reset edge route
               </button>
-            </section>
+            </PaneDetails>
             <button type="button" onClick={() => editEntity(data.edge.source)}>
               Open source details
             </button>

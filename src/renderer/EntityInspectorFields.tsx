@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+import { useId } from "react";
 import { useEntityEditor } from "./useEntityEditor";
 import { useSnapshot, report } from "./client";
 import {
@@ -17,7 +19,14 @@ import {
   type Entity,
 } from "../domain/model";
 
-export function EntityInspectorFields({ entity }: { entity: Entity }) {
+export function EntityInspectorFields({
+  entity,
+  actionsHost,
+}: {
+  entity: Entity;
+  actionsHost?: HTMLElement | null;
+}) {
+  const formId = useId();
   const s = useSnapshot()!,
     editor = useEntityEditor(entity.iri),
     {
@@ -139,6 +148,7 @@ export function EntityInspectorFields({ entity }: { entity: Entity }) {
   };
   return (
     <form
+      id={formId}
       className="inspector-fields"
       aria-label="Edit entity properties"
       onSubmit={(event) => {
@@ -146,7 +156,7 @@ export function EntityInspectorFields({ entity }: { entity: Entity }) {
         void save();
       }}
     >
-      {error && (
+      {!actionsHost && error && (
         <p className="error" role="alert">
           {error}
         </p>
@@ -169,7 +179,9 @@ export function EntityInspectorFields({ entity }: { entity: Entity }) {
                     setNextIri(namespace + event.target.value)
                   }
                 />
-                <small className="muted">Identifier name</small>
+                <small className="muted pane-expanded-help">
+                  Identifier name
+                </small>
               </label>
               <label>
                 Label
@@ -339,30 +351,77 @@ export function EntityInspectorFields({ entity }: { entity: Entity }) {
               )}
             </details>
           </fieldset>
-          {stale && changed && (
+          {!actionsHost && stale && changed && (
             <p role="status" className="muted">
               The ontology changed. Applying will check for conflicting edits.
             </p>
           )}
-          <div className="inspector-save-actions">
-            <button
-              type="submit"
-              className="primary"
-              disabled={!changed || saving}
-            >
-              Apply changes
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void reload(true)}
-            >
-              Reload
-            </button>
-            <span role="status" className="muted">
-              {changed ? "Unsaved changes" : "Saved"}
-            </span>
-          </div>
+          {actionsHost ? (
+            createPortal(
+              <div className="inspector-save-actions">
+                <button
+                  type="submit"
+                  form={formId}
+                  className="primary"
+                  disabled={!changed || saving}
+                >
+                  Apply changes
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void reload(true)}
+                >
+                  Reload
+                </button>
+                <span role="status" className="muted">
+                  {changed ? "Unsaved changes" : "Saved"}
+                </span>
+                {error && (
+                  <p className="error" role="alert">
+                    {error}
+                  </p>
+                )}
+                {stale && changed && (
+                  <p className="muted" role="status">
+                    The ontology changed. Applying checks for conflicting edits.
+                  </p>
+                )}
+              </div>,
+              actionsHost,
+            )
+          ) : (
+            <div className="inspector-save-actions">
+              <button
+                type="submit"
+                form={formId}
+                className="primary"
+                disabled={!changed || saving}
+              >
+                Apply changes
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void reload(true)}
+              >
+                Reload
+              </button>
+              <span role="status" className="muted">
+                {changed ? "Unsaved changes" : "Saved"}
+              </span>
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              {stale && changed && (
+                <p className="muted" role="status">
+                  The ontology changed. Applying checks for conflicting edits.
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
     </form>

@@ -339,6 +339,7 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
     "An intervening change",
   );
+  await editor.getByRole("button", { name: "More entity actions" }).click();
   await editor.getByRole("button", { name: "Reload", exact: true }).click();
   await expect(
     editor.getByRole("textbox", { name: "Entity label", exact: true }),

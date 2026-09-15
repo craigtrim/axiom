@@ -26,7 +26,9 @@ async function menu(id: string) {
   }, id);
 }
 async function enter(text: string) {
-  await source().getByRole("textbox", { name: "Ontology source", exact: true }).focus();
+  await source()
+    .getByRole("textbox", { name: "Ontology source", exact: true })
+    .focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.insertText(text);
   await expect(source().getByRole("status")).toContainText("Unapplied");
@@ -125,7 +127,8 @@ test("source edits update the graph and taxonomy, inspector edits update source,
   await fields
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Course from inspector");
-  await fields
+  await page
+    .getByRole("region", { name: "Entity inspector", exact: true })
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect(source().locator(".monaco-editor")).toContainText(
@@ -185,6 +188,7 @@ test("invalid and conflicting source drafts survive switching views and cannot o
   await expect(source().locator(".monaco-editor")).toContainText(
     "Draft Course",
   );
+  await source().getByRole("button", { name: "More source actions" }).click();
   await source()
     .getByRole("button", { name: "Discard draft and reload" })
     .click();
@@ -270,6 +274,10 @@ test("file observations offer opening, reveal and opt-in native thumbnails witho
   );
   await page
     .locator('[data-panel="inspector"]')
+    .getByRole("button", { name: "More inspector actions" })
+    .click();
+  await page
+    .locator('[data-panel="inspector"]')
     .getByRole("button", { name: "View source", exact: true })
     .click();
   await expect(source().getByRole("status")).toContainText("Synchronized");
@@ -318,7 +326,9 @@ test("format switching applies valid drafts and preserves invalid drafts unchang
 test("native Undo, Redo and Find act on the focused source editor", async () => {
   await menu("view.source");
   await expect(source().getByRole("status")).toContainText("Synchronized");
-  await source().getByRole("textbox", { name: "Ontology source", exact: true }).focus();
+  await source()
+    .getByRole("textbox", { name: "Ontology source", exact: true })
+    .focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText("temporary");
   await expect(source().getByRole("status")).toContainText("Unapplied");
@@ -341,7 +351,9 @@ test("native Undo, Redo and Find act on the focused source editor", async () => 
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
   await expect(source().getByRole("status")).toContainText("Synchronized");
-  await source().getByRole("textbox", { name: "Ontology source", exact: true }).focus();
+  await source()
+    .getByRole("textbox", { name: "Ontology source", exact: true })
+    .focus();
   await menu("edit.undo");
   await expect
     .poll(

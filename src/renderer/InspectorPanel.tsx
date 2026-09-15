@@ -1,3 +1,4 @@
+import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { LinkedFileCard } from "./LinkedFileCard";
 import { EntityInspectorFields } from "./EntityInspectorFields";
 import { EdgeInspector } from "./EdgeInspector";
@@ -35,7 +36,8 @@ export function EntityLink({ iri }: { iri: string }) {
 }
 export function InspectorPanel() {
   const s = useSnapshot()!,
-    [data, setData] = useState<InspectorData | null>(null);
+    [data, setData] = useState<InspectorData | null>(null),
+    [actionsHost, setActionsHost] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     let active = true;
     if (!s.selected) {
@@ -83,17 +85,15 @@ export function InspectorPanel() {
     editable = s.entities.some((entity) => entity.iri === e.iri),
     section = (title: string, items: string[]) =>
       items.length ? (
-        <section className="inspector-section">
-          <h3>{title}</h3>
+        <PaneDetails className="inspector-section" title={title}>
           {items.map((iri, i) => (
             <EntityLink key={iri + i} iri={iri} />
           ))}
-        </section>
+        </PaneDetails>
       ) : null;
   const axioms = (title: string, rs: Restriction[]) =>
     rs.length ? (
-      <section className="inspector-section">
-        <h3>{title}</h3>
+      <PaneDetails className="inspector-section" title={title}>
         {rs.map((r, i) => (
           <div className="axiom" key={i}>
             <code>{restrictionText(r)}</code>
@@ -104,7 +104,7 @@ export function InspectorPanel() {
             </div>
           </div>
         ))}
-      </section>
+      </PaneDetails>
     ) : null;
   return (
     <section
@@ -125,8 +125,41 @@ export function InspectorPanel() {
         }
       }}
     >
-      <div className="panel-toolbar">
-        <span>Entity</span>
+      <PaneToolbar
+        label="Inspector actions"
+        secondary={
+          <>
+            {" "}
+            <button onClick={() => command("view.source")}>View source</button>
+            <button
+              onClick={(event) =>
+                startInlineRename(e.iri, {
+                  document: event.currentTarget.ownerDocument,
+                  panel: "inspector",
+                })
+              }
+              disabled={
+                e.iri === THING ||
+                e.iri !== s.selected ||
+                !s.entities.some((x) => x.iri === e.iri)
+              }
+              title="Rename entity"
+            >
+              Rename
+            </button>
+            <button
+              onClick={() => {
+                void act("seed", { iris: [e.iri] }).then(() =>
+                  command("graph.fit"),
+                );
+                command("view.graph");
+              }}
+            >
+              Show in graph
+            </button>
+          </>
+        }
+      >
         <button
           onClick={() => editEntity(e.iri)}
           disabled={!s.entities.some((entity) => entity.iri === e.iri)}
@@ -139,35 +172,7 @@ export function InspectorPanel() {
           Edit details
         </button>
         <button onClick={() => command("research.open")}>Research</button>
-        <button onClick={() => command("view.source")}>View source</button>
-        <span className="toolbar-spacer" />
-        <button
-          onClick={(event) =>
-            startInlineRename(e.iri, {
-              document: event.currentTarget.ownerDocument,
-              panel: "inspector",
-            })
-          }
-          disabled={
-            e.iri === THING ||
-            e.iri !== s.selected ||
-            !s.entities.some((x) => x.iri === e.iri)
-          }
-          title="Rename entity"
-        >
-          Rename
-        </button>
-        <button
-          onClick={() => {
-            void act("seed", { iris: [e.iri] }).then(() =>
-              command("graph.fit"),
-            );
-            command("view.graph");
-          }}
-        >
-          Show in graph
-        </button>
-      </div>
+      </PaneToolbar>
       <div className="inspector-content">
         <LinkedFileCard key={s.datasetEpoch + e.iri} iri={e.iri} />
         <h2>
@@ -191,7 +196,11 @@ export function InspectorPanel() {
           </div>
         )}
         {editable && (
-          <EntityInspectorFields key={s.datasetEpoch + e.iri} entity={e} />
+          <EntityInspectorFields
+            key={s.datasetEpoch + e.iri}
+            entity={e}
+            actionsHost={actionsHost}
+          />
         )}
         {!editable && e.comment && <p>{e.comment}</p>}
         {!editable &&
@@ -199,8 +208,7 @@ export function InspectorPanel() {
             (v) =>
               v.predicate === "http://www.w3.org/2004/02/skos/core#altLabel",
           ) && (
-            <section className="inspector-section">
-              <h3>Synonyms</h3>
+            <PaneDetails className="inspector-section" title="Synonyms">
               <ul>
                 {data.values
                   .filter(
@@ -212,7 +220,7 @@ export function InspectorPanel() {
                     <li key={i}>{v.term.value}</li>
                   ))}
               </ul>
-            </section>
+            </PaneDetails>
           )}
         {!editable &&
           section(
@@ -227,13 +235,11 @@ export function InspectorPanel() {
         {!editable && section("Range", e.range ? [e.range] : [])}
         {!editable && section("Inverse", e.inverse ? [e.inverse] : [])}
         {e.characteristics.length > 0 && (
-          <section className="inspector-section">
-            <h3>Characteristics</h3>
+          <PaneDetails className="inspector-section" title="Characteristics">
             <p>{e.characteristics.join(", ")}</p>
-          </section>
+          </PaneDetails>
         )}
-        <section className="inspector-section">
-          <h3>Usage</h3>
+        <PaneDetails className="inspector-section" title="Usage">
           <dl>
             <dt>Subclasses</dt>
             <dd>{e.children.length}</dd>
@@ -242,10 +248,9 @@ export function InspectorPanel() {
             <dt>Direct instances</dt>
             <dd>{data.instances.toLocaleString("en-GB")}</dd>
           </dl>
-        </section>
+        </PaneDetails>
         {data.order && (
-          <section className="inspector-section">
-            <h3>Order data</h3>
+          <PaneDetails className="inspector-section" title="Order data">
             <dl>
               <dt>Order reference</dt>
               <dd>{data.order.reference}</dd>
@@ -264,22 +269,28 @@ export function InspectorPanel() {
               <dt>Customer</dt>
               <dd>{data.customer && <EntityLink iri={data.customer.iri} />}</dd>
             </dl>
-          </section>
+          </PaneDetails>
         )}
         {!data.order && e.kind === "Individual" && data.values.length > 0 && (
-          <section className="inspector-section">
-            <h3>Statements</h3>
-            <p>{data.values.length.toLocaleString()} statements describe this entity.</p>
-            <button onClick={() => command("view.source")}>Open source editor</button>
-          </section>
+          <PaneDetails className="inspector-section" title="Statements">
+            <p>
+              {data.values.length.toLocaleString()} statements describe this
+              entity.
+            </p>
+            <button onClick={() => command("view.source")}>
+              Open source editor
+            </button>
+          </PaneDetails>
         )}
-        <section className="inspector-section">
-          <h3>Inferred axioms</h3>
+        <PaneDetails className="inspector-section" title="Inferred axioms">
           <p className="muted">
             No reasoner has run. This workspace shows asserted axioms.
           </p>
-        </section>
+        </PaneDetails>
       </div>
+      {editable && (
+        <div ref={setActionsHost} className="pane-footer inspector-footer" />
+      )}
     </section>
   );
 }

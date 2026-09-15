@@ -220,7 +220,7 @@ test("drag a tab into another group, detach and reattach a pane", async () => {
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Rename", exact: true })
+    .getByRole("button", { name: "Edit details", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
@@ -465,13 +465,14 @@ test("create an individual with validation and undo, and delete a class with und
 test("a detached inspector renames in place and restores GPU context", async () => {
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Rename", exact: true })
+    .getByRole("button", { name: "Edit details", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
   const child = application.windows().find((w) => w !== page)!;
   child.on("pageerror", (e) => errors.push(e.message));
   await child.bringToFront();
+  await child.getByRole("button", { name: "More inspector actions" }).click();
   await child
     .locator('[data-panel="inspector"]')
     .getByRole("button", { name: "Rename", exact: true })

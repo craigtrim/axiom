@@ -196,7 +196,9 @@ test("dragging and keyboard bending save routes with Undo, Redo and workspace re
           .bend!.y,
     )
     .toBeLessThan(moved.y);
-  const file = path.resolve("artifacts/testing/edge-routes.axiom");
+  const file = path.resolve(
+    "artifacts/testing/edge-routes-" + Date.now() + ".axiom",
+  );
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
   }, file);
@@ -381,6 +383,7 @@ test("parallel statement graphs edit individually and stale edge drafts require 
     inspector.getByRole("button", { name: "Apply edge changes" }),
   ).toBeDisabled();
   await expect(inspector.getByRole("alert")).toContainText("ontology changed");
+  await inspector.getByRole("button", { name: "More edge actions" }).click();
   await inspector.getByRole("button", { name: "Reload edge" }).click();
   await expect(
     inspector.getByRole("button", { name: "Apply edge changes" }),
