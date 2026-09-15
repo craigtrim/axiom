@@ -1,3 +1,4 @@
+import { PaneToolbar } from "./AdaptivePane";
 import { InlineCreate } from "./InlineCreate";
 import { takeCreation, entityDragType, type Creation } from "./authoring";
 import { displayName } from "../domain/rdf-model";
@@ -157,44 +158,48 @@ export function HierarchyPanel() {
       data-panel="hierarchy"
       aria-label="Hierarchy panel"
     >
-      <div className="panel-toolbar">
-        <button
-          aria-pressed={!properties}
-          onClick={() => {
-            savePanel("hierarchy.tab", tab, false);
-            setTab("classes");
-            savePanel("hierarchy.tab", "classes");
-          }}
-        >
-          Classes · {s.classCount}
-        </button>
-        <button
-          aria-pressed={properties}
-          onClick={() => {
-            savePanel("hierarchy.tab", tab, false);
-            setTab("properties");
-            savePanel("hierarchy.tab", "properties");
-          }}
-        >
-          Properties · {s.propertyCount}
-        </button>
-      </div>
-      <div className="panel-toolbar">
-        <input
-          aria-label="Filter hierarchy"
-          placeholder="Filter hierarchy"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <button
-          title="New class"
-          aria-label="New class"
-          onClick={() =>
-            command(properties ? "entity.createProperty" : "entity.createClass")
-          }
-        >
-          +
-        </button>
+      <div className="hierarchy-controls">
+        <PaneToolbar label="Hierarchy type">
+          <button
+            aria-pressed={!properties}
+            onClick={() => {
+              savePanel("hierarchy.tab", tab, false);
+              setTab("classes");
+              savePanel("hierarchy.tab", "classes");
+            }}
+          >
+            Classes · {s.classCount}
+          </button>
+          <button
+            aria-pressed={properties}
+            onClick={() => {
+              savePanel("hierarchy.tab", tab, false);
+              setTab("properties");
+              savePanel("hierarchy.tab", "properties");
+            }}
+          >
+            Properties · {s.propertyCount}
+          </button>
+        </PaneToolbar>
+        <PaneToolbar label="Hierarchy filter">
+          <input
+            aria-label="Filter hierarchy"
+            placeholder="Filter hierarchy"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <button
+            title="New class"
+            aria-label="New class"
+            onClick={() =>
+              command(
+                properties ? "entity.createProperty" : "entity.createClass",
+              )
+            }
+          >
+            +
+          </button>
+        </PaneToolbar>
       </div>
       <div
         role="tree"

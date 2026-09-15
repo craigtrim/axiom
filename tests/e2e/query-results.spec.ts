@@ -97,6 +97,11 @@ test("results are a workbench tab and reopen their query after the editor closes
   await expect(results().locator(".query-results")).toContainText(
     "first-result",
   );
+  const execution = results().getByText("Execution details", { exact: true });
+  if (
+    !(await results().getByText("Executed SPARQL", { exact: true }).isVisible())
+  )
+    await execution.click();
   await results().getByText("Executed SPARQL", { exact: true }).click();
   await expect(results().getByLabel("Executed SPARQL")).toHaveText(first);
   await page.screenshot({
@@ -181,9 +186,11 @@ test("saved result tabs keep their executed query after restart and identify exp
   );
   expect(await results().getAttribute("data-panel")).toBe(id);
   await expect(page.locator('[data-panel="query"]')).toHaveCount(0);
+  await results().getByRole("button", { name: "More result actions" }).click();
   await expect(
     results().getByRole("button", { name: "Send results to graph" }),
   ).toBeDisabled();
+  await page.keyboard.press("Escape");
   await results()
     .getByRole("button", { name: "Open query", exact: true })
     .click();
@@ -245,6 +252,7 @@ test("sending an older results tab to the graph uses that execution", async () =
     .locator(".flexlayout__tab_button")
     .filter({ hasText: "Query results · 1" })
     .click();
+  await results().getByRole("button", { name: "More result actions" }).click();
   await results()
     .getByRole("button", { name: "Send results to graph" })
     .click();

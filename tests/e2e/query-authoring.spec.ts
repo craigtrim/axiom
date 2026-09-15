@@ -17,6 +17,9 @@ async function launch() {
     env: launchEnv,
   });
   page = await app.firstWindow();
+  // Keep physical desktop input out of optional background validation runs.
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (await app.browserWindow(page)).evaluate((win) => win.setFocusable(false));
   bridgePage = page;
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
@@ -42,6 +45,18 @@ async function menu(id: string) {
       .getMenuItemById(id)!
       .click({} as never, w, w.webContents as never);
   }, id);
+}
+async function queryOptions() {
+  const more = page.getByRole("button", { name: "More query actions" });
+  if (
+    (await more.isVisible()) &&
+    (await more.getAttribute("aria-expanded")) !== "true"
+  )
+    await more.click();
+}
+async function formatQuery() {
+  await queryOptions();
+  await page.getByRole("button", { name: "Format", exact: true }).click();
 }
 async function enter(value: string) {
   await page.locator(".monaco-editor textarea").focus();
@@ -83,10 +98,11 @@ test.afterEach(async () => {
 
 test("formats with the toolbar and keyboard, supports Undo, and identifies custom queries", async () => {
   await enter(query);
+  await queryOptions();
   await expect(
     page.getByRole("combobox", { name: "Example query" }),
   ).toHaveValue("-1");
-  await page.getByRole("button", { name: "Format", exact: true }).click();
+  await formatQuery();
   await expect
     .poll(text)
     .toBe("SELECT ?s ?p ?o\nWHERE {\n  ?s ?p ?o .\n}\nLIMIT 7");
@@ -95,7 +111,7 @@ test("formats with the toolbar and keyboard, supports Undo, and identifies custo
   await page.keyboard.press("Alt+Shift+f");
   await expect.poll(text).toContain("\n  ?s ?p ?o");
   await enter("SELECT ?s WHERE {");
-  await page.getByRole("button", { name: "Format", exact: true }).click();
+  await formatQuery();
   await expect(page.locator(".query-error")).toContainText("Could not format");
   await expect.poll(text).toBe("SELECT ?s WHERE {");
 });
@@ -197,7 +213,7 @@ test("unsupported requests keep the current query; invalid drafts open for corre
   await expect(
     page.getByRole("button", { name: /^Run(?: |$)/ }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Format", exact: true }).click();
+  await formatQuery();
   await expect(
     page.getByRole("button", { name: /^Run(?: |$)/ }),
   ).toBeDisabled();
@@ -244,7 +260,7 @@ test("shows generation context and flags later ontology changes", async () => {
   await composer()
     .getByRole("checkbox", { name: "Refine the current query" })
     .check();
-  await composer().locator("summary").click();
+  await composer().locator(".query-context-details summary").click();
   await expect(composer().locator(".query-context")).toContainText(query);
   await composer()
     .getByRole("button", { name: "Generate query", exact: true })
@@ -283,7 +299,9 @@ test("New query and examples preserve forward history, and the chooser searches 
     .getByRole("button", { name: "Previous query", exact: true })
     .click();
   await expect.poll(text).toBe(second);
+  await queryOptions();
   await page.getByRole("combobox", { name: "Example query" }).selectOption("0");
+  await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
   ).toHaveText("4 / 4");
@@ -449,8 +467,7 @@ test("formatting and comments keep results current while substantive edits and d
   const changed = page
     .locator(".query-run-status .stale")
     .filter({ hasText: "The query changed." });
-  const format = page.getByRole("button", { name: "Format", exact: true });
-  await format.click();
+  await formatQuery();
   await expect.poll(text).toContain("\nLIMIT 1");
   await expect(changed).toHaveCount(0);
   await expect(
@@ -470,7 +487,7 @@ test("formatting and comments keep results current while substantive edits and d
   await page.keyboard.insertText("0");
   await expect.poll(text).toContain("LIMIT 10");
   await expect(changed).toBeVisible();
-  await format.click();
+  await formatQuery();
   await expect(changed).toBeVisible();
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+z");
@@ -495,7 +512,7 @@ test("formatting and comments keep results current while substantive edits and d
   await expect(
     page.locator(".query-results-panel:visible .query-summary .stale"),
   ).toContainText("Data changed");
-  await format.click();
+  await formatQuery();
   await expect(changed).toHaveCount(0);
   await expect(
     page.locator(".query-results-panel:visible .query-summary .stale"),

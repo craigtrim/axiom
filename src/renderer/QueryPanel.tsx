@@ -1,3 +1,4 @@
+import { PaneToolbar, usePaneLayout } from "./AdaptivePane";
 import { queryResultId, queryTitle } from "../shared/query-history";
 import { showQueryResults } from "./query-results";
 import { QueryHistoryDialog } from "./QueryHistoryDialog";
@@ -141,8 +142,9 @@ export function QueryPanel() {
   const [summary, setSummary] = useState<QuerySummary | null>(null),
     [resultKey, setResultKey] = useState(""),
     [error, setError] = useState("");
-  const [composing, setComposing] = useState(panel("query.composing", false)),
-    [compact, setCompact] = useState(false);
+  const [composing, setComposing] = useState(panel("query.composing", false));
+  const paneLayout = usePaneLayout();
+  const compact = paneLayout.width < 860 || paneLayout.shallow;
   const [choosing, setChoosing] = useState(false),
     [navigating, setNavigating] = useState(false);
   const running = !!history.runningId,
@@ -274,14 +276,9 @@ export function QueryPanel() {
   useEffect(() => {
     alive.current = true;
     void connectQueryHistory().catch(() => {});
-    const el = root.current!;
-    const ro = new ResizeObserver(() =>
-      setCompact(el.getBoundingClientRect().width < 860),
-    );
-    ro.observe(el);
+
     return () => {
       alive.current = false;
-      ro.disconnect();
     };
   }, []);
   useEffect(() => {
@@ -399,8 +396,7 @@ export function QueryPanel() {
     if (e.getValue() !== entry.text) e.setValue(entry.text);
     if (entry.generation && priorAgent.current !== entry.id) {
       priorAgent.current = entry.id;
-      if (root.current!.getBoundingClientRect().width < 860)
-        showComposer(false);
+      if (compact) showComposer(false);
     }
   }, [entry?.id, entry?.text]);
   useEffect(() => {
@@ -520,7 +516,44 @@ export function QueryPanel() {
               </button>
             </div>
           )}
-          <div className="panel-toolbar query-actions">
+          <PaneToolbar
+            label="Query actions"
+            className="query-actions"
+            secondary={
+              <>
+                <button
+                  onClick={format}
+                  disabled={!text.trim()}
+                  title={"Format SPARQL (" + keyHint("query.format") + ")"}
+                >
+                  Format
+                </button>{" "}
+                <select
+                  aria-label="Example query"
+                  disabled={!s.ontology.example}
+                  value={s.ontology.example ? example : -1}
+                  onChange={(e) => {
+                    const index = +e.target.value;
+                    if (index >= 0)
+                      void create(
+                        examples[index].Text,
+                        examples[index].Title,
+                        "example",
+                      );
+                  }}
+                >
+                  <option value={-1}>
+                    {s.ontology.example ? "Examples…" : "Custom ontology query"}
+                  </option>
+                  {examples.map((e, i) => (
+                    <option key={i} value={i}>
+                      {e.Title}
+                    </option>
+                  ))}
+                </select>
+              </>
+            }
+          >
             <button
               className="primary"
               onClick={() => void run()}
@@ -531,43 +564,14 @@ export function QueryPanel() {
             {running && (
               <button onClick={() => void act("cancelQuery")}>Cancel</button>
             )}
-            <button
-              onClick={format}
-              disabled={!text.trim()}
-              title={"Format SPARQL (" + keyHint("query.format") + ")"}
-            >
-              Format
-            </button>
+
             <button
               aria-expanded={composing}
               onClick={() => showComposer(!composing)}
             >
               Compose query
             </button>
-            <select
-              aria-label="Example query"
-              disabled={!s.ontology.example}
-              value={s.ontology.example ? example : -1}
-              onChange={(e) => {
-                const index = +e.target.value;
-                if (index >= 0)
-                  void create(
-                    examples[index].Text,
-                    examples[index].Title,
-                    "example",
-                  );
-              }}
-            >
-              <option value={-1}>
-                {s.ontology.example ? "Examples…" : "Custom ontology query"}
-              </option>
-              {examples.map((e, i) => (
-                <option key={i} value={i}>
-                  {e.Title}
-                </option>
-              ))}
-            </select>
-          </div>
+          </PaneToolbar>
           {history.error && (
             <div className="query-error" role="alert">
               {history.error}{" "}

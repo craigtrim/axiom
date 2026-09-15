@@ -1,3 +1,4 @@
+import { PaneToolbar } from "./AdaptivePane";
 import { EditableEntityName } from "./InlineRename";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
@@ -240,52 +241,63 @@ function ExampleIndividualsPanel() {
       data-panel="individuals"
       aria-label="Individuals panel"
     >
-      <div className="panel-toolbar">
-        <select
-          aria-label="Filter by pizza type"
-          value={filter.type}
-          onChange={(e) => update({ ...filter, type: e.target.value })}
-        >
-          <option value="">All types</option>
-          {s.types.map((t) => (
-            <option key={t} value={t}>
-              {humanise(local(t))}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter by branch"
-          value={filter.branch}
-          onChange={(e) => update({ ...filter, branch: e.target.value })}
-        >
-          <option value="">All branches</option>
-          {branches.map((b) => (
-            <option key={b}>{b}</option>
-          ))}
-        </select>
+      <PaneToolbar
+        label="Individual actions and filters"
+        secondary={
+          <>
+            <select
+              aria-label="Filter by pizza type"
+              value={filter.type}
+              onChange={(e) => update({ ...filter, type: e.target.value })}
+            >
+              <option value="">All types</option>
+              {s.types.map((t) => (
+                <option key={t} value={t}>
+                  {humanise(local(t))}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter by branch"
+              value={filter.branch}
+              onChange={(e) => update({ ...filter, branch: e.target.value })}
+            >
+              <option value="">All branches</option>
+              {branches.map((b) => (
+                <option key={b}>{b}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={() =>
+                update({ ...filter, type: "", branch: "", query: "" })
+              }
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => {
+                void act("tableGraph", { filter }).then(() =>
+                  command("graph.fit"),
+                );
+                command("view.graph");
+              }}
+            >
+              Send page to graph
+            </button>
+          </>
+        }
+      >
         <input
           aria-label="Filter individuals"
           placeholder="Filter individuals"
           value={filter.query}
           onChange={(e) => update({ ...filter, query: e.target.value })}
         />
-        <button
-          onClick={() => update({ ...filter, type: "", branch: "", query: "" })}
-        >
-          Reset
-        </button>
-        <button
-          onClick={() => {
-            void act("tableGraph", { filter }).then(() => command("graph.fit"));
-            command("view.graph");
-          }}
-        >
-          Send page to graph
-        </button>
         <button onClick={() => command("entity.createIndividual")}>
           New individual
         </button>
-      </div>
+      </PaneToolbar>
       <div className="table-summary">
         <span>
           {total.toLocaleString("en-GB")} rows /{" "}
@@ -464,30 +476,37 @@ function OntologyIndividualsPanel() {
       data-panel="individuals"
       aria-label="Individuals panel"
     >
-      <div className="panel-toolbar">
+      <PaneToolbar
+        label="Individual actions"
+        secondary={
+          <>
+            <button onClick={() => setQuery("")}>Reset</button>
+
+            <button
+              disabled={!rows.length}
+              onClick={() => {
+                void act("seed", {
+                  iris: rows.slice(0, s.graph.budget).map((e) => e.iri),
+                  expand: false,
+                }).then(() => command("graph.fit"));
+                command("view.graph");
+              }}
+            >
+              Send to graph
+            </button>
+          </>
+        }
+      >
         <input
           aria-label="Filter individuals"
           placeholder="Filter individuals"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button onClick={() => setQuery("")}>Reset</button>
         <button onClick={() => command("entity.createIndividual")}>
           New individual
         </button>
-        <button
-          disabled={!rows.length}
-          onClick={() => {
-            void act("seed", {
-              iris: rows.slice(0, s.graph.budget).map((e) => e.iri),
-              expand: false,
-            }).then(() => command("graph.fit"));
-            command("view.graph");
-          }}
-        >
-          Send to graph
-        </button>
-      </div>
+      </PaneToolbar>
       <div className="table-summary">
         {rows.length} rows / {s.individualCount} individuals
       </div>

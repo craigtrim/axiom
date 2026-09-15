@@ -863,9 +863,11 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
   await expect(dialog).toHaveCount(0);
   await menu("query.run");
   await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("6 displayed");
+  await page.getByRole("button", { name: "More query actions" }).click();
   await expect(
     page.getByRole("combobox", { name: "Example query" }),
   ).toBeDisabled();
+  await page.keyboard.press("Escape");
   await queryText(
     "SELECT ?s WHERE { ?s a <http://example.org/ontology#Person> . }",
   );

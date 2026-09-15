@@ -1,3 +1,4 @@
+import { PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import { panel, savePanel, request, useSnapshot } from "./client";
 import { flushQueryHistory } from "./query-history";
@@ -128,61 +129,6 @@ export function QueryComposer({
           Close
         </button>
       </div>
-      <textarea
-        autoFocus
-        aria-label="Describe your query"
-        rows={4}
-        maxLength={12000}
-        disabled={running}
-        placeholder="For example: Find classes whose names start with American."
-        value={instructions}
-        onChange={(e) => {
-          setInstructions(e.target.value);
-          savePanel("query.instructions", e.target.value, false);
-        }}
-      />
-      <div className="query-composer-actions">
-        <label>
-          Agent{" "}
-          <select
-            aria-label="Query agent"
-            value={provider}
-            disabled={running}
-            onChange={(e) => {
-              setProvider(e.target.value as AssistantId);
-              savePanel("query.provider", e.target.value, false);
-            }}
-          >
-            {(["codex", "claude"] as const).map((id) => (
-              <option key={id} value={id}>
-                {id === "codex" ? "Codex" : "Claude"}
-                {assistants.find((a) => a.id === id)?.available
-                  ? ""
-                  : " (not found)"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          onClick={() => void refresh()}
-          disabled={running}
-          title="Refresh installed agents"
-        >
-          Refresh agents
-        </button>
-      </div>
-      <label className="check-label query-refine">
-        <input
-          type="checkbox"
-          checked={includeQuery}
-          disabled={running}
-          onChange={(e) => {
-            setIncludeQuery(e.target.checked);
-            savePanel("query.includeCurrent", e.target.checked, false);
-          }}
-        />
-        Refine the current query
-      </label>
       <div className="query-composer-actions">
         <button
           className="primary"
@@ -205,49 +151,108 @@ export function QueryComposer({
           </button>
         )}
       </div>
-      <p className="muted">
-        Generated SPARQL opens as a new query. Your current query is kept.
-      </p>
-      {running && (
-        <p role="status">
-          Generating query ·{" "}
-          {Math.max(0, Math.floor((now - (status.startedAt ?? now)) / 1000))}s.
-          You can close this form and keep working.
-        </p>
-      )}
-      {(error || status.error) && (
-        <p role="alert" className="query-error">
-          {error || status.error}
-        </p>
-      )}
-      {status.response?.result.status === "unsupported" && (
-        <p role="status">{status.response.result.explanation}</p>
-      )}
-      <details className="query-context-details">
-        <summary>
-          Context sent to the agent
-          {context ? " · " + context.terms.length + " terms" : ""}
-        </summary>
-        <p className="muted">
-          {available?.available
-            ? "Uses your CLI sign-in. Your description and ontology context are sent through the selected agent."
-            : "Install Codex or Claude, sign in from a terminal, then refresh agents."}
-        </p>
-        <p>
-          Ontology names, labels, identifiers and schema. Other literal values
-          and query results are excluded.{" "}
-          {context?.omitted
-            ? context.omitted +
-              " entities omitted; use specific names to focus the context."
-            : ""}
-        </p>
-        {available?.path && <p className="muted">CLI: {available.path}</p>}
-        <pre className="query-context">
-          {input
-            ? buildQueryPrompt(context!, input)
-            : "Loading ontology context..."}
-        </pre>
-      </details>
+      <div className="query-composer-body">
+        <textarea
+          autoFocus
+          aria-label="Describe your query"
+          rows={4}
+          maxLength={12000}
+          disabled={running}
+          placeholder="For example: Find classes whose names start with American."
+          value={instructions}
+          onChange={(e) => {
+            setInstructions(e.target.value);
+            savePanel("query.instructions", e.target.value, false);
+          }}
+        />
+        <div className="query-composer-actions">
+          <label>
+            Agent{" "}
+            <select
+              aria-label="Query agent"
+              value={provider}
+              disabled={running}
+              onChange={(e) => {
+                setProvider(e.target.value as AssistantId);
+                savePanel("query.provider", e.target.value, false);
+              }}
+            >
+              {(["codex", "claude"] as const).map((id) => (
+                <option key={id} value={id}>
+                  {id === "codex" ? "Codex" : "Claude"}
+                  {assistants.find((a) => a.id === id)?.available
+                    ? ""
+                    : " (not found)"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            onClick={() => void refresh()}
+            disabled={running}
+            title="Refresh installed agents"
+          >
+            Refresh agents
+          </button>
+        </div>
+        <label className="check-label query-refine">
+          <input
+            type="checkbox"
+            checked={includeQuery}
+            disabled={running}
+            onChange={(e) => {
+              setIncludeQuery(e.target.checked);
+              savePanel("query.includeCurrent", e.target.checked, false);
+            }}
+          />
+          Refine the current query
+        </label>
+        <PaneDetails title="About generation">
+          <p className="muted">
+            Generated SPARQL opens as a new query. Your current query is kept.
+          </p>
+        </PaneDetails>
+        {running && (
+          <p role="status">
+            Generating query ·{" "}
+            {Math.max(0, Math.floor((now - (status.startedAt ?? now)) / 1000))}
+            s. You can close this form and keep working.
+          </p>
+        )}
+        {(error || status.error) && (
+          <p role="alert" className="query-error">
+            {error || status.error}
+          </p>
+        )}
+        {status.response?.result.status === "unsupported" && (
+          <p role="status">{status.response.result.explanation}</p>
+        )}
+        <details className="query-context-details">
+          <summary>
+            Context sent to the agent
+            {context ? " · " + context.terms.length + " terms" : ""}
+          </summary>
+          <p className="muted">
+            {available?.available
+              ? "Uses your CLI sign-in. Your description and ontology context are sent through the selected agent."
+              : "Install Codex or Claude, sign in from a terminal, then refresh agents."}
+          </p>
+          <p>
+            Ontology names, labels, identifiers and schema. Other literal values
+            and query results are excluded.{" "}
+            {context?.omitted
+              ? context.omitted +
+                " entities omitted; use specific names to focus the context."
+              : ""}
+          </p>
+          {available?.path && <p className="muted">CLI: {available.path}</p>}
+          <pre className="query-context">
+            {input
+              ? buildQueryPrompt(context!, input)
+              : "Loading ontology context..."}
+          </pre>
+        </details>
+      </div>
     </section>
   );
 }

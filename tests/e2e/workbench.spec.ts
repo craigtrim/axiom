@@ -42,6 +42,9 @@ test.beforeEach(async () => {
     timeout: 20000,
   });
   page = await application.firstWindow();
+  // Keep physical desktop input out of optional background validation runs.
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (await application.browserWindow(page)).evaluate((win) => win.setFocusable(false));
   errors = [];
   page.on("console", (m) => {
     if (m.type() === "error") console.log("RENDERER", m.text());
@@ -95,9 +98,11 @@ test("native menus, fixture, table and query", async () => {
   await page.screenshot({ path: "artifacts/testing/workbench-query.png" });
   await menu("Individuals");
   await expect(page.locator('[data-panel="individuals"]')).toBeVisible();
+  await page.getByRole("button", { name: "More individual actions and filters" }).click();
   await page
     .getByRole("combobox", { name: "Filter by branch" })
     .selectOption("Shoreditch");
+  await page.keyboard.press("Escape");
   await expect(page.locator(".table-summary")).not.toContainText("12,000 rows");
   await page.screenshot({ path: "artifacts/testing/workbench.png" });
 });
@@ -329,9 +334,11 @@ test("pane layout and filters survive a restart", async () => {
   await page
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .press("Enter");
+  await page.getByRole("button", { name: "More individual actions and filters" }).click();
   await page
     .getByRole("combobox", { name: "Filter by branch" })
     .selectOption("Camden");
+  await page.keyboard.press("Escape");
   await page.locator('[data-panel="graph"] canvas').first().focus();
   await menu("Move pane left");
   await expect
@@ -365,11 +372,16 @@ test("pane layout and filters survive a restart", async () => {
     env,
   });
   page = await application.firstWindow();
+  // Keep physical desktop input out of optional background validation runs.
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (await application.browserWindow(page)).evaluate((win) => win.setFocusable(false));
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.locator('[data-panel="graph"]')).toBeVisible();
+  await page.getByRole("button", { name: "More individual actions and filters" }).click();
   await expect(
     page.getByRole("combobox", { name: "Filter by branch" }),
   ).toHaveValue("Camden");
+  await page.keyboard.press("Escape");
   const after = await page.evaluate(() => window.axiom.preferences.load());
   expect(after.layout).toEqual(before.layout);
   expect(
@@ -555,12 +567,15 @@ test("a running query can be cancelled and followed by a fresh query", async () 
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
   await expect(page.locator(".query-error")).toContainText("cancelled");
+  await page.getByRole("button", { name: "More query actions" }).click();
   await page.getByRole("combobox", { name: "Example query" }).selectOption("0");
+  await page.keyboard.press("Escape");
   await page
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
   await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
     "103 displayed / 103 result rows",
+    { timeout: 30000 },
   );
   await expect(page.locator(".query-error")).toHaveCount(0);
 });

@@ -1,3 +1,4 @@
+import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { useEffect, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, IDatasource } from "ag-grid-community";
@@ -144,7 +145,22 @@ export function QueryResultsPanel({
     >
       {document && summary && (
         <>
-          <div className="panel-toolbar result-actions">
+          <PaneToolbar
+            label="Result actions"
+            className="result-actions"
+            secondary={
+              <button
+                disabled={!available || !sameDataset || !summary.rowCount}
+                onClick={() =>
+                  void graphQueryResults(document).catch((e) =>
+                    setError(e.message),
+                  )
+                }
+              >
+                Send results to graph
+              </button>
+            }
+          >
             <strong className="result-query-title" title={document.title}>
               {document.title}
             </strong>
@@ -159,36 +175,28 @@ export function QueryResultsPanel({
             >
               Open query
             </button>
-            <button
-              disabled={!available || !sameDataset || !summary.rowCount}
-              onClick={() =>
-                void graphQueryResults(document).catch((e) =>
-                  setError(e.message),
-                )
-              }
-            >
-              Send results to graph
-            </button>
-          </div>
-          <div className="result-provenance">
-            <span>
-              {summary.queryType ?? "SPARQL"} · Run {document.sequence}
-            </span>
-            <time dateTime={document.completedAt}>
-              {document.completedAt
-                ? new Date(document.completedAt).toLocaleString()
-                : "Run time unavailable"}
-            </time>
-            <span title={document.namespace}>
-              {document.origin || "Local ontology"}
-            </span>
-          </div>
-          <details className="result-source">
-            <summary>Executed SPARQL</summary>
-            <pre tabIndex={0} aria-label="Executed SPARQL">
-              {document.run.text}
-            </pre>
-          </details>
+          </PaneToolbar>
+          <PaneDetails title="Execution details" className="result-details">
+            <div className="result-provenance">
+              <span>
+                {summary.queryType ?? "SPARQL"} · Run {document.sequence}
+              </span>
+              <time dateTime={document.completedAt}>
+                {document.completedAt
+                  ? new Date(document.completedAt).toLocaleString()
+                  : "Run time unavailable"}
+              </time>
+              <span title={document.namespace}>
+                {document.origin || "Local ontology"}
+              </span>
+            </div>
+            <details className="result-source">
+              <summary>Executed SPARQL</summary>
+              <pre tabIndex={0} aria-label="Executed SPARQL">
+                {document.run.text}
+              </pre>
+            </details>
+          </PaneDetails>
           <div className="query-summary" role="status">
             {available && sameDataset
               ? summary.rowCount.toLocaleString("en-GB") +
