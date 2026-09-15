@@ -1,3 +1,5 @@
+import { edgeRoute } from "./edge-geometry";
+export { edgeRoute } from "./edge-geometry";
 import {
   styleRules,
   nodeStyle,
@@ -7,7 +9,7 @@ import {
 } from "../domain/graph-style";
 import type { GraphSnapshot } from "../shared/protocol";
 import type { GraphNode, GraphEdge } from "../domain/viewport";
-import { hidden } from "../domain/viewport";
+import { hidden, edgeKey } from "../domain/viewport";
 import { TYPE, kindLabel, type Kind } from "../domain/model";
 import { isHierarchy } from "../domain/force";
 import tokens from "../domain/data/tokens.json";
@@ -63,6 +65,29 @@ export function bounds(g: GraphSnapshot, pad = 90): Rect {
     y = Math.min(y, n.y - radius);
     right = Math.max(right, n.x + radius);
     bottom = Math.max(bottom, n.y + radius);
+  }
+  const nodes = new Map(g.nodes.map((n) => [n.iri, n]));
+  for (const e of g.edges) {
+    if (!e.bend && e.source !== e.target && e.parallelCount <= 1) continue;
+    const a = nodes.get(e.source),
+      b = nodes.get(e.target);
+    if (!a || !b) continue;
+    const route = edgeRoute(
+      e,
+      { ...a, radius: styledRadius(a, g.stylesheet) },
+      b,
+      { x: 0, y: 0, zoom: 1 },
+      g.mode,
+    );
+    for (const p of [
+      ...route.points,
+      ...(route.control ? [route.control] : []),
+    ]) {
+      x = Math.min(x, p.x - 8);
+      y = Math.min(y, p.y - 8);
+      right = Math.max(right, p.x + 8);
+      bottom = Math.max(bottom, p.y + 8);
+    }
   }
   return {
     x: x - pad,
@@ -410,39 +435,6 @@ function shape(
     d.path(points, color, stroke || 1, !stroke);
   }
 }
-export function edgeRoute(
-  e: GraphEdge,
-  a: GraphNode,
-  b: GraphNode,
-  c: Camera,
-  mode: string,
-) {
-  const p = screenPoint(a, c),
-    q = screenPoint(b, c);
-  let points = [p, q],
-    control: Point | undefined,
-    anchor = p;
-  if (mode === "hierarchy" && Math.abs(a.y - b.y) > 24) {
-    const mid = (p.y + q.y) / 2;
-    points = [p, { x: p.x, y: mid }, { x: q.x, y: mid }, q];
-    anchor = points[2];
-  } else if (e.parallelCount > 1) {
-    const dx = q.x - p.x,
-      dy = q.y - p.y,
-      length = Math.max(1, Math.hypot(dx, dy)),
-      offset =
-        (e.parallelIndex - (e.parallelCount - 1) / 2) *
-        22 *
-        c.zoom *
-        (e.source < e.target ? 1 : -1);
-    control = {
-      x: (p.x + q.x) / 2 - (dy / length) * offset,
-      y: (p.y + q.y) / 2 + (dx / length) * offset,
-    };
-    anchor = control;
-  }
-  return { points, control, anchor, q };
-}
 const alpha = (hex: string, a: number) =>
   hex +
   Math.round(a * 255)
@@ -460,6 +452,9 @@ export function render(
     transparent?: boolean;
     allLabels?: boolean;
     spotlight?: string;
+    selectedEdge?: string | null;
+    hoveredEdge?: string | null;
+    onLabel?: (iri: string, rect: Rect) => void;
   } = {},
 ) {
   const rules = styleRules(g.stylesheet),
@@ -515,19 +510,27 @@ export function render(
     const a = nodes.get(e.source),
       b = nodes.get(e.target);
     if (!a || !b) continue;
-    const emphasis = hover && (a.iri === hover || b.iri === hover),
+    const activeEdge = options.selectedEdge === edgeKey(e),
+      emphasis =
+        activeEdge ||
+        options.hoveredEdge === edgeKey(e) ||
+        (hover && (a.iri === hover || b.iri === hover)),
       structural = isHierarchy(e.predicate),
       styled = edgeStyle(rules, e),
       color = alpha(
-        styled.stroke ?? C(emphasis ? "accent" : "stroke-strong"),
-        styled.opacity ??
-          (emphasis ? 1 : hover ? 0.18 : structural ? 0.72 : 0.48),
+        emphasis ? C("accent") : (styled.stroke ?? C("stroke-strong")),
+        emphasis
+          ? 1
+          : (styled.opacity ??
+              (emphasis ? 1 : hover ? 0.18 : structural ? 0.72 : 0.48)),
       ),
       route = edgeRoute(e, a, b, c, g.mode);
     d.path(
       route.points,
       color,
-      styled["stroke-width"] ?? (emphasis ? 2 : structural ? 1.15 : 1),
+      activeEdge
+        ? Math.max(3, styled["stroke-width"] ?? 0)
+        : (styled["stroke-width"] ?? (emphasis ? 2 : structural ? 1.15 : 1)),
       false,
       styled["line-style"]
         ? styled["line-style"] === "dashed"
@@ -685,6 +688,7 @@ export function render(
       occupied.set(key, b);
     }
     d.text(text, p, style.color ?? C("text"), size, bold, true, C("canvas"));
+    options.onLabel?.(n.iri, rect);
     labels++;
   }
   const badges: { text: string; p: Point; rect: Rect }[] = [];
@@ -754,7 +758,7 @@ export function render(
       source.iri,
       null,
       1,
-      { transparent: true, allLabels: true },
+      { transparent: true, allLabels: true, onLabel: options.onLabel },
     );
   }
   return labels;

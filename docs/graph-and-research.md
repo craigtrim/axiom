@@ -18,6 +18,18 @@ Selectors cover entity kinds, exact entity IRIs, exact edge predicates, selectio
 
 Styles appear in the live graph and PNG/SVG exports. They are saved in workbench preferences and workspace documents. Applying a stylesheet is undoable. Node size is a visual override; large sizes can overlap in a dense view.
 
+## Edge editing
+
+Click a line to select it, or use the Select edge list in the graph toolbar. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens the edge inspector. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.
+
+The edge inspector edits From, Relationship and To. Apply edge changes updates the ontology statement. A relationship can be entered as an absolute IRI or a known prefix such as rdfs:subClassOf. If one visible line represents statements in several named graphs, choose the statement graph before changing or removing it. Changes made elsewhere require Reload edge before applying a draft.
+
+Drag a round endpoint handle onto a node to reconnect it. Activating an endpoint handle and then clicking a node provides the same operation. The From and To fields can choose an entity outside the current graph; it is admitted within the node budget. Removing an edge deletes the chosen asserted relationship and preserves the endpoint nodes. Delete on a selected node continues to remove only the node from the view.
+
+Drag the square middle handle to bend the line. Focus that handle and use arrow keys for keyboard adjustments; Shift makes smaller adjustments. Escape cancels a bend drag. Reset route restores the layout's automatic path. Manual paths are retained in workspace files and used by Fit and image export. Undo and Redo restore relationship edits, routes, graph membership and selection together.
+
+Summarized OWL axioms and generated sample relationships can be selected and rerouted. The inspector explains when they have no individual asserted statement to edit. Their underlying data needs the corresponding axiom or sample-data workflow.
+
 ## Taxonomy interactions
 
 Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and research as applicable to the entity. Disabled actions retain their place in the menu.

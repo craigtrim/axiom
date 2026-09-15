@@ -1,3 +1,10 @@
+import { GraphEdgeHandles } from "./GraphEdgeHandles";
+import { nearestEdge, edgeRoute, routeMiddle } from "./edge-geometry";
+import { inspectEdge, removeEdge, resetEdgeRoute } from "./edge-actions";
+import { edgeKey, type GraphEdge } from "../domain/viewport";
+import type { EdgeDocument } from "../shared/protocol";
+import { shorten, THING } from "../domain/model";
+import { displayName } from "../domain/rdf-model";
 import { placeGraphCallout } from "./graph-callout";
 import { ExportDialog } from "./ExportDialog";
 import { InlineCreate } from "./InlineCreate";
@@ -40,10 +47,11 @@ import {
   screenPoint,
   exportScene,
   type Camera,
+  type Rect,
 } from "./scene";
 import type { GraphNode } from "../domain/viewport";
 export function GraphPanel() {
-  useSnapshot();
+  const snapshot = useSnapshot();
   const canvasRef = useRef<HTMLCanvasElement>(null),
     miniRef = useRef<HTMLCanvasElement>(null),
     camera = useRef<Camera>(panel("graph.camera", { x: 0, y: 0, zoom: 1 })),
@@ -59,8 +67,83 @@ export function GraphPanel() {
   const [renaming, setRenaming] = useState<{
       iri: string;
       name: string;
+      keepNameIfEmpty?: boolean;
     } | null>(null),
     renameHost = useRef<HTMLDivElement>(null);
+  const labelRects = useRef(new Map<string, Rect>());
+  const creatingNode = useRef(false);
+  const [pendingRename, setPendingRename] = useState<{
+    iri: string;
+    name: string;
+    epoch: number;
+  } | null>(null);
+  const hoveredEdge = useRef<string | null>(null);
+  const [edgeContext, setEdgeContext] = useState<{
+    key: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [reconnecting, setReconnecting] = useState<{
+    doc: EdgeDocument;
+    endpoint: "source" | "target";
+  } | null>(null);
+  useEffect(() => {
+    setReconnecting(null);
+    setEdgeContext(null);
+  }, [snapshot?.datasetEpoch]);
+  const edgeName = (edge: GraphEdge) =>
+    (graph?.nodes.find((n) => n.iri === edge.source)?.label ?? edge.source) +
+    " → " +
+    shorten(edge.predicate) +
+    " → " +
+    (graph?.nodes.find((n) => n.iri === edge.target)?.label ?? edge.target);
+  const applyReconnect = async (
+    doc: EdgeDocument,
+    endpoint: "source" | "target",
+    node: GraphNode,
+  ) => {
+    setReconnecting(null);
+    const original = doc.statements[0];
+    await act("editEdge", {
+      key: edgeKey(doc.edge),
+      original,
+      replacement: {
+        ...original,
+        ...(endpoint === "source"
+          ? { subject: node.iri }
+          : { object: { literal: false, value: node.iri } }),
+      },
+      datasetEpoch: doc.datasetEpoch,
+      version: doc.version,
+    });
+  };
+  const reconnect = async (
+    key: string,
+    endpoint: "source" | "target",
+    p?: { x: number; y: number },
+  ) => {
+    try {
+      const doc = await request<EdgeDocument>("edgeDocument", { key });
+      if (doc.statements.length !== 1) {
+        report(
+          doc.reason ??
+            "Choose the statement graph in the edge inspector to reconnect this relationship.",
+        );
+        inspectEdge();
+        return;
+      }
+      if (p) {
+        const node = hit(p);
+        if (node) await applyReconnect(doc, endpoint, node);
+        else report("Drop the endpoint onto a node.");
+      } else {
+        setReconnecting({ doc, endpoint });
+        canvasRef.current?.focus();
+      }
+    } catch (e) {
+      report((e as Error).message, true);
+    }
+  };
   const [exportDialog, setExportDialog] = useState<string | null>(null);
   const createHost = useRef<HTMLDivElement>(null),
     createLink = useRef<SVGPathElement>(null),
@@ -115,6 +198,7 @@ export function GraphPanel() {
         );
         host.style.width = box.width + "px";
         host.style.maxHeight = box.height + "px";
+        host.classList.toggle("compact-callout", box.height < 120);
         host.style.left = box.x + "px";
         host.style.top = box.y + "px";
         host.dataset.side = box.side;
@@ -206,6 +290,59 @@ export function GraphPanel() {
     });
     setBlankMenu(null);
   };
+  const createAndRenameAt = async (p: { x: number; y: number }) => {
+    if (creatingNode.current) return;
+    creatingNode.current = true;
+    const canvas = canvasRef.current!,
+      draft = creationDraft("Class", {
+        x: (p.x - camera.current.x) / camera.current.zoom,
+        y: (p.y - camera.current.y) / camera.current.zoom,
+      }),
+      names = new Set(state?.entities.map((e) => e.label ?? e.name));
+    let name = "New class";
+    for (let suffix = 2; names.has(name); suffix++)
+      name = "New class " + suffix;
+    setCreating(null);
+    setContext(null);
+    setBlankMenu(null);
+    try {
+      const iri = await request<string>("createClass", {
+        name,
+        parent: draft.parent,
+        position: draft.position,
+        datasetEpoch: draft.epoch,
+      });
+      if (canvas.isConnected && state?.datasetEpoch === draft.epoch)
+        setPendingRename({ iri, name, epoch: draft.epoch });
+    } catch (e) {
+      report((e as Error).message, true);
+    } finally {
+      creatingNode.current = false;
+    }
+  };
+  useEffect(() => {
+    if (!pendingRename) return;
+    const canvas = canvasRef.current!;
+    if (snapshot?.datasetEpoch !== pendingRename.epoch) {
+      setPendingRename(null);
+      return;
+    }
+    if (
+      !snapshot.entities.some((e) => e.iri === pendingRename.iri) ||
+      !info?.nodes.some((n) => n.iri === pendingRename.iri)
+    )
+      return;
+    if (
+      canvas.ownerDocument.activeElement === canvas &&
+      snapshot.selected === pendingRename.iri
+    )
+      setRenaming({
+        iri: pendingRename.iri,
+        name: pendingRename.name,
+        keepNameIfEmpty: true,
+      });
+    setPendingRename(null);
+  }, [pendingRename, snapshot, info]);
   useEffect(
     () =>
       onInlineRename(canvasRef.current!, () => {
@@ -339,6 +476,7 @@ export function GraphPanel() {
       draw.height = h;
       if (draw instanceof GpuDraw) draw.beginFrame();
       else ctx!.setTransform(ratio, 0, 0, ratio, 0, 0);
+      labelRects.current.clear();
       render(
         draw,
         graph,
@@ -347,7 +485,12 @@ export function GraphPanel() {
         spotlight.current ?? state?.selected ?? null,
         spotlight.current ? null : hover.current,
         900,
-        { spotlight: spotlight.current ?? undefined },
+        {
+          spotlight: spotlight.current ?? undefined,
+          selectedEdge: graph.selectedEdge,
+          hoveredEdge: hoveredEdge.current,
+          onLabel: (iri, rect) => labelRects.current.set(iri, rect),
+        },
       );
       canvas.dataset.spotlight = spotlight.current ?? "";
       if (draw instanceof GpuDraw) draw.endFrame();
@@ -474,6 +617,29 @@ export function GraphPanel() {
         command("view.graph");
         win.requestAnimationFrame(() => createAt("Class"));
       }
+      if (id === "edge.edit") inspectEdge();
+      if (id === "edge.remove" && graph?.selectedEdge)
+        void removeEdge(graph.selectedEdge);
+      if (id === "edge.resetRoute" && graph?.selectedEdge)
+        void resetEdgeRoute(graph.selectedEdge);
+      if (
+        (id === "edge.next" || id === "edge.previous") &&
+        graph?.edges.length
+      ) {
+        const index = graph.edges.findIndex(
+          (e) => edgeKey(e) === graph?.selectedEdge,
+        );
+        const next =
+          index < 0
+            ? 0
+            : (index + (id === "edge.next" ? 1 : -1) + graph.edges.length) %
+              graph.edges.length;
+        void act("selectEdge", { key: edgeKey(graph.edges[next]) });
+        canvas.focus();
+      }
+      if (graph?.selectedEdge && id === "graph.expand") inspectEdge();
+      if (graph?.selectedEdge && id === "graph.remove")
+        void removeEdge(graph.selectedEdge);
       if (id === "graph.relayout" && graph)
         void act("layout", { mode: graph.choice });
       if (id.startsWith("graph.layout."))
@@ -534,6 +700,16 @@ export function GraphPanel() {
     }
     return best;
   };
+  const hitLabel = (p: { x: number; y: number }) => {
+    for (const [iri, rect] of labelRects.current)
+      if (
+        p.x >= rect.x &&
+        p.x <= rect.x + rect.width &&
+        p.y >= rect.y &&
+        p.y <= rect.y + rect.height
+      )
+        return graph?.nodes.find((n) => n.iri === iri);
+  };
   const drag = useRef<{
     node?: GraphNode;
     x: number;
@@ -557,6 +733,10 @@ export function GraphPanel() {
   };
   const selected = state?.selected;
   const selection = graph?.nodes.find((n) => n.iri === selected);
+  const selectedEdge = graph?.edges.find(
+    (e) => edgeKey(e) === graph?.selectedEdge,
+  );
+  const nodeNames = new Map(info?.nodes.map((n) => [n.iri, n.label]));
   return (
     <section
       className="panel graph-panel"
@@ -570,6 +750,22 @@ export function GraphPanel() {
         >
           Add entity
         </button>
+        <select
+          aria-label="Select edge"
+          title="Select a relationship (E cycles edges)"
+          value={info?.selectedEdge ?? ""}
+          onChange={(e) => {
+            if (e.target.value) void act("selectEdge", { key: e.target.value });
+          }}
+        >
+          <option value="">Select edge…</option>
+          {info?.edges.map((e) => (
+            <option key={edgeKey(e)} value={edgeKey(e)}>
+              {nodeNames.get(e.source)} → {shorten(e.predicate)} →{" "}
+              {nodeNames.get(e.target)}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => fitNow(true)}
           title={"Fit graph (" + keyHint("graph.fit") + ")"}
@@ -620,27 +816,72 @@ export function GraphPanel() {
           aria-label={
             "Ontology graph, " +
             (info?.nodes.length ?? 0) +
-            " nodes. Arrows select, Alt+arrows pan, plus and minus zoom, Enter expands, P pins, F fits."
+            " nodes. Arrows select nodes and edges, E cycles edges, Alt+arrows pan, plus and minus zoom, Enter expands a node or edits an edge, Delete removes the selection, F fits."
           }
           role="listbox"
           aria-activedescendant={
-            info?.nodes.some((n) => n.iri === selected)
-              ? "graph-option-" +
-                info.nodes.findIndex((n) => n.iri === selected)
-              : undefined
+            selectedEdge
+              ? "graph-edge-option-" +
+                info?.edges.findIndex(
+                  (e) => edgeKey(e) === edgeKey(selectedEdge),
+                )
+              : info?.nodes.some((n) => n.iri === selected)
+                ? "graph-option-" +
+                  info.nodes.findIndex((n) => n.iri === selected)
+                : undefined
           }
           tabIndex={0}
           data-testid="graph-canvas"
+          data-selected-edge={info?.selectedEdge ?? ""}
           data-rename-iri={
             info?.nodes.some((n) => n.iri === selected) ? selected : undefined
           }
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             setContext(null);
+            setEdgeContext(null);
             setBlankMenu(null);
             const p = point(e),
-              node = hit(p);
+              label = hitLabel(p),
+              node = label ?? hit(p);
             canvasRef.current!.focus();
+            if (reconnecting && node) {
+              void applyReconnect(
+                reconnecting.doc,
+                reconnecting.endpoint,
+                node,
+              );
+              return;
+            }
+            if (label) {
+              e.preventDefault();
+              void request("select", { iri: label.iri })
+                .then(() => {
+                  const entity = state?.entities.find(
+                      (e) => e.iri === label.iri,
+                    ),
+                    canvas = canvasRef.current;
+                  if (
+                    entity &&
+                    entity.iri !== THING &&
+                    state?.selected === entity.iri &&
+                    canvas?.ownerDocument.activeElement === canvas
+                  )
+                    setRenaming({ iri: entity.iri, name: displayName(entity) });
+                })
+                .catch((e) => report(e.message, true));
+              return;
+            }
+            const edge =
+              !node && graph
+                ? nearestEdge(graph, p, camera.current)
+                : undefined;
+            if (edge) {
+              void act("selectEdge", { key: edgeKey(edge) });
+              return;
+            }
+            if (!node && graph?.selectedEdge)
+              void act("selectEdge", { key: null });
             canvasRef.current!.setPointerCapture(e.pointerId);
             drag.current = {
               node,
@@ -680,7 +921,17 @@ export function GraphPanel() {
               }
               dirty.current = true;
             } else {
-              const n = hit(p);
+              const label = hitLabel(p),
+                n = label ?? hit(p);
+              const edge =
+                  !n && graph
+                    ? nearestEdge(graph, p, camera.current)
+                    : undefined,
+                edgeId = edge ? edgeKey(edge) : null;
+              if (hoveredEdge.current !== edgeId) {
+                hoveredEdge.current = edgeId;
+                dirty.current = true;
+              }
               if (hover.current !== n?.iri) {
                 hover.current = n?.iri ?? null;
                 canvasRef.current!.title = n
@@ -688,7 +939,18 @@ export function GraphPanel() {
                   : "";
                 dirty.current = true;
               }
-              canvasRef.current!.style.cursor = n ? "grab" : "default";
+              if (edge) canvasRef.current!.title = edgeName(edge);
+              canvasRef.current!.style.cursor = reconnecting
+                ? "crosshair"
+                : label &&
+                    label.iri !== THING &&
+                    state?.entities.some((e) => e.iri === label.iri)
+                  ? "text"
+                  : n
+                    ? "grab"
+                    : edge
+                      ? "pointer"
+                      : "default";
             }
           }}
           onPointerCancel={finishDrag}
@@ -709,7 +971,7 @@ export function GraphPanel() {
           }}
           onDoubleClick={(e) => {
             const p = point(e),
-              n = hit(p);
+              n = hitLabel(p) ?? hit(p);
             if (n)
               void act("select", { iri: n.iri }).then(() =>
                 startInlineRename(n.iri, {
@@ -717,7 +979,16 @@ export function GraphPanel() {
                   panel: "graph",
                 }),
               );
-            else createAt("Class", p);
+            else {
+              const edge = graph
+                ? nearestEdge(graph, p, camera.current)
+                : undefined;
+              if (edge)
+                void act("selectEdge", { key: edgeKey(edge) }).then(
+                  inspectEdge,
+                );
+              else void createAndRenameAt(p);
+            }
           }}
           onWheel={(e) => {
             e.currentTarget.dataset.wheels = String(
@@ -739,7 +1010,7 @@ export function GraphPanel() {
           }}
           onContextMenu={(e) => {
             e.preventDefault();
-            const n = hit(point(e));
+            const n = hitLabel(point(e)) ?? hit(point(e));
             if (n) {
               void act("select", { iri: n.iri });
               setContext({
@@ -747,25 +1018,75 @@ export function GraphPanel() {
                 y: e.clientY,
                 iri: n.iri,
               });
-            } else
-              setBlankMenu({ x: e.clientX, y: e.clientY, point: point(e) });
+            } else {
+              const edge = graph
+                ? nearestEdge(graph, point(e), camera.current)
+                : undefined;
+              if (edge) {
+                canvasRef.current!.focus();
+                void act("selectEdge", { key: edgeKey(edge) });
+                setEdgeContext({
+                  key: edgeKey(edge),
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              } else
+                setBlankMenu({ x: e.clientX, y: e.clientY, point: point(e) });
+            }
           }}
           onKeyDown={(e) => {
             if (!graph) return;
+            if (e.key === "Escape") {
+              setReconnecting(null);
+              setEdgeContext(null);
+              if (graph.selectedEdge) void act("selectEdge", { key: null });
+              return;
+            }
+            if (
+              (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) &&
+              graph.selectedEdge
+            ) {
+              e.preventDefault();
+              const edge = graph.edges.find(
+                  (e) => edgeKey(e) === graph!.selectedEdge,
+                )!,
+                a = graph.nodes.find((n) => n.iri === edge.source)!,
+                b = graph.nodes.find((n) => n.iri === edge.target)!,
+                p = routeMiddle(
+                  edgeRoute(edge, a, b, camera.current, graph.mode),
+                ),
+                r = canvasRef.current!.getBoundingClientRect();
+              setEdgeContext({
+                key: graph.selectedEdge,
+                x: r.x + p.x,
+                y: r.y + p.y,
+              });
+              return;
+            }
             const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
             if (keys.includes(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
               e.preventDefault();
-              const index = graph.nodes.findIndex(
-                  (n) => n.iri === state?.selected,
-                ),
-                next =
-                  graph.nodes[
-                    (Math.max(0, index) +
-                      (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1) +
-                      graph.nodes.length) %
-                      graph.nodes.length
-                  ];
-              if (next) void act("select", { iri: next.iri });
+              const choices = [
+                ...graph.nodes.map((n) => ({ iri: n.iri, key: "" })),
+                ...graph.edges.map((edge) => ({ iri: "", key: edgeKey(edge) })),
+              ];
+              const index = choices.findIndex((item) =>
+                graph!.selectedEdge
+                  ? item.key === graph!.selectedEdge
+                  : item.iri === state?.selected,
+              );
+              const next =
+                choices[
+                  (Math.max(0, index) +
+                    (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1) +
+                    choices.length) %
+                    choices.length
+                ];
+              if (next)
+                void act(
+                  next.key ? "selectEdge" : "select",
+                  next.key ? { key: next.key } : { iri: next.iri },
+                );
             } else if (
               (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) &&
               state?.selected
@@ -791,7 +1112,27 @@ export function GraphPanel() {
               {n.pinned ? ", pinned" : ""}
             </span>
           ))}
+          {info?.edges.map((edge, i) => (
+            <span
+              key={edgeKey(edge)}
+              id={"graph-edge-option-" + i}
+              role="option"
+              aria-selected={edgeKey(edge) === info.selectedEdge}
+            >
+              {edgeName(edge)}, edge
+            </span>
+          ))}
         </canvas>
+        {selectedEdge && (
+          <GraphEdgeHandles
+            key={snapshot?.datasetEpoch + edgeKey(selectedEdge)}
+            edgeId={edgeKey(selectedEdge)}
+            canvas={canvasRef}
+            camera={camera}
+            dirty={dirty}
+            reconnect={(key, end, p) => void reconnect(key, end, p)}
+          />
+        )}
         {creating && (
           <>
             {creating.anchorIri && (
@@ -835,8 +1176,10 @@ export function GraphPanel() {
         {renaming && (
           <div className="graph-inline-rename" ref={renameHost}>
             <InlineRenameInput
+              key={renaming.iri}
               iri={renaming.iri}
               name={renaming.name}
+              keepNameIfEmpty={renaming.keepNameIfEmpty}
               finish={(restore) => {
                 setRenaming(null);
                 if (restore) canvasRef.current?.focus();
@@ -936,7 +1279,26 @@ export function GraphPanel() {
         </span>
       </div>
       <div className="graph-selection" aria-live="polite">
-        {selection ? (
+        {selectedEdge ? (
+          <>
+            <strong>{edgeName(selectedEdge)}</strong>
+            <button onClick={inspectEdge}>Edit edge</button>
+            <button onClick={() => void removeEdge(edgeKey(selectedEdge))}>
+              Remove edge
+            </button>
+            <button
+              disabled={!selectedEdge.bend}
+              onClick={() => void resetEdgeRoute(edgeKey(selectedEdge))}
+            >
+              Reset route
+            </button>
+            {reconnecting && (
+              <span>
+                Click the new {reconnecting.endpoint} node. Escape cancels.
+              </span>
+            )}
+          </>
+        ) : selection ? (
           <>
             <strong>{selection.label}</strong>
             <button onClick={() => command("research.open")}>Research</button>
@@ -958,8 +1320,8 @@ export function GraphPanel() {
           </>
         ) : (
           <span>
-            Double-click blank space to create a class or instance. Double-click
-            a node to edit its label.
+            Double-click blank space to create a class. Select a node or edge to
+            edit it.
           </span>
         )}
       </div>
@@ -973,6 +1335,60 @@ export function GraphPanel() {
           }}
           initialFormat={exportDialog}
           close={() => setExportDialog(null)}
+        />
+      )}
+      {edgeContext && (
+        <ContextMenu
+          document={canvasRef.current!.ownerDocument}
+          x={edgeContext.x}
+          y={edgeContext.y}
+          label="Graph edge actions"
+          close={() => setEdgeContext(null)}
+          actions={[
+            {
+              label: "Edit edge",
+              key: "E",
+              run: () => {
+                setEdgeContext(null);
+                inspectEdge();
+              },
+            },
+            {
+              label: "Reconnect source",
+              key: "S",
+              run: () => {
+                const key = edgeContext.key;
+                setEdgeContext(null);
+                void reconnect(key, "source");
+              },
+            },
+            {
+              label: "Reconnect target",
+              key: "T",
+              run: () => {
+                const key = edgeContext.key;
+                setEdgeContext(null);
+                void reconnect(key, "target");
+              },
+            },
+            {
+              label: "Reset route",
+              key: "R",
+              enabled: !!selectedEdge?.bend,
+              run: () => {
+                void resetEdgeRoute(edgeContext.key);
+                setEdgeContext(null);
+              },
+            },
+            {
+              label: "Remove edge",
+              key: "D",
+              run: () => {
+                void removeEdge(edgeContext.key);
+                setEdgeContext(null);
+              },
+            },
+          ]}
         />
       )}
       {blankMenu && (

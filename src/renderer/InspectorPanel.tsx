@@ -1,3 +1,6 @@
+import { LinkedFileCard } from "./LinkedFileCard";
+import { EntityInspectorFields } from "./EntityInspectorFields";
+import { EdgeInspector } from "./EdgeInspector";
 import { editEntity, entityDragType } from "./authoring";
 import { displayName } from "../domain/rdf-model";
 import { EditableEntityName, startInlineRename } from "./InlineRename";
@@ -48,7 +51,14 @@ export function InspectorPanel() {
       active = false;
     };
   }, [s.selected, s.version, s.datasetEpoch]);
-  if (!data)
+  if (s.graph.selectedEdge)
+    return (
+      <EdgeInspector
+        key={s.datasetEpoch + s.graph.selectedEdge}
+        edgeId={s.graph.selectedEdge}
+      />
+    );
+  if (!data || data.entity.iri !== s.selected)
     return (
       <section
         className="panel empty"
@@ -70,6 +80,7 @@ export function InspectorPanel() {
       </section>
     );
   const e = data.entity,
+    editable = s.entities.some((entity) => entity.iri === e.iri),
     section = (title: string, items: string[]) =>
       items.length ? (
         <section className="inspector-section">
@@ -128,6 +139,7 @@ export function InspectorPanel() {
           Edit details
         </button>
         <button onClick={() => command("research.open")}>Research</button>
+        <button onClick={() => command("view.source")}>View source</button>
         <span className="toolbar-spacer" />
         <button
           onClick={(event) =>
@@ -157,54 +169,63 @@ export function InspectorPanel() {
         </button>
       </div>
       <div className="inspector-content">
+        <LinkedFileCard key={s.datasetEpoch + e.iri} iri={e.iri} />
         <h2>
           <EditableEntityName key={e.iri} iri={e.iri} name={e.name}>
             {displayName(e)}
           </EditableEntityName>
         </h2>
         <span className={"kind-label " + e.kind}>{kindLabel(e.kind)}</span>
-        <div className="iri-block">
-          <code>{e.iri}</code>
-          <button
-            onClick={() =>
-              void window.axiom
-                .copy(e.iri)
-                .then(() => report("Copied entity IRI."))
-            }
-          >
-            Copy IRI
-          </button>
-        </div>
-        {e.comment && <p>{e.comment}</p>}
-        {data.values.some(
-          (v) => v.predicate === "http://www.w3.org/2004/02/skos/core#altLabel",
-        ) && (
-          <section className="inspector-section">
-            <h3>Synonyms</h3>
-            <ul>
-              {data.values
-                .filter(
-                  (v) =>
-                    v.predicate ===
-                    "http://www.w3.org/2004/02/skos/core#altLabel",
-                )
-                .map((v, i) => (
-                  <li key={i}>{v.term.value}</li>
-                ))}
-            </ul>
-          </section>
+        {!editable && (
+          <div className="iri-block">
+            <code>{e.iri}</code>
+            <button
+              onClick={() =>
+                void window.axiom
+                  .copy(e.iri)
+                  .then(() => report("Copied entity IRI."))
+              }
+            >
+              Copy IRI
+            </button>
+          </div>
         )}
-        {section(
-          e.kind.endsWith("Property") ? "Subproperty of" : "Subclass of",
-          e.parents,
+        {editable && (
+          <EntityInspectorFields key={s.datasetEpoch + e.iri} entity={e} />
         )}
-        {section("Types", e.types)}
+        {!editable && e.comment && <p>{e.comment}</p>}
+        {!editable &&
+          data.values.some(
+            (v) =>
+              v.predicate === "http://www.w3.org/2004/02/skos/core#altLabel",
+          ) && (
+            <section className="inspector-section">
+              <h3>Synonyms</h3>
+              <ul>
+                {data.values
+                  .filter(
+                    (v) =>
+                      v.predicate ===
+                      "http://www.w3.org/2004/02/skos/core#altLabel",
+                  )
+                  .map((v, i) => (
+                    <li key={i}>{v.term.value}</li>
+                  ))}
+              </ul>
+            </section>
+          )}
+        {!editable &&
+          section(
+            e.kind.endsWith("Property") ? "Subproperty of" : "Subclass of",
+            e.parents,
+          )}
+        {!editable && section("Types", e.types)}
         {axioms("Equivalent to", e.equivalents)}
         {axioms("Restrictions", e.restrictions)}
-        {section("Disjoint with", e.disjoint)}
-        {section("Domain", e.domain ? [e.domain] : [])}
-        {section("Range", e.range ? [e.range] : [])}
-        {section("Inverse", e.inverse ? [e.inverse] : [])}
+        {!editable && section("Disjoint with", e.disjoint)}
+        {!editable && section("Domain", e.domain ? [e.domain] : [])}
+        {!editable && section("Range", e.range ? [e.range] : [])}
+        {!editable && section("Inverse", e.inverse ? [e.inverse] : [])}
         {e.characteristics.length > 0 && (
           <section className="inspector-section">
             <h3>Characteristics</h3>
@@ -247,17 +268,9 @@ export function InspectorPanel() {
         )}
         {!data.order && e.kind === "Individual" && data.values.length > 0 && (
           <section className="inspector-section">
-            <h3>Values</h3>
-            {data.values.map((v, i) => (
-              <div key={i}>
-                <strong>{shorten(v.predicate)}</strong>{" "}
-                {v.term.literal ? (
-                  v.term.value
-                ) : (
-                  <EntityLink iri={v.term.value} />
-                )}
-              </div>
-            ))}
+            <h3>Statements</h3>
+            <p>{data.values.length.toLocaleString()} statements describe this entity.</p>
+            <button onClick={() => command("view.source")}>Open source editor</button>
           </section>
         )}
         <section className="inspector-section">
