@@ -74,14 +74,15 @@ These defaults are Axiom's chosen command map. Familiar editing and file combina
 | Fit, relayout, pin | F, L, P | Graph, outside text fields |
 | Expand / collapse node | Enter / Shift+Enter | Graph |
 | Freeze / resume graph | Space | Graph |
-| Remove node from view | Delete | Graph |
+| Remove selected node from view or delete selected edge statement | Delete | Graph |
+| Next edge, previous edge | E, Shift+E | Graph |
 | Delete class | Delete | Hierarchy |
 | Pan graph | Alt+arrow keys | Graph |
 | Zoom graph | Plus / Minus | Graph |
 | Zoom interface / actual size | Ctrl+Plus, Ctrl+Minus / Ctrl+0 | Application |
 | Full screen | F11 | Application |
 
-Graph removal and class deletion deliberately differ by focused pane. Delete on the graph removes a displayed node; Delete in the hierarchy opens the class-deletion flow. Typing into a filter or editor does not invoke either action.
+Graph removal and class deletion deliberately differ by focused pane. Delete on the graph removes a displayed node from the view or deletes the selected edge statement; Delete in the hierarchy opens the class-deletion flow. Typing into a filter or editor does not invoke either action.
 
 The graph camera has separate zoom controls from the interface. A graph zoom changes how much of the diagram is visible. Interface zoom changes the size of text and controls as well. Both are discoverable and remappable.
 
@@ -223,10 +224,10 @@ The executable and final test counts are recorded in [verification](../../docs/v
 | Graph > Cancel running layout | Unassigned | Alt+G, A |
 | Graph > Edit graph stylesheet... | Unassigned | Alt+G, S |
 | Graph > Freeze / resume | Space (graph) | Alt+G, Z |
-| Graph > Expand selected node | Enter (graph) | Alt+G, E |
+| Graph > Expand node or edit edge | Enter (graph) | Alt+G, E |
 | Graph > Collapse selected node | Shift+Enter (graph) | Alt+G, C |
 | Graph > Pin / unpin selected node | P (graph) | Alt+G, P |
-| Graph > Remove selected node from view | Delete (graph) | Alt+G, M |
+| Graph > Remove selected node or edge | Delete (graph) | Alt+G, M |
 | Graph > Clear graph | Unassigned | Alt+G, G |
 | Graph > Pan and zoom > Pan left | Alt+Left (graph) | Alt+G, O, P |
 | Graph > Pan and zoom > Pan right | Alt+Right (graph) | Alt+G, O, A |
