@@ -14,6 +14,11 @@ const bridge: AxiomBridge = {
     dirty: (count) => ipcRenderer.send("editors:dirty", count),
     flushed: (error) => ipcRenderer.send("editors:flushed", error),
   },
+  files: {
+    open: (iri) => ipcRenderer.invoke("files:open", iri),
+    reveal: (iri) => ipcRenderer.invoke("files:reveal", iri),
+    thumbnail: (iri) => ipcRenderer.invoke("files:thumbnail", iri),
+  },
   provenance: {
     choose: () => ipcRenderer.invoke("provenance:choose"),
     start: (o) => ipcRenderer.invoke("provenance:start", o),
@@ -29,6 +34,18 @@ const bridge: AxiomBridge = {
     import: () => ipcRenderer.invoke("keyboard:import"),
     export: (settings) => ipcRenderer.invoke("keyboard:export", settings),
   },
+  queryHistory: {
+    result: (id) => ipcRenderer.invoke("queryHistory:result", id),
+    load: () => ipcRenderer.invoke("queryHistory:load"),
+    apply: (action) => ipcRenderer.invoke("queryHistory:apply", action),
+    search: (text) => ipcRenderer.invoke("queryHistory:search", text),
+  },
+  queryAssistant: {
+    assistants: () => ipcRenderer.invoke("queryAssistant:assistants"),
+    run: (r) => ipcRenderer.invoke("queryAssistant:run", r),
+    cancel: () => ipcRenderer.invoke("queryAssistant:cancel"),
+    status: () => ipcRenderer.invoke("queryAssistant:status"),
+  },
   research: {
     assistants: () => ipcRenderer.invoke("research:assistants"),
     run: (r) => ipcRenderer.invoke("research:run", r),
@@ -40,7 +57,8 @@ const bridge: AxiomBridge = {
     ipcRenderer.invoke("domain:request", method, args) as Promise<T>,
   preferences: {
     load: () => ipcRenderer.invoke("preferences:load"),
-    save: (p: Preferences) => ipcRenderer.invoke("preferences:save", p),
+    save: (p: Preferences, captured?: boolean) =>
+      ipcRenderer.invoke("preferences:save", p, captured),
   },
   onEvent: (fn) => listen("domain:event", fn),
   onCommand: (fn) => listen("command", fn),

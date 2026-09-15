@@ -24,6 +24,7 @@ export interface GraphSnapshot {
   rings: number[];
   ringOrigin: { x: number; y: number };
   frozen: boolean;
+  selectedEdge?: string | null;
 }
 export interface Snapshot {
   ontology: import("../domain/model").OntologyInfo;
@@ -47,6 +48,13 @@ export interface Snapshot {
   message: string;
   dirty: boolean;
 }
+export interface EdgeDocument {
+  edge: GraphEdge;
+  statements: import("../domain/model").Triple[];
+  reason?: string;
+  datasetEpoch: number;
+  version: number;
+}
 export interface InspectorData {
   entity: Entity;
   instances: number;
@@ -61,6 +69,7 @@ export interface TablePage {
   version: number;
 }
 export interface QuerySummary {
+  queryType?: "SELECT" | "ASK" | "CONSTRUCT" | "DESCRIBE";
   columns: string[];
   rowCount: number;
   total: number;
@@ -73,6 +82,9 @@ export type DomainMethod =
   | "new"
   | "importRdf"
   | "rdfExport"
+  | "sourceDocument"
+  | "applySource"
+  | "linkedFile"
   | "entityDocument"
   | "updateEntity"
   | "createProperty"
@@ -82,6 +94,10 @@ export type DomainMethod =
   | "state"
   | "regenerate"
   | "select"
+  | "selectEdge"
+  | "edgeDocument"
+  | "editEdge"
+  | "routeEdge"
   | "inspector"
   | "table"
   | "tableGraph"
@@ -106,6 +122,8 @@ export type DomainMethod =
   | "query"
   | "cancelQuery"
   | "queryPage"
+  | "queryActivate"
+  | "queryResult"
   | "queryGraph"
   | "serialize"
   | "load"
@@ -114,6 +132,7 @@ export type DomainMethod =
   | "stylesheet"
   | "uiHistory"
   | "cancelLayout"
+  | "queryContext"
   | "researchContext"
   | "applySuggestions";
 export interface Preferences {
@@ -128,6 +147,11 @@ export interface Preferences {
 }
 export interface AxiomBridge {
   editors: { dirty(count: number): void; flushed(error?: string): void };
+  files: {
+    open(iri: string): Promise<void>;
+    reveal(iri: string): Promise<void>;
+    thumbnail(iri: string): Promise<import("./source").FilePreview>;
+  };
   provenance: {
     choose(): Promise<string | null>;
     start(
@@ -149,6 +173,26 @@ export interface AxiomBridge {
       settings: import("./shortcuts").KeyboardSettings,
     ): Promise<string | null>;
   };
+  queryHistory: {
+    result(
+      id: string,
+    ): Promise<import("./query-history").QueryResultDocument | null>;
+    load(): Promise<import("./query-history").QueryHistoryView>;
+    apply(
+      action: import("./query-history").QueryHistoryAction,
+    ): Promise<import("./query-history").QueryHistoryView>;
+    search(
+      text: string,
+    ): Promise<import("./query-history").QueryEntrySummary[]>;
+  };
+  queryAssistant: {
+    assistants(): Promise<import("./research").AssistantInfo[]>;
+    run(
+      request: import("./query-assistant").QueryAssistantRequest,
+    ): Promise<import("./query-assistant").QueryAssistantResponse>;
+    cancel(): Promise<void>;
+    status(): Promise<import("./query-assistant").QueryAssistantStatus>;
+  };
   research: {
     assistants(): Promise<import("./research").AssistantInfo[]>;
     run(
@@ -168,7 +212,7 @@ export interface AxiomBridge {
   ): Promise<T>;
   preferences: {
     load(): Promise<Preferences>;
-    save(p: Preferences): Promise<void>;
+    save(p: Preferences, captured?: boolean): Promise<void>;
   };
   onEvent(fn: (event: { type: string; data: any }) => void): () => void;
   onCommand(fn: (command: string) => void): () => void;
