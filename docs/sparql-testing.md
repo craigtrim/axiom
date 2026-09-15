@@ -32,10 +32,10 @@ Literal regressions cover string forms and escapes, Unicode, language tags, XSD 
 ## Real Codex integration
 
 ```powershell
-npm run test:codex
+npm run test:codex -- query.spec.ts
 ```
 
-This command builds Axiom and runs twelve Electron cases using the real Codex found on PATH and its existing CLI sign-in. It does not use Claude. It is excluded from both ordinary Vitest and ordinary Playwright runs. Missing Codex or failed authentication causes a failure, not a skipped test. This opt-in suite consumes real Codex requests.
+This command builds Axiom and runs twelve SPARQL Electron cases using the real Codex found on PATH and its existing CLI sign-in. It does not use Claude. It is excluded from both ordinary Vitest and ordinary Playwright runs. Missing Codex or failed authentication causes a failure, not a skipped test. This opt-in suite consumes real Codex requests.
 
 The cases cover the reported American prefix request, changes to the ontology after generation, case-insensitive matching, class-name substrings, direct parents, refinement, instance types, COUNT, ASK, OPTIONAL, ancestor paths, grouped counts and imported labels. Each response passes through normal extraction and validation, opens as a new query in the main editor, and preserves its source document. Run remains explicit. Assertions compare actual query results with independent fixture expectations.
 
@@ -43,7 +43,7 @@ To test a packaged executable:
 
 ```powershell
 $env:AXIOM_TEST_EXE = (Get-Content artifacts/latest-electron.json | ConvertFrom-Json).executable
-npm run test:codex
+npm run test:codex -- query.spec.ts
 Remove-Item Env:AXIOM_TEST_EXE
 ```
 
@@ -52,6 +52,8 @@ Individual cases can be selected with `node scripts/test-codex.mjs --grep 'ances
 Reports are written to `artifacts/codex-live-report/index.html` and `artifacts/codex-live-results.json`. Attachments retain the executable path, CLI version, prompt, response and actual result rows. Failed cases also retain a screenshot and trace. They contain the synthetic test ontology and generated content.
 
 Ordinary desktop tests in tests/e2e/sparql.spec.ts cover query forms and result cells, read-only behavior, dataset refresh and recovery after errors. Query-authoring tests cover automatic delivery, independent Undo, query paging, result ownership, full-text search, restart and compact/wide layouts. Main-process and renderer tests cover persisted history and agent delivery during unsaved edits. Composer timing tests use deterministic provider fixtures, separate from the real Codex suite. tests/e2e/query-results.spec.ts checks separate result tabs, closing and reopening the Query pane, recovery without overwriting drafts, independent reruns, layout changes, detached windows, restart expiry and sending the chosen execution to the graph. tests/domain/query-results.test.ts covers immutable execution records, migration, continued numbering and source recovery.
+
+Running `npm run test:codex` without a file filter also includes the four opt-in [taxonomy cases](taxonomy-suggestions.md).
 
 ## Execution boundaries
 

@@ -52,6 +52,10 @@ Export opens a preview dialog for PNG, JPEG, WebP, TIFF, BMP, SVG, PDF or clipbo
 
 Graph > Edit graph stylesheet changes node and edge appearance with validated CSS-like rules. Double-clicking a taxonomy branch expands it, and every taxonomy row has a context menu. Undo and Redo cover graph moves and expansion, styles, settings, pane arrangements and reviewed ontology edits.
 
+Right-click a taxonomy class and choose **Add children** to have Codex propose immediate subclasses using the complete ancestry and existing descendant structure. Review the proposals, select those to add, and undo the batch together if needed. **Find instances** uses a separate prompt and creates named individuals with rdf:type relationships. No new suggestions is an accepted result. See [Taxonomy suggestions](docs/taxonomy-suggestions.md) for context scope and the opt-in real-Codex tests.
+
+Docked views adapt to their available width and height. Narrow side panes prioritize actions and working content; shallow bottom panes use horizontal layouts. Options, More and named disclosures retain access to settings and detail. Graph keeps its visual presentation. See [Adaptive pane layouts](docs/adaptive-pane-ux.md) for the design research and behavior.
+
 The Research pane detects Codex and Claude on PATH. It provides editable prompts for contextual research, synonyms, subclasses and instances, with a preview of the ontology context and review before applying suggestions. View > Workbench arrangement can adapt to widescreen windows or preserve a custom arrangement. See [Graph editing and contextual research](docs/graph-and-research.md) for instructions, algorithm sources and verification limits.
 
 The Monaco editor runs SPARQL 1.1 queries through Comunica: SELECT, ASK, CONSTRUCT and DESCRIBE, including aggregates, OPTIONAL, property paths, subqueries, named graphs and standard functions. Results are paged, cancellation stops a separate query worker, and data changes mark previous results stale. Queries inspect local asserted data; remote SERVICE, ontology updates through the query panel and implicit OWL reasoning are outside this flow.
@@ -73,7 +77,7 @@ npm run benchmark
 npm run benchmark:desktop
 ```
 
-The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries against expected results in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/sparql-testing.md) for coverage, boundaries and commands.
+The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/sparql-testing.md) for coverage, boundaries and commands.
 
 The [verification record](docs/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/decisions.md) explain the Electron architecture and carried-forward specification resolutions. The original requirements and rewrite research remain in [specs/](specs/README.md).
 

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom | Adaptive Research proposal</title>
+<style>
+:root { color-scheme: light; font: 14px/1.5 "Segoe UI", system-ui, sans-serif; color: #202020; background: #f1f2f4; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button, select, textarea, input[type=number] { border: 1px solid #c9cdd2; border-radius: 4px; background: white; }
+button { min-height: 32px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+button:hover { background: #e9f2fb; }
+button:disabled { opacity: .55; cursor: default; }
+button.primary { background: #0969b7; color: white; border-color: #0969b7; }
+button[aria-pressed=true] { border-color: #0969b7; background: #e7f2fc; color: #064c87; }
+:focus-visible { outline: 2px solid #0969b7; outline-offset: 2px; }
+[hidden] { display: none !important; }
+h1 { font-size: 24px; margin: 0 0 5px; font-weight: 600; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+h3 { font-size: 14px; margin: 0 0 7px; }
+p { margin: 0 0 12px; }
+a { color: #065ca3; }
+.muted { color: #5a626c; }
+.workshop { padding: 22px 28px 16px; border-bottom: 1px solid #d8dce1; background: #fff; }
+.intro { max-width: 900px; }
+.workshop-controls { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-top: 16px; align-items: end; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.dimension { display: grid; grid-template-columns: auto 76px; gap: 6px 10px; align-items: center; }
+.dimension input[type=range] { grid-column: 1 / -1; width: 190px; }
+.dimension input[type=number] { width: 76px; min-height: 32px; padding: 3px 6px; }
+.stage-scroll { overflow: auto; padding: 20px 28px 32px; }
+.stage-info { display: flex; gap: 12px; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; }
+#mode-label { font-weight: 600; }
+#explanation { max-width: 750px; }
+.frame { width: max-content; background: #fafafa; border: 1px solid #bfc5cc; box-shadow: 0 5px 18px #0000000b; }
+.dock-title { height: 37px; display: flex; align-items: center; justify-content: space-between; padding: 0 9px; border-bottom: 1px solid #d8dce1; background: #f8f8f8; }
+.dock-title strong { height: 100%; padding: 6px 10px; border-top: 2px solid #0969b7; font-weight: 600; }
+.dock-title button { border: none; min-width: 32px; padding: 2px 6px; background: transparent; }
+#pane { width: 1100px; height: 660px; display: flex; flex-direction: column; overflow: hidden; }
+.task-header { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #e1e3e6; flex: 0 0 auto; }
+.identity { min-width: 0; flex: 1; display: flex; gap: 8px; align-items: baseline; }
+.identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.identity span { color: #5a626c; }
+.actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.context-line { flex: 0 0 auto; padding: 5px 14px; border-bottom: 1px solid #e1e3e6; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; background: #f2f6fa; }
+#run-state { font-weight: 600; }
+.body { min-height: 0; flex: 1; display: flex; overflow: auto; }
+.configuration, .results { min-width: 0; padding: 18px; }
+.configuration { flex: 1; }
+.results { flex: 1; }
+#pane[data-mode=expanded][data-wide=true] .body { overflow: hidden; }
+#pane[data-mode=expanded][data-wide=true] .configuration { flex: 0 0 42%; overflow: auto; border-right: 1px solid #e1e3e6; }
+#pane[data-mode=expanded][data-wide=true] .results { overflow: auto; }
+#pane[data-mode=expanded][data-wide=false] .body { display: block; }
+#pane[data-mode=expanded][data-wide=false] .configuration { border-bottom: 1px solid #e1e3e6; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+select, textarea { padding: 6px; width: 100%; min-height: 32px; }
+textarea { resize: vertical; min-height: 100px; }
+.check { min-height: 32px; display: flex; align-items: center; gap: 8px; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: #0969b7; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.card { border: 1px solid #d3d8df; border-radius: 4px; margin: 12px 0; padding: 12px; background: white; }
+.card details { margin-top: 6px; }
+summary { cursor: pointer; min-height: 32px; display: list-item; padding: 4px 0; color: #065ca3; }
+details p { margin: 8px 0; }
+.review { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.review-footer { padding: 8px 14px; border-top: 1px solid #d8dce1; background: #fff; flex-shrink: 0; display: flex; gap: 10px; align-items: center; }
+.review-footer span { min-width: 0; }
+.empty { padding: 24px 0; }
+.empty h2 { margin-bottom: 6px; }
+#pane[data-mode=narrow] .task-header, #pane[data-mode=constrained] .task-header { align-items: stretch; flex-direction: column; gap: 6px; padding: 8px 10px; }
+#pane[data-mode=narrow] .actions, #pane[data-mode=constrained] .actions { justify-content: flex-start; }
+#pane[data-mode=narrow] .fields, #pane[data-mode=constrained] .fields { grid-template-columns: 1fr; }
+#pane[data-mode=narrow] .configuration, #pane[data-mode=narrow] .results,
+#pane[data-mode=constrained] .configuration, #pane[data-mode=constrained] .results { padding: 12px; }
+#pane[data-mode=shallow] .task-header { padding: 6px 10px; }
+#pane[data-mode=shallow] .configuration, #pane[data-mode=shallow] .results { padding: 10px 14px; }
+#pane[data-mode=shallow] .configuration { width: 100%; }
+#pane[data-mode=shallow] .fields { grid-template-columns: minmax(160px, 1fr) minmax(240px, 2fr); }
+#pane[data-mode=shallow] .field.instructions { grid-column: 2; grid-row: 1 / span 3; }
+#pane[data-mode=shallow] .field.web { grid-column: 1; }
+#pane[data-mode=shallow] textarea { min-height: 105px; flex: 1; }
+#pane[data-mode=constrained] .context-line { padding: 3px 10px; }
+#pane[data-mode=constrained] .review-footer { padding: 5px 10px; }
+.recovery { padding: 8px; flex: 1; overflow: auto; }
+.recovery p { font-size: 12px; margin: 5px 0 0; }
+dialog { max-width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 20px; border: 1px solid #bdc5cf; border-radius: 6px; }
+dialog::backdrop { background: #14213155; }
+dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 Consolas, monospace; max-height: 55vh; overflow: auto; }
+dialog .menu { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+dialog .menu button { text-align: left; }
+.demo-note { margin-top: 12px; font-size: 12px; }
+@media (max-width: 600px) { .workshop, .stage-scroll { padding-left: 12px; padding-right: 12px; } }
+@media (forced-colors: active) { button.primary, button[aria-pressed=true] { border: 2px solid ButtonText; } }
+#pane[data-mode=shallow] #findings { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 6px 16px; align-items: start; }
+#pane[data-mode=shallow] #findings > h2 { grid-column: 1 / -1; font-size: 14px; margin: 0; }
+#pane:not([data-mode=expanded]) #findings > p { display: none; }
+#pane[data-mode=shallow] .summary-card { grid-column: 1; grid-row: 2 / span 3; margin: 0; padding: 8px; }
+#pane[data-mode=shallow] .summary-card h3 { display: none; }
+#pane[data-mode=shallow] .summary-card p { margin: 0; }
+#pane[data-mode=shallow] #findings > h3 { grid-column: 2; margin: 0; }
+#pane[data-mode=shallow] .card:not(.summary-card) { grid-column: 2; display: flex; align-items: start; flex-wrap: wrap; gap: 0 12px; margin: 0; padding: 4px 8px; }
+#pane[data-mode=shallow] .card:not(.summary-card) details { margin: 0; flex: 1; }
+#pane[data-mode=shallow] .card:not(.summary-card) summary { white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="workshop">
+  <h1>Research, adapted to its pane</h1>
+  <p class="intro muted">Design proposal for Axiom. Compare the layouts, edit Options, then try Run. All findings and actions are simulated. <a href="adaptive-pane-ux.md">Read the research and cross-view policy</a>.</p>
+  <div class="workshop-controls">
+    <div class="presets" aria-label="Pane size presets">
+      <button data-size="1100,660">Expanded</button>
+      <button data-size="360,680">Side pane</button>
+      <button data-size="1100,260">Bottom pane</button>
+      <button data-size="360,260">Small split</button>
+      <button data-size="180,84">Minimum</button>
+    </div>
+    <label class="dimension">Width <input id="width" type="number" min="180" max="1400" value="1100"><input id="width-range" type="range" min="180" max="1400" value="1100" aria-label="Pane width slider"></label>
+    <label class="dimension">Height <input id="height" type="number" min="84" max="850" value="660"><input id="height-range" type="range" min="84" max="850" value="660" aria-label="Pane height slider"></label>
+  </div>
+</header>
+<main class="stage-scroll">
+  <div class="stage-info"><span id="mode-label"></span><span id="dimensions" class="muted"></span><span id="explanation" class="muted"></span></div>
+  <div class="frame">
+    <div class="dock-title"><strong>Research</strong><button id="maximize" aria-label="Maximize pane" title="Maximize pane">⛶</button></div>
+    <section id="pane" aria-label="Research layout preview" data-mode="expanded" data-wide="true">
+      <div class="task-header">
+        <div class="identity"><strong title="Thing">Thing</strong><span>Class</span></div>
+        <div class="actions" role="group" aria-label="Research actions">
+          <button id="run" class="primary">Run</button>
+          <button id="options" aria-expanded="true" aria-controls="configuration">Options</button>
+          <button id="more" aria-haspopup="dialog">More</button>
+        </div>
+      </div>
+      <div class="context-line"><span id="configuration-summary">Codex · Web allowed</span><span id="run-state" role="status">Ready</span></div>
+      <div class="body" id="body">
+        <section class="configuration" id="configuration" aria-label="Research options">
+          <h2>Research options</h2>
+          <p class="full-help muted">The selected entity and its ontology context accompany your instructions. Review the exact prompt before sending it.</p>
+          <div class="fields">
+            <label class="field">Assistant<select id="assistant"><option>Codex</option><option>Example assistant</option></select></label>
+            <label class="field">Prompt template<select id="template"><option value="research">Research in context</option><option value="compare">Compare related concepts</option></select></label>
+            <label class="field full instructions">Instructions<textarea id="instructions" rows="6"></textarea></label>
+            <label class="field full web"><span class="check"><input id="web" type="checkbox" checked>Allow web research</span></label>
+          </div>
+          <div class="form-actions"><button id="preview">Preview prompt</button><button id="restore">Restore default prompt</button></div>
+          <p class="demo-note muted">In Axiom, Run sends this context to the selected assistant. Suggestions require your review before Apply.</p>
+        </section>
+        <section class="results" id="results" aria-label="Research results">
+          <div id="empty" class="empty"><h2>Ready to research Thing</h2><p class="muted">Run with the current options, or adjust the instructions first.</p></div>
+          <div id="findings" hidden>
+            <h2>Results for Thing</h2>
+            <p class="muted">Illustrative findings for this layout demonstration.</p>
+            <div class="card summary-card"><h3>Summary</h3><p>The sample response contains two proposed concepts, each with a description and source.</p><details><summary>Read full findings</summary><p>This expanded text represents a longer research answer. Production results keep their actual wording, uncertainty and citations available at every size.</p><button id="source">View example source</button></details></div>
+            <h3>Review suggestions</h3>
+            <div class="card"><label class="check"><input class="suggestion" type="checkbox"><strong>Example concept A</strong></label><details><summary>Details and source</summary><p>A sample suggestion for reviewing the layout. This is not an ontology recommendation.</p></details></div>
+            <div class="card"><label class="check"><input class="suggestion" type="checkbox"><strong>Example concept B</strong></label><details><summary>Details and source</summary><p>Another sample item. Its expanded state stays intact when the pane changes shape.</p></details></div>
+          </div>
+        </section>
+      </div>
+      <div class="review-footer" id="review-footer" hidden><button id="apply" disabled>Apply selected (0)</button><span id="apply-state" class="muted">Review before applying</span></div>
+      <div class="recovery" id="recovery" hidden><button id="recover">Maximize pane</button><p id="recovery-status">Thing · Ready</p></div>
+    </section>
+  </div>
+  <p class="demo-note muted">Dimensions refer to the pane body below the docking tab. The minimum preset represents a 180 × 120 tabset with roughly 36 pixels of docking chrome. Use the sliders independently; settings stay in this page session.</p>
+</main>
+<dialog id="more-dialog" aria-labelledby="more-title">
+  <h2 id="more-title">Research actions</h2>
+  <div class="menu"><button id="menu-preview">Preview prompt and context</button><button id="menu-refresh">Refresh assistants</button><button id="menu-restore">Restore default prompt</button></div>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+<dialog id="preview-dialog" aria-labelledby="preview-title">
+  <h2 id="preview-title">Prompt preview</h2><pre id="prompt-preview" tabindex="0"></pre><form method="dialog"><button>Close</button></form>
+</dialog>
+<dialog id="source-dialog" aria-labelledby="source-title">
+  <h2 id="source-title">Example source</h2><p>This mockup uses sample content. Actual research would retain a source title and link here.</p><form method="dialog"><button>Close</button></form>
+</dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+const pane = $("pane");
+const defaults = {
+  research: "Explain this entity in the context of its ontology, parent classes, relationships and existing instances. Distinguish verified sources from hypotheses. Cite sources you actually consulted.",
+  compare: "Compare this entity with related concepts in its ontology. Explain relevant similarities and differences, and cite sources you actually consulted."
+};
+const drafts = {...defaults};
+let optionsOpen = false, hasResult = false, running = false, applied = false, runTimer;
+let oldSize = null, activeMode = "expanded", resultScroll = 0, optionScroll = 0;
+$("instructions").value = defaults.research;
+function updateSummary() {
+  const custom = $("instructions").value !== defaults[$("template").value];
+  $("configuration-summary").textContent = $("assistant").value + " · " + ($("web").checked ? "Web allowed" : "Web off") + (custom ? " · Custom prompt" : "");
+  $("run").disabled = !running && !$("instructions").value.trim();
+}
+function showLayout() {
+  const w = pane.clientWidth, h = pane.clientHeight;
+  const recovery = w < 280 || h < 180;
+  const mode = w < 600 ? (h < 400 ? "constrained" : "narrow") : h < 400 ? "shallow" : "expanded";
+  const focused = document.activeElement;
+  if (activeMode === "expanded" && mode !== "expanded" && $("configuration").contains(focused)) optionsOpen = true;
+  activeMode = mode;
+  pane.dataset.mode = mode;
+  pane.dataset.wide = String(w >= 960);
+  const showOptions = mode === "expanded" || optionsOpen;
+  $("configuration").hidden = !showOptions;
+  $("results").hidden = mode !== "expanded" && showOptions;
+  $("options").textContent = mode !== "expanded" && optionsOpen ? "Results" : "Options";
+  $("options").setAttribute("aria-label", mode !== "expanded" && optionsOpen ? "Back to results" : "Research options");
+  $("options").setAttribute("aria-expanded", String(showOptions));
+  $("review-footer").hidden = !hasResult || recovery || $("results").hidden;
+  for (const element of pane.querySelectorAll(".task-header, .context-line, .body")) element.hidden = recovery;
+  $("recovery").hidden = !recovery;
+  if (recovery && pane.contains(focused) && !$("recovery").contains(focused)) $("recover").focus({preventScroll:true});
+  document.querySelector(".full-help").hidden = mode !== "expanded";
+  const titles = { expanded:"Expanded", narrow:"Narrow side pane", shallow:"Shallow bottom pane", constrained:"Narrow and shallow" };
+  const explanations = {
+    expanded:"Full options remain visible; ample width adds a separate results column.",
+    narrow:"Results take priority. Options opens the same settings in the pane body.",
+    shallow:"The header uses the width, leaving the height for working content.",
+    constrained:"One working section at a time, with the main action above it."
+  };
+  $("mode-label").textContent = recovery ? "Minimum: recovery action" : titles[mode];
+  $("dimensions").textContent = w + " × " + h + " CSS px";
+  $("explanation").textContent = recovery ? "The task is retained. Maximize the pane to continue comfortably." : explanations[mode];
+  $("recovery-status").textContent = "Thing · " + (running ? "Running" : hasResult ? "Results ready" : "Ready");
+}
+function setSize(w,h) {
+  w = Math.max(180,Math.min(1400,Math.round(w)));
+  h = Math.max(84,Math.min(850,Math.round(h)));
+  pane.style.width = w + "px"; pane.style.height = h + "px";
+  $("width").value = $("width-range").value = w;
+  $("height").value = $("height-range").value = h;
+  for (const button of document.querySelectorAll("[data-size]")) button.setAttribute("aria-pressed",String(button.dataset.size === w + "," + h));
+  showLayout();
+}
+document.querySelectorAll("[data-size]").forEach(button => button.onclick = () => { oldSize = null; $("maximize").setAttribute("aria-label","Maximize pane"); $("maximize").title = "Maximize pane"; setSize(...button.dataset.size.split(",").map(Number)); });
+for (const axis of ["width","height"]) for (const suffix of ["","-range"]) $(axis+suffix).addEventListener("input",event => {
+  if (!event.target.value) return;
+  setSize(axis === "width" ? +event.target.value : pane.clientWidth, axis === "height" ? +event.target.value : pane.clientHeight);
+});
+function maximize() {
+  if (oldSize) { const previous = oldSize; oldSize = null; setSize(...previous); }
+  else { oldSize = [pane.clientWidth,pane.clientHeight]; setSize(1100,660); }
+  $("maximize").setAttribute("aria-label",oldSize ? "Restore pane" : "Maximize pane");
+  $("maximize").title = oldSize ? "Restore pane" : "Maximize pane";
+  if ($("recovery").hidden && document.activeElement === $("recover")) $("maximize").focus();
+}
+$("maximize").onclick = $("recover").onclick = maximize;
+$("options").onclick = () => {
+  if (activeMode === "expanded") { $("instructions").focus(); return; }
+  if (optionsOpen) optionScroll = $("body").scrollTop; else resultScroll = $("body").scrollTop;
+  optionsOpen = !optionsOpen; showLayout();
+  $("body").scrollTop = optionsOpen ? optionScroll : resultScroll;
+};
+$("assistant").onchange = $("web").onchange = updateSummary;
+$("instructions").oninput = () => { drafts[$("template").value] = $("instructions").value; updateSummary(); };
+$("template").onchange = () => { $("instructions").value = drafts[$("template").value]; updateSummary(); };
+function restorePrompt() { drafts[$("template").value] = defaults[$("template").value]; $("instructions").value = defaults[$("template").value]; updateSummary(); }
+$("restore").onclick = restorePrompt;
+function preview() {
+  $("prompt-preview").textContent = "DEMONSTRATION ONLY\n\nEntity: Thing\nKind: Class\nAssistant: " + $("assistant").value + "\nWeb research: " + ($("web").checked ? "allowed" : "off") + "\n\n" + $("instructions").value + "\n\nIn Axiom, the actual ontology context is included here.";
+  $("preview-dialog").showModal();
+}
+$("preview").onclick = preview;
+$("more").onclick = () => $("more-dialog").showModal();
+$("menu-preview").onclick = () => { $("more-dialog").close(); preview(); };
+$("menu-refresh").onclick = () => { $("more-dialog").close(); $("run-state").textContent = "Demo assistants refreshed"; };
+$("menu-restore").onclick = () => { restorePrompt(); $("more-dialog").close(); };
+$("source").onclick = () => $("source-dialog").showModal();
+$("run").onclick = () => {
+  if (running) {
+    clearTimeout(runTimer); running = false; $("run").textContent = "Run"; $("run-state").textContent = "Demo cancelled"; updateSummary(); showLayout(); return;
+  }
+  running = true; $("run").textContent = "Cancel"; $("run-state").textContent = "Demo running…";
+  showLayout();
+  runTimer = setTimeout(() => {
+    running = false; hasResult = true; applied = false;
+    $("run").textContent = "Run"; $("run-state").textContent = "Demo complete";
+    $("empty").hidden = true; $("findings").hidden = false;
+    for (const input of document.querySelectorAll(".suggestion")) { input.checked = false; input.disabled = false; }
+    $("apply-state").textContent = "Review before applying";
+    updateSelection(); updateSummary(); showLayout();
+  }, 1800);
+};
+function updateSelection() {
+  const count = document.querySelectorAll(".suggestion:checked").length;
+  $("apply").textContent = applied ? "Applied in demo" : "Apply selected (" + count + ")";
+  $("apply").disabled = !count || applied;
+}
+document.querySelectorAll(".suggestion").forEach(input => input.onchange = updateSelection);
+$("apply").onclick = () => {
+  applied = true; document.querySelectorAll(".suggestion").forEach(input => input.disabled = true);
+  $("apply-state").textContent = "No ontology was changed"; updateSelection();
+};
+new ResizeObserver(showLayout).observe(pane);
+setSize(1100,660); updateSummary();
+</script>
+</body>
+</html>

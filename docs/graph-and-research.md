@@ -34,6 +34,8 @@ Summarized OWL axioms and generated sample relationships can be selected and rer
 
 Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and research as applicable to the entity. Disabled actions retain their place in the menu.
 
+**Add children** uses Codex on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. **Find instances** uses a distinct prompt for named individuals. Both actions open a review dialog and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
+
 ## Layout choices
 
 The graph toolbar, Graph menu and command palette expose the same choices.

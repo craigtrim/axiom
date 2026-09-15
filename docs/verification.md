@@ -2,6 +2,20 @@
 
 The Electron application is the sole active application. This record separates observed checks from release acceptance work that remains unverified.
 
+## Taxonomy suggestions through Codex, 14 September 2026
+
+The taxonomy update passed TypeScript checking and all 1,932 local tests, including 25 checks for context construction, parsing, normalized names, duplicate handling and class versus individual assertions.
+
+The packaged executable passed 25 desktop checks: nine taxonomy journeys, eleven SPARQL-authoring regressions and five menu, keyboard and existing-research regressions. These cover reviewed batch insertion and Undo, empty results, cancellation, stale proposals, changes of selection, small windows and detached taxonomy dialogs.
+
+All four opt-in taxonomy cases passed using the real Codex on PATH, codex-cli 0.154.0. Codex proposed the missing water and air vehicle categories without flattening deeper vehicle subtypes, returned no additions for a complete RGB taxonomy, found seven planet individuals while excluding the existing Earth instance, and reviewed the shipped Pizza branch. No provider was mocked or skipped in that suite. The unrelated live SPARQL cases were not repeated for this update.
+
+```text
+D:\git\axiom\artifacts\electron-20260915T031422Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/taxonomy-delivery-verification.json) retains test reports and package hashes. All 24 compiled runtime files in the package matched the build. [Taxonomy suggestions](taxonomy-suggestions.md) documents context limits and proposal review. The [real Codex report](../artifacts/taxonomy-live-results.json) retains the prompts and responses.
+
 ## Source editor and linked files, 14 September 2026
 
 The source and file-preview implementation passed TypeScript checking and the full domain run of 1,865 tests. Fourteen domain checks specifically cover source round trips, synchronized edits, invalid/conflicting input and thumbnail caching. The development build also passed lifecycle checks for all 29 bundled ontologies and Windows metadata collection. Menu regressions verified opening and closing Source, native command coverage, query cancellation and editor Undo behavior.
@@ -200,3 +214,20 @@ D:\git\axiom\artifacts\electron-20260915T020009Z\Axiom-win32-x64\Axiom.exe
 ```
 
 artifacts/testing/query-results-delivery-verification.json records SHA-256 hashes, comparison of 17 packaged runtime files with the tested build, and test reports. The real Codex suite was not rerun for this UI change; it remains an explicit opt-in suite.
+
+
+## Adaptive pane layouts
+
+Implemented on 15 September 2026. All ten dockable component types measure the space inside their pane. Research, forms, tables and editors use expanded, narrow and shallow layouts. Compact views reserve primary actions outside the content scroller and expose secondary content through Options, More and named disclosures. Graph retains its canvas and existing presentation.
+
+All 149 desktop cases pass across the packaged run and focused follow-ups, including the seven adaptive cases. They cover retained Research prompts and selections, original request attribution, stale results, Inspector submission and focus, Query editor identity and undo, Graph state, Entity details, query results, pane recovery and primary action visibility. Automated axe scans report no violations for the selected WCAG A/AA tags in narrow and shallow Edge Inspector, narrow Research Options and narrow Source. These scans do not establish complete accessibility conformance.
+
+The offline suite passes 1,932 tests across 22 files. Type checking and formatting checks for the implementation files pass. The package's 24 JavaScript, HTML and CSS runtime files match the build byte for byte.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260915T195959Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/adaptive-pane-delivery-verification.json) contains SHA-256 hashes and the runtime comparison. The [desktop report](../artifacts/adaptive-desktop-results.json) records the initial packaged run. The [follow-up report](../artifacts/adaptive-desktop-followup.json) and [final query checks](../artifacts/adaptive-desktop-final.json) cover the remaining cases. The initial run passed 140 cases; follow-ups updated the remaining compact-control interactions and repeated cases that received unexpected A/W text. The last two query checks used AXIOM_TEST_BACKGROUND=1 to isolate test windows from physical desktop input. The large-dataset query assertion allows 30 seconds for the same expected 103 rows. These are local artifacts. The [design research](adaptive-pane-ux.md) records sources, layout rules and remaining usability measurements. Real-assistant tests were not rerun for this layout change; ordinary desktop tests use controlled assistant responses.
