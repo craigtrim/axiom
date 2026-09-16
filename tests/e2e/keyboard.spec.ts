@@ -92,7 +92,7 @@ test("Alt menu paths, dialog access keys and keyboard context menus work", async
   await expect(context).toBeVisible();
   await page.keyboard.press("End");
   await expect(
-    context.getByRole("menuitem", { name: "Dismiss" }),
+    context.getByRole("menuitem", { name: "Copy IRI" }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("graph-canvas")).toBeFocused();
@@ -353,7 +353,9 @@ test("keyboard help and palette show current shortcuts and pane navigation works
     page.getByRole("dialog", { name: "Command palette" }),
   ).toContainText("Ctrl+Shift+J");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("103 displayed");
 });
 
 async function nativeKeys(keys: string[]) {

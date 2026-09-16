@@ -253,11 +253,12 @@ export const menuTree: MenuDefinition[] = [
     c("pane.nextTab", "Next tab", "Window", app("Ctrl+Tab")),
     c("pane.previousTab", "Previous tab", "Window", app("Ctrl+Shift+Tab")),
     null,
-    ...["Left", "Right", "Top", "Bottom"].map((d) =>
-      c(
-        "pane.move." + d.toLowerCase(),
-        "Move pane " + d.toLowerCase(),
-        "Window",
+    menu(
+      "menu.movePane",
+      "Move pane",
+      "M",
+      ["Left", "Right", "Top", "Bottom"].map((d) =>
+        c("pane.move." + d.toLowerCase(), d, "Window > Move pane"),
       ),
     ),
     c("pane.group", "Group pane with graph", "Window"),

@@ -81,7 +81,13 @@ async function queryText(text: string) {
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.insertText(text);
-  await expect.poll(() => page.evaluate(async () => (await window.axiom.queryHistory.load()).current.text)).toBe(text);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () => (await window.axiom.queryHistory.load()).current.text,
+      ),
+    )
+    .toBe(text);
 }
 test.beforeEach(async () => {
   expected = [];
@@ -673,7 +679,9 @@ journey(
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await expect.poll(() => enabled("query.graph")).toBe(false);
     await menu("query.run");
-    await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
+    await expect(
+      page.locator(".query-results-panel:visible .query-summary"),
+    ).toContainText("103 displayed");
     await menu("graph.clear");
     await page.locator(".monaco-editor textarea").focus();
     await menu("pane.close");
@@ -699,7 +707,9 @@ journey(
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await queryText("SELECT ?s WHERE { ?s a <" + NS.owl + "Class> . } LIMIT 5");
     await menu("query.run");
-    await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("5 displayed");
+    await expect(
+      page.locator(".query-results-panel:visible .query-summary"),
+    ).toContainText("5 displayed");
     await menu("query.graph");
     expect((await state()).graph.nodes.length).toBeLessThanOrEqual(
       (await state()).graph.budget,
@@ -862,7 +872,9 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await menu("query.run");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("6 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("6 displayed");
   await page.getByRole("button", { name: "More query actions" }).click();
   await expect(
     page.getByRole("combobox", { name: "Example query" }),
@@ -872,8 +884,12 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
     "SELECT ?s WHERE { ?s a <http://example.org/ontology#Person> . }",
   );
   await menu("query.run");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("1 displayed");
-  await expect(page.locator(".query-results-panel:visible .query-results")).toContainText("Alice");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("1 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-results"),
+  ).toContainText("Alice");
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText(" LIMIT 1");
@@ -932,7 +948,9 @@ test("New Workspace cancels an active query and clears old results", async () =>
   await expect.poll(() => enabled("query.cancel")).toBe(false);
   await expect.poll(() => enabled("query.graph")).toBe(false);
   await menu("query.run");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("1 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("1 displayed");
   await expect(page.locator(".query-error")).toHaveCount(0);
 });
 
@@ -1184,7 +1202,8 @@ journey(
     await pane
       .getByRole("textbox", { name: "Research instructions" })
       .fill("Suggest subclasses suited to this ontology.");
-    await pane.locator("#research-options")
+    await pane
+      .locator("#research-options")
       .getByText("Preview prompt and ontology context", { exact: true })
       .click();
     await expect(pane.locator(".research-context")).toContainText("Thing");
@@ -1195,7 +1214,10 @@ journey(
       .poll(() => app.evaluate(() => (globalThis as any).openedSources.length))
       .toBe(4);
     await menu("research.run");
-    const resultsButton = pane.getByRole("button", { name: "Results", exact: true });
+    const resultsButton = pane.getByRole("button", {
+      name: "Results",
+      exact: true,
+    });
     if (await resultsButton.isVisible()) await resultsButton.click();
     await expect(pane.locator(".research-summary")).toContainText(
       "kind of Thing",
@@ -1887,5 +1909,24 @@ journey(
     await expect(
       page.getByRole("region", { name: "Compose a SPARQL query" }),
     ).toBeVisible();
+  },
+);
+
+journey(
+  "Show instances opens the class report without adding graph nodes",
+  ["entity.showInstances"],
+  async () => {
+    const iri = NS.pizza + "Giardiniera";
+    await request("select", { iri });
+    const before = (await state()).graph.nodes.map((n) => n.iri);
+    await menu("entity.showInstances");
+    const report = page.getByRole("region", { name: "Instances report" });
+    await expect(report.getByRole("heading")).toHaveText(
+      "Instances of Giardiniera",
+    );
+    await expect(report.getByRole("status")).toContainText(
+      "527 direct instances",
+    );
+    expect((await state()).graph.nodes.map((n) => n.iri)).toEqual(before);
   },
 );

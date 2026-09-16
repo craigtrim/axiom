@@ -1,6 +1,9 @@
+import { instanceAction, countLabel } from "../shared/action-state";
+import { showInstances } from "./instance-report";
+import { useAssistantActivity } from "./AssistantActivity";
 import { editEntity } from "./authoring";
 import { startInlineRename } from "./InlineRename";
-import { ContextMenu } from "./ContextMenu";
+import { ContextMenu, type ContextAction } from "./ContextMenu";
 import { useSnapshot, request, command, report } from "./client";
 import { THING } from "../domain/model";
 export function EntityMenu({
@@ -22,6 +25,7 @@ export function EntityMenu({
     mode: import("../shared/taxonomy-assistant").TaxonomyMode,
   ) => void;
 }) {
+  const taxonomyBusy = !!useAssistantActivity("taxonomy");
   const s = useSnapshot()!,
     entity = s.entities.find((e) => e.iri === iri),
     node = s.graph.nodes.find((n) => n.iri === iri);
@@ -34,15 +38,11 @@ export function EntityMenu({
       report(String(e), true);
     }
   };
-  const actions = [
-    {
-      label: branch?.open ? "Collapse branch" : "Expand branch",
-      enabled: !!branch,
-      run: () => branch?.toggle(),
-    },
+  const isClass = !!entity && ["Class", "Defined"].includes(entity.kind);
+  const actions: (ContextAction | null)[] = [
     {
       label: "Show in graph",
-      enabled: true,
+      key: "S",
       run: async () => {
         await request("seed", { iris: [iri] });
         command("view.graph");
@@ -50,8 +50,23 @@ export function EntityMenu({
       },
     },
     {
+      ...instanceAction(entity),
+      key: "O",
+      run: () => showInstances(iri),
+    },
+    {
+      label: countLabel(
+        branch?.open ? "Collapse branch" : "Expand branch",
+        entity?.children.length ?? 0,
+      ),
+      key: "B",
+      visible: isClass || !!branch,
+      enabled: !!branch && !!entity?.children.length,
+      run: () => branch?.toggle(),
+    },
+    {
       label: "Add neighbours to graph",
-      enabled: true,
+      key: "A",
       run: async () => {
         await request("seed", { iris: [iri], replace: false });
         command("view.graph");
@@ -59,59 +74,71 @@ export function EntityMenu({
       },
     },
     {
-      label: node?.pinned ? "Unpin in graph" : "Pin in graph",
+      label: "Pin in graph",
+      key: "P",
+      checked: !!node?.pinned,
       enabled: !!node,
       run: () => request("pin", { iri }),
     },
+    null,
     {
-      label: "New subclass",
-      enabled: !!entity && ["Class", "Defined"].includes(entity.kind),
-      run: () => command("entity.createClass"),
-    },
-    {
-      label: "New instance",
-      enabled: !!entity && ["Class", "Defined"].includes(entity.kind),
-      run: () => command("entity.createIndividual"),
+      label: "Edit details",
+      key: "T",
+      enabled: !!entity,
+      run: () => editEntity(iri),
     },
     {
       label: "Rename",
+      key: "R",
       enabled: !!entity && iri !== THING,
       run: () => startInlineRename(iri, { document: doc, panel: "hierarchy" }),
     },
     {
+      label: "New subclass",
+      key: "N",
+      visible: isClass,
+      run: () => command("entity.createClass"),
+    },
+    {
+      label: "New instance",
+      key: "I",
+      visible: isClass,
+      run: () => command("entity.createIndividual"),
+    },
+    null,
+    { label: "Research...", key: "E", run: () => command("research.open") },
+    {
+      label: "Add children",
+      key: "H",
+      visible: !!taxonomy && isClass,
+      enabled: !taxonomyBusy,
+      run: () => taxonomy?.("children"),
+    },
+    {
+      label: "Find instances",
+      key: "F",
+      visible: !!taxonomy && isClass,
+      enabled: !taxonomyBusy,
+      run: () => taxonomy?.("instances"),
+    },
+    null,
+    { label: "Copy IRI", key: "C", run: () => window.axiom.copy(iri) },
+    null,
+    {
       label: "Delete class...",
-      enabled:
-        !!entity && iri !== THING && ["Class", "Defined"].includes(entity.kind),
+      key: "D",
+      visible: isClass,
+      enabled: iri !== THING,
       run: () => command("entity.delete"),
     },
-    { label: "Edit details", enabled: !!entity, run: () => editEntity(iri) },
-    { label: "Copy IRI", enabled: true, run: () => window.axiom.copy(iri) },
-    {
-      label: "Research...",
-      enabled: true,
-      run: () => command("research.open"),
-    },
   ];
-  if (taxonomy) {
-    const enabled = !!entity && ["Class", "Defined"].includes(entity.kind);
-    actions.push(
-      { label: "Add children", enabled, run: () => taxonomy("children") },
-      { label: "Find instances", enabled, run: () => taxonomy("instances") },
-    );
-  }
   return (
     <ContextMenu
       document={doc}
       x={x}
       y={y}
       close={close}
-      actions={actions.map((a, i) => ({
-        ...a,
-        key: ["B", "S", "A", "P", "N", "I", "R", "D", "T", "C", "E", "H", "F"][
-          i
-        ],
-        run: () => run(a.run),
-      }))}
+      actions={actions.map((a) => a && { ...a, run: () => run(a.run) })}
     />
   );
 }

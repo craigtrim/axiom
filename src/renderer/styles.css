@@ -2781,6 +2781,31 @@ a {
   position: absolute;
   height: 0;
 }
+
+/* Shared context-menu groups and state indicators. */
+.entity-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu-check {
+  flex: 0 0 16px;
+  width: 16px;
+  text-align: center;
+}
+.entity-context-menu .menu-separator {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--stroke-strong);
+  margin: 4px 8px;
+}
+.entity-context-menu button[aria-disabled="true"] {
+  color: var(--text-secondary);
+  cursor: default;
+}
+.entity-context-menu button[aria-disabled="true"]:focus {
+  outline: 1px dotted var(--stroke-strong);
+  outline-offset: -2px;
+}
 .tree-row .instance-count {
   border: 0;
   background: transparent;
@@ -2850,6 +2875,10 @@ a {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+.entity-context-menu button[aria-disabled="true"]:is(:hover, :focus, :active) {
+  background: transparent;
+  color: var(--text-secondary);
 }
 @media (forced-colors: active) {
   .entity-context-menu,

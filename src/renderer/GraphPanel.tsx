@@ -1,3 +1,5 @@
+import { instanceAction } from "../shared/action-state";
+import { showInstances } from "./instance-report";
 import { GraphEdgeHandles } from "./GraphEdgeHandles";
 import { nearestEdge, edgeRoute, routeMiddle } from "./edge-geometry";
 import { inspectEdge, removeEdge, resetEdgeRoute } from "./edge-actions";
@@ -733,6 +735,9 @@ export function GraphPanel() {
   };
   const selected = state?.selected;
   const selection = graph?.nodes.find((n) => n.iri === selected);
+  const instances = instanceAction(
+    snapshot?.entities.find((e) => e.iri === selection?.iri),
+  );
   const selectedEdge = graph?.edges.find(
     (e) => edgeKey(e) === graph?.selectedEdge,
   );
@@ -1010,6 +1015,7 @@ export function GraphPanel() {
           }}
           onContextMenu={(e) => {
             e.preventDefault();
+            e.currentTarget.focus();
             const n = hitLabel(point(e)) ?? hit(point(e));
             if (n) {
               void act("select", { iri: n.iri });
@@ -1302,11 +1308,24 @@ export function GraphPanel() {
           <>
             <strong>{selection.label}</strong>
             <button onClick={() => command("research.open")}>Research</button>
+            {instances.visible && (
+              <button
+                disabled={!instances.enabled}
+                title={instances.title}
+                onClick={() => showInstances(selection.iri)}
+              >
+                {instances.label}
+              </button>
+            )}
             <span>{selection.degree} neighbours</span>
-            <button onClick={() => void act("expand", { iri: selection.iri })}>
+            <button
+              disabled={selection.degree === 0}
+              onClick={() => void act("expand", { iri: selection.iri })}
+            >
               Expand
             </button>
             <button
+              disabled={selection.shownDegree === 0}
               onClick={() => void act("collapse", { iri: selection.iri })}
             >
               Collapse
@@ -1371,6 +1390,7 @@ export function GraphPanel() {
                 void reconnect(key, "target");
               },
             },
+            null,
             {
               label: "Reset route",
               key: "R",
@@ -1380,6 +1400,7 @@ export function GraphPanel() {
                 setEdgeContext(null);
               },
             },
+            null,
             {
               label: "Remove edge",
               key: "D",
@@ -1409,7 +1430,6 @@ export function GraphPanel() {
               key: "I",
               run: () => createAt("Individual", blankMenu.point),
             },
-            { label: "Dismiss", key: "D", run: () => setBlankMenu(null) },
           ]}
         />
       )}
@@ -1423,45 +1443,23 @@ export function GraphPanel() {
           actions={[
             {
               label: "Edit details",
-              enabled: !!state?.entities.some((e) => e.iri === context.iri),
               key: "T",
-              run: () => {
-                editEntity(context.iri);
-                setContext(null);
-              },
+              enabled: !!state?.entities.some((e) => e.iri === context.iri),
+              run: () => editEntity(context.iri),
             },
             {
-              label: "New instance",
-              key: "W",
-              enabled: !!state?.entities.some(
-                (e) =>
-                  e.iri === context.iri &&
-                  ["Class", "Defined"].includes(e.kind),
+              ...instanceAction(
+                snapshot?.entities.find((e) => e.iri === context.iri),
               ),
-              run: () => {
-                createAt("Individual", undefined, context.iri);
-                setContext(null);
-              },
+              key: "O",
+              run: () => showInstances(context.iri),
             },
-            ...[
-              ["Expand", "expand", "E"],
-              ["Collapse", "collapse", "C"],
-              ["Pin / unpin", "pin", "P"],
-              ["Remove from view", "remove", "R"],
-            ].map(([label, method, key]) => ({
-              label,
-              key,
-              run: () => {
-                void act(method as "expand", { iri: context.iri });
-                setContext(null);
-              },
-            })),
             {
               label: "Rename",
               key: "N",
               enabled:
                 !!state?.entities.some((e) => e.iri === context.iri) &&
-                context.iri !== "http://www.w3.org/2002/07/owl#Thing",
+                context.iri !== THING,
               run: () => {
                 setContext(null);
                 startInlineRename(context.iri, {
@@ -1471,22 +1469,54 @@ export function GraphPanel() {
               },
             },
             {
-              label: "Copy IRI",
-              key: "I",
-              run: () => {
-                void window.axiom.copy(context.iri);
-                setContext(null);
-              },
+              label: "New instance",
+              key: "W",
+              visible: !!state?.entities.some(
+                (e) =>
+                  e.iri === context.iri &&
+                  ["Class", "Defined"].includes(e.kind),
+              ),
+              run: () => createAt("Individual", undefined, context.iri),
             },
+            null,
             {
               label: "Research...",
               key: "S",
-              run: () => {
-                command("research.open");
-                setContext(null);
-              },
+              run: () => command("research.open"),
             },
-            { label: "Dismiss", key: "D", run: () => setContext(null) },
+            null,
+            {
+              label: "Expand",
+              key: "E",
+              enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
+                ?.degree,
+              run: () => act("expand", { iri: context.iri }),
+            },
+            {
+              label: "Collapse",
+              key: "C",
+              enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
+                ?.shownDegree,
+              run: () => act("collapse", { iri: context.iri }),
+            },
+            {
+              label: "Pin in graph",
+              key: "P",
+              checked: !!graph?.nodes.find((n) => n.iri === context.iri)
+                ?.pinned,
+              run: () => act("pin", { iri: context.iri }),
+            },
+            {
+              label: "Remove from view",
+              key: "R",
+              run: () => act("remove", { iri: context.iri }),
+            },
+            null,
+            {
+              label: "Copy IRI",
+              key: "I",
+              run: () => window.axiom.copy(context.iri),
+            },
           ]}
         />
       )}

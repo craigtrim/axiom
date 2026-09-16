@@ -1,3 +1,4 @@
+import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
 import examples from "../domain/data/examples.json";
 import { ProvenanceService } from "./provenance-service";
@@ -520,8 +521,8 @@ function refreshMenu() {
       lastState?.graph.selectedEdge,
   );
   set("graph.pin", !!node);
-  for (const id of ["graph.expand", "graph.remove"])
-    set(id, !!node || !!selectedEdge);
+  set("graph.expand", !!node?.degree || !!selectedEdge);
+  set("graph.remove", !!node || !!selectedEdge);
   for (const id of ["edge.edit", "edge.remove"]) set(id, !!selectedEdge);
   set("edge.resetRoute", !!selectedEdge?.bend);
   for (const id of ["edge.next", "edge.previous"])
