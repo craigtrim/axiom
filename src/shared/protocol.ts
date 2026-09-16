@@ -215,6 +215,9 @@ export interface AxiomBridge {
       running: boolean;
       response?: import("./research").ResearchResponse;
       activeEntity?: string;
+      startedAt?: number;
+      provider?: import("./research").AssistantId;
+      cancelling?: boolean;
       error?: string;
     }>;
     open(url: string): Promise<void>;
