@@ -18,6 +18,14 @@ Selectors cover entity kinds, exact entity IRIs, exact edge predicates, selectio
 
 Styles appear in the live graph and PNG/SVG exports. They are saved in workbench preferences and workspace documents. Applying a stylesheet is undoable. Node size is a visual override; large sizes can overlap in a dense view.
 
+## Connecting nodes
+
+Select a node and use **Connect nodes** in the graph toolbar or node context menu, then click the target. With the graph focused, **C** starts the same operation. You can also drag the selected node's round arrow handle to another node, or click the handle and then the target. Dragging the node itself still moves it.
+
+Connection mode shows the source, target and arrow direction. Its instructions replace the toolbar controls so they do not cover graph nodes. Nodes stay still while you choose a target; force motion and pending layout results resume afterwards. The saved Freeze setting stays unchanged. Pointer targets remain at least 48 pixels across at low zoom, and node labels also accept the connection. Arrow keys and Enter select endpoints without a mouse. **Choose from list** offers all editable entities, including those outside the visible graph. Escape or Cancel leaves the ontology unchanged.
+
+The **Add relationship** dialog confirms From, Relationship and To. It suggests subclass-of between classes, instance-of from an individual to a class, or subproperty-of between properties of the same kind. You can enter another relationship using its IRI or a known prefix. Adding a relationship preserves existing assertions and creates one Undo operation. Duplicate assertions, stale drafts and unavailable graph capacity are rejected before changing the ontology. Any newly displayed endpoint respects the existing graph node limit.
+
 ## Edge editing
 
 Click a line to select it, or use the Select edge list in the graph toolbar. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens the edge inspector. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.

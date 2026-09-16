@@ -187,6 +187,8 @@ export const menuTree: MenuDefinition[] = [
       at("graph", "Delete"),
     ),
     menu("menu.edge", "Edges", "E", [
+      c("graph.connect", "Connect nodes...", "Graph > Edges", at("graph", "C")),
+      null,
       c("edge.edit", "Edit selected edge", "Graph > Edges"),
       c("edge.remove", "Remove selected edge", "Graph > Edges"),
       c("edge.resetRoute", "Reset edge route", "Graph > Edges"),

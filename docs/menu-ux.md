@@ -89,6 +89,7 @@ The additional separators make this menu taller. Check it at high display scalin
 Edit details
 Show instances
 Rename
+Connect nodes
 New instance
 --------------------------
 Research...

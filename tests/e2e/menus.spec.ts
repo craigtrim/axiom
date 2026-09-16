@@ -1844,7 +1844,14 @@ journey(
 
 journey(
   "edge menu commands select, inspect, reroute and remove relationships",
-  ["edge.edit", "edge.next", "edge.previous", "edge.remove", "edge.resetRoute"],
+  [
+    "graph.connect",
+    "edge.edit",
+    "edge.next",
+    "edge.previous",
+    "edge.remove",
+    "edge.resetRoute",
+  ],
   async () => {
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = async () => ({
@@ -1858,6 +1865,13 @@ journey(
       parent: THING,
       position: { x: 100, y: 0 },
     });
+    await menu("graph.connect");
+    await expect(
+      page.getByRole("group", { name: "Connect nodes", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Cancel connection", exact: true })
+      .click();
     await menu("edge.next");
     const canvas = page.getByTestId("graph-canvas");
     await expect

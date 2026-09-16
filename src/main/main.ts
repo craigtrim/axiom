@@ -523,6 +523,7 @@ function refreshMenu() {
       lastState?.graph.selectedEdge,
   );
   set("graph.pin", !!node);
+  set("graph.connect", !!lastState?.entities.length);
   set("graph.expand", !!node?.degree || !!selectedEdge);
   set("graph.remove", !!node || !!selectedEdge);
   for (const id of ["edge.edit", "edge.remove"]) set(id, !!selectedEdge);

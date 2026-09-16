@@ -2926,3 +2926,128 @@ a {
     color: GrayText;
   }
 }
+
+/* Connection controls keep their pointer targets usable at every graph zoom. */
+.graph-connect-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  cursor: crosshair;
+  touch-action: none;
+  overflow: hidden;
+}
+.graph-connect-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.graph-connect-preview marker {
+  fill: var(--accent);
+}
+.connection-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
+}
+.connection-source,
+.connection-target {
+  fill: transparent;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.connection-source {
+  stroke-dasharray: 4 3;
+}
+.connection-target {
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.graph-panel .panel-toolbar {
+  position: relative;
+}
+.graph-panel .panel-toolbar[data-connecting="true"] > :not(.connection-help) {
+  visibility: hidden;
+}
+.connection-help {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  overflow: auto;
+  z-index: 8;
+}
+.connection-help > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.connection-help .connection-instructions {
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: min(240px, 100%);
+}
+.graph-connect-handle {
+  position: absolute;
+  z-index: 9;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 22px;
+  line-height: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+.graph-edge-handle.endpoint {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+.create-edge-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.create-edge-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.create-edge-form input,
+.create-edge-form select {
+  width: 100%;
+  min-width: 0;
+}
+.connection-direction {
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .graph-connect-preview marker {
+    fill: Highlight;
+  }
+  .connection-line,
+  .connection-source,
+  .connection-target {
+    stroke: Highlight;
+  }
+  .graph-connect-handle {
+    border-color: Highlight;
+    color: Highlight;
+  }
+}

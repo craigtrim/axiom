@@ -59,7 +59,7 @@ export function GraphEdgeHandles({
         const dx = towards.x - p.x,
           dy = towards.y - p.y,
           len = Math.max(1, Math.hypot(dx, dy));
-        const r = radius * camera.current.zoom + 10;
+        const r = radius * camera.current.zoom + 18;
         return { x: p.x + (dx / len) * r, y: p.y + (dy / len) * r };
       };
       const p = route.points[0],

@@ -1,5 +1,10 @@
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
+import {
+  GraphConnections,
+  type ConnectionController,
+} from "./GraphConnections";
+import { connectionTarget } from "./connection-geometry";
 import { GraphEdgeHandles } from "./GraphEdgeHandles";
 import { nearestEdge, edgeRoute, routeMiddle } from "./edge-geometry";
 import { inspectEdge, removeEdge, resetEdgeRoute } from "./edge-actions";
@@ -56,6 +61,7 @@ export function GraphPanel() {
   const snapshot = useSnapshot();
   const canvasRef = useRef<HTMLCanvasElement>(null),
     miniRef = useRef<HTMLCanvasElement>(null),
+    toolbarRef = useRef<HTMLDivElement>(null),
     camera = useRef<Camera>(panel("graph.camera", { x: 0, y: 0, zoom: 1 })),
     needsFit = useRef(!panel("graph.camera", null)),
     dirty = useRef(true),
@@ -73,6 +79,16 @@ export function GraphPanel() {
     } | null>(null),
     renameHost = useRef<HTMLDivElement>(null);
   const labelRects = useRef(new Map<string, Rect>());
+  const connectRef = useRef<ConnectionController | null>(null);
+  const beginConnection = (iri?: string) => {
+    setCreating(null);
+    setRenaming(null);
+    setReconnecting(null);
+    setContext(null);
+    setEdgeContext(null);
+    setBlankMenu(null);
+    connectRef.current?.start(iri);
+  };
   const creatingNode = useRef(false);
   const [pendingRename, setPendingRename] = useState<{
     iri: string;
@@ -135,7 +151,17 @@ export function GraphPanel() {
         return;
       }
       if (p) {
-        const node = hit(p);
+        const node =
+          graph &&
+          connectionTarget(
+            graph.nodes,
+            p,
+            camera.current,
+            graph.stylesheet,
+            undefined,
+            new Set(state?.entities.map((e) => e.iri)),
+            labelRects.current,
+          );
         if (node) await applyReconnect(doc, endpoint, node);
         else report("Drop the endpoint onto a node.");
       } else {
@@ -619,6 +645,12 @@ export function GraphPanel() {
         command("view.graph");
         win.requestAnimationFrame(() => createAt("Class"));
       }
+      if (id === "graph.connect") {
+        command("view.graph");
+        win.requestAnimationFrame(() =>
+          beginConnection(state?.selected ?? undefined),
+        );
+      }
       if (id === "edge.edit") inspectEdge();
       if (id === "edge.remove" && graph?.selectedEdge)
         void removeEdge(graph.selectedEdge);
@@ -748,12 +780,19 @@ export function GraphPanel() {
       aria-label="Graph panel"
       data-panel="graph"
     >
-      <div className="panel-toolbar">
+      <div className="panel-toolbar" ref={toolbarRef}>
         <button
           onClick={() => createAt("Class")}
           title="Add a class or instance at the graph center (Insert)"
         >
           Add entity
+        </button>
+        <button
+          onClick={() => beginConnection(selected ?? undefined)}
+          disabled={!snapshot?.entities.length}
+          title={"Connect two nodes (" + keyHint("graph.connect") + ")"}
+        >
+          Connect nodes
         </button>
         <select
           aria-label="Select edge"
@@ -848,7 +887,18 @@ export function GraphPanel() {
             setBlankMenu(null);
             const p = point(e),
               label = hitLabel(p),
-              node = label ?? hit(p);
+              node =
+                reconnecting && graph
+                  ? connectionTarget(
+                      graph.nodes,
+                      p,
+                      camera.current,
+                      graph.stylesheet,
+                      undefined,
+                      new Set(state?.entities.map((e) => e.iri)),
+                      labelRects.current,
+                    )
+                  : (label ?? hit(p));
             canvasRef.current!.focus();
             if (reconnecting && node) {
               void applyReconnect(
@@ -1129,6 +1179,18 @@ export function GraphPanel() {
             </span>
           ))}
         </canvas>
+        {snapshot && (
+          <GraphConnections
+            canvas={canvasRef}
+            camera={camera}
+            labels={labelRects}
+            controller={connectRef}
+            toolbar={toolbarRef}
+            hidden={
+              !!creating || !!renaming || !!reconnecting || !!selectedEdge
+            }
+          />
+        )}
         {selectedEdge && (
           <GraphEdgeHandles
             key={snapshot?.datasetEpoch + edgeKey(selectedEdge)}
@@ -1467,6 +1529,12 @@ export function GraphPanel() {
                   panel: "graph",
                 });
               },
+            },
+            {
+              label: "Connect nodes",
+              key: "D",
+              enabled: !!snapshot?.entities.some((e) => e.iri === context.iri),
+              run: () => beginConnection(context.iri),
             },
             {
               label: "New instance",
