@@ -231,3 +231,69 @@ D:\git\axiom\artifacts\electron-20260915T195959Z\Axiom-win32-x64\Axiom.exe
 ```
 
 The [delivery record](../artifacts/testing/adaptive-pane-delivery-verification.json) contains SHA-256 hashes and the runtime comparison. The [desktop report](../artifacts/adaptive-desktop-results.json) records the initial packaged run. The [follow-up report](../artifacts/adaptive-desktop-followup.json) and [final query checks](../artifacts/adaptive-desktop-final.json) cover the remaining cases. The initial run passed 140 cases; follow-ups updated the remaining compact-control interactions and repeated cases that received unexpected A/W text. The last two query checks used AXIOM_TEST_BACKGROUND=1 to isolate test windows from physical desktop input. The large-dataset query assertion allows 30 seconds for the same expected 103 rows. These are local artifacts. The [design research](adaptive-pane-ux.md) records sources, layout rules and remaining usability measurements. Real-assistant tests were not rerun for this layout change; ordinary desktop tests use controlled assistant responses.
+
+
+## Assistant activity and duplicate-run protection
+
+Research, Query generation and both taxonomy suggestion actions now show a fixed activity strip on their owning pane, with assistant/task text, elapsed time and Cancel. A tab spinner remains visible when another tab is selected. Query feedback survives closing its composer, and reopening Research or Query restores the active request. Taxonomy repeats the status in its review dialog. All use the same synchronous launch reservation, with cancellation retaining the lock until the request settles. [Assistant activity behavior](assistant-activity.md) describes the lifecycle.
+
+The offline suite passes 1,940 tests across 23 files. The packaged executable passes all 32 desktop checks for adaptive panes, assistant activity, query authoring and taxonomy suggestions. The new cases exercise 100 repeated clicks and 100 direct IPC retries, cancellation, malformed output, reopening panes, both taxonomy modes, original entity attribution, detached narrow/shallow/recovery layouts, reduced motion and a targeted axe scan of the activity strip. Type checking and formatting pass. The package's 24 runtime files match the tested build byte for byte.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260915T221124Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/assistant-activity-delivery-verification.json) contains executable/archive hashes, runtime comparison and test results. The [packaged desktop report](../artifacts/assistant-activity-packaged.json) records all 32 passing cases. Desktop checks use controlled assistant subprocesses; live Codex and Claude services were not invoked.
+
+
+## Persistent Research cache
+
+Research now caches validated results by the MD5 hash of the exact prompt. An identical prompt reuses its original result before assistant discovery or launch. Cached results show their original assistant and completion time. Internal session/version counters remain local freshness checks, so unchanged prompts can survive workspace reopening and app restart. Prompt text, whitespace, ontology context and web-setting changes produce separate cache entries. [Cache behavior](assistant-activity.md#research-cache) describes persistence and failure handling.
+
+All 1,958 offline tests pass across 24 files, including 18 new cache cases. The packaged executable passes 13 desktop checks covering Research cache reuse across workspace reopening and app restart, reuse when no CLI is reported available, changed prompts, assistant lifecycle and adaptive panes. Type checking and formatting pass. The package's 24 runtime files match the tested build.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260915T222516Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/research-cache-delivery-verification.json) contains hashes and validation results. The [packaged report](../artifacts/research-cache-packaged.json) records all 13 passing desktop cases. Tests use controlled local assistant subprocesses and do not invoke live Codex or Claude services.
+
+
+## Plain-language taxonomy suggestions
+
+Add children and Find instances now send their branch context to Codex as ordinary text. The prompt retains names, descriptions, parent links, descendants and class conditions. It invites general subject knowledge even when no children are recorded. Codex returns a short outline of names, descriptions and reasons. Axiom parses it and assigns entity kinds and parent relationships locally, then uses the existing review, duplicate checks, Apply and Undo workflow.
+
+All 1,988 offline tests pass across 25 files, including 30 new translation and parsing cases. The 26 desktop checks pass for taxonomy suggestions, assistant activity, Research caching and query authoring. Type checking and formatting checks pass. Four checks against the packaged executable cover class and individual creation, repeated-run protection and persistent Research caching. Its 24 runtime files match the tested build byte for byte.
+
+All five live taxonomy cases pass with Codex 0.154.0: missing vehicle categories, a complete RGB branch, named planets, the shipped Pizza branch and Meaty Pizza without recorded children. Meaty Pizza returned eight suggestions, including Pepperoni Pizza, Sausage Pizza and Ham Pizza. The test accepted one suggestion and undid its creation. These are observed responses from model knowledge; proposed membership still needs user review. An initial Meaty Pizza test used search text that did not match the existing hierarchy filter and stopped before invoking Codex. The corrected test searches for Meaty and selects the Meaty Pizza row.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260915T224749Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/taxonomy-language-delivery-verification.json) contains hashes and validation results. The [desktop report](../artifacts/taxonomy-language-desktop.json), [live Codex report](../artifacts/taxonomy-language-live.json) and [packaged report](../artifacts/taxonomy-language-packaged.json) retain the results. [Taxonomy suggestions](taxonomy-suggestions.md) describes the exchange and unchanged review workflow.
+
+
+## Instance reports and grouped menus
+
+Show instances opens one paged Individuals report from hierarchy and graph context menus, the graph selection bar, hierarchy counts, Inspector usage counts and the Edit menu. The existing Individuals class filters use the same report. Each page contains at most 100 direct instances; filtering and paging leave the graph unchanged. Named and generated records share the same membership lookup used by the hierarchy count. Report rows open Inspector details, and the report retains its class when selection changes or its pane is closed and reopened.
+
+The approved [menu design](menu-ux.md) is implemented with logical separators, checked pin state, conditional class commands and Delete class last. Window has a Move pane submenu. Context menus retain access keys, keyboard navigation and focus restoration; disabled items can receive focus without executing.
+
+All 1,999 offline tests pass across 26 files. Eight new desktop checks cover every report entry point, all 527 Giardiniera records, empty classes, ordinary ontologies, workspace replacement, detached panes and targeted accessibility scans in light, dark and forced colors. Nine related menu, keyboard and graph-editing regressions pass. The nine taxonomy assistant cases also pass in the earlier combined run. Type checking, formatting and the whitespace check pass.
+
+The packaged executable passes all eight new cases and the native Edit menu report case. Its 24 runtime files match the tested build byte for byte. Screenshots were inspected for the grouped menu and shallow report. Accessibility verification used automated scans and keyboard tests; an actual screen-reader pass and a user task-time study have not been performed.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T022626Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/instances-menu-delivery-verification.json) contains hashes and validation results. The [report and menu checks](../artifacts/instances-menu-desktop.json), [related regressions](../artifacts/instances-menu-regressions.json) and [packaged checks](../artifacts/instances-menu-packaged.json) retain the passing outcomes. The earlier combined run found an access-key label mismatch in the new menu tests; it was corrected before these final runs. Taxonomy regression tests use controlled assistant subprocesses.
