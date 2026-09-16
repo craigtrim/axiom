@@ -69,6 +69,7 @@ export const request = <T = unknown>(
     "select",
     "selectEdge",
     "edgeDocument",
+    "graphInteraction",
     "motion",
   ].includes(method)
     ? Promise.resolve()

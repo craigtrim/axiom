@@ -81,6 +81,8 @@ const methods = new Set<DomainMethod>([
   "selectEdge",
   "edgeDocument",
   "editEdge",
+  "createEdge",
+  "graphInteraction",
   "routeEdge",
   "inspector",
   "instances",

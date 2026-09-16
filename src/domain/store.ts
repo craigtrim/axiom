@@ -608,13 +608,17 @@ export class Store {
     );
     return nextIri;
   }
-  editEdge(original: Triple, replacement?: Triple) {
-    validateStatement(original);
-    if (original.object.literal)
+  createEdge(statement: Triple) {
+    this.editEdge(undefined, statement);
+  }
+  editEdge(original: Triple | undefined, replacement?: Triple) {
+    if (!original && !replacement) throw Error("Choose a relationship to add.");
+    if (original) validateStatement(original);
+    if (original?.object.literal)
       throw Error("Select a relationship between resources.");
-    const index = this.tbox.findIndex(
-      (t) => statementKey(t) === statementKey(original),
-    );
+    const index = original
+      ? this.tbox.findIndex((t) => statementKey(t) === statementKey(original))
+      : this.tbox.length;
     if (index < 0)
       throw Error("This relationship changed. Select the edge again.");
     if (replacement) {
@@ -626,9 +630,10 @@ export class Store {
         !this.entities.has(replacement.object.value)
       )
         throw Error("Choose existing ontology entities as the endpoints.");
-      if (replacement.graph !== original.graph)
+      if (original && replacement.graph !== original.graph)
         throw Error("Keep the relationship in its original statement graph.");
-      if (statementKey(replacement) === statementKey(original)) return;
+      if (original && statementKey(replacement) === statementKey(original))
+        return;
       if (this.tbox.some((t) => statementKey(t) === statementKey(replacement)))
         throw Error(
           "That relationship already exists in this statement graph.",
@@ -636,22 +641,22 @@ export class Store {
     }
     const before = this.schemaState();
     this.record(
-      replacement ? "Edit edge" : "Remove edge",
+      original ? (replacement ? "Edit edge" : "Remove edge") : "Add edge",
       () => {
         this.tbox.splice(
           index,
-          1,
+          original ? 1 : 0,
           ...(replacement ? [structuredClone(replacement)] : []),
         );
         const projected = projectEntities(this.tbox);
         if (this.ontology.assertedOnly)
           for (const [iri, e] of projected) this.entities.set(iri, e);
         const subjects = new Set([
-          original.subject,
+          ...(original ? [original.subject] : []),
           ...(replacement ? [replacement.subject] : []),
         ]);
         const predicates = new Set([
-          original.predicate,
+          ...(original ? [original.predicate] : []),
           ...(replacement ? [replacement.predicate] : []),
         ]);
         for (const iri of subjects) {
@@ -721,24 +726,34 @@ export class Store {
     for (const t of next) validateStatement(t);
     const projected = projectEntities(next);
     const before = {
-      schema: this.schemaState(), ontology: structuredClone(this.ontology),
-      individuals: this.individuals, customers: this.customers,
+      schema: this.schemaState(),
+      ontology: structuredClone(this.ontology),
+      individuals: this.individuals,
+      customers: this.customers,
     };
-    this.record("Edit ontology source", () => {
-      this.tbox = structuredClone(next);
-      this.entities = new Map(structuredClone([...projected]));
-      this.ontology = { ...this.ontology, assertedOnly: true, example: false };
-      this.individuals = [];
-      this.customers = [];
-      this.indexGenerated();
-      this.rebuildSchema();
-    }, () => {
-      this.ontology = structuredClone(before.ontology);
-      this.individuals = before.individuals;
-      this.customers = before.customers;
-      this.indexGenerated();
-      this.restoreSchema(before.schema);
-    });
+    this.record(
+      "Edit ontology source",
+      () => {
+        this.tbox = structuredClone(next);
+        this.entities = new Map(structuredClone([...projected]));
+        this.ontology = {
+          ...this.ontology,
+          assertedOnly: true,
+          example: false,
+        };
+        this.individuals = [];
+        this.customers = [];
+        this.indexGenerated();
+        this.rebuildSchema();
+      },
+      () => {
+        this.ontology = structuredClone(before.ontology);
+        this.individuals = before.individuals;
+        this.customers = before.customers;
+        this.indexGenerated();
+        this.restoreSchema(before.schema);
+      },
+    );
   }
   private record(label: string, redo: () => void, undo: () => void) {
     redo();

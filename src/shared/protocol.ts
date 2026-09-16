@@ -97,6 +97,8 @@ export type DomainMethod =
   | "selectEdge"
   | "edgeDocument"
   | "editEdge"
+  | "createEdge"
+  | "graphInteraction"
   | "routeEdge"
   | "inspector"
   | "instances"

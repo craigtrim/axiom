@@ -171,6 +171,11 @@ function runLayout(fresh = true) {
   ) {
     if (external !== task) return;
     clearTimeout(task.timer);
+    // Keep an in-flight layout from moving the endpoints during a connection.
+    if (!error && graphInteractions.size) {
+      task.timer = setTimeout(() => finish(undefined, positions), 25);
+      return;
+    }
     void worker.terminate();
     external = undefined;
     if (epoch !== datasetEpoch || revision !== view.revision) return;
@@ -215,6 +220,7 @@ const tracked = new Set<DomainMethod>([
   "updateEntity",
   "applySource",
   "editEdge",
+  "createEdge",
   "routeEdge",
   "deleteClass",
   "editCell",
@@ -226,12 +232,14 @@ const tracked = new Set<DomainMethod>([
   "applySuggestions",
   "applyTaxonomySuggestions",
 ]);
+const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 async function operate(method: DomainMethod, args: Record<string, unknown>) {
   if (["new", "example", "load", "importRdf"].includes(method)) {
     if (method !== "load") stopExternal();
     const value = await dispatch(method, args);
     history.clear();
+    graphInteractions.clear();
     dragBefore = undefined;
     documentRevision = savedRevision = 0;
     publish();
@@ -773,6 +781,53 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
             : "This edge summarizes an ontology axiom. Its underlying axiom must be edited as a whole; the line can still be rerouted here.",
       };
     }
+    case "graphInteraction": {
+      if (a.datasetEpoch !== datasetEpoch) return false;
+      const token = string(a, "token", 128);
+      if (a.active === true) graphInteractions.add(token);
+      else graphInteractions.delete(token);
+      return true;
+    }
+    case "createEdge": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error("The ontology changed. Start the connection again.");
+      const statement = a.statement as Triple;
+      validateStatement(statement);
+      if (statement.object.literal)
+        throw Error("Choose a resource as the edge target.");
+      const endpoints = [statement.subject, statement.object.value];
+      const needed = new Set(endpoints.filter((iri) => !view.nodes.has(iri)))
+        .size;
+      const room =
+        view.budget -
+        view.nodes.size +
+        (view.evictionMode === "refuse"
+          ? 0
+          : view.evictionOrder().filter((n) => !endpoints.includes(n.iri))
+              .length);
+      if (needed > room)
+        throw Error("The graph is full. Make room for the endpoints first.");
+      store.createEdge(statement);
+      view.refresh();
+      // Reserve both endpoints before admitting a node into a full graph.
+      for (const node of view
+        .evictionOrder()
+        .filter((n) => !endpoints.includes(n.iri))
+        .slice(0, Math.max(0, needed - (view.budget - view.nodes.size))))
+        view.remove(node.iri);
+      view.admit(endpoints);
+      const key = edgeKey({
+        source: statement.subject,
+        predicate: statement.predicate,
+        target: statement.object.value,
+      });
+      selected = view.selected = null;
+      view.selectedEdge = view.edges.has(key) ? key : null;
+      dirty = true;
+      tableCache = undefined;
+      changed("Relationship added. Use Undo to remove it.");
+      return key;
+    }
     case "editEdge": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error("The ontology changed. Reload the edge before saving.");
@@ -1291,7 +1346,12 @@ parentPort!.on(
 );
 let lastPositions = 0;
 function simulate() {
-  if (frozen || layouts.resolved !== "force" || view.alpha < 0.004) {
+  if (
+    frozen ||
+    graphInteractions.size ||
+    layouts.resolved !== "force" ||
+    view.alpha < 0.004
+  ) {
     setTimeout(simulate, 25);
     return;
   }
