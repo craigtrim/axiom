@@ -94,6 +94,11 @@ test.beforeEach(async () => {
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env,
   });
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows())
+        window.setFocusable(false);
+    });
   page = await app.firstWindow();
   bridge = page;
   page.on("pageerror", (e) => errors.push(e.message));
@@ -262,7 +267,7 @@ test("rejects stale proposals and retains the ontology when it changes during or
   ).rejects.toThrow(/ontology changed/);
   await writeFile(behavior, '{"delay":1500}');
   await dialog.getByRole("button", { name: "Find suggestions again" }).click();
-  await expect(dialog).toContainText("Codex is examining");
+  await expect(dialog).toContainText("Finding child classes");
   await menu("file.new");
   await expect(
     dialog.getByRole("button", { name: "Find suggestions again" }),

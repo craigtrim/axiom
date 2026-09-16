@@ -176,10 +176,10 @@ test("Research retains prompt, operation, attribution and selection across pane 
   });
   await pane.getByRole("button", { name: "Run research", exact: true }).click();
   await expect(
-    pane.getByRole("button", { name: "Cancel research" }),
+    root.getByRole("button", { name: "Cancel research" }),
   ).toBeVisible();
   await resize(child, 360, 740, "narrow");
-  await fits(root, pane.getByRole("button", { name: "Cancel research" }));
+  await fits(root, root.getByRole("button", { name: "Cancel research" }));
   await main.evaluate(async () => {
     const iri = await window.axiom.request<string>("createClass", {
       name: "Other",
@@ -187,11 +187,11 @@ test("Research retains prompt, operation, attribution and selection across pane 
     });
     await window.axiom.request("select", { iri });
   });
-  await expect(pane.locator(".research-status")).toContainText(
+  await expect(root.locator(".assistant-activity")).toContainText(
     "Researching Thing",
   );
   await resize(child, 1100, 300, "shallow");
-  await fits(root, pane.getByRole("button", { name: "Cancel research" }));
+  await fits(root, root.getByRole("button", { name: "Cancel research" }));
   await app.evaluate(() => (globalThis as any).adaptiveResearch.finish());
   await expect(pane.locator(".research-result-title")).toHaveText(
     "Results for Thing",

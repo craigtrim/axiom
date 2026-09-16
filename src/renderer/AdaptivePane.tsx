@@ -8,6 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  AssistantActivity,
+  paneAssistant,
+  useAssistantActivity,
+} from "./AssistantActivity";
 import { suspendMenus } from "./access-keys";
 
 export interface PaneLayout {
@@ -68,6 +73,8 @@ export function AdaptivePane({
   visual?: boolean;
   maximize: () => void;
 }) {
+  const assistantKind = paneAssistant(paneId);
+  const activity = useAssistantActivity(assistantKind);
   const root = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const recover = useRef<HTMLButtonElement>(null);
@@ -130,7 +137,9 @@ export function AdaptivePane({
         data-pane-visual={visual}
         data-pane-name={name}
         data-pane-id={paneId}
+        data-assistant-running={!!activity}
       >
+        <AssistantActivity kind={assistantKind} />
         <div
           ref={content}
           className="adaptive-pane-content"

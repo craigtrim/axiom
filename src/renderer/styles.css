@@ -2710,3 +2710,69 @@ a {
 .provenance-status p {
   margin: 4px 0;
 }
+
+/* Assistant status belongs to the pane and remains outside scrolling content. */
+.assistant-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--stroke);
+  background: var(--surface-alt);
+  font-size: 12px;
+}
+.assistant-activity-label {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.assistant-activity button {
+  flex: 0 0 auto;
+}
+.assistant-elapsed {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-spinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--stroke-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: assistant-spin 0.8s linear infinite;
+}
+.assistant-tab-activity {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 5px;
+}
+.adaptive-pane[data-assistant-running="true"] {
+  display: flex;
+  flex-direction: column;
+}
+.adaptive-pane[data-assistant-running="true"] > .adaptive-pane-content {
+  flex: 1;
+  height: 0;
+}
+.adaptive-pane[data-assistant-running="true"] > .pane-recovery {
+  position: relative;
+  flex: 1;
+}
+.adaptive-pane[data-pane-narrow="true"] > .assistant-activity {
+  flex-wrap: wrap;
+}
+@keyframes assistant-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.adaptive-pane[data-assistant-running="true"][data-pane-recovery="true"]
+  > .adaptive-pane-content {
+  position: absolute;
+  height: 0;
+}

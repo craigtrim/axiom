@@ -1,3 +1,4 @@
+import { assistantActivities, useAssistantActivity } from "./AssistantActivity";
 import { PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import { panel, savePanel, request, useSnapshot } from "./client";
@@ -32,11 +33,9 @@ export function QueryComposer({
   const [status, setStatus] = useState<QueryAssistantStatus>({
     running: false,
   });
-  const [error, setError] = useState(""),
-    [starting, setStarting] = useState(false),
-    [now, setNow] = useState(Date.now());
-  const live = useRef(true),
-    busy = useRef(false);
+  const [error, setError] = useState("");
+  const activity = useAssistantActivity("query");
+  const live = useRef(true);
   const refresh = () =>
     window.axiom.queryAssistant
       .assistants()
@@ -61,13 +60,12 @@ export function QueryComposer({
       polling = true;
       try {
         const s = await window.axiom.queryAssistant.status();
-        if (live.current && !busy.current) setStatus(s);
+        if (live.current && !assistantActivities.get("query")) setStatus(s);
       } catch (e) {
         if (live.current) setError((e as Error).message);
       } finally {
         polling = false;
       }
-      if (live.current) setNow(Date.now());
     };
     void poll();
     const timer = setInterval(() => void poll(), 1000);
@@ -91,7 +89,7 @@ export function QueryComposer({
       clearTimeout(timer);
     };
   }, [instructions, snapshot.version, snapshot.datasetEpoch]);
-  const running = starting || status.running,
+  const running = !!activity,
     available = assistants.find((a) => a.id === provider);
   const input = context && {
     provider,
@@ -102,23 +100,26 @@ export function QueryComposer({
     version: context.version,
   };
   const generate = async () => {
-    if (!input || running || busy.current) return;
-    busy.current = true;
-    setStarting(true);
+    if (!input || assistantActivities.get("query")) return;
     setError("");
     setStatus({ running: true, startedAt: Date.now() });
     try {
-      await flushQueryHistory();
-      const response = await window.axiom.queryAssistant.run(input);
+      const response = await assistantActivities.run(
+        "query",
+        (provider === "claude" ? "Claude" : "Codex") + " · Generating query…",
+        async (checkCancelled) => {
+          await flushQueryHistory();
+          checkCancelled();
+          return window.axiom.queryAssistant.run(input);
+        },
+        () => window.axiom.queryAssistant.cancel(),
+      );
       if (live.current) setStatus({ running: false, response });
     } catch (e) {
       if (live.current) {
         setError((e as Error).message);
         setStatus({ running: false });
       }
-    } finally {
-      busy.current = false;
-      if (live.current) setStarting(false);
     }
   };
   return (
@@ -139,17 +140,6 @@ export function QueryComposer({
         >
           {status.response ? "Generate again" : "Generate query"}
         </button>
-        {running && (
-          <button
-            onClick={() =>
-              void window.axiom.queryAssistant
-                .cancel()
-                .catch((e) => setError(e.message))
-            }
-          >
-            Cancel generation
-          </button>
-        )}
       </div>
       <div className="query-composer-body">
         <textarea
@@ -212,13 +202,6 @@ export function QueryComposer({
             Generated SPARQL opens as a new query. Your current query is kept.
           </p>
         </PaneDetails>
-        {running && (
-          <p role="status">
-            Generating query ·{" "}
-            {Math.max(0, Math.floor((now - (status.startedAt ?? now)) / 1000))}
-            s. You can close this form and keep working.
-          </p>
-        )}
         {(error || status.error) && (
           <p role="alert" className="query-error">
             {error || status.error}

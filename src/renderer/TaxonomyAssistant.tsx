@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  AssistantActivity,
+  assistantActivities,
+  cancelAssistant,
+  useAssistantActivity,
+} from "./AssistantActivity";
 import { Modal } from "./Dialogs";
 import { request, report, useSnapshot, flushUiHistory } from "./client";
 import {
@@ -23,6 +29,7 @@ export function TaxonomyAssistant({
   added: () => void;
 }) {
   const snapshot = useSnapshot()!;
+  const activity = useAssistantActivity("taxonomy");
   const [context, setContext] = useState<TaxonomyContext>();
   const [response, setResponse] = useState<TaxonomyResponse>();
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -47,27 +54,49 @@ export function TaxonomyAssistant({
       .filter((i) => !response.issues[i]) ?? [];
 
   async function generate() {
+    if (assistantActivities.get("taxonomy")) {
+      if (job.current) return;
+      setBusy(false);
+      setError(
+        "Suggestions are already running. Wait for completion or cancel the task in Hierarchy.",
+      );
+      return;
+    }
     const ticket = ++generation.current;
     setBusy(true);
     setCancelled(false);
     setError("");
     setResponse(undefined);
     setSelected(new Set());
+    job.current = crypto.randomUUID();
+    const id = job.current;
     try {
-      const next = await request<TaxonomyContext>("taxonomyContext", {
-        iri,
-        mode,
-      });
-      if (ticket !== generation.current) return;
-      setContext(next);
-      job.current = crypto.randomUUID();
-      const result = await window.axiom.taxonomyAssistant.run({
-        id: job.current,
-        iri,
-        mode,
-        datasetEpoch: next.datasetEpoch,
-        version: next.version,
-      });
+      const result = await assistantActivities.run(
+        "taxonomy",
+        "Codex · " +
+          (children ? "Finding child classes" : "Finding instances") +
+          " for " +
+          name +
+          "…",
+        async (checkCancelled) => {
+          const next = await request<TaxonomyContext>("taxonomyContext", {
+            iri,
+            mode,
+          });
+          checkCancelled();
+          if (ticket !== generation.current)
+            throw Error("Assistant cancelled.");
+          setContext(next);
+          return window.axiom.taxonomyAssistant.run({
+            id,
+            iri,
+            mode,
+            datasetEpoch: next.datasetEpoch,
+            version: next.version,
+          });
+        },
+        () => window.axiom.taxonomyAssistant.cancel(id),
+      );
       if (ticket !== generation.current) return;
       setResponse(result);
     } catch (e) {
@@ -83,22 +112,12 @@ export function TaxonomyAssistant({
     void generate();
     return () => {
       generation.current++;
-      if (job.current)
-        void window.axiom.taxonomyAssistant.cancel(job.current).catch(() => {});
+      if (job.current) void cancelAssistant("taxonomy");
     };
   }, []);
   async function cancel() {
     setCancelled(true);
-    if (job.current) {
-      try {
-        await window.axiom.taxonomyAssistant.cancel(job.current);
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    } else {
-      generation.current++;
-      setBusy(false);
-    }
+    await cancelAssistant("taxonomy");
   }
   async function apply() {
     if (!response || stale || applying) return;
@@ -140,6 +159,7 @@ export function TaxonomyAssistant({
       }}
       document={doc}
     >
+      <AssistantActivity kind="taxonomy" controls={false} />
       <div className="taxonomy-assistant" aria-busy={busy || applying}>
         <p className="muted">
           {children
@@ -215,13 +235,6 @@ export function TaxonomyAssistant({
               </button>
             </details>
           </details>
-        )}
-        {busy && (
-          <p role="status">
-            {cancelled
-              ? "Cancelling Codex…"
-              : "Codex is examining this branch…"}
-          </p>
         )}
         {!busy && cancelled && (
           <p role="status">Cancelled. No entities were added.</p>
@@ -322,12 +335,18 @@ export function TaxonomyAssistant({
         )}
         <footer>
           {busy ? (
-            <button onClick={() => void cancel()} disabled={cancelled}>
+            <button
+              onClick={() => void cancel()}
+              disabled={activity?.cancelling}
+            >
               Cancel
             </button>
           ) : (
             <>
-              <button onClick={() => void generate()} disabled={applying}>
+              <button
+                onClick={() => void generate()}
+                disabled={applying || !!activity}
+              >
                 Find suggestions again
               </button>
               <button onClick={close} disabled={applying}>

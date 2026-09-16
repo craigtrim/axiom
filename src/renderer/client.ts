@@ -1,3 +1,4 @@
+import { assistantActivities } from "./assistant-activity";
 import { useSyncExternalStore } from "react";
 import type {
   Snapshot,
@@ -259,6 +260,11 @@ export async function flushUiHistory() {
 
 const researchCommands: string[] = [];
 export function queueResearchCommand(action: string) {
+  if (
+    action === "run" &&
+    (assistantActivities.get("research") || researchCommands.includes("run"))
+  )
+    return;
   researchCommands.push(action);
   command("research.pending");
 }

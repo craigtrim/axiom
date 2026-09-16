@@ -1,5 +1,10 @@
 import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
+import {
+  assistantActivities,
+  cancelAssistant,
+  useAssistantActivity,
+} from "./AssistantActivity";
 import { Modal } from "./Dialogs";
 import {
   request,
@@ -34,14 +39,14 @@ export function ResearchPanel() {
       panel("research.templates", {}),
     ),
     [web, setWeb] = useState(panel("research.web", true)),
-    [running, setRunning] = useState(false),
-    [activeEntity, setActiveEntity] = useState(""),
     [pendingAction, setPendingAction] = useState(""),
     [commandVersion, setCommandVersion] = useState(0),
     [response, setResponse] = useState<ResearchResponse>(),
     [selected, setSelected] = useState<number[]>([]),
     [error, setError] = useState(""),
     [applied, setApplied] = useState(false);
+  const activity = useAssistantActivity("research");
+  const running = !!activity;
   const instructions =
     prompts[template] ??
     researchTemplates.find((t) => t.id === template)!.instructions;
@@ -67,11 +72,13 @@ export function ResearchPanel() {
         .status()
         .then((s) => {
           if (!live) return;
-          setRunning(s.running);
-          if (s.activeEntity) setActiveEntity(s.activeEntity);
+          if (assistantActivities.get("research")) return;
           if (s.response)
             setResponse((old) =>
-              old?.completedAt === s.response!.completedAt ? old : s.response,
+              old?.completedAt === s.response!.completedAt &&
+              old?.responseId === s.response!.responseId
+                ? old
+                : s.response,
             );
           if (s.error) setError(s.error);
         })
@@ -106,7 +113,7 @@ export function ResearchPanel() {
   useEffect(() => {
     setSelected([]);
     setApplied(false);
-  }, [response?.completedAt]);
+  }, [response?.completedAt, response?.responseId]);
   const edit = (value: string) => {
     const next = { ...prompts, [template]: value };
     savePanel("research.templates", prompts, false);
@@ -118,35 +125,37 @@ export function ResearchPanel() {
     (response.context.datasetEpoch !== snapshot?.datasetEpoch ||
       response.context.version !== snapshot?.version);
   const run = async () => {
-    if (!context || running) return;
-    if (
-      !assistants.find((a) => a.id === provider)?.available ||
-      !instructions.trim()
-    ) {
-      setError(
-        "Choose an available assistant and enter research instructions.",
-      );
+    if (!context || assistantActivities.get("research")) return;
+    if (!instructions.trim()) {
+      setError("Enter research instructions.");
       return;
     }
-    setActiveEntity(context.entity.name);
-    setRunning(true);
     setError("");
     setSelected([]);
     try {
       setResponse(
-        await window.axiom.research.run({
-          provider,
-          iri: context.entity.iri,
-          datasetEpoch: context.datasetEpoch,
-          version: context.version,
-          instructions,
-          web,
-        }),
+        await assistantActivities.run(
+          "research",
+          (provider === "claude" ? "Claude" : "Codex") +
+            " · Researching " +
+            context.entity.name +
+            "…",
+          async (checkCancelled) => {
+            checkCancelled();
+            return window.axiom.research.run({
+              provider,
+              iri: context.entity.iri,
+              datasetEpoch: context.datasetEpoch,
+              version: context.version,
+              instructions,
+              web,
+            });
+          },
+          () => window.axiom.research.cancel(),
+        ),
       );
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setRunning(false);
     }
   };
   const open = (url: string) =>
@@ -180,7 +189,7 @@ export function ResearchPanel() {
     }
     if (pendingAction === "cancel") {
       setPendingAction("");
-      void window.axiom.research.cancel();
+      void cancelAssistant("research");
       report("Research cancellation requested.");
       return;
     }
@@ -207,8 +216,7 @@ export function ResearchPanel() {
   const showOptions = !compact || optionsOpen || focusedOptions;
   const assistant = assistants.find((a) => a.id === provider);
   const activeTemplate = researchTemplates.find((t) => t.id === template)!;
-  const canRun =
-    !!context && !!assistant?.available && !!instructions.trim() && !running;
+  const canRun = !!context && !!instructions.trim() && !running;
   const apply = async () => {
     if (!response || stale || applied || !selected.length) return;
     try {
@@ -239,7 +247,9 @@ export function ResearchPanel() {
           collapseAt={1400}
           secondary={
             <>
-              <button onClick={() => void refresh()}>Refresh assistants</button>
+              <button disabled={running} onClick={() => void refresh()}>
+                Refresh assistants
+              </button>
               <button
                 disabled={!context}
                 onClick={(event) =>
@@ -269,27 +279,13 @@ export function ResearchPanel() {
             </>
           }
         >
-          {!running && (
-            <button
-              className="primary"
-              disabled={!canRun}
-              onClick={() => void run()}
-            >
-              Run research
-            </button>
-          )}
-          {running && (
-            <button
-              className="primary"
-              onClick={() =>
-                void window.axiom.research
-                  .cancel()
-                  .catch((e) => setError(e.message))
-              }
-            >
-              Cancel research
-            </button>
-          )}
+          <button
+            className="primary"
+            disabled={!canRun}
+            onClick={() => void run()}
+          >
+            Run research
+          </button>
           <button
             ref={optionsButton}
             aria-expanded={showOptions}
@@ -318,15 +314,25 @@ export function ResearchPanel() {
             ? " · Custom prompt"
             : ""}
         </span>
-        {running && (
-          <strong>Researching {activeEntity || "the requested entity"}…</strong>
-        )}
         {!running && !context && <span>Select an entity to begin.</span>}
         {!running && context && !assistant?.available && (
-          <span>Choose an available assistant in Options.</span>
+          <span>
+            Cached results can be reused. Choose an available assistant in
+            Options for new research.
+          </span>
         )}
         {!running && context && !instructions.trim() && (
           <span>Enter instructions in Options.</span>
+        )}
+        {!running && response?.cache?.hit && (
+          <span className="research-cache-status">
+            Using cached research ·{" "}
+            {response.provider === "claude" ? "Claude" : "Codex"} ·{" "}
+            {new Date(response.completedAt).toLocaleString()}
+          </span>
+        )}
+        {!running && response?.cache?.warning && (
+          <span role="alert">{response.cache.warning}</span>
         )}
         {stale && !applied && (
           <span className="stale">
@@ -363,6 +369,7 @@ export function ResearchPanel() {
               Assistant
               <select
                 aria-label="Research assistant"
+                disabled={running}
                 value={provider}
                 onChange={(event) => {
                   setProvider(event.target.value as AssistantId);
@@ -381,6 +388,7 @@ export function ResearchPanel() {
               Prompt template
               <select
                 aria-label="Research prompt template"
+                disabled={running}
                 value={template}
                 onChange={(event) => {
                   setTemplate(event.target.value);
@@ -398,6 +406,7 @@ export function ResearchPanel() {
               Instructions
               <textarea
                 aria-label="Research instructions"
+                disabled={running}
                 rows={7}
                 maxLength={20000}
                 value={instructions}
@@ -408,6 +417,7 @@ export function ResearchPanel() {
               <input
                 type="checkbox"
                 checked={web}
+                disabled={running}
                 onChange={(event) => {
                   setWeb(event.target.checked);
                   savePanel("research.web", event.target.checked, false);
@@ -419,7 +429,10 @@ export function ResearchPanel() {
           <p className="muted research-assistant-status">
             {assistant?.message}
           </p>
-          <button onClick={() => edit(activeTemplate.instructions)}>
+          <button
+            disabled={running}
+            onClick={() => edit(activeTemplate.instructions)}
+          >
             Restore default prompt
           </button>
           {context && (
@@ -437,7 +450,11 @@ export function ResearchPanel() {
             </details>
           )}
         </div>
-        <div className="research-results" hidden={compact && showOptions}>
+        <div
+          className="research-results"
+          aria-busy={running}
+          hidden={compact && showOptions}
+        >
           {!response && (
             <div className="pane-empty">
               <h3>

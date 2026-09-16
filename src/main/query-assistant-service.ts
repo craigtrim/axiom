@@ -58,7 +58,10 @@ export class QueryAssistantService {
     return this.runner.assistants();
   }
   status() {
-    return this.current;
+    return {
+      ...this.current,
+      cancelling: this.current.running && this.cancelled,
+    };
   }
   cancel() {
     this.cancelled = true;
@@ -83,7 +86,11 @@ export class QueryAssistantService {
       throw Error(
         "Choose an assistant and describe the query (12,000 characters maximum).",
       );
-    this.current = { running: true, startedAt: Date.now() };
+    this.current = {
+      running: true,
+      startedAt: Date.now(),
+      provider: input.provider,
+    };
     this.cancelled = false;
     try {
       const context = await this.context(input.instructions);

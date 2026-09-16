@@ -19,7 +19,9 @@ async function launch() {
   page = await app.firstWindow();
   // Keep physical desktop input out of optional background validation runs.
   if (process.env.AXIOM_TEST_BACKGROUND === "1")
-    await (await app.browserWindow(page)).evaluate((win) => win.setFocusable(false));
+    await (
+      await app.browserWindow(page)
+    ).evaluate((win) => win.setFocusable(false));
   bridgePage = page;
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
@@ -229,13 +231,13 @@ test("unsupported requests keep the current query; invalid drafts open for corre
 test("cancels an agent and restores the composer when reopened", async () => {
   await compose("cancel generation");
   await expect(
-    composer().getByRole("button", { name: "Cancel generation", exact: true }),
+    page.getByRole("button", { name: "Cancel generation", exact: true }),
   ).toBeVisible();
   await closeComposer();
   await page
     .getByRole("button", { name: "Compose query", exact: true })
     .click();
-  await composer()
+  await page
     .getByRole("button", { name: "Cancel generation", exact: true })
     .click();
   await expect(composer().getByRole("alert")).toContainText("cancelled");

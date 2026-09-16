@@ -178,6 +178,13 @@ const queryAssistant = new QueryAssistantService(
   path.join(app.getPath("userData"), "query-runs"),
   (instructions) => request("queryContext", { instructions }),
 );
+let queryAssistantJob:
+  | {
+      cancelled: boolean;
+      startedAt: number;
+      provider: import("../shared/research").AssistantId;
+    }
+  | undefined;
 const provenance = new ProvenanceService(
   path.join(app.getPath("userData"), "provenance"),
   __dirname,
@@ -539,6 +546,11 @@ function refreshMenu() {
     "research.source.web",
   ])
     set(id, !!lastState?.selected);
+  set("research.run", !!lastState?.selected && !research.status().running);
+  set(
+    "research.cancel",
+    research.status().running && !research.status().cancelling,
+  );
   set("query.run", !queryRunning);
   set("query.cancel", queryRunning);
   set("query.graph", hasQueryResults && !queryRunning);
@@ -818,17 +830,40 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("queryAssistant:run", async (event, input) => {
     authorised(event);
-    const baseline = await queryHistory.baseline(input?.queryId);
-    const response = await queryAssistant.run(input);
-    await queryHistory.deliver(response, baseline);
-    return response;
+    if (queryAssistantJob) throw Error("Query generation is already running.");
+    const job = {
+      cancelled: false,
+      startedAt: Date.now(),
+      provider: input?.provider,
+    };
+    queryAssistantJob = job;
+    try {
+      const baseline = await queryHistory.baseline(input?.queryId);
+      if (job.cancelled) throw Error("Query generation cancelled.");
+      const response = await queryAssistant.run(input);
+      if (job.cancelled) throw Error("Query generation cancelled.");
+      await queryHistory.deliver(response, baseline);
+      return response;
+    } finally {
+      queryAssistantJob = undefined;
+    }
   });
   ipcMain.handle("queryAssistant:status", (event) => {
     authorised(event);
-    return queryAssistant.status();
+    const status = queryAssistant.status();
+    return queryAssistantJob
+      ? {
+          ...status,
+          running: true,
+          startedAt: queryAssistantJob.startedAt,
+          provider: queryAssistantJob.provider,
+          cancelling: queryAssistantJob.cancelled,
+        }
+      : status;
   });
   ipcMain.handle("queryAssistant:cancel", (event) => {
     authorised(event);
+    if (queryAssistantJob) queryAssistantJob.cancelled = true;
     queryAssistant.cancel();
   });
   ipcMain.handle("taxonomyAssistant:run", (event, input) => {
@@ -855,11 +890,14 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("research:run", (event, input) => {
     authorised(event);
-    return research.run(input);
+    const pending = research.run(input);
+    refreshMenu();
+    return pending.finally(() => refreshMenu());
   });
   ipcMain.handle("research:cancel", (event) => {
     authorised(event);
     research.cancel();
+    refreshMenu();
   });
   ipcMain.handle("research:status", (event) => {
     authorised(event);

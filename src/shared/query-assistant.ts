@@ -44,6 +44,8 @@ export interface QueryAssistantResponse {
 }
 export interface QueryAssistantStatus {
   running: boolean;
+  provider?: AssistantId;
+  cancelling?: boolean;
   startedAt?: number;
   response?: QueryAssistantResponse;
   error?: string;
