@@ -297,3 +297,52 @@ D:\git\axiom\artifacts\electron-20260916T022626Z\Axiom-win32-x64\Axiom.exe
 ```
 
 The [delivery record](../artifacts/testing/instances-menu-delivery-verification.json) contains hashes and validation results. The [report and menu checks](../artifacts/instances-menu-desktop.json), [related regressions](../artifacts/instances-menu-regressions.json) and [packaged checks](../artifacts/instances-menu-packaged.json) retain the passing outcomes. The earlier combined run found an access-key label mismatch in the new menu tests; it was corrected before these final runs. Taxonomy regression tests use controlled assistant subprocesses.
+
+
+## Counts and disabled collection actions
+
+Instance actions now show the direct-instance count everywhere they are offered. Show instances (0) remains visible and disabled; Show instances (527) opens the existing paged report. The shared rule covers hierarchy and graph menus, the graph selection button, hierarchy and Inspector counts, Edit, the command palette and class filters. Counts update after creation and Undo. Creation and discovery remain available for empty classes. The report and graph behavior are unchanged. [Menu design](menu-ux.md#counts-and-action-availability) records the rule and related branch and graph controls.
+
+All 1,999 offline tests pass across 26 files. Type checking, formatting and the whitespace check pass. The final outcomes of 22 packaged desktop checks pass, covering zero and positive counts, live creation/Undo, all report paths, disabled keyboard and palette invocation, class filters, graph preservation, detached panes and targeted accessibility scans in light, dark and forced colors. The checks also cover existing menu navigation, edge editing and taxonomy suggestions. The disabled zero-count menu was inspected visually.
+
+The first packaged run passed 21 checks; its remaining assertion used an exact palette label that omitted the displayed shortcut. The corrected assertion and the zero-count action test both passed on rerun. An earlier Windows keyboard run stopped when its window lost focus; the packaged run passed that check. These harness issues and final outcomes are recorded in the [delivery record](../artifacts/testing/instance-counts-delivery-verification.json), with the [packaged report](../artifacts/instance-counts-packaged.json) and [final control checks](../artifacts/instance-counts-final-controls.json).
+
+The package's 24 runtime files match the tested build byte for byte.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T140235Z\Axiom-win32-x64\Axiom.exe
+```
+
+
+## Research setup visible on first open
+
+Research now displays its assistant selector, prompt template, instructions and web setting immediately in every working pane layout. The Options/Results toggle and initial Ready to research placeholder are removed. Narrow and shallow panes keep the form and returned results in one scrolling body; wide, tall panes put results beside the form when a response exists. Run, progress, cancellation and Apply remain available outside the body scroller. Saved prompt text and Research caching are preserved.
+
+The packaged executable passes six focused desktop checks covering the initial form at narrow, shallow and expanded sizes; prompt and review state through docking; keyboard accessibility and targeted axe scans; duplicate-run protection; cancellation; cache reuse across reopening and restart; sources; and applying and undoing suggestions. Type checking, formatting and the whitespace check pass. The initial narrow form was inspected visually. The package's 24 runtime files match the tested build byte for byte.
+
+The existing review test was corrected to expect Cancel to be disabled after completion. Active cancellation through the native menu is verified by the assistant lifecycle test. Tests use controlled local assistant responses and do not invoke live assistants.
+
+Verified executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T150132Z\Axiom-win32-x64\Axiom.exe
+```
+
+The [delivery record](../artifacts/testing/research-form-delivery-verification.json) contains build hashes and verification results. The [packaged report](../artifacts/research-form-packaged.json) contains all six passing checks. [Adaptive pane behavior](adaptive-pane-ux.md#research-layouts) describes the revised layout.
+
+## Graph relationship creation (16 September 2026)
+
+Connect nodes now starts from the graph toolbar, node context menu, Graph > Edges, command palette or C shortcut. A selected node also has a 32-pixel drag handle. Node and label targets accept clicks or drops with a minimum 48-pixel target diameter at low zoom. Toolbar instructions and an arrow preview show the pending connection. A dialog confirms its direction and relationship before adding one assertion. Existing node dragging and edge editing remain available.
+
+Connection mode pauses layout movement and releases the pause on completion, cancellation or pane closure. It preserves the saved Freeze setting. Duplicate assertions, stale drafts and full-graph refusal leave data unchanged. Admission preserves both endpoints within the configured node budget. Undo and Redo restore the assertion and graph together.
+
+Validation:
+
+- TypeScript passed. All 2,009 offline tests passed across 27 files.
+- Fifteen distinct desktop workflows passed against the packaged executable. Coverage includes click and drag creation, low-zoom targets, keyboard and context commands, detached narrow panes, accessibility scans, duplicate and stale drafts, pause/resume, pane closure, graph limits, Undo/Redo and the five existing edge-editing workflows.
+- The initial capacity fixture protected every seeded node. The corrected fixture expands one root and leaves its children evictable; refusal, admission and stale-workspace checks then passed. Final results are collected by workflow in `artifacts/testing/edge-creation-delivery-verification.json`.
+- Every packaged JavaScript, CSS and HTML runtime file matched the current build. The verification record includes executable and archive SHA-256 hashes.
+
+Executable: `D:\git\axiom\artifacts\electron-20260916T153541Z\Axiom-win32-x64\Axiom.exe`.
