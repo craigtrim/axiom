@@ -1,8 +1,7 @@
 import { LocalAssistantRunner, discoverAssistants } from "./local-assistant";
 import {
   buildTaxonomyPrompt,
-  parseTaxonomyResult,
-  taxonomySchema,
+  parseTaxonomyReply,
   taxonomyMode,
   type TaxonomyContext,
   type TaxonomyRequest,
@@ -34,7 +33,10 @@ export class TaxonomyAssistantService {
     this.runner = new LocalAssistantRunner(root, discover, timeoutMs);
   }
   status() {
-    return this.current;
+    return {
+      ...this.current,
+      cancelling: this.current.running && this.cancelled,
+    };
   }
   cancel(id?: string) {
     if (id !== undefined && id !== this.current.id) return;
@@ -57,11 +59,17 @@ export class TaxonomyAssistantService {
     )
       throw Error("Choose a class to find suggestions.");
     taxonomyMode(input.mode);
-    this.current = { running: true, id: input.id };
+    this.current = {
+      running: true,
+      id: input.id,
+      startedAt: Date.now(),
+      mode: input.mode,
+    };
     this.cancelled = false;
     this.applied.clear();
     try {
       const context = await this.context(input);
+      this.current = { ...this.current, activeEntity: context.selected.label };
       if (
         context.datasetEpoch !== input.datasetEpoch ||
         context.version !== input.version
@@ -71,10 +79,10 @@ export class TaxonomyAssistantService {
       const raw = await this.runner.run(
         "codex",
         buildTaxonomyPrompt(context),
-        taxonomySchema,
+        null,
       );
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
-      const result = parseTaxonomyResult(raw);
+      const result = parseTaxonomyReply(raw, context);
       const issues = await this.validate(context, result.suggestions);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       const response = {

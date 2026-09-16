@@ -102,6 +102,26 @@ export function taxonomyContext(
       types: store.resolve(id)?.types ?? [],
     })),
   };
+  const terms = [
+    context.selected,
+    ...context.ancestors,
+    ...context.descendants,
+  ];
+  const refs = new Set(
+    terms.flatMap((t) => [
+      ...t.parents,
+      ...t.disjoint,
+      ...[...t.restrictions, ...t.equivalents].flatMap((r) => [
+        ...(r.property ? [r.property] : []),
+        ...r.fillers,
+      ]),
+    ]),
+  );
+  for (const example of context.existingInstances)
+    for (const type of example.types) refs.add(type);
+  context.names = Object.fromEntries(
+    [...refs].map((id) => [id, store.label(id)]),
+  );
   // Keep all links and definitions intact or stop before invoking the CLI.
   if (buildTaxonomyPrompt(context).length > 140000) throw tooLarge();
   return context;

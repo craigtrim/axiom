@@ -79,6 +79,11 @@ test.beforeEach(async ({}, info) => {
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env,
   });
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows())
+        window.setFocusable(false);
+    });
   page = await app.firstWindow();
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
@@ -148,10 +153,11 @@ async function generate(
   label: string,
   info: TestInfo,
   mode: "children" | "instances" = "children",
+  filter = label,
 ): Promise<TaxonomyResponse> {
   const before = await state();
   await menu("view.hierarchy");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill(label);
+  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill(filter);
   const row = page.locator(".tree-row").filter({
     has: page
       .locator(".tree-name")
@@ -324,4 +330,34 @@ test("Codex reviews the shipped Pizza branch with its full ancestry and descenda
     body: await page.screenshot(),
     contentType: "image/png",
   });
+});
+
+test("Codex suggests familiar meat pizza types when no children are recorded", async ({}, info) => {
+  await menu("file.example");
+  await expect.poll(async () => (await state()).ontology.example).toBe(true);
+  const before = await state();
+  const response = await generate("Meaty Pizza", info, "children", "Meaty");
+  expect(response.context.directChildren).toEqual([]);
+  expect(response.context.descendants).toEqual([]);
+  expect(response.result.suggestions.length).toBeGreaterThan(0);
+  const prompt = buildTaxonomyPrompt(response.context);
+  expect(prompt).toContain("Use your general subject knowledge");
+  expect(prompt).toContain('"Meat Topping"');
+  expect(prompt).not.toContain("parentIri");
+  expect(prompt).not.toContain(NS.pizza);
+  const suggestion = response.result.suggestions[0];
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("checkbox", { name: "Add " + suggestion.label, exact: true })
+    .check();
+  await dialog.getByRole("button", { name: /^Add selected children/ }).click();
+  await expect(dialog).toHaveCount(0);
+  const created = (await state()).entities.filter(
+    (e) => !before.entities.some((old) => old.iri === e.iri),
+  );
+  expect(created).toHaveLength(1);
+  expect(created[0].kind).toBe("Class");
+  expect(created[0].parents).toEqual([NS.pizza + "MeatyPizza"]);
+  await menu("edit.undo");
+  expect((await state()).classCount).toBe(before.classCount);
 });

@@ -73,13 +73,12 @@ test.beforeEach(async () => {
     `import fs from "node:fs";let prompt="";process.stdin.on("data",d=>prompt+=d);process.stdin.on("end",()=>{
     fs.writeFileSync(${JSON.stringify(path.join(profile, "prompt.txt"))},prompt);
     const behavior=JSON.parse(fs.readFileSync(${JSON.stringify(behavior)},"utf8"));
-    const c=JSON.parse(prompt.split("TAXONOMY CONTEXT\\n")[1]);
-    const kind=c.mode==="children"?"class":"individual";
-    const names=c.mode==="children"?["Water vehicle","Air vehicle"]:["Apollo 15 rover"];
-    const suggestions=names.map(label=>({kind,label,parentIri:c.selected.iri,definition:"A proposed "+kind+".",reason:"Fits the selected class and its existing taxonomy."}));
-    if(behavior.duplicate)suggestions.push({...suggestions[0],label:"Car"});
-    const result={summary:behavior.empty?"No new additions are justified.":"Proposals for review.",suggestions:behavior.empty?[]:suggestions};
-    setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"bad output":JSON.stringify(result)),behavior.delay??20);
+    if(process.argv.includes("--output-schema"))process.exit(3);
+    const children=prompt.startsWith("Suggest useful additional types");
+    const names=children?["Water vehicle","Air vehicle"]:["Apollo 15 rover"];
+    if(behavior.duplicate)names.push("Car");
+    const result="Summary: "+(behavior.empty?"No new additions are justified.":"Proposals for review.")+"\\nSuggestions:\\n"+(behavior.empty?"None.":names.map((label,i)=>(i+1)+". "+label+"\\nDescription: A proposed "+(children?"category":"named example")+".\\nReason: Fits the supplied background.").join("\\n\\n"));
+    setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"bad output":result),behavior.delay??20);
   });`,
   );
   const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
@@ -148,7 +147,10 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   await expect(dialog).toContainText("Land vehicle");
   await expect(dialog).toContainText("depth 2");
   const prompt = await readFile(path.join(profile, "prompt.txt"), "utf8");
-  expect(prompt).toContain("Do not flatten grandchildren");
+  expect(prompt).toContain("types that fit better inside an existing category");
+  expect(prompt).not.toContain("parentIri");
+  expect(prompt).not.toContain("rdfs:subClassOf");
+  expect(prompt).toContain('"Car" is a kind of "Land vehicle"');
   expect(prompt).not.toContain("Pizza_");
   await dialog
     .getByRole("checkbox", { name: "Select all available suggestions" })
@@ -178,7 +180,7 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
 test("finds instances through a separate prompt and applies rdf:type without subclass assertions", async () => {
   const dialog = await ready("instances");
   expect(await readFile(path.join(profile, "prompt.txt"), "utf8")).toContain(
-    "TASK: FIND NAMED INSTANCES",
+    "Suggest real, named examples",
   );
   await dialog
     .getByRole("checkbox", { name: "Add Apollo 15 rover", exact: true })
@@ -322,7 +324,7 @@ test("fits the review dialog in a small window and provides scrollable context",
   expect(box!.height).toBeLessThan(viewport.height);
   await expect(
     dialog.getByRole("textbox", { name: "Taxonomy prompt" }),
-  ).toHaveValue(/TAXONOMY CONTEXT/);
+  ).toHaveValue(/BACKGROUND/);
   await info.attach("compact-review", {
     body: await page.screenshot(),
     contentType: "image/png",

@@ -72,7 +72,7 @@ export function assistantArguments(
   id: AssistantId,
   dir: string,
   web: boolean,
-  schema: object = researchSchema,
+  schema: object | null = researchSchema,
 ) {
   if (id === "codex")
     return [
@@ -94,8 +94,7 @@ export function assistantArguments(
       "features.skip_host_skill_discovery=true",
       "-c",
       'web_search="' + (web ? "live" : "disabled") + '"',
-      "--output-schema",
-      path.join(dir, "schema.json"),
+      ...(schema ? ["--output-schema", path.join(dir, "schema.json")] : []),
       "--output-last-message",
       path.join(dir, "result.json"),
       "-",
@@ -104,8 +103,7 @@ export function assistantArguments(
     "--print",
     "--output-format",
     "json",
-    "--json-schema",
-    JSON.stringify(schema),
+    ...(schema ? ["--json-schema", JSON.stringify(schema)] : []),
     "--tools",
     web ? "WebSearch,WebFetch" : "",
     "--allowedTools",
@@ -166,7 +164,7 @@ export class LocalAssistantRunner {
   async run(
     provider: AssistantId,
     prompt: string,
-    schema: object,
+    schema: object | null,
     web = false,
   ): Promise<unknown> {
     if (this.active) throw Error("An assistant request is already running.");
@@ -181,11 +179,12 @@ export class LocalAssistantRunner {
         throw Error("The selected assistant was not found on PATH.");
       await mkdir(this.root, { recursive: true });
       dir = await mkdtemp(path.join(this.root, "job-"));
-      await writeFile(
-        path.join(dir, "schema.json"),
-        JSON.stringify(schema),
-        "utf8",
-      );
+      if (schema)
+        await writeFile(
+          path.join(dir, "schema.json"),
+          JSON.stringify(schema),
+          "utf8",
+        );
       if (job.cancelled) throw Error("Assistant cancelled.");
       if (prompt.length > 150000)
         throw Error("The selected ontology context is too large.");
