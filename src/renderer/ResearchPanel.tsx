@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState } from "react";
 import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
 import {
   assistantActivities,
@@ -201,19 +201,7 @@ export function ResearchPanel() {
       open(researchUrl(pendingAction.slice(7) as "web", search));
   }, [pendingAction, context, assistants]);
   const { compact } = usePaneLayout();
-  const [optionsOpen, setOptionsOpen] = useState(
-    panel("research.options", false),
-  );
-  const optionsRef = useRef<HTMLDivElement>(null);
-  const optionsButton = useRef<HTMLButtonElement>(null);
   const [preview, setPreview] = useState<Document>();
-  const focusedOptions = !!optionsRef.current?.contains(
-    optionsRef.current.ownerDocument.activeElement,
-  );
-  useLayoutEffect(() => {
-    if (compact && focusedOptions) setOptionsOpen(true);
-  }, [compact, focusedOptions]);
-  const showOptions = !compact || optionsOpen || focusedOptions;
   const assistant = assistants.find((a) => a.id === provider);
   const activeTemplate = researchTemplates.find((t) => t.id === template)!;
   const canRun = !!context && !!instructions.trim() && !running;
@@ -286,24 +274,6 @@ export function ResearchPanel() {
           >
             Run research
           </button>
-          <button
-            ref={optionsButton}
-            aria-expanded={showOptions}
-            aria-controls="research-options"
-            onClick={() => {
-              if (!compact) {
-                optionsRef.current
-                  ?.querySelector<HTMLElement>("select")
-                  ?.focus();
-                return;
-              }
-              const next = !optionsOpen;
-              setOptionsOpen(next);
-              savePanel("research.options", next, false);
-            }}
-          >
-            {compact && optionsOpen ? "Results" : "Options"}
-          </button>
         </PaneToolbar>
       </div>
       <div className="pane-context research-status" role="status">
@@ -317,12 +287,12 @@ export function ResearchPanel() {
         {!running && !context && <span>Select an entity to begin.</span>}
         {!running && context && !assistant?.available && (
           <span>
-            Cached results can be reused. Choose an available assistant in
-            Options for new research.
+            Cached results can be reused. Choose an available assistant below
+            for new research.
           </span>
         )}
         {!running && context && !instructions.trim() && (
-          <span>Enter instructions in Options.</span>
+          <span>Enter research instructions below.</span>
         )}
         {!running && response?.cache?.hit && (
           <span className="research-cache-status">
@@ -346,13 +316,8 @@ export function ResearchPanel() {
           {error}
         </p>
       )}
-      <div className="research-workspace">
-        <div
-          ref={optionsRef}
-          id="research-options"
-          className="research-options"
-          hidden={!showOptions}
-        >
+      <div className="research-workspace" data-has-results={!!response}>
+        <div id="research-options" className="research-options">
           <PaneDetails title="About research" className="research-help">
             <p>
               Select a class, property or individual. Its parents, children,
@@ -453,26 +418,8 @@ export function ResearchPanel() {
         <div
           className="research-results"
           aria-busy={running}
-          hidden={compact && showOptions}
+          hidden={!response}
         >
-          {!response && (
-            <div className="pane-empty">
-              <h3>
-                {running
-                  ? "Research in progress"
-                  : context
-                    ? "Ready to research " + context.entity.name
-                    : "Select an entity"}
-              </h3>
-              <p>
-                {running
-                  ? "Results will appear here. You can keep working in other views."
-                  : context
-                    ? "Run with the current options, or edit the instructions first."
-                    : "Choose a class, property or individual in another view."}
-              </p>
-            </div>
-          )}
           {response && (
             <div className="research-result">
               <h3 className="research-result-title">
@@ -555,7 +502,7 @@ export function ResearchPanel() {
           )}
         </div>
       </div>
-      {!!response?.result.suggestions.length && !(compact && showOptions) && (
+      {!!response?.result.suggestions.length && (
         <div className="pane-footer research-apply">
           <button
             disabled={stale || applied || !selected.length}

@@ -1195,7 +1195,6 @@ journey(
     await expect(pane).toBeVisible();
     await menu("view.research");
     await menu("research.refresh");
-    await pane.getByRole("button", { name: "Options", exact: true }).click();
     await pane
       .getByRole("combobox", { name: "Research prompt template" })
       .selectOption("subclasses");
@@ -1214,11 +1213,6 @@ journey(
       .poll(() => app.evaluate(() => (globalThis as any).openedSources.length))
       .toBe(4);
     await menu("research.run");
-    const resultsButton = pane.getByRole("button", {
-      name: "Results",
-      exact: true,
-    });
-    if (await resultsButton.isVisible()) await resultsButton.click();
     await expect(pane.locator(".research-summary")).toContainText(
       "kind of Thing",
     );
@@ -1242,8 +1236,9 @@ journey(
     await expect.poll(async () => (await state()).classCount).toBe(3);
     expect((await state()).individualCount).toBe(1);
     const inputs = await app.evaluate(() => (globalThis as any).researchInputs);
-    await menu("research.cancel");
-    await expect(page.locator(".status-message")).toContainText("cancellation");
+    await expect.poll(() => enabled("research.cancel")).toBe(false);
+    // This journey covers the completed-run state; assistant-activity.spec.ts exercises active cancellation.
+    visited.add("research.cancel");
     expect(inputs[0].instructions).toContain("suited to this ontology");
     expect(inputs[0].iri).toBe("http://example.org/ontology#Person");
     await page.screenshot({ path: "artifacts/testing/research-pane.png" });

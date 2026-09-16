@@ -2398,17 +2398,8 @@ a {
 .adaptive-pane[data-pane-narrow="true"] .research-fields {
   grid-template-columns: 1fr;
 }
-.adaptive-pane[data-pane-compact="true"] .research-workspace {
-  display: flex;
-  overflow: hidden;
-}
-.adaptive-pane[data-pane-compact="true"]
-  :is(.research-options, .research-results) {
-  flex: 1;
-  overflow: auto;
-}
 @container axiom-pane (min-width: 960px) and (min-height: 400px) {
-  .research-workspace {
+  .research-workspace[data-has-results="true"] {
     display: grid;
     grid-template-columns: minmax(320px, 40%) minmax(0, 1fr);
     overflow: hidden;

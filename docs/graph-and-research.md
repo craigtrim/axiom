@@ -68,7 +68,7 @@ History is session-local and resets when opening a different workspace. It retai
 
 ## Contextual research
 
-Use **Edit > Research selected entity**, the graph or inspector Research button, a taxonomy context menu, or **View > Research**. The Research pane docks, resizes and detaches like the other panes.
+Use **Edit > Research selected entity**, the graph or inspector Research button, a taxonomy context menu, or **View > Research**. The Research pane docks, resizes and detaches like the other panes. Its assistant, template, instructions and web setting appear immediately in every working pane layout. There is no Options button; results remain alongside or below the form.
 
 Axiom detects Codex and Claude on PATH, including the standard Codex npm installation. Refresh assistants after changing an installation. Each provider uses its existing CLI sign-in. Axiom does not install a provider or collect account credentials.
 

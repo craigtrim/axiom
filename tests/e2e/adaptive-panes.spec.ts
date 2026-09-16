@@ -165,10 +165,40 @@ test("Research retains prompt, operation, attribution and selection across pane 
   const child = await detach("research");
   const root = child.locator(".adaptive-pane"),
     pane = child.locator(".research-panel");
-  await resize(child, 1100, 740, "expanded");
   const instructions = pane.getByRole("textbox", {
     name: "Research instructions",
   });
+  for (const [width, height, mode] of [
+    [360, 740, "narrow"],
+    [1100, 300, "shallow"],
+    [1100, 740, "expanded"],
+  ] as const) {
+    await resize(child, width, height, mode);
+    await expect(
+      pane.getByRole("button", { name: "Options", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      pane.getByRole("button", { name: "Results", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      pane.getByRole("combobox", { name: "Research assistant" }),
+    ).toBeVisible();
+    await expect(
+      pane.getByRole("combobox", { name: "Research prompt template" }),
+    ).toBeVisible();
+    await expect(instructions).toBeVisible();
+    await expect(
+      pane.getByRole("checkbox", { name: "Allow web research" }),
+    ).toBeVisible();
+    await fits(
+      root,
+      pane.getByRole("button", { name: "Run research", exact: true }),
+    );
+    await expect(pane).not.toContainText("Ready to research");
+    await child.screenshot({
+      path: "artifacts/testing/research-form-" + mode + ".png",
+    });
+  }
   await instructions.fill("Retain this exact prompt.");
   await pane.getByRole("checkbox", { name: "Allow web research" }).uncheck();
   await instructions.evaluate((el) => {
@@ -196,7 +226,6 @@ test("Research retains prompt, operation, attribution and selection across pane 
   await expect(pane.locator(".research-result-title")).toHaveText(
     "Results for Thing",
   );
-  await pane.getByRole("button", { name: "Options", exact: true }).click();
   await expect(instructions).toHaveValue("Retain this exact prompt.");
   expect(
     await instructions.evaluate(
@@ -206,7 +235,6 @@ test("Research retains prompt, operation, attribution and selection across pane 
   await expect(
     pane.getByRole("checkbox", { name: "Allow web research" }),
   ).not.toBeChecked();
-  await pane.getByRole("button", { name: "Results", exact: true }).click();
   // The mutation during the run must keep the returned suggestions visibly stale.
   await expect(
     pane.getByRole("checkbox", { name: "Accept Sample term" }),
@@ -574,8 +602,6 @@ test("Compact edge actions, overflow and recovery remain keyboard accessible", a
   for (const id of ["research", "source"]) {
     child = await detach(id);
     await resize(child, 360, 740, "narrow");
-    if (id === "research")
-      await child.getByRole("button", { name: "Options", exact: true }).click();
     const scan = await new AxeBuilder({ page: child })
       .setLegacyMode()
       .include(".adaptive-pane")

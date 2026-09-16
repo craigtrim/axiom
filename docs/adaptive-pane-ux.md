@@ -90,29 +90,20 @@ The form includes assistant selection, prompt template, editable instructions an
 
 ### Narrow side pane
 
-Use this order:
+Show the selected entity, Run and More actions above the configuration summary. Keep the assistant selector, prompt template, instructions and web setting visible in the scrolling body from the first visit. Research has no Options/Results toggle. Findings, sources and suggestions follow the form when a response exists.
 
-1. Selected entity and kind.
-2. Run, Options and More actions.
-3. Compact summary of the active configuration.
-4. Results, including expandable suggestion details and source access.
-
-Options opens configuration in the pane body and changes its label to Results. Keep the task header available. The initial explanation becomes short empty-state guidance when no entity is selected. A user with a ready configuration can run research without passing through the form.
-
-The exact prompt remains available in Options. Shortened result excerpts must provide access to full text. Preserve uncertainty and source attribution when reviewing suggestions.
+Shortened result excerpts provide access to full text. Preserve uncertainty and source attribution when reviewing suggestions. Run, running status, Cancel and Apply remain outside the body scroller.
 
 ### Shallow bottom pane
 
-Use the width for a horizontal header: entity, Run, Options and More. Put the active configuration in a short line below it, then allocate remaining height to results. A wide but shallow pane should not stack the expanded form above the working content.
-
-Options temporarily uses the body, with a compact two-column form where width permits. Preview can open a readable dialog in the containing window. Returning to results restores the previous position.
+Use the width for a horizontal header and a compact two-column form. The assistant, template and web setting sit beside the instructions. The form remains visible immediately, and results follow it in the same scrolling body. Preview can open a readable dialog in the containing window.
 
 ### Research state and actions
 
 | State | Always evident | Body priority |
 | --- | --- | --- |
-| Nothing selected | Select an entity; Run unavailable | Brief selection guidance |
-| Ready | Entity, assistant, web setting and Run | Previous results or a short invitation to run |
+| Nothing selected | Select an entity; Run unavailable | Visible form and selection guidance |
+| Ready | Entity, assistant, web setting and Run | Visible form followed by any previous results |
 | Running | Running status and Cancel | Retained prior content with clear attribution |
 | Complete | Result entity and completion state | Findings, sources and suggestions |
 | Suggestions selected | Selection count and Apply selected | Selected suggestions and their details |
@@ -126,7 +117,7 @@ The ten dockable component types in App.tsx are covered below. Nested tools inhe
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
-| Research | Full setup and results | Actions/results; Options for setup | Horizontal actions; results or options body | Exact prompt, attribution and review before Apply |
+| Research | Full setup and results | Visible setup with results below | Horizontal actions; compact setup and results | Exact prompt, attribution and review before Apply |
 | Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
 | Entity details | Full statement editor | Group each statement's fields; disclose optional metadata | Header actions above scrolling statements | All values, graph identifiers and drafts |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
@@ -153,7 +144,7 @@ Use CSS for spacing and column changes. Use the existing ResizeObserver approach
 
 Do not key or remount an editor by presentation mode. Keep drafts and operation ownership outside replaceable layout fragments. Research mixes local UI state with polled service status, so preservation across moves and popouts needs explicit verification. Monaco models and grid state must retain their existing owners.
 
-Ignore zero-size readings from inactive tabs. Keep mode changes stable around boundaries, with a small tested hysteresis interval if needed. Preserve explicit Options choices across resizes. If a focused section would become hidden, keep it open or move focus to its named disclosure control with the work preserved.
+Ignore zero-size readings from inactive tabs. Keep mode changes stable around boundaries, with a small tested hysteresis interval if needed. Preserve explicit disclosure choices across resizes. Research setup remains visible in every working layout. If a focused section would become hidden, keep it open or move focus to its named disclosure control with the work preserved.
 
 Prefer a content scroller bounded by actual header/footer rows over layers that cover content. Avoid several nested scroll areas for ordinary fields. Exceptionally small panes should surface the maximize recovery action without changing the task.
 
@@ -185,7 +176,7 @@ Desktop screenshots are written under artifacts/testing with the adaptive view p
 
 ## Mockup scope
 
-The interactive Research mockup remains a design artifact with sample content and simulated operations. It is independent of the production implementation. Its simplified state machine omits real assistant failures, cross-window persistence and ontology conflict handling.
+The interactive Research mockup remains an earlier design artifact with sample content and simulated operations. Its Options/Results toggle was removed from production on 16 September 2026; Research now displays its setup immediately. It is independent of the production implementation. Its simplified state machine omits real assistant failures, cross-window persistence and ontology conflict handling.
 
 ## Mockup verification
 

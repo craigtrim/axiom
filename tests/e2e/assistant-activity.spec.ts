@@ -178,9 +178,16 @@ test("Research locks 100 clicks and IPC retries, survives a closed pane, and unl
   await menu("view.research");
   await expect(activity("research")).toContainText("Researching Thing");
   await expect(run).toBeDisabled();
-  await activity("research")
-    .getByRole("button", { name: "Cancel research", exact: true })
-    .click();
+  await expect
+    .poll(() =>
+      app.evaluate(
+        ({ Menu }) =>
+          Menu.getApplicationMenu()!.getMenuItemById("research.cancel")!
+            .enabled,
+      ),
+    )
+    .toBe(true);
+  await menu("research.cancel");
   await expect(activity("research")).toHaveCount(0);
   await expect(run).toBeEnabled();
   await writeFile(behavior, '{"release":true,"invalid":true}');
@@ -385,9 +392,6 @@ test("Research caches exact prompts across workspace reopening and app restart w
   );
   expect(second.cache).toEqual({ ...first.cache, hit: true });
   expect(second.completedAt).toBe(first.completedAt);
-  await pane("research")
-    .getByRole("button", { name: "Options", exact: true })
-    .click();
   const instructions = pane("research").getByRole("textbox", {
     name: "Research instructions",
   });
