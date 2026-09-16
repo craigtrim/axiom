@@ -82,6 +82,7 @@ const methods = new Set<DomainMethod>([
   "editEdge",
   "routeEdge",
   "inspector",
+  "instances",
   "table",
   "tableGraph",
   "seed",

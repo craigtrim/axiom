@@ -1,3 +1,4 @@
+import { instancePage } from "../domain/instances";
 import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
 import { sourceDocument, applySource, linkedFile } from "../domain/source";
 import type { SourceDocument } from "../shared/source";
@@ -881,6 +882,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         })),
       };
       return data;
+    }
+    case "instances": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw Error("The workspace changed. Open the instance report again.");
+      return instancePage(
+        store,
+        string(a, "iri"),
+        string(a, "query", 512),
+        number(a, "start", 0, 1000000),
+      );
     }
     case "table": {
       const rows = getTable(a),

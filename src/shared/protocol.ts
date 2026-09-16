@@ -99,6 +99,7 @@ export type DomainMethod =
   | "editEdge"
   | "routeEdge"
   | "inspector"
+  | "instances"
   | "table"
   | "tableGraph"
   | "seed"

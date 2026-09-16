@@ -61,6 +61,7 @@ export const request = <T = unknown>(
     "uiHistory",
     "state",
     "inspector",
+    "instances",
     "table",
     "queryPage",
     "queryActivate",
