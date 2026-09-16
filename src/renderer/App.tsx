@@ -275,7 +275,15 @@ export function App() {
     return {
       id: c.id,
       label: c.group + ": " + (action?.label ?? c.label),
-      enabled: action?.enabled,
+      enabled:
+        action?.enabled ??
+        (c.id === "graph.expand"
+          ? !!state?.graph.nodes.find((n) => n.iri === state?.selected)
+              ?.degree || !!state?.graph.selectedEdge
+          : c.id === "graph.collapse"
+            ? !!state?.graph.nodes.find((n) => n.iri === state?.selected)
+                ?.shownDegree
+            : undefined),
       title: action?.title,
       shortcut: shortcutText(c.id, preferences.keyboard),
     };

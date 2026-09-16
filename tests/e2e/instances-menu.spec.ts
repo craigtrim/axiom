@@ -448,6 +448,9 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
     "title",
     "This class has no direct instances.",
   );
+  await context.screenshot({
+    path: "artifacts/testing/instance-counts-empty-menu.png",
+  });
   await empty.focus();
   await page.keyboard.press("Enter");
   await page.keyboard.press("o");
@@ -626,4 +629,13 @@ test("known-empty graph operations are disabled consistently with the native men
     ),
   );
   expect(enabled).toEqual([false, false]);
+  await menu("palette");
+  await page
+    .getByRole("textbox", { name: "Find a command" })
+    .fill("Collapse selected node");
+  await expect(
+    page.getByRole("option", {
+      name: /^Graph: Collapse selected node/,
+    }),
+  ).toBeDisabled();
 });

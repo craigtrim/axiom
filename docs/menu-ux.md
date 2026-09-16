@@ -1,6 +1,6 @@
 # Menu organization for Axiom
 
-Design review and implementation record, 15 September 2026. The source audit and proposals below record the design rationale. The delivered behavior includes the approved grouping and the subsequently requested instance-report shortcuts.
+Design review and implementation record, updated 16 September 2026. The source audit and proposals below record the design rationale. The delivered behavior includes the approved grouping and the subsequently requested instance-report shortcuts.
 
 ## Delivered behavior
 
@@ -8,7 +8,17 @@ Hierarchy and graph context menus now use separators for logical groups. Common 
 
 Show instances opens the same read-only Individuals report from a hierarchy context menu, graph context menu, graph selection bar, hierarchy count, Inspector usage count or Edit menu. Selecting a class in the existing Individuals filters uses that report too. Each page contains at most 100 records, with filtering and Previous/Next controls. It combines generated and named records using the same direct-membership lookup as the hierarchy count. Showing a report never seeds, expands or replaces the graph. Clicking a report row opens its Inspector details.
 
-The report identifies its class and direct-instance count, including empty classes. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
+The report identifies its class and direct-instance count. If its last instance is removed while the report is open, it displays an empty state. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
+
+Connect nodes is available in the graph toolbar, node context menu, Graph > Edges and command palette. The graph shortcut is C. It starts the same source/target selection flow as the selected node's drag handle, with a confirmation dialog before changing the ontology.
+
+## Counts and action availability
+
+Actions that open an existing collection show its current count and remain visible but disabled when that count is zero. Show instances uses the same direct-membership count in hierarchy and graph menus, the graph selection button, Inspector, Edit and the command palette. Labels read Show instances (527) or Show instances (0). Hierarchy and Inspector shortcuts show the number directly. Class choices in the report and Individuals filters also show counts and disable empty choices.
+
+Counts update after edits and Undo. Instance buttons and popup items explain the empty state in their tooltip, and the shared invocation guard blocks stale or remapped requests. A report already open remains available when its last instance disappears. The application menu updates labels and availability through Electron's [dynamic MenuItem properties](https://www.electronjs.org/docs/latest/api/menu-item#instance-properties).
+
+Apply the rule to browsing existing data. Creation and discovery commands such as New instance, Add children and Find instances remain available for an empty class. Hierarchy branch actions show the immediate child count and disable empty branches. Graph Expand is disabled when there are no neighbours; Collapse is disabled when there are no shown connections. These states agree across graph controls, context menus, the application menu and the command palette. Collection sizes must describe the actual scope of the action; do not use a descendant count for a direct-instance report.
 
 ## Recommendation
 
