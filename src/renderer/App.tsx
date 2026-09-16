@@ -1,3 +1,9 @@
+import { instanceAction } from "../shared/action-state";
+import { showInstances } from "./instance-report";
+import {
+  AssistantTabActivity,
+  useAssistantActivityPolling,
+} from "./AssistantActivity";
 import { AdaptivePane } from "./AdaptivePane";
 import { syncEditorEpoch } from "./editor-drafts";
 import { graphQueryResults } from "./query-results";
@@ -260,11 +266,20 @@ export function applyTheme(doc: Document = document) {
     root.style.setProperty("--" + k, v);
 }
 export function App() {
-  const items = commandDefinitions.map((c) => ({
-    id: c.id,
-    label: c.group + ": " + c.label,
-    shortcut: shortcutText(c.id, preferences.keyboard),
-  }));
+  useAssistantActivityPolling();
+  const items = commandDefinitions.map((c) => {
+    const action =
+      c.id === "entity.showInstances"
+        ? instanceAction(state?.entities.find((e) => e.iri === state?.selected))
+        : undefined;
+    return {
+      id: c.id,
+      label: c.group + ": " + (action?.label ?? c.label),
+      enabled: action?.enabled,
+      title: action?.title,
+      shortcut: shortcutText(c.id, preferences.keyboard),
+    };
+  });
   const s = useSnapshot()!,
     notice = useNotice(),
     [model, setModel] = useState(() => restoreLayout(preferences.layout)),
@@ -731,6 +746,8 @@ export function App() {
           void act("seed", { iris: [state.selected] }).then(() =>
             command("graph.fit"),
           );
+      } else if (id === "entity.showInstances") {
+        if (state?.selected) showInstances(state.selected);
       } else if (id === "entity.rename") {
         const iri = state?.selected;
         if (iri && !startInlineRename(iri)) {
@@ -979,6 +996,9 @@ export function App() {
       <div className="docking-workspace">
         <Layout
           model={model}
+          onRenderTab={(node, values) => {
+            values.leading = <AssistantTabActivity paneId={node.getId()} />;
+          }}
           factory={(n) => (
             <AdaptivePane
               name={n.getName()}

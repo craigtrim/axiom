@@ -1,3 +1,5 @@
+import { instanceAction } from "../shared/action-state";
+import { showInstances } from "./instance-report";
 import { PaneToolbar } from "./AdaptivePane";
 import { InlineCreate } from "./InlineCreate";
 import { takeCreation, entityDragType, type Creation } from "./authoring";
@@ -240,6 +242,7 @@ export function HierarchyPanel() {
                 }}
                 onContextMenu={(ev) => {
                   ev.preventDefault();
+                  ev.currentTarget.focus();
                   void act("select", { iri });
                   setContext({
                     iri,
@@ -343,10 +346,28 @@ export function HierarchyPanel() {
                 >
                   {displayName(e)}
                 </EditableEntityName>
-                {e.instances > 0 && (
-                  <span className="muted count">
+                {instanceAction(e).visible && (
+                  <button
+                    className="muted count instance-count"
+                    disabled={!instanceAction(e).enabled}
+                    title={instanceAction(e).title}
+                    aria-label={
+                      "Show " +
+                      e.instances.toLocaleString("en-GB") +
+                      " direct instances of " +
+                      displayName(e)
+                    }
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      showInstances(iri);
+                    }}
+                    onDoubleClick={(ev) => ev.stopPropagation()}
+                    onKeyDown={(ev) => {
+                      if (["Enter", " "].includes(ev.key)) ev.stopPropagation();
+                    }}
+                  >
                     {e.instances.toLocaleString("en-GB")}
-                  </span>
+                  </button>
                 )}
               </div>
               {draft && !properties && draft.parent === iri && (

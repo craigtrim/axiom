@@ -1,3 +1,7 @@
+import { countLabel, instanceAction } from "../shared/action-state";
+import { InstanceReport } from "./InstanceReport";
+import { showInstances, useInstanceTarget } from "./instance-report";
+import { displayName } from "../domain/rdf-model";
 import { PaneToolbar } from "./AdaptivePane";
 import { EditableEntityName } from "./InlineRename";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -50,10 +54,18 @@ export function gridTheme(dark: boolean) {
 type Row = Individual & { customerName: string };
 export function IndividualsPanel() {
   const s = useSnapshot()!;
+  const target = useInstanceTarget();
   const [named, setNamed] = useState(false);
   useEffect(() => {
     if (!s.ontology.example) setNamed(false);
   }, [s.datasetEpoch]);
+  if (target?.datasetEpoch === s.datasetEpoch)
+    return (
+      <InstanceReport
+        key={s.datasetEpoch + ":" + target.iri}
+        iri={target.iri}
+      />
+    );
   if (!s.ontology.example) return <OntologyIndividualsPanel />;
   return (
     <div className="individuals-mode">
@@ -248,12 +260,24 @@ function ExampleIndividualsPanel() {
             <select
               aria-label="Filter by pizza type"
               value={filter.type}
-              onChange={(e) => update({ ...filter, type: e.target.value })}
+              onChange={(e) => {
+                update({ ...filter, type: "" });
+                if (e.target.value) showInstances(e.target.value);
+              }}
             >
               <option value="">All types</option>
               {s.types.map((t) => (
-                <option key={t} value={t}>
-                  {humanise(local(t))}
+                <option
+                  key={t}
+                  value={t}
+                  disabled={
+                    !instanceAction(s.entities.find((e) => e.iri === t)).enabled
+                  }
+                >
+                  {countLabel(
+                    humanise(local(t)),
+                    s.entities.find((e) => e.iri === t)?.instances ?? 0,
+                  )}
                 </option>
               ))}
             </select>
@@ -480,6 +504,26 @@ function OntologyIndividualsPanel() {
         label="Individual actions"
         secondary={
           <>
+            <select
+              aria-label="Filter by class"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) showInstances(e.target.value);
+              }}
+            >
+              <option value="">All classes</option>
+              {s.entities
+                .filter((e) => ["Class", "Defined"].includes(e.kind))
+                .map((e) => (
+                  <option
+                    key={e.iri}
+                    value={e.iri}
+                    disabled={!instanceAction(e).enabled}
+                  >
+                    {countLabel(displayName(e), e.instances)}
+                  </option>
+                ))}
+            </select>
             <button onClick={() => setQuery("")}>Reset</button>
 
             <button

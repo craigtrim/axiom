@@ -107,7 +107,13 @@ export function Palette({
   close,
   run,
 }: {
-  items: { id: string; label: string; shortcut?: string }[];
+  items: {
+    id: string;
+    label: string;
+    shortcut?: string;
+    enabled?: boolean;
+    title?: string;
+  }[];
   close: () => void;
   run: (id: string) => void;
 }) {
@@ -140,6 +146,8 @@ export function Palette({
             setSelected(Math.max(0, selected - 1));
           }
           if (e.key === "Enter" && matches[selected]) {
+            e.preventDefault();
+            if (matches[selected].enabled === false) return;
             close();
             run(matches[selected].id);
           }
@@ -151,8 +159,11 @@ export function Palette({
             key={item.id}
             role="option"
             aria-selected={i === selected}
+            aria-disabled={item.enabled === false || undefined}
+            title={item.title}
             onMouseMove={() => setSelected(i)}
             onClick={() => {
+              if (item.enabled === false) return;
               close();
               run(item.id);
             }}

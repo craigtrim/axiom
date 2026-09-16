@@ -1,3 +1,5 @@
+import { instanceAction } from "../shared/action-state";
+import { showInstances } from "./instance-report";
 import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { LinkedFileCard } from "./LinkedFileCard";
 import { EntityInspectorFields } from "./EntityInspectorFields";
@@ -81,6 +83,9 @@ export function InspectorPanel() {
         <p>Select an entity in the hierarchy, graph or table.</p>
       </section>
     );
+  const instances = instanceAction(
+    s.entities.find((e) => e.iri === data.entity.iri),
+  );
   const e = data.entity,
     editable = s.entities.some((entity) => entity.iri === e.iri),
     section = (title: string, items: string[]) =>
@@ -246,7 +251,21 @@ export function InspectorPanel() {
             <dt>Descendants</dt>
             <dd>{data.descendants.toLocaleString("en-GB")}</dd>
             <dt>Direct instances</dt>
-            <dd>{data.instances.toLocaleString("en-GB")}</dd>
+            <dd>
+              {["Class", "Defined"].includes(e.kind) ? (
+                <button
+                  className="entity-link"
+                  disabled={!instances.enabled}
+                  title={instances.title}
+                  aria-label={instances.label + " of " + displayName(e)}
+                  onClick={() => showInstances(e.iri)}
+                >
+                  {instances.count.toLocaleString("en-GB")}
+                </button>
+              ) : (
+                data.instances.toLocaleString("en-GB")
+              )}
+            </dd>
           </dl>
         </PaneDetails>
         {data.order && (

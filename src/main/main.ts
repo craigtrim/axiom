@@ -539,8 +539,22 @@ function refreshMenu() {
   set("graph.cancelLayout", !!lastState?.graph.layoutPending);
   set("research.open", !!lastState?.selected);
   set("entity.showGraph", !!lastState?.selected);
+  const instances = instanceAction(selected);
+  set("entity.showInstances", instances.enabled);
+  const instanceItem = menu.getMenuItemById("entity.showInstances");
+  if (instanceItem) {
+    const binding = effectiveBindings(
+      "entity.showInstances",
+      preferences.keyboard,
+    )[0];
+    instanceItem.label =
+      mnemonicLabel(
+        "entity.showInstances",
+        instances.label,
+        preferences.keyboard,
+      ) + (binding?.keys.includes(" ") ? "\t" + binding.keys : "");
+  }
   for (const id of [
-    "research.run",
     "research.source.wikipedia",
     "research.source.dbpedia",
     "research.source.ontologies",

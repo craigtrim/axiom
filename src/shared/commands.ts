@@ -87,6 +87,7 @@ export const menuTree: MenuDefinition[] = [
       ...app("Ctrl+G"),
       ...at("hierarchy", "Enter"),
     ]),
+    c("entity.showInstances", "Show instances", "Edit"),
     c("research.open", "Research selected entity...", "Edit"),
     null,
     c(
