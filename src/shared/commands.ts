@@ -95,6 +95,9 @@ export const menuTree: MenuDefinition[] = [
     c("entity.showInstances", "Show instances", "Edit"),
     c("research.open", "Research selected entity...", "Edit"),
     null,
+    menu("menu.settings", "Settings", "S", [
+      c("graph.appearance", "Graph appearance...", "Edit > Settings"),
+    ]),
     c(
       "keyboard.settings",
       "Keyboard shortcuts...",
