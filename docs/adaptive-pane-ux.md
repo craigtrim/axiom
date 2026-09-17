@@ -119,7 +119,7 @@ The ten dockable component types in App.tsx are covered below. Nested tools inhe
 | --- | --- | --- | --- | --- |
 | Research | Full setup and results | Visible setup with results below | Horizontal actions; compact setup and results | Exact prompt, attribution and review before Apply |
 | Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
-| Entity details | Full statement editor | Group each statement's fields; disclose optional metadata | Header actions above scrolling statements | All values, graph identifiers and drafts |
+| Details | Predicate and Value table | Searchable resource cells and scoped Source | Header actions above the statement table | Language, datatype, graph identifiers and source drafts |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
 | Individuals | Grid and filters | Compact filters; column access and deliberate horizontal scrolling | Compact actions/filters; maximum row area | Sort, filters, selection, values and virtualization |
 | Query | Editor with composer alongside when space permits | Editor or composer in active body | Compact history/actions above editor | Text, undo, cursor, document identity and Run |
@@ -170,7 +170,7 @@ Observe representative users running research, changing a prompt, editing an ent
 
 ## Desktop verification
 
-[adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks prompt and suggestion retention, original request attribution, stale application prevention, Inspector edits and focus, Query editor identity and undo, Graph state, and retained Entity details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
+[adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks prompt and suggestion retention, original request attribution, stale application prevention, Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
 
 Desktop screenshots are written under artifacts/testing with the adaptive view prefixes. The broader desktop suite continues to check entity editing, native menus, query execution, docking and workspace ownership. See the [verification record](verification.md) for the final run results.
 

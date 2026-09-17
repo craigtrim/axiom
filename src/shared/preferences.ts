@@ -40,6 +40,16 @@ export function readPreferences(input: unknown): Preferences {
     p.bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
   const s = object(input.panelState) ? input.panelState : {},
     out = p.panelState!;
+  for (const [key, value] of Object.entries(s)) {
+    if (
+      key.startsWith("pane.zoom.") &&
+      key.length > 10 &&
+      key.length <= 200 &&
+      key !== "pane.zoom.graph" &&
+      number(value, 0.5, 3)
+    )
+      out[key] = value;
+  }
   if (typeof s["graph.stylesheet"] === "string") {
     parseGraphStyle(s["graph.stylesheet"]);
     out["graph.stylesheet"] = s["graph.stylesheet"];

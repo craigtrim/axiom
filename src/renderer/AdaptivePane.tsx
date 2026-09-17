@@ -14,6 +14,7 @@ import {
   useAssistantActivity,
 } from "./AssistantActivity";
 import { suspendMenus } from "./access-keys";
+import { usePaneZoom } from "./usePaneZoom";
 
 export interface PaneLayout {
   width: number;
@@ -76,6 +77,7 @@ export function AdaptivePane({
   const assistantKind = paneAssistant(paneId);
   const activity = useAssistantActivity(assistantKind);
   const root = useRef<HTMLDivElement>(null);
+  const zoom = usePaneZoom(root, paneId, !visual);
   const content = useRef<HTMLDivElement>(null);
   const recover = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -88,7 +90,17 @@ export function AdaptivePane({
       // Hidden tabs report zero. Retain their last useful presentation.
       if (width < 1 || height < 1) return;
       setLayout((old) => {
-        const next = measurePane(Math.round(width), Math.round(height), old);
+        const next = measurePane(
+          Math.round(width / zoom),
+          Math.round(height / zoom),
+          old,
+        );
+        // Zoom can reflow a usable pane without replacing it with recovery UI.
+        next.recovery &&= measurePane(
+          Math.round(width),
+          Math.round(height),
+          old,
+        ).recovery;
         if (visual) next.recovery = false;
         if (next.recovery && !old.recovery) {
           const focused = host.ownerDocument
@@ -105,7 +117,7 @@ export function AdaptivePane({
     observer.observe(host);
     update();
     return () => observer.disconnect();
-  }, [visual]);
+  }, [visual, zoom]);
   const recoveryFocused =
     !!recover.current &&
     recover.current.ownerDocument.activeElement === recover.current;
@@ -129,6 +141,8 @@ export function AdaptivePane({
       <div
         ref={root}
         className="adaptive-pane"
+        style={visual ? undefined : { zoom }}
+        data-pane-zoom={visual ? undefined : zoom}
         data-pane-layout={layout.mode}
         data-pane-compact={layout.compact}
         data-pane-narrow={layout.narrow}
@@ -179,7 +193,7 @@ export function PaneToolbar({
   className?: string;
   collapseAt?: number;
 }) {
-  const { width, compact, recovery } = usePaneLayout();
+  const { width, height, compact, recovery } = usePaneLayout();
   const overflow = compact || width < collapseAt;
   const id = useId();
   const menu = useRef<HTMLDivElement>(null);
@@ -192,21 +206,30 @@ export function PaneToolbar({
     if (!menu.current || !trigger.current) return;
     const win = trigger.current.ownerDocument.defaultView!;
     const box = trigger.current.getBoundingClientRect();
-    const w = Math.min(340, win.innerWidth - 16);
+    // Top-layer popovers keep the pane's CSS zoom, but client rects are physical.
+    const scale = Number(
+      trigger.current.closest<HTMLElement>(".adaptive-pane")?.dataset
+        .paneZoom ?? 1,
+    );
+    const viewportWidth = win.innerWidth / scale;
+    const viewportHeight = win.innerHeight / scale;
+    const w = Math.min(340, viewportWidth - 16);
     Object.assign(menu.current.style, {
       width: w + "px",
-      left: Math.max(8, Math.min(box.right - w, win.innerWidth - w - 8)) + "px",
+      left:
+        Math.max(8, Math.min(box.right / scale - w, viewportWidth - w - 8)) +
+        "px",
       top:
         Math.max(
           8,
           Math.min(
-            box.bottom + 4,
-            win.innerHeight -
+            box.bottom / scale + 4,
+            viewportHeight -
               Math.min(320, menu.current.scrollHeight || 200) -
               8,
           ),
         ) + "px",
-      maxHeight: Math.max(100, win.innerHeight - 24) + "px",
+      maxHeight: Math.max(100, viewportHeight - 24) + "px",
     });
   };
   useLayoutEffect(() => {
@@ -224,8 +247,10 @@ export function PaneToolbar({
       if (menu.current?.matches(":popover-open")) menu.current.hidePopover();
       menu.current?.removeAttribute("style");
       setOpen(false);
+    } else if (menu.current?.matches(":popover-open")) {
+      position();
     }
-  }, [overflow, recovery]);
+  }, [overflow, recovery, width, height]);
   useEffect(() => {
     if (!open || !menu.current) return;
     const doc = menu.current.ownerDocument;

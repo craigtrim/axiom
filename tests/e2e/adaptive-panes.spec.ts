@@ -449,9 +449,9 @@ test("Entity statements and query results retain their working content when resi
   );
   await main.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("view.inspector");
-  await main.getByRole("button", { name: "Edit details", exact: true }).click();
+  await main.getByRole("button", { name: "Details", exact: true }).click();
   const editor = main.getByRole("region", {
-    name: "Entity details",
+    name: "Details",
     exact: true,
   });
   await editor.evaluate((el) => {
@@ -476,7 +476,7 @@ test("Entity statements and query results retain their working content when resi
     await expect(label).toHaveValue("Retained statement draft");
     await fits(
       child.locator(".adaptive-pane"),
-      child.getByRole("button", { name: "Apply changes", exact: true }),
+      child.getByRole("button", { name: "Add statement", exact: true }),
     );
     expect(
       await child
