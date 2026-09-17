@@ -1,7 +1,7 @@
+import { launchExample } from "./example-fixture";
 import {
   test,
   expect,
-  _electron as electron,
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
@@ -10,7 +10,7 @@ import path from "node:path";
 let app: ElectronApplication, page: Page, env: Record<string, string>;
 const errors: string[] = [];
 async function launch() {
-  app = await electron.launch({
+  app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env,

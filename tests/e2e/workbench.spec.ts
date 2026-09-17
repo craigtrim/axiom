@@ -1,3 +1,4 @@
+import { launchExample } from "./example-fixture";
 import AxeBuilder from "@axe-core/playwright";
 import {
   test,
@@ -35,7 +36,7 @@ test.beforeEach(async () => {
     AXIOM_USER_DATA: userData,
   };
   delete env.ELECTRON_RUN_AS_NODE;
-  application = await electron.launch({
+  application = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env: env as Record<string, string>,

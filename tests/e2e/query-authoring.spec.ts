@@ -1,7 +1,7 @@
+import { launchExample } from "./example-fixture";
 import {
   test,
   expect,
-  _electron as electron,
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
@@ -11,7 +11,7 @@ let app: ElectronApplication, page: Page, bridgePage: Page;
 const errors: string[] = [];
 let launchEnv: Record<string, string>;
 async function launch() {
-  app = await electron.launch({
+  app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env: launchEnv,
