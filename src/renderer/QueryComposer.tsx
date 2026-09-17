@@ -1,3 +1,4 @@
+import { useAssistantProvider } from "./assistant-provider";
 import { assistantActivities, useAssistantActivity } from "./AssistantActivity";
 import { PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
@@ -22,9 +23,7 @@ export function QueryComposer({
   const [instructions, setInstructions] = useState(
     panel("query.instructions", ""),
   );
-  const [provider, setProvider] = useState<AssistantId>(
-    panel("query.provider", "codex"),
-  );
+  const [provider, setProvider] = useAssistantProvider();
   const [includeQuery, setIncludeQuery] = useState(
     panel("query.includeCurrent", false),
   );
@@ -167,7 +166,7 @@ export function QueryComposer({
                 savePanel("query.provider", e.target.value, false);
               }}
             >
-              {(["codex", "claude"] as const).map((id) => (
+              {(["claude", "codex"] as const).map((id) => (
                 <option key={id} value={id}>
                   {id === "codex" ? "Codex" : "Claude"}
                   {assistants.find((a) => a.id === id)?.available

@@ -68,6 +68,14 @@ test.beforeEach(async ({}, info) => {
   const profile = await mkdtemp(
     path.resolve("artifacts/testing/taxonomy-live-"),
   );
+  // These fixtures exercise Codex explicitly; new profiles default to Claude.
+  await writeFile(
+    path.join(profile, "workbench.json"),
+    JSON.stringify({
+      version: 1,
+      panelState: { "assistant.provider": "codex" },
+    }),
+  );
   const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
     string,
     string

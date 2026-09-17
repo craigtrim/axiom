@@ -210,7 +210,9 @@ async function generate(instructions: string, info: TestInfo, refine = false) {
     ).toHaveCount(0);
   }
   if (refine) expect(generated.request.currentQuery).toBe(before);
-  await expect(page.locator(".query-run-status")).not.toContainText("displayed");
+  await expect(page.locator(".query-run-status")).not.toContainText(
+    "displayed",
+  );
   return generated;
 }
 async function useAndRun(info: TestInfo): Promise<(Term | null)[][]> {
@@ -219,7 +221,9 @@ async function useAndRun(info: TestInfo): Promise<(Term | null)[][]> {
   await expect(page.locator(".query-main .monaco-editor")).toBeVisible();
   await expect.poll(editorText).toBe(generated!.result.sparql);
   await page.getByRole("button", { name: /^Run(?: |$)/ }).click();
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("displayed", {
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("displayed", {
     timeout: 20000,
   });
   await expect(page.locator(".query-error")).toHaveCount(0);

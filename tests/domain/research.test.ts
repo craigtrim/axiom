@@ -140,8 +140,8 @@ it("discovers native executables and the Codex npm entry on PATH", async () => {
       "",
     );
     const found = await discoverAssistants({ PATH: root });
-    expect(found.map((c) => c.id)).toEqual(["codex", "claude"]);
-    expect(found[0].args[0]).toContain("codex.js");
+    expect(found.map((c) => c.id)).toEqual(["claude", "codex"]);
+    expect(found.find((c) => c.id === "codex")!.args[0]).toContain("codex.js");
     expect(await discoverAssistants({ PATH: "" })).toEqual([]);
   } finally {
     await rm(root, { recursive: true, force: true });

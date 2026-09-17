@@ -45,6 +45,28 @@ describe("workbench preferences", () => {
         },
       }),
     ).toEqual({ version: 1, theme: "light", panelState: {} }));
+  it("retains independent pane zoom and drops invalid values", () => {
+    expect(
+      readPreferences({
+        version: 1,
+        panelState: {
+          "pane.zoom.individuals": 1.25,
+          "pane.zoom.hierarchy": 0.75,
+          "pane.zoom.entity-1": 2,
+          "pane.zoom.query": 0.1,
+          "pane.zoom.source": Infinity,
+          "pane.zoom.research": "1.5",
+          "pane.zoom.inspector": 10,
+          "pane.zoom.graph": 2,
+          "pane.zoom.": 1,
+        },
+      }).panelState,
+    ).toEqual({
+      "pane.zoom.individuals": 1.25,
+      "pane.zoom.hierarchy": 0.75,
+      "pane.zoom.entity-1": 2,
+    });
+  });
   it("rejects unsupported settings files", () => {
     expect(() => readPreferences({ version: 2 })).toThrow();
     expect(() => readPreferences(null)).toThrow();

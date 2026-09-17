@@ -44,6 +44,10 @@ export function readPreferences(input: unknown): Preferences {
     parseGraphStyle(s["graph.stylesheet"]);
     out["graph.stylesheet"] = s["graph.stylesheet"];
   }
+  if (["codex", "claude"].includes(String(s["assistant.provider"])))
+    out["assistant.provider"] = s["assistant.provider"];
+  if (typeof s["details.source.open"] === "boolean")
+    out["details.source.open"] = s["details.source.open"];
   const prompts = s["research.templates"];
   if (
     object(prompts) &&

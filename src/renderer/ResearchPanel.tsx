@@ -1,3 +1,4 @@
+import { useAssistantProvider } from "./assistant-provider";
 import { useEffect, useState } from "react";
 import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
 import {
@@ -28,9 +29,7 @@ export function ResearchPanel() {
   const snapshot = useSnapshot(),
     [context, setContext] = useState<ResearchContext | null>(null),
     [assistants, setAssistants] = useState<AssistantInfo[]>([]),
-    [provider, setProvider] = useState<AssistantId>(
-      panel("research.provider", "codex"),
-    ),
+    [provider, setProvider] = useAssistantProvider(),
     [template, setTemplate] = useState(() => {
       const saved = panel("research.template", "research");
       return researchTemplates.some((t) => t.id === saved) ? saved : "research";

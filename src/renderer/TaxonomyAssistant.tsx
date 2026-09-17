@@ -1,3 +1,4 @@
+import { useAssistantProvider } from "./assistant-provider";
 import { useEffect, useRef, useState } from "react";
 import {
   AssistantActivity,
@@ -29,6 +30,8 @@ export function TaxonomyAssistant({
   added: () => void;
 }) {
   const snapshot = useSnapshot()!;
+  const [provider, setProvider] = useAssistantProvider();
+  const providerName = provider === "claude" ? "Claude" : "Codex";
   const activity = useAssistantActivity("taxonomy");
   const [context, setContext] = useState<TaxonomyContext>();
   const [response, setResponse] = useState<TaxonomyResponse>();
@@ -73,7 +76,8 @@ export function TaxonomyAssistant({
     try {
       const result = await assistantActivities.run(
         "taxonomy",
-        "Codex · " +
+        providerName +
+          " · " +
           (children ? "Finding child classes" : "Finding instances") +
           " for " +
           name +
@@ -89,6 +93,7 @@ export function TaxonomyAssistant({
           setContext(next);
           return window.axiom.taxonomyAssistant.run({
             id,
+            provider,
             iri,
             mode,
             datasetEpoch: next.datasetEpoch,
@@ -161,16 +166,36 @@ export function TaxonomyAssistant({
     >
       <AssistantActivity kind="taxonomy" controls={false} />
       <div className="taxonomy-assistant" aria-busy={busy || applying}>
+        <label>
+          Assistant
+          <select
+            aria-label="Taxonomy assistant"
+            value={provider}
+            disabled={busy || applying}
+            onChange={(e) => setProvider(e.target.value as "claude" | "codex")}
+          >
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
         <p className="muted">
           {children
-            ? "Codex proposes immediate child classes for your review."
-            : "Codex proposes real named individuals for your review."}{" "}
-          Uses Codex on PATH with your CLI sign-in.
+            ? providerName +
+              " proposes immediate child classes for your review."
+            : providerName +
+              " proposes real named individuals for your review."}{" "}
+          Uses your existing assistant sign-in.
         </p>
         {context && (
           <details className="taxonomy-context">
             <summary>
-              Context sent to Codex · {context.ancestors.length}{" "}
+              Context sent to{" "}
+              {response?.provider === "codex"
+                ? "Codex"
+                : response?.provider === "claude"
+                  ? "Claude"
+                  : providerName}{" "}
+              · {context.ancestors.length}{" "}
               {context.ancestors.length === 1 ? "ancestor" : "ancestors"} ·{" "}
               {context.directChildren.length}{" "}
               {context.directChildren.length === 1 ? "child" : "children"} ·{" "}
