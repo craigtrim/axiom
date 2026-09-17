@@ -1,5 +1,8 @@
+import { NS } from "../domain/model";
 export const sourcePrefixes: Record<string, string> = {
-  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+  dc: NS.dc,
+  dcterms: NS.dcterms,
+  rdf: NS.rdf,
   rdfs: "http://www.w3.org/2000/01/rdf-schema#",
   owl: "http://www.w3.org/2002/07/owl#",
   xsd: "http://www.w3.org/2001/XMLSchema#",
@@ -34,4 +37,9 @@ export interface FilePreview {
   dataUrl: string;
   width: number;
   height: number;
+}
+
+export interface EntitySourceDocument extends SourceDocument {
+  iri: string;
+  original: import("../domain/model").Triple[];
 }

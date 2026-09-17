@@ -1,3 +1,4 @@
+import { writeTurtleSnippet } from "./turtle-snippet";
 import { Parser, Writer, DataFactory } from "n3";
 import { sourcePrefixes } from "../shared/source";
 import { RdfXmlParser } from "rdfxml-streaming-parser";
@@ -15,7 +16,11 @@ export function detectFormat(text: string, fileName: string): RdfFormat {
   )
     return "rdfxml";
   if (/^[{\[]/.test(head)) return "jsonld";
-  if (/\.(?:owl|rdf|xml)$/i.test(fileName) && /^(?:@prefix|@base|PREFIX|BASE)\b/i.test(head)) return "turtle";
+  if (
+    /\.(?:owl|rdf|xml)$/i.test(fileName) &&
+    /^(?:@prefix|@base|PREFIX|BASE)\b/i.test(head)
+  )
+    return "turtle";
   const ext = fileName.toLowerCase().split(".").pop();
   return ext === "nt"
     ? "ntriples"
@@ -212,6 +217,10 @@ const node = (value: string) =>
 export async function writeRdf(
   triples: Triple[],
   format: "turtle" | "ntriples" | "nquads" | "trig" | "rdfxml" | "jsonld",
+  options: {
+    prefixes?: Record<string, string>;
+    preserveBlankNodes?: boolean;
+  } = {},
 ) {
   if (
     !["nquads", "trig", "jsonld"].includes(format) &&
@@ -220,7 +229,7 @@ export async function writeRdf(
     throw Error(
       "This dataset has named graphs. Choose TriG, N-Quads or JSON-LD to preserve them.",
     );
-  if (format === "rdfxml") return writeXml(triples);
+  if (format === "rdfxml") return writeXml(triples, options);
   if (format === "jsonld") {
     const graphs = new Map<string, Map<string, Record<string, unknown>>>();
     for (const t of triples) {
@@ -254,8 +263,18 @@ export async function writeRdf(
       2,
     );
   }
+  if (format === "turtle" || format === "trig")
+    return writeTurtleSnippet(
+      triples,
+      options.prefixes ?? sourcePrefixes,
+      "",
+      new Set(),
+      format,
+    );
   const writer = new Writer({
-    ...(["turtle", "trig"].includes(format) ? { prefixes: sourcePrefixes } : {}),
+    ...(["turtle", "trig"].includes(format)
+      ? { prefixes: options.prefixes ?? sourcePrefixes }
+      : {}),
     format: {
       turtle: "Turtle",
       ntriples: "N-Triples",
@@ -296,12 +315,24 @@ const xml = (s: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
-function writeXml(triples: Triple[]) {
+function writeXml(
+  triples: Triple[],
+  options: {
+    prefixes?: Record<string, string>;
+    preserveBlankNodes?: boolean;
+  } = {},
+) {
   const namespaces = new Map<string, string>(),
     props = new Map<string, string>(),
     blanks = new Map<string, string>();
   const blank = (s: string) => {
-    if (!blanks.has(s)) blanks.set(s, "b" + blanks.size);
+    if (!blanks.has(s))
+      blanks.set(
+        s,
+        options.preserveBlankNodes
+          ? "axiom" + Buffer.from(s.slice(2)).toString("hex")
+          : "b" + blanks.size,
+      );
     return blanks.get(s)!;
   };
   for (const t of triples) {
@@ -310,28 +341,35 @@ function writeXml(triples: Triple[]) {
       throw Error(
         "A predicate cannot be represented as an XML element. Choose Turtle instead.",
       );
-    if (!namespaces.has(m[1])) namespaces.set(m[1], "p" + namespaces.size);
+    if (!namespaces.has(m[1]))
+      namespaces.set(
+        m[1],
+        Object.entries(options.prefixes ?? {}).find(
+          ([prefix, base]) => base === m[1] && !!prefix,
+        )?.[0] ?? "p" + namespaces.size,
+      );
     props.set(t.predicate, namespaces.get(m[1]) + ":" + m[2]);
   }
-  return (
-    '<?xml version="1.0" encoding="UTF-8"?>\n<rdf:RDF xmlns:rdf="' +
-    NS.rdf +
-    '" ' +
-    [...namespaces]
-      .map(([u, p]) => "xmlns:" + p + '="' + xml(u) + '"')
-      .join(" ") +
-    ">\n" +
-    triples
+  const subjects = new Map<string, Triple[]>();
+  for (const t of triples) {
+    const rows = subjects.get(t.subject) ?? [];
+    rows.push(t);
+    subjects.set(t.subject, rows);
+  }
+  const namespacesText = [...namespaces]
+    .filter(([, p]) => p !== "rdf")
+    .map(([u, p]) => "    xmlns:" + p + '="' + xml(u) + '"')
+    .join("\n");
+  const blocks = [...subjects].map(([id, rows]) => {
+    const subject = id.startsWith("_:")
+      ? 'rdf:nodeID="' + blank(id) + '"'
+      : 'rdf:about="' + xml(id) + '"';
+    const properties = rows
       .map((t) => {
-        const subject = t.subject.startsWith("_:")
-            ? 'rdf:nodeID="' + blank(t.subject) + '"'
-            : 'rdf:about="' + xml(t.subject) + '"',
-          p = props.get(t.predicate)!,
+        const p = props.get(t.predicate)!,
           o = t.object;
         return (
-          "<rdf:Description " +
-          subject +
-          "><" +
+          "        <" +
           p +
           (o.literal
             ? (o.language
@@ -352,11 +390,25 @@ function writeXml(triples: Triple[]) {
               ">"
             : o.value.startsWith("_:")
               ? ' rdf:nodeID="' + blank(o.value) + '"/>'
-              : ' rdf:resource="' + xml(o.value) + '"/>') +
-          "</rdf:Description>"
+              : ' rdf:resource="' + xml(o.value) + '"/>')
         );
       })
-      .join("\n") +
-    "\n</rdf:RDF>"
+      .join("\n");
+    return (
+      "    <rdf:Description " +
+      subject +
+      ">\n" +
+      properties +
+      "\n    </rdf:Description>"
+    );
+  });
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n<rdf:RDF xmlns:rdf="' +
+    NS.rdf +
+    '"' +
+    (namespacesText ? "\n" + namespacesText : "") +
+    ">\n\n" +
+    blocks.join("\n\n") +
+    "\n\n</rdf:RDF>\n"
   );
 }
