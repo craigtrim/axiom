@@ -1,3 +1,4 @@
+import { SubclassSuggestions } from "./SubclassSuggestions";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
@@ -14,8 +15,7 @@ import {
 import { flushQueryHistory, historyState } from "./query-history";
 import { beginCreation, takeEditorIri } from "./authoring";
 import { ProvenancePanel } from "./ProvenancePanel";
-import { EntityEditor } from "./EntityEditor";
-import { displayName } from "../domain/rdf-model";
+import { DetailsPanel } from "./EntityEditor";
 import { startInlineRename } from "./InlineRename";
 import { StylesDialog } from "./StylesDialog";
 import { ResearchPanel } from "./ResearchPanel";
@@ -67,6 +67,7 @@ import {
   onCommand,
   command,
   act,
+  request,
   report,
   setPreferences,
   queueQuery,
@@ -82,6 +83,7 @@ const names: Record<string, string> = {
   hierarchy: "Hierarchy",
   graph: "Graph",
   inspector: "Inspector",
+  details: "Details",
   individuals: "Individuals",
   query: "Query",
   research: "Research",
@@ -91,8 +93,10 @@ const names: Record<string, string> = {
 const tab = (id: string) => ({
   type: "tab" as const,
   id,
-  component: id,
-  name: names[id],
+  component: id.startsWith("graph:") ? "graph" : id,
+  name: id.startsWith("graph:")
+    ? "Graph " + (Object.keys(state?.graphs ?? {}).indexOf(id) + 1)
+    : names[id],
 });
 
 export function defaultLayout(
@@ -193,12 +197,19 @@ export function restoreLayout(value: unknown): Model {
     const v = structuredClone(value) as IJsonModel;
     if (!v.layout || JSON.stringify(v).length > 100000) throw Error();
     const model = Model.fromJson(v),
-      seen = new Set<string>();
+      seen = new Set<string>(),
+      details: TabNode[] = [],
+      staleGraphs: TabNode[] = [];
     model.visitNodes((n) => {
       if (n instanceof TabNode) {
         const id = n.getComponent() ?? "";
         if (id === "entity") {
           if (typeof n.getConfig()?.iri !== "string") throw Error();
+          details.push(n);
+          return;
+        }
+        if (id === "details") {
+          details.push(n);
           return;
         }
         if (id === "queryResults") {
@@ -209,10 +220,34 @@ export function restoreLayout(value: unknown): Model {
             throw Error();
           return;
         }
+        if (id === "graph" && /^graph(?::[a-zA-Z0-9-]+)?$/.test(n.getId())) {
+          if (
+            state?.graphs &&
+            !state.graphs[n.getId()] &&
+            n.getId() !== "graph"
+          )
+            staleGraphs.push(n);
+          return;
+        }
         if (!names[id] || seen.has(id)) throw Error();
         seen.add(id);
       }
     });
+    for (const n of staleGraphs) model.doAction(Actions.deleteTab(n.getId()));
+    // Older workspaces kept a separate tab for each entity. Reuse their first
+    // location for the selection-following Details pane.
+    const retained = details.find((n) => n.getId() === "details") ?? details[0];
+    for (const n of details) {
+      if (n === retained)
+        model.doAction(
+          Actions.updateNodeAttributes(n.getId(), {
+            component: "details",
+            name: "Details",
+            config: {},
+          }),
+        );
+      else model.doAction(Actions.deleteTab(n.getId()));
+    }
     return model;
   } catch {
     report(
@@ -228,9 +263,18 @@ function rearrangedLayout(profile: "standard" | "wide", previous: Model) {
     profile === "wide" ? "individuals-group" : "graph-group",
   )!;
   previous.visitNodes((n) => {
-    if (n instanceof TabNode && n.getComponent() === "queryResults")
+    if (
+      n instanceof TabNode &&
+      ["queryResults", "details"].includes(n.getComponent() ?? "")
+    )
       next.doAction(
-        Actions.addTab(n.toJson(), target.getId(), DockLocation.CENTER, -1),
+        Actions.addTab(
+          n.toJson(),
+          target.getId(),
+          DockLocation.CENTER,
+          -1,
+          n.getComponent() === "details" ? false : undefined,
+        ),
       );
   });
   return next;
@@ -266,6 +310,7 @@ export function applyTheme(doc: Document = document) {
     root.style.setProperty("--" + k, v);
 }
 export function App() {
+  const [subclassTarget, setSubclassTarget] = useState<string | null>(null);
   useAssistantActivityPolling();
   const items = commandDefinitions.map((c) => {
     const action =
@@ -294,7 +339,7 @@ export function App() {
     modelRef = useRef(model),
     [edit, setEdit] = useState<EntityDialog | null>(null),
     [search, setSearch] = useState(false),
-    [styles, setStyles] = useState(false),
+    [styles, setStyles] = useState<false | "visual" | "advanced">(false),
     [palette, setPalette] = useState(false),
     [shortcuts, setShortcuts] = useState(false),
     [keyboardSettings, setKeyboardSettings] = useState(false),
@@ -356,19 +401,31 @@ export function App() {
     preferences.layout = m.toJson();
     persist();
   };
-  const show = (id: string) => {
+  const show = (id: string, focusPanel = true) => {
+    if (id === "graph") id = state?.activeGraphId ?? "graph";
     const m = modelRef.current;
     let n = m.getNodeById(id);
+    if (id === "details") {
+      m.visitNodes((candidate) => {
+        if (
+          candidate instanceof TabNode &&
+          candidate.getComponent() === "details"
+        )
+          n = candidate;
+      });
+      if (n) id = n.getId();
+    }
     if (!n) {
-      const dataSibling =
-        id === "query"
+      const dataSibling = id.startsWith("graph:")
+        ? m.getNodeById("graph")?.getParent()
+        : id === "query"
           ? m.getNodeById("individuals")?.getParent()
           : id === "individuals"
             ? m.getNodeById("query")?.getParent()
             : undefined;
       const target =
         dataSibling ??
-        (id === "provenance" || id === "source"
+        (id === "provenance" || id === "source" || id === "details"
           ? (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!)
           : id === "research"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
@@ -380,7 +437,8 @@ export function App() {
           dataSibling ||
             id === "research" ||
             id === "provenance" ||
-            id === "source"
+            id === "source" ||
+            id === "details"
             ? DockLocation.CENTER
             : id === "inspector"
               ? DockLocation.RIGHT
@@ -396,14 +454,22 @@ export function App() {
       const maximised = m.getMaximizedTabset(n.getLayoutId());
       if (maximised && maximised !== n.getParent())
         m.doAction(Actions.maximizeToggle(maximised.getId(), n.getLayoutId()));
-      n.getWindow()?.focus();
+      if (focusPanel) n.getWindow()?.focus();
       m.doAction(Actions.selectTab(n.getId()));
+      if (!focusPanel) {
+        saveLayout(m);
+        return;
+      }
       active.current = id;
       const focus = () => {
         if (active.current !== id) return;
         const content = n
           ?.getDocument()
-          ?.querySelector<HTMLElement>('[data-panel="' + id + '"]');
+          ?.querySelector<HTMLElement>(
+            id.startsWith("graph:")
+              ? '[data-graph-id="' + id + '"]'
+              : '[data-panel="' + id + '"]',
+          );
         const recovery = content
           ?.closest('.adaptive-pane[data-pane-recovery="true"]')
           ?.querySelector<HTMLElement>(".pane-recovery button");
@@ -412,9 +478,9 @@ export function App() {
           content?.querySelector<HTMLElement>(
             id === "query" || id === "source"
               ? ".monaco-editor textarea"
-              : id === "graph"
+              : id === "graph" || id.startsWith("graph:")
                 ? "canvas"
-                : 'input,button,[tabindex="0"]',
+                : 'input:not(:disabled),button:not(:disabled),[tabindex="0"]',
           );
         if (target && target.getBoundingClientRect().width > 0) target.focus();
         return !!target && target.getBoundingClientRect().width > 0;
@@ -465,51 +531,21 @@ export function App() {
     }
     show(id);
   };
-  const openEditor = (iri: string) => {
-    const m = modelRef.current,
-      id = "entity:" + encodeURIComponent(iri),
-      name = state?.entities.find((e) => e.iri === iri);
-    if (!name) {
+  const openEditor = async (iri: string) => {
+    if (!state?.entities.some((e) => e.iri === iri)) {
       report(
         "This entity is unavailable or is a read-only generated sample record.",
         true,
       );
       return;
     }
-    let existing: TabNode | undefined;
-    m.visitNodes((n) => {
-      if (
-        n instanceof TabNode &&
-        n.getComponent() === "entity" &&
-        n.getConfig()?.iri === iri
-      )
-        existing = n;
-    });
-    if (existing) {
-      show(existing.getId());
-      return;
+    const epoch = state.datasetEpoch;
+    try {
+      if (state.selected !== iri) await request("select", { iri });
+      if (state?.datasetEpoch === epoch) show("details");
+    } catch (e) {
+      report((e as Error).message, true);
     }
-    if (!m.getNodeById(id)) {
-      const target =
-        m.getNodeById("graph")?.getParent() ??
-        m.getActiveTabset() ??
-        m.getRootRow()!;
-      m.doAction(
-        Actions.addTab(
-          {
-            type: "tab",
-            id,
-            component: "entity",
-            name: name ? displayName(name) : "Entity",
-            config: { iri },
-          },
-          target.getId(),
-          DockLocation.CENTER,
-          -1,
-        ),
-      );
-    }
-    show(id);
   };
   const focusPane = (direction: number) => {
     const panels = [
@@ -653,7 +689,9 @@ export function App() {
       if (id.startsWith("view.")) show(id.slice(5));
       if (id.startsWith("pane.")) pane(id);
       if (id === "palette") setPalette(true);
-      if (id === "graph.styles") setStyles(true);
+      if (id === "taxonomy.reveal.open") show("hierarchy", false);
+      if (id === "graph.styles") setStyles("advanced");
+      if (id === "graph.appearance") setStyles("visual");
       if (id === "research.open") show("research");
       if (/^research\.(run|cancel|refresh|source\.)/.test(id)) {
         queueResearchCommand(id.slice(9));
@@ -704,6 +742,18 @@ export function App() {
         id === "workspace.example" ||
         id === "workspace.imported"
       ) {
+        const staleGraphs: string[] = [];
+        modelRef.current.visitNodes((n) => {
+          if (
+            n instanceof TabNode &&
+            n.getComponent() === "graph" &&
+            n.getId() !== "graph"
+          )
+            staleGraphs.push(n.getId());
+        });
+        for (const id of staleGraphs)
+          modelRef.current.doAction(Actions.deleteTab(id));
+        setSubclassTarget(null);
         preferences.panelState = {
           ...preferences.panelState,
           "query.text":
@@ -739,6 +789,8 @@ export function App() {
           for (const d of documents) applyTheme(d);
           setThemeVersion((n) => n + 1);
         });
+      if (id === "subclasses.suggest" && state?.selected)
+        setSubclassTarget(state.selected);
       if (id === "file.provenance") show("provenance");
       if (id === "entity.search") {
         if (
@@ -748,6 +800,15 @@ export function App() {
         )
           command("source.find");
         else setSearch(true);
+      } else if (id === "entity.newGraph") {
+        void request<string>("graphCreate", {
+          iris: state?.selected ? [state.selected] : [],
+        })
+          .then((id) => {
+            show(id);
+            command("graph.fit");
+          })
+          .catch((e) => report(e.message, true));
       } else if (id === "entity.showGraph") {
         show("graph");
         if (state?.selected)
@@ -774,7 +835,8 @@ export function App() {
       else if (id === "entity.createProperty") beginCreation("ObjectProperty");
       else if (id === "entity.edit") {
         const iri = takeEditorIri();
-        if (iri) openEditor(iri);
+        if (iri) void openEditor(iri);
+        else if (state?.graph.selectedEdge) show("details");
       } else if (id === "entity.delete") setEdit("delete");
       if (id === "keyboard.settings") setKeyboardSettings(true);
       if (id === "keyboard.changed") setThemeVersion((n) => n + 1);
@@ -832,7 +894,9 @@ export function App() {
       if (id === "edit.undo" || id === "edit.redo") {
         const el = focusedDocument().activeElement;
         if (!el?.closest(".monaco-editor")) {
-          if (el?.tagName === "INPUT" || el?.tagName === "TEXTAREA") {
+          if (
+            el?.matches("input:not([type=range]):not([type=checkbox]),textarea")
+          ) {
             focusedDocument().execCommand(id === "edit.undo" ? "undo" : "redo");
           } else void act(id === "edit.undo" ? "undo" : "redo");
         }
@@ -875,27 +939,6 @@ export function App() {
       preferences.layout = modelRef.current.toJson();
       void window.axiom.preferences.save(preferences);
     };
-    const retargetEditor = (event: Event) => {
-      const { oldIri, iri, epoch } = (
-        event as CustomEvent<{ oldIri: string; iri: string; epoch: number }>
-      ).detail;
-      if (epoch !== state?.datasetEpoch) return;
-      const m = modelRef.current,
-        ids: string[] = [];
-      m.visitNodes((n) => {
-        if (
-          n instanceof TabNode &&
-          n.getComponent() === "entity" &&
-          n.getConfig()?.iri === oldIri
-        )
-          ids.push(n.getId());
-      });
-      for (const id of ids)
-        m.doAction(Actions.updateNodeAttributes(id, { config: { iri } }));
-      preferences.layout = m.toJson();
-      persist();
-    };
-    window.addEventListener("axiom-entity-retarget", retargetEditor);
     window.addEventListener("beforeunload", flush);
     return () => {
       clearTimeout(initialMenuTimer);
@@ -905,7 +948,6 @@ export function App() {
       removeKeyboard();
       system.removeEventListener("change", change);
       motion.removeEventListener("change", motionChange);
-      window.removeEventListener("axiom-entity-retarget", retargetEditor);
       window.removeEventListener("beforeunload", flush);
     };
   }, []);
@@ -1044,15 +1086,9 @@ export function App() {
                       <SourcePanel />
                     </Suspense>
                   ),
-                  entity: (
-                    <EntityEditor
-                      key={n.getConfig()?.iri ?? ""}
-                      iri={n.getConfig()?.iri ?? ""}
-                      panelId={n.getId()}
-                    />
-                  ),
+                  details: <DetailsPanel panelId={n.getId()} />,
                   hierarchy: <HierarchyPanel />,
-                  graph: <GraphPanel />,
+                  graph: <GraphPanel graphId={n.getId()} />,
                   inspector: <InspectorPanel />,
                   research: <ResearchPanel />,
                   individuals: <IndividualsPanel />,
@@ -1107,7 +1143,12 @@ export function App() {
                 layout: modelRef.current.toJson(),
                 arrangement: preferences.arrangement ?? "auto",
               };
-            if (a.type === Actions.SELECT_TAB) active.current = a.data.tabNode;
+            if (a.type === Actions.SELECT_TAB) {
+              active.current = a.data.tabNode;
+              const n = modelRef.current.getNodeById(a.data.tabNode);
+              if (n instanceof TabNode && n.getComponent() === "graph")
+                void act("graphActivate", { id: n.getId() });
+            }
             return a;
           }}
         />
@@ -1126,7 +1167,18 @@ export function App() {
         </span>
         <button onClick={() => command("help.shortcuts")}>Shortcuts</button>
       </footer>
-      {styles && <StylesDialog close={() => setStyles(false)} />}
+      {subclassTarget && (
+        <SubclassSuggestions
+          iri={subclassTarget}
+          close={() => setSubclassTarget(null)}
+        />
+      )}
+      {styles && (
+        <StylesDialog
+          advanced={styles === "advanced"}
+          close={() => setStyles(false)}
+        />
+      )}
       {edit && <EditDialog kind={edit} close={() => setEdit(null)} />}
       {search && <SearchDialog close={() => setSearch(false)} />}
       {palette && (

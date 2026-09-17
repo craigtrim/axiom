@@ -81,6 +81,14 @@ test.beforeEach(async () => {
     setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"bad output":result),behavior.delay??20);
   });`,
   );
+  // These fixtures exercise Codex explicitly; new profiles default to Claude.
+  await writeFile(
+    path.join(profile, "workbench.json"),
+    JSON.stringify({
+      version: 1,
+      panelState: { "assistant.provider": "codex" },
+    }),
+  );
   const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
     string,
     string

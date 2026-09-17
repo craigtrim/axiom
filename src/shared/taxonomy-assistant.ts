@@ -1,3 +1,4 @@
+import type { AssistantId } from "./research";
 export { buildTaxonomyPrompt } from "./taxonomy-language";
 import { readTaxonomyReply } from "./taxonomy-language";
 import type { Entity } from "../domain/model";
@@ -45,6 +46,7 @@ export interface TaxonomyResult {
   suggestions: TaxonomySuggestion[];
 }
 export interface TaxonomyRequest {
+  provider?: AssistantId;
   id: string;
   iri: string;
   mode: TaxonomyMode;
@@ -52,6 +54,7 @@ export interface TaxonomyRequest {
   version: number;
 }
 export interface TaxonomyResponse {
+  provider?: AssistantId;
   id: string;
   context: TaxonomyContext;
   result: TaxonomyResult;
@@ -59,6 +62,7 @@ export interface TaxonomyResponse {
   completedAt: string;
 }
 export interface TaxonomyStatus {
+  provider?: AssistantId;
   running: boolean;
   startedAt?: number;
   activeEntity?: string;
@@ -78,7 +82,7 @@ export function parseTaxonomyResult(raw: unknown): TaxonomyResult {
     try {
       raw = JSON.parse(raw);
     } catch {
-      throw Error("Codex did not return a valid taxonomy proposal.");
+      throw Error("The assistant did not return a valid taxonomy proposal.");
     }
   }
   const value = raw as TaxonomyResult;
@@ -90,7 +94,7 @@ export function parseTaxonomyResult(raw: unknown): TaxonomyResult {
     !Array.isArray(value.suggestions) ||
     value.suggestions.length > 12
   )
-    throw Error("Codex returned an invalid taxonomy proposal.");
+    throw Error("The assistant returned an invalid taxonomy proposal.");
   const suggestions = value.suggestions.map((s) => {
     if (
       !s ||
@@ -105,7 +109,7 @@ export function parseTaxonomyResult(raw: unknown): TaxonomyResult {
       !s.parentIri ||
       s.parentIri.length > 10000
     )
-      throw Error("Codex returned an incomplete taxonomy suggestion.");
+      throw Error("The assistant returned an incomplete taxonomy suggestion.");
     const label = validLabel(s.label);
     if (!/[\p{L}\p{N}]/u.test(label))
       throw Error("A suggested label needs letters or numbers.");

@@ -59,8 +59,12 @@ export class TaxonomyAssistantService {
     )
       throw Error("Choose a class to find suggestions.");
     taxonomyMode(input.mode);
+    const provider = input.provider ?? "claude";
+    if (!["claude", "codex"].includes(provider))
+      throw Error("Choose Claude or Codex.");
     this.current = {
       running: true,
+      provider,
       id: input.id,
       startedAt: Date.now(),
       mode: input.mode,
@@ -77,7 +81,7 @@ export class TaxonomyAssistantService {
         throw Error("The ontology changed. Find suggestions again.");
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       const raw = await this.runner.run(
-        "codex",
+        provider,
         buildTaxonomyPrompt(context),
         null,
       );
@@ -86,6 +90,7 @@ export class TaxonomyAssistantService {
       const issues = await this.validate(context, result.suggestions);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       const response = {
+        provider,
         id: input.id,
         context,
         result,

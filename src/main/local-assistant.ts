@@ -32,7 +32,7 @@ export async function discoverAssistants(
   env = process.env,
 ): Promise<AssistantCommand[]> {
   const result: AssistantCommand[] = [];
-  for (const id of ["codex", "claude"] as const) {
+  for (const id of ["claude", "codex"] as const) {
     for (const directory of (env.PATH ?? env.Path ?? "")
       .split(path.delimiter)
       .filter(Boolean)) {
@@ -135,7 +135,7 @@ export class LocalAssistantRunner {
   }
   async assistants(): Promise<AssistantInfo[]> {
     const found = await this.discover();
-    return (["codex", "claude"] as const).map((id) => ({
+    return (["claude", "codex"] as const).map((id) => ({
       id,
       name: id === "codex" ? "Codex" : "Claude",
       available: found.some((c) => c.id === id),

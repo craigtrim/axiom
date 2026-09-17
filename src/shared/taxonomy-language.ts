@@ -200,7 +200,7 @@ export function readTaxonomyReply(raw: unknown): {
 } {
   const invalid = () =>
     Error(
-      "Codex did not return a valid taxonomy proposal. Expected names, descriptions and reasons.",
+      "The assistant did not return a valid taxonomy proposal. Expected names, descriptions and reasons.",
     );
   if (typeof raw !== "string" || !raw.trim() || raw.length > 120000)
     throw invalid();

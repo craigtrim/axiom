@@ -283,7 +283,7 @@ it("parses Codex prose without an output schema and applies only locally bound r
     async () => [{ id: "codex", file: process.execPath, args: [script] }],
   );
   try {
-    const response = await service.run(input);
+    const response = await service.run({ ...input, provider: "codex" });
     expect(response.result.suggestions).toEqual([expected]);
     expect(response.issues).toEqual([null]);
     expect(store.classCount).toBe(1);
@@ -301,9 +301,9 @@ it("parses Codex prose without an output schema and applies only locally bound r
     await expect(service.apply("test-job", [0])).rejects.toThrow(
       /available suggestions/,
     );
-    await expect(service.run({ ...input, datasetEpoch: 100 })).rejects.toThrow(
-      /ontology changed/,
-    );
+    await expect(
+      service.run({ provider: "codex", ...input, datasetEpoch: 100 }),
+    ).rejects.toThrow(/ontology changed/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -370,4 +370,34 @@ it("samples existing individuals while retaining the full class taxonomy and loc
       suggestion("Known object 64", parent, "individual"),
     ])[0],
   ).toMatch(/already exists/);
+});
+
+it("defaults taxonomy requests to Claude with a plain-text response", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "axiom-claude-taxonomy-")),
+    script = path.join(root, "claude.cjs"),
+    store = buildEmptyStore();
+  await writeFile(
+    script,
+    'process.stdin.resume();process.stdin.on("end",()=>{if(process.argv.includes("--json-schema"))process.exit(4);process.stdout.write(JSON.stringify({result:"Summary: Proposed category.\\nSuggestions:\\n1. Vehicle\\nDescription: A transport category.\\nReason: A useful general category."}));});',
+  );
+  const service = new TaxonomyAssistantService(
+    path.join(root, "runs"),
+    async (input) => taxonomyContext(store, input.iri, input.mode, 0),
+    async () => [null],
+    async () => [],
+    async () => [{ id: "claude", file: process.execPath, args: [script] }],
+  );
+  try {
+    const response = await service.run({
+      id: "claude-default",
+      iri: THING,
+      mode: "children",
+      datasetEpoch: 0,
+      version: store.version,
+    });
+    expect(response.provider).toBe("claude");
+    expect(response.result.suggestions[0].label).toBe("Vehicle");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -1,3 +1,10 @@
+import { taxonomyRows } from "../domain/taxonomy-rows";
+import { takeTaxonomyReveal } from "./taxonomy-navigation";
+import {
+  namedClass,
+  taxonomyParents,
+  taxonomyChildren,
+} from "../domain/class-expressions";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import { PaneToolbar } from "./AdaptivePane";
@@ -9,7 +16,7 @@ import { EditableEntityName } from "./InlineRename";
 import { EntityMenu } from "./EntityMenu";
 import { TaxonomyAssistant } from "./TaxonomyAssistant";
 import type { TaxonomyMode } from "../shared/taxonomy-assistant";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   useSnapshot,
   act,
@@ -47,42 +54,44 @@ export function HierarchyPanel() {
           ]),
         ),
     );
+  const rootRef = useRef<HTMLElement>(null);
+  const revealRef = useRef<string | null>(null);
+  const [revealTick, setRevealTick] = useState(0);
+  useEffect(() => {
+    const reveal = () => {
+      const iri = takeTaxonomyReveal();
+      if (!iri) return;
+      revealRef.current = iri;
+      setFilter("");
+      const entity = s.entities.find((e) => e.iri === iri);
+      setTab(entity?.kind.endsWith("Property") ? "properties" : "classes");
+      setRevealTick((x) => x + 1);
+    };
+    reveal();
+    return onCommand((id) => {
+      if (id === "taxonomy.reveal") reveal();
+    });
+  }, [s.entities]);
+  useEffect(() => {
+    if (!revealRef.current) return;
+    const row = [
+      ...(rootRef.current?.querySelectorAll<HTMLElement>("[data-entity-iri]") ??
+        []),
+    ].find((r) => r.dataset.entityIri === revealRef.current);
+    if (row) {
+      row.scrollIntoView({ block: "nearest", inline: "nearest" });
+      revealRef.current = null;
+    }
+  }, [revealTick, open, filter, tab, s.selected]);
   const map = useMemo(
     () => new Map(s.entities.map((e) => [e.iri, e])),
     [s.entities],
   );
   const properties = tab === "properties",
     entities = s.entities.filter((e) =>
-      properties
-        ? e.kind.endsWith("Property")
-        : e.kind === "Class" || e.kind === "Defined",
+      properties ? e.kind.endsWith("Property") : namedClass(e),
     );
-  const visible = new Set<string>();
-  if (filter.trim()) {
-    const q = filter.toLowerCase();
-    const add = (iri: string) => {
-      if (visible.has(iri)) return;
-      visible.add(iri);
-      for (const p of map.get(iri)?.parents ?? []) add(p);
-    };
-    for (const e of entities)
-      if ((e.name + " " + e.iri).toLowerCase().includes(q)) add(e.iri);
-  }
-  const rows: { iri: string; depth: number }[] = [];
-  const visited = new Set<string>();
-  const walk = (iri: string, depth: number) => {
-    if (visited.has(iri) || (filter.trim() && !visible.has(iri))) return;
-    const e = map.get(iri);
-    if (!e) return;
-    visited.add(iri);
-    rows.push({ iri, depth });
-    if (open.has(iri) || filter) for (const c of e.children) walk(c, depth + 1);
-  };
-  const ids = new Set(entities.map((e) => e.iri));
-  for (const e of entities
-    .filter((e) => !e.parents.some((p) => ids.has(p)))
-    .sort((a, b) => a.name.localeCompare(b.name)))
-    walk(e.iri, 0);
+  const rows = taxonomyRows(entities, open, filter);
   const toggle = (iri: string) => {
     setOpen((previous) => {
       savePanel("hierarchy.open", [...previous], false);
@@ -139,23 +148,24 @@ export function HierarchyPanel() {
     }
   }, []);
   useEffect(() => {
-    const iri = s.selected;
+    const iri = draft?.parent ?? s.selected;
     if (!iri || !map.has(iri)) return;
     const next = new Set(open),
       seen = new Set<string>();
     const parents = (i: string) => {
       if (seen.has(i)) return;
       seen.add(i);
-      for (const p of map.get(i)?.parents ?? []) {
+      for (const p of taxonomyParents(map.get(i))) {
         next.add(p);
         parents(p);
       }
     };
     parents(iri);
     if (next.size !== open.size) setOpen(next);
-  }, [s.selected, s.entities]);
+  }, [s.selected, s.entities, draft?.parent]);
   return (
     <section
+      ref={rootRef}
       className="panel hierarchy-panel"
       data-panel="hierarchy"
       aria-label="Hierarchy panel"
@@ -217,9 +227,12 @@ export function HierarchyPanel() {
           return (
             <Fragment key={iri}>
               <div
+                data-entity-iri={iri}
                 role="treeitem"
                 aria-level={depth + 1}
-                aria-expanded={e.children.length ? expanded : undefined}
+                aria-expanded={
+                  taxonomyChildren(e).length ? expanded : undefined
+                }
                 aria-selected={s.selected === iri}
                 tabIndex={
                   s.selected === iri ||
@@ -238,7 +251,7 @@ export function HierarchyPanel() {
                 }}
                 onClick={() => void act("select", { iri })}
                 onDoubleClick={() => {
-                  if (e.children.length) toggle(iri);
+                  if (taxonomyChildren(e).length) toggle(iri);
                 }}
                 onContextMenu={(ev) => {
                   ev.preventDefault();
@@ -267,7 +280,8 @@ export function HierarchyPanel() {
                   }
                   if (ev.key === "ArrowRight") {
                     ev.preventDefault();
-                    if (e.children.length && !open.has(iri)) toggle(iri);
+                    if (taxonomyChildren(e).length && !open.has(iri))
+                      toggle(iri);
                     else
                       (
                         ev.currentTarget.nextElementSibling as HTMLElement
@@ -327,7 +341,7 @@ export function HierarchyPanel() {
                     toggle(iri);
                   }}
                 >
-                  {e.children.length ? (expanded ? "⌄" : "›") : ""}
+                  {taxonomyChildren(e).length ? (expanded ? "⌄" : "›") : ""}
                 </button>
                 <span
                   className={"entity-marker " + e.kind}
