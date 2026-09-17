@@ -1,3 +1,13 @@
+import { subclassSuggestions } from "../domain/subclass-suggestions";
+import { MIN_GRAPH_SPACING, MAX_GRAPH_SPACING } from "../shared/graph-spacing";
+import { SUBCLASS } from "../domain/model";
+import { simpleParentExpressions } from "../domain/class-parents";
+import { resourceSuggestions } from "../domain/resource-search";
+import { entitySource, applyEntitySource } from "../domain/entity-source";
+import type { EntitySourceDocument } from "../shared/source";
+import { intersectionSuggestions } from "../domain/intersection-suggestions";
+import { updateIntersectionRoutes } from "../domain/intersection-routing";
+import { namedClass, taxonomyParents } from "../domain/class-expressions";
 import { instancePage } from "../domain/instances";
 import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
 import { sourceDocument, applySource, linkedFile } from "../domain/source";
@@ -15,6 +25,10 @@ import { readWorkspace, buildEmptyStore } from "../domain/workspace";
 import { parentPort, Worker } from "node:worker_threads";
 import path from "node:path";
 import { History } from "../domain/history";
+import {
+  applyGraphAppearance,
+  graphStyleAnalysis,
+} from "../domain/graph-appearance";
 import { parseGraphStyle } from "../domain/graph-style";
 import { isLayoutMode, isExternalLayout } from "../shared/layout-options";
 import { buildStore, generate } from "../domain/fixture";
@@ -56,12 +70,12 @@ import type {
   InspectorData,
   QuerySummary,
 } from "../shared/protocol";
-let store = buildStore(),
+let store = buildEmptyStore(),
   view = new Viewport(store),
   layouts = new Layouts(view, store),
   frozen = false,
   reducedMotion = false,
-  selected: string | null = NS.pizza + "Pizza",
+  selected: string | null = null,
   message = "Ready",
   dirty = false,
   queryId = 0,
@@ -72,55 +86,127 @@ let activeQuery: AbortController | undefined,
   tableCache: { key: string; rows: Individual[] } | undefined;
 const emit = (type: string, data: unknown) =>
   parentPort!.postMessage({ event: { type, data } });
-view.seed([NS.pizza + "Pizza"]);
-layouts.run();
+// A fresh profile starts with a blank graph. Demos are opened explicitly.
 
+type GraphSession = {
+  view: Viewport;
+  layouts: Layouts;
+  frozen: boolean;
+  version: number;
+};
+const graphSessions = new Map<string, GraphSession>();
+let activeGraphId = "graph";
+function keepGraph() {
+  graphSessions.set(activeGraphId, {
+    view,
+    layouts,
+    frozen,
+    version: store.version,
+  });
+}
+function resetGraphs() {
+  graphSessions.clear();
+  activeGraphId = "graph";
+  keepGraph();
+}
+function activateGraph(id: string) {
+  if (id === activeGraphId) return;
+  const session = graphSessions.get(id);
+  if (!session) throw Error("This graph is no longer available.");
+  stopExternal();
+  keepGraph();
+  activeGraphId = id;
+  ({ view, layouts, frozen } = session);
+  selected = view.selected;
+}
+keepGraph();
 const history = new History();
 let stylesheet = "",
   documentRevision = 0,
   savedRevision = 0,
   nextRevision = 0;
-type Frame = ReturnType<typeof captureFrame>;
-function captureFrame() {
+function captureView(v: Viewport, l: Layouts, isFrozen: boolean) {
   return {
-    nodes: structuredClone([...view.nodes]),
-    edges: structuredClone([...view.edges]),
-    routes: structuredClone([...view.routes]),
-    selectedEdge: view.selectedEdge,
-    focus: [...view.focus],
-    budget: view.budget,
-    eviction: view.evictionMode,
-    clock: view.clock,
+    nodes: structuredClone([...v.nodes]),
+    edges: structuredClone([...v.edges]),
+    routes: structuredClone([...v.routes]),
+    selectedEdge: v.selectedEdge,
+    edgesVisible: v.edgesVisible,
+    countsVisible: v.countsVisible,
+    focus: [...v.focus],
+    budget: v.budget,
+    eviction: v.evictionMode,
+    clock: v.clock,
+    selected: v.selected,
+    frozen: isFrozen,
+    choice: l.choice,
+    spacing: l.spacing,
+    resolved: l.resolved,
+    groups: structuredClone(l.groups),
+    rings: [...l.rings],
+    ringOrigin: { ...l.ringOrigin },
+  };
+}
+function captureFrame() {
+  keepGraph();
+  return {
+    graphId: activeGraphId,
+    views: [...graphSessions].map(([id, s]) => ({
+      id,
+      ...captureView(s.view, s.layouts, s.frozen),
+    })),
     selected,
-    frozen,
-    choice: layouts.choice,
-    resolved: layouts.resolved,
-    groups: structuredClone(layouts.groups),
-    rings: [...layouts.rings],
-    ringOrigin: { ...layouts.ringOrigin },
     stylesheet,
     documentRevision,
   };
 }
+type Frame = ReturnType<typeof captureFrame>;
 function restoreFrame(frame: Frame) {
   stopExternal();
-  view.nodes = new Map(structuredClone(frame.nodes));
-  view.edges = new Map(structuredClone(frame.edges));
-  view.routes = new Map(structuredClone(frame.routes));
-  view.selectedEdge = frame.selectedEdge;
-  view.focus = new Set(frame.focus);
-  view.budget = frame.budget;
-  view.evictionMode = frame.eviction;
-  view.clock = frame.clock;
-  view.selected = selected = frame.selected;
-  view.alpha = 0;
-  view.revision++;
-  frozen = frame.frozen;
-  layouts.choice = frame.choice;
-  layouts.resolved = frame.resolved;
-  layouts.groups = structuredClone(frame.groups);
-  layouts.rings = [...frame.rings];
-  layouts.ringOrigin = { ...frame.ringOrigin };
+  for (const saved of frame.views) {
+    let session = graphSessions.get(saved.id);
+    if (!session) {
+      const v = new Viewport(store);
+      session = {
+        view: v,
+        layouts: new Layouts(v, store),
+        frozen: saved.frozen,
+        version: store.version,
+      };
+      graphSessions.set(saved.id, session);
+    }
+    const v = session.view,
+      l = session.layouts;
+    v.nodes = new Map(structuredClone(saved.nodes));
+    v.edges = new Map(structuredClone(saved.edges));
+    v.routes = new Map(structuredClone(saved.routes));
+    v.selectedEdge = saved.selectedEdge;
+    v.edgesVisible = saved.edgesVisible;
+    v.countsVisible = saved.countsVisible;
+    v.focus = new Set(saved.focus);
+    v.budget = saved.budget;
+    v.evictionMode = saved.eviction;
+    v.clock = saved.clock;
+    v.selected = saved.selected;
+    v.alpha = 0;
+    v.revision++;
+    l.choice = saved.choice;
+    l.spacing = saved.spacing;
+    l.force.spacing = saved.spacing;
+    l.resolved = saved.resolved;
+    l.groups = structuredClone(saved.groups);
+    l.rings = [...saved.rings];
+    l.ringOrigin = { ...saved.ringOrigin };
+    if (l.resolved === "force") {
+      l.force.reset(false);
+      v.alpha = 0;
+    }
+    session.frozen = saved.frozen;
+    session.version = store.version;
+  }
+  activeGraphId = frame.graphId;
+  ({ view, layouts, frozen } = graphSessions.get(activeGraphId)!);
+  selected = frame.selected;
   stylesheet = frame.stylesheet;
   documentRevision = frame.documentRevision;
   dirty = documentRevision !== savedRevision;
@@ -131,6 +217,7 @@ let external:
       worker: Worker;
       timer: ReturnType<typeof setTimeout>;
       capture?: () => void;
+      fit: boolean;
     }
   | undefined;
 function stopExternal() {
@@ -141,6 +228,7 @@ function stopExternal() {
   }
 }
 function runLayout(fresh = true) {
+  applyGraphAppearance(view, stylesheet);
   layouts.run(fresh);
   if (!isExternalLayout(layouts.choice) || !view.nodes.size) return;
   stopExternal();
@@ -163,6 +251,7 @@ function runLayout(fresh = true) {
       30000,
     ),
     capture: undefined as (() => void) | undefined,
+    fit: fresh,
   };
   external = task;
   function finish(
@@ -185,9 +274,15 @@ function runLayout(fresh = true) {
     } else {
       for (const p of positions ?? []) {
         const n = view.nodes.get(p.iri);
-        if (n && !n.pinned && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-          n.x = p.x;
-          n.y = p.y;
+        if (
+          n &&
+          !n.pinned &&
+          !n.layoutFixed &&
+          Number.isFinite(p.x) &&
+          Number.isFinite(p.y)
+        ) {
+          n.x = p.x * layouts.spacing;
+          n.y = p.y * layouts.spacing;
           n.vx = n.vy = 0;
         }
       }
@@ -196,7 +291,7 @@ function runLayout(fresh = true) {
       task.capture?.();
     }
     publish();
-    emit("layout-finished", {});
+    emit("layout-finished", { fit: task.fit && !error });
   }
   worker.on("message", (r) => finish(r.error, r.positions));
   worker.on("error", (e) => finish(e.message));
@@ -212,6 +307,9 @@ const tracked = new Set<DomainMethod>([
   "budget",
   "eviction",
   "layout",
+  "spacing",
+  "edgeVisibility",
+  "countVisibility",
   "freeze",
   "clear",
   "rename",
@@ -219,6 +317,7 @@ const tracked = new Set<DomainMethod>([
   "createProperty",
   "updateEntity",
   "applySource",
+  "applyEntitySource",
   "editEdge",
   "createEdge",
   "routeEdge",
@@ -230,17 +329,22 @@ const tracked = new Set<DomainMethod>([
   "stylesheet",
   "regenerate",
   "applySuggestions",
+  "applyIntersection",
+  "applySubclassSuggestions",
   "applyTaxonomySuggestions",
 ]);
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
+const spacingBefore = new Map<string, Frame>();
 async function operate(method: DomainMethod, args: Record<string, unknown>) {
+  if (typeof args.graphId === "string") activateGraph(args.graphId);
   if (["new", "example", "load", "importRdf"].includes(method)) {
     if (method !== "load") stopExternal();
     const value = await dispatch(method, args);
     history.clear();
     graphInteractions.clear();
     dragBefore = undefined;
+    spacingBefore.clear();
     documentRevision = savedRevision = 0;
     publish();
     return value;
@@ -250,9 +354,23 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
     (args.record === false && ["budget", "stylesheet"].includes(method))
   )
     return dispatch(method, args);
-  if (method !== "drag" || !args.dragging) stopExternal();
+  if (
+    method === "spacing" &&
+    args.datasetEpoch !== undefined &&
+    args.datasetEpoch !== datasetEpoch
+  )
+    return false;
+  if (
+    !["spacing", "edgeVisibility", "countVisibility"].includes(method) &&
+    (method !== "drag" || !args.dragging)
+  )
+    stopExternal();
   const before =
-      method === "drag" ? (dragBefore ?? captureFrame()) : captureFrame(),
+      method === "drag"
+        ? (dragBefore ?? captureFrame())
+        : method === "spacing"
+          ? (spacingBefore.get(activeGraphId) ?? captureFrame())
+          : captureFrame(),
     initialVersion = store.version,
     oldCommands = store.undoStack.length;
   const generated =
@@ -265,6 +383,11 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
     return value;
   }
   if (method === "drag") dragBefore = undefined;
+  if (method === "spacing" && args.preview === true) {
+    spacingBefore.set(activeGraphId, before);
+    return value;
+  }
+  if (method === "spacing") spacingBefore.delete(activeGraphId);
   const commands = store.undoStack.splice(oldCommands);
   store.redoStack = [];
   let after = captureFrame();
@@ -295,6 +418,9 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 budget: "Change node limit",
                 eviction: "Change eviction policy",
                 layout: "Change graph layout",
+                spacing: "Change node spacing",
+                edgeVisibility: "Show or hide edges",
+                countVisibility: "Show or hide counts",
                 freeze: "Freeze or resume layout",
                 clear: "Clear graph",
                 tableGraph: "Show filtered individuals",
@@ -340,28 +466,46 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
   return value;
 }
 
-function graph() {
+function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
+  applyGraphAppearance(v, stylesheet);
+  updateIntersectionRoutes([...v.nodes.values()], [...v.edges.values()]);
   return {
+    id,
+    selected: v.selected,
     title: store.ontology.name,
     stylesheet,
     layoutPending: !!external,
-    evictionMode: view.evictionMode,
-    nodes: [...view.nodes.values()],
-    edges: [...view.edges.values()],
-    selectedEdge: view.selectedEdge,
-    focus: [...view.focus],
-    budget: view.budget,
-    hidden: view.hidden,
-    revision: view.revision,
-    mode: layouts.resolved,
-    choice: layouts.choice,
-    groups: layouts.groups,
-    rings: layouts.rings,
-    ringOrigin: layouts.ringOrigin,
-    frozen,
+    evictionMode: v.evictionMode,
+    nodes: [...v.nodes.values()],
+    edges: [...v.edges.values()],
+    selectedEdge: v.selectedEdge,
+    focus: [...v.focus],
+    budget: v.budget,
+    hidden: v.hidden,
+    revision: v.revision,
+    mode: l.resolved,
+    choice: l.choice,
+    spacing: l.spacing,
+    edgesVisible: v.edgesVisible,
+    countsVisible: v.countsVisible,
+    groups: l.groups,
+    rings: l.rings,
+    ringOrigin: l.ringOrigin,
+    frozen: isFrozen,
   };
 }
 function snapshot(): Snapshot {
+  for (const [id, session] of graphSessions) {
+    if (session.view.store !== store) {
+      resetGraphs();
+      break;
+    }
+    if (id !== activeGraphId && session.version !== store.version) {
+      session.view.refresh();
+      session.version = store.version;
+    }
+  }
+  keepGraph();
   return {
     ontology: store.ontology,
     datasetEpoch,
@@ -388,6 +532,13 @@ function snapshot(): Snapshot {
     undoLabel: history.undoStack.at(-1)?.label,
     redoLabel: history.redoStack.at(-1)?.label,
     graph: graph(),
+    activeGraphId,
+    graphs: Object.fromEntries(
+      [...graphSessions].map(([id, s]) => [
+        id,
+        graph(s.view, s.layouts, s.frozen, id),
+      ]),
+    ),
     selected,
     message,
     dirty,
@@ -441,34 +592,81 @@ const number = (
     throw Error("Invalid " + key + ".");
   return n;
 };
+function globalGraphView() {
+  return view;
+}
 function retargetGraph(iri: string, next: string) {
-  if (next !== iri) {
-    const node = view.nodes.get(iri);
-    if (node) {
-      view.nodes.delete(iri);
-      view.nodes.set(next, { ...node, iri: next });
-    }
-    view.routes = new Map(
-      [...view.routes].map(([key, point]) => [
-        JSON.stringify(
-          (JSON.parse(key) as string[]).map((value) =>
-            value === iri ? next : value,
+  for (const view of new Set([
+    ...[...graphSessions.values()].map((s) => s.view),
+    ...[globalGraphView()],
+  ]))
+    if (next !== iri) {
+      const node = view.nodes.get(iri);
+      if (node) {
+        view.nodes.delete(iri);
+        view.nodes.set(next, { ...node, iri: next });
+      }
+      view.routes = new Map(
+        [...view.routes].map(([key, point]) => [
+          JSON.stringify(
+            (JSON.parse(key) as string[]).map((value) =>
+              value === iri ? next : value,
+            ),
           ),
-        ),
-        point,
-      ]),
-    );
-    if (view.focus.delete(iri)) view.focus.add(next);
-    if (view.selected === iri) view.selected = next;
-  }
+          point,
+        ]),
+      );
+      if (view.focus.delete(iri)) view.focus.add(next);
+      if (view.selected === iri) view.selected = next;
+    }
 }
 async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
   switch (method) {
+    case "resourceSuggestions":
+      return resourceSuggestions(
+        store,
+        string(a, "query", 512),
+        a.classesOnly === true,
+        Array.isArray(a.exclude)
+          ? a.exclude
+              .filter((x): x is string => typeof x === "string")
+              .slice(0, 4096)
+          : [],
+      );
+    case "predicateOptions":
+      return [
+        ...new Set([
+          ...store.byPredicate.keys(),
+          ...[...store.entities.values()]
+            .filter((e) => e.kind.endsWith("Property"))
+            .map((e) => e.iri),
+        ]),
+      ].sort();
+    case "entitySource":
+      return entitySource(store, datasetEpoch, string(a, "iri"));
+    case "applyEntitySource": {
+      const epoch = datasetEpoch;
+      const iri = string(a, "iri");
+      const next = await applyEntitySource(
+        store,
+        epoch,
+        a as unknown as EntitySourceDocument,
+        () => datasetEpoch === epoch,
+      );
+      if (selected === iri) selected = next;
+      retargetGraph(iri, next);
+      mutate("Entity source saved.");
+      return next;
+    }
     case "entityDocument": {
       const iri = string(a, "iri");
       return {
         entity: store.resolve(iri),
         statements: store.entityStatements(iri),
+        parentExpressions: simpleParentExpressions(
+          store,
+          store.entityStatements(iri),
+        ),
         version: store.version,
         datasetEpoch,
       };
@@ -483,10 +681,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         predicate: TYPE,
         object: { literal: false, value: THING },
       });
-      selected = store.updateEntity(iri, a.statements as Triple[], next);
-      retargetGraph(iri, selected);
+      const updated = store.updateEntity(iri, a.statements as Triple[], next);
+      if (!a.preserveSelection || selected === iri) selected = updated;
+      retargetGraph(iri, updated);
       mutate("Entity updated.");
-      return selected;
+      return updated;
     }
     case "createProperty": {
       validateCreation(a);
@@ -537,10 +736,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       layouts = new Layouts(view, store);
       const roots = [...store.entities.values()]
         .filter(
-          (e) =>
-            ["Class", "Defined"].includes(e.kind) &&
-            !e.parents.length &&
-            e.iri !== THING,
+          (e) => namedClass(e) && !taxonomyParents(e).length && e.iri !== THING,
         )
         .slice(0, Math.min(40, budget));
       const iris = roots.length
@@ -674,6 +870,82 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return created;
     }
+    case "subclassSuggestions":
+      return {
+        suggestions: subclassSuggestions(store, string(a, "iri", 10000)),
+        version: store.version,
+        datasetEpoch,
+      };
+    case "applySubclassSuggestions": {
+      if (a.version !== store.version || a.datasetEpoch !== datasetEpoch)
+        throw Error("The ontology changed. Find suggestions again.");
+      const iri = string(a, "iri", 10000);
+      const allowed = new Set(
+        subclassSuggestions(store, iri).map((s) => s.iri),
+      );
+      if (
+        !Array.isArray(a.parents) ||
+        !a.parents.length ||
+        a.parents.length > 100 ||
+        a.parents.some((id) => typeof id !== "string" || !allowed.has(id))
+      )
+        throw Error("Choose classes from the current suggestions.");
+      store.addClassParents(iri, a.parents as string[]);
+      mutate("Parent classes added. Use Undo to remove them.");
+      return true;
+    }
+    case "intersectionSuggestions":
+      return {
+        suggestions: intersectionSuggestions(store, string(a, "iri", 10000)),
+        version: store.version,
+        datasetEpoch,
+      };
+    case "applyIntersection": {
+      if (a.version !== store.version || a.datasetEpoch !== datasetEpoch)
+        throw Error("The ontology changed. Find suggestions again.");
+      const iri = string(a, "iri", 10000);
+      if (a.predicate === SUBCLASS)
+        store.addClassParents(iri, a.members as string[]);
+      else
+        store.setIntersection(
+          iri,
+          a.members as string[],
+          (a.predicate as string) || NS.owl + "equivalentClass",
+        );
+      mutate(
+        a.predicate === SUBCLASS
+          ? "Parents added. Use Undo to remove them."
+          : "Equivalent class definition added. Use Undo to remove it.",
+      );
+      return true;
+    }
+    case "graphCreate": {
+      if (graphSessions.size >= 16)
+        throw Error("Up to 16 graph views can be kept in a workspace.");
+      stopExternal();
+      keepGraph();
+      activeGraphId = "graph:" + crypto.randomUUID();
+      view = new Viewport(store);
+      layouts = new Layouts(view, store);
+      frozen = false;
+      const iris = Array.isArray(a.iris)
+        ? a.iris.filter(
+            (i): i is string => typeof i === "string" && store.exists(i),
+          )
+        : [];
+      view.seed(iris);
+      selected = view.selected = iris[0] ?? null;
+      runLayout();
+      keepGraph();
+      dirty = true;
+      documentRevision = ++nextRevision;
+      changed("New graph opened.");
+      return activeGraphId;
+    }
+    case "graphActivate":
+      activateGraph(string(a, "id", 100));
+      publish();
+      return true;
     case "state":
       return snapshot();
     case "example":
@@ -684,9 +956,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       view = new Viewport(store);
       view.setBudget(budget);
       layouts = new Layouts(view, store);
-      view.seed([store.ontology.example ? NS.pizza + "Pizza" : THING]);
+      view.seed(
+        a.blank ? [] : [store.ontology.example ? NS.pizza + "Pizza" : THING],
+      );
       runLayout();
-      selected = store.ontology.example ? NS.pizza + "Pizza" : THING;
+      selected = a.blank
+        ? null
+        : store.ontology.example
+          ? NS.pizza + "Pizza"
+          : THING;
+      view.selected = selected;
       dirty = false;
       tableCache = undefined;
       activeQuery?.abort();
@@ -751,6 +1030,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "selectEdge": {
       const key = a.key === null ? null : string(a, "key", 40000);
+      if (key && !view.edgesVisible) return false;
       if (key && !view.edges.has(key))
         throw Error("This edge is no longer visible.");
       view.selectedEdge = key;
@@ -761,15 +1041,18 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "edgeDocument": {
       const edge = view.edges.get(string(a, "key", 40000));
       if (!edge) throw Error("This edge is no longer visible.");
-      const statements = store.tbox.filter(
-        (t) =>
-          t.subject === edge.source &&
-          t.predicate === edge.predicate &&
-          !t.object.literal &&
-          t.object.value === edge.target,
-      );
+      const statements = edge.intersection
+        ? [edge.intersection.axiom]
+        : store.tbox.filter(
+            (t) =>
+              t.subject === edge.source &&
+              t.predicate === edge.predicate &&
+              !t.object.literal &&
+              t.object.value === edge.target,
+          );
       return {
         edge,
+        graphId: activeGraphId,
         statements,
         datasetEpoch,
         version: store.version,
@@ -791,6 +1074,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "createEdge": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error("The ontology changed. Start the connection again.");
+      const bends = a.bends === undefined ? [] : edgeBends(a.bends);
       const statement = a.statement as Triple;
       validateStatement(statement);
       if (statement.object.literal)
@@ -821,6 +1105,12 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         predicate: statement.predicate,
         target: statement.object.value,
       });
+      if (bends.length) {
+        const route = { ...bends[0], points: bends };
+        view.routes.set(key, route);
+        const edge = view.edges.get(key);
+        if (edge) edge.bend = route;
+      }
       selected = view.selected = null;
       view.selectedEdge = view.edges.has(key) ? key : null;
       dirty = true;
@@ -834,8 +1124,56 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       const key = string(a, "key", 40000),
         edge = view.edges.get(key);
       if (!edge) throw Error("This edge is no longer visible.");
+      const followSelection = !a.preserveSelection || view.selectedEdge === key;
       const original = a.original as Triple,
         replacement = a.replacement as Triple | undefined;
+      if (edge.intersection) {
+        const branch = edge.intersection;
+        if (JSON.stringify(a.original) !== JSON.stringify(branch.axiom))
+          throw Error("The intersection changed. Select it again.");
+        if (!branch.members.includes(edge.target))
+          throw Error("Edit this nested intersection in Source.");
+        if (
+          replacement &&
+          (replacement.subject !== edge.source ||
+            replacement.predicate !== edge.predicate ||
+            replacement.object.literal)
+        )
+          throw Error(
+            "Keep the intersection owner and relationship; its member can be changed.",
+          );
+        const members = branch.members.flatMap((m) =>
+          m === edge.target
+            ? replacement
+              ? [replacement.object.value]
+              : []
+            : [m],
+        );
+        store.setIntersection(
+          edge.source,
+          members,
+          edge.predicate,
+          branch.axiom,
+        );
+        view.refresh();
+        if (followSelection) {
+          selected = view.selected = null;
+          view.selectedEdge = replacement
+            ? ([...view.edges].find(
+                ([, e]) =>
+                  e.source === edge.source &&
+                  e.predicate === edge.predicate &&
+                  e.target === replacement.object.value,
+              )?.[0] ?? null)
+            : null;
+        }
+        mutate(
+          replacement
+            ? "Intersection member changed."
+            : "Intersection member removed.",
+        );
+        return null;
+      }
       validateStatement(original);
       if (
         original.subject !== edge.source ||
@@ -882,9 +1220,15 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           if (e) e.bend = bend;
         }
       }
-      selected = view.selected = null;
-      view.selectedEdge =
-        next && view.edges.has(next) ? next : view.edges.has(key) ? key : null;
+      if (followSelection) {
+        selected = view.selected = null;
+        view.selectedEdge =
+          next && view.edges.has(next)
+            ? next
+            : view.edges.has(key)
+              ? key
+              : null;
+      }
       dirty = true;
       tableCache = undefined;
       changed(replacement ? "Edge updated." : "Edge removed.");
@@ -902,6 +1246,13 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           : {
               x: number(a.bend as Record<string, unknown>, "x", -1e8, 1e8),
               y: number(a.bend as Record<string, unknown>, "y", -1e8, 1e8),
+              ...((a.bend as Record<string, unknown>)?.points === undefined
+                ? {}
+                : {
+                    points: edgeBends(
+                      (a.bend as Record<string, unknown>).points,
+                    ),
+                  }),
             };
       if (bend) view.routes.set(key, bend);
       else view.routes.delete(key);
@@ -911,8 +1262,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return true;
     }
     case "select":
-      selected = string(a, "iri");
-      if (!store.exists(selected))
+      selected = a.iri === null ? null : string(a, "iri");
+      if (selected && !store.exists(selected))
         throw Error("This entity is no longer in the Store.");
       view.selected = selected;
       view.selectedEdge = null;
@@ -991,14 +1342,17 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       )
         throw Error("Invalid graph selection.");
       const r = view.seed(iris, a.replace !== false, a.expand !== false);
+      view.selected = selected && view.nodes.has(selected) ? selected : null;
       runLayout();
       changed(admissionText(r));
       return true;
     }
     case "expand":
+      view.holdPosition(string(a, "iri"));
       changed(admissionText(view.expand(string(a, "iri"))), true);
       return true;
     case "collapse":
+      view.holdPosition(string(a, "iri"));
       changed(
         "Removed " + view.collapse(string(a, "iri")) + " unshared leaf nodes.",
         true,
@@ -1021,12 +1375,14 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "drag": {
       const n = view.nodes.get(string(a, "iri"));
       if (n) {
+        n.layoutFixed = false;
         n.x = number(a, "x", -1e8, 1e8);
         n.y = number(a, "y", -1e8, 1e8);
         n.dragging = !!a.dragging;
         n.vx = n.vy = 0;
         view.alpha = Math.max(view.alpha, 0.2);
         emit("positions", {
+          graphId: activeGraphId,
           revision: view.revision,
           positions: Float64Array.from(
             [...view.nodes.values()].flatMap((n) => [n.x, n.y]),
@@ -1055,14 +1411,42 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       changed("Layout: " + layouts.resolved + ".");
       return true;
     }
+    case "countVisibility":
+      if (typeof a.visible !== "boolean")
+        throw Error("Choose whether to show counts.");
+      view.countsVisible = a.visible;
+      changed(
+        view.countsVisible ? "Number badges shown." : "Number badges hidden.",
+      );
+      return true;
+    case "edgeVisibility":
+      if (typeof a.visible !== "boolean")
+        throw Error("Choose whether to show edges.");
+      view.edgesVisible = a.visible;
+      if (!view.edgesVisible) view.selectedEdge = null;
+      changed(view.edgesVisible ? "Edges shown." : "Edges hidden.");
+      return true;
+    case "spacing":
+      layouts.setSpacing(
+        number(a, "value", MIN_GRAPH_SPACING, MAX_GRAPH_SPACING),
+      );
+      if (external) external.fit = false;
+      changed("Node spacing: " + Math.round(layouts.spacing * 100) + "%.");
+      return true;
     case "freeze":
       frozen = !frozen;
       changed(frozen ? "Layout frozen." : "Layout resumed.");
       return true;
+    case "graphStyleCatalog":
+      return graphStyleAnalysis(store).catalog;
     case "stylesheet": {
       const text = string(a, "text", 50000);
       parseGraphStyle(text);
+      if (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch)
+        throw Error("The workspace changed. Reopen graph appearance settings.");
       stylesheet = text;
+      applyGraphAppearance(view, stylesheet);
+      view.alpha = Math.max(view.alpha, 0.25);
       changed("Graph styles applied.");
       return true;
     }
@@ -1271,14 +1655,56 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         tbox: store.tbox,
         individuals: store.individuals,
         customers: store.customers,
+        activeGraphId,
+        graphs: Object.fromEntries(
+          [...graphSessions].map(([id, session]) => [
+            id,
+            {
+              iris: [...session.view.nodes.keys()],
+              selected: id === activeGraphId ? selected : session.view.selected,
+              selectedEdge: session.view.selectedEdge,
+              focus: [...session.view.focus],
+              pins: [...session.view.nodes.values()]
+                .filter((n) => n.pinned)
+                .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
+              positions: [...session.view.nodes.values()].map((n) => ({
+                iri: n.iri,
+                x: n.x,
+                y: n.y,
+              })),
+              budget: session.view.budget,
+              layout: session.layouts.choice,
+              spacing: session.layouts.spacing,
+              edgesVisible: session.view.edgesVisible,
+              countsVisible: session.view.countsVisible,
+              expanded: [...session.view.nodes.values()]
+                .filter((n) => n.expanded)
+                .map((n) => n.iri),
+              frozen: session.frozen,
+              routes: [...session.view.routes].map(([key, bend]) => ({
+                key,
+                ...bend,
+              })),
+              stylesheet,
+            },
+          ]),
+        ),
         graph: {
           iris: [...view.nodes.keys()],
+          selected,
+          selectedEdge: view.selectedEdge,
           focus: [...view.focus],
           pins: [...view.nodes.values()]
             .filter((n) => n.pinned)
             .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
           budget: view.budget,
           layout: layouts.choice,
+          spacing: layouts.spacing,
+          edgesVisible: view.edgesVisible,
+          countsVisible: view.countsVisible,
+          expanded: [...view.nodes.values()]
+            .filter((n) => n.expanded)
+            .map((n) => n.iri),
           routes: [...view.routes].map(([key, bend]) => ({ key, ...bend })),
           stylesheet,
         },
@@ -1297,6 +1723,18 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return true;
     case "load": {
       const next = readWorkspace(a.document);
+      const saved = a.document as import("../domain/workspace").Workspace;
+      const loadedGraphs = Object.entries(saved.graphs ?? {}).map(
+        ([id, g]) => ({
+          id,
+          g,
+          loaded: readWorkspace({
+            ...(a.document as object),
+            graph: g,
+            graphs: undefined,
+          }),
+        }),
+      );
       stopExternal();
       stylesheet = next.stylesheet;
       activeQuery?.abort();
@@ -1314,6 +1752,24 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       dirty = false;
       tableCache = undefined;
       datasetEpoch++;
+      resetGraphs();
+      if (saved.graphs) {
+        for (const { id, g, loaded } of loadedGraphs) {
+          loaded.view.store = store;
+          loaded.layouts.store = store;
+          graphSessions.set(id, {
+            view: loaded.view,
+            layouts: loaded.layouts,
+            frozen: !!g.frozen,
+            version: store.version,
+          });
+        }
+        if (saved.activeGraphId && graphSessions.has(saved.activeGraphId)) {
+          activeGraphId = saved.activeGraphId;
+          ({ view, layouts, frozen } = graphSessions.get(activeGraphId)!);
+          selected = view.selected;
+        }
+      }
       changed("Workspace opened.");
       return true;
     }
@@ -1363,6 +1819,7 @@ function simulate() {
   if ((!reducedMotion && now - lastPositions >= 16) || view.alpha < 0.004) {
     lastPositions = now;
     emit("positions", {
+      graphId: activeGraphId,
       revision: view.revision,
       positions: Float64Array.from(
         [...view.nodes.values()].flatMap((n) => [n.x, n.y]),
@@ -1403,4 +1860,13 @@ function placeCreated(a: Record<string, unknown>) {
     node.pinned = true;
     changed("Created " + store.label(selected) + ".");
   }
+}
+
+function edgeBends(value: unknown): { x: number; y: number }[] {
+  if (!Array.isArray(value) || value.length > 64)
+    throw Error("Invalid edge bends.");
+  return value.map((p) => {
+    if (!p || typeof p !== "object") throw Error("Invalid edge bend.");
+    return { x: number(p, "x", -1e8, 1e8), y: number(p, "y", -1e8, 1e8) };
+  });
 }

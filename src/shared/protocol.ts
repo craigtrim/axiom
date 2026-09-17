@@ -8,10 +8,15 @@ import type {
 import type { GraphNode, GraphEdge } from "../domain/viewport";
 import type { LayoutMode, GroupBlock } from "../domain/layouts";
 export interface GraphSnapshot {
+  id?: string;
+  selected?: string | null;
   title?: string;
   stylesheet?: string;
   evictionMode?: string;
   layoutPending?: boolean;
+  spacing?: number;
+  edgesVisible?: boolean;
+  countsVisible?: boolean;
   nodes: GraphNode[];
   edges: GraphEdge[];
   focus: string[];
@@ -44,11 +49,14 @@ export interface Snapshot {
   undoLabel?: string;
   redoLabel?: string;
   graph: GraphSnapshot;
+  graphs?: Record<string, GraphSnapshot>;
+  activeGraphId?: string;
   selected: string | null;
   message: string;
   dirty: boolean;
 }
 export interface EdgeDocument {
+  graphId?: string;
   edge: GraphEdge;
   statements: import("../domain/model").Triple[];
   reason?: string;
@@ -79,12 +87,22 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  | "intersectionSuggestions"
+  | "subclassSuggestions"
+  | "applySubclassSuggestions"
+  | "applyIntersection"
+  | "graphCreate"
+  | "graphActivate"
   | "new"
   | "importRdf"
   | "rdfExport"
   | "sourceDocument"
   | "applySource"
   | "linkedFile"
+  | "resourceSuggestions"
+  | "predicateOptions"
+  | "entitySource"
+  | "applyEntitySource"
   | "entityDocument"
   | "updateEntity"
   | "createProperty"
@@ -113,6 +131,9 @@ export type DomainMethod =
   | "budget"
   | "eviction"
   | "layout"
+  | "spacing"
+  | "edgeVisibility"
+  | "countVisibility"
   | "freeze"
   | "clear"
   | "rename"
@@ -132,6 +153,7 @@ export type DomainMethod =
   | "load"
   | "markSaved"
   | "motion"
+  | "graphStyleCatalog"
   | "stylesheet"
   | "uiHistory"
   | "cancelLayout"
