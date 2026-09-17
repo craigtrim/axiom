@@ -1,7 +1,8 @@
+import { INTERSECTION } from "./class-expressions";
 import { Viewport, type GraphNode } from "./viewport";
 import { TYPE, SUBCLASS, SUBPROPERTY } from "./model";
 export const isHierarchy = (p: string) =>
-  p === TYPE || p === SUBCLASS || p === SUBPROPERTY;
+  p === TYPE || p === SUBCLASS || p === SUBPROPERTY || p === INTERSECTION;
 interface Quad {
   x: number;
   y: number;
@@ -49,11 +50,11 @@ export function collisions(nodes: GraphNode[], iterations: number) {
             }
             const distance = Math.sqrt(d2),
               push = ((min - distance) / distance) * 0.5;
-            if (!n.pinned && !n.dragging) {
+            if (!n.pinned && !n.layoutFixed && !n.dragging) {
               n.x -= dx * push;
               n.y -= dy * push;
             }
-            if (!m.pinned && !m.dragging) {
+            if (!m.pinned && !m.layoutFixed && !m.dragging) {
               m.x += dx * push;
               m.y += dy * push;
             }
@@ -63,6 +64,7 @@ export function collisions(nodes: GraphNode[], iterations: number) {
   }
 }
 export class ForceLayout {
+  spacing = 1;
   nodes: GraphNode[] = [];
   edges: { a: GraphNode; b: GraphNode; predicate: string }[] = [];
   pool: Quad[] = [];
@@ -97,10 +99,10 @@ export class ForceLayout {
       predicate: e.predicate,
     }));
     this.nodes.forEach((n, i) => {
-      n.charge = 210 + n.radius * 16;
+      n.charge = (210 + n.radius * 16) * this.spacing ** 2;
       if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) n.x = n.y = 0;
-      if (fresh && !n.pinned) {
-        const r = 30 * Math.sqrt(i + 0.5),
+      if (fresh && !n.pinned && !n.layoutFixed) {
+        const r = 30 * this.spacing * Math.sqrt(i + 0.5),
           a = i * 2.399963229728653;
         n.x = Math.cos(a) * r;
         n.y = Math.sin(a) * r;
@@ -206,7 +208,9 @@ export class ForceLayout {
       const dx = b.x - a.x + 1e-6,
         dy = b.y - a.y + 1e-6,
         d = Math.sqrt(dx * dx + dy * dy),
-        target = 48 + a.radius + b.radius + (isHierarchy(predicate) ? 0 : 26),
+        target =
+          (48 + a.radius + b.radius + (isHierarchy(predicate) ? 0 : 26)) *
+          this.spacing,
         stiff =
           0.6 /
           Math.min(7, Math.max(1, Math.min(a.shownDegree, b.shownDegree))),
@@ -220,7 +224,7 @@ export class ForceLayout {
     for (const n of this.nodes) {
       n.vx -= n.x * 0.024 * this.view.alpha;
       n.vy -= n.y * 0.024 * this.view.alpha;
-      if (n.pinned || n.dragging) {
+      if (n.pinned || n.layoutFixed || n.dragging) {
         n.vx = n.vy = 0;
         continue;
       }

@@ -1,4 +1,7 @@
 export const NS = {
+  skos: "http://www.w3.org/2004/02/skos/core#",
+  dc: "http://purl.org/dc/elements/1.1/",
+  dcterms: "http://purl.org/dc/terms/",
   pizza: "http://www.co-ode.org/ontologies/pizza/pizza.owl#",
   demo: "http://example.org/pizzeria#",
   rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -28,6 +31,7 @@ export const shorten = (s: string) => {
 export type Kind =
   | "Class"
   | "Defined"
+  | "Intersection"
   | "Individual"
   | "ObjectProperty"
   | "DataProperty"
@@ -38,6 +42,7 @@ export const kindLabel = (k: Kind) =>
   ({
     Class: "Class",
     Defined: "Defined class",
+    Intersection: "Intersection (all of)",
     Individual: "Individual",
     ObjectProperty: "Object property",
     DataProperty: "Data property",
@@ -97,6 +102,11 @@ export interface Entity {
   range?: string;
   inverse?: string;
   valuePartition?: boolean;
+  expressionText?: string;
+  intersection?: { members: string[]; issue?: string };
+  classExpressions?: { iri: string; predicate: string }[];
+  taxonomyParents?: string[];
+  taxonomyChildren?: string[];
 }
 export const entity = (iri: string, kind: Kind): Entity => ({
   iri,
@@ -158,7 +168,13 @@ export interface Triple {
   object: Term;
   graph?: string;
 }
+export interface IntersectionBranch {
+  iri: string;
+  axiom: Triple;
+  members: string[];
+}
 export interface Neighbour {
+  intersection?: IntersectionBranch;
   iri: string;
   predicate: string;
   outgoing: boolean;

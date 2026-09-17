@@ -12,7 +12,9 @@ import {
 export const LABEL = NS.rdfs + "label",
   COMMENT = NS.rdfs + "comment";
 export const displayName = (e: Entity) =>
-  e.label ?? e.name.replace(/_/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  e.expressionText ??
+  e.label ??
+  e.name.replace(/_/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
 export function identifier(label: string) {
   const words =
     label

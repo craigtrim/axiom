@@ -1,0 +1,8 @@
+@prefix : <http://devry.edu/courses#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:3D_Design a owl:Class ; rdfs:label "3D Design" .
+:3D_Printing a owl:Class ; rdfs:label "3D Printing" .
+:3D_Design_and_3D_Printing a owl:Class ;
+  rdfs:subClassOf [ a owl:Class ; owl:intersectionOf ( :3D_Design :3D_Printing ) ] ;
+  rdfs:label "3D Design and 3D Printing" .

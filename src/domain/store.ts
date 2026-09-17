@@ -1,3 +1,12 @@
+import { simplifySubclassIntersections } from "./intersection-definitions";
+import { discardUnusedIntersection } from "./intersection-cleanup";
+import {
+  projectIntersections,
+  expressionLabel,
+  INTERSECTION,
+  taxonomyChildren,
+  namedClass,
+} from "./class-expressions";
 import {
   displayName,
   uniqueLabelIri,
@@ -55,14 +64,23 @@ export class Store {
   bySubject = new Map<string, Triple[]>();
   byPredicate = new Map<string, Triple[]>();
   reverse = new Map<string, Neighbour[]>();
+  private intersections = {
+    lists: new Set<string>(),
+    neighbours: new Map<string, Neighbour[]>(),
+  };
+  graphVisible(iri: string) {
+    return (
+      this.exists(iri) &&
+      !this.intersections.lists.has(iri) &&
+      !(iri.startsWith("_:") && this.entities.get(iri)?.intersection)
+    );
+  }
   private byCustomer?: Map<string, Individual[]>;
   version = 0;
   undoStack: { label: string; undo: () => void; redo: () => void }[] = [];
   redoStack: typeof this.undoStack = [];
   get classCount() {
-    return [...this.entities.values()].filter(
-      (e) => e.kind === "Class" || e.kind === "Defined",
-    ).length;
+    return [...this.entities.values()].filter(namedClass).length;
   }
   get propertyCount() {
     return [...this.entities.values()].filter((e) =>
@@ -92,6 +110,9 @@ export class Store {
   }
   label(iri: string) {
     return (
+      (this.entities.get(iri)?.kind === "Intersection" || iri.startsWith("_:")
+        ? expressionLabel(iri, this.entities, this.bySubject)
+        : undefined) ??
       this.individualIndex.get(iri)?.reference ??
       (this.entities.has(iri)
         ? displayName(this.entities.get(iri)!)
@@ -149,7 +170,7 @@ export class Store {
     const seen = new Set([iri]),
       pending = [iri];
     while (pending.length)
-      for (const c of this.entities.get(pending.pop()!)?.children ?? [])
+      for (const c of taxonomyChildren(this.entities.get(pending.pop()!)))
         if (!seen.has(c)) {
           seen.add(c);
           pending.push(c);
@@ -177,6 +198,21 @@ export class Store {
     this.version++;
   }
   rebuildSchema() {
+    const definitions = simplifySubclassIntersections(this.tbox);
+    if (definitions.size) {
+      const projected = projectEntities(this.tbox);
+      if (this.ontology.assertedOnly) this.entities = projected;
+      else
+        for (const iri of definitions) {
+          const current = this.entities.get(iri),
+            next = projected.get(iri);
+          if (current && next) {
+            current.parents = next.parents;
+            current.equivalents = next.equivalents;
+            current.kind = next.kind;
+          }
+        }
+    }
     this.namedByType = new Map();
     for (const e of this.entities.values())
       if (e.kind === "Individual")
@@ -264,6 +300,7 @@ export class Store {
           outgoing: false,
         });
     }
+    this.intersections = projectIntersections(this.entities, this.tbox);
   }
   private addReverse(iri: string, n: Neighbour) {
     const b = this.reverse.get(iri) ?? [];
@@ -283,17 +320,64 @@ export class Store {
     }
     return this.byCustomer.get(customer) ?? [];
   }
-  neighbours(iri: string, membership?: Set<string>): Adjacency {
+  neighbours(
+    iri: string,
+    membership?: Set<string>,
+    visit?: (edge: Neighbour) => void,
+  ): Adjacency {
     const list: Neighbour[] = [],
       seen = new Set<string>();
     let total = 0;
-    const add = (target: string, predicate: string, outgoing: boolean) => {
-      const key = JSON.stringify([target, predicate, outgoing]);
+    const add = (
+      target: string,
+      predicate: string,
+      outgoing: boolean,
+      intersection?: import("./model").IntersectionBranch,
+    ) => {
+      if (
+        !intersection &&
+        [iri, target].some(
+          (i) => i.startsWith("_:") && this.entities.get(i)?.intersection,
+        )
+      )
+        return;
+      const source = outgoing ? iri : target,
+        object = outgoing ? target : iri;
+      if (
+        this.intersections.lists.has(source) ||
+        this.intersections.lists.has(object)
+      )
+        return;
+      // Declaration triples and RDF collection cells are not graph relationships.
+      if (
+        predicate === TYPE &&
+        [NS.owl + "Class", NS.rdfs + "Class", NS.owl + "Restriction"].includes(
+          object,
+        )
+      )
+        return;
+      const key = JSON.stringify([
+        target,
+        predicate,
+        outgoing,
+        intersection?.axiom,
+      ]);
       if (seen.has(key)) return;
       seen.add(key);
       total++;
+      visit?.({
+        iri: target,
+        predicate,
+        outgoing,
+        ...(intersection ? { intersection } : {}),
+      });
       if (list.length < 4000 && (!membership || membership.has(target)))
-        list.push({ iri: target, predicate, outgoing });
+        list.push({
+          iri: target,
+          predicate,
+          outgoing,
+          ...(intersection ? { intersection } : {}),
+        });
     };
     const i = this.individualIndex.get(iri),
       e = this.entities.get(iri);
@@ -312,7 +396,8 @@ export class Store {
           !t.object.literal &&
           (this.ontology.assertedOnly || this.exists(t.object.value))
         )
-          add(t.object.value, t.predicate, true);
+          if (t.predicate !== INTERSECTION)
+            add(t.object.value, t.predicate, true);
       const pred = e.kind.endsWith("Property") ? SUBPROPERTY : SUBCLASS;
       for (const p of e.parents) add(p, pred, true);
       for (const c of e.children) add(c, pred, false);
@@ -325,7 +410,9 @@ export class Store {
       if (e.inverse) add(e.inverse, NS.owl + "inverseOf", true);
       for (const t of e.types) add(t, TYPE, true);
       for (const r of this.reverse.get(iri) ?? [])
-        add(r.iri, r.predicate, false);
+        if (r.predicate !== INTERSECTION) add(r.iri, r.predicate, false);
+      for (const r of this.intersections.neighbours.get(iri) ?? [])
+        add(r.iri, r.predicate, r.outgoing, r.intersection);
       for (const o of this.byType.get(iri) ?? []) add(o.iri, TYPE, false);
       if (iri === NS.demo + "Customer")
         for (const c of this.customers) add(c.iri, TYPE, false);
@@ -532,7 +619,12 @@ export class Store {
       });
     return result;
   }
-  updateEntity(iri: string, statements: Triple[], nextIri = iri) {
+  updateEntity(
+    iri: string,
+    statements: Triple[],
+    nextIri = iri,
+    related?: { subjects: Set<string>; statements: Triple[] },
+  ) {
     if (!this.entities.has(iri))
       throw Error("The entity is no longer available.");
     if (!Array.isArray(statements) || statements.length > 100000)
@@ -558,13 +650,20 @@ export class Store {
       throw Error("That IRI already exists.");
     if (!statements.length)
       throw Error("Keep at least one statement for this entity.");
+    for (const t of related?.statements ?? []) {
+      validateStatement(t);
+      if (!t.subject.startsWith("_:"))
+        throw Error("Related statements must describe anonymous resources.");
+    }
     const before = this.schemaState();
     this.record(
       "Edit " + this.label(iri),
       () => {
         const triples = this.tbox
-          .filter((t) => t.subject !== iri)
-          .concat(structuredClone(statements))
+          .filter((t) => t.subject !== iri && !related?.subjects.has(t.subject))
+          .concat(
+            structuredClone([...statements, ...(related?.statements ?? [])]),
+          )
           .map((t) => ({
             ...t,
             subject: t.subject === iri ? nextIri : t.subject,
@@ -582,6 +681,19 @@ export class Store {
           seen.add(k);
           return true;
         });
+        // Parent edits replace simple subclass intersections with named parents.
+        // Keep shared or annotated anonymous descriptions intact.
+        for (const old of before.tbox) {
+          if (
+            old.subject === iri &&
+            old.predicate === SUBCLASS &&
+            !old.object.literal &&
+            old.object.value.startsWith("_:") &&
+            !this.tbox.some((t) => statementKey(t) === statementKey(old))
+          )
+            for (const removed of discardUnusedIntersection(this.tbox, old))
+              this.entities.delete(removed);
+        }
         const projected = projectEntities(this.tbox);
         if (this.ontology.assertedOnly) this.entities = projected;
         else
@@ -609,6 +721,14 @@ export class Store {
     return nextIri;
   }
   createEdge(statement: Triple) {
+    if (
+      [statement.subject, statement.object.value].some(
+        (i) => this.entities.get(i)?.kind === "Intersection",
+      )
+    )
+      throw Error(
+        "Intersection junctions represent OWL expressions. Edit the axiom in Source.",
+      );
     this.editEdge(undefined, statement);
   }
   editEdge(original: Triple | undefined, replacement?: Triple) {
@@ -680,6 +800,160 @@ export class Store {
                 .filter((r) => r.shape !== "class")
                 .concat(next.equivalents.filter((r) => r.shape === "class"));
             this.entities.set(iri, merged);
+          }
+        }
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+  }
+  addClassParents(owner: string, members: string[]) {
+    const e = this.entities.get(owner);
+    if (
+      !e ||
+      !namedClass(e) ||
+      !Array.isArray(members) ||
+      !members.length ||
+      members.length > 4096
+    )
+      throw Error("Choose existing parent classes.");
+    for (const id of members) {
+      const member = this.entities.get(id);
+      if (!member || !namedClass(member) || id === owner)
+        throw Error("Choose distinct existing parent classes.");
+      const pending = [id],
+        seen = new Set<string>();
+      while (pending.length) {
+        const next = pending.pop()!;
+        if (next === owner) throw Error("This would create a taxonomy cycle.");
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const ancestor = this.entities.get(next);
+        pending.push(...(ancestor?.taxonomyParents ?? ancestor?.parents ?? []));
+      }
+    }
+    return this.updateEntity(owner, [
+      ...this.entityStatements(owner),
+      ...[...new Set(members)].map((value) => ({
+        subject: owner,
+        predicate: SUBCLASS,
+        object: iriTerm(value),
+      })),
+    ]);
+  }
+  setIntersection(
+    owner: string,
+    members: string[],
+    predicate = NS.owl + "equivalentClass",
+    original?: Triple,
+  ) {
+    const e = this.entities.get(owner);
+    if (!e || !namedClass(e)) throw Error("Choose a named class.");
+    if (![SUBCLASS, NS.owl + "equivalentClass"].includes(predicate))
+      throw Error("Choose subclass or equivalence.");
+    if (
+      !Array.isArray(members) ||
+      members.length > 4096 ||
+      new Set(members).size !== members.length ||
+      members.some(
+        (i) => typeof i !== "string" || !this.entities.has(i) || i === owner,
+      )
+    )
+      throw Error("Choose distinct existing member classes.");
+    if (!original && members.length < 2)
+      throw Error("Choose at least two member classes.");
+    const index = original
+      ? this.tbox.findIndex((t) => statementKey(t) === statementKey(original))
+      : -1;
+    if (original && index < 0)
+      throw Error("The intersection changed. Reload its details.");
+    if (
+      original &&
+      !(
+        original.subject === owner ||
+        (original.predicate === NS.owl + "equivalentClass" &&
+          original.object.value === owner)
+      )
+    )
+      throw Error("Choose this class's intersection.");
+    for (const member of members) {
+      const pending = [member],
+        seen = new Set<string>();
+      while (pending.length) {
+        const id = pending.pop()!;
+        if (id === owner) throw Error("This would create a taxonomy cycle.");
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const node = this.entities.get(id);
+        pending.push(...(node?.taxonomyParents ?? node?.parents ?? []));
+      }
+    }
+    if (
+      !original &&
+      (e.classExpressions ?? []).some(
+        (r) =>
+          r.predicate === predicate &&
+          JSON.stringify(
+            [...(this.entities.get(r.iri)?.intersection?.members ?? [])].sort(),
+          ) === JSON.stringify([...members].sort()),
+      )
+    )
+      throw Error("This intersection already exists.");
+    const before = this.schemaState(),
+      graph = original?.graph;
+    const additions: Triple[] = [];
+    const triple = (
+      subject: string,
+      predicate: string,
+      value: string,
+    ): Triple => ({
+      subject,
+      predicate,
+      object: iriTerm(value),
+      ...(graph ? { graph } : {}),
+    });
+    if (members.length === 1)
+      additions.push(triple(owner, predicate, members[0]));
+    else if (members.length > 1) {
+      const token = crypto.randomUUID().replaceAll("-", ""),
+        expression = "_:intersection" + token;
+      additions.push(
+        triple(owner, predicate, expression),
+        triple(expression, TYPE, NS.owl + "Class"),
+        triple(expression, INTERSECTION, "_:list" + token + "_0"),
+      );
+      members.forEach((member, i) =>
+        additions.push(
+          triple("_:list" + token + "_" + i, NS.rdf + "first", member),
+          triple(
+            "_:list" + token + "_" + i,
+            NS.rdf + "rest",
+            i === members.length - 1
+              ? NS.rdf + "nil"
+              : "_:list" + token + "_" + (i + 1),
+          ),
+        ),
+      );
+    }
+    this.record(
+      original ? "Change intersection" : "Add intersection",
+      () => {
+        if (index >= 0) {
+          this.tbox.splice(index, 1);
+          for (const iri of discardUnusedIntersection(this.tbox, original!))
+            this.entities.delete(iri);
+        }
+        this.tbox.push(...structuredClone(additions));
+        const projected = projectEntities(this.tbox);
+        for (const [iri, next] of projected) {
+          const prior = this.entities.get(iri);
+          if (this.ontology.assertedOnly || !prior)
+            this.entities.set(iri, next);
+          else if (iri === owner) {
+            prior.parents = next.parents;
+            prior.equivalents = prior.equivalents
+              .filter((r) => r.shape !== "class")
+              .concat(next.equivalents.filter((r) => r.shape === "class"));
           }
         }
         this.rebuildSchema();
@@ -764,6 +1038,8 @@ export class Store {
   rename(iri: string, name: string) {
     const e = this.entities.get(iri);
     if (!e) throw Error("Generated individuals cannot be renamed.");
+    if (e.kind === "Intersection")
+      throw Error("An intersection is an OWL expression, not a named class.");
     if (iri === THING) throw Error("The ontology root cannot be renamed.");
     name = validLabel(name);
     const nextIri = labelledIri(iri, name, (candidate) =>
