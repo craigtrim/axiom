@@ -82,19 +82,25 @@ test("natural labels create in the taxonomy and full entity details open beside 
     .locator("..");
   await expect(row).toContainText("Course Credit");
   await row.click({ button: "right" });
-  await page
-    .getByRole("menuitem", { name: "Edit details", exact: true })
-    .click();
-  const editor = page.getByRole("region", { name: "Entity details" });
+  await page.getByRole("menuitem", { name: "Details", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Details" });
   await expect(editor).toBeVisible();
   await expect(
     page.getByRole("tab", { name: "Graph", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await editor
+    .getByRole("button", { name: "Add statement", exact: true })
+    .click();
+  await editor
+    .locator("tbody tr")
+    .last()
+    .getByRole("combobox")
+    .selectOption("http://www.w3.org/2000/01/rdf-schema#comment");
+  await editor
     .getByRole("textbox", { name: "Entity comment", exact: true })
     .fill("The number of credits awarded.");
-  await editor.getByRole("button", { name: "Apply changes" }).click();
+  await page.locator(":focus").blur();
   await expect
     .poll(
       async () =>
@@ -306,7 +312,7 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
     }),
   );
   await menu("entity.edit");
-  const editor = page.getByRole("region", { name: "Entity details" });
+  const editor = page.getByRole("region", { name: "Details" });
   await editor
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Retained draft label");
@@ -332,7 +338,7 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
       window.axiom.request("rename", { iri, name: "An intervening change" }),
     iri,
   );
-  await editor.getByRole("button", { name: "Apply changes" }).click();
+  await page.locator(":focus").blur();
   await expect(editor.getByRole("alert").first()).toContainText(
     "changed since",
   );
@@ -407,9 +413,7 @@ test("taxonomy dragging opens entity details and all report formats produce file
     .locator('[data-panel="hierarchy"] [data-rename-iri="' + iri + '"]')
     .locator("..");
   await row.dragTo(page.getByRole("region", { name: "Entity inspector" }));
-  await expect(
-    page.getByRole("region", { name: "Entity details" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Details" })).toBeVisible();
   await menu("view.graph");
   for (const format of ["html", "md", "csv", "json"]) {
     await menu("graph.export");
@@ -458,18 +462,26 @@ test("changing an entity IRI keeps its editor, pinned graph position and incomin
   });
   const before = (await state()).graph.nodes.find((n) => n.iri === oldIri)!;
   await menu("entity.edit");
-  const editor = page.getByRole("region", { name: "Entity details" });
+  const editor = page.getByRole("region", { name: "Details" });
   const newIri = "https://example.org/CourseCredit";
+  await editor.locator(".entity-source > summary").click();
+  const source = editor.getByRole("textbox", {
+    name: "Entity source",
+    exact: true,
+  });
+  await expect(source).toBeEnabled();
+  const local = oldIri.slice(
+    Math.max(oldIri.lastIndexOf("#"), oldIri.lastIndexOf("/")) + 1,
+  );
+  await source.fill(
+    (await source.inputValue())
+      .replace(":" + local + " ", "<" + newIri + "> ")
+      .replace("<" + oldIri + ">", "<" + newIri + ">"),
+  );
   await editor
-    .getByRole("textbox", { name: "Entity IRI", exact: true })
-    .fill(newIri);
-  await editor.getByRole("button", { name: "Apply changes" }).click();
-  await expect(
-    editor.getByRole("textbox", { name: "Entity IRI", exact: true }),
-  ).toHaveValue(newIri);
-  await expect(
-    editor.getByRole("button", { name: "Apply changes" }),
-  ).toBeDisabled();
+    .getByRole("button", { name: "Save source", exact: true })
+    .click();
+  await expect(editor).toHaveAttribute("data-entity-iri", newIri);
   await expect(editor.getByRole("alert")).toHaveCount(0);
   const after = await state();
   expect(after.entities.some((e) => e.iri === oldIri)).toBe(false);
@@ -484,12 +496,12 @@ test("changing an entity IRI keeps its editor, pinned graph position and incomin
   await menu("view.graph");
   await menu("entity.edit");
   await expect(
-    page.getByRole("tab", { name: "Course Credit", exact: true }),
+    page.getByRole("tab", { name: "Details", exact: true }),
   ).toHaveCount(1);
   await editor
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Updated credit");
-  await editor.getByRole("button", { name: "Apply changes" }).click();
+  await page.locator(":focus").blur();
   await expect
     .poll(
       async () => (await state()).entities.find((e) => e.iri === newIri)?.label,

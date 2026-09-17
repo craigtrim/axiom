@@ -23,7 +23,9 @@ async function menu(label: string) {
         if (child) return child;
       }
     };
-    const item = visit(Menu.getApplicationMenu()!.items);
+    const item =
+      Menu.getApplicationMenu()!.getMenuItemById(label) ??
+      visit(Menu.getApplicationMenu()!.items);
     if (!item) throw Error("Menu not found: " + label);
     item.click(undefined as never, undefined as never, undefined as never);
   }, label);
@@ -45,7 +47,9 @@ test.beforeEach(async () => {
   page = await application.firstWindow();
   // Keep physical desktop input out of optional background validation runs.
   if (process.env.AXIOM_TEST_BACKGROUND === "1")
-    await (await application.browserWindow(page)).evaluate((win) => win.setFocusable(false));
+    await (
+      await application.browserWindow(page)
+    ).evaluate((win) => win.setFocusable(false));
   errors = [];
   page.on("console", (m) => {
     if (m.type() === "error") console.log("RENDERER", m.text());
@@ -91,15 +95,21 @@ test("native menus, fixture, table and query", async () => {
   await page
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
-    "103 displayed / 103 result rows",
-  );
-  await expect(page.locator(".query-results-panel:visible .query-results .ag-row").first()).toBeVisible();
-  await expect(page.locator(".query-results-panel:visible .query-results .ag-row").first()).toBeInViewport();
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("103 displayed / 103 result rows");
+  await expect(
+    page.locator(".query-results-panel:visible .query-results .ag-row").first(),
+  ).toBeVisible();
+  await expect(
+    page.locator(".query-results-panel:visible .query-results .ag-row").first(),
+  ).toBeInViewport();
   await page.screenshot({ path: "artifacts/testing/workbench-query.png" });
   await menu("Individuals");
   await expect(page.locator('[data-panel="individuals"]')).toBeVisible();
-  await page.getByRole("button", { name: "More individual actions and filters" }).click();
+  await page
+    .getByRole("button", { name: "More individual actions and filters" })
+    .click();
   await page
     .getByRole("combobox", { name: "Filter by branch" })
     .selectOption("Shoreditch");
@@ -135,7 +145,7 @@ test("drag a divider and move, close and reopen panes", async () => {
     .locator("canvas")
     .first()
     .click({ position: { x: 30, y: 30 } });
-  await menu("Move pane left");
+  await menu("pane.move.left");
   await expect(graph).toBeVisible();
   await menu("Close pane");
   await expect(graph).toHaveCount(0);
@@ -144,7 +154,10 @@ test("drag a divider and move, close and reopen panes", async () => {
 });
 
 test("edit, undo, redo and save/reopen a workspace", async () => {
-  await menu("New class");
+  await page
+    .getByRole("button", { name: "New class", exact: true })
+    .first()
+    .click();
   const dialog = page.getByRole("form", { name: "Create entity" });
   await dialog
     .getByRole("textbox", { name: "New entity label", exact: true })
@@ -196,7 +209,7 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
       filePaths: [file],
     });
   }, file);
-  await menu("Open workspace or ontology...");
+  await menu("Workspace...");
   await expect(page.locator(".status-counts")).toContainText("96 classes");
   await expect(
     page.locator(
@@ -226,7 +239,7 @@ test("drag a tab into another group, detach and reattach a pane", async () => {
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Edit details", exact: true })
+    .getByRole("button", { name: "Details", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
@@ -247,6 +260,7 @@ test("export SVG, PNG and clipboard and use global search", async () => {
     "Pizza 000001",
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await menu("entity.showGraph");
   await expect(page.locator(".graph-selection")).toContainText("AX-100000");
   const svg = path.resolve("artifacts/testing/graph-" + Date.now() + ".svg");
   await application.evaluate(({ dialog }, file) => {
@@ -314,7 +328,9 @@ test("keyboard commands, themes and accessible controls", async () => {
   await page.getByRole("textbox", { name: "Find a command" }).press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+Enter");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("103 displayed");
   await menu("Individuals");
   const results = await new AxeBuilder({ page }).setLegacyMode().analyze();
   await test.info().attach("accessibility", {
@@ -335,13 +351,24 @@ test("pane layout and filters survive a restart", async () => {
   await page
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .press("Enter");
-  await page.getByRole("button", { name: "More individual actions and filters" }).click();
+  await page
+    .getByRole("button", { name: "More individual actions and filters" })
+    .click();
   await page
     .getByRole("combobox", { name: "Filter by branch" })
     .selectOption("Camden");
   await page.keyboard.press("Escape");
+  const originalLayout = (
+    await page.evaluate(() => window.axiom.preferences.load())
+  ).layout;
   await page.locator('[data-panel="graph"] canvas').first().focus();
-  await menu("Move pane left");
+  await menu("pane.move.left");
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.preferences.load())).layout,
+    )
+    .not.toEqual(originalLayout);
   await expect
     .poll(async () => {
       const p = await page.evaluate(() => window.axiom.preferences.load());
@@ -375,10 +402,14 @@ test("pane layout and filters survive a restart", async () => {
   page = await application.firstWindow();
   // Keep physical desktop input out of optional background validation runs.
   if (process.env.AXIOM_TEST_BACKGROUND === "1")
-    await (await application.browserWindow(page)).evaluate((win) => win.setFocusable(false));
+    await (
+      await application.browserWindow(page)
+    ).evaluate((win) => win.setFocusable(false));
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.locator('[data-panel="graph"]')).toBeVisible();
-  await page.getByRole("button", { name: "More individual actions and filters" }).click();
+  await page
+    .getByRole("button", { name: "More individual actions and filters" })
+    .click();
   await expect(
     page.getByRole("combobox", { name: "Filter by branch" }),
   ).toHaveValue("Camden");
@@ -441,7 +472,10 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
 });
 
 test("create an individual with validation and undo, and delete a class with undo", async () => {
-  await menu("New individual");
+  await page
+    .getByRole("button", { name: "New individual", exact: true })
+    .first()
+    .click();
   const dialog = page.getByRole("form", { name: "Create entity" }),
     label = dialog.getByRole("textbox", { name: "New entity label" });
   await label.fill("");
@@ -457,7 +491,10 @@ test("create an individual with validation and undo, and delete a class with und
   await expect(page.locator(".status-counts")).toContainText(
     "13,505 individuals",
   );
-  await menu("New class");
+  await page
+    .getByRole("button", { name: "New class", exact: true })
+    .first()
+    .click();
   const create = page.getByRole("form", { name: "Create entity" });
   await create
     .getByRole("textbox", { name: "New entity label", exact: true })
@@ -478,7 +515,7 @@ test("create an individual with validation and undo, and delete a class with und
 test("a detached inspector renames in place and restores GPU context", async () => {
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Edit details", exact: true })
+    .getByRole("button", { name: "Details", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
@@ -537,12 +574,14 @@ test("Monaco remains editable in a detached query pane", async () => {
   await child
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
-    "5 displayed / 5 result rows",
-  );
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("5 displayed / 5 result rows");
   await menu("Return all panes to main window");
   await expect.poll(() => application.windows().length).toBe(1);
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("5 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("5 displayed");
 });
 
 test("a running query can be cancelled and followed by a fresh query", async () => {
@@ -574,16 +613,17 @@ test("a running query can be cancelled and followed by a fresh query", async () 
   await page
     .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
     .click();
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText(
-    "103 displayed / 103 result rows",
-    { timeout: 30000 },
-  );
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("103 displayed / 103 result rows", { timeout: 30000 });
   await expect(page.locator(".query-error")).toHaveCount(0);
 });
 
 test("query menu can send retained results after its pane closes", async () => {
   await page.keyboard.press("Control+Enter");
-  await expect(page.locator(".query-results-panel:visible .query-summary")).toContainText("103 displayed");
+  await expect(
+    page.locator(".query-results-panel:visible .query-summary"),
+  ).toContainText("103 displayed");
   await menu("Clear graph");
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "aria-label",

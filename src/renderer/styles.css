@@ -1046,7 +1046,7 @@ a {
   max-height: 49vh;
 }
 .keyboard-command-list {
-  border: 1px solid var(--border);
+  border: 1px solid var(--stroke);
 }
 .keyboard-command-list > button {
   display: flex;
@@ -1543,7 +1543,8 @@ a {
 }
 
 .graph-panel .panel-toolbar select[aria-label="Select edge"] {
-  max-width: 210px;
+  width: 210px;
+  max-width: 100%;
   min-width: 100px;
 }
 .graph-edge-handles {
@@ -1562,15 +1563,10 @@ a {
   min-width: 14px;
   min-height: 14px;
   border: 2px solid var(--accent);
-  border-radius: 50%;
-  background: var(--surface);
-  cursor: crosshair;
-  touch-action: none;
-}
-.graph-edge-handle.bend {
   border-radius: 3px;
   background: var(--accent);
   cursor: move;
+  touch-action: none;
 }
 .graph-edge-handle:focus-visible {
   outline: 3px solid var(--text);
@@ -2498,10 +2494,8 @@ a {
   min-width: 0;
 }
 .adaptive-pane[data-pane-layout="shallow"] .entity-editor-content {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: 16px;
-  overflow: hidden;
+  display: block;
+  overflow: auto;
 }
 .adaptive-pane[data-pane-layout="shallow"]
   :is(.entity-basics, .entity-statements) {
@@ -2927,127 +2921,640 @@ a {
   }
 }
 
-/* Connection controls keep their pointer targets usable at every graph zoom. */
-.graph-connect-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  cursor: crosshair;
-  touch-action: none;
-  overflow: hidden;
-}
+/* Edge gestures draw over the canvas without covering its controls. */
 .graph-connect-preview {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 2;
 }
 .graph-connect-preview marker {
-  fill: var(--accent);
+  fill: var(--text);
 }
 .connection-line {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 3;
-  stroke-dasharray: 6 4;
-}
-.connection-source,
-.connection-target {
-  fill: transparent;
-  stroke: var(--accent);
-  stroke-width: 3;
-}
-.connection-source {
-  stroke-dasharray: 4 3;
+  stroke: var(--text);
+  stroke-width: 1.5;
 }
 .connection-target {
-  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
 }
-.graph-panel .panel-toolbar {
-  position: relative;
-}
-.graph-panel .panel-toolbar[data-connecting="true"] > :not(.connection-help) {
-  visibility: hidden;
-}
-.connection-help {
+.edge-property-picker {
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 13px;
-  overflow: auto;
   z-index: 8;
-}
-.connection-help > div {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.connection-help .connection-instructions {
-  flex: 1;
   flex-direction: column;
-  gap: 2px;
-  min-width: min(240px, 100%);
-}
-.graph-connect-handle {
-  position: absolute;
-  z-index: 9;
-  transform: translate(-50%, -50%);
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
+  gap: 8px;
+  width: 260px;
+  max-width: calc(100% - 8px);
+  max-height: calc(100% - 8px);
+  overflow: auto;
+  padding: 10px;
   background: var(--surface);
-  color: var(--accent);
-  font-size: 22px;
-  line-height: 1;
-  cursor: crosshair;
-  touch-action: none;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 5px;
+  box-shadow: 0 3px 12px #0002;
 }
-.graph-edge-handle.endpoint {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-}
-.create-edge-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.create-edge-form label {
+.edge-property-picker label {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.create-edge-form input,
-.create-edge-form select {
+.edge-property-picker input {
   width: 100%;
   min-width: 0;
 }
-.connection-direction {
-  overflow-wrap: anywhere;
+.edge-property-picker > div {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
 }
 @media (forced-colors: active) {
   .graph-connect-preview marker {
-    fill: Highlight;
+    fill: CanvasText;
   }
-  .connection-line,
-  .connection-source,
+  .connection-line {
+    stroke: CanvasText;
+  }
   .connection-target {
     stroke: Highlight;
   }
-  .graph-connect-handle {
-    border-color: Highlight;
-    color: Highlight;
+}
+
+.class-expressions {
+  padding: 8px 0;
+}
+.class-expressions section + section {
+  margin-top: 16px;
+}
+.class-expressions h3 {
+  margin: 8px 0;
+  font-size: 1em;
+}
+.class-expressions ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.class-expressions li {
+  padding: 3px 0;
+}
+
+.modal:has(.graph-appearance) {
+  width: min(960px, 94vw);
+  padding: 20px;
+}
+.graph-appearance {
+  min-width: 0;
+}
+.appearance-summary {
+  color: var(--text-secondary);
+  margin: -8px 0 16px;
+}
+.appearance-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--stroke);
+  margin-bottom: 16px;
+}
+.appearance-tabs > button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 3px solid transparent;
+  padding: 10px 18px;
+}
+.appearance-tabs > button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.appearance-panel {
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+  gap: 24px;
+  min-height: 460px;
+}
+.appearance-panel.appearance-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+.appearance-wide .appearance-editor {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+.appearance-catalog {
+  border-right: 1px solid var(--stroke);
+  padding-right: 16px;
+  min-width: 0;
+}
+.appearance-list {
+  max-height: 430px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.appearance-list > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  padding: 8px;
+  background: transparent;
+}
+.appearance-list > button > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appearance-list > button[aria-pressed="true"] {
+  background: var(--layer-selected);
+}
+.appearance-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+}
+.appearance-editor {
+  min-width: 0;
+}
+.appearance-editor h3 {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.appearance-preview {
+  border: 1px solid var(--stroke);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  background: var(--surface-alt);
+}
+.appearance-preview canvas {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  height: auto;
+}
+.appearance-preview label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 6px 12px 0;
+  gap: 6px;
+}
+.appearance-preview > span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 6px 12px 0 auto;
+}
+.appearance-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.appearance-weights {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.appearance-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 12px;
+}
+.appearance-swatches button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 4px;
+  padding: 0;
+}
+.appearance-palette-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.appearance-help {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.appearance-footer-space {
+  flex: 1;
+}
+.graph-appearance footer {
+  position: sticky;
+  bottom: -20px;
+  background: var(--surface);
+  padding: 14px 0 0;
+  border-top: 1px solid var(--stroke);
+}
+@media (max-width: 680px) {
+  .appearance-panel {
+    grid-template-columns: minmax(0, 1fr);
   }
+  .appearance-catalog {
+    border-right: 0;
+    padding-right: 0;
+  }
+  .appearance-list {
+    max-height: 150px;
+  }
+  .appearance-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+.entity-editor .entity-editor-content {
+  padding: 8px 12px;
+}
+.statement-grid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.statement-grid {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.statement-grid th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-bottom: 1px solid var(--stroke-strong);
+}
+.statement-grid td {
+  padding: 2px;
+  border-bottom: 1px solid var(--stroke);
+  vertical-align: top;
+}
+.statement-predicate-column {
+  width: 30%;
+}
+.statement-language-column {
+  width: 100px;
+}
+.statement-grid input,
+.statement-grid textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 5px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+  margin: 0;
+}
+.statement-grid textarea {
+  height: auto;
+  resize: vertical;
+  max-height: 160px;
+  line-height: 18px;
+  overflow: auto;
+}
+.statement-grid input:hover,
+.statement-grid textarea:hover {
+  border-color: var(--stroke);
+}
+.statement-grid input:focus,
+.statement-grid textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.statement-value-cell,
+.statement-language-cell {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+}
+.statement-grid button {
+  min-width: 24px;
+  width: 24px;
+  min-height: 28px;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  flex-shrink: 0;
+}
+.statement-open {
+  color: var(--accent);
+}
+.statement-language-cell input {
+  width: calc(100% - 24px);
+}
+.entity-identifier {
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.entity-identifier input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.menu-submenu-arrow {
+  float: right;
+  margin-left: 24px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.edge-source-compact {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.edge-source-compact select {
+  flex: 1;
+  min-width: 0;
+}
+.edge-editor.inspector-content {
+  padding: 12px;
+}
+.statement-grid select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px;
+}
+.statement-grid select:focus {
+  border-color: var(--accent);
+}
+.intersection-suggestions {
+  width: 100%;
+  border-collapse: collapse;
+}
+.intersection-suggestions td,
+.intersection-suggestions th {
+  text-align: left;
+  padding: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.intersection-suggestions label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.intersection-suggestions small {
+  display: block;
+  color: var(--text-secondary);
+  margin: 4px 0 0 24px;
+}
+
+.statement-grid .statement-predicate-column {
+  width: 162px;
+}
+.statement-grid .statement-language-column {
+  width: 72px;
+}
+.statement-grid textarea {
+  field-sizing: content;
+  min-height: 28px;
+  max-height: 120px;
+  overflow: auto;
+}
+.statement-grid .statement-language-cell input {
+  width: calc(100% - 24px);
+  min-width: 0;
+}
+.statement-grid td {
+  vertical-align: top;
+}
+
+.details-navigation {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  outline: none;
+}
+.details-back {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Details cells size themselves; editing has no resize handles. */
+.entity-editor .statement-grid textarea {
+  resize: none;
+  field-sizing: content;
+  min-height: 28px;
+  max-height: 160px;
+}
+.statement-grid .statement-open {
+  width: auto;
+  min-width: 68px;
+  padding: 5px 3px;
+  font-size: 11px;
+}
+.statement-predicate-column {
+  width: 36%;
+}
+.entity-save-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.predicate-results {
+  display: flex;
+  flex-direction: column;
+  max-height: 340px;
+  overflow: auto;
+  gap: 4px;
+}
+.predicate-results button {
+  text-align: left;
+}
+.entity-source {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.entity-source-body {
+  margin-top: 8px;
+}
+.entity-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.entity-source-actions > span {
+  flex: 1;
+  font-size: 12px;
+}
+.ontology-code-editor {
+  width: 100%;
+  height: 330px;
+  min-height: 220px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.style-class-tree {
+  height: 360px;
+  min-height: 180px;
+  overflow: auto;
+  position: relative;
+}
+.style-class-tree .tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.style-class-tree .tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+  cursor: default;
+}
+.style-class-tree .tree-expander {
+  flex: 0 0 18px;
+  padding: 0;
+  border: 0;
+  min-height: 20px;
+  background: transparent;
+}
+.style-class-tree .tree-row.selected {
+  background: var(--layer-selected);
+}
+@media (max-height: 700px) {
+  .style-class-tree {
+    height: 250px;
+  }
+}
+
+/* Resource choices remain usable in narrow, docked Details panes. */
+.statement-fixed,
+.statement-expression {
+  display: block;
+  padding: 5px 4px;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.statement-fixed {
+  line-height: 20px;
+}
+.statement-value-cell .resource-input {
+  flex: 1;
+  min-width: 0;
+}
+.statement-grid .statement-reference {
+  color: var(--accent);
+}
+.statement-grid .statement-remove {
+  color: var(--text-secondary);
+  opacity: 0;
+}
+.statement-grid tr:hover .statement-remove,
+.statement-grid tr:focus-within .statement-remove {
+  opacity: 1;
+}
+.statement-grid .statement-remove:focus-visible {
+  opacity: 1;
+}
+.resource-input {
+  min-width: 0;
+  width: 100%;
+}
+.resource-input > small {
+  color: var(--error, #b42318);
+  display: block;
+  padding: 2px 4px;
+}
+.resource-matches {
+  position: fixed;
+  z-index: 15000;
+  overflow-y: auto;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 4px;
+  background: var(--surface, white);
+  color: var(--text-primary);
+  box-shadow: 0 5px 18px #0002;
+  padding: 3px;
+}
+.resource-matches [role="option"] {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.resource-matches [role="option"][aria-selected="true"] {
+  background: var(--selection, #e1f0fa);
+}
+.resource-matches span,
+.resource-matches small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resource-matches small {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.resource-input input {
+  width: 100%;
+  min-width: 0;
+}
+
+.graph-footer .graph-spacing {
+  flex-wrap: nowrap;
+}
+.graph-spacing output {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.graph-footer .graph-edge-visibility {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.graph-footer input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.subclass-suggestions {
+  max-height: 50vh;
+  overflow: auto;
+}
+.subclass-suggestions table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.subclass-suggestions th,
+.subclass-suggestions td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--stroke);
+}
+.subclass-suggestions td label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.subclass-suggestions input[type="checkbox"] {
+  flex: 0 0 auto;
 }

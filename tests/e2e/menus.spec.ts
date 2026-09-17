@@ -16,7 +16,10 @@ let app: ElectronApplication,
   errors: string[] = [],
   expected: string[] = [],
   visited = new Set<string>();
-const coverage: Record<string, string[]> = {};
+// The appearance workflows live in their own desktop suite.
+const coverage: Record<string, string[]> = {
+  "Graph appearance settings (tests/e2e/graph-appearance.spec.ts)": ["graph.appearance"],
+};
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 const request = (method: DomainMethod, args: Record<string, unknown> = {}) =>
@@ -342,6 +345,7 @@ journey(
     "view.individuals",
     "view.query",
     "view.source",
+    "view.details",
     "layout.reset",
     "palette",
   ],
@@ -353,6 +357,7 @@ journey(
       "individuals",
       "query",
       "source",
+      "details",
     ]) {
       await menu("view." + id);
       await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
@@ -1013,7 +1018,7 @@ journey(
     const d = page.getByRole("dialog", { name: "Graph stylesheet" }),
       input = d.getByRole("textbox", { name: "Graph stylesheet" });
     await input.fill("node { size: 900px; }");
-    await d.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(d.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
     await expect(d.getByRole("alert")).toContainText("size");
     expect((await state()).graph.stylesheet).toBe("");
     const css =
@@ -1029,6 +1034,7 @@ journey(
     const svg = path.resolve("artifacts/testing/styled.svg");
     await saveTo(svg);
     await menu("graph.export.svg");
+    await page.getByRole("dialog", {name:"Export",exact:true}).getByRole("button", {name:"Export",exact:true}).click();
     await expect
       .poll(async () => {
         try {
@@ -1343,6 +1349,8 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
     box = (await canvas.boundingBox())!;
   const x = box.x + n.x * c.zoom + c.x,
     y = box.y + n.y * c.zoom + c.y;
+  await page.mouse.click(x, y);
+  await expect.poll(async () => (await state()).selected).toBe(n.iri);
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x + 80, y + 40, { steps: 8 });
@@ -1822,9 +1830,7 @@ journey(
     await form.getByRole("button", { name: "Create", exact: true }).click();
     await expect(form).toHaveCount(0);
     await menu("entity.edit");
-    await expect(
-      page.getByRole("region", { name: "Entity details" }),
-    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Details" })).toBeVisible();
     await menu("graph.create");
     const create = page
       .locator(".graph-create")
@@ -1866,12 +1872,11 @@ journey(
       position: { x: 100, y: 0 },
     });
     await menu("graph.connect");
-    await expect(
-      page.getByRole("group", { name: "Connect nodes", exact: true }),
-    ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Cancel connection", exact: true })
-      .click();
+    await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
+      "data-graph-connecting",
+      "true",
+    );
+    await page.keyboard.press("Escape");
     await menu("edge.next");
     const canvas = page.getByTestId("graph-canvas");
     await expect
@@ -1882,7 +1887,7 @@ journey(
     await expect(canvas).toHaveAttribute("data-selected-edge", key);
     await menu("edge.edit");
     await expect(
-      page.getByRole("region", { name: "Edge inspector" }),
+      page.getByRole("region", { name: "Details", exact: true }),
     ).toBeVisible();
     await request("routeEdge", {
       key,

@@ -22,7 +22,10 @@ export function startInlineRename(
   iri: string,
   origin?: { document: Document; panel: string },
 ) {
-  if (iri === THING || !state?.entities.some((e) => e.iri === iri))
+  if (
+    iri === THING ||
+    !state?.entities.some((e) => e.iri === iri && e.kind !== "Intersection")
+  )
     return false;
   const doc = origin?.document ?? focusedDocument(),
     panel =

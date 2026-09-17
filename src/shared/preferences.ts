@@ -71,6 +71,15 @@ export function readPreferences(input: unknown): Preferences {
     out["research.provider"] = s["research.provider"];
   if (typeof s["research.web"] === "boolean")
     out["research.web"] = s["research.web"];
+  for (const [key, camera] of Object.entries(s))
+    if (
+      /^graph\.camera\.graph:[a-zA-Z0-9-]+$/.test(key) &&
+      object(camera) &&
+      number(camera.x, -1e8, 1e8) &&
+      number(camera.y, -1e8, 1e8) &&
+      number(camera.zoom, 0.01, 100)
+    )
+      out[key] = { x: camera.x, y: camera.y, zoom: camera.zoom };
   const c = s["graph.camera"];
   if (
     object(c) &&

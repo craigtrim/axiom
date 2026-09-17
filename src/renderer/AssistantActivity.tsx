@@ -67,7 +67,7 @@ export function useAssistantActivityPolling() {
           return s.running
             ? {
                 label:
-                  "Codex · " +
+                  (s.provider === "codex" ? "Codex" : "Claude") + " · " +
                   (s.mode === "instances"
                     ? "Finding instances"
                     : "Finding child classes") +
