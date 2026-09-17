@@ -483,7 +483,7 @@ async function command(id: string, recentFile?: string) {
       case "file.close":
         if (await confirmDiscard()) {
           workspacePath = undefined;
-          await request("new");
+          await request("new", { blank: true });
           send("workspace.new");
           await checkpointSession();
         }
@@ -508,7 +508,7 @@ async function command(id: string, recentFile?: string) {
       case "file.new":
         if (await confirmDiscard()) {
           workspacePath = undefined;
-          await request("new", { blank: true });
+          await request("new");
           send("workspace.new");
           await checkpointSession();
         }
@@ -559,7 +559,7 @@ function refreshMenu() {
     const item = menu.getMenuItemById(id);
     if (item) item.enabled = enabled;
   };
-  set("entity.edit", !!selected);
+  set("entity.edit", !!selected || !!lastState?.graph.selectedEdge);
   set("entity.rename", !!selected && selected.iri !== THING);
   set(
     "entity.delete",
@@ -579,7 +579,11 @@ function refreshMenu() {
   for (const id of ["edge.edit", "edge.remove"]) set(id, !!selectedEdge);
   set("edge.resetRoute", !!selectedEdge?.bend);
   for (const id of ["edge.next", "edge.previous"])
-    set(id, !!lastState?.graph.edges.length);
+    set(
+      id,
+      lastState?.graph.edgesVisible !== false &&
+        !!lastState?.graph.edges.length,
+    );
   set("graph.collapse", !!node && node.shownDegree > 0);
   for (const id of [
     "graph.fit",

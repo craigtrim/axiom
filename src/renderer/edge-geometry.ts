@@ -24,7 +24,14 @@ export function edgeRoute(
   let points = [p, q],
     control: Point | undefined,
     anchor = p;
-  if (e.source === e.target) {
+  if (e.bend?.points?.length) {
+    points = [p, ...e.bend.points.map((point) => screenPoint(point, c)), q];
+    anchor = points[points.length - 2];
+  } else if (e.junction && !e.bend) {
+    const join = screenPoint(e.junction, c);
+    points = [p, join, q];
+    anchor = join;
+  } else if (e.source === e.target) {
     const bend = e.bend
       ? screenPoint(e.bend, c)
       : { x: p.x, y: p.y - (a.radius + 38 + e.parallelIndex * 22) * c.zoom };
@@ -122,6 +129,7 @@ export function nearestEdge(
   camera: Camera,
   tolerance = 7,
 ) {
+  if (g.edgesVisible === false) return undefined;
   const nodes = new Map(g.nodes.map((n) => [n.iri, n]));
   let best: GraphEdge | undefined,
     distance = tolerance;

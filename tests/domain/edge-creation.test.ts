@@ -154,3 +154,97 @@ describe("connection targets", () => {
     ).toBeUndefined();
   });
 });
+
+it("uses semantic defaults only when the entity kinds establish the relationship", async () => {
+  const { connectionPredicate } =
+    await import("../../src/renderer/connection-predicate");
+  const { SUBPROPERTY } = await import("../../src/domain/model");
+  expect(connectionPredicate({ kind: "Defined" }, { kind: "Class" })).toBe(
+    SUBCLASS,
+  );
+  expect(connectionPredicate({ kind: "Individual" }, { kind: "Class" })).toBe(
+    TYPE,
+  );
+  expect(
+    connectionPredicate({ kind: "ObjectProperty" }, { kind: "ObjectProperty" }),
+  ).toBe(SUBPROPERTY);
+  expect(
+    connectionPredicate({ kind: "Class" }, { kind: "Individual" }),
+  ).toBeUndefined();
+  expect(
+    connectionPredicate({ kind: "Individual" }, { kind: "Individual" }),
+  ).toBeUndefined();
+});
+it("preserves segmented routes across workspace reload, hit testing, Fit and export bounds", async () => {
+  const { readWorkspace } = await import("../../src/domain/workspace");
+  const { edgeRoute, routePoints, nearestEdge } =
+    await import("../../src/renderer/edge-geometry");
+  const { bounds } = await import("../../src/renderer/scene");
+  const s = buildEmptyStore(),
+    a = s.createClass("A", THING),
+    key = JSON.stringify([a, SUBCLASS, THING]);
+  const points = [
+    { x: -500, y: 100 },
+    { x: -500, y: 900 },
+  ];
+  const doc = {
+    format: "axiom-workspace",
+    version: 1,
+    ontology: s.ontology,
+    entities: [...s.entities.values()],
+    tbox: s.tbox,
+    individuals: [],
+    customers: [],
+    selected: null,
+    graph: {
+      iris: [a, THING],
+      focus: [],
+      pins: [],
+      budget: 1000,
+      layout: "force",
+      routes: [{ key, ...points[0], points }],
+    },
+  };
+  const loaded = readWorkspace(doc);
+  loaded.view.refresh();
+  const edge = loaded.view.edges.get(key)!;
+  expect(edge.bend?.points).toEqual(points);
+  const nodes = [...loaded.view.nodes.values()],
+    source = loaded.view.nodes.get(a)!,
+    target = loaded.view.nodes.get(THING)!;
+  const route = edgeRoute(
+    edge,
+    source,
+    target,
+    { x: 0, y: 0, zoom: 1 },
+    "force",
+  );
+  expect(routePoints(route).slice(1, -1)).toEqual(points);
+  const graph = {
+    nodes,
+    edges: [edge],
+    mode: "force",
+  } as import("../../src/shared/protocol").GraphSnapshot;
+  expect(nearestEdge(graph, { x: -500, y: 500 }, { x: 0, y: 0, zoom: 1 })).toBe(
+    edge,
+  );
+  expect(bounds(graph, 0).height).toBeGreaterThanOrEqual(800);
+  expect(() =>
+    readWorkspace({
+      ...doc,
+      graph: {
+        ...doc.graph,
+        routes: [{ key, x: 0, y: 0, points: [{ x: NaN, y: 1 }] }],
+      },
+    }),
+  ).toThrow("edge route");
+  expect(() =>
+    readWorkspace({
+      ...doc,
+      graph: {
+        ...doc.graph,
+        routes: [{ key, x: 0, y: 0, points: Array(65).fill({ x: 1, y: 1 }) }],
+      },
+    }),
+  ).toThrow("edge route");
+});

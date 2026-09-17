@@ -6,7 +6,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Camera } from "../../src/renderer/scene";
 import { THING, SUBCLASS } from "../../src/domain/model";
@@ -52,10 +52,7 @@ async function at(iri: string) {
     radius: n.radius * c.zoom,
   };
 }
-const dialog = () =>
-  page.getByRole("dialog", { name: "Add relationship", exact: true });
-const overlay = () =>
-  page.getByRole("group", { name: "Connect nodes", exact: true });
+const preview = () => page.getByTestId("edge-preview");
 async function clickNode(iri: string) {
   const p = await at(iri);
   await page.mouse.click(p.x, p.y);
@@ -91,7 +88,7 @@ async function prepare() {
         dragging: false,
         datasetEpoch: s.datasetEpoch,
       });
-    await window.axiom.request("select", { iri: root });
+    await window.axiom.request("select", { iri: null });
     return { a, b, c };
   });
   await fitGraph();
@@ -134,258 +131,6 @@ test.afterEach(async ({}, info) => {
     });
   await app.close();
   expect(errors).toEqual([]);
-});
-
-test("clicking source and target previews and adds one relationship with Undo and Redo", async () => {
-  const ids = await prepare(),
-    before = await state();
-  await page
-    .getByRole("button", { name: "Connect nodes", exact: true })
-    .click();
-  await expect(page.locator(".connection-help")).toContainText(
-    "Choose the source node",
-  );
-  await clickNode(ids.a);
-  await expect(page.locator(".connection-help")).toContainText("From Alpha");
-  const b = await at(ids.b);
-  await page.mouse.move(b.x, b.y);
-  await expect(page.locator(".connection-target")).toHaveAttribute(
-    "data-target-iri",
-    ids.b,
-  );
-  await expect(page.locator(".connection-line")).not.toHaveAttribute("d", "");
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .setLegacyMode()
-        .include(".graph-connect-overlay")
-        .include(".connection-help")
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-  await page.screenshot({ path: "artifacts/testing/connect-preview.png" });
-  await clickNode(ids.b);
-  await expect(
-    dialog().getByRole("combobox", { name: "New edge source" }),
-  ).toHaveValue(ids.a);
-  await expect(
-    dialog().getByRole("combobox", { name: "New edge target" }),
-  ).toHaveValue(ids.b);
-  await expect(
-    dialog().getByRole("combobox", { name: "New edge relationship" }),
-  ).toHaveValue("rdfs:subClassOf");
-  await expect(dialog()).toContainText("Alpha → is a subclass of → Beta");
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .setLegacyMode()
-        .include(".create-edge-form")
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-  await page.screenshot({ path: "artifacts/testing/connect-confirm.png" });
-  await dialog()
-    .getByRole("button", { name: "Add relationship", exact: true })
-    .click();
-  await expect(dialog()).toHaveCount(0);
-  await expect(overlay()).toHaveCount(0);
-  const key = JSON.stringify([ids.a, SUBCLASS, ids.b]);
-  await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
-  const added = await state();
-  expect(added.entities.find((e) => e.iri === ids.a)?.parents).toEqual(
-    expect.arrayContaining([THING, ids.b]),
-  );
-  expect(
-    added.graph.nodes.map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
-  ).toEqual(before.graph.nodes.map((n) => ({ iri: n.iri, x: n.x, y: n.y })));
-  expect(added.graph.frozen).toBe(true);
-  await menu("edit.undo");
-  await expect
-    .poll(
-      async () =>
-        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
-    )
-    .toEqual([THING]);
-  await menu("edit.redo");
-  await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
-});
-
-test("a large handle accepts a nearby drop at low zoom and Escape cancels without an edit", async () => {
-  const ids = await prepare();
-  await request("select", { iri: ids.a });
-  for (let i = 0; i < 6; i++) await menu("graph.zoom.out");
-  await expect.poll(async () => (await camera()).zoom).toBeLessThan(0.5);
-  const handle = page.getByRole("button", {
-    name: "Connect from Alpha",
-    exact: true,
-  });
-  await expect(handle).toBeVisible();
-  const box = (await handle.boundingBox())!;
-  expect(box.width).toBeGreaterThanOrEqual(32);
-  const b = await at(ids.b);
-  expect(b.radius).toBeLessThan(12);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(b.x, b.y - 21, { steps: 12 });
-  await expect(page.locator(".connection-target")).toHaveAttribute(
-    "data-target-iri",
-    ids.b,
-  );
-  await page.mouse.up();
-  await expect(dialog()).toBeVisible();
-  await expect(
-    dialog().getByRole("combobox", { name: "New edge target" }),
-  ).toHaveValue(ids.b);
-  const version = (await state()).version;
-  await page.keyboard.press("Escape");
-  await expect(dialog()).toHaveCount(0);
-  await expect(overlay()).toHaveCount(0);
-  await handle.click();
-  await expect(page.locator(".connection-help")).toContainText("From Alpha");
-  await page.keyboard.press("Escape");
-  expect((await state()).version).toBe(version);
-  const a = await at(ids.a);
-  await page.mouse.move(a.x, a.y);
-  await page.mouse.down();
-  await page.mouse.move(a.x + 55, a.y + 30, { steps: 5 });
-  await page.mouse.up();
-  await expect
-    .poll(
-      async () => (await state()).graph.nodes.find((n) => n.iri === ids.a)?.x,
-    )
-    .not.toBe(-180);
-  expect((await state()).version).toBe(version);
-  await expect(dialog()).toHaveCount(0);
-});
-
-test("context menu, keyboard and detached narrow-pane controls share the connection flow", async () => {
-  const ids = await prepare();
-  await clickNode(ids.a);
-  const a = await at(ids.a);
-  await page.mouse.click(a.x, a.y, { button: "right" });
-  await page
-    .getByRole("menuitem", { name: "Connect nodes", exact: true })
-    .click();
-  await expect(page.locator(".connection-help")).toContainText("From Alpha");
-  await page.keyboard.press("Escape");
-  await page.getByTestId("graph-canvas").focus();
-  await page.keyboard.press("c");
-  await expect(overlay()).toBeFocused();
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("Enter");
-  await expect(dialog()).toBeVisible();
-  await page.keyboard.press("Escape");
-  await menu("graph.connect");
-  await expect(overlay()).toBeVisible();
-  await page
-    .getByRole("button", { name: "Cancel connection", exact: true })
-    .click();
-  await menu("view.graph");
-  await menu("pane.detach");
-  await expect.poll(() => app.windows().length).toBe(2);
-  const main = page;
-  page = app.windows().find((w) => w !== main)!;
-  page.on("pageerror", (e) => errors.push(e.message));
-  await (
-    await app.browserWindow(page)
-  ).evaluate((win) => {
-    win.setMinimumSize(160, 100);
-    win.setContentSize(380, 600);
-    if (process.env.AXIOM_TEST_BACKGROUND === "1") win.setFocusable(false);
-  });
-  await page
-    .getByRole("button", { name: "Connect nodes", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Choose from list...", exact: true })
-    .click();
-  await expect(dialog()).toBeVisible();
-  await dialog()
-    .getByRole("combobox", { name: "New edge source" })
-    .selectOption(ids.a);
-  await dialog()
-    .getByRole("combobox", { name: "New edge target" })
-    .selectOption(ids.c);
-  await expect(
-    dialog().getByRole("button", { name: "Add relationship", exact: true }),
-  ).toBeInViewport();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  await page.screenshot({ path: "artifacts/testing/connect-detached.png" });
-  await dialog()
-    .getByRole("button", { name: "Add relationship", exact: true })
-    .click();
-  await expect
-    .poll(
-      async () =>
-        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
-    )
-    .toContain(ids.c);
-});
-
-test("duplicate and stale connections remain atomic and layout resumes after cancelling", async () => {
-  const ids = await prepare();
-  const s = await state();
-  await request("createEdge", {
-    datasetEpoch: s.datasetEpoch,
-    version: s.version,
-    statement: {
-      subject: ids.a,
-      predicate: SUBCLASS,
-      object: { literal: false, value: ids.b },
-    },
-  });
-  await request("select", { iri: ids.a });
-  await page
-    .getByRole("button", { name: "Connect nodes", exact: true })
-    .click();
-  await clickNode(ids.b);
-  const before = await state();
-  await dialog()
-    .getByRole("button", { name: "Add relationship", exact: true })
-    .click();
-  await expect(dialog().getByRole("alert")).toContainText("already exists");
-  expect((await state()).version).toBe(before.version);
-  expect((await state()).tripleCount).toBe(before.tripleCount);
-  await request("createClass", { name: "Changed elsewhere", parent: THING });
-  await expect(
-    dialog().getByRole("button", { name: "Add relationship", exact: true }),
-  ).toBeDisabled();
-  await page.keyboard.press("Escape");
-
-  await page
-    .getByRole("button", { name: "Connect nodes", exact: true })
-    .click();
-  await expect(overlay()).toBeVisible();
-  await request("layout", { mode: "force" });
-  await request("freeze");
-  const positions = () =>
-    state().then((s) => s.graph.nodes.map((n) => [n.iri, n.x, n.y]));
-  await expect(async () => {
-    const p = await positions();
-    await page.waitForTimeout(120);
-    expect(await positions()).toEqual(p);
-  }).toPass({ timeout: 3000 });
-  const paused = await state();
-  expect(paused.graph.frozen).toBe(false);
-  await page.keyboard.press("Escape");
-  await expect
-    .poll(positions)
-    .not.toEqual(paused.graph.nodes.map((n) => [n.iri, n.x, n.y]));
-  expect((await state()).undoLabel).toBe(paused.undoLabel);
-  await page
-    .getByRole("button", { name: "Connect nodes", exact: true })
-    .click();
-  await expect(overlay()).toBeVisible();
-  await menu("pane.close");
-  await expect(page.getByTestId("graph-canvas")).toBeHidden();
-  await menu("view.graph");
-  await expect(page.getByTestId("graph-canvas")).toBeVisible();
-  await expect(overlay()).toHaveCount(0);
-  expect((await state()).graph.frozen).toBe(false);
 });
 
 test("full-graph refusal, endpoint reservation and stale workspace requests preserve atomicity", async () => {
@@ -441,4 +186,312 @@ test("full-graph refusal, endpoint reservation and stale workspace requests pres
   await expect(request("createEdge", args)).rejects.toThrow("ontology changed");
   expect((await state()).version).toBe(reset.version);
   expect((await state()).tripleCount).toBe(reset.tripleCount);
+});
+
+async function gesture(source: string, target: string, offset = 0) {
+  const a = await at(source),
+    b = await at(target);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y + offset, { steps: 10 });
+}
+async function deselect() {
+  await page.getByTestId("graph-canvas").click({ position: { x: 12, y: 12 } });
+  await expect.poll(async () => (await state()).selected).toBeNull();
+}
+
+test("click selects for moving; dragging an unselected node attaches an edge immediately", async () => {
+  const ids = await prepare(),
+    before = await state(),
+    canvas = page.getByTestId("graph-canvas");
+  await expect(
+    page.getByRole("button", { name: "Connect nodes", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator(".graph-connect-handle,.connection-help"),
+  ).toHaveCount(0);
+  await clickNode(ids.a);
+  await expect.poll(async () => (await state()).selected).toBe(ids.a);
+  expect((await state()).graph.nodes.find((n) => n.iri === ids.a)?.x).toBe(
+    -180,
+  );
+  await page.screenshot({ path: "artifacts/testing/yed-selected-node.png" });
+  const a = await at(ids.a);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 50, a.y + 25, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(
+      async () => (await state()).graph.nodes.find((n) => n.iri === ids.a)?.x,
+    )
+    .not.toBe(-180);
+  expect((await state()).tripleCount).toBe(before.tripleCount);
+  await expect(preview()).toHaveCount(0);
+  await menu("edit.undo");
+  await expect
+    .poll(
+      async () => (await state()).graph.nodes.find((n) => n.iri === ids.a)?.x,
+    )
+    .toBe(-180);
+  await deselect();
+  const cleared = await canvas.screenshot();
+  expect(cleared.length).toBeGreaterThan(0);
+  await gesture(ids.a, ids.b);
+  await expect(preview()).toHaveAttribute("data-source-iri", ids.a);
+  await expect(preview()).toHaveAttribute("data-target-iri", ids.b);
+  expect((await state()).selected).toBeNull();
+  expect((await state()).graph.nodes.find((n) => n.iri === ids.a)?.x).toBe(
+    -180,
+  );
+  await expect(
+    page.getByRole("button", { name: "Add entity", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: "artifacts/testing/yed-edge-preview.png" });
+  await page.mouse.up();
+  const key = JSON.stringify([ids.a, SUBCLASS, ids.b]);
+  await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
+  await expect(preview()).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const connected = await state();
+  expect(connected.tripleCount).toBe(before.tripleCount + 1);
+  expect(connected.entities.find((e) => e.iri === ids.a)?.parents).toContain(
+    ids.b,
+  );
+  expect(connected.graph.frozen).toBe(true);
+  await page.screenshot({ path: "artifacts/testing/yed-edge-attached.png" });
+  await menu("edit.undo");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .not.toContain(ids.b);
+  await menu("edit.redo");
+  await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
+});
+
+test("empty-space drops add bends and the completed route survives Undo and workspace reload", async () => {
+  const ids = await prepare(),
+    a = await at(ids.a),
+    b = await at(ids.b),
+    canvas = page.getByTestId("graph-canvas"),
+    box = (await canvas.boundingBox())!;
+  const bend1 = { x: a.x, y: box.y + box.height - 34 },
+    bend2 = { x: b.x, y: bend1.y };
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(bend1.x, bend1.y, { steps: 10 });
+  await page.mouse.up();
+  await expect(preview()).toBeVisible();
+  expect((await state()).graph.edges).toHaveLength(0);
+  await page.mouse.click(bend2.x, bend2.y);
+  await page.mouse.click(b.x, b.y);
+  await expect
+    .poll(async () => (await state()).graph.edges[0]?.bend?.points?.length)
+    .toBe(2);
+  const points = (await state()).graph.edges[0].bend!.points!;
+  await menu("edit.undo");
+  await expect.poll(async () => (await state()).graph.edges.length).toBe(0);
+  await menu("edit.redo");
+  expect((await state()).graph.edges[0].bend?.points).toEqual(points);
+  const file = path.resolve(
+    "artifacts/testing/yed-bends-" + Date.now() + ".axiom",
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+  }, file);
+  await menu("file.saveAs");
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(await readFile(file, "utf8").catch(() => "null"))?.graph
+          ?.routes?.[0]?.points,
+    )
+    .toEqual(points);
+  const epoch = (await state()).datasetEpoch;
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () => (await state()).datasetEpoch)
+    .toBeGreaterThan(epoch);
+  expect((await state()).graph.edges[0].bend?.points).toEqual(points);
+});
+
+test("Escape, right-click, stale data and pane closure cancel drawing without edits", async () => {
+  const ids = await prepare(),
+    before = await state();
+  await gesture(ids.a, ids.b);
+  await page.keyboard.press("Escape");
+  await page.mouse.move((await at(ids.c)).x, (await at(ids.c)).y);
+  await page.mouse.up();
+  await expect(preview()).toHaveCount(0);
+  expect((await state()).tripleCount).toBe(before.tripleCount);
+  await gesture(ids.a, ids.b);
+  await page.mouse.click((await at(ids.b)).x, (await at(ids.b)).y, {
+    button: "right",
+  });
+  await page.mouse.up();
+  await expect(preview()).toHaveCount(0);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  expect((await state()).tripleCount).toBe(before.tripleCount);
+  await gesture(ids.a, ids.b);
+  await request("createClass", { name: "Edited elsewhere", parent: THING });
+  await page.mouse.up();
+  await expect(preview()).toHaveCount(0);
+  expect(
+    (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+  ).not.toContain(ids.b);
+  await request("select", { iri: ids.a });
+  await menu("graph.connect");
+  await expect(preview()).toBeVisible();
+  await menu("pane.close");
+  await menu("view.graph");
+  await expect(page.getByTestId("graph-canvas")).toBeVisible();
+  await expect(preview()).toHaveCount(0);
+});
+
+test("low-zoom drops, keyboard commands and detached panes retain direct attachment", async () => {
+  const ids = await prepare();
+  for (let i = 0; i < 6; i++) await menu("graph.zoom.out");
+  await expect.poll(async () => (await camera()).zoom).toBeLessThan(0.5);
+  await gesture(ids.a, ids.b, -21);
+  await expect(preview()).toHaveAttribute("data-target-iri", ids.b);
+  await page.mouse.up();
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .toContain(ids.b);
+  await menu("edit.undo");
+  await clickNode(ids.a);
+  const a = await at(ids.a);
+  await page.mouse.click(a.x, a.y, { button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Connect nodes", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await menu("graph.connect");
+  await expect(preview()).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => (await state()).graph.edges.length).toBe(1);
+  await menu("view.graph");
+  await menu("pane.detach");
+  await expect.poll(() => app.windows().length).toBe(2);
+  const main = page;
+  page = app.windows().find((p) => p !== main)!;
+  page.on("pageerror", (e) => errors.push(e.message));
+  await (
+    await app.browserWindow(page)
+  ).evaluate((win) => {
+    win.setMinimumSize(160, 100);
+    win.setContentSize(640, 520);
+    if (process.env.AXIOM_TEST_BACKGROUND === "1") win.setFocusable(false);
+  });
+  await expect(page.getByTestId("graph-canvas")).toBeVisible();
+  await fitGraph();
+  await deselect();
+  await gesture(ids.c, ids.b);
+  await page.mouse.up();
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.c)?.parents,
+    )
+    .toContain(ids.b);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("an ambiguous relationship stays attached while its property is chosen in a compact picker", async () => {
+  const ids = await prepare();
+  const nodes = await bridge.evaluate(async (a) => {
+    const one = await window.axiom.request<string>("createIndividual", {
+        name: "One",
+        type: a,
+      }),
+      two = await window.axiom.request<string>("createIndividual", {
+        name: "Two",
+        type: a,
+      });
+    await window.axiom.request("seed", {
+      iris: [one, two],
+      replace: true,
+      expand: false,
+    });
+    await window.axiom.request("drag", {
+      iri: one,
+      x: -150,
+      y: 0,
+      dragging: false,
+    });
+    await window.axiom.request("drag", {
+      iri: two,
+      x: 150,
+      y: 0,
+      dragging: false,
+    });
+    await window.axiom.request("select", { iri: null });
+    return { one, two };
+  }, ids.a);
+  await fitGraph();
+  await gesture(nodes.one, nodes.two);
+  await page.mouse.up();
+  const picker = page.getByRole("form", { name: "Connection relationship" });
+  await expect(picker).toBeVisible();
+  await expect(preview()).toHaveAttribute("data-target-iri", nodes.two);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .setLegacyMode()
+        .include(".edge-property-picker")
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  const property = picker.getByRole("combobox", {
+    name: "Connection relationship",
+  });
+  await property.fill("not a property");
+  await picker.getByRole("button", { name: "Attach", exact: true }).click();
+  await expect(picker.getByRole("alert")).toBeVisible();
+  await expect(preview()).toHaveAttribute("data-target-iri", nodes.two);
+  expect((await state()).graph.edges).toHaveLength(0);
+  await property.fill("https://example.org/knows");
+  await picker.getByRole("button", { name: "Attach", exact: true }).click();
+  await expect
+    .poll(async () => (await state()).graph.edges[0]?.predicate)
+    .toBe("https://example.org/knows");
+  await expect(picker).toHaveCount(0);
+});
+
+test("drawing pauses moving nodes and duplicate drops select the existing edge", async () => {
+  const ids = await prepare();
+  await gesture(ids.a, ids.b);
+  await page.mouse.up();
+  const before = await state();
+  await gesture(ids.a, ids.b);
+  await page.mouse.up();
+  await expect(preview()).toHaveCount(0);
+  expect((await state()).tripleCount).toBe(before.tripleCount);
+  expect((await state()).version).toBe(before.version);
+  await request("select", { iri: ids.a });
+  await menu("graph.connect");
+  await expect(preview()).toBeVisible();
+  await request("layout", { mode: "force" });
+  await request("freeze");
+  const positions = () =>
+    state().then((s) => s.graph.nodes.map((n) => [n.x, n.y]));
+  const paused = await positions();
+  await page.waitForTimeout(150);
+  expect(await positions()).toEqual(paused);
+  expect((await state()).graph.frozen).toBe(false);
+  await page.keyboard.press("Escape");
+  await expect.poll(positions).not.toEqual(paused);
 });

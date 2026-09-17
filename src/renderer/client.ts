@@ -155,18 +155,24 @@ export async function initialise() {
       persist();
       command("ui.restore:" + data.key);
     }
-    if (type === "layout-finished") command("graph.fit");
+    if (type === "layout-finished" && data.fit !== false) command("graph.fit");
     if (type === "layout-error") report(data.message, true);
     if (type === "state") setState(data as Snapshot);
     if (type === "selection" && state) {
-      graph = { ...state.graph, selectedEdge: null };
+      graph = { ...state.graph, selectedEdge: null, selected: data.iri };
+      if (state.graphs) state.graphs[state.activeGraphId ?? "graph"] = graph;
       state = { ...state, selected: data.iri, graph };
       for (const fn of stateListeners) fn();
       for (const fn of graphListeners) fn();
     }
-    if (type === "positions" && graph && data.revision === graph.revision) {
+    const positionedGraph = state?.graphs?.[data?.graphId] ?? graph;
+    if (
+      type === "positions" &&
+      positionedGraph &&
+      data.revision === positionedGraph.revision
+    ) {
       const positions = data.positions as Float64Array;
-      graph.nodes.forEach((n, i) => {
+      positionedGraph.nodes.forEach((n, i) => {
         n.x = positions[i * 2];
         n.y = positions[i * 2 + 1];
       });

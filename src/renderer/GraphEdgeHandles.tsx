@@ -1,32 +1,25 @@
+import { GraphScope, useGraphScope } from "./GraphScope";
 import { useEffect, useRef, type RefObject } from "react";
-import { graph, state, act } from "./client";
+
 import { edgeRoute, routeMiddle, type Point } from "./edge-geometry";
-import { styledRadius } from "../domain/graph-style";
 import type { Camera } from "./scene";
-import { edgeKey, type GraphEdge } from "../domain/viewport";
+import { edgeKey, type GraphEdge, type EdgeBend } from "../domain/viewport";
 export function GraphEdgeHandles({
   edgeId,
   canvas,
   camera,
   dirty,
-  reconnect,
 }: {
   edgeId: string;
   canvas: RefObject<HTMLCanvasElement | null>;
   camera: RefObject<Camera>;
   dirty: RefObject<boolean>;
-  reconnect: (
-    key: string,
-    endpoint: "source" | "target",
-    point?: Point,
-  ) => void;
 }) {
-  const source = useRef<HTMLButtonElement>(null),
-    target = useRef<HTMLButtonElement>(null),
-    middle = useRef<HTMLButtonElement>(null);
+  const { graph, state, act } = useGraphScope();
+  const middle = useRef<HTMLButtonElement>(null);
   const drag = useRef<{
     edge: GraphEdge;
-    before?: Point;
+    before?: EdgeBend;
     epoch: number;
     start: Point;
     moved: boolean;
@@ -55,30 +48,10 @@ export function GraphEdgeHandles({
       if (!edge || !a || !b) return;
       const route = edgeRoute(edge, a, b, camera.current, graph!.mode),
         mid = routeMiddle(route);
-      const endpoint = (p: Point, towards: Point, radius: number) => {
-        const dx = towards.x - p.x,
-          dy = towards.y - p.y,
-          len = Math.max(1, Math.hypot(dx, dy));
-        const r = radius * camera.current.zoom + 18;
-        return { x: p.x + (dx / len) * r, y: p.y + (dy / len) * r };
-      };
-      const p = route.points[0],
-        q = route.q;
-      const positions = [
-        endpoint(
-          p,
-          route.control ?? route.points[1],
-          styledRadius(a, graph!.stylesheet),
-        ),
-        endpoint(q, route.anchor, styledRadius(b, graph!.stylesheet)),
-        mid,
-      ];
-      [source, target, middle].forEach((ref, i) => {
-        if (ref.current) {
-          ref.current.style.left = positions[i].x + "px";
-          ref.current.style.top = positions[i].y + "px";
-        }
-      });
+      if (middle.current) {
+        middle.current.style.left = mid.x + "px";
+        middle.current.style.top = mid.y + "px";
+      }
     };
     paint();
     return () => {
@@ -86,46 +59,8 @@ export function GraphEdgeHandles({
       restore();
     };
   }, [edgeId]);
-  const endpointStart = useRef<Point | null>(null);
   return (
     <div className="graph-edge-handles" aria-label="Selected edge handles">
-      {(["source", "target"] as const).map((end, i) => (
-        <button
-          key={end}
-          type="button"
-          ref={i === 0 ? source : target}
-          className="graph-edge-handle endpoint"
-          aria-label={"Reconnect edge " + end}
-          title={"Drag onto a node, or activate then select the new " + end}
-          onPointerDown={(e) => {
-            if (e.button !== 0) return;
-            e.stopPropagation();
-            endpointStart.current = point(e);
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerUp={(e) => {
-            e.stopPropagation();
-            const p = point(e),
-              start = endpointStart.current;
-            endpointStart.current = null;
-            if (e.currentTarget.hasPointerCapture(e.pointerId))
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            if (start)
-              reconnect(
-                edgeId,
-                end,
-                Math.hypot(p.x - start.x, p.y - start.y) > 3 ? p : undefined,
-              );
-          }}
-          onPointerCancel={() => {
-            endpointStart.current = null;
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.detail === 0) reconnect(edgeId, end);
-          }}
-        />
-      ))}
       <button
         type="button"
         ref={middle}
@@ -156,8 +91,16 @@ export function GraphEdgeHandles({
             b = graph!.nodes.find((n) => n.iri === d.edge.target)!;
           const x = (p.x - camera.current.x) / camera.current.zoom,
             y = (p.y - camera.current.y) / camera.current.zoom;
-          d.edge.bend =
-            d.edge.source === d.edge.target
+          d.edge.bend = d.before?.points
+            ? {
+                x: d.before.x + (p.x - d.start.x) / camera.current.zoom,
+                y: d.before.y + (p.y - d.start.y) / camera.current.zoom,
+                points: d.before.points.map((v) => ({
+                  x: v.x + (p.x - d.start.x) / camera.current.zoom,
+                  y: v.y + (p.y - d.start.y) / camera.current.zoom,
+                })),
+              }
+            : d.edge.source === d.edge.target
               ? { x, y }
               : { x: 2 * x - (a.x + b.x) / 2, y: 2 * y - (a.y + b.y) / 2 };
           dirty.current = true;
@@ -216,6 +159,26 @@ export function GraphEdgeHandles({
           void act("routeEdge", {
             key: edgeId,
             bend: {
+              ...(edge.bend?.points
+                ? {
+                    points: edge.bend.points.map((p) => ({
+                      x:
+                        p.x +
+                        (e.key === "ArrowLeft"
+                          ? -delta
+                          : e.key === "ArrowRight"
+                            ? delta
+                            : 0),
+                      y:
+                        p.y +
+                        (e.key === "ArrowUp"
+                          ? -delta
+                          : e.key === "ArrowDown"
+                            ? delta
+                            : 0),
+                    })),
+                  }
+                : {}),
               x:
                 p.x +
                 (e.key === "ArrowLeft"

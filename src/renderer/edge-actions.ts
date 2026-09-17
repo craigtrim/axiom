@@ -1,8 +1,7 @@
 import { command, request, report, state } from "./client";
 import type { EdgeDocument } from "../shared/protocol";
 export function inspectEdge() {
-  command("view.inspector");
-  command("edge.focus");
+  command("view.details");
 }
 export async function removeEdge(key: string) {
   try {
@@ -14,7 +13,7 @@ export async function removeEdge(key: string) {
     }
     if (doc.statements.length > 1) {
       report(
-        "Choose the statement graph in the edge inspector before removing this relationship.",
+        "Choose the statement graph in Details before removing this relationship.",
       );
       inspectEdge();
       return;

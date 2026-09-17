@@ -1,3 +1,6 @@
+import { GraphSpacing } from "./GraphSpacing";
+import { GraphScope, useGraphScope } from "./GraphScope";
+import { revealInTaxonomy } from "./taxonomy-navigation";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
@@ -33,19 +36,7 @@ import { layoutOptions } from "../shared/layout-options";
 import { kindLabel } from "../domain/model";
 import { GpuDraw } from "./GpuDraw";
 import { useEffect, useRef, useState } from "react";
-import {
-  act,
-  request,
-  graph,
-  onGraph,
-  onCommand,
-  panel,
-  savePanel,
-  state,
-  report,
-  command,
-  useSnapshot,
-} from "./client";
+import { onGraph, panel, savePanel, report, command } from "./client";
 import {
   Draw,
   render,
@@ -57,13 +48,30 @@ import {
   type Rect,
 } from "./scene";
 import type { GraphNode } from "../domain/viewport";
-export function GraphPanel() {
+export function GraphPanel({ graphId = "graph" }: { graphId?: string }) {
+  return (
+    <GraphScope.Provider value={graphId}>
+      <GraphContent />
+    </GraphScope.Provider>
+  );
+}
+function GraphContent() {
+  const {
+    id: graphId,
+    graph,
+    state,
+    request,
+    act,
+    onCommand,
+    useSnapshot,
+  } = useGraphScope();
+  const cameraKey =
+    graphId === "graph" ? "graph.camera" : "graph.camera." + graphId;
   const snapshot = useSnapshot();
   const canvasRef = useRef<HTMLCanvasElement>(null),
     miniRef = useRef<HTMLCanvasElement>(null),
-    toolbarRef = useRef<HTMLDivElement>(null),
-    camera = useRef<Camera>(panel("graph.camera", { x: 0, y: 0, zoom: 1 })),
-    needsFit = useRef(!panel("graph.camera", null)),
+    camera = useRef<Camera>(panel(cameraKey, { x: 0, y: 0, zoom: 1 })),
+    needsFit = useRef(!panel(cameraKey, null)),
     dirty = useRef(true),
     hover = useRef<string | null>(null),
     [info, setInfo] = useState(graph),
@@ -135,39 +143,19 @@ export function GraphPanel() {
       version: doc.version,
     });
   };
-  const reconnect = async (
-    key: string,
-    endpoint: "source" | "target",
-    p?: { x: number; y: number },
-  ) => {
+  const reconnect = async (key: string, endpoint: "source" | "target") => {
     try {
       const doc = await request<EdgeDocument>("edgeDocument", { key });
       if (doc.statements.length !== 1) {
         report(
           doc.reason ??
-            "Choose the statement graph in the edge inspector to reconnect this relationship.",
+            "Choose the statement graph in Details to reconnect this relationship.",
         );
         inspectEdge();
         return;
       }
-      if (p) {
-        const node =
-          graph &&
-          connectionTarget(
-            graph.nodes,
-            p,
-            camera.current,
-            graph.stylesheet,
-            undefined,
-            new Set(state?.entities.map((e) => e.iri)),
-            labelRects.current,
-          );
-        if (node) await applyReconnect(doc, endpoint, node);
-        else report("Drop the endpoint onto a node.");
-      } else {
-        setReconnecting({ doc, endpoint });
-        canvasRef.current?.focus();
-      }
+      setReconnecting({ doc, endpoint });
+      canvasRef.current?.focus();
     } catch (e) {
       report((e as Error).message, true);
     }
@@ -374,6 +362,7 @@ export function GraphPanel() {
   useEffect(
     () =>
       onInlineRename(canvasRef.current!, () => {
+        if (state?.activeGraphId && state.activeGraphId !== graphId) return;
         const e = state?.entities.find((e) => e.iri === state?.selected),
           n = graph?.nodes.find((n) => n.iri === e?.iri),
           canvas = canvasRef.current!;
@@ -391,7 +380,7 @@ export function GraphPanel() {
             y: canvas.clientHeight / 2 - n.y * camera.current.zoom,
           };
           dirty.current = true;
-          savePanel("graph.camera", camera.current);
+          savePanel(cameraKey, camera.current);
         }
         setRenaming({ iri: e.iri, name: e.name });
       }),
@@ -446,7 +435,7 @@ export function GraphPanel() {
     if (graph && el) {
       camera.current = fit(graph, el.clientWidth, el.clientHeight);
       dirty.current = true;
-      savePanel("graph.camera", camera.current, record);
+      savePanel(cameraKey, camera.current, record);
     }
   };
   const exportGraph = (format = "png") => setExportDialog(format);
@@ -481,7 +470,8 @@ export function GraphPanel() {
       w = 0,
       h = 0,
       last = 0,
-      frameCount = 0;
+      frameCount = 0,
+      toolbarHeight: number | undefined;
     const samples: number[] = [];
     const paint = () => {
       raf = win.requestAnimationFrame(paint);
@@ -496,6 +486,25 @@ export function GraphPanel() {
       const start = performance.now(),
         ratio = win.devicePixelRatio || 1;
       width();
+      const toolbar = canvas
+          .closest(".graph-panel")
+          ?.querySelector(":scope > .panel-toolbar"),
+        nextToolbarHeight = toolbar?.getBoundingClientRect().height ?? 0;
+      // Relationship choices and an external layout's cancel action can wrap
+      // the toolbar. Keep a held node fixed in the window as well as the graph.
+      if (
+        toolbarHeight !== undefined &&
+        nextToolbarHeight !== toolbarHeight &&
+        graph.nodes.some((node) => node.layoutFixed) &&
+        !needsFit.current
+      ) {
+        camera.current = {
+          ...camera.current,
+          y: camera.current.y + toolbarHeight - nextToolbarHeight,
+        };
+        savePanel(cameraKey, camera.current, false);
+      }
+      toolbarHeight = nextToolbarHeight;
       if (needsFit.current) {
         fitNow();
         needsFit.current = false;
@@ -605,8 +614,8 @@ export function GraphPanel() {
       attributeFilter: ["data-theme"],
     });
     const off = onCommand((id) => {
-      if (id === "ui.restore:graph.camera") {
-        camera.current = panel("graph.camera", camera.current);
+      if (id === "ui.restore:" + cameraKey) {
+        camera.current = panel(cameraKey, camera.current);
         dirty.current = true;
       }
       if (id === "graph.fit" || id === "graph.fit.manual") {
@@ -623,7 +632,7 @@ export function GraphPanel() {
           y: camera.current.y + (dir === "up" ? 40 : dir === "down" ? -40 : 0),
         };
         dirty.current = true;
-        savePanel("graph.camera", camera.current);
+        savePanel(cameraKey, camera.current);
       }
       if (id.startsWith("graph.zoom.")) {
         const old = camera.current,
@@ -639,7 +648,7 @@ export function GraphPanel() {
           zoom: k,
         };
         dirty.current = true;
-        savePanel("graph.camera", camera.current);
+        savePanel(cameraKey, camera.current);
       }
       if (id === "graph.create") {
         command("view.graph");
@@ -658,7 +667,8 @@ export function GraphPanel() {
         void resetEdgeRoute(graph.selectedEdge);
       if (
         (id === "edge.next" || id === "edge.previous") &&
-        graph?.edges.length
+        graph?.edges.length &&
+        graph.edgesVisible !== false
       ) {
         const index = graph.edges.findIndex(
           (e) => edgeKey(e) === graph?.selectedEdge,
@@ -704,7 +714,7 @@ export function GraphPanel() {
       theme.disconnect();
       un();
       off();
-      savePanel("graph.camera", camera.current, false);
+      savePanel(cameraKey, camera.current, false);
     };
   }, []);
   const point = (e: { clientX: number; clientY: number }) => {
@@ -746,6 +756,9 @@ export function GraphPanel() {
   };
   const drag = useRef<{
     node?: GraphNode;
+    connect: boolean;
+    label: boolean;
+    epoch: number;
     x: number;
     y: number;
     cx: number;
@@ -756,47 +769,56 @@ export function GraphPanel() {
   const finishDrag = () => {
     const d = drag.current;
     drag.current = null;
-    if (d?.node && d.moved)
+    if (d?.node && d.moved && !d.connect)
       void act("drag", {
         iri: d.node.iri,
         x: d.node.x,
         y: d.node.y,
         dragging: false,
       });
-    savePanel("graph.camera", camera.current);
+    if (d?.connect) connectRef.current?.cancel();
+    savePanel(cameraKey, camera.current);
   };
   const selected = state?.selected;
   const selection = graph?.nodes.find((n) => n.iri === selected);
   const instances = instanceAction(
     snapshot?.entities.find((e) => e.iri === selection?.iri),
   );
-  const selectedEdge = graph?.edges.find(
-    (e) => edgeKey(e) === graph?.selectedEdge,
-  );
+  const selectedEdge =
+    graph?.edgesVisible === false
+      ? undefined
+      : graph?.edges.find((e) => edgeKey(e) === graph?.selectedEdge);
   const nodeNames = new Map(info?.nodes.map((n) => [n.iri, n.label]));
   return (
     <section
       className="panel graph-panel"
       aria-label="Graph panel"
       data-panel="graph"
+      data-graph-id={graphId}
+      onPointerDownCapture={() => {
+        if ((snapshot?.activeGraphId ?? "graph") !== graphId)
+          void act("graphActivate", { id: graphId });
+      }}
+      onFocusCapture={() => {
+        if ((snapshot?.activeGraphId ?? "graph") !== graphId)
+          void act("graphActivate", { id: graphId });
+      }}
     >
-      <div className="panel-toolbar" ref={toolbarRef}>
+      <div className="panel-toolbar">
         <button
           onClick={() => createAt("Class")}
           title="Add a class or instance at the graph center (Insert)"
         >
           Add entity
         </button>
-        <button
-          onClick={() => beginConnection(selected ?? undefined)}
-          disabled={!snapshot?.entities.length}
-          title={"Connect two nodes (" + keyHint("graph.connect") + ")"}
-        >
-          Connect nodes
-        </button>
         <select
           aria-label="Select edge"
-          title="Select a relationship (E cycles edges)"
+          title={
+            info?.edgesVisible === false
+              ? "Show edges to select a relationship"
+              : "Select a relationship (E cycles edges)"
+          }
+          disabled={info?.edgesVisible === false}
           value={info?.selectedEdge ?? ""}
           onChange={(e) => {
             if (e.target.value) void act("selectEdge", { key: e.target.value });
@@ -840,7 +862,7 @@ export function GraphPanel() {
         >
           {info?.frozen ? "Resume" : "Freeze"}
         </button>
-        <button onClick={() => command("graph.styles")}>Styles</button>
+        <button onClick={() => command("graph.appearance")}>Styles</button>
         {info?.layoutPending && (
           <button onClick={() => void act("cancelLayout")}>
             Cancel layout
@@ -860,7 +882,7 @@ export function GraphPanel() {
           aria-label={
             "Ontology graph, " +
             (info?.nodes.length ?? 0) +
-            " nodes. Arrows select nodes and edges, E cycles edges, Alt+arrows pan, plus and minus zoom, Enter expands a node or edits an edge, Delete removes the selection, F fits."
+            " nodes. Click a node before dragging to move it; drag from an unselected node to connect. Arrows select nodes and edges, E cycles edges, Alt+arrows pan, plus and minus zoom, Enter expands a node or edits an edge, Delete removes the selection, F fits."
           }
           role="listbox"
           aria-activedescendant={
@@ -886,7 +908,8 @@ export function GraphPanel() {
             setEdgeContext(null);
             setBlankMenu(null);
             const p = point(e),
-              label = hitLabel(p),
+              body = hit(p),
+              label = body ? undefined : hitLabel(p),
               node =
                 reconnecting && graph
                   ? connectionTarget(
@@ -895,36 +918,25 @@ export function GraphPanel() {
                       camera.current,
                       graph.stylesheet,
                       undefined,
-                      new Set(state?.entities.map((e) => e.iri)),
+                      new Set(
+                        state?.entities
+                          .filter((e) => e.kind !== "Intersection")
+                          .map((e) => e.iri),
+                      ),
                       labelRects.current,
                     )
-                  : (label ?? hit(p));
+                  : (body ?? label);
             canvasRef.current!.focus();
+            if (connectRef.current?.active()) {
+              e.preventDefault();
+              return;
+            }
             if (reconnecting && node) {
               void applyReconnect(
                 reconnecting.doc,
                 reconnecting.endpoint,
                 node,
               );
-              return;
-            }
-            if (label) {
-              e.preventDefault();
-              void request("select", { iri: label.iri })
-                .then(() => {
-                  const entity = state?.entities.find(
-                      (e) => e.iri === label.iri,
-                    ),
-                    canvas = canvasRef.current;
-                  if (
-                    entity &&
-                    entity.iri !== THING &&
-                    state?.selected === entity.iri &&
-                    canvas?.ownerDocument.activeElement === canvas
-                  )
-                    setRenaming({ iri: entity.iri, name: displayName(entity) });
-                })
-                .catch((e) => report(e.message, true));
               return;
             }
             const edge =
@@ -935,11 +947,13 @@ export function GraphPanel() {
               void act("selectEdge", { key: edgeKey(edge) });
               return;
             }
-            if (!node && graph?.selectedEdge)
-              void act("selectEdge", { key: null });
+            e.preventDefault();
             canvasRef.current!.setPointerCapture(e.pointerId);
             drag.current = {
               node,
+              connect: !!node && state?.selected !== node.iri,
+              label: !!label,
+              epoch: state!.datasetEpoch,
               x: p.x,
               y: p.y,
               cx: camera.current.x,
@@ -947,14 +961,37 @@ export function GraphPanel() {
               moved: false,
               last: 0,
             };
-            if (node) void act("select", { iri: node.iri });
           }}
           onPointerMove={(e) => {
             const p = point(e),
               d = drag.current;
+            if (connectRef.current?.active()) {
+              connectRef.current.move(p);
+              return;
+            }
             if (d) {
+              if (d.epoch !== state?.datasetEpoch) {
+                drag.current = null;
+                return;
+              }
               d.moved ||= Math.hypot(p.x - d.x, p.y - d.y) > 3;
               if (!d.moved) return;
+              if (d.node && d.connect) {
+                if (
+                  !state?.entities.some(
+                    (n) => n.iri === d.node!.iri && n.kind !== "Intersection",
+                  )
+                ) {
+                  report(
+                    "Select a named ontology entity to create a relationship.",
+                  );
+                  drag.current = null;
+                  return;
+                }
+                connectRef.current?.start(d.node.iri, { x: d.x, y: d.y });
+                connectRef.current?.move(p);
+                return;
+              }
               if (d.node) {
                 d.node.x = (p.x - camera.current.x) / camera.current.zoom;
                 d.node.y = (p.y - camera.current.y) / camera.current.zoom;
@@ -967,18 +1004,17 @@ export function GraphPanel() {
                     dragging: true,
                   });
                 }
-              } else {
+              } else
                 camera.current = {
                   ...camera.current,
                   x: d.cx + p.x - d.x,
                   y: d.cy + p.y - d.y,
                 };
-              }
               dirty.current = true;
             } else {
               const label = hitLabel(p),
-                n = label ?? hit(p);
-              const edge =
+                n = hit(p) ?? label,
+                edge =
                   !n && graph
                     ? nearestEdge(graph, p, camera.current)
                     : undefined,
@@ -989,44 +1025,86 @@ export function GraphPanel() {
               }
               if (hover.current !== n?.iri) {
                 hover.current = n?.iri ?? null;
-                canvasRef.current!.title = n
-                  ? n.label + " · " + n.degree + " neighbours"
-                  : "";
                 dirty.current = true;
               }
-              if (edge) canvasRef.current!.title = edgeName(edge);
+              canvasRef.current!.title = n
+                ? n.label +
+                  " · " +
+                  n.degree +
+                  " neighbours. " +
+                  (state?.selected === n.iri
+                    ? "Drag to move."
+                    : "Click to select; drag to connect.")
+                : edge
+                  ? edgeName(edge)
+                  : "Click empty space to deselect.";
               canvasRef.current!.style.cursor = reconnecting
                 ? "crosshair"
-                : label &&
-                    label.iri !== THING &&
-                    state?.entities.some((e) => e.iri === label.iri)
-                  ? "text"
-                  : n
+                : n
+                  ? state?.selected === n.iri
                     ? "grab"
-                    : edge
-                      ? "pointer"
-                      : "default";
+                    : "crosshair"
+                  : edge
+                    ? "pointer"
+                    : "default";
             }
           }}
-          onPointerCancel={finishDrag}
+          onPointerCancel={() => {
+            finishDrag();
+            connectRef.current?.cancel();
+          }}
           onLostPointerCapture={finishDrag}
           onPointerUp={(e) => {
+            if (e.button !== 0) return;
             const d = drag.current;
-            if (d?.node && d.moved)
-              void act("drag", {
-                iri: d.node.iri,
-                x: d.node.x,
-                y: d.node.y,
-                dragging: false,
-              });
             drag.current = null;
+            if (connectRef.current?.active())
+              connectRef.current.release(point(e));
+            else if (d && d.epoch === state?.datasetEpoch) {
+              if (d.node && d.moved && !d.connect)
+                void act("drag", {
+                  iri: d.node.iri,
+                  x: d.node.x,
+                  y: d.node.y,
+                  dragging: false,
+                });
+              else if (!d.moved) {
+                const selectedBefore = state?.selected;
+                void request("select", { iri: d.node?.iri ?? null })
+                  .then(() => {
+                    if (
+                      d.label &&
+                      d.node &&
+                      d.node.iri === selectedBefore &&
+                      d.node.iri !== THING &&
+                      state?.selected === d.node.iri &&
+                      state.entities.some(
+                        (e) =>
+                          e.iri === d.node!.iri && e.kind !== "Intersection",
+                      )
+                    )
+                      setRenaming({
+                        iri: d.node.iri,
+                        name: displayName(
+                          state.entities.find((e) => e.iri === d.node!.iri)!,
+                        ),
+                      });
+                  })
+                  .catch((e) => report(e.message, true));
+              }
+            }
             if (canvasRef.current!.hasPointerCapture(e.pointerId))
               canvasRef.current!.releasePointerCapture(e.pointerId);
-            savePanel("graph.camera", camera.current);
+            savePanel(cameraKey, camera.current);
           }}
           onDoubleClick={(e) => {
+            if (connectRef.current?.active()) return;
             const p = point(e),
               n = hitLabel(p) ?? hit(p);
+            if (n?.kind === "Intersection") {
+              void act("select", { iri: n.iri });
+              return;
+            }
             if (n)
               void act("select", { iri: n.iri }).then(() =>
                 startInlineRename(n.iri, {
@@ -1061,10 +1139,15 @@ export function GraphPanel() {
               zoom: k,
             };
             dirty.current = true;
-            savePanel("graph.camera", camera.current);
+            savePanel(cameraKey, camera.current);
           }}
           onContextMenu={(e) => {
             e.preventDefault();
+            if (connectRef.current?.active()) {
+              drag.current = null;
+              connectRef.current.cancel();
+              return;
+            }
             e.currentTarget.focus();
             const n = hitLabel(point(e)) ?? hit(point(e));
             if (n) {
@@ -1092,10 +1175,15 @@ export function GraphPanel() {
           }}
           onKeyDown={(e) => {
             if (!graph) return;
+            if (connectRef.current?.active()) {
+              if (e.key === "Escape") drag.current = null;
+              connectRef.current.key(e);
+              return;
+            }
             if (e.key === "Escape") {
               setReconnecting(null);
               setEdgeContext(null);
-              if (graph.selectedEdge) void act("selectEdge", { key: null });
+              void act("select", { iri: null });
               return;
             }
             if (
@@ -1124,7 +1212,9 @@ export function GraphPanel() {
               e.preventDefault();
               const choices = [
                 ...graph.nodes.map((n) => ({ iri: n.iri, key: "" })),
-                ...graph.edges.map((edge) => ({ iri: "", key: edgeKey(edge) })),
+                ...(graph.edgesVisible === false ? [] : graph.edges).map(
+                  (edge) => ({ iri: "", key: edgeKey(edge) }),
+                ),
               ];
               const index = choices.findIndex((item) =>
                 graph!.selectedEdge
@@ -1168,7 +1258,7 @@ export function GraphPanel() {
               {n.pinned ? ", pinned" : ""}
             </span>
           ))}
-          {info?.edges.map((edge, i) => (
+          {(info?.edgesVisible === false ? [] : info?.edges)?.map((edge, i) => (
             <span
               key={edgeKey(edge)}
               id={"graph-edge-option-" + i}
@@ -1185,10 +1275,6 @@ export function GraphPanel() {
             camera={camera}
             labels={labelRects}
             controller={connectRef}
-            toolbar={toolbarRef}
-            hidden={
-              !!creating || !!renaming || !!reconnecting || !!selectedEdge
-            }
           />
         )}
         {selectedEdge && (
@@ -1198,7 +1284,6 @@ export function GraphPanel() {
             canvas={canvasRef}
             camera={camera}
             dirty={dirty}
-            reconnect={(key, end, p) => void reconnect(key, end, p)}
           />
         )}
         {creating && (
@@ -1293,11 +1378,38 @@ export function GraphPanel() {
               y: canvasRef.current!.clientHeight / 2 - wy * camera.current.zoom,
             };
             dirty.current = true;
-            savePanel("graph.camera", camera.current);
+            savePanel(cameraKey, camera.current);
           }}
         />
       </div>
       <div className="graph-footer">
+        <label className="graph-edge-visibility">
+          <input
+            type="checkbox"
+            checked={info?.edgesVisible !== false}
+            onChange={(event) => {
+              hoveredEdge.current = null;
+              setEdgeContext(null);
+              setReconnecting(null);
+              void act("edgeVisibility", { visible: event.target.checked });
+            }}
+          />
+          Show edges
+        </label>
+        <label title="Show the +N badges for neighbours not displayed in this graph.">
+          <input
+            type="checkbox"
+            checked={info?.countsVisible !== false}
+            onChange={(event) =>
+              void act("countVisibility", { visible: event.target.checked })
+            }
+          />
+          Show counts
+        </label>
+        <GraphSpacing
+          value={info?.spacing ?? 1}
+          epoch={snapshot.datasetEpoch}
+        />
         <label>
           Visible node limit{" "}
           <input
@@ -1350,7 +1462,7 @@ export function GraphPanel() {
         {selectedEdge ? (
           <>
             <strong>{edgeName(selectedEdge)}</strong>
-            <button onClick={inspectEdge}>Edit edge</button>
+            <button onClick={inspectEdge}>Details</button>
             <button onClick={() => void removeEdge(edgeKey(selectedEdge))}>
               Remove edge
             </button>
@@ -1369,6 +1481,22 @@ export function GraphPanel() {
         ) : selection ? (
           <>
             <strong>{selection.label}</strong>
+            <button
+              onClick={() => {
+                revealInTaxonomy(selection.iri);
+                canvasRef.current?.focus();
+              }}
+              disabled={
+                !snapshot?.entities.some(
+                  (e) =>
+                    e.iri === selection.iri &&
+                    (["Class", "Defined"].includes(e.kind) ||
+                      e.kind.endsWith("Property")),
+                )
+              }
+            >
+              Find in taxonomy
+            </button>
             <button onClick={() => command("research.open")}>Research</button>
             {instances.visible && (
               <button
@@ -1401,14 +1529,14 @@ export function GraphPanel() {
           </>
         ) : (
           <span>
-            Double-click blank space to create a class. Select a node or edge to
-            edit it.
+            Click a node to select it for moving. Drag from an unselected node
+            to connect.
           </span>
         )}
       </div>
       {exportDialog && graph && (
         <ExportDialog
-          graph={graph}
+          graph={{ ...graph }}
           camera={{ ...camera.current }}
           size={{
             width: canvasRef.current!.clientWidth,
@@ -1418,7 +1546,7 @@ export function GraphPanel() {
           close={() => setExportDialog(null)}
         />
       )}
-      {edgeContext && (
+      {edgeContext && info?.edgesVisible !== false && (
         <ContextMenu
           document={canvasRef.current!.ownerDocument}
           x={edgeContext.x}
@@ -1427,8 +1555,8 @@ export function GraphPanel() {
           close={() => setEdgeContext(null)}
           actions={[
             {
-              label: "Edit edge",
-              key: "E",
+              label: "Details",
+              key: "T",
               run: () => {
                 setEdgeContext(null);
                 inspectEdge();
@@ -1504,24 +1632,34 @@ export function GraphPanel() {
           close={() => setContext(null)}
           actions={[
             {
-              label: "Edit details",
-              key: "T",
-              enabled: !!state?.entities.some((e) => e.iri === context.iri),
-              run: () => editEntity(context.iri),
+              label: graph?.nodes.find((n) => n.iri === context.iri)?.expanded
+                ? "Collapse"
+                : "Expand",
+              key: graph?.nodes.find((n) => n.iri === context.iri)?.expanded
+                ? "C"
+                : "E",
+              enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
+                ?.degree,
+              run: () =>
+                act(
+                  graph?.nodes.find((n) => n.iri === context.iri)?.expanded
+                    ? "collapse"
+                    : "expand",
+                  { iri: context.iri },
+                ),
             },
             {
-              ...instanceAction(
-                snapshot?.entities.find((e) => e.iri === context.iri),
-              ),
-              key: "O",
-              run: () => showInstances(context.iri),
+              label: "Hide",
+              key: "H",
+              run: () => act("remove", { iri: context.iri }),
             },
             {
               label: "Rename",
               key: "N",
               enabled:
-                !!state?.entities.some((e) => e.iri === context.iri) &&
-                context.iri !== THING,
+                !!state?.entities.some(
+                  (e) => e.iri === context.iri && e.kind !== "Intersection",
+                ) && context.iri !== THING,
               run: () => {
                 setContext(null);
                 startInlineRename(context.iri, {
@@ -1531,11 +1669,30 @@ export function GraphPanel() {
               },
             },
             {
-              label: "Connect nodes",
-              key: "D",
-              enabled: !!snapshot?.entities.some((e) => e.iri === context.iri),
-              run: () => beginConnection(context.iri),
+              label: "Details",
+              key: "T",
+              enabled: !!state?.entities.some((e) => e.iri === context.iri),
+              run: () => editEntity(context.iri),
             },
+            {
+              label: "Find in taxonomy",
+              key: "F",
+              enabled: !!snapshot?.entities.some(
+                (e) =>
+                  e.iri === context.iri &&
+                  (["Class", "Defined"].includes(e.kind) ||
+                    e.kind.endsWith("Property")),
+              ),
+              run: () => {
+                const iri = context.iri;
+                setContext(null);
+                void request("select", { iri }).then(() => {
+                  revealInTaxonomy(iri);
+                  canvasRef.current?.focus();
+                });
+              },
+            },
+            null,
             {
               label: "New instance",
               key: "W",
@@ -1546,7 +1703,28 @@ export function GraphPanel() {
               ),
               run: () => createAt("Individual", undefined, context.iri),
             },
-            null,
+            {
+              ...instanceAction(
+                snapshot?.entities.find((e) => e.iri === context.iri),
+              ),
+              key: "O",
+              run: () => showInstances(context.iri),
+            },
+            {
+              label: "Suggest Sub Classes",
+              key: "G",
+              visible: !!snapshot?.entities.some(
+                (e) =>
+                  e.iri === context.iri &&
+                  ["Class", "Defined"].includes(e.kind),
+              ),
+              run: () => {
+                setContext(null);
+                void request("select", { iri: context.iri }).then(() =>
+                  command("subclasses.suggest"),
+                );
+              },
+            },
             {
               label: "Research...",
               key: "S",
@@ -1554,32 +1732,12 @@ export function GraphPanel() {
             },
             null,
             {
-              label: "Expand",
-              key: "E",
-              enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
-                ?.degree,
-              run: () => act("expand", { iri: context.iri }),
-            },
-            {
-              label: "Collapse",
-              key: "C",
-              enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
-                ?.shownDegree,
-              run: () => act("collapse", { iri: context.iri }),
-            },
-            {
               label: "Pin in graph",
               key: "P",
               checked: !!graph?.nodes.find((n) => n.iri === context.iri)
                 ?.pinned,
               run: () => act("pin", { iri: context.iri }),
             },
-            {
-              label: "Remove from view",
-              key: "R",
-              run: () => act("remove", { iri: context.iri }),
-            },
-            null,
             {
               label: "Copy IRI",
               key: "I",

@@ -128,10 +128,16 @@ test("edges select on the line, edit endpoints and predicates, and delete indepe
   expect((await state()).selected).toBeNull();
   await inspector
     .getByRole("combobox", { name: "Edge target", exact: true })
-    .selectOption(ids.c);
+    .fill(ids.c);
+  await page.keyboard.press("Enter");
   await inspector
     .getByRole("combobox", { name: "Edge relationship", exact: true })
+    .selectOption("__add");
+  const add = page.getByRole("dialog", { name: "Add predicate" });
+  await add
+    .getByRole("textbox", { name: "Predicate IRI" })
     .fill("https://example.org/dependsOn");
+  await add.getByRole("button", { name: "Use predicate" }).click();
   await inspector.getByRole("button", { name: "Apply edge changes" }).click();
   const next = JSON.stringify([ids.a, "https://example.org/dependsOn", ids.c]);
   await expect(canvas).toHaveAttribute("data-selected-edge", next);
@@ -244,12 +250,13 @@ test("edge keyboard context menus reconnect and remain usable in detached window
   await expect(
     page.getByRole("menu", { name: "Graph edge actions" }),
   ).toBeVisible();
-  await page.getByRole("menuitem", { name: "Edit edge", exact: true }).click();
-  const inspector = page.getByRole("region", { name: "Edge inspector" });
-  await inspector
-    .getByRole("combobox", { name: "Edge source" })
-    .selectOption(ids.c);
-  await inspector.getByRole("button", { name: "Apply edge changes" }).click();
+  await page.getByRole("menuitem", { name: "Details", exact: true }).click();
+  const inspector = page.getByRole("region", { name: "Details", exact: true });
+  await inspector.getByRole("combobox", { name: "Edge source" }).fill(ids.c);
+  await page.keyboard.press("Enter");
+  await expect(
+    inspector.getByRole("button", { name: "Apply edge changes" }),
+  ).toHaveCount(0);
   const next = JSON.stringify([ids.c, ids.predicate, ids.b]);
   await expect(canvas).toHaveAttribute("data-selected-edge", next);
   await menu("view.graph");
@@ -276,7 +283,7 @@ test("edge keyboard context menus reconnect and remain usable in detached window
   await menu("pane.reattach");
 });
 
-test("endpoint dragging reconnects a line and Escape cancels a route drag", async () => {
+test("context-menu reconnection works and Escape cancels a route drag", async () => {
   const ids = await prepare();
   await selectEdge(ids.key);
   const bend = page.getByRole("button", { name: "Bend edge", exact: true });
@@ -290,12 +297,9 @@ test("endpoint dragging reconnects a line and Escape cancels a route drag", asyn
   await page.mouse.up();
   expect((await state()).graph.edges[0].bend).toBeUndefined();
   await selectEdge(ids.key);
-  const source = (await page
-    .getByRole("button", { name: "Reconnect edge source" })
-    .boundingBox())!;
-  const target = (await page
-    .getByRole("button", { name: "Reconnect edge target" })
-    .boundingBox())!;
+  await expect(
+    page.getByRole("button", { name: /^Reconnect edge/ }),
+  ).toHaveCount(0);
   const canvasBox = (await page.getByTestId("graph-canvas").boundingBox())!;
   await expect
     .poll(
@@ -317,13 +321,17 @@ test("endpoint dragging reconnects a line and Escape cancels a route drag", asyn
     x: canvasBox.x + node.x * camera.zoom + camera.x,
     y: canvasBox.y + node.y * camera.zoom + camera.y,
   };
-  await page.mouse.move(
-    target.x + target.width / 2,
-    target.y + target.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(destination.x, destination.y, { steps: 10 });
-  await page.mouse.up();
+  await page.getByTestId("graph-canvas").focus();
+  await page.keyboard.press("Shift+F10");
+  await page
+    .getByRole("menuitem", { name: "Reconnect target", exact: true })
+    .click();
+  await expect(
+    page.getByText("Click the new target node. Escape cancels.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.mouse.click(destination.x, destination.y);
   const loop = JSON.stringify([ids.a, ids.predicate, ids.a]);
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "data-selected-edge",
@@ -372,9 +380,8 @@ test("parallel statement graphs edit individually and stale edge drafts require 
   );
   expect(doc.statements).toHaveLength(1);
   expect(doc.statements[0].graph).toBeUndefined();
-  await inspector
-    .getByRole("combobox", { name: "Edge target" })
-    .selectOption(ids.c);
+  await inspector.getByRole("combobox", { name: "Edge target" }).fill(ids.c);
+  await page.keyboard.press("Enter");
   await page.evaluate(
     (iri) => window.axiom.request("rename", { iri, name: "Updated Beta" }),
     ids.b,
@@ -390,5 +397,5 @@ test("parallel statement graphs edit individually and stale edge drafts require 
   ).toBeEnabled();
   await expect(
     inspector.getByRole("combobox", { name: "Edge target" }),
-  ).toHaveValue(ids.b);
+  ).toHaveAttribute("title", ids.b);
 });
