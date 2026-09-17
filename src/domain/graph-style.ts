@@ -5,6 +5,14 @@ export interface StyleValues {
   color?: string;
   background?: string;
   size?: number;
+  "size-by"?:
+    "auto" | "fixed" | "connections" | "instances" | "count" | "weighted";
+  "size-min"?: number;
+  "size-max"?: number;
+  "size-scale"?: "linear" | "log";
+  "connections-weight"?: number;
+  "instances-weight"?: number;
+  "count-weight"?: number;
   "stroke-width"?: number;
   "font-size"?: number;
   opacity?: number;
@@ -26,6 +34,11 @@ export const styleExample =
 const colors = new Set(["fill", "stroke", "color", "background"]),
   numbers: Record<string, [number, number]> = {
     size: [6, 120],
+    "size-min": [6, 120],
+    "size-max": [6, 120],
+    "connections-weight": [0, 100],
+    "instances-weight": [0, 100],
+    "count-weight": [0, 100],
     "stroke-width": [0, 12],
     "font-size": [8, 32],
     opacity: [0, 1],
@@ -41,7 +54,7 @@ export function parseGraphStyle(text: string): StyleRule[] {
       throw Error("Expected a selector followed by { declarations }.");
     for (const selector of block[1].split(",").map((s) => s.trim())) {
       const m =
-        /^(node|edge|graph)(?:\.([A-Za-z]+))?(?:\[(iri|predicate|theme)="([^"]+)"\])?(?::(selected|pinned))?$/.exec(
+        /^(node|edge|graph)(?:\.([A-Za-z]+))?(?:\[(iri|type|ancestor|predicate|theme)="([^"]+)"\])?(?::(selected|pinned))?$/.exec(
           selector,
         );
       if (!m) throw Error("Unsupported selector: " + selector);
@@ -52,16 +65,21 @@ export function parseGraphStyle(text: string): StyleRule[] {
           ![
             "Class",
             "Defined",
+            "Intersection",
             "Individual",
             "ObjectProperty",
             "DataProperty",
+            "AnnotationProperty",
+            "Resource",
+            "Datatype",
           ].includes(kind))
       )
         throw Error("Unknown node kind: " + kind);
       if (
         (pseudo && target !== "node") ||
         (attribute === "predicate" && target !== "edge") ||
-        (attribute === "iri" && target !== "node") ||
+        (["iri", "type", "ancestor"].includes(attribute) &&
+          target !== "node") ||
         (attribute === "theme" && target !== "graph")
       )
         throw Error("Attribute or state does not apply to " + target + ".");
@@ -86,6 +104,13 @@ export function parseGraphStyle(text: string): StyleRule[] {
                   "stroke",
                   "stroke-width",
                   "size",
+                  "size-by",
+                  "size-min",
+                  "size-max",
+                  "size-scale",
+                  "connections-weight",
+                  "instances-weight",
+                  "count-weight",
                   "shape",
                   "color",
                   "font-size",
@@ -119,16 +144,41 @@ export function parseGraphStyle(text: string): StyleRule[] {
           (values as any)[key] = n;
         } else {
           const choices =
-            key === "shape"
-              ? ["circle", "square", "diamond", "hexagon"]
-              : key === "label"
-                ? ["name", "iri", "none"]
-                : ["solid", "dashed"];
+            key === "size-by"
+              ? [
+                  "auto",
+                  "fixed",
+                  "connections",
+                  "instances",
+                  "count",
+                  "weighted",
+                ]
+              : key === "size-scale"
+                ? ["linear", "log"]
+                : key === "shape"
+                  ? ["circle", "square", "diamond", "hexagon"]
+                  : key === "label"
+                    ? ["name", "iri", "none"]
+                    : ["solid", "dashed"];
           if (!choices.includes(v))
             throw Error("Unsupported " + key + ": " + v);
           (values as any)[key] = v;
         }
       }
+      if (
+        values["size-min"] !== undefined &&
+        values["size-max"] !== undefined &&
+        values["size-min"] > values["size-max"]
+      )
+        throw Error("Minimum size must not exceed maximum size.");
+      if (
+        values["size-by"] === "weighted" &&
+        (values["connections-weight"] ?? 50) +
+          (values["instances-weight"] ?? 50) +
+          (values["count-weight"] ?? 0) ===
+          0
+      )
+        throw Error("Give at least one sizing metric a positive weight.");
       rules.push({
         target: target as StyleRule["target"],
         kind,
@@ -136,7 +186,10 @@ export function parseGraphStyle(text: string): StyleRule[] {
         value,
         pseudo,
         values,
-        specificity: (kind ? 10 : 0) + (attribute ? 10 : 0) + (pseudo ? 10 : 0),
+        specificity:
+          (kind ? 10 : 0) +
+          (attribute === "iri" ? 20 : attribute ? 10 : 0) +
+          (pseudo ? 10 : 0),
       });
     }
     if (rules.length > 200) throw Error("Use at most 200 style rules.");
@@ -164,10 +217,18 @@ export function nodeStyle(
     if (
       r.target === "node" &&
       (!r.kind || r.kind === n.kind) &&
-      (!r.attribute || r.value === n.iri) &&
+      (!r.attribute ||
+        (r.attribute === "type"
+          ? n.types?.includes(r.value!)
+          : r.attribute === "ancestor"
+            ? n.taxonomyAncestors?.includes(r.value!)
+            : r.value === n.iri)) &&
       (!r.pseudo || (r.pseudo === "selected" ? n.iri === selected : n.pinned))
-    )
+    ) {
       Object.assign(result, r.values);
+      if (r.values.size !== undefined && r.values["size-by"] === undefined)
+        result["size-by"] = "fixed";
+    }
   return result;
 }
 export function edgeStyle(rules: StyleRule[], e: GraphEdge): StyleValues {
@@ -195,4 +256,109 @@ export const styledRadius = (
   n: GraphNode,
   text?: string,
   selected?: string | null,
-) => (nodeStyle(styleRules(text), n, selected).size ?? n.radius * 2) / 2;
+) => nodeDiameter(nodeStyle(styleRules(text), n, selected), n) / 2;
+
+export interface NodeStyleMetrics {
+  connections: number;
+  instances: number;
+  count: number;
+  maxConnections: number;
+  maxInstances: number;
+  maxCount: number;
+}
+export function nodeDiameter(v: StyleValues, n: GraphNode): number {
+  const mode = v["size-by"] ?? (v.size === undefined ? "auto" : "fixed");
+  if (mode === "auto") return (n.baseRadius ?? n.radius) * 2;
+  if (mode === "fixed") return v.size ?? 32;
+  const m = n.styleMetrics;
+  const normal = (value = 0, max = 0) =>
+    max <= 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            v["size-scale"] === "log"
+              ? Math.log1p(value) / Math.log1p(max)
+              : value / max,
+          ),
+        );
+  const scores = [
+    normal(m?.connections, m?.maxConnections),
+    normal(m?.instances, m?.maxInstances),
+    normal(m?.count, m?.maxCount),
+  ];
+  const weights = [
+    v["connections-weight"] ?? 50,
+    v["instances-weight"] ?? 50,
+    v["count-weight"] ?? 0,
+  ];
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const score =
+    mode === "weighted"
+      ? sum
+        ? scores.reduce((a, b, i) => a + b * weights[i], 0) / sum
+        : 0
+      : (scores[["connections", "instances", "count"].indexOf(mode)] ?? 0);
+  const min = v["size-min"] ?? 16,
+    max = Math.max(min, v["size-max"] ?? 64);
+  // Interpolate squared diameters so that glyph area, with a visible minimum,
+  // follows the normalized score. Log mode compresses highly skewed counts.
+  return Math.sqrt(min * min + score * (max * max - min * min));
+}
+
+export function styleSelector(r: StyleRule): string {
+  return (
+    r.target +
+    (r.kind ? "." + r.kind : "") +
+    (r.attribute ? "[" + r.attribute + '="' + r.value + '"]' : "") +
+    (r.pseudo ? ":" + r.pseudo : "")
+  );
+}
+export function styleDeclarations(v: StyleValues) {
+  return Object.entries(v)
+    .map(([k, v]) => "  " + k + ": " + v + ";")
+    .join("\n");
+}
+// Visual changes update one selector while retaining unrelated rules and comments.
+export function updateGraphStyle(
+  text: string,
+  selector: string,
+  patch: Partial<Record<keyof StyleValues, string | number | undefined>>,
+): string {
+  const identity = styleSelector(parseGraphStyle(selector + " {}")[0]);
+  const rules = parseGraphStyle(text);
+  const values: StyleValues = {};
+  for (const r of rules)
+    if (styleSelector(r) === identity) Object.assign(values, r.values);
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) delete (values as any)[k];
+    else (values as any)[k] = v;
+  }
+  // Split comma selectors as needed; a change to one selector never changes its peers.
+  const masked = text.replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length));
+  let next = text;
+  const blocks = [...masked.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+  for (const match of blocks.reverse()) {
+    const selectors = match[1].split(",").map((x) => x.trim());
+    const remaining = selectors.filter((x) => x !== identity);
+    if (remaining.length === selectors.length) continue;
+    const start = match.index! + match[1].search(/\S/),
+      end = match.index! + match[0].length;
+    const open = match.index! + match[0].indexOf("{");
+    next =
+      next.slice(0, start) +
+      (remaining.length
+        ? remaining.join(", ") + " " + text.slice(open, end)
+        : "") +
+      next.slice(end);
+  }
+  next = next.trim();
+  const result =
+    next +
+    (Object.keys(values).length
+      ? "\n\n" + identity + " {\n" + styleDeclarations(values) + "\n}"
+      : "");
+  parseGraphStyle(result);
+  return result.trim();
+}

@@ -13,18 +13,30 @@ export interface GraphNode {
   shownDegree: number;
   distance: number;
   radius: number;
+  baseRadius?: number;
+  types?: string[];
+  styleMetrics?: import("./graph-style").NodeStyleMetrics;
   touched: number;
   pinned: boolean;
   expanded: boolean;
   dragging: boolean;
+  layoutFixed?: boolean;
+  taxonomyAncestors?: string[];
+}
+export interface EdgeBend {
+  x: number;
+  y: number;
+  points?: { x: number; y: number }[];
 }
 export interface GraphEdge {
+  intersection?: import("./model").IntersectionBranch;
+  junction?: { x: number; y: number };
   source: string;
   predicate: string;
   target: string;
   parallelIndex: number;
   parallelCount: number;
-  bend?: { x: number; y: number };
+  bend?: EdgeBend;
 }
 export interface Admission {
   added: number;
@@ -33,16 +45,29 @@ export interface Admission {
   evictedNames: string[];
 }
 export const edgeKey = (
-  e: Pick<GraphEdge, "source" | "predicate" | "target">,
-) => JSON.stringify([e.source, e.predicate, e.target]);
+  e: Pick<GraphEdge, "source" | "predicate" | "target" | "intersection">,
+) =>
+  JSON.stringify([
+    e.source,
+    e.predicate,
+    e.target,
+    ...(e.intersection ? [JSON.stringify(e.intersection.axiom)] : []),
+  ]);
 export const hidden = (n: GraphNode) => Math.max(0, n.degree - n.shownDegree);
 export const nodeRadius = (degree: number, kind: Kind) =>
-  (kind === "Individual" ? 5.5 : kind.endsWith("Property") ? 7 : 8.5) +
-  Math.min(9, Math.log2(1 + degree) * 1.6);
+  (kind === "Intersection"
+    ? 19
+    : kind === "Individual"
+      ? 5.5
+      : kind.endsWith("Property")
+        ? 7
+        : 8.5) + Math.min(9, Math.log2(1 + degree) * 1.6);
 export class Viewport {
   nodes = new Map<string, GraphNode>();
   edges = new Map<string, GraphEdge>();
-  routes = new Map<string, { x: number; y: number }>();
+  edgesVisible = true;
+  countsVisible = true;
+  routes = new Map<string, EdgeBend>();
   selectedEdge: string | null = null;
   focus = new Set<string>();
   budget = 1000;
@@ -57,7 +82,7 @@ export class Viewport {
   }
   evictionOrder() {
     const ns = [...this.nodes.values()].filter(
-      (n) => !n.pinned && !this.focus.has(n.iri),
+      (n) => !n.pinned && !n.layoutFixed && !this.focus.has(n.iri),
     );
     return ns.sort((a, b) =>
       this.evictionMode === "lru"
@@ -70,7 +95,7 @@ export class Viewport {
   admit(iris: string[], distance = 0, seed?: GraphNode): Admission {
     let fresh: string[] = [];
     for (const iri of new Set(iris)) {
-      if (!this.store.exists(iri)) continue;
+      if (!this.store.graphVisible(iri)) continue;
       const n = this.nodes.get(iri);
       if (n) {
         n.touched = ++this.clock;
@@ -138,6 +163,7 @@ export class Viewport {
             source: a.outgoing ? n.iri : a.iri,
             target: a.outgoing ? a.iri : n.iri,
             predicate: a.predicate,
+            ...(a.intersection ? { intersection: a.intersection } : {}),
             parallelIndex: 0,
             parallelCount: 1,
           },
@@ -183,15 +209,40 @@ export class Viewport {
     this.revision++;
     return true;
   }
+  holdPosition(iri: string) {
+    for (const node of this.nodes.values()) {
+      node.layoutFixed = node.iri === iri;
+      if (node.layoutFixed) node.vx = node.vy = 0;
+    }
+  }
   expand(iri: string, limit = this.budget) {
     const n = this.nodes.get(iri);
     if (!n) return { added: 0, evicted: 0, refused: 0, evictedNames: [] };
     const adj = this.store.neighbours(iri);
-    const wanted = [
-      ...new Set(adj.list.map((a) => a.iri).filter((i) => !this.nodes.has(i))),
-    ];
+    const related = new Set<string>();
+    const pending = [
+        iri,
+        ...adj.list
+          .filter((a) => this.store.entities.get(a.iri)?.intersection)
+          .map((a) => a.iri),
+      ],
+      visited = new Set<string>();
+    while (pending.length && related.size < this.budget) {
+      const id = pending.pop()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      if (id !== iri) related.add(id);
+      for (const member of this.store.entities.get(id)?.intersection?.members ??
+        []) {
+        if (related.size >= this.budget) break;
+        related.add(member);
+        pending.push(member);
+      }
+    }
+    for (const a of adj.list) related.add(a.iri);
+    const wanted = [...related].filter((i) => !this.nodes.has(i));
     const report = this.admit(wanted.slice(0, limit), n.distance + 1, n);
-    n.expanded = adj.total <= 4000 && hidden(n) === 0;
+    n.expanded = n.shownDegree > 0;
     n.touched = ++this.clock;
     return report;
   }
@@ -272,7 +323,7 @@ export class Viewport {
   }
   refresh() {
     for (const n of [...this.nodes.values()]) {
-      if (!this.store.exists(n.iri)) {
+      if (!this.store.graphVisible(n.iri)) {
         this.remove(n.iri);
         continue;
       }

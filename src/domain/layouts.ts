@@ -1,3 +1,7 @@
+import {
+  DEFAULT_GRAPH_SPACING,
+  validGraphSpacing,
+} from "../shared/graph-spacing";
 import { Viewport, type GraphNode } from "./viewport";
 import { Store } from "./store";
 import { ForceLayout, collisions, isHierarchy } from "./force";
@@ -16,6 +20,7 @@ export class Layouts {
   choice: LayoutMode = "auto";
   resolved: LayoutMode = "force";
   force: ForceLayout;
+  spacing = DEFAULT_GRAPH_SPACING;
   groups: GroupBlock[] = [];
   rings: number[] = [];
   ringOrigin = { x: 0, y: 0 };
@@ -49,6 +54,8 @@ export class Layouts {
     return "force";
   }
   run(fresh = true) {
+    if (fresh)
+      for (const node of this.view.nodes.values()) node.layoutFixed = false;
     this.resolved = this.choose();
     this.groups = [];
     this.rings = [];
@@ -57,6 +64,7 @@ export class Layouts {
       this.view.alpha = 0;
       return;
     }
+    this.force.spacing = this.spacing;
     if (this.resolved === "force") this.force.reset(fresh);
     else {
       this.view.alpha = 0;
@@ -64,7 +72,55 @@ export class Layouts {
       if (this.resolved === "radial") this.radial();
       if (this.resolved === "grid") this.grid();
       if (this.resolved === "circle") this.circular();
+      if (!isExternalLayout(this.resolved)) this.scaleGeometry(this.spacing);
     }
+  }
+  /** Change density in place, including ELK layouts, without restarting or fitting. */
+  setSpacing(value: number) {
+    if (!validGraphSpacing(value))
+      throw Error("Node spacing must be between 50% and 300%.");
+    if (value === this.spacing) return;
+    const ratio = value / this.spacing;
+    for (const node of this.view.nodes.values()) node.layoutFixed = false;
+    this.scaleGeometry(ratio);
+    // Manually routed bends belong to graph coordinates too.
+    for (const route of this.view.routes.values()) {
+      route.x *= ratio;
+      route.y *= ratio;
+      for (const point of route.points ?? []) {
+        point.x *= ratio;
+        point.y *= ratio;
+      }
+    }
+    this.spacing = value;
+    this.force.spacing = value;
+    if (this.resolved === "force") this.force.reset(false);
+  }
+  private scaleGeometry(factor: number) {
+    const ringAnchor = this.rings.length
+      ? [...this.view.nodes.values()].find(
+          (node) =>
+            node.x === this.ringOrigin.x && node.y === this.ringOrigin.y,
+        )
+      : undefined;
+    for (const node of this.view.nodes.values()) {
+      if (!node.pinned && !node.layoutFixed && !node.dragging) {
+        node.x *= factor;
+        node.y *= factor;
+      }
+      node.vx = node.vy = 0;
+    }
+    this.groups = this.groups.map((group) => ({
+      ...group,
+      x: group.x * factor,
+      y: group.y * factor,
+      width: group.width * factor,
+      height: group.height * factor,
+    }));
+    this.rings = this.rings.map((radius) => radius * factor);
+    this.ringOrigin = ringAnchor
+      ? { x: ringAnchor.x, y: ringAnchor.y }
+      : { x: this.ringOrigin.x * factor, y: this.ringOrigin.y * factor };
   }
   circular() {
     const ns = [...this.view.nodes.values()].sort((a, b) =>
@@ -75,7 +131,7 @@ export class Layouts {
         ns.reduce((s, n) => s + n.radius * 2 + 36, 0) / (2 * Math.PI),
       );
     ns.forEach((n, i) => {
-      if (!n.pinned) {
+      if (!n.pinned && !n.layoutFixed) {
         const a = (2 * Math.PI * i) / ns.length - Math.PI / 2;
         n.x = r * Math.cos(a);
         n.y = r * Math.sin(a);
@@ -91,7 +147,7 @@ export class Layouts {
       y =
         (Math.min(...ns.map((n) => n.y)) + Math.max(...ns.map((n) => n.y))) / 2;
     for (const n of ns)
-      if (!n.pinned) {
+      if (!n.pinned && !n.layoutFixed) {
         n.x -= x;
         n.y -= y;
         n.vx = n.vy = 0;
@@ -187,17 +243,18 @@ export class Layouts {
     for (const row of rows) {
       let x = 0;
       for (const n of row) {
-        if (!n.pinned) n.x = x + widths.get(n.iri)! / 2;
+        if (!n.pinned && !n.layoutFixed) n.x = x + widths.get(n.iri)! / 2;
         x += widths.get(n.iri)! + 20;
       }
-      for (const n of row) if (!n.pinned) n.x -= Math.max(0, x - 20) / 2;
+      for (const n of row)
+        if (!n.pinned && !n.layoutFixed) n.x -= Math.max(0, x - 20) / 2;
     }
     for (let pass = 0; pass < 12; pass++)
       for (const row of rows)
         for (const { n, i } of row
           .map((n, i) => ({ n, i }))
           .sort((a, b) => b.n.shownDegree - a.n.shownDegree)) {
-          if (n.pinned) continue;
+          if (n.pinned || n.layoutFixed) continue;
           const refs = (pass % 2 === 0 ? pars : kids)
             .get(n.iri)!
             .map((u) => this.view.nodes.get(u)!.x);
@@ -226,7 +283,7 @@ export class Layouts {
         }
     rows.forEach((row, r) =>
       row.forEach((n) => {
-        if (!n.pinned) n.y = r * 124;
+        if (!n.pinned && !n.layoutFixed) n.y = r * 124;
         n.vx = n.vy = 0;
       }),
     );
@@ -290,7 +347,7 @@ export class Layouts {
       const { u, start, end } = pending.pop()!,
         n = this.view.nodes.get(u)!,
         mid = (start + end) / 2;
-      if (!n.pinned) {
+      if (!n.pinned && !n.layoutFixed) {
         n.x = Math.cos(mid) * radii[depth.get(u)!];
         n.y = Math.sin(mid) * radii[depth.get(u)!];
       }
@@ -307,7 +364,7 @@ export class Layouts {
     }
     orphans.forEach((n, i) => {
       const a = (i / Math.max(1, orphans.length)) * 2 * Math.PI;
-      if (!n.pinned) {
+      if (!n.pinned && !n.layoutFixed) {
         n.x = Math.cos(a) * radii[max];
         n.y = Math.sin(a) * radii[max];
       }
@@ -360,7 +417,7 @@ export class Layouts {
         rowH = 0;
       }
       b.nodes.forEach((n, i) => {
-        if (!n.pinned) {
+        if (!n.pinned && !n.layoutFixed) {
           n.x = x + 30 + (i % b.cols) * 36;
           n.y = y + 54 + Math.floor(i / b.cols) * 36;
         }

@@ -1,7 +1,12 @@
+import {
+  DEFAULT_GRAPH_SPACING,
+  validGraphSpacing,
+} from "../shared/graph-spacing";
+import { applyGraphAppearance } from "./graph-appearance";
 import { Store } from "./store";
 import { isLayoutMode } from "../shared/layout-options";
 import { parseGraphStyle } from "./graph-style";
-import { Viewport } from "./viewport";
+import { Viewport, type EdgeBend } from "./viewport";
 import { Layouts, type LayoutMode } from "./layouts";
 import {
   NS,
@@ -25,14 +30,24 @@ export interface Workspace {
   individuals: Individual[];
   customers: Customer[];
   graph: {
+    positions?: { iri: string; x: number; y: number }[];
+    frozen?: boolean;
+    selected?: string | null;
+    selectedEdge?: string | null;
     iris: string[];
     focus: string[];
     pins: { iri: string; x: number; y: number }[];
     budget: number;
     layout: LayoutMode;
+    spacing?: number;
+    edgesVisible?: boolean;
+    countsVisible?: boolean;
+    expanded?: string[];
     stylesheet?: string;
-    routes?: { key: string; x: number; y: number }[];
+    routes?: (EdgeBend & { key: string })[];
   };
+  graphs?: Record<string, Workspace["graph"]>;
+  activeGraphId?: string;
   selected: string | null;
 }
 const text = (v: unknown, max = 10000): v is string =>
@@ -79,6 +94,7 @@ export function readWorkspace(input: unknown) {
       ![
         "Class",
         "Defined",
+        "Intersection",
         "Individual",
         "ObjectProperty",
         "DataProperty",
@@ -140,7 +156,28 @@ export function readWorkspace(input: unknown) {
   const all = [...entities, ...individuals, ...customers];
   if (new Set(all.map((e) => e.iri)).size !== all.length)
     throw Error("Duplicate entity IRI.");
+  if (
+    doc.graphs &&
+    (typeof doc.graphs !== "object" ||
+      Object.keys(doc.graphs).length > 16 ||
+      Object.keys(doc.graphs).some(
+        (id) => !/^graph(?::[a-zA-Z0-9-]+)?$/.test(id),
+      ))
+  )
+    throw Error("Invalid graph views.");
   const g = doc.graph;
+  if (
+    g?.positions &&
+    (!Array.isArray(g.positions) ||
+      g.positions.length > 3000 ||
+      g.positions.some(
+        (p) =>
+          !p ||
+          !text(p.iri) ||
+          ![p.x, p.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 1e8),
+      ))
+  )
+    throw Error("Invalid graph positions.");
   if (
     !g ||
     !strings(g.iris, 3000) ||
@@ -150,7 +187,11 @@ export function readWorkspace(input: unknown) {
     !Number.isInteger(g.budget) ||
     g.budget < 100 ||
     g.budget > 3000 ||
-    !isLayoutMode(g.layout)
+    !isLayoutMode(g.layout) ||
+    (g.spacing !== undefined && !validGraphSpacing(g.spacing)) ||
+    (g.edgesVisible !== undefined && typeof g.edgesVisible !== "boolean") ||
+    (g.countsVisible !== undefined && typeof g.countsVisible !== "boolean") ||
+    (g.expanded !== undefined && !strings(g.expanded, 3000))
   )
     throw Error("Invalid graph settings.");
   for (const p of g.pins)
@@ -168,14 +209,24 @@ export function readWorkspace(input: unknown) {
         if (
           !r ||
           !text(r.key, 40000) ||
-          ![r.x, r.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 1e8)
+          ![r.x, r.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 1e8) ||
+          (r.points !== undefined &&
+            (!Array.isArray(r.points) ||
+              r.points.length > 64 ||
+              r.points.some(
+                (p) =>
+                  !p ||
+                  ![p.x, p.y].every(
+                    (n) => Number.isFinite(n) && Math.abs(n) <= 1e8,
+                  ),
+              )))
         )
           return true;
         try {
           const ids = JSON.parse(r.key);
           return (
             !Array.isArray(ids) ||
-            ids.length !== 3 ||
+            ![3, 4].includes(ids.length) ||
             !ids.every((id) => text(id))
           );
         } catch {
@@ -215,10 +266,19 @@ export function readWorkspace(input: unknown) {
   const view = new Viewport(store),
     layouts = new Layouts(view, store);
   view.routes = new Map(
-    (g.routes ?? []).map(({ key, x, y }) => [key, { x, y }]),
+    (g.routes ?? []).map(({ key, x, y, points }) => [
+      key,
+      { x, y, ...(points ? { points: structuredClone(points) } : {}) },
+    ]),
   );
+  view.edgesVisible = g.edgesVisible !== false;
+  view.countsVisible = g.countsVisible !== false;
   view.setBudget(g.budget);
   view.seed(g.iris, true, false);
+  for (const iri of g.expanded ?? []) {
+    const n = view.nodes.get(iri);
+    if (n) n.expanded = true;
+  }
   view.focus = new Set(g.focus.filter((i) => view.nodes.has(i)));
   for (const p of g.pins) {
     const n = view.nodes.get(p.iri);
@@ -228,19 +288,41 @@ export function readWorkspace(input: unknown) {
       n.y = p.y;
     }
   }
+  applyGraphAppearance(view, g.stylesheet ?? "");
   layouts.choice = g.layout;
+  layouts.spacing = g.spacing ?? DEFAULT_GRAPH_SPACING;
   layouts.run();
+  for (const p of g.positions ?? []) {
+    const n = view.nodes.get(p.iri);
+    if (n) {
+      n.x = p.x;
+      n.y = p.y;
+    }
+  }
+  view.alpha = 0;
+  view.selected =
+    typeof g.selected === "string" && store.exists(g.selected)
+      ? g.selected
+      : null;
+  view.selectedEdge =
+    view.edgesVisible &&
+    typeof g.selectedEdge === "string" &&
+    view.edges.has(g.selectedEdge)
+      ? g.selectedEdge
+      : null;
   return {
     stylesheet: g.stylesheet ?? "",
     store,
     view,
     layouts,
     selected:
-      doc.selected && store.exists(doc.selected)
-        ? doc.selected
-        : store.exists(NS.pizza + "Pizza")
-          ? NS.pizza + "Pizza"
-          : THING,
+      doc.selected === null
+        ? null
+        : doc.selected && store.exists(doc.selected)
+          ? doc.selected
+          : store.exists(NS.pizza + "Pizza")
+            ? NS.pizza + "Pizza"
+            : THING,
   };
 }
 
