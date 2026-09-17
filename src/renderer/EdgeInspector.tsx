@@ -1,19 +1,33 @@
+import { ResourceInput } from "./ResourceInput";
+import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
+import { DetailsBack } from "./DetailsNavigation";
+import { expandIri, entityNamespace } from "./StatementGrid";
+import { edgeKey } from "../domain/viewport";
+import {
+  applyEdgeDraft,
+  clearEdgeDraft,
+  getEdgeDraft,
+  onEdgeDraft,
+  rememberEdgeDraft,
+  type EdgeDraft,
+} from "./edge-editor-drafts";
 import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
-import { request, useSnapshot, onCommand } from "./client";
+import { request, useSnapshot, command } from "./client";
 import { resetEdgeRoute } from "./edge-actions";
 import { editEntity } from "./authoring";
-import {
-  NS,
-  SUBCLASS,
-  SUBPROPERTY,
-  TYPE,
-  expand,
-  shorten,
-} from "../domain/model";
+import { SUBCLASS, shorten } from "../domain/model";
 import { displayName } from "../domain/rdf-model";
 import type { EdgeDocument } from "../shared/protocol";
-export function EdgeInspector({ edgeId }: { edgeId: string }) {
+export function EdgeInspector({
+  edgeId,
+  panelId = "inspector",
+}: {
+  edgeId: string;
+  panelId?: string;
+}) {
+  const automatic = panelId !== "inspector";
+  const predicateOptions = usePredicateOptions([]);
   const { compact } = usePaneLayout();
   const s = useSnapshot()!,
     [data, setData] = useState<EdgeDocument | null>(null),
@@ -23,18 +37,56 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
     [statement, setStatement] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    sourceInput = useRef<HTMLSelectElement>(null),
     alive = useRef(true);
-  async function load() {
+  const accept = (draft: EdgeDraft) => {
+    setData(draft.data);
+    setSource(draft.source);
+    setTarget(draft.target);
+    setPredicate(draft.predicate);
+    setStatement(draft.statement);
+    setError("");
+  };
+  const update = (patch: Partial<Omit<EdgeDraft, "data">>) => {
+    if (!data || busy) return;
+    const draft = { data, source, target, predicate, statement, ...patch };
+    accept(draft);
+    rememberEdgeDraft(edgeId, draft);
+    if (automatic) {
+      setBusy(true);
+      void applyEdgeDraft(edgeId, draft, false, true)
+        .then(() => {
+          if (alive.current) void load();
+        })
+        .catch((e) => {
+          if (alive.current) setError(e.message);
+        })
+        .finally(() => {
+          if (alive.current) {
+            setBusy(false);
+          }
+        });
+    }
+  };
+  async function load(discard = false) {
+    if (discard) clearEdgeDraft(edgeId, s.datasetEpoch);
+    const pending = getEdgeDraft(edgeId, s.datasetEpoch);
+    if (pending) {
+      accept(pending);
+      return;
+    }
     try {
       const doc = await request<EdgeDocument>("edgeDocument", { key: edgeId });
       if (!alive.current) return;
-      setData(doc);
-      setSource(doc.edge.source);
-      setTarget(doc.edge.target);
-      setPredicate(shorten(doc.edge.predicate));
-      setStatement(0);
-      setError("");
+      if (doc.datasetEpoch !== s.datasetEpoch) return;
+      accept(
+        getEdgeDraft(edgeId, s.datasetEpoch) ?? {
+          data: doc,
+          source: doc.edge.source,
+          target: doc.edge.target,
+          predicate: shorten(doc.edge.predicate),
+          statement: 0,
+        },
+      );
     } catch (e) {
       if (alive.current) setError((e as Error).message);
     }
@@ -47,11 +99,8 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
     };
   }, [edgeId]);
   useEffect(
-    () =>
-      onCommand((id) => {
-        if (id === "edge.focus") sourceInput.current?.focus();
-      }),
-    [],
+    () => onEdgeDraft(edgeId, s.datasetEpoch, () => void load()),
+    [edgeId, s.datasetEpoch],
   );
   const stale =
     !!data &&
@@ -61,23 +110,11 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
     setBusy(true);
     setError("");
     try {
-      const original = data.statements[statement];
-      await request("editEdge", {
-        key: edgeId,
-        original,
-        datasetEpoch: data.datasetEpoch,
-        version: data.version,
-        ...(remove
-          ? {}
-          : {
-              replacement: {
-                ...original,
-                subject: source,
-                predicate: expand(predicate.trim().replace(/^<|>$/g, "")),
-                object: { literal: false, value: target },
-              },
-            }),
-      });
+      await applyEdgeDraft(
+        edgeId,
+        { data, source, target, predicate, statement },
+        remove,
+      );
       if (alive.current) void load();
     } catch (e) {
       if (alive.current)
@@ -94,51 +131,40 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
   const entities = new Map(s.entities.map((e) => [e.iri, displayName(e)]));
   for (const n of s.graph.nodes)
     if (!entities.has(n.iri)) entities.set(n.iri, n.label);
-  const predicates = [
-    ...new Set([
-      SUBCLASS,
-      SUBPROPERTY,
-      TYPE,
-      NS.owl + "equivalentClass",
-      NS.owl + "disjointWith",
-      NS.rdfs + "domain",
-      NS.rdfs + "range",
-      NS.owl + "inverseOf",
-      ...s.entities
-        .filter((e) => e.kind.endsWith("Property"))
-        .map((e) => e.iri),
-      ...s.graph.edges.map((e) => e.predicate),
-    ]),
-  ];
-  const edge = s.graph.edges.find(
-    (e) => JSON.stringify([e.source, e.predicate, e.target]) === edgeId,
-  );
+  const edge = s.graph.edges.find((e) => edgeKey(e) === edgeId);
   return (
     <section
       className="panel inspector-panel"
-      data-panel="inspector"
-      aria-label="Edge inspector"
+      data-panel={panelId}
+      aria-label={panelId === "inspector" ? "Edge inspector" : "Details"}
     >
       <PaneToolbar
         label="Edge actions"
         secondary={
-          <button onClick={() => void load()} disabled={busy}>
+          <button onClick={() => void load(true)} disabled={busy}>
             Reload edge
           </button>
         }
       >
-        {" "}
+        <DetailsBack />
+        {panelId === "inspector" && (
+          <button type="button" onClick={() => command("view.details")}>
+            Details
+          </button>
+        )}
         {!!data?.statements.length && (
           <div className="edge-editor-actions">
-            <button
-              type="button"
-              onClick={() => void save()}
-              className="primary"
-              aria-label="Apply edge changes"
-              disabled={busy || stale}
-            >
-              {compact ? "Apply" : "Apply edge changes"}
-            </button>
+            {!automatic && (
+              <button
+                type="button"
+                onClick={() => void save()}
+                className="primary"
+                aria-label="Apply edge changes"
+                disabled={busy || stale}
+              >
+                {compact ? "Apply" : "Apply edge changes"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void save(true)}
@@ -156,62 +182,82 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
           void save();
         }}
       >
-        <h2>Relationship</h2>
         {data && (
           <>
-            <label>
-              From
-              <select
-                ref={sourceInput}
-                aria-label="Edge source"
+            <div className="edge-source-compact">
+              <span>From</span>{" "}
+              <ResourceInput
+                label="Edge source"
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
-                disabled={!data.statements.length || busy}
-              >
-                {[...entities].map(([iri, label]) => (
-                  <option key={iri} value={iri}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Relationship
-              <input
-                aria-label="Edge relationship"
-                list="edge-predicates"
-                value={predicate}
-                onChange={(e) => setPredicate(e.target.value)}
-                disabled={!data.statements.length || busy}
+                namespace={s.ontology.namespace}
+                change={(source) => update({ source })}
+                disabled={
+                  !data.statements.length || busy || !!data.edge.intersection
+                }
               />
-            </label>
-            <datalist id="edge-predicates">
-              {predicates.map((p) => (
-                <option key={p} value={shorten(p)} />
-              ))}
-            </datalist>
-            <label>
-              To
-              <select
-                aria-label="Edge target"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                disabled={!data.statements.length || busy}
-              >
-                {[...entities].map(([iri, label]) => (
-                  <option key={iri} value={iri}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            </div>
+            {data.edge.intersection && (
+              <p className="muted">
+                {data.edge.predicate === SUBCLASS
+                  ? "Subclass of every member"
+                  : "Equivalent to the intersection"}
+                . This branch belongs to a shared OWL expression.
+              </p>
+            )}
+            <table className="statement-grid" aria-label="Edge statements">
+              <colgroup>
+                <col className="statement-predicate-column" />
+                <col />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Predicate</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <PredicateSelect
+                      label="Edge relationship"
+                      value={expandIri(
+                        predicate,
+                        entityNamespace(source, s.ontology.namespace),
+                      )}
+                      options={predicateOptions}
+                      namespace={entityNamespace(source, s.ontology.namespace)}
+                      change={(predicate) => update({ predicate })}
+                      disabled={
+                        !data.statements.length ||
+                        busy ||
+                        !!data.edge.intersection
+                      }
+                    />
+                  </td>
+                  <td>
+                    {" "}
+                    <ResourceInput
+                      label="Edge target"
+                      value={target}
+                      namespace={s.ontology.namespace}
+                      change={(target) => update({ target })}
+                      disabled={!data.statements.length || busy}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
             {data.statements.length > 1 && (
               <label>
                 Statement graph
                 <select
                   aria-label="Edge statement graph"
                   value={statement}
-                  onChange={(e) => setStatement(+e.target.value)}
+                  onChange={(e) => {
+                    setStatement(+e.target.value);
+                    if (getEdgeDraft(edgeId, s.datasetEpoch))
+                      update({ statement: +e.target.value });
+                  }}
                 >
                   {data.statements.map((t, i) => (
                     <option value={i} key={i}>
@@ -234,9 +280,8 @@ export function EdgeInspector({ edgeId }: { edgeId: string }) {
             )}
             <PaneDetails className="inspector-section" title="Route">
               <p>
-                Drag the middle handle to bend the line. Drag an endpoint onto a
-                node to reconnect it. Use the From and To fields to choose any
-                ontology entity.
+                Drag the middle handle to bend the line. Use the From and To
+                fields or the edge context menu to reconnect it.
               </p>
               <button
                 type="button"

@@ -13,7 +13,7 @@ import {
 
 // Both entity views edit the same retained draft. Register changes synchronously
 // so switching selection or saving the workspace cannot lose the last keystroke.
-export function useEntityEditor(iri: string) {
+export function useEntityEditor(iri: string, automatic = false) {
   const s = useSnapshot()!,
     [draft, setDraft] = useState<EditorDraft | null>(null),
     [error, setError] = useState(""),
@@ -83,7 +83,7 @@ export function useEntityEditor(iri: string) {
     void reload();
   }, [s.version]);
   const update = (change: (d: EditorDraft) => EditorDraft) => {
-    if (!current.current || saving) return;
+    if (!current.current || (saving && !automatic)) return;
     ++generation.current;
     const next = normalize(change(current.current));
     accept(next);
@@ -130,11 +130,24 @@ export function useEntityEditor(iri: string) {
       JSON.stringify(triples) !== JSON.stringify(draft.loaded.statements));
   async function save() {
     const pending = current.current;
-    if (!pending || saving) return;
+    if (!pending || (saving && !automatic)) return;
+    if (
+      automatic &&
+      pending.statements.some(
+        (t) => !t.predicate || (!t.object.literal && !t.object.value),
+      )
+    )
+      return;
+    if (
+      JSON.stringify(pending.statements) ===
+        JSON.stringify(pending.loaded.statements) &&
+      pending.nextIri === pending.iri
+    )
+      return;
     setSaving(true);
     setError("");
     try {
-      await applyEditorDraft(pending);
+      await applyEditorDraft(pending, automatic);
       report("Entity changes applied.");
     } catch (e) {
       setError(

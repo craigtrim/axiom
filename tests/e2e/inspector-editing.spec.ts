@@ -237,10 +237,10 @@ test("inspector and details share drafts across selection changes, reject confli
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Shared label");
   await inspector()
-    .getByRole("button", { name: "Edit details", exact: true })
+    .getByRole("button", { name: "Details", exact: true })
     .click();
   const editor = page.getByRole("region", {
-    name: "Entity details",
+    name: "Details",
     exact: true,
   });
   await expect(
@@ -265,7 +265,7 @@ test("inspector and details share drafts across selection changes, reject confli
     .click();
   await expect(
     editor.getByRole("button", { name: "Apply changes", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await fields()
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Pending label");
@@ -495,27 +495,25 @@ test("default identifiers follow label drafts in both editors and become stable 
   await label.fill("Alpha Beta !! Gamma");
   await expect(name).toHaveValue("AlphaBetaGamma");
   await inspector()
-    .getByRole("button", { name: "Edit details", exact: true })
+    .getByRole("button", { name: "Details", exact: true })
     .click();
   const details = page.getByRole("region", {
-    name: "Entity details",
+    name: "Details",
     exact: true,
   });
   await expect(
-    details.getByRole("textbox", { name: "Entity IRI", exact: true }),
-  ).toHaveValue(old.replace(/NewClass$/, "AlphaBetaGamma"));
+    details.getByRole("textbox", { name: "Entity label", exact: true }),
+  ).toHaveValue("Alpha Beta !! Gamma");
   await details
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Course Credit");
   await expect(name).toHaveValue("CourseCredit");
-  await inspector()
-    .getByRole("button", { name: "Apply changes", exact: true })
-    .click();
+  await details
+    .getByRole("textbox", { name: "Entity label", exact: true })
+    .press("Tab");
   const next = old.replace(/NewClass$/, "CourseCredit");
   await expect.poll(async () => (await state()).selected).toBe(next);
-  await expect(
-    details.getByRole("textbox", { name: "Entity IRI", exact: true }),
-  ).toHaveValue(next);
+  await expect(details).toHaveAttribute("data-entity-iri", next);
   await label.fill("Credit hours");
   await expect(name).toHaveValue("CourseCredit");
   await inspector()

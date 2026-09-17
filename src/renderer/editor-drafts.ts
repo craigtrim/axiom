@@ -1,6 +1,7 @@
 import { request, onCommand, report } from "./client";
 import type { Entity, Triple } from "../domain/model";
 export interface DocumentData {
+  parentExpressions?: Record<string, string[]>;
   entity: Entity;
   statements: Triple[];
   version: number;
@@ -14,9 +15,16 @@ export interface EditorDraft {
   loaded: DocumentData;
 }
 const drafts = new Map<string, EditorDraft>();
-const documentDrafts = new Map<string, { flush(): Promise<unknown>; discard(): void }>();
-export function rememberDocumentDraft(id: string, draft: { flush(): Promise<unknown>; discard(): void } | null) {
-  if (draft) documentDrafts.set(id, draft); else documentDrafts.delete(id);
+const documentDrafts = new Map<
+  string,
+  { flush(): Promise<unknown>; discard(): void }
+>();
+export function rememberDocumentDraft(
+  id: string,
+  draft: { flush(): Promise<unknown>; discard(): void } | null,
+) {
+  if (draft) documentDrafts.set(id, draft);
+  else documentDrafts.delete(id);
   notify();
 }
 let epoch: number | undefined;
@@ -87,7 +95,29 @@ export function entityRetargeted(oldIri: string, iri: string, epoch: number) {
   );
   notify();
 }
-export async function applyEditorDraft(d: EditorDraft) {
+const saving = new Map<string, Promise<string>>();
+export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
+  const k = key(d.iri, d.loaded.datasetEpoch);
+  const previous = saving.get(k);
+  const operation = (
+    previous ? previous.catch(() => undefined) : Promise.resolve()
+  ).then(() =>
+    previous && !getEditorDraft(d.iri, d.loaded.datasetEpoch)
+      ? previous
+      : applyDraftNow(
+          getEditorDraft(d.iri, d.loaded.datasetEpoch) ?? d,
+          preserveSelection,
+        ),
+  );
+  saving.set(k, operation);
+  void operation
+    .finally(() => {
+      if (saving.get(k) === operation) saving.delete(k);
+    })
+    .catch(() => undefined);
+  return operation;
+}
+async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
   const current = await request<DocumentData>("entityDocument", { iri: d.iri });
   if (
     current.datasetEpoch !== d.loaded.datasetEpoch ||
@@ -98,12 +128,26 @@ export async function applyEditorDraft(d: EditorDraft) {
     );
   const result = await request<string>("updateEntity", {
     iri: d.iri,
+    preserveSelection,
     nextIri: d.automaticIri ? d.iri : d.nextIri,
     statements: d.statements,
     version: current.version,
     datasetEpoch: current.datasetEpoch,
   });
+  const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
   drafts.delete(key(d.iri, d.loaded.datasetEpoch));
+  if (
+    latest &&
+    JSON.stringify(latest.statements) !== JSON.stringify(d.statements)
+  ) {
+    const loaded = await request<DocumentData>("entityDocument", {
+      iri: result,
+    });
+    drafts.set(key(d.iri, d.loaded.datasetEpoch), {
+      ...(getEditorDraft(d.iri, d.loaded.datasetEpoch) ?? latest),
+      loaded,
+    });
+  }
   if (result !== d.iri) entityRetargeted(d.iri, result, current.datasetEpoch);
   notify();
   return result;
@@ -114,7 +158,8 @@ onCommand((id) => {
     try {
       // Applying one draft can retarget references in another. Read each
       // remaining draft after the previous identifier change has completed.
-      while (documentDrafts.size) await documentDrafts.values().next().value!.flush();
+      while (documentDrafts.size)
+        await documentDrafts.values().next().value!.flush();
       while (drafts.size) await applyEditorDraft(drafts.values().next().value!);
       window.axiom.editors.flushed();
     } catch (e) {

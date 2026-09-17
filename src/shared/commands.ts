@@ -84,7 +84,7 @@ export const menuTree: MenuDefinition[] = [
     c("entity.search", "Find entities", "Edit", app("Ctrl+F")),
     c("entity.createClass", "New class", "Edit", app("Ctrl+Shift+N")),
     c("entity.createIndividual", "New individual", "Edit", app("Ctrl+Shift+I")),
-    c("entity.edit", "Edit entity details", "Edit", app("Alt+Enter")),
+    c("entity.edit", "Details", "Edit", app("Alt+Enter")),
     c("entity.createProperty", "New property", "Edit"),
     c("entity.rename", "Rename entity", "Edit", app("F2")),
     c("entity.delete", "Delete class...", "Edit", at("hierarchy", "Delete")),
@@ -113,6 +113,7 @@ export const menuTree: MenuDefinition[] = [
       "Query",
       "Research",
       "Source",
+      "Details",
     ].map((label, i) =>
       c("view." + label.toLowerCase(), label, "View", app("Ctrl+" + (i + 1))),
     ),
@@ -194,7 +195,7 @@ export const menuTree: MenuDefinition[] = [
     menu("menu.edge", "Edges", "E", [
       c("graph.connect", "Connect nodes...", "Graph > Edges", at("graph", "C")),
       null,
-      c("edge.edit", "Edit selected edge", "Graph > Edges"),
+      c("edge.edit", "Details", "Graph > Edges"),
       c("edge.remove", "Remove selected edge", "Graph > Edges"),
       c("edge.resetRoute", "Reset edge route", "Graph > Edges"),
       c("edge.next", "Select next edge", "Graph > Edges", at("graph", "E")),
