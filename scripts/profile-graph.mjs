@@ -10,6 +10,12 @@ delete env.ELECTRON_RUN_AS_NODE;
 const app = await electron.launch({ args: ["."], env }),
   page = await app.firstWindow();
 await page.locator('[data-testid="graph-canvas"]').waitFor();
+await app.evaluate(({ Menu }) =>
+  Menu.getApplicationMenu().getMenuItemById("file.example").click(),
+);
+await page.waitForFunction(
+  async () => (await window.axiom.request("state")).ontology.example,
+);
 await page.evaluate(async () => {
   await window.axiom.request("regenerate", { size: 100000 });
   await window.axiom.request("budget", { value: 3000 });

@@ -52,8 +52,13 @@ function menu(
 export const menuTree: MenuDefinition[] = [
   menu("menu.file", "File", "F", [
     c("file.new", "New workspace", "File", app("Ctrl+N")),
-    c("file.example", "Open Pizza example", "File"),
-    c("file.open", "Open workspace or ontology...", "File", app("Ctrl+O")),
+    menu("menu.file.open", "Open", "O", [
+      c("file.open", "Workspace...", "File > Open", app("Ctrl+O")),
+      menu("menu.file.recent", "Recent", "R", []),
+      menu("menu.file.examples", "Examples", "E", [
+        c("file.example", "Pizza", "File > Open > Examples"),
+      ]),
+    ]),
     c("file.import", "Import ontology...", "File"),
     c("file.exportOntology", "Export ontology...", "File"),
     c("file.close", "Close workspace", "File"),
@@ -283,7 +288,7 @@ export const commandById = new Map(commands.map((c) => [c.id, c]));
 export const preferredAccessKeys: Record<string, string> = {
   "file.new": "N",
   "file.example": "P",
-  "file.open": "O",
+  "file.open": "W",
   "file.save": "S",
   "file.saveAs": "A",
   "app.quit": "X",

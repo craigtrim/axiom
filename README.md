@@ -40,7 +40,7 @@ The workbench has Hierarchy, Graph, Inspector, Research, Individuals, Query and 
 
 File > New workspace creates a blank ontology with Thing as its root. Create classes inline in the taxonomy and enter a human-readable label such as Course Credit. Axiom normalizes that label into a unique identifier, such as CourseCredit. Create named individuals assigned to those classes. The Individuals pane shows their names, classes and IRIs. New workspaces keep your chosen node limit and clear the previous ontology and cached result rows. Saved query references remain available in results tabs.
 
-The application opens with the Pizza example. File > Open Pizza example returns to it. The fixture provides 95 classes and 14 properties, with 1,000, 12,000, 50,000 or 100,000 deterministic orders. Search finds schema entities, orders and customers. The Individuals table supports filtering, sorting and validated edits to branch, price and rating. Class and individual creation, renaming, class deletion, Undo and Redo update the shared data model.
+Axiom reopens the last session, including its ontology, graph views, selection and pane layout. A fresh profile opens an empty workspace with a blank graph. File > Close leaves the next launch empty. File > Open > Examples > Pizza opens the demo explicitly. The fixture provides 95 classes and 14 properties, with 1,000, 12,000, 50,000 or 100,000 deterministic orders. Search finds schema entities, orders and customers. The Individuals table supports filtering, sorting and validated edits to branch, price and rating. Class and individual creation, renaming, class deletion, Undo and Redo update the shared data model.
 
 Press **F2** or choose **Rename** to edit the entity name in place in the hierarchy, graph, inspector or individual table. **Enter** saves, **Escape** cancels, and leaving the field saves a valid name. Validation errors appear beside the field; renaming supports Undo and Redo.
 
@@ -60,7 +60,7 @@ The Research pane detects Codex and Claude on PATH. It provides editable prompts
 
 The Monaco editor runs SPARQL 1.1 queries through Comunica: SELECT, ASK, CONSTRUCT and DESCRIBE, including aggregates, OPTIONAL, property paths, subqueries, named graphs and standard functions. Results are paged, cancellation stops a separate query worker, and data changes mark previous results stale. Queries inspect local asserted data; remote SERVICE, ontology updates through the query panel and implicit OWL reasoning are outside this flow.
 
-File > Save workspace writes an .axiom document containing ontology edits, generated data and workbench settings. Open validates the document before replacing live data. This is Axiom's workspace format. File > Open or Import also reads RDF/XML, Turtle, N-Triples, N-Quads, TriG and JSON-LD. File > Export ontology writes those formats, retaining named graphs in formats that support them. Remote JSON-LD contexts and implicit OWL import downloads are not used.
+File > Save workspace writes an .axiom document containing ontology edits, generated data and workbench settings. Open validates the document before replacing live data. This is Axiom's workspace format. File > Open > Workspace (Ctrl+O) or Import also reads RDF/XML, Turtle, N-Triples, N-Quads, TriG and JSON-LD. File > Export ontology writes those formats, retaining named graphs in formats that support them. File > Open > Recent lists the full absolute paths of the last 12 successfully opened or saved files, newest first, and retains the list across restarts. Remote JSON-LD contexts and implicit OWL import downloads are not used.
 
 Edit the selected entity in the right-hand inspector: a default name such as NewClass or NewClass2 follows the first meaningful label through the shared identifier normalizer. For example, Alpha Beta !! Gamma becomes AlphaBetaGamma. Established names remain unchanged when relabeled. Name, Label, Comment and relationship edits apply together with Apply changes. Click a visible graph label once to type in place; Enter or clicking away saves, and Escape cancels. Use Edit details, the context menu, or drag a taxonomy row onto the inspector to open a full entity tab beside Graph. Labels, identifiers, comments and all asserted statements are editable. Apply changes commits the entity together; workspace Save also applies retained drafts from the inspector and closed tabs and checks for conflicting edits. The inspector and full details tab share each entity draft.
 
@@ -80,6 +80,12 @@ npm run benchmark:desktop
 The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/sparql-testing.md) for coverage, boundaries and commands.
 
 The [verification record](docs/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/decisions.md) explain the Electron architecture and carried-forward specification resolutions. The original requirements and rewrite research remain in [specs/](specs/README.md).
+
+### Session restoration
+
+The last-session copy is stored in the application profile, separately from ontology and workspace files. It is updated when a workspace is opened or saved and when Axiom closes. Imported ontologies can be resumed even if their original files move. Save, Discard and Cancel retain their existing meanings: discarded edits are not restored on the next launch. Source drafts still require their explicit Save source action.
+
+Session writes are atomic and retain the preceding valid copy for recovery. If neither session copy is usable, Axiom starts empty and reports the restoration failure. Keyboard shortcuts remain global preferences.
 
 ## Keyboard commands
 

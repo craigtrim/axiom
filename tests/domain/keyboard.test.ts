@@ -38,6 +38,8 @@ describe("keyboard conventions and settings", () => {
       "H",
     ]);
     expect(accessPath("file.new")).toBe("Alt+F, N");
+    expect(accessPath("file.open")).toBe("Alt+F, O, W");
+    expect(accessPath("file.example")).toBe("Alt+F, O, E, P");
     expect(accessPath("file.saveAs")).toBe("Alt+F, A");
     expect(accessPath("keyboard.settings")).toBe("Alt+E, K");
   });

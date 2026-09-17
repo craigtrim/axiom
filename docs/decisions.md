@@ -32,7 +32,7 @@ Graph drawing shares scene geometry across WebGL2, Canvas and SVG. The screen us
 
 ## New ontologies and menu behavior
 
-File > New workspace creates an empty ontology rooted at owl:Thing. New classes receive both an owl:Class declaration and their superclass assertion. Named individuals use the selected class, appear in the Individuals table, and participate in queries and graph traversal. File > Open Pizza example is the separate entry point for generated demo data.
+File > New workspace creates an empty ontology rooted at owl:Thing. New classes receive both an owl:Class declaration and their superclass assertion. Named individuals use the selected class, appear in the Individuals table, and participate in queries and graph traversal. File > Open > Examples > Pizza is the separate entry point for generated demo data.
 
 Workspace documents carry the ontology name, namespace and example flag. Older documents without this metadata retain the Pizza interpretation. Open accepts every supported integer node limit, including values such as 357. Creating or opening an ontology clears previous query results and stops any active query.
 

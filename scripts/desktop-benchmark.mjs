@@ -23,6 +23,12 @@ page.on("pageerror", (e) => {
   console.log("ERROR", e.message);
 });
 console.log("Started", out.startupMs);
+await app.evaluate(({ Menu }) =>
+  Menu.getApplicationMenu().getMenuItemById("file.example").click(),
+);
+await page.waitForFunction(
+  async () => (await window.axiom.request("state")).ontology.example,
+);
 const begin = performance.now();
 await page.evaluate(() => window.axiom.request("regenerate", { size: 100000 }));
 await page.locator(".status-counts").filter({ hasText: "725,379" }).waitFor();

@@ -1,3 +1,6 @@
+import { RecentFiles } from "./recent-files";
+import { SessionStore, type SavedSession } from "./session-store";
+import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
 import examples from "../domain/data/examples.json";
@@ -43,7 +46,7 @@ import {
   stat,
 } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { DomainMethod, Preferences, Snapshot } from "../shared/protocol";
 protocol.registerSchemesAsPrivileged([
   {
@@ -216,6 +219,28 @@ async function resolveLinkedFile(iri: unknown) {
   if (!file) throw Error("This entity does not link to a filesystem file.");
   return file;
 }
+const sessions = new SessionStore(app.getPath("userData"));
+const recentFiles = new RecentFiles(app.getPath("userData"));
+async function rememberFile(file: string) {
+  try {
+    await recentFiles.remember(file);
+  } catch (error) {
+    console.warn("Could not save recent files:", error);
+  }
+  installMenu();
+}
+let sessionBaseline: SavedSession;
+async function checkpointSession(capture = true) {
+  if (capture) await capturePreferences();
+  sessionBaseline = {
+    format: "axiom-session",
+    version: 1,
+    workspace: await request<Workspace>("serialize"),
+    workspacePath,
+    workbench: preferences,
+  };
+  await sessions.save(sessionBaseline);
+}
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
 let saveQueue = Promise.resolve();
 function savePreferences(p: Preferences) {
@@ -292,7 +317,7 @@ async function flushEditors() {
     send("editors.flush");
   });
 }
-async function confirmDiscard() {
+async function confirmDiscard(onDiscard?: () => void) {
   if (!lastState?.dirty && !editorDraftCount) return true;
   const r = await dialog.showMessageBox(mainWindow!, {
     type: "question",
@@ -306,6 +331,7 @@ async function confirmDiscard() {
     return (
       (await saveWorkspace(false)) && !lastState?.dirty && !editorDraftCount
     );
+  onDiscard?.();
   return true;
 }
 let saving: Promise<boolean> | undefined;
@@ -367,33 +393,38 @@ async function writeWorkspace(as: boolean) {
     epoch: document.datasetEpoch,
     revision: (document as any).workspaceRevision,
   });
+  await checkpointSession(false);
+  await rememberFile(file);
   return true;
 }
-async function openWorkspace() {
+async function openWorkspace(recentFile?: string) {
   if (!(await confirmDiscard())) return;
-  const r = await dialog.showOpenDialog(mainWindow!, {
-    title: "Open Axiom workspace",
-    properties: ["openFile"],
-    filters: [
-      {
-        name: "Workspaces and ontologies",
-        extensions: [
-          "axiom",
-          "ttl",
-          "rdf",
-          "owl",
-          "xml",
-          "nt",
-          "nq",
-          "trig",
-          "jsonld",
-        ],
-      },
-      { name: "Axiom workspace", extensions: ["axiom"] },
-    ],
-  });
-  if (r.canceled) return;
-  const file = r.filePaths[0];
+  let file = recentFile;
+  if (!file) {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      title: "Open Axiom workspace",
+      properties: ["openFile"],
+      filters: [
+        {
+          name: "Workspaces and ontologies",
+          extensions: [
+            "axiom",
+            "ttl",
+            "rdf",
+            "owl",
+            "xml",
+            "nt",
+            "nq",
+            "trig",
+            "jsonld",
+          ],
+        },
+        { name: "Axiom workspace", extensions: ["axiom"] },
+      ],
+    });
+    if (r.canceled || !r.filePaths[0]) return;
+    file = r.filePaths[0];
+  }
   if (!file.toLowerCase().endsWith(".axiom")) {
     await importOntologyFile(file);
     return;
@@ -414,8 +445,10 @@ async function openWorkspace() {
     installMenu();
     send("workspace.preferences");
   }
+  await checkpointSession();
+  await rememberFile(file);
 }
-async function command(id: string) {
+async function command(id: string, recentFile?: string) {
   try {
     if (id.startsWith("role.")) {
       const item = Menu.getApplicationMenu()?.getMenuItemById(id),
@@ -438,10 +471,11 @@ async function command(id: string) {
           workspacePath = undefined;
           await request("new");
           send("workspace.new");
+          await checkpointSession();
         }
         break;
       case "file.open":
-        await openWorkspace();
+        await openWorkspace(recentFile);
         break;
       case "file.save":
         await saveWorkspace(false);
@@ -454,13 +488,15 @@ async function command(id: string) {
           workspacePath = undefined;
           await request("example");
           send("workspace.example");
+          await checkpointSession();
         }
         break;
       case "file.new":
         if (await confirmDiscard()) {
           workspacePath = undefined;
-          await request("new");
+          await request("new", { blank: true });
           send("workspace.new");
+          await checkpointSession();
         }
         break;
       case "app.quit":
@@ -574,6 +610,18 @@ function refreshMenu() {
   set("query.cancel", queryRunning);
   set("query.graph", hasQueryResults && !queryRunning);
 }
+function recentMenu(): MenuItemConstructorOptions[] {
+  const files = recentFiles.list();
+  if (!files.length) return [];
+  return files.map((file, index) => {
+    const key = "123456789ABC"[index];
+    return {
+      id: "file.recent." + index,
+      label: "&" + key + " " + file.replace(/&/g, "&&"),
+      click: () => void command("file.open", file),
+    };
+  });
+}
 function installMenu() {
   const build = (
     nodes: (MenuDefinition | string | null)[],
@@ -584,7 +632,12 @@ function installMenu() {
         return {
           id: node.id,
           label: mnemonicLabel(node.id, node.label, preferences.keyboard),
-          submenu: build(node.children),
+          enabled:
+            node.id !== "menu.file.recent" || recentFiles.list().length > 0,
+          submenu:
+            node.id === "menu.file.recent"
+              ? recentMenu()
+              : build(node.children),
         };
       const c = commandById.get(node)!;
       const binding = effectiveBindings(node, preferences.keyboard)[0];
@@ -678,6 +731,50 @@ app.whenReady().then(async () => {
         detail: e.message,
       });
   });
+  await recentFiles.load();
+  const restoredSession = await sessions.restore(async (session) => {
+    await request("load", { document: session.workspace });
+    preferences = readPreferences({
+      ...session.workbench,
+      keyboard: preferences.keyboard,
+    });
+    workspacePath = session.workspacePath;
+    if (workspacePath) {
+      try {
+        await stat(workspacePath);
+      } catch {
+        workspacePath = undefined;
+      }
+    }
+  });
+  if (!recentFiles.list().length && restoredSession.session) {
+    // Carry a known file from the last session into newly introduced history.
+    const source = restoredSession.session.workspace.ontology?.source?.baseIRI;
+    let previousFile = workspacePath;
+    try {
+      if (!previousFile && source?.startsWith("file:"))
+        previousFile = fileURLToPath(source);
+      if (previousFile && (await stat(previousFile)).isFile())
+        await recentFiles.remember(previousFile);
+    } catch {}
+  }
+  if (!restoredSession.session) {
+    preferences.panelState = {
+      ...preferences.panelState,
+      "query.text":
+        "SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object . } LIMIT 100",
+      "query.example": 0,
+      "hierarchy.open": [],
+    };
+  }
+  nativeTheme.themeSource = preferences.theme;
+  sessionBaseline = {
+    format: "axiom-session",
+    version: 1,
+    workspace: await request<Workspace>("serialize"),
+    workspacePath,
+    workbench: preferences,
+  };
   const bounds = preferences.bounds;
   const validBounds =
     bounds &&
@@ -1116,7 +1213,12 @@ app.whenReady().then(async () => {
     closePending = true;
     void (async () => {
       await capturePreferences();
-      if (!(await confirmDiscard())) {
+      let discarded = false;
+      if (
+        !(await confirmDiscard(() => {
+          discarded = true;
+        }))
+      ) {
         closePending = false;
         return;
       }
@@ -1127,6 +1229,9 @@ app.whenReady().then(async () => {
           bounds: mainWindow.getNormalBounds(),
           maximized: mainWindow.isMaximized(),
         });
+      if (discarded)
+        await sessions.save({ ...sessionBaseline, workbench: preferences });
+      else await checkpointSession(false);
       mainWindow?.close();
     })().catch((e) => {
       closePending = false;
@@ -1140,7 +1245,17 @@ app.whenReady().then(async () => {
   });
   await mainWindow.loadURL("app://axiom/index.html");
   lastState = await request<Snapshot>("state");
-  mainWindow.setTitle(lastState.ontology.name + " | Axiom");
+  mainWindow.setTitle(
+    (workspacePath ? path.basename(workspacePath) : lastState.ontology.name) +
+      " | Axiom",
+  );
+  if (!restoredSession.session && restoredSession.errors.length)
+    void dialog.showMessageBox(mainWindow, {
+      type: "warning",
+      message:
+        "The last session could not be restored. Axiom opened an empty workspace.",
+      detail: "You can open your saved ontology or workspace from File > Open.",
+    });
   refreshMenu();
   if (preferences.maximized) mainWindow.maximize();
 });
@@ -1163,6 +1278,8 @@ async function importOntologyFile(file: string) {
   });
   workspacePath = undefined;
   send("workspace.imported");
+  await checkpointSession();
+  await rememberFile(file);
   return result;
 }
 async function importOntology() {
