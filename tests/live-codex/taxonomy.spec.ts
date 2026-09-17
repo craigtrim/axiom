@@ -1,7 +1,7 @@
+import { launchExample } from "../e2e/example-fixture";
 import {
   test,
   expect,
-  _electron as electron,
   type ElectronApplication,
   type Page,
   type TestInfo,
@@ -74,7 +74,7 @@ test.beforeEach(async ({}, info) => {
   >;
   delete env.ELECTRON_RUN_AS_NODE;
   // PATH and CLI authentication are inherited unchanged.
-  app = await electron.launch({
+  app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env,
