@@ -1,3 +1,4 @@
+import { ClassExpressions, IntersectionDetails } from "./ClassExpressions";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import { PaneToolbar, PaneDetails } from "./AdaptivePane";
@@ -83,6 +84,8 @@ export function InspectorPanel() {
         <p>Select an entity in the hierarchy, graph or table.</p>
       </section>
     );
+  if (data.entity.kind === "Intersection")
+    return <IntersectionDetails entity={data.entity} panelId="inspector" />;
   const instances = instanceAction(
     s.entities.find((e) => e.iri === data.entity.iri),
   );
@@ -170,11 +173,11 @@ export function InspectorPanel() {
           disabled={!s.entities.some((entity) => entity.iri === e.iri)}
           title={
             s.entities.some((entity) => entity.iri === e.iri)
-              ? "Edit all entity statements"
+              ? "Show entity details"
               : "Generated sample records are read-only"
           }
         >
-          Edit details
+          Details
         </button>
         <button onClick={() => command("research.open")}>Research</button>
       </PaneToolbar>
@@ -200,6 +203,7 @@ export function InspectorPanel() {
             </button>
           </div>
         )}
+        <ClassExpressions entity={e} />
         {editable && (
           <EntityInspectorFields
             key={s.datasetEpoch + e.iri}

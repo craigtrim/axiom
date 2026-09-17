@@ -1,3 +1,4 @@
+import { taxonomyChildren } from "../domain/class-expressions";
 import { instanceAction, countLabel } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import { useAssistantActivity } from "./AssistantActivity";
@@ -43,11 +44,15 @@ export function EntityMenu({
     {
       label: "Show in graph",
       key: "S",
-      run: async () => {
-        await request("seed", { iris: [iri] });
-        command("view.graph");
-        command("graph.fit");
-      },
+      run: () => {},
+      children: [
+        { label: "New graph", key: "N", run: () => command("entity.newGraph") },
+        {
+          label: "Current graph",
+          key: "C",
+          run: () => command("entity.showGraph"),
+        },
+      ],
     },
     {
       ...instanceAction(entity),
@@ -57,11 +62,11 @@ export function EntityMenu({
     {
       label: countLabel(
         branch?.open ? "Collapse branch" : "Expand branch",
-        entity?.children.length ?? 0,
+        taxonomyChildren(entity).length,
       ),
       key: "B",
       visible: isClass || !!branch,
-      enabled: !!branch && !!entity?.children.length,
+      enabled: !!branch && !!taxonomyChildren(entity).length,
       run: () => branch?.toggle(),
     },
     {
@@ -82,7 +87,7 @@ export function EntityMenu({
     },
     null,
     {
-      label: "Edit details",
+      label: "Details",
       key: "T",
       enabled: !!entity,
       run: () => editEntity(iri),
@@ -106,6 +111,12 @@ export function EntityMenu({
       run: () => command("entity.createIndividual"),
     },
     null,
+    {
+      label: "Suggest Sub Classes",
+      key: "G",
+      visible: isClass,
+      run: () => command("subclasses.suggest"),
+    },
     { label: "Research...", key: "E", run: () => command("research.open") },
     {
       label: "Add children",
@@ -132,13 +143,15 @@ export function EntityMenu({
       run: () => command("entity.delete"),
     },
   ];
+  const wrap = (a: ContextAction | null): ContextAction | null =>
+    a && { ...a, run: () => run(a.run), children: a.children?.map(wrap) };
   return (
     <ContextMenu
       document={doc}
       x={x}
       y={y}
       close={close}
-      actions={actions.map((a) => a && { ...a, run: () => run(a.run) })}
+      actions={actions.map(wrap)}
     />
   );
 }

@@ -1,3 +1,5 @@
+import { updateIntersectionRoutes } from "../domain/intersection-routing";
+import { EQUIVALENT_CLASS } from "../domain/class-expressions";
 import { edgeRoute } from "./edge-geometry";
 export { edgeRoute } from "./edge-geometry";
 import {
@@ -10,7 +12,7 @@ import {
 import type { GraphSnapshot } from "../shared/protocol";
 import type { GraphNode, GraphEdge } from "../domain/viewport";
 import { hidden, edgeKey } from "../domain/viewport";
-import { TYPE, kindLabel, type Kind } from "../domain/model";
+import { TYPE, SUBCLASS, kindLabel, type Kind } from "../domain/model";
 import { isHierarchy } from "../domain/force";
 import tokens from "../domain/data/tokens.json";
 export interface Camera {
@@ -43,6 +45,7 @@ export const intersects = (a: Rect, b: Rect) =>
 export const kindToken: Record<Kind, string> = {
   Class: "e-class",
   Defined: "e-defined",
+  Intersection: "e-objprop",
   Individual: "e-individual",
   ObjectProperty: "e-objprop",
   DataProperty: "e-dataprop",
@@ -67,7 +70,7 @@ export function bounds(g: GraphSnapshot, pad = 90): Rect {
     bottom = Math.max(bottom, n.y + radius);
   }
   const nodes = new Map(g.nodes.map((n) => [n.iri, n]));
-  for (const e of g.edges) {
+  for (const e of g.edgesVisible === false ? [] : g.edges) {
     if (!e.bend && e.source !== e.target && e.parallelCount <= 1) continue;
     const a = nodes.get(e.source),
       b = nodes.get(e.target);
@@ -425,8 +428,11 @@ function shape(
       stroke,
     );
   else {
-    const count = kind === "ObjectProperty" ? 4 : 6,
-      start = kind === "ObjectProperty" ? -Math.PI / 2 : Math.PI / 6,
+    const count = kind === "ObjectProperty" || kind === "Intersection" ? 4 : 6,
+      start =
+        kind === "ObjectProperty" || kind === "Intersection"
+          ? -Math.PI / 2
+          : Math.PI / 6,
       points = Array.from({ length: count }, (_, i) => ({
         x: p.x + Math.cos(start + (i * 2 * Math.PI) / count) * r,
         y: p.y + Math.sin(start + (i * 2 * Math.PI) / count) * r,
@@ -457,18 +463,19 @@ export function render(
     onLabel?: (iri: string, rect: Rect) => void;
   } = {},
 ) {
+  const visibleEdges = g.edgesVisible === false ? [] : g.edges;
   const rules = styleRules(g.stylesheet),
     styles = new Map(
       rules.length
         ? g.nodes.map((n) => [n.iri, nodeStyle(rules, n, selected)] as const)
         : [],
     );
-  if (rules.some((r) => r.values.size))
+  if (rules.length)
     g = {
       ...g,
       nodes: g.nodes.map((n) => ({
         ...n,
-        radius: (styles.get(n.iri)?.size ?? n.radius * 2) / 2,
+        radius: styledRadius(n, g.stylesheet, selected),
       })),
     };
   const palette = (dark ? tokens.dark : tokens.light) as Record<string, string>,
@@ -499,18 +506,29 @@ export function render(
   const near = new Set<string>();
   if (hover) {
     near.add(hover);
-    for (const e of g.edges) {
+    for (const e of visibleEdges) {
       if (e.source === hover) near.add(e.target);
       if (e.target === hover) near.add(e.source);
     }
   }
+  updateIntersectionRoutes(g.nodes, visibleEdges);
+  const selectedBranch = visibleEdges.find(
+    (e) => edgeKey(e) === options.selectedEdge,
+  )?.intersection;
   const nodes = new Map(g.nodes.map((n) => [n.iri, n]));
   d.beginBatch();
-  for (const e of g.edges) {
+  for (const e of visibleEdges) {
     const a = nodes.get(e.source),
       b = nodes.get(e.target);
     if (!a || !b) continue;
-    const activeEdge = options.selectedEdge === edgeKey(e),
+    const activeEdge =
+        options.selectedEdge === edgeKey(e) ||
+        !!(
+          selectedBranch &&
+          e.intersection &&
+          JSON.stringify(selectedBranch.axiom) ===
+            JSON.stringify(e.intersection.axiom)
+        ),
       emphasis =
         activeEdge ||
         options.hoveredEdge === edgeKey(e) ||
@@ -560,6 +578,42 @@ export function render(
     }
   }
   d.endBatch();
+  const captions = new Set<string>();
+  if (k > 0.45)
+    for (const e of visibleEdges) {
+      const a = nodes.get(e.source),
+        b = nodes.get(e.target);
+      if (
+        !a ||
+        !b ||
+        ![SUBCLASS, EQUIVALENT_CLASS].includes(e.predicate) ||
+        !e.intersection
+      )
+        continue;
+      if (
+        visibleEdges.length > 18 &&
+        ![selected, hover, ...g.focus].includes(a.iri) &&
+        ![selected, hover, ...g.focus].includes(b.iri)
+      )
+        continue;
+      const group = JSON.stringify(e.intersection!.axiom);
+      if (captions.has(group)) continue;
+      captions.add(group);
+      const join = e.junction ?? b;
+      const p = screenPoint(
+        { x: (a.x + join.x) / 2, y: (a.y + join.y) / 2 },
+        c,
+      );
+      d.text(
+        e.predicate === SUBCLASS ? "subclass of all" : "equivalent to all",
+        { x: p.x + 10, y: p.y - 5 },
+        C("text-secondary"),
+        10,
+        false,
+        false,
+        C("canvas"),
+      );
+    }
   const focus = new Set(g.focus);
   d.beginBatch();
   for (const n of g.nodes) {
@@ -578,7 +632,23 @@ export function render(
         : n.kind;
     if (p.x + r < -40 || p.y + r < -40 || p.x - r > w + 40 || p.y - r > h + 40)
       continue;
-    if (selected === n.iri) d.circle(p, r + 7, C("accent"), 2.5);
+    if (selected === n.iri) {
+      const gap = r + 5;
+      for (const [x, y] of [
+        [-1, -1],
+        [0, -1],
+        [1, -1],
+        [-1, 0],
+        [1, 0],
+        [-1, 1],
+        [0, 1],
+        [1, 1],
+      ])
+        d.rect(
+          { x: p.x + x * gap - 2, y: p.y + y * gap - 2, width: 4, height: 4 },
+          C("text"),
+        );
+    }
     shape(
       d,
       kind,
@@ -616,11 +686,22 @@ export function render(
         2,
       );
     }
-    if (focus.has(n.iri)) shape(d, kind, p, r + 3, C("text"), 1.8);
     if (n.pinned)
       d.circle({ x: p.x - r * 0.8, y: p.y - r * 0.8 }, 3.4 + k, C("warn"));
   }
   d.endBatch();
+  for (const n of g.nodes)
+    if (n.kind === "Intersection" && k > 0.35) {
+      const p = screenPoint(n, c);
+      d.text(
+        "AND",
+        { x: p.x, y: p.y - Math.min(11, n.radius * k * 0.75) * 0.6 },
+        C("canvas"),
+        Math.min(11, n.radius * k * 0.75),
+        true,
+        true,
+      );
+    }
   const headings = g.groups
       .map((b) => ({ b, p: screenPoint({ x: b.x + 12, y: b.y + 8 }, c) }))
       .filter(
@@ -692,7 +773,7 @@ export function render(
     labels++;
   }
   const badges: { text: string; p: Point; rect: Rect }[] = [];
-  if (k > 0.3)
+  if (g.countsVisible !== false && k > 0.3)
     for (const n of g.nodes) {
       const count = hidden(n);
       if (!count) continue;
@@ -802,18 +883,16 @@ export function exportScene(
     g.nodes.length.toLocaleString() +
     " nodes · " +
     g.edges.length.toLocaleString() +
-    " relationships · node limit " +
+    (g.edgesVisible === false
+      ? " relationships (hidden) · node limit "
+      : " relationships · node limit ") +
     g.budget +
     " · " +
     g.hidden.toLocaleString() +
     " neighbours held back";
   const header = options.caption === false ? 0 : 80,
     legendKinds = [...new Set(g.nodes.map((n) => n.kind))],
-    footer =
-      options.legend === false
-        ? 0
-        : Math.ceil(legendKinds.length / 4) * 30 + 20;
-  const measure = new Draw(null, 1, 1),
+    measure = new Draw(null, 1, 1),
     width =
       options.viewport?.width ??
       Math.max(
@@ -826,6 +905,11 @@ export function exportScene(
               measure.measure(options.title ?? g.title ?? "Ontology", 20, true),
             ) + 56,
       ),
+    legendColumns = Math.max(1, Math.min(4, Math.floor((width - 56) / 240))),
+    footer =
+      options.legend === false
+        ? 0
+        : Math.ceil(legendKinds.length / legendColumns) * 30 + 20,
     height =
       (options.viewport?.height ?? Math.max(240, b.height)) + header + footer;
   const camera = options.viewport
@@ -882,17 +966,40 @@ export function exportScene(
   if (footer) {
     if (!transparent)
       d.rect({ x: 0, y: height - footer, width, height: footer }, p.surface);
+    const legendRules = styleRules(g.stylesheet);
     legendKinds.forEach((kind, i) => {
-      const x = 28 + ((i % 4) * (width - 56)) / 4,
-        y = height - footer + 22 + Math.floor(i / 4) * 30;
-      shape(
-        d,
-        kind,
-        { x: x + 7, y },
-        6.5,
-        (p as Record<string, string>)[kindToken[kind]],
+      const variants = g.nodes
+        .filter((n) => n.kind === kind)
+        .map((n) => {
+          const style = nodeStyle(legendRules, n, selected);
+          return {
+            fill: style.fill ?? (p as Record<string, string>)[kindToken[kind]],
+            kind: style.shape
+              ? (
+                  {
+                    circle: "Individual",
+                    square: "Class",
+                    diamond: "ObjectProperty",
+                    hexagon: "DataProperty",
+                  } as const
+                )[style.shape]
+              : kind,
+          };
+        });
+      const uniform = variants.every(
+        (v) => v.fill === variants[0].fill && v.kind === variants[0].kind,
       );
-      d.text(kindLabel(kind), { x: x + 20, y: y - 8 }, p["text-secondary"]);
+      const legend = uniform
+        ? variants[0]
+        : { fill: p["text-secondary"], kind };
+      const x = 28 + ((i % legendColumns) * (width - 56)) / legendColumns,
+        y = height - footer + 22 + Math.floor(i / legendColumns) * 30;
+      shape(d, legend.kind, { x: x + 7, y }, 6.5, legend.fill);
+      d.text(
+        kindLabel(kind) + (uniform ? "" : " (varied styles)"),
+        { x: x + 20, y: y - 8 },
+        p["text-secondary"],
+      );
     });
   }
   return {

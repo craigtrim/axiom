@@ -1,3 +1,4 @@
+import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { assistantActivities } from "./assistant-activity";
 import { useSyncExternalStore } from "react";
 import type {
@@ -169,6 +170,7 @@ export async function initialise() {
         n.x = positions[i * 2];
         n.y = positions[i * 2 + 1];
       });
+      updateIntersectionRoutes(positionedGraph.nodes, positionedGraph.edges);
       for (const fn of graphListeners) fn();
     }
   });
