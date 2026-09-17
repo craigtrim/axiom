@@ -1,3 +1,4 @@
+import { ontologyLanguage } from "./ontology-language";
 import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
@@ -15,34 +16,6 @@ import {
   type SourceDocument,
   type SourceFormat,
 } from "../shared/source";
-window.MonacoEnvironment ??= {
-  getWorker: () => new Worker(new URL("editor.worker.js", location.href)),
-};
-monaco.languages.register({ id: "ontology-source" });
-monaco.languages.setMonarchTokensProvider("ontology-source", {
-  tokenizer: {
-    root: [
-      [/<!--/, "comment", "@xmlComment"],
-      [/#.*$/, "comment"],
-      [/"""/, "string", "@longString"],
-      [/"(?:[^"\\]|\\.)*"/, "string"],
-      [/'(?:[^'\\]|\\.)*'/, "string"],
-      [/<[^>]*>/, "tag"],
-      [/@(?:prefix|base)|\b(?:PREFIX|BASE|a|true|false)\b/, "keyword"],
-      [/[a-zA-Z_][\w.-]*:[\w.-]*/, "type.identifier"],
-      [/[+-]?\d+(?:\.\d+)?/, "number"],
-      [/[{}()[\];,.]/, "delimiter"],
-    ],
-    xmlComment: [
-      [/-->/, "comment", "@pop"],
-      [/./, "comment"],
-    ],
-    longString: [
-      [/"""/, "string", "@pop"],
-      [/./, "string"],
-    ],
-  },
-});
 export function SourcePanel() {
   const snapshot = useSnapshot()!;
   const draft = useSourceDraft();
@@ -87,7 +60,7 @@ export function SourcePanel() {
   useEffect(() => {
     if (!host.current) return;
     const ownerDocument = host.current.ownerDocument;
-    const model = monaco.editor.createModel("", "ontology-source");
+    const model = monaco.editor.createModel("", ontologyLanguage(format));
     const instance = monaco.editor.create(host.current, {
       model,
       editContext: false,
@@ -158,7 +131,13 @@ export function SourcePanel() {
   }, [text]);
   useEffect(() => {
     editor.current?.updateOptions({ readOnly: loading || busy || !doc });
-  }, [loading, busy, !!doc]);
+    const model = editor.current?.getModel();
+    if (model)
+      monaco.editor.setModelLanguage(
+        model,
+        ontologyLanguage(draft?.loaded.format ?? doc?.format),
+      );
+  }, [loading, busy, doc?.format, draft?.loaded.format]);
   const apply = async () => {
     setBusy(true);
     setError("");
