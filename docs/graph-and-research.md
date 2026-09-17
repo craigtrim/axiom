@@ -4,7 +4,7 @@ Implemented from `things-i-need`: items 1 through 7 and 9. Item 8 is excluded. I
 
 ## Graph styles
 
-Open **Graph > Edit graph stylesheet** or use **Styles** in the graph toolbar. The editor accepts a documented CSS subset, validates it before applying, and includes an example and reset button.
+Open **Edit > Settings > Graph appearance** or use **Styles** in the graph toolbar for category colors, palettes, and bounded sizing rules. **Graph > Edit graph stylesheet** opens the Advanced section. See [Graph appearance](graph-appearance.md) for the Neo4j research, controls, and sizing definitions.
 
 ```css
 node.Class { fill: #4096d8; size: 32px; }
@@ -16,23 +16,51 @@ graph[theme="dark"] { background: #15191e; }
 
 Selectors cover entity kinds, exact entity IRIs, exact edge predicates, selection, pins and theme. Rules cascade by specificity and then source order. Shapes, labels, colors, opacity, line width and size are configurable. Colors use hexadecimal notation. The editor lists the supported properties and values; it does not evaluate arbitrary browser CSS.
 
-Styles appear in the live graph and PNG/SVG exports. They are saved in workbench preferences and workspace documents. Applying a stylesheet is undoable. Node size is a visual override; large sizes can overlap in a dense view.
+Styles appear in the live graph and PNG/SVG exports. They are saved in workbench preferences and workspace documents. Applying a stylesheet is undoable. Effective node sizes also determine hit testing and layout spacing. Large sizes can still overlap in a dense or frozen view.
+
+## Details
+
+Open **View > Details** (Ctrl+8), use **Details** in an entity context menu or Inspector, or press Alt+Enter for the selected entity. All entry points use one Details pane.
+
+While open, Details follows the selected entity in the graph, hierarchy and other views. Graph clicks update its content without opening a closed pane, activating a background tab or moving focus to a detached window. With no entity selected, Details asks for a selection. Opening and closing the pane remain explicit user actions.
+
+**Back** in the Details action row returns to the previous node or edge. Backspace does the same while focus is in Details, except in text fields, editable content, menus or dialogs. The button is disabled when no previous item is available. Navigation retains up to 100 prior items during the session, survives docking and pane closure, and starts afresh when another ontology is loaded.
+
+Details grid edits apply when a cell loses focus or when Enter finishes a value. Shift+Enter inserts a newline. Predicate dropdown choices apply immediately, and Undo restores the prior value. Incomplete or invalid rows remain editable with validation feedback. Inspector retains its existing Apply changes action. Older saved entity tabs restore as one Details pane in an existing tab location.
 
 ## Connecting nodes
 
-Select a node and use **Connect nodes** in the graph toolbar or node context menu, then click the target. With the graph focused, **C** starts the same operation. You can also drag the selected node's round arrow handle to another node, or click the handle and then the target. Dragging the node itself still moves it.
+Graph gestures follow the selection behavior documented in the [yEd Edit Mode manual](https://yed.yworks.com/support/manual/edit_mode.html). Selection is checked when the mouse button goes down, before the gesture can change it.
 
-Connection mode shows the source, target and arrow direction. Its instructions replace the toolbar controls so they do not cover graph nodes. Nodes stay still while you choose a target; force motion and pending layout results resume afterwards. The saved Freeze setting stays unchanged. Pointer targets remain at least 48 pixels across at low zoom, and node labels also accept the connection. Arrow keys and Enter select endpoints without a mouse. **Choose from list** offers all editable entities, including those outside the visible graph. Escape or Cancel leaves the ontology unchanged.
+| Gesture | Result |
+| --- | --- |
+| Click a node | Select it. Small square markers identify the selection. |
+| Drag an already selected node | Move it. |
+| Click empty canvas | Clear the selection. |
+| Drag from an unselected node | Draw an edge while the source stays in place. |
+| Release over another node | Attach the edge. |
+| Release in empty space | Add a bend and continue drawing. Further empty-space clicks add bends; clicking a target finishes. |
+| Escape or right-click while drawing | Cancel the unfinished edge. |
 
-The **Add relationship** dialog confirms From, Relationship and To. It suggests subclass-of between classes, instance-of from an individual to a class, or subproperty-of between properties of the same kind. You can enter another relationship using its IRI or a known prefix. Adding a relationship preserves existing assertions and creates one Undo operation. Duplicate assertions, stale drafts and unavailable graph capacity are rejected before changing the ontology. Any newly displayed endpoint respects the existing graph node limit.
+The graph toolbar stays available while drawing. A thin arrow follows the pointer and the target receives a small outline. Nodes pause during the gesture; the saved Freeze setting stays unchanged. Target hit areas are at least 48 pixels across at low zoom, and visible node labels also accept drops. Graph seed membership has no selection outline.
+
+Axiom supplies ontology meaning when an edge attaches: class to class creates subclass-of; individual to class creates instance-of; properties of the same kind create subproperty-of. The arrow runs from the child or instance to its parent or type. Other pairs stay attached as a preview while a small property picker asks for the relationship. Details can edit the relationship after creation.
+
+**Graph > Edges**, the command palette and the **C** shortcut retain **Connect nodes** for keyboard use. The node context menu omits it. Arrow keys and Enter choose endpoints. All entry points share the same preview and attachment behavior, including detached panes.
+
+Creation and any drawn bends form one Undo operation. Redo and workspace files restore the route. Existing assertions are preserved. Drawing an existing relationship selects it without adding another assertion. Stale drafts and unavailable graph capacity leave the ontology unchanged. Closing the pane cancels an unfinished connection and releases its temporary layout pause.
 
 ## Edge editing
 
-Click a line to select it, or use the Select edge list in the graph toolbar. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens the edge inspector. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.
+Click a line to select it, or use the Select edge list in the graph toolbar. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens Details for the selected edge. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.
 
-The edge inspector edits From, Relationship and To. Apply edge changes updates the ontology statement. A relationship can be entered as an absolute IRI or a known prefix such as rdfs:subClassOf. If one visible line represents statements in several named graphs, choose the statement graph before changing or removing it. Changes made elsewhere require Reload edge before applying a draft.
+The same Details tab follows either a node or an edge selection. Selecting an edge updates an open tab without opening or focusing a closed or background tab. View > Details, the graph Details action, the edge context menu and Alt+Enter explicitly open it.
 
-Drag a round endpoint handle onto a node to reconnect it. Activating an endpoint handle and then clicking a node provides the same operation. The From and To fields can choose an entity outside the current graph; it is admitted within the node budget. Removing an edge deletes the chosen asserted relationship and preserves the endpoint nodes. Delete on a selected node continues to remove only the node from the view.
+Details presents node statements in an editable Predicate, Value, Language table. Standard predicates use prefixes; identifiers in the selected entity's namespace use local names. Long values wrap. Add statement appends a row, and each row's menu exposes datatype, named graph, value type and removal.
+
+For edges, Details shows the source above the same compact predicate/value structure. Inspector shares the same retained edge draft; switching between nodes and edges preserves unfinished edits, and Save workspace applies them. Apply edge changes updates the ontology statement. A relationship can be entered as an absolute IRI or a known prefix such as rdfs:subClassOf. If one visible line represents statements in several named graphs, choose the statement graph before changing or removing it. Changes made elsewhere require Reload edge before applying a draft.
+
+Use Reconnect source or Reconnect target in the edge context menu, then click a node to reconnect that end. Selected edges show only the square bend handle. The From and To fields can choose an entity outside the current graph; it is admitted within the node budget. Removing an edge deletes the chosen asserted relationship and preserves the endpoint nodes. Delete on a selected node continues to remove only the node from the view.
 
 Drag the square middle handle to bend the line. Focus that handle and use arrow keys for keyboard adjustments; Shift makes smaller adjustments. Escape cancels a bend drag. Reset route restores the layout's automatic path. Manual paths are retained in workspace files and used by Fit and image export. Undo and Redo restore relationship edits, routes, graph membership and selection together.
 
@@ -42,7 +70,7 @@ Summarized OWL axioms and generated sample relationships can be selected and rer
 
 Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and research as applicable to the entity. Disabled actions retain their place in the menu.
 
-**Add children** uses Codex on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. **Find instances** uses a distinct prompt for named individuals. Both actions open a review dialog and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
+**Add children** uses the selected local assistant on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. **Find instances** uses a distinct prompt for named individuals. Both actions open a review dialog and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
 
 ## Layout choices
 
@@ -64,6 +92,8 @@ The added algorithms use elkjs 0.12.0. ELK documents its [layered method](https:
 
 ELK runs in a separate worker. Cancellation terminates that worker, and a 30-second timeout prevents a layout from running indefinitely. Only currently visible nodes participate. Pinned nodes keep their coordinates when results are applied; this can constrain the appearance of an otherwise automatic layout. Axiom uses the calculated node positions with its own edge renderer.
 
+The graph footer also has a **Node spacing** slider (50% to 300%). It changes distances within clusters for every layout without resizing nodes or changing zoom. Each graph tab remembers its own spacing, including after restart. Pinned nodes stay fixed, and each slider drag is one Undo operation.
+
 The hard visible-node limit remains an exact, configurable integer from 100 to 3,000, starting at 1,000. The layout choice never raises the limit. Reduce the limit when labels and relationships become difficult to read.
 
 ## Undo and Redo
@@ -78,7 +108,7 @@ History is session-local and resets when opening a different workspace. It retai
 
 Use **Edit > Research selected entity**, the graph or inspector Research button, a taxonomy context menu, or **View > Research**. The Research pane docks, resizes and detaches like the other panes. Its assistant, template, instructions and web setting appear immediately in every working pane layout. There is no Options button; results remain alongside or below the form.
 
-Axiom detects Codex and Claude on PATH, including the standard Codex npm installation. Refresh assistants after changing an installation. Each provider uses its existing CLI sign-in. Axiom does not install a provider or collect account credentials.
+Claude is the default for Research, query generation, Add children and Find instances. Switching the Assistant selector updates the shared choice across these integrations. Codex remains available. Axiom detects Claude and Codex on PATH, including the standard Codex npm installation. Refresh assistants after changing an installation. Each provider uses its existing CLI sign-in. Axiom does not install a provider or collect account credentials.
 
 Choose a template for contextual research, synonyms, subclasses, instances or a custom question. Edit its instructions; edits are saved locally. The preview shows the actual prompt and ontology context before transmission. Context includes ontology identity, entity details, parents, children, restrictions, relationships and sample instances, with explicit limits and total counts.
 
@@ -97,3 +127,21 @@ Installed CLI discovery and help interfaces were checked on this machine. Automa
 Automatic chooses Widescreen when the application viewport is at least 1,600 CSS pixels wide and its width-to-height ratio is at least 1.7. Individuals and Query then sit beside each other, while the graph gets more of the upper workbench's width. Smaller windows use the standard arrangement.
 
 Dragging a divider or moving a pane makes the arrangement custom so subsequent window resizes preserve that choice. Choose Automatic again, or reset the pane layout, to resume adaptation. The arrangement and manual layout are remembered across restarts.
+
+## Multiple graph views
+
+**Show in graph > Current graph** targets the active or last active graph. **New graph** opens an independent graph tab. Each view keeps its nodes, positions, routes, layout and camera; styles remain shared. Workspace files retain the graph views, and Undo restores graph state alongside ontology changes.
+
+**Find in taxonomy** is available in the graph node menu and selection toolbar. It reveals the Hierarchy pane, clears a hiding filter, expands ancestors and scrolls to the selected row. Keyboard focus stays on Graph.
+
+### Details grid and entity source
+
+Details shows Predicate and Value columns. The predicate dropdown includes known relationships, Find predicate and Add predicate. Statement options hold language, datatype and named graph metadata. Open details follows a resource value. Text cells size themselves without resize handles.
+
+The Source disclosure shows the selected entity in the imported document's RDF serialization. New ontologies use Turtle; snippets containing named graphs use a format that preserves them. The snippet includes reachable anonymous structures such as OWL intersections and lists.
+
+Grid edits refresh Source. Source typing remains a separate draft until Save source validates and applies it. A source save updates the grid, graph, taxonomy and Undo history as one operation. Syntax errors and conflicting changes preserve the draft and leave the working ontology intact. Discard source edits reloads the current representation. Source drafts survive navigation and must be saved or discarded explicitly before saving the workspace.
+
+## Expand and Collapse position
+
+Expand and Collapse hold the action node at its exact graph coordinates and screen position. Toolbar reflow is compensated without changing zoom. Other nodes may rearrange around it. The hold applies to force settling, built-in layouts and asynchronous ELK results, without setting the user-controlled Pin flag. Dragging the node or explicitly running a new layout releases the hold.

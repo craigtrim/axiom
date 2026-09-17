@@ -1,8 +1,10 @@
 # Menu organization for Axiom
 
-Design review and implementation record, updated 16 September 2026. The source audit and proposals below record the design rationale. The delivered behavior includes the approved grouping and the subsequently requested instance-report shortcuts.
+Design review and implementation record, updated 17 September 2026. The source audit and proposals below record the design rationale. The delivered behavior includes the approved grouping and the subsequently requested instance-report shortcuts.
 
 ## Delivered behavior
+
+File > Open contains Workspace... (Ctrl+O), Recent and Examples. Examples contains Pizza. Recent retains up to 12 successfully opened or saved workspace and ontology files across restarts, newest first. Reopening a file moves it to the top without adding a duplicate. Every entry shows its full absolute file path. Recent is disabled when empty. Recent-file clicks use the same unsaved-change handling and file validation as Workspace...; a failed or cancelled open does not add that file to the list.
 
 Hierarchy and graph context menus now use separators for logical groups. Common commands remain directly accessible. Pin in graph shows a checkmark; class-only commands are omitted for other entity types; Delete class remains last. Graph canvas menus contain the two creation actions. Window now has a Move pane submenu with Left, Right, Top and Bottom. Menu entries retain explicit access keys, disabled items are focusable without being executable, Escape restores focus, and Tab moves outside the popup.
 
@@ -10,7 +12,7 @@ Show instances opens the same read-only Individuals report from a hierarchy cont
 
 The report identifies its class and direct-instance count. If its last instance is removed while the report is open, it displays an empty state. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
 
-Connect nodes is available in the graph toolbar, node context menu, Graph > Edges and command palette. The graph shortcut is C. It starts the same source/target selection flow as the selected node's drag handle, with a confirmation dialog before changing the ontology.
+Dragging from an unselected node draws an edge; dragging an already selected node moves it. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-and-research.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
 
 ## Counts and action availability
 
@@ -44,7 +46,7 @@ Counts below exclude separators and include disabled entries. They describe the 
 
 | Surface | Current implementation | Proposed organization |
 | --- | --- | --- |
-| Hierarchy entity menu | Up to 13 flat commands. Branch navigation, graph actions, creation, deletion and assistant actions share one uninterrupted list. Delete class sits before Edit details and Copy IRI. | Group navigation, editing/creation, assistant actions, copying and deletion. Keep all actions at the first level. |
+| Hierarchy entity menu | Up to 13 flat commands. Branch navigation, graph actions, creation, deletion and assistant actions share one uninterrupted list. Delete class sits before Details and Copy IRI. | Group navigation, editing/creation, assistant actions, copying and deletion. Use a Show in graph submenu for Current graph and New graph. |
 | Graph node menu | Ten entries including Dismiss. Pin / unpin does not expose the current state. | Group editing, research, graph display and copying. Use checked Pin in graph. Dismiss can be removed after verifying outside-click and keyboard dismissal. |
 | Graph edge menu | Five flat actions: editing, reconnection, route reset and removal. | Keep editing/reconnection together; separate route display and removal. A two-item Reconnect submenu adds little value. |
 | Empty graph canvas | Two creation commands plus Dismiss. | Two direct creation commands are sufficient. No separator or submenu is needed between them. |
@@ -65,7 +67,7 @@ Expand branch
 Add neighbours to graph
 Pin in graph
 --------------------------
-Edit details
+Details
 Rename
 New subclass
 New instance
@@ -86,28 +88,29 @@ The additional separators make this menu taller. Check it at high display scalin
 ### Graph node
 
 ```text
-Edit details
-Show instances
+Expand (Collapse when expanded)
+Hide
 Rename
-Connect nodes
-New instance
+Details
+Find in taxonomy
 --------------------------
+New instance
+Show instances (count)
+Suggest Sub Classes
 Research...
 --------------------------
-Expand
-Collapse
 Pin in graph
-Remove from view
---------------------------
 Copy IRI
 ```
 
-Remove from view stays in the graph-display group. Its label must continue to distinguish it from deleting ontology data. Graph-specific exploration stays directly accessible; a Graph submenu would hide much of the reason to right-click a graph node.
+Hide removes the node from the current view and preserves ontology data. Expand and Collapse share one position in the menu. Expansion state is saved per graph. Find in taxonomy reveals the row while keyboard focus stays on Graph. Show instances opens the existing report and is disabled at zero.
+
+Suggest Sub Classes uses a local label index to find shorter existing parent names within the selected class name. Users review the matches before Axiom makes the selected class a subclass of those parents. It makes no assistant or network request.
 
 ### Graph edge
 
 ```text
-Edit edge
+Details
 Reconnect source
 Reconnect target
 --------------------------
@@ -153,7 +156,7 @@ The directional submenu reduces four repeated top-level entries to one predictab
 
 ## Keyboard and accessibility work
 
-Axiom's shared [ContextMenu.tsx](../src/renderer/ContextMenu.tsx) already supports arrow navigation, Home/End, mnemonics, outside-click dismissal and returning focus on close. Its action model now distinguishes separators and optional checked states, with conditional visibility and explicit keys. Cascades remain in the Electron menu bar.
+Axiom's shared [ContextMenu.tsx](../src/renderer/ContextMenu.tsx) already supports arrow navigation, Home/End, mnemonics, outside-click dismissal and returning focus on close. Its action model now distinguishes separators and optional checked states, with conditional visibility and explicit keys. The Show in graph cascade uses the same component in Hierarchy.
 
 The [W3C menu pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/) supplies the relevant semantics for the React implementation: separators are noninteractive; submenu triggers expose their expanded state; Right opens a submenu; Left returns to its parent; Escape closes the current level. Disabled menu items remain discoverable through focus but cannot execute. Tab leaves the menu rather than moving between its items.
 
@@ -165,8 +168,16 @@ The minimum verification for a revision is keyboard-only operation, checked/disa
 
 Axiom uses Electron menus for the menu bar and a custom React popup for these object menus. [Electron's Menu API](https://www.electronjs.org/docs/latest/api/menu) supports popup menus and submenus, but documents Chromium-like presentation on Windows. Switching to it would not by itself guarantee the exact WinUI or Explorer appearance.
 
-The shared React component now renders separators and checked options. Before adding cascades, compare Electron popup menus with extending the custom component, including detached-window ownership and preserving local UI actions such as inline rename. A shared typed menu description should distinguish commands, separators, checked options and submenu parents whichever renderer is chosen.
+The shared React component now renders separators and checked options. The Show in graph cascade extends this component and preserves detached-window ownership and local UI actions. A shared typed menu description should distinguish commands, separators, checked options and submenu parents whichever renderer is chosen.
 
 ## Evidence still needed
 
 The grouping follows documented conventions and the source audit. There is no measured task-time improvement or Axiom command-frequency dataset behind them. Compare the current menus with grouped flat menus first. Observe time to find commands, wrong selections, pointer travel and keyboard completion. Trial a nested variant only for groups where it produces a measurable improvement. The initial research supports separators more strongly than adding cascades to the node menus.
+
+## Zooming an individual view
+
+Hold Ctrl and turn the mouse wheel over Individuals or another view to zoom that view. An ordinary wheel gesture scrolls its content. Each view remembers its own scale, including when detached and returned to the main window. The supported range is 50% to 300%.
+
+Graph retains its existing wheel zoom. The View menu's zoom commands and Ctrl+Plus/Ctrl+Minus continue to control Axiom as a whole.
+
+The shared pane wrapper handles the gesture before a grid or editor can consume it. Tests in tests/e2e/pane-zoom.spec.ts cover Individuals scrolling and row selection, other views and editors, saved scale, detached panes, and Graph's existing wheel behavior.

@@ -346,3 +346,312 @@ Validation:
 - Every packaged JavaScript, CSS and HTML runtime file matched the current build. The verification record includes executable and archive SHA-256 hashes.
 
 Executable: `D:\git\axiom\artifacts\electron-20260916T153541Z\Axiom-win32-x64\Axiom.exe`.
+
+## Selection-based graph gestures (16 September 2026)
+
+Graph gestures now follow the [yEd Edit Mode manual](https://yed.yworks.com/support/manual/edit_mode.html): click to select, drag a selected node to move, and drag from an unselected node to draw an edge. Releasing on another node attaches it. Empty-space drops add bends; Escape and right-click cancel. Small square markers distinguish selection from graph seed membership. The toolbar stays available while drawing.
+
+Class-to-class edges attach as subclass-of, individual-to-class edges as instance-of, and properties of the same kind as subproperty-of. Other pairs retain an attached preview while a compact picker asks for the property. Existing edge Inspector editing remains available. Bends persist through Undo, Redo and workspace reload. Keyboard commands and detached panes share the same attachment behavior.
+
+Validation:
+
+- TypeScript, formatting and the whitespace check passed. All 2,011 offline tests passed across 27 files.
+- All 20 desktop workflows passed against the packaged executable. They cover the new gestures, small targets, cancellation, pane closure, stale data, duplicate edges, layout pause/resume, property-error recovery, graph capacity, existing edge editing, node creation, native commands and compact panes.
+- A pane-closure test exposed a frame callback reading a cleared canvas reference. The callback now checks its captured canvas, and the cancellation test passed in both the development and packaged builds.
+- The selected node, pending edge and attached edge screenshots were inspected. The property picker passed a targeted automated accessibility scan.
+- All 24 packaged JavaScript, CSS and HTML files matched the tested build. The delivery record contains executable and archive SHA-256 hashes.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T175642Z\Axiom-win32-x64\Axiom.exe
+```
+
+Verification record: `artifacts/testing/yed-gestures-delivery-verification.json`. Desktop results: `artifacts/yed-gestures-packaged.json`. Offline results: `artifacts/yed-gestures-unit.json`.
+
+## Endpoint circles removed (16 September 2026)
+
+Selected edges no longer display white endpoint circles. Their drag controls and styling were removed. The square bend handle, drawing gestures, edge Inspector and context-menu reconnection remain available.
+
+TypeScript passed. All 12 graph workflows passed against the packaged executable, covering drawing, bending, cancellation, Undo, workspace reload, detached panes and menu reconnection. The adapted menu test initially clicked before its asynchronous prompt was ready; waiting for the prompt resolved that test failure. The selected-edge screenshot was inspected, and all 24 packaged runtime files match the tested build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T181247Z\Axiom-win32-x64\Axiom.exe
+```
+
+Verification record: `artifacts/testing/edge-circles-removed-delivery-verification.json`.
+
+## Details follows selection when explicitly opened (16 September 2026)
+
+The entity tab and its opening actions are named Details. View > Details opens the same reusable pane, with Ctrl+8 as its shortcut. An open Details pane follows entity selection without activating its tab or taking focus from the graph. Clicking a node leaves a closed Details pane closed. Unsaved drafts remain attached to their entities, and older saved entity tabs restore as one Details pane.
+
+TypeScript and 61 targeted offline checks passed. All 13 packaged desktop workflows passed, including actual graph clicks, explicit View access, hidden and detached panes, close/reopen and restart, older layout migration, shared drafts, identifier changes, native menu coverage and docking. A layout-reset regression was corrected so retaining Details leaves Graph selected. The selection-following pane was inspected visually. All 24 packaged runtime files matched the tested build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260916T192826Z\Axiom-win32-x64\Axiom.exe
+```
+
+Verification record: `artifacts/testing/details-delivery-verification.json`. Desktop results: `artifacts/details-packaged.json`. Targeted offline results: `artifacts/details-unit.json`.
+
+## OWL intersection delivery, 2026-09-16
+
+- Imported `C:\Users\Craig\Desktop\courses.owl` through the packaged application's File > Open flow in an isolated profile. All 607 intersections resolved, with 23,836 source statements preserved and 5,868 named classes in Hierarchy.
+- Checked the four-node graph for 3D Design and 3D Printing, readable AND junctions, named taxonomy parents, Inspector explanations and explicit Details opening. Selecting a node did not open Details.
+- The full offline suite passed 2,020 tests. Subsequent focused checks passed 32 graph/workspace tests and nine intersection tests, including light/dark SVG rendering. TypeScript and whitespace checks passed.
+- The packaged desktop suite passed 16 tests covering Details, node movement, edge creation, edge editing and the actual courses ontology. The final build passed the courses desktop test again after the caption placement and AND lettering adjustment.
+- All 24 packaged runtime files match the build output. The Desktop ontology's SHA-256 remains `01eb95296ba37c37911c73797b6c7715e47a98e0416f595f82440ef6a7935c4b`.
+- Final executable: `D:\git\axiom\artifacts\electron-20260916T200631Z\Axiom-win32-x64\Axiom.exe`.
+- Records: `artifacts/intersections-unit.json`, `artifacts/intersections-focused.json`, `artifacts/intersections-render.json`, `artifacts/intersections-packaged.json`, `artifacts/intersections-final-desktop.json`, and `artifacts/testing/intersections-delivery-verification.json`.
+
+## Shared node and edge Details, 2026-09-16
+
+Details now follows both node and edge selection in the same tab. Selecting an edge updates an existing tab without opening it or taking focus from Graph. View > Details, Alt+Enter, Graph > Edges > Details, the graph action and the edge context menu explicitly open that tab. Detached and background tabs retain the same behavior.
+
+Inspector and Details share retained edge drafts. Switching selection preserves those edits, and Save workspace applies them. Synthetic intersection member edges retain their read-only explanation. The edge routing instructions refer to the remaining bend handle and context-menu reconnection.
+
+Validation passed: TypeScript, 58 targeted domain tests, 12 packaged Details/edge desktop tests and the native edge-menu journey. The packaged runtime matches all 24 build files. Records are in `artifacts/edge-details-unit.json`, `artifacts/edge-details-packaged.json`, `artifacts/edge-details-menu-packaged.json` and `artifacts/testing/edge-details-delivery-verification.json`.
+
+Executable: `D:\git\axiom\artifacts\electron-20260916T204248Z\Axiom-win32-x64\Axiom.exe`.
+## Graph appearance settings, 2026-09-16
+
+Added Edit > Settings > Graph appearance, backed by the existing CSS-like stylesheet. The editor analyzes dataset-wide node kinds, named classes, and relationship types. It offers coordinated Paul Tol palettes, class-node versus class-instance rules, previews, fixed sizing, metric sizing, and weighted combinations with bounded diameters. Graph > Edit graph stylesheet retains direct access to the Advanced section.
+
+The complete offline suite passed 2,033 tests before the final export-legend adjustment. After that adjustment, 33 focused tests passed, including the new legend regression. TypeScript passed. The final packaged application passed 16 desktop journeys covering appearance settings, weighted sizing, geometry, Undo/Redo, SVG export, saved workspaces, node/edge Details, and OWL intersections.
+
+Dataset analysis took 987 ms on the 100,000-order example, comprising 112,614 graph nodes and 312,797 relationships. A cached read took approximately 0.014 ms on this machine. This is one local measurement, not a performance guarantee.
+
+All 24 packaged runtime files match the build output. Package SHA-256: 2050654637e3d9b9095a5596854ddd9274b8c1fe996cc3537f046c27de0bdc54.
+
+Executable: `D:\git\axiom\artifacts\electron-20260917T013410Z\Axiom-win32-x64\Axiom.exe`.
+
+Research and behavior: `docs/graph-appearance.md`. Records: `artifacts/graph-appearance-all-unit.json`, `artifacts/graph-appearance-final-unit.json`, `artifacts/graph-appearance-final-packaged.json`, `artifacts/testing/graph-appearance-analysis-performance.json`, and `artifacts/testing/graph-appearance-package-verification.json`.
+
+## Compact Details, graph tabs and intersection branches (16 September 2026)
+
+Intersection expressions render as Y-shaped connectors between named classes. Each branch retains its original subclass or equivalence axiom. Editing or removing a member updates the expression; one remaining member becomes a direct relationship. Anonymous intersection nodes stay out of Hierarchy.
+
+Details uses an editable Predicate / Value / Language table for entity statements. Local identifiers omit the namespace, values wrap, and row options expose datatype and named-graph metadata. Nodes and edges share the explicitly opened Details pane, with drafts preserved across selection changes.
+
+Show in graph offers Current graph and New graph. Each graph keeps its own layout, selection and viewport through workspace save and reopen. Find in taxonomy expands, scrolls and highlights the corresponding row while keyboard focus stays on Graph.
+
+Claude is the shared default for Research, query generation, Add children and Find instances. Codex remains selectable. Codex-specific fixtures explicitly select their provider. Local intersection suggestions use an index of existing class labels, show word coverage and unmatched words, and require review before adding an axiom.
+
+Validation:
+
+- TypeScript and the whitespace check passed. All 2,041 offline tests passed.
+- All 29 packaged desktop checks passed for Details, retained drafts, detached panes, graph drawing and editing, appearance settings, export, workspace reopen, graph tabs, taxonomy navigation, provider switching and intersection suggestions.
+- Nine additional packaged taxonomy-assistant checks passed using a local fake Codex process. They cover review, duplicate protection, stale results, cancellation, retries and detached windows. Live model tests were not run.
+- The packaged application loaded `C:\Users\Craig\Desktop\courses.owl`: 5,868 named classes, 607 intersections and 23,836 triples. The example renders as three named nodes joined by a Y-shaped connector. Viewing it preserves the RDF, and the Desktop file's SHA-256 remains `01eb95296ba37c37911c73797b6c7715e47a98e0416f595f82440ef6a7935c4b`.
+- All 24 packaged runtime files match the tested build. The application archive SHA-256 is `24c71bb61866c35a3893de5672c6b41e4a0bea65415dac9da154c4801df2e974`.
+- Screenshots of the compact table, graph tabs and intersection branches were inspected.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T022357Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: `artifacts/ux-final-unit.json`, `artifacts/ux-final-packaged.json`, `artifacts/ux-final-taxonomy-packaged.json` and `artifacts/testing/ux-final-package-verification.json`.
+
+## Details Back navigation (16 September 2026)
+
+Details now has a visible Back button at the start of its action row. Backspace returns to the previous node or edge while focus is in Details. Inputs, text areas, editable content, menus and dialogs retain their own keyboard behavior. Clicking non-editable pane content establishes the keyboard scope; focus in Graph leaves Details history alone.
+
+History retains up to 100 prior items for the current session. It preserves drafts, survives docking and pane closure, restores the owning graph for an edge, and skips unavailable destinations. Loading another ontology clears it. The button is disabled when no previous item remains.
+
+TypeScript and all 29 keyboard unit checks passed. Sixteen distinct packaged desktop workflows passed, covering the existing Details and keyboard behavior plus resource-link navigation, repeated Backspace, text deletion, node and edge drafts, modal focus, detached panes, graph switching, pane closure and removed edges. The removed-edge fixture was corrected to account for removal clearing selection. A native-menu test passed on rerun after its focus guard stopped the initial attempt.
+
+The narrow Details pane was inspected visually. All 24 packaged runtime files match the tested build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T032028Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: `artifacts/details-back-packaged.json`, `artifacts/details-back-rerun-packaged.json`, `artifacts/testing/details-back-package-verification.json` and `artifacts/testing/details-back-delivery-verification.json`.
+
+## Details grid and editable native Source (16 September 2026)
+
+Details now uses two columns, Predicate and Value. Predicates use dropdowns with search and an explicit Add predicate action. Language, datatype and named-graph metadata remain in row options. Value fields grow without resize handles, and referenced resources have a labelled Open details action.
+
+Grid edits apply on leaving a value field or pressing Enter; Shift+Enter inserts a newline. Predicate changes apply on selection. The Details toolbar reports editing and saving status without an Apply changes button. Edge Details uses the same automatic saving behavior. Inspector retains its existing manual Apply action.
+
+The Source disclosure replaces Identifier. It shows a formatted snippet in the loaded RDF serialization, including the selected entity's anonymous structures. Grid edits refresh a clean snippet. Source edits remain drafts until Save source validates and applies them atomically to all views. Invalid syntax, unrelated named subjects and conflicting entity changes are rejected without changing the ontology. Drafts survive navigation and pane closure, and changes support Undo. Saving a workspace with an unapplied source draft asks the user to save or discard that source first.
+
+Validation:
+
+- TypeScript passed, and all 2,050 offline tests passed. Source tests cover six RDF serializations, anonymous structures, shared references, conflicts, renames and Undo.
+- Forty distinct packaged desktop workflows passed across the new grid and native Source editor, Back navigation, node and edge editing, shared Inspector drafts, graph reconnection, graph tabs, full Source view, intersections and authoring. Older test selectors were updated for dropdowns and automatic saving. The graph workspace test now uses a fresh file, and a coordinate-based reconnection check passed on rerun.
+- The packaged app loaded the Desktop courses.owl for the intersection check. Its SHA-256 remains unchanged: 01eb95296ba37c37911c73797b6c7715e47a98e0416f595f82440ef6a7935c4b.
+- The narrow Details grid and expanded Source snippet were inspected visually. All 25 packaged runtime files match the tested build. The archive SHA-256 is d139de226d1191b1c9541513780e78a1842d457d7a7a09c4d540614f355d79dc.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T040351Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: `artifacts/details-source-unit.json`, `artifacts/details-source-packaged.json`, `artifacts/details-source-packaged-rerun.json`, `artifacts/details-source-packaged-authoring.json` and `artifacts/testing/details-source-delivery-verification.json`.
+
+## Last-session startup (17 September 2026)
+
+Axiom restores its last session before rendering the main window. A fresh profile opens an empty workspace with a blank graph and the standard owl:Thing root. Pizza remains available through File > Open Pizza example. File > Close records an empty session for the next launch.
+
+The profile stores a separate copy of the ontology, graph views, positions, selection, selected edge, pane layout and workspace Save destination. Imported files can move without preventing session restoration. Opening, importing, creating or saving a workspace checkpoints the session. Closing captures the final workbench state. Save, Discard and Cancel retain their existing meanings; discarded edits do not reappear after restart. Session writes replace files atomically and retain a previous valid copy for recovery. If neither copy can be restored, the app opens empty and reports the failure. Keyboard preferences remain global.
+
+Demo-based tests now open the example explicitly. This exposed two interaction defects: a creation form could be hidden beneath collapsed ancestors, and replacing the graph's nodes could clear its selected node. Both were corrected and covered by the packaged authoring and export journeys.
+
+Validation: TypeScript and the whitespace check passed. The complete offline suite passed 2,057 tests. The final executable passed all 37 desktop workflows covering fresh profiles, repeated restarts, moved source files, graph tabs and positions, selected edges, Details and Source, Save/Discard/Cancel, backup recovery, demo opening, File > Close, authoring, export and pane persistence. Live assistant tests and the performance benchmarks were not run. The empty startup screen was inspected visually.
+
+All 26 compiled runtime files match the tested build. Archive SHA-256: 86f353af32f120346b539ead19a290cee99f0049fd0e414d7a282c48167db621.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T135625Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: `artifacts/session-all-unit.json`, `artifacts/session-final-packaged.json`, `artifacts/testing/session-package-verification.json` and `artifacts/testing/session-delivery-verification.json`.
+
+
+## Details resource values and class parents (17 September 2026)
+
+Details uses recognized skos:, dc: and dcterms: predicate names. The named-class declaration stays first and read-only; instance types remain editable. Resource values and edge endpoints use indexed type-ahead. A row's ellipsis opens the referenced entity and its scoped Source in the same Details tab. The old statement-options dialog has been removed.
+
+Add parent creates ordinary subclass statements. A simple imported subclass intersection appears as individual parent rows; editing a member saves ordinary statements while preserving shared and annotated structures. The local suggestion dialog defaults to Add parents. Equivalent intersections require an explicit choice. Scoped Turtle uses property lists and collection syntax while retaining shared, cyclic and graph-name identities where required. Anonymous Details uses the owning namespace and the same editable source snippet.
+
+Mouse selection was checked in docked and detached panes. The popup belongs to the input's window and does not surrender focus to the Details navigation handler before selection. Short panes keep the toolbar above a full-width table. The narrow and detached layouts were inspected visually.
+
+Validation: TypeScript and the whitespace check passed. All 2,066 offline tests and 42 desktop workflows passed. The desktop suite ran against the delivery executable and includes source round trips, metadata retention, parent selection, explicit equivalence, navigation, detached editing, graph routes, native courses.owl loading and session restoration. The 100,000-class index built in 1.29 seconds in the final offline run; 100 selective warm queries had a 0.035 ms 95th percentile. These timings measure the index, excluding IPC and the 80 ms input debounce.
+
+All 26 packaged runtime files match the tested build. Archive SHA-256: fe2bc5ec1316643b92c7faa110b6e4d5f3d60ae5c5eba4fdfeda55a04fcaf0e8.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T151255Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/details-values-final-unit.json, artifacts/details-values-delivery-packaged.json and artifacts/testing/details-values-delivery-verification.json. Implementation notes: docs/details-editing.md.
+
+
+## File Open submenu (17 September 2026)
+
+File > Open now contains Workspace... (Ctrl+O), Recent and Examples > Pizza. The flat opening commands have been moved into these submenus. Existing command identities and shortcut customization remain intact.
+
+Recent keeps the last 12 successfully opened or saved workspace and ontology files, newest first. It persists independently of workspace settings, removes duplicates and shows directories when filenames match. Empty history disables Recent. A known source file from the last session seeds history when upgrading an existing profile. Recent opens use the same unsaved-change prompt and validation as the file chooser.
+
+Validation: TypeScript, whitespace and 39 focused offline tests passed. All 16 packaged desktop checks passed across the main run and menu-audit follow-up. These cover menu structure, Ctrl+O, the Pizza example, recent-file persistence, duplicate names, normal workspace Save/Open, cancellation, missing and malformed files, session restoration and menu coverage. The first menu audit found an existing registry omission for Graph appearance; its dedicated workflow and the corrected audit both passed.
+
+All 26 packaged runtime files match the build. Archive SHA-256: d91c93d203da63a743876738217fff3c5f840b7cdc009ff5db9824edafffbf58.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T155813Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/file-open-unit.json, artifacts/file-open-packaged.json, artifacts/file-open-menu-audit.json and artifacts/testing/file-open-delivery-verification.json.
+
+## Courses equivalence migration and graph refinements (17 September 2026)
+
+The Desktop courses.owl file now has 607 equivalent-class intersection definitions. Canonical RDF comparison verified that the migration changed only the requested owner predicates, preserving six mixed-parent statements and every other statement. The original is backed up beside the file as courses.owl.before-equivalence-20260917T161232Z.bak. File and backup hashes were checked after the desktop tests.
+
+Axiom preserves explicit equivalence. Simple future anonymous subclass intersections are normalized to separate parent statements, without adding equivalence. The fixed class declaration has no ellipsis. Details and full Source share syntax highlighting, with formatted Turtle and RDF/XML subject blocks. Connect nodes was removed from node context menus. Expand and Collapse hold exact world and screen positions, compensate toolbar reflow and avoid automatic Fit after incremental ELK results. The appearance editor uses the shared, virtualized taxonomy with class-branch styling.
+
+Validation: TypeScript and whitespace checks passed. All 2,077 offline tests and all 31 packaged desktop tests passed. Desktop coverage includes the real migrated courses.owl, all six source formats, syntax colors, explicit source saving, Undo, Backspace, detached Details and graph panes, edge gestures, 6,000-class tree browsing, branch styles, and exact screen positions and zoom through expansion, collapse and settling in eight layouts.
+
+All 33 packaged application files match the build. Archive SHA-256: 1d4451a20a043bc8c06ed19fd1d53fe0cb8d98ea4eebbbdb388a0414c5ff6254.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T164622Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/graph-refinement-all-unit.json, artifacts/graph-refinement-packaged-ui.json, artifacts/graph-refinement-package-check.json and artifacts/testing/courses-equivalence-migration.json.
+
+## Absolute paths in Recent (17 September 2026)
+
+File > Open > Recent now displays the full absolute path for every entry. Menu mnemonics and literal ampersands remain supported.
+
+TypeScript, whitespace checks and all four packaged File Open tests passed, including exact labels, reopening, duplicate filenames, persistence and failed-open handling. All 33 packaged application files match the build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T171831Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/recent-absolute-paths-packaged.json and artifacts/recent-absolute-paths-package-check.json.
+
+## Graph node spacing (17 September 2026)
+
+Every graph footer has a Node spacing slider from 50% to 300%. It adjusts existing geometry for all nine layout choices, including spacing within grid clusters, without changing node size or zoom. Pinned nodes stay fixed. Radial guides stay centred on a pinned focus. Each graph saves its own value in workspace and session documents. One slider drag creates one Undo entry; menu and keyboard Undo work with the slider focused.
+
+TypeScript and whitespace checks passed. All 47 focused domain tests and all eight packaged desktop tests passed. Coverage includes every layout, live pointer previews, keyboard controls, pins, unchanged zoom, relayout, grid frames, force settling, manual routes, per-graph saved settings, restart, styles, and fixed screen positions during Expand and Collapse. All 33 packaged application files match the build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T183907Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/graph-spacing-unit.json, artifacts/graph-spacing-packaged.json and artifacts/graph-spacing-package-check.json.
+
+## Graph edge visibility (17 September 2026)
+
+Each graph footer has a Show edges checkbox, checked by default. Unchecking hides lines, arrowheads, relationship captions and canvas hit targets. The ontology, graph relationships, node positions and layout inputs remain intact. Each graph saves its own visibility setting, and Undo/Redo restores it. Image exports follow the visible graph.
+
+TypeScript, three focused domain tests and five packaged desktop tests passed. Checks cover RDF preservation, rendering and hit testing, intersection captions, image export, keyboard Undo, independent graph tabs, workspace/session restoration and the existing spacing controls. All 33 packaged application files match the build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T195430Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/edge-visibility-unit.json, artifacts/edge-visibility-packaged.json and artifacts/edge-visibility-package-check.json.
+
+## Graph node menu and local subclass suggestions
+
+The node context menu uses the requested three groups. Expand and Collapse occupy the same slot, with expanded state saved per graph. Suggest Sub Classes searches a local label index for existing candidate children and applies ordinary rdfs:subClassOf relationships after review. The batch supports Undo and rejects stale results.
+
+TypeScript, 23 focused domain tests and four packaged desktop tests passed. The final dialog was visually inspected; all 33 packaged application files match the build.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T213225Z\Axiom-win32-x64\Axiom.exe
+```
+
+Records: artifacts/subclass-menu-unit.json, artifacts/subclass-menu-packaged.json and artifacts/subclass-menu-package-check.json.
+
+## Existing parent name matching
+
+The selected compound class is the child. Alpha Beta Gamma now finds Alpha Gamma and Beta Gamma as possible existing parents by matching shorter word sequences in order. Accepting both creates two ordinary rdfs:subClassOf links from the selected class. One Undo restores the prior statements.
+
+TypeScript, 17 focused domain tests and three packaged desktop tests passed. The review was visually checked, and all 33 packaged application files match the build. Records: artifacts/parent-suggestions-unit.json, artifacts/parent-suggestions-packaged.json and artifacts/parent-suggestions-package-check.json.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T213719Z\Axiom-win32-x64\Axiom.exe
+```
+
+## Graph number badge visibility
+
+Show counts appears beside Show edges, checked by default. It hides the graph node number badges without changing RDF, node positions or edge visibility. Each graph saves its setting in workspaces and restored sessions, and Undo/Redo and image exports follow the setting.
+
+TypeScript, five focused domain tests and three packaged desktop tests passed. Visual inspection confirmed the checkbox and hidden badges. All 33 packaged application files match the build. Records: artifacts/count-visibility-unit.json, artifacts/count-visibility-packaged.json and artifacts/count-visibility-package-check.json.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T214159Z\Axiom-win32-x64\Axiom.exe
+```
