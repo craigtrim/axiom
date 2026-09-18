@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
 import { GraphScope, useGraphScope } from "./GraphScope";
 import { revealInTaxonomy } from "./taxonomy-navigation";
@@ -1416,7 +1417,7 @@ function GraphContent() {
             aria-label="Visible node limit slider"
             type="range"
             min="100"
-            max="3000"
+            max={MAX_VISIBLE_NODES}
             step="1"
             value={info?.budget ?? 1000}
             onChange={(e) => void setLimit(+e.target.value)}
@@ -1426,7 +1427,7 @@ function GraphContent() {
             type="number"
             aria-label="Visible node limit"
             min="100"
-            max="3000"
+            max={MAX_VISIBLE_NODES}
             step="1"
             value={limitText}
             onChange={(e) => setLimitText(e.target.value)}

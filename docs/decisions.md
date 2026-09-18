@@ -20,7 +20,7 @@ Unbound FILTER operands do not pass. Fractional LIMIT values truncate toward zer
 
 The Electron regression suite additionally found asymmetric schema adjacency. Reverse type, inverse and disjoint relationships now participate in neighbour accounting. The demo Order grouping edge is represented at both endpoints. This keeps degree, visible degree and held-back counts consistent across arbitrary admissions.
 
-The user requested an exact configurable visible-node limit. It accepts any integer from 100 to 3,000, with 1,000 as the initial default, and is remembered across sessions. This supersedes the previous 100-node increments. Reducing the limit evicts eligible nodes; increasing it creates capacity for deliberate expansion without automatically filling the graph. Dataset size remains independent of display membership.
+The user requested an exact configurable visible-node limit. It accepts any integer from 100 to 15,000, with 1,000 as the initial default, and is remembered across sessions. This supersedes the previous 100-node increments. Reducing the limit evicts eligible nodes; increasing it creates capacity for deliberate expansion without automatically filling the graph. Dataset size remains independent of display membership.
 
 ## Persistence and process boundaries
 

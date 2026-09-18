@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
 import { readKeyboardSettings } from "./shortcuts";
 import { parseGraphStyle } from "../domain/graph-style";
 import type { Preferences } from "./protocol";
@@ -77,7 +78,7 @@ export function readPreferences(input: unknown): Preferences {
       object(camera) &&
       number(camera.x, -1e8, 1e8) &&
       number(camera.y, -1e8, 1e8) &&
-      number(camera.zoom, 0.01, 100)
+      number(camera.zoom, MIN_GRAPH_ZOOM, 100)
     )
       out[key] = { x: camera.x, y: camera.y, zoom: camera.zoom };
   const c = s["graph.camera"];
@@ -85,10 +86,10 @@ export function readPreferences(input: unknown): Preferences {
     object(c) &&
     number(c.x, -1e8, 1e8) &&
     number(c.y, -1e8, 1e8) &&
-    number(c.zoom, 0.05, 5)
+    number(c.zoom, MIN_GRAPH_ZOOM, 5)
   )
     out["graph.camera"] = { x: c.x, y: c.y, zoom: c.zoom };
-  if (number(s["graph.limit"], 100, 3000))
+  if (number(s["graph.limit"], 100, MAX_VISIBLE_NODES))
     out["graph.limit"] = Math.round(s["graph.limit"]);
   if (["classes", "properties"].includes(String(s["hierarchy.tab"])))
     out["hierarchy.tab"] = s["hierarchy.tab"];

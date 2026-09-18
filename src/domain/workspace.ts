@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import {
   DEFAULT_GRAPH_SPACING,
   validGraphSpacing,
@@ -169,7 +170,7 @@ export function readWorkspace(input: unknown) {
   if (
     g?.positions &&
     (!Array.isArray(g.positions) ||
-      g.positions.length > 3000 ||
+      g.positions.length > MAX_VISIBLE_NODES ||
       g.positions.some(
         (p) =>
           !p ||
@@ -180,18 +181,18 @@ export function readWorkspace(input: unknown) {
     throw Error("Invalid graph positions.");
   if (
     !g ||
-    !strings(g.iris, 3000) ||
-    !strings(g.focus, 3000) ||
+    !strings(g.iris, MAX_VISIBLE_NODES) ||
+    !strings(g.focus, MAX_VISIBLE_NODES) ||
     !Array.isArray(g.pins) ||
-    g.pins.length > 3000 ||
+    g.pins.length > MAX_VISIBLE_NODES ||
     !Number.isInteger(g.budget) ||
     g.budget < 100 ||
-    g.budget > 3000 ||
+    g.budget > MAX_VISIBLE_NODES ||
     !isLayoutMode(g.layout) ||
     (g.spacing !== undefined && !validGraphSpacing(g.spacing)) ||
     (g.edgesVisible !== undefined && typeof g.edgesVisible !== "boolean") ||
     (g.countsVisible !== undefined && typeof g.countsVisible !== "boolean") ||
-    (g.expanded !== undefined && !strings(g.expanded, 3000))
+    (g.expanded !== undefined && !strings(g.expanded, MAX_VISIBLE_NODES))
   )
     throw Error("Invalid graph settings.");
   for (const p of g.pins)

@@ -94,7 +94,7 @@ ELK runs in a separate worker. Cancellation terminates that worker, and a 30-sec
 
 The graph footer also has a **Node spacing** slider (50% to 300%). It changes distances within clusters for every layout without resizing nodes or changing zoom. Each graph tab remembers its own spacing, including after restart. Pinned nodes stay fixed, and each slider drag is one Undo operation.
 
-The hard visible-node limit remains an exact, configurable integer from 100 to 3,000, starting at 1,000. The layout choice never raises the limit. Reduce the limit when labels and relationships become difficult to read.
+The hard visible-node limit remains an exact, configurable integer from 100 to 15,000, starting at 1,000. The layout choice never raises the limit. Reduce the limit when labels and relationships become difficult to read.
 
 ## Undo and Redo
 

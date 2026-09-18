@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES } from "./graph-limits";
 import type { GraphSnapshot } from "./protocol";
 import type { Entity, Triple, OntologyInfo } from "../domain/model";
 export const imageFormats = [
@@ -101,7 +102,7 @@ export function validateExport(input: ExportRequest) {
       o.landscape,
     ].every((v) => typeof v === "boolean") ||
     !Array.isArray(input.iris) ||
-    input.iris.length > 3000 ||
+    input.iris.length > MAX_VISIBLE_NODES ||
     input.iris.some((i) => typeof i !== "string" || i.length > 10000) ||
     !Number.isInteger(input.datasetEpoch) ||
     !Number.isInteger(input.version)

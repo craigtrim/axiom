@@ -72,19 +72,22 @@ it("round-trips generic ontology metadata and exact node limits", () => {
   );
   expect(readWorkspace({ ...d, selected: "missing" }).selected).toBe(THING);
 });
-it.each([0, 99, 3001, 357.5])("rejects unsupported node limit %s", (budget) => {
-  const s = buildEmptyStore();
-  expect(() =>
-    readWorkspace({
-      format: "axiom-workspace",
-      version: 1,
-      ontology: s.ontology,
-      entities: [...s.entities.values()],
-      tbox: s.tbox,
-      individuals: [],
-      customers: [],
-      graph: { iris: [], focus: [], pins: [], budget, layout: "auto" },
-      selected: THING,
-    }),
-  ).toThrow(/graph settings/);
-});
+it.each([0, 99, 15001, 357.5])(
+  "rejects unsupported node limit %s",
+  (budget) => {
+    const s = buildEmptyStore();
+    expect(() =>
+      readWorkspace({
+        format: "axiom-workspace",
+        version: 1,
+        ontology: s.ontology,
+        entities: [...s.entities.values()],
+        tbox: s.tbox,
+        individuals: [],
+        customers: [],
+        graph: { iris: [], focus: [], pins: [], budget, layout: "auto" },
+        selected: THING,
+      }),
+    ).toThrow(/graph settings/);
+  },
+);

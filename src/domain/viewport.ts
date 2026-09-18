@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { Store } from "./store";
 import { type Kind, compare } from "./model";
 export interface GraphNode {
@@ -289,7 +290,7 @@ export class Viewport {
   }
   setBudget(value: number) {
     if (!Number.isFinite(value)) throw Error("Choose a numeric budget.");
-    value = Math.min(3000, Math.max(100, Math.round(value)));
+    value = Math.min(MAX_VISIBLE_NODES, Math.max(100, Math.round(value)));
     const protectedCount = [...this.nodes.values()].filter(
       (n) => n.pinned || this.focus.has(n.iri),
     ).length;

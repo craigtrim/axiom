@@ -1,3 +1,4 @@
+import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { subclassSuggestions } from "../domain/subclass-suggestions";
 import { MIN_GRAPH_SPACING, MAX_GRAPH_SPACING } from "../shared/graph-spacing";
 import { SUBCLASS } from "../domain/model";
@@ -1393,7 +1394,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return true;
     }
     case "budget":
-      changed(view.setBudget(number(a, "value", 100, 3000)), true);
+      changed(view.setBudget(number(a, "value", 100, MAX_VISIBLE_NODES)), true);
       return true;
     case "eviction": {
       const mode = string(a, "mode");
