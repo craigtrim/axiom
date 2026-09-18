@@ -99,6 +99,7 @@ function GraphContent() {
     connectRef.current?.start(iri);
   };
   const creatingNode = useRef(false);
+  const [expandingMax, setExpandingMax] = useState(false);
   const [pendingRename, setPendingRename] = useState<{
     iri: string;
     name: string;
@@ -811,6 +812,26 @@ function GraphContent() {
           title="Add a class or instance at the graph center (Insert)"
         >
           Add entity
+        </button>
+        <button
+          disabled={
+            expandingMax ||
+            !info?.nodes.length ||
+            info.nodes.length >= info.budget ||
+            info.hidden === 0
+          }
+          title="Expand all visible nodes breadth-first until the node limit is reached or no more connected nodes remain."
+          onClick={async () => {
+            if (expandingMax) return;
+            setExpandingMax(true);
+            try {
+              await act("expandMax");
+            } finally {
+              setExpandingMax(false);
+            }
+          }}
+        >
+          {expandingMax ? "Expanding..." : "Expand max"}
         </button>
         <select
           aria-label="Select edge"

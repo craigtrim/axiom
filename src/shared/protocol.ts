@@ -124,6 +124,7 @@ export type DomainMethod =
   | "tableGraph"
   | "seed"
   | "expand"
+  | "expandMax"
   | "collapse"
   | "remove"
   | "pin"

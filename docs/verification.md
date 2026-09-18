@@ -655,3 +655,39 @@ Executable:
 ```text
 D:\git\axiom\artifacts\electron-20260917T214159Z\Axiom-win32-x64\Axiom.exe
 ```
+
+## Expand max
+
+The graph toolbar now expands from all visible nodes breadth-first until the visible-node limit or reachable component is exhausted. Existing nodes are retained and stay fixed through layout. The action follows projected intersection branches, handles cycles and large adjacency lists, and is scoped to its graph tab. One Undo restores the previous view.
+
+TypeScript, 19 focused domain tests and two packaged desktop tests passed. Desktop checks cover the real toolbar, raising the node limit, Undo/Redo, empty and isolated maps, and independent graph tabs. All 33 packaged application files match the build. Records: artifacts/expand-max-unit.json, artifacts/expand-max-packaged.json and artifacts/expand-max-package-check.json.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T215851Z\Axiom-win32-x64\Axiom.exe
+```
+
+## 15,000-node graph limit
+
+The slider, numeric input, domain admission limit, preferences, saved graph collections and export validation share a maximum of 15,000 visible nodes. The initial value remains 1,000.
+
+TypeScript, 14 focused domain tests and three packaged desktop tests passed. The domain check expands an actual 15,000-node graph, restores its full saved node collections, accepts its export request and rejects oversized requests. Desktop checks cover the slider endpoint, restored workspace limit and Expand max. All 33 packaged application files match the build. Records: artifacts/graph-limit-15k-unit.json, artifacts/graph-limit-15k-packaged.json and artifacts/graph-limit-15k-package-check.json.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260917T221126Z\Axiom-win32-x64\Axiom.exe
+```
+
+## Graph zoom-out range
+
+Removed the 5% zoom-out floor from wheel zoom, keyboard zoom and Fit. Camera preferences accept the same small zoom levels for the original graph and additional graph tabs. A machine-precision lower bound keeps division finite. Wheel zoom preserves the pointer anchor, and keyboard zoom preserves the canvas centre. Fit also remains finite when a pane is temporarily collapsed.
+
+TypeScript, 29 focused domain tests and three packaged desktop tests passed. Checks cover repeated zoom-out and recovery, extreme wheel deltas, whole-graph fitting across large coordinate ranges, unchanged node positions and RDF, and independent camera restoration after restart. All 33 packaged runtime files match the build. Records: artifacts/graph-zoom-unit.json, artifacts/graph-zoom-packaged.json and artifacts/graph-zoom-package-check.json.
+
+## Center graph
+
+Added Center beside Fit and Graph > Center graph. The camera moves to the first remaining starting node, or the node with the most visible connections if all starting nodes have been hidden. It preserves zoom, selection and node positions, works independently in each graph tab, and is disabled for empty graphs.
+
+TypeScript and 29 keyboard/menu checks passed. An isolated packaged desktop check verified the toolbar action with a different node selected, the menu fallback after hiding the starting node, independent graph cameras and empty-state disabling. All three packaged zoom regression tests passed. The toolbar was visually checked, and all 33 packaged runtime files match the build. Records: artifacts/graph-center-desktop.json, artifacts/graph-center-keyboard.json, artifacts/graph-center-zoom-regression.json and artifacts/graph-center-package-check.json.

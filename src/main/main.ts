@@ -93,6 +93,7 @@ const methods = new Set<DomainMethod>([
   "tableGraph",
   "seed",
   "expand",
+  "expandMax",
   "collapse",
   "remove",
   "pin",

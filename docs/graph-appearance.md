@@ -103,3 +103,9 @@ The setting belongs to each graph and is saved with workspaces and sessions. Und
 **Show counts** is checked by default beside **Show edges** in each graph footer. Uncheck it to hide the +N number badges on graph nodes. These badges count neighbours not currently displayed; hiding them preserves all data and node positions. Hierarchy instance counts remain available.
 
 Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include count visibility changes. PNG and SVG exports use the same visibility setting as the graph.
+
+## Expand max
+
+**Expand max** starts from every node currently visible in the active graph. It follows connections breadth-first, admitting nearer neighbours before more distant nodes, until the Visible node limit is reached or all reachable nodes are visible. It follows connections in either direction and uses the same projected intersection branches as the graph. Disconnected ontology components stay outside the view.
+
+The action fills available slots without evicting existing nodes. Existing nodes keep their positions while new nodes are laid out. One Undo restores the previous map. The button is disabled for empty maps, maps at the limit, and maps with no hidden neighbours. Raising the node limit enables further expansion when more connected nodes remain.

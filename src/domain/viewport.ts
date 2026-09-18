@@ -247,6 +247,59 @@ export class Viewport {
     n.touched = ++this.clock;
     return report;
   }
+  /** Multi-source breadth-first traversal. Reserve slots before admitting, so no node is evicted. */
+  expandMax() {
+    const original = [...this.nodes.values()];
+    if (!original.length || original.length >= this.budget)
+      return { added: 0, limitReached: original.length >= this.budget };
+    const queue: { iri: string; depth: number; from?: string }[] = original.map(
+      (n) => ({ iri: n.iri, depth: 0 }),
+    );
+    const seen = new Set(queue.map((n) => n.iri)),
+      expanded = new Set<string>();
+    const noList = new Set<string>();
+    for (
+      let head = 0;
+      head < queue.length && queue.length < this.budget;
+      head++
+    ) {
+      const current = queue[head];
+      expanded.add(current.iri);
+      // The visitor covers the full adjacency, including entries beyond the UI list's cap.
+      this.store.neighbours(current.iri, noList, (edge) => {
+        if (queue.length >= this.budget || seen.has(edge.iri)) return;
+        seen.add(edge.iri);
+        if (!this.store.graphVisible(edge.iri)) return;
+        queue.push({
+          iri: edge.iri,
+          depth: current.depth + 1,
+          from: current.iri,
+        });
+      });
+    }
+    const fresh = queue.slice(original.length);
+    if (!fresh.length) return { added: 0, limitReached: false };
+    for (const n of original) {
+      n.layoutFixed = true;
+      n.vx = n.vy = 0;
+    }
+    const report = this.admit(fresh.map((n) => n.iri));
+    for (const candidate of fresh) {
+      const n = this.nodes.get(candidate.iri)!;
+      const origin = this.nodes.get(candidate.from!)!;
+      n.distance = candidate.depth;
+      n.x += origin.x;
+      n.y += origin.y;
+    }
+    for (const iri of expanded) {
+      const n = this.nodes.get(iri)!;
+      n.expanded = n.shownDegree > 0;
+    }
+    return {
+      added: report.added,
+      limitReached: this.nodes.size >= this.budget,
+    };
+  }
   collapse(iri: string) {
     const n = this.nodes.get(iri);
     if (!n) return 0;

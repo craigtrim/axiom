@@ -301,6 +301,7 @@ function runLayout(fresh = true) {
 const tracked = new Set<DomainMethod>([
   "seed",
   "expand",
+  "expandMax",
   "collapse",
   "remove",
   "pin",
@@ -411,6 +412,7 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
               {
                 seed: "Show nodes",
                 expand: "Expand node",
+                expandMax: "Expand graph to node limit",
                 collapse: "Collapse node",
                 remove: "Remove node from view",
                 pin: "Pin node",
@@ -1347,6 +1349,21 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       runLayout();
       changed(admissionText(r));
       return true;
+    }
+    case "expandMax": {
+      const result = view.expandMax();
+      changed(
+        !view.nodes.size
+          ? "Add a node to the graph before expanding."
+          : "Added " +
+              result.added.toLocaleString("en-GB") +
+              " nodes. " +
+              (result.limitReached
+                ? "Visible node limit reached."
+                : "All reachable nodes are visible."),
+        result.added > 0,
+      );
+      return result;
     }
     case "expand":
       view.holdPosition(string(a, "iri"));
