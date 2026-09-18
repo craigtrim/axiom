@@ -162,6 +162,7 @@ export const menuTree: MenuDefinition[] = [
       at("graph", "Insert"),
     ),
     c("graph.export", "Export...", "Graph", app("Ctrl+Shift+E")),
+    c("graph.center", "Center graph", "Graph"),
     c("graph.fit", "Fit graph", "Graph", at("graph", "F")),
     c("graph.relayout", "Relayout", "Graph", at("graph", "L")),
     menu(

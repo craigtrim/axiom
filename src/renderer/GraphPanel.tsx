@@ -42,6 +42,7 @@ import {
   Draw,
   render,
   fit,
+  zoomAt,
   bounds,
   screenPoint,
   exportScene,
@@ -440,6 +441,23 @@ function GraphContent() {
       savePanel(cameraKey, camera.current, record);
     }
   };
+  const centerNow = () => {
+    const el = canvasRef.current;
+    if (!graph?.nodes.length || !el) return;
+    const nodes = new Map(graph.nodes.map((n) => [n.iri, n]));
+    const central =
+      graph.focus.map((iri) => nodes.get(iri)).find((n) => n !== undefined) ??
+      graph.nodes.reduce((best, n) =>
+        n.shownDegree > best.shownDegree ? n : best,
+      );
+    camera.current = {
+      ...camera.current,
+      x: el.clientWidth / 2 - central.x * camera.current.zoom,
+      y: el.clientHeight / 2 - central.y * camera.current.zoom,
+    };
+    dirty.current = true;
+    savePanel(cameraKey, camera.current);
+  };
   const exportGraph = (format = "png") => setExportDialog(format);
   useEffect(() => {
     const canvas = canvasRef.current!,
@@ -624,6 +642,10 @@ function GraphContent() {
         command("view.graph");
         win.requestAnimationFrame(() => fitNow(id === "graph.fit.manual"));
       }
+      if (id === "graph.center") {
+        command("view.graph");
+        win.requestAnimationFrame(centerNow);
+      }
       if (id.startsWith("graph.pan.")) {
         const dir = id.slice(10);
         camera.current = {
@@ -637,18 +659,11 @@ function GraphContent() {
         savePanel(cameraKey, camera.current);
       }
       if (id.startsWith("graph.zoom.")) {
-        const old = camera.current,
-          k = Math.max(
-            0.05,
-            Math.min(5, old.zoom * (id.endsWith(".out") ? 1 / 1.2 : 1.2)),
-          ),
-          x = canvas.clientWidth / 2,
-          y = canvas.clientHeight / 2;
-        camera.current = {
-          x: x - ((x - old.x) * k) / old.zoom,
-          y: y - ((y - old.y) * k) / old.zoom,
-          zoom: k,
-        };
+        camera.current = zoomAt(
+          camera.current,
+          { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 },
+          id.endsWith(".out") ? 1 / 1.2 : 1.2,
+        );
         dirty.current = true;
         savePanel(cameraKey, camera.current);
       }
@@ -854,6 +869,13 @@ function GraphContent() {
             </option>
           ))}
         </select>
+        <button
+          onClick={centerNow}
+          disabled={!info?.nodes.length}
+          title="Center the view on the central node, keeping the current zoom"
+        >
+          Center
+        </button>
         <button
           onClick={() => fitNow(true)}
           title={"Fit graph (" + keyHint("graph.fit") + ")"}
@@ -1149,17 +1171,11 @@ function GraphContent() {
             e.currentTarget.dataset.wheels = String(
               +(e.currentTarget.dataset.wheels ?? 0) + 1,
             );
-            const p = point(e),
-              old = camera.current,
-              k = Math.max(
-                0.05,
-                Math.min(5, old.zoom * Math.exp(-e.deltaY * 0.0015)),
-              );
-            camera.current = {
-              x: p.x - ((p.x - old.x) * k) / old.zoom,
-              y: p.y - ((p.y - old.y) * k) / old.zoom,
-              zoom: k,
-            };
+            camera.current = zoomAt(
+              camera.current,
+              point(e),
+              Math.exp(-e.deltaY * 0.0015),
+            );
             dirty.current = true;
             savePanel(cameraKey, camera.current);
           }}

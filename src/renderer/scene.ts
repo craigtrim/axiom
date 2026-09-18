@@ -1,3 +1,4 @@
+import { MIN_GRAPH_ZOOM } from "../shared/graph-limits";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { EQUIVALENT_CLASS } from "../domain/class-expressions";
 import { edgeRoute } from "./edge-geometry";
@@ -102,12 +103,26 @@ export function bounds(g: GraphSnapshot, pad = 90): Rect {
 export function fit(g: GraphSnapshot, w: number, h: number): Camera {
   const b = bounds(g, 0),
     zoom = Math.max(
-      0.05,
-      Math.min(1.9, (w - 88) / b.width, (h - 88) / b.height),
+      MIN_GRAPH_ZOOM,
+      Math.min(
+        1.9,
+        Math.max(1, w - 88) / b.width,
+        Math.max(1, h - 88) / b.height,
+      ),
     );
   return {
     x: w / 2 - (b.x + b.width / 2) * zoom,
     y: h / 2 - (b.y + b.height / 2) * zoom,
+    zoom,
+  };
+}
+/** Zoom around a screen point so the content under it stays in place. */
+export function zoomAt(camera: Camera, anchor: Point, factor: number): Camera {
+  const zoom = Math.max(MIN_GRAPH_ZOOM, Math.min(5, camera.zoom * factor)),
+    ratio = zoom / camera.zoom;
+  return {
+    x: anchor.x - (anchor.x - camera.x) * ratio,
+    y: anchor.y - (anchor.y - camera.y) * ratio,
     zoom,
   };
 }

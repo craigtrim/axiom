@@ -587,6 +587,7 @@ function refreshMenu() {
     );
   set("graph.collapse", !!node && node.shownDegree > 0);
   for (const id of [
+    "graph.center",
     "graph.fit",
     "graph.relayout",
     "graph.freeze",

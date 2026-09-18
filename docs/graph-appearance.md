@@ -92,6 +92,14 @@ Each graph footer has a **Node spacing** slider, from 50% to 300%, with 100% as 
 
 The slider previews changes while dragging. One drag is one Undo operation; keyboard arrows, Home and End also work. Spacing works while the layout is frozen and remains in effect after Relayout, Expand or Collapse. Each graph tab saves its own value in workspaces and the restored session.
 
+## Center the graph
+
+**Center**, beside Fit in the graph toolbar, brings the graph's first remaining starting node to the middle of the canvas at the current zoom. If none of the starting nodes remain, it centres on the visible node with the most visible connections. Selection, node positions and relationships stay unchanged. The action is also available from Graph > Center graph and the command palette. Each graph keeps its own camera, and Center is disabled on empty graphs.
+
+## Graph zoom
+
+The mouse wheel and graph zoom shortcuts continue below 5%, so large layouts can be viewed from farther away. Fit frames the entire visible graph regardless of its spread. Zoom stays centred under the pointer for the wheel and at the centre of the canvas for keyboard commands. Each graph restores its saved zoom when the app reopens.
+
 ## Edge visibility
 
 **Show edges** is checked by default in each graph footer. Uncheck it to hide relationship lines, arrowheads and labels while keeping every relationship in the ontology and graph layout. Hidden edges cannot be selected on the canvas. Check it again to restore them.
