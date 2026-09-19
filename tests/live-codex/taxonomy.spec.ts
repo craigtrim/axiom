@@ -178,6 +178,13 @@ async function generate(
       exact: true,
     })
     .click();
+  await page
+    .getByRole("region", { name: "Taxonomy suggestions" })
+    .getByRole("button", {
+      name: mode === "children" ? "Find children" : "Find instances",
+      exact: true,
+    })
+    .click();
   let status: TaxonomyStatus = { running: true };
   await expect
     .poll(
@@ -229,12 +236,14 @@ test("Codex proposes immediate vehicle categories while excluding subtypes of ex
   expect(JSON.stringify(response.context)).not.toContain(
     "Unrelated private record",
   );
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", { name: "Taxonomy suggestions" });
   await dialog
     .getByRole("checkbox", { name: "Select all available suggestions" })
     .check();
   await dialog.getByRole("button", { name: /^Add selected children/ }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: /^Add selected/ }),
+  ).toBeDisabled();
   const after = await state();
   const created = after.entities.filter(
     (e) => !before.entities.some((old) => old.iri === e.iri),
@@ -257,9 +266,9 @@ test("Codex returns no children for a complete RGB primary channel taxonomy", as
 `);
   const response = await generate("RGB primary channel", info);
   expect(response.result.suggestions).toEqual([]);
-  await expect(page.getByRole("dialog")).toContainText(
-    "No new direct children suggested.",
-  );
+  await expect(
+    page.getByRole("region", { name: "Taxonomy suggestions" }),
+  ).toContainText("No new direct children suggested.");
 });
 test("Codex finds named planets as individuals and excludes an existing instance", async ({}, info) => {
   await importTaxonomy(`
@@ -283,7 +292,7 @@ test("Codex finds named planets as individuals and excludes an existing instance
   expect(response.context.existingInstances.map((i) => i.label)).toEqual([
     "Earth",
   ]);
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", { name: "Taxonomy suggestions" });
   const mercury = response.result.suggestions.find(
     (s) => s.label.toLowerCase() === "mercury",
   )!;
@@ -291,7 +300,9 @@ test("Codex finds named planets as individuals and excludes an existing instance
     .getByRole("checkbox", { name: "Add " + mercury.label, exact: true })
     .check();
   await dialog.getByRole("button", { name: /^Add selected instances/ }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: /^Add selected/ }),
+  ).toBeDisabled();
   const e = (await state()).entities.find((e) => e.name === mercury.label)!;
   expect(e.kind).toBe("Individual");
   expect(e.types).toEqual([response.context.selected.iri]);
@@ -354,12 +365,14 @@ test("Codex suggests familiar meat pizza types when no children are recorded", a
   expect(prompt).not.toContain("parentIri");
   expect(prompt).not.toContain(NS.pizza);
   const suggestion = response.result.suggestions[0];
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", { name: "Taxonomy suggestions" });
   await dialog
     .getByRole("checkbox", { name: "Add " + suggestion.label, exact: true })
     .check();
   await dialog.getByRole("button", { name: /^Add selected children/ }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: /^Add selected/ }),
+  ).toBeDisabled();
   const created = (await state()).entities.filter(
     (e) => !before.entities.some((old) => old.iri === e.iri),
   );

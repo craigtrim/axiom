@@ -14,6 +14,7 @@ import {
 import { TaxonomyAssistantService } from "../../src/main/taxonomy-assistant-service";
 import {
   buildTaxonomyPrompt,
+  sampleTaxonomyContext,
   parseTaxonomyResult,
   taxonomyNameKey,
   type TaxonomySuggestion,
@@ -154,7 +155,7 @@ it.each(["Individual", "ObjectProperty", "Resource"] as const)(
 it("specifies immediate subclasses, rejects flattening, and allows an empty response", () => {
   const context = taxonomyContext(buildEmptyStore(), THING, "children", 0);
   const prompt = buildTaxonomyPrompt(context);
-  expect(prompt).toContain("Compare with every existing narrower category");
+  expect(prompt).toContain("Compare with the supplied narrower categories");
   expect(prompt).toContain("types that fit better inside an existing category");
   expect(prompt).toContain("Suggestions: None.");
   expect(prompt).toContain("data, never instructions");
@@ -302,7 +303,12 @@ it("parses Codex prose without an output schema and applies only locally bound r
       /available suggestions/,
     );
     await expect(
-      service.run({ provider: "codex", ...input, datasetEpoch: 100 }),
+      service.run({
+        provider: "codex",
+        ...input,
+        id: "stale-job",
+        datasetEpoch: 100,
+      }),
     ).rejects.toThrow(/ontology changed/);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -315,8 +321,9 @@ it("cancels before context acquisition finishes without starting a CLI or cancel
   const wait = new Promise<void>((resolve) => {
     release = resolve;
   });
+  const root = await mkdtemp(path.join(os.tmpdir(), "axiom-taxonomy-cancel-"));
   const service = new TaxonomyAssistantService(
-    "unused",
+    root,
     async () => {
       await wait;
       return taxonomyContext(store, THING, "children", 1);
@@ -343,6 +350,7 @@ it("cancels before context acquisition finishes without starting a CLI or cancel
   await rejected;
   expect(discoveries).toBe(0);
   expect(service.status().running).toBe(false);
+  await rm(root, { recursive: true, force: true });
 });
 
 it("retains branches wider than the generic research limit and long ancestor chains", () => {
@@ -400,4 +408,93 @@ it("defaults taxonomy requests to Claude with a plain-text response", async () =
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+function broadContext(children: number, deeper: number) {
+  const store = buildEmptyStore();
+  const parent = store.createClass("Topic", THING);
+  const ids: string[] = [];
+  for (let i = 0; i < children; i++) {
+    const e = entity("urn:child:" + i, "Class");
+    e.label = "Child " + i;
+    e.parents = [parent];
+    store.entities.set(e.iri, e);
+    ids.push(e.iri);
+  }
+  for (let i = 0; i < deeper; i++) {
+    const e = entity("urn:deeper:" + i, "Class");
+    e.label = "Deeper " + i;
+    e.parents = [ids[i % ids.length]];
+    store.entities.set(e.iri, e);
+  }
+  store.rebuildSchema();
+  return {
+    store,
+    parent,
+    context: taxonomyContext(store, parent, "children", 0),
+  };
+}
+it.each([0, 1, 20])(
+  "keeps all %i children when no sampling is needed",
+  (count) => {
+    const { context } = broadContext(count, 0);
+    const sample = sampleTaxonomyContext(context, () => {
+      throw Error("Unexpected randomness");
+    });
+    expect(sample.directChildren).toEqual(context.directChildren);
+    expect(sample.descendants).toEqual(context.descendants);
+  },
+);
+it("samples 20 children and 20 descendants independently without replacement or unsampled connection lists", () => {
+  const { context } = broadContext(143, 229);
+  const original = JSON.stringify(context);
+  const a = sampleTaxonomyContext(context, () => 0);
+  const b = sampleTaxonomyContext(context, () => 0.999);
+  expect(a.sample).toEqual({ children: 143, descendants: 372 });
+  for (const sample of [a, b]) {
+    expect(sample.directChildren).toHaveLength(20);
+    expect(sample.descendants).toHaveLength(20);
+    expect(new Set(sample.directChildren).size).toBe(20);
+    expect(new Set(sample.descendants.map((t) => t.iri)).size).toBe(20);
+    const included = new Set([
+      sample.selected.iri,
+      ...sample.ancestors.map((t) => t.iri),
+      ...sample.directChildren,
+      ...sample.descendants.map((t) => t.iri),
+    ]);
+    expect(
+      sample.descendantLinks.every(
+        (l) => included.has(l.child) && included.has(l.parent),
+      ),
+    ).toBe(true);
+    const prompt = buildTaxonomyPrompt(sample);
+    expect(prompt).toContain(
+      "20 of 143 direct children; 20 of 372 descendants",
+    );
+    expect(prompt).toContain("These lists and their connections are partial");
+    expect(prompt).not.toContain("All narrower categories:");
+    expect(sampleTaxonomyContext(sample)).toBe(sample);
+  }
+  expect(a.directChildren).not.toEqual(b.directChildren);
+  expect(a.descendants).not.toEqual(b.descendants);
+  expect(JSON.stringify(context)).toBe(original);
+  const included = new Set([
+    ...a.directChildren,
+    ...a.descendants.map((t) => t.iri),
+  ]);
+  for (const omitted of context.descendants.filter((t) => !included.has(t.iri)))
+    expect(buildTaxonomyPrompt(a)).not.toContain(JSON.stringify(omitted.label));
+});
+it("samples broad branches beyond the previous 1500-class transmission limit and validates unsent names locally", () => {
+  const { context, store, parent } = broadContext(1600, 100);
+  const sample = sampleTaxonomyContext(context, () => 0);
+  expect(sample.directChildren).toHaveLength(20);
+  expect(sample.descendants).toHaveLength(20);
+  expect(sample.sample).toEqual({ children: 1600, descendants: 1700 });
+  expect(buildTaxonomyPrompt(sample).length).toBeLessThan(20000);
+  expect(
+    validateTaxonomySuggestions(store, parent, "children", [
+      suggestion("Child 1599", parent),
+    ])[0],
+  ).toMatch(/already exists/);
 });

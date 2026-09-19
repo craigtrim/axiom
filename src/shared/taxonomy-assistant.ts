@@ -1,6 +1,6 @@
 import type { AssistantId } from "./research";
 export { buildTaxonomyPrompt } from "./taxonomy-language";
-import { readTaxonomyReply } from "./taxonomy-language";
+import { buildTaxonomyPrompt, readTaxonomyReply } from "./taxonomy-language";
 import type { Entity } from "../domain/model";
 import { identifier, validLabel } from "../domain/rdf-model";
 
@@ -29,11 +29,60 @@ export interface TaxonomyContext {
   ancestorLinks: TaxonomyLink[];
   roots: string[];
   directChildren: string[];
+  childTerms?: TaxonomyTerm[];
+  sample?: { children: number; descendants: number };
   descendants: (TaxonomyTerm & { depth: number })[];
   descendantLinks: TaxonomyLink[];
   existingInstances: { iri: string; label: string; types: string[] }[];
   existingInstanceCount: number;
 }
+/** Choose once per run, without replacement. Saved contexts are never resampled. */
+export function sampleTaxonomyContext(
+  context: TaxonomyContext,
+  random = Math.random,
+): TaxonomyContext {
+  if (context.sample) return context;
+  const sample = <T>(items: T[]): T[] => {
+    if (items.length <= 20) return [...items];
+    const indices = items.map((_, index) => index);
+    for (let i = 0; i < 20; i++) {
+      const pick = i + Math.floor(random() * (indices.length - i));
+      [indices[i], indices[pick]] = [indices[pick], indices[i]];
+    }
+    return indices
+      .slice(0, 20)
+      .sort((a, b) => a - b)
+      .map((i) => items[i]);
+  };
+  const directChildren = sample(context.directChildren);
+  const descendants = sample(context.descendants);
+  const terms = new Map(context.descendants.map((term) => [term.iri, term]));
+  const included = new Set([
+    context.selected.iri,
+    ...context.ancestors.map((term) => term.iri),
+    ...directChildren,
+    ...descendants.map((term) => term.iri),
+  ]);
+  const result: TaxonomyContext = {
+    ...context,
+    directChildren,
+    childTerms: directChildren.flatMap((iri) =>
+      terms.has(iri) ? [terms.get(iri)!] : [],
+    ),
+    descendants,
+    descendantLinks: context.descendantLinks.filter(
+      (link) => included.has(link.child) && included.has(link.parent),
+    ),
+    sample: {
+      children: context.directChildren.length,
+      descendants: context.descendants.length,
+    },
+  };
+  if (buildTaxonomyPrompt(result).length > 140000)
+    throw Error("The sampled context is too large. Select a narrower class.");
+  return result;
+}
+
 export interface TaxonomySuggestion {
   kind: "class" | "individual";
   label: string;
@@ -60,6 +109,38 @@ export interface TaxonomyResponse {
   result: TaxonomyResult;
   issues: (string | null)[];
   completedAt: string;
+}
+export interface TaxonomyHistoryEntry {
+  id: string;
+  auditId?: string;
+  session: string;
+  provider: AssistantId;
+  startedAt: number;
+  completedAt?: string;
+  state: "running" | "completed" | "failed" | "cancelled" | "interrupted";
+  context: TaxonomyContext;
+  prompt: string;
+  response?: TaxonomyResponse;
+  error?: string;
+  applied: number[];
+  // Full local context verifies sampled runs and permits applying remaining suggestions.
+  reviewContext?: TaxonomyContext;
+}
+export interface TaxonomyHistorySummary {
+  id: string;
+  iri: string;
+  label: string;
+  namespace: string;
+  mode: TaxonomyMode;
+  provider: AssistantId;
+  startedAt: number;
+  state: TaxonomyHistoryEntry["state"];
+  applied: number;
+  count: number;
+}
+export interface TaxonomyHistoryReview {
+  entry: TaxonomyHistoryEntry;
+  stale: boolean;
 }
 export interface TaxonomyStatus {
   provider?: AssistantId;

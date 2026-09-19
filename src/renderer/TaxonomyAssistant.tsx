@@ -1,80 +1,185 @@
+import { ErrorNotice } from "./ErrorNotice";
 import { useAssistantProvider } from "./assistant-provider";
 import { useEffect, useRef, useState } from "react";
 import {
   AssistantActivity,
   assistantActivities,
-  cancelAssistant,
   useAssistantActivity,
 } from "./AssistantActivity";
-import { Modal } from "./Dialogs";
-import { request, report, useSnapshot, flushUiHistory } from "./client";
+import {
+  request,
+  report,
+  useSnapshot,
+  flushUiHistory,
+  command,
+} from "./client";
+import { openTaxonomy, useTaxonomyTarget } from "./taxonomy-view";
 import {
   buildTaxonomyPrompt,
+  sampleTaxonomyContext,
   type TaxonomyContext,
-  type TaxonomyMode,
-  type TaxonomyResponse,
+  type TaxonomyHistoryEntry,
+  type TaxonomyHistorySummary,
 } from "../shared/taxonomy-assistant";
 import { identifier } from "../domain/rdf-model";
 
 export function TaxonomyAssistant({
-  iri,
-  mode,
-  doc,
-  close,
-  added,
+  paneId = "taxonomy",
 }: {
-  iri: string;
-  mode: TaxonomyMode;
-  doc: Document;
-  close: () => void;
-  added: () => void;
+  paneId?: string;
 }) {
   const snapshot = useSnapshot()!;
+  const target = useTaxonomyTarget(paneId);
   const [provider, setProvider] = useAssistantProvider();
   const providerName = provider === "claude" ? "Claude" : "Codex";
   const activity = useAssistantActivity("taxonomy");
-  const [context, setContext] = useState<TaxonomyContext>();
-  const [response, setResponse] = useState<TaxonomyResponse>();
+  const [history, setHistory] = useState<TaxonomyHistorySummary[]>([]);
+  const [runId, setRunId] = useState("");
+  const [entry, setEntry] = useState<TaxonomyHistoryEntry>();
+  const [preview, setPreview] = useState<TaxonomyContext>();
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [busy, setBusy] = useState(true),
-    [applying, setApplying] = useState(false);
-  const [error, setError] = useState(""),
-    [cancelled, setCancelled] = useState(false);
-  const generation = useRef(0),
-    job = useRef("");
-  const children = mode === "children";
+  const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const currentTarget = useRef(target);
+  currentTarget.current = target;
+  const context = entry?.context ?? preview;
+  const response = entry?.response;
+  const children = target?.mode !== "instances";
+  const busy = entry?.state === "running";
   const name =
     context?.selected.label ??
-    snapshot.entities.find((e) => e.iri === iri)?.name ??
-    "class";
-  const stale =
-    !!context &&
-    (context.datasetEpoch !== snapshot.datasetEpoch ||
-      context.version !== snapshot.version);
+    snapshot.entities.find((e) => e.iri === target?.iri)?.name ??
+    "a class";
   const available =
     response?.result.suggestions
       .map((_, i) => i)
-      .filter((i) => !response.issues[i]) ?? [];
+      .filter((i) => !response.issues[i] && !entry?.applied.includes(i)) ?? [];
+  const relevantHistory = history.filter(
+    (h) => h.namespace === snapshot.ontology.namespace,
+  );
+  const nodeHistory = relevantHistory.filter(
+    (h) => h.iri === target?.iri && h.mode === target.mode,
+  );
+  const otherHistory = relevantHistory.filter(
+    (h) => h.iri !== target?.iri || h.mode !== target.mode,
+  );
+  const targetExists =
+    target?.namespace === snapshot.ontology.namespace &&
+    snapshot.entities.some(
+      (e) => e.iri === target.iri && ["Class", "Defined"].includes(e.kind),
+    );
+
+  // Opening a node always returns to its latest run, without launching an assistant.
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    setEntry(undefined);
+    setPreview(undefined);
+    setRunId("");
+    setError("");
+    setSelected(new Set());
+    void window.axiom.taxonomyAssistant
+      .history()
+      .then((items) => {
+        if (!live) return;
+        setHistory(items);
+        const latest = items.find(
+          (h) =>
+            h.namespace === snapshot.ontology.namespace &&
+            h.iri === target?.iri &&
+            h.mode === target.mode,
+        );
+        setRunId(
+          items.some((h) => h.id === target?.runId)
+            ? target!.runId!
+            : (latest?.id ?? ""),
+        );
+      })
+      .catch((e) => live && setError(e.message))
+      .finally(() => live && setLoading(false));
+    return () => {
+      live = false;
+    };
+  }, [target, snapshot.datasetEpoch]);
+
+  // Runs belong to the service, so leaving or closing this view never cancels them.
+  useEffect(() => {
+    let live = true;
+    const poll = async () => {
+      try {
+        const items = await window.axiom.taxonomyAssistant.history();
+        if (live) setHistory(items);
+      } catch (e) {
+        if (live) setError((e as Error).message);
+      }
+    };
+    void poll();
+    const timer = activity ? setInterval(() => void poll(), 1000) : undefined;
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [activity?.startedAt]);
+  const summary = history.find((h) => h.id === runId);
+  useEffect(() => {
+    let live = true;
+    if (!runId) {
+      setEntry(undefined);
+      setStale(false);
+      if (targetExists)
+        void request<TaxonomyContext>("taxonomyContext", {
+          iri: target!.iri,
+          mode: target!.mode,
+        })
+          .then((c) => live && setPreview(sampleTaxonomyContext(c)))
+          .catch((e) => live && setError(e.message));
+    } else if (summary) {
+      void window.axiom.taxonomyAssistant
+        .read(runId)
+        .then((review) => {
+          if (!live) return;
+          setEntry(review.entry);
+          setStale(review.stale);
+          setError(review.entry.error ?? "");
+        })
+        .catch((e) => live && setError(e.message));
+    }
+    return () => {
+      live = false;
+    };
+  }, [
+    runId,
+    summary?.state,
+    summary?.applied,
+    snapshot.version,
+    snapshot.datasetEpoch,
+    targetExists,
+    target,
+    revision,
+  ]);
+  useEffect(() => {
+    setSelected(new Set());
+  }, [runId]);
 
   async function generate() {
-    if (assistantActivities.get("taxonomy")) {
-      if (job.current) return;
-      setBusy(false);
-      setError(
-        "Suggestions are already running. Wait for completion or cancel the task in Hierarchy.",
-      );
+    if (
+      !target ||
+      !targetExists ||
+      assistantActivities.get("taxonomy") ||
+      applying
+    )
       return;
-    }
-    const ticket = ++generation.current;
-    setBusy(true);
-    setCancelled(false);
-    setError("");
-    setResponse(undefined);
+    const origin = target;
+    const id = crypto.randomUUID();
+    setRunId(id);
+    setEntry(undefined);
     setSelected(new Set());
-    job.current = crypto.randomUUID();
-    const id = job.current;
+    setError("");
     try {
-      const result = await assistantActivities.run(
+      await assistantActivities.run(
         "taxonomy",
         providerName +
           " · " +
@@ -84,48 +189,33 @@ export function TaxonomyAssistant({
           "…",
         async (checkCancelled) => {
           const next = await request<TaxonomyContext>("taxonomyContext", {
-            iri,
-            mode,
+            iri: origin.iri,
+            mode: origin.mode as "children" | "instances",
           });
           checkCancelled();
-          if (ticket !== generation.current)
-            throw Error("Assistant cancelled.");
-          setContext(next);
+          if (currentTarget.current === origin)
+            setPreview(sampleTaxonomyContext(next));
           return window.axiom.taxonomyAssistant.run({
             id,
             provider,
-            iri,
-            mode,
+            iri: origin.iri,
+            mode: origin.mode as "children" | "instances",
             datasetEpoch: next.datasetEpoch,
             version: next.version,
           });
         },
         () => window.axiom.taxonomyAssistant.cancel(id),
       );
-      if (ticket !== generation.current) return;
-      setResponse(result);
     } catch (e) {
-      if (ticket === generation.current) setError((e as Error).message);
+      if (currentTarget.current === origin) setError((e as Error).message);
     } finally {
-      if (ticket === generation.current) {
-        setBusy(false);
-        job.current = "";
-      }
+      const items = await window.axiom.taxonomyAssistant.history();
+      setHistory(items);
+      if (currentTarget.current === origin) setRevision((r) => r + 1);
     }
   }
-  useEffect(() => {
-    void generate();
-    return () => {
-      generation.current++;
-      if (job.current) void cancelAssistant("taxonomy");
-    };
-  }, []);
-  async function cancel() {
-    setCancelled(true);
-    await cancelAssistant("taxonomy");
-  }
   async function apply() {
-    if (!response || stale || applying) return;
+    if (!response || stale || applying || activity) return;
     setApplying(true);
     setError("");
     try {
@@ -133,14 +223,16 @@ export function TaxonomyAssistant({
       const created = await window.axiom.taxonomyAssistant.apply(response.id, [
         ...selected,
       ]);
-      added();
+      setSelected(new Set());
+      setHistory(await window.axiom.taxonomyAssistant.history());
+      setRevision((r) => r + 1);
+      command("taxonomy.added:" + context!.selected.iri);
       report(
         "Added " +
           created.length +
           (children ? " child classes." : " named instances.") +
           " Undo restores the previous ontology.",
       );
-      close();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -151,55 +243,155 @@ export function TaxonomyAssistant({
     [
       context?.selected,
       ...(context?.ancestors ?? []),
+      ...(context?.childTerms ?? []),
       ...(context?.descendants ?? []),
     ]
       .filter(Boolean)
       .map((t) => [t!.iri, t!.label]),
   );
+  const historyLabel = (h: TaxonomyHistorySummary) =>
+    new Date(h.startedAt).toLocaleString() +
+    " · " +
+    (h.provider === "claude" ? "Claude" : "Codex") +
+    " · " +
+    (h.state === "completed"
+      ? h.count +
+        " suggestions" +
+        (h.applied ? ", " + h.applied + " added" : "")
+      : h.state);
   return (
-    <Modal
-      title={(children ? "Add children to " : "Find instances of ") + name}
-      close={() => {
-        if (!applying) close();
-      }}
-      document={doc}
+    <section
+      className="panel taxonomy-panel"
+      data-panel="taxonomy"
+      aria-label="Taxonomy suggestions"
     >
-      <AssistantActivity kind="taxonomy" controls={false} />
-      <div className="taxonomy-assistant" aria-busy={busy || applying}>
-        <label>
-          Assistant
-          <select
-            aria-label="Taxonomy assistant"
-            value={provider}
-            disabled={busy || applying}
-            onChange={(e) => setProvider(e.target.value as "claude" | "codex")}
+      {entry?.state === "running" && <AssistantActivity kind="taxonomy" />}
+      <header className="taxonomy-heading">
+        <h2 title={target?.iri}>
+          {children ? "Add children to " : "Find instances of "}
+          {name}
+        </h2>
+        <div className="taxonomy-run-actions">
+          <label>
+            Assistant{" "}
+            <select
+              aria-label="Taxonomy assistant"
+              value={provider}
+              disabled={!!activity || applying}
+              onChange={(e) =>
+                setProvider(e.target.value as "claude" | "codex")
+              }
+            >
+              <option value="claude">Claude</option>
+              <option value="codex">Codex</option>
+            </select>
+          </label>
+          <button
+            className="primary"
+            disabled={loading || !!activity || applying || !targetExists}
+            onClick={() => void generate()}
           >
-            <option value="claude">Claude</option>
-            <option value="codex">Codex</option>
+            {nodeHistory.length
+              ? "New run"
+              : children
+                ? "Find children"
+                : "Find instances"}
+          </button>
+        </div>
+        <label className="taxonomy-history">
+          Run history
+          <select
+            aria-label="Run history"
+            value={summary ? runId : ""}
+            disabled={applying || loading}
+            onChange={(e) => {
+              const item = history.find((h) => h.id === e.target.value);
+              if (!item) {
+                setRunId("");
+                setEntry(undefined);
+                return;
+              }
+              if (item.iri !== target?.iri || item.mode !== target.mode) {
+                openTaxonomy(item.iri, item.mode, item.id, paneId);
+              } else {
+                setRunId(item.id);
+                setEntry(undefined);
+                setError("");
+              }
+            }}
+          >
+            <option value="">{loading ? "Loading history…" : "New run"}</option>
+            {!!nodeHistory.length && (
+              <optgroup label={name}>
+                {nodeHistory.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {historyLabel(h)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {!!otherHistory.length && (
+              <optgroup label="Other nodes">
+                {otherHistory.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.label} ·{" "}
+                    {h.mode === "children" ? "Children" : "Instances"} ·{" "}
+                    {historyLabel(h)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
-        <p className="muted">
-          {children
-            ? providerName +
-              " proposes immediate child classes for your review."
-            : providerName +
-              " proposes real named individuals for your review."}{" "}
-          Uses your existing assistant sign-in.
-        </p>
+      </header>
+      <div
+        className="taxonomy-assistant taxonomy-content"
+        aria-busy={loading || busy || applying}
+      >
+        {!targetExists && (
+          <p>
+            Right-click a class and choose Suggest &gt; Add Children to begin.
+            Earlier runs remain available in Run history.
+          </p>
+        )}
+        {!entry && !loading && targetExists && !activity && (
+          <p className="muted">
+            {providerName} proposes{" "}
+            {children ? "immediate child classes" : "named instances"} for your
+            review. Start a run when ready.
+          </p>
+        )}
+        {entry && (
+          <p className="muted">
+            {new Date(entry.startedAt).toLocaleString()} ·{" "}
+            {entry.provider === "claude" ? "Claude" : "Codex"} · {entry.state}
+            {entry.applied.length
+              ? " · " + entry.applied.length + " added"
+              : ""}
+          </p>
+        )}
         {context && (
           <details className="taxonomy-context">
             <summary>
-              Context sent to{" "}
-              {response?.provider === "codex"
+              {entry ? "Context sent to" : "Context preview for"}{" "}
+              {entry?.provider === "codex"
                 ? "Codex"
                 : response?.provider === "claude"
                   ? "Claude"
                   : providerName}{" "}
               · {context.ancestors.length}{" "}
               {context.ancestors.length === 1 ? "ancestor" : "ancestors"} ·{" "}
-              {context.directChildren.length}{" "}
+              {context.directChildren.length}
+              {context.sample &&
+              context.sample.children > context.directChildren.length
+                ? " of " + context.sample.children
+                : ""}{" "}
               {context.directChildren.length === 1 ? "child" : "children"} ·{" "}
-              {context.descendants.length}{" "}
+              {context.descendants.length}
+              {context.sample &&
+              context.sample.descendants > context.descendants.length
+                ? " of " + context.sample.descendants
+                : ""}{" "}
               {context.descendants.length === 1 ? "descendant" : "descendants"}
             </summary>
             <p>
@@ -219,10 +411,29 @@ export function TaxonomyAssistant({
             ) : (
               <p>No asserted parent.</p>
             )}
+            {context.sample &&
+              (context.sample.children > context.directChildren.length ||
+                context.sample.descendants > context.descendants.length) && (
+                <p className="muted">
+                  {entry
+                    ? "Random sample, retained with this run."
+                    : "A new random sample is selected for each run."}
+                </p>
+              )}
             <h3>Existing children and descendants</h3>
-            {context.descendants.length ? (
+            {context.directChildren.length || context.descendants.length ? (
               <ul>
-                {context.descendants.map((term) => (
+                {[
+                  ...new Map(
+                    [
+                      ...(context.childTerms ?? []).map((term) => ({
+                        ...term,
+                        depth: 1,
+                      })),
+                      ...context.descendants,
+                    ].map((term) => [term.iri, term]),
+                  ).values(),
+                ].map((term) => (
                   <li key={term.iri}>
                     {term.label} ·{" "}
                     {term.depth === 1 ? "direct child" : "depth " + term.depth}
@@ -246,13 +457,13 @@ export function TaxonomyAssistant({
               <textarea
                 aria-label="Taxonomy prompt"
                 readOnly
-                value={buildTaxonomyPrompt(context)}
+                value={entry?.prompt ?? buildTaxonomyPrompt(context)}
                 rows={12}
               />
               <button
                 onClick={() =>
                   void window.axiom
-                    .copy(buildTaxonomyPrompt(context))
+                    .copy(entry?.prompt ?? buildTaxonomyPrompt(context))
                     .catch((e) => setError(e.message))
                 }
               >
@@ -261,17 +472,17 @@ export function TaxonomyAssistant({
             </details>
           </details>
         )}
-        {!busy && cancelled && (
-          <p role="status">Cancelled. No entities were added.</p>
-        )}
-        {error && !cancelled && (
-          <p role="alert" className="error">
-            {error}
-          </p>
+
+        {error && (
+          <ErrorNotice
+            error={error}
+            auditId={error === entry?.error ? entry?.auditId : undefined}
+          />
         )}
         {stale && !busy && (
           <p role="alert">
-            The ontology changed. Find suggestions again before adding them.
+            The ontology changed. This run is kept for reference. Start a new
+            run before adding suggestions.
           </p>
         )}
         {response && (
@@ -301,7 +512,9 @@ export function TaxonomyAssistant({
                   <input
                     type="checkbox"
                     aria-label="Select all available suggestions"
-                    disabled={stale || applying || !available.length}
+                    disabled={
+                      stale || !!activity || applying || !available.length
+                    }
                     checked={
                       !!available.length && selected.size === available.length
                     }
@@ -320,8 +533,18 @@ export function TaxonomyAssistant({
                         <input
                           type="checkbox"
                           aria-label={"Add " + suggestion.label}
-                          disabled={stale || applying || !!response.issues[i]}
-                          checked={selected.has(i)}
+                          disabled={
+                            stale ||
+                            !!activity ||
+                            applying ||
+                            !!(
+                              response.issues[i] ||
+                              (entry?.applied.includes(i) ? "Added" : null)
+                            )
+                          }
+                          checked={
+                            selected.has(i) || !!entry?.applied.includes(i)
+                          }
                           onChange={(event) =>
                             setSelected((previous) => {
                               const next = new Set(previous);
@@ -348,8 +571,12 @@ export function TaxonomyAssistant({
                           {children ? "rdfs:subClassOf" : "rdf:type"} {name}
                         </p>
                       </details>
-                      {response.issues[i] && (
-                        <p className="error">{response.issues[i]}</p>
+                      {entry?.applied.includes(i) ? (
+                        <p className="muted">Added</p>
+                      ) : (
+                        response.issues[i] && (
+                          <p className="error">{response.issues[i]}</p>
+                        )
                       )}
                     </li>
                   ))}
@@ -358,42 +585,22 @@ export function TaxonomyAssistant({
             )}
           </>
         )}
-        <footer>
-          {busy ? (
-            <button
-              onClick={() => void cancel()}
-              disabled={activity?.cancelling}
-            >
-              Cancel
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => void generate()}
-                disabled={applying || !!activity}
-              >
-                Find suggestions again
-              </button>
-              <button onClick={close} disabled={applying}>
-                Close
-              </button>
-              {!!response?.result.suggestions.length && (
-                <button
-                  className="primary"
-                  disabled={stale || applying || !selected.size}
-                  onClick={() => void apply()}
-                >
-                  {applying
-                    ? "Adding…"
-                    : "Add selected " +
-                      (children ? "children" : "instances") +
-                      (selected.size ? " (" + selected.size + ")" : "")}
-                </button>
-              )}
-            </>
-          )}
-        </footer>
       </div>
-    </Modal>
+      {!!response?.result.suggestions.length && (
+        <footer className="panel-toolbar taxonomy-footer">
+          <button
+            className="primary"
+            disabled={stale || applying || !!activity || !selected.size}
+            onClick={() => void apply()}
+          >
+            {applying
+              ? "Adding…"
+              : "Add selected " +
+                (children ? "children" : "instances") +
+                (selected.size ? " (" + selected.size + ")" : "")}
+          </button>
+        </footer>
+      )}
+    </section>
   );
 }

@@ -16,7 +16,7 @@ import {
 const isClass = (e?: Entity) => !!e && ["Class", "Defined"].includes(e.kind);
 const tooLarge = () =>
   Error(
-    "This branch is too large to send with its complete ancestry and descendants. Select a narrower class.",
+    "The selected class and ancestor context are too large. Select a narrower class.",
   );
 export function taxonomyContext(
   store: Store,
@@ -54,7 +54,11 @@ export function taxonomyContext(
           seen.set(next, seen.get(current.iri)! + 1);
           queue.push(next);
         }
-        if (seen.size > 1500 || links.length > 6000) throw tooLarge();
+        if (
+          direction === "parents" &&
+          (seen.size > 1500 || links.length > 6000)
+        )
+          throw tooLarge();
       }
     }
     return { seen, links };
@@ -122,8 +126,16 @@ export function taxonomyContext(
   context.names = Object.fromEntries(
     [...refs].map((id) => [id, store.label(id)]),
   );
-  // Keep all links and definitions intact or stop before invoking the CLI.
-  if (buildTaxonomyPrompt(context).length > 140000) throw tooLarge();
+  // Descendants are sampled before sending; retain the full branch locally for review.
+  if (
+    buildTaxonomyPrompt({
+      ...context,
+      directChildren: [],
+      descendants: [],
+      descendantLinks: [],
+    }).length > 140000
+  )
+    throw tooLarge();
   return context;
 }
 export function validateTaxonomySuggestions(
