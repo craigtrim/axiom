@@ -62,6 +62,7 @@ export const request = <T = unknown>(
   ([
     "uiHistory",
     "state",
+    "find",
     "inspector",
     "instances",
     "table",

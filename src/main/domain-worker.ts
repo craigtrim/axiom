@@ -986,6 +986,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return true;
     }
+    case "find":
+      return findEntities(store, a);
     case "search": {
       const q = string(a, "text", 256).trim().toLowerCase();
       if (!q) return [];

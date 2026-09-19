@@ -109,6 +109,7 @@ export type DomainMethod =
   | "reportData"
   | "example"
   | "search"
+  | "find"
   | "state"
   | "regenerate"
   | "select"

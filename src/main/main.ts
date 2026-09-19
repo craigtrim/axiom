@@ -87,6 +87,7 @@ const methods = new Set<DomainMethod>([
   "new",
   "example",
   "search",
+  "find",
   "state",
   "regenerate",
   "select",

@@ -1,5 +1,6 @@
+import { readFindOptions, type FindResults } from "../shared/find";
 import type { Store } from "./store";
-import { NS, local } from "./model";
+import { type Kind, NS, local } from "./model";
 import { namedClass } from "./class-expressions";
 import { displayName } from "./rdf-model";
 import { compactIri } from "../shared/terms";
@@ -20,26 +21,55 @@ const normalize = (s: string) =>
 interface Entry extends ResourceMatch {
   tokens: string[];
   names: string[];
+  labelNames: string[];
+  iriNames: string[];
+  kind: Kind;
+  description: string;
+  entity: boolean;
 }
 /** One reusable inverted index per dataset revision. Queries only visit token postings. */
 export class ResourceSearchIndex {
   private entries: Entry[] = [];
   private postings = new Map<string, number[]>();
   private vocabulary: string[];
+  private found?: { key: string; ids: number[] };
   private exact = new Map<string, number[]>();
   constructor(store: Store) {
     const resources = new Map<
       string,
-      { label: string; isClass: boolean; aliases: string[] }
+      {
+        label: string;
+        isClass: boolean;
+        aliases: string[];
+        kind: Kind;
+        description: string;
+        entity: boolean;
+      }
     >();
-    const add = (iri: string, label = local(iri), isClass = false) => {
+    const add = (
+      iri: string,
+      label = local(iri),
+      isClass = false,
+      kind: Kind = "Resource",
+      description = "",
+      entity = false,
+    ) => {
       if (!iri.startsWith("_:") && !resources.has(iri))
-        resources.set(iri, { label, isClass, aliases: [] });
+        resources.set(iri, {
+          label,
+          isClass,
+          aliases: [],
+          kind,
+          description,
+          entity,
+        });
     };
     for (const e of store.entities.values())
-      add(e.iri, displayName(e), namedClass(e));
-    for (const e of store.individuals) add(e.iri, e.reference);
-    for (const e of store.customers) add(e.iri, store.label(e.iri));
+      add(e.iri, displayName(e), namedClass(e), e.kind, e.comment, true);
+    for (const e of store.individuals)
+      add(e.iri, e.reference, false, "Individual", "", true);
+    for (const e of store.customers)
+      add(e.iri, store.label(e.iri), false, "Individual", "", true);
     for (const t of [...store.tbox, ...store.rbox]) {
       add(t.subject);
       add(t.predicate);
@@ -72,6 +102,11 @@ export class ResourceSearchIndex {
         isClass: e.isClass,
         tokens,
         names,
+        labelNames: [e.label, ...e.aliases].map(normalize),
+        iriNames: [identifier, iri].map(normalize),
+        kind: e.kind,
+        description: e.description,
+        entity: e.entity,
       });
       for (const token of tokens) {
         const list = this.postings.get(token) ?? [];
@@ -106,6 +141,95 @@ export class ResourceSearchIndex {
       size += list.length;
     }
     return { lists, size };
+  }
+  /** Exhaustive, paged results share the type-ahead index without its suggestion cap. */
+  find(input: unknown): FindResults {
+    const options = readFindOptions(input);
+    const { text: query, kind, field, match, sort, limit } = options;
+    const text = normalize(query);
+    if (!text) return { rows: [], total: 0, offset: 0 };
+    const key = JSON.stringify([text, kind, field, match, sort]);
+    if (this.found?.key !== key) {
+      const tokens = [...new Set(text.split(" "))];
+      const candidates = new Set<number>();
+      if (match === "words") {
+        const smallest = tokens
+          .map((t) => this.prefix(t))
+          .sort((a, b) => a.size - b.size)[0];
+        for (const list of smallest.lists)
+          for (const id of list) candidates.add(id);
+      } else {
+        for (let id = 0; id < this.entries.length; id++) candidates.add(id);
+      }
+      const scores = new Map<number, number>();
+      for (const id of candidates) {
+        const e = this.entries[id];
+        if (
+          !e.entity ||
+          (kind === "classes" && !e.isClass) ||
+          (kind === "individuals" && e.kind !== "Individual") ||
+          (kind === "properties" && !e.kind.endsWith("Property"))
+        )
+          continue;
+        const names =
+          field === "name"
+            ? e.labelNames
+            : field === "iri"
+              ? e.iriNames
+              : e.names;
+        const accepted =
+          match === "exact"
+            ? names.includes(text)
+            : match === "phrase"
+              ? names.some((n) => n.includes(text))
+              : tokens.every((t) =>
+                  names.some((n) =>
+                    n.split(" ").some((word) => word.startsWith(t)),
+                  ),
+                );
+        if (accepted)
+          scores.set(
+            id,
+            names.includes(text)
+              ? 0
+              : names.some((n) => n.startsWith(text))
+                ? 1
+                : 2,
+          );
+      }
+      const ids = [...scores.keys()].sort((a, b) => {
+        const x = this.entries[a],
+          y = this.entries[b];
+        return (
+          (sort === "relevance" ? scores.get(a)! - scores.get(b)! : 0) ||
+          (sort === "iri"
+            ? x.iri.localeCompare(y.iri)
+            : x.label.localeCompare(y.label) *
+              (sort === "name-desc" ? -1 : 1)) ||
+          x.iri.localeCompare(y.iri)
+        );
+      });
+      this.found = { key, ids };
+    }
+    const ids = this.found.ids;
+    const offset = Math.min(
+      options.offset,
+      Math.max(0, Math.ceil(ids.length / limit) - 1) * limit,
+    );
+    return {
+      total: ids.length,
+      offset,
+      rows: ids.slice(offset, offset + limit).map((id) => {
+        const e = this.entries[id];
+        return {
+          iri: e.iri,
+          name: e.label,
+          kind: e.kind,
+          identifier: e.identifier,
+          description: e.description,
+        };
+      }),
+    };
   }
   search(
     query: string,
@@ -160,8 +284,8 @@ export class ResourceSearchIndex {
       )
       .slice(0, Math.min(50, limit))
       .map(([id]) => {
-        const { tokens, names, ...e } = this.entries[id];
-        return e;
+        const { iri, label, identifier, isClass } = this.entries[id];
+        return { iri, label, identifier, isClass };
       });
   }
 }
@@ -169,16 +293,22 @@ const cache = new WeakMap<
   Store,
   { version: number; index: ResourceSearchIndex }
 >();
+function indexFor(store: Store) {
+  let saved = cache.get(store);
+  if (!saved || saved.version !== store.version) {
+    saved = { version: store.version, index: new ResourceSearchIndex(store) };
+    cache.set(store, saved);
+  }
+  return saved.index;
+}
+export function findEntities(store: Store, options: unknown) {
+  return indexFor(store).find(options);
+}
 export function resourceSuggestions(
   store: Store,
   query: string,
   classesOnly = false,
   exclude: string[] = [],
 ) {
-  let saved = cache.get(store);
-  if (!saved || saved.version !== store.version) {
-    saved = { version: store.version, index: new ResourceSearchIndex(store) };
-    cache.set(store, saved);
-  }
-  return saved.index.search(query, classesOnly, exclude);
+  return indexFor(store).search(query, classesOnly, exclude);
 }

@@ -1,3 +1,4 @@
+import { readFindOptions } from "./find";
 import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
 import { readKeyboardSettings } from "./shortcuts";
 import { parseGraphStyle } from "../domain/graph-style";
