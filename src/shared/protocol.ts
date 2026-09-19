@@ -160,6 +160,8 @@ export type DomainMethod =
   | "uiHistory"
   | "cancelLayout"
   | "queryContext"
+  | "synonymContext"
+  | "validateSynonyms"
   | "taxonomyContext"
   | "validateTaxonomySuggestions"
   | "applyTaxonomySuggestions"

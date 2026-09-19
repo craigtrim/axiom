@@ -1,3 +1,7 @@
+import { synonymContext, validateSynonyms } from "../domain/synonyms";
+import { parseSuggestionValues } from "../shared/suggestions";
+import { synonymDefinition } from "../shared/synonyms";
+import { findEntities } from "../domain/resource-search";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { subclassSuggestions } from "../domain/subclass-suggestions";
 import { MIN_GRAPH_SPACING, MAX_GRAPH_SPACING } from "../shared/graph-spacing";
@@ -821,6 +825,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         store,
         string(a, "instructions", 12000),
         datasetEpoch,
+      );
+    case "synonymContext":
+      return synonymContext(store, string(a, "iri", 10000), datasetEpoch);
+    case "validateSynonyms":
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error("The ontology changed. Start a new synonym run.");
+      return validateSynonyms(
+        store,
+        string(a, "iri", 10000),
+        parseSuggestionValues({ suggestions: a.values }, synonymDefinition),
       );
     case "taxonomyContext":
       return taxonomyContext(

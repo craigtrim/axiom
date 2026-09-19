@@ -157,6 +157,8 @@ const methods = new Set<DomainMethod>([
   "uiHistory",
   "cancelLayout",
   "queryContext",
+  "synonymContext",
+  "validateSynonyms",
   "taxonomyContext",
   "validateTaxonomySuggestions",
   "applyTaxonomySuggestions",
