@@ -217,6 +217,7 @@ const research = new ResearchService(
   path.join(app.getPath("userData"), "research-runs"),
   (iri) => request("researchContext", { iri }),
 );
+const suggestions = new SuggestionService(app.getPath("userData"), request);
 const taxonomyAssistant = new TaxonomyAssistantService(
   path.join(app.getPath("userData"), "taxonomy-runs"),
   (input) => request("taxonomyContext", { iri: input.iri, mode: input.mode }),

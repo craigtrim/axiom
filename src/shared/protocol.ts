@@ -176,8 +176,51 @@ export interface Preferences {
   arrangement?: "auto" | "standard" | "wide" | "custom";
 }
 export interface AxiomBridge {
+  chrome: {
+    info(): Promise<{
+      custom: boolean;
+      directory: string;
+      fileName: string;
+      dirty: boolean;
+    }>;
+    menu(id: string, x: number, y: number): Promise<void>;
+  };
+  suggestions: {
+    definitions(): Promise<import("./suggestions").SuggestionDefinition[]>;
+    saveDefinition(
+      input: import("./suggestions").SuggestionDefinition,
+    ): Promise<import("./suggestions").SuggestionDefinition>;
+    history(): Promise<import("./suggestions").SuggestionRun[]>;
+    run(input: {
+      iri: string;
+      mode: string;
+      provider?: import("./research").AssistantId;
+    }): Promise<import("./suggestions").SuggestionRun>;
+    status(): Promise<
+      | Pick<
+          import("./suggestions").SuggestionRun,
+          "id" | "iri" | "mode" | "startedAt"
+        >
+      | undefined
+    >;
+    cancel(id: string): Promise<void>;
+    apply(
+      id: string,
+      indices: number[],
+    ): Promise<import("./suggestions").SuggestionRun>;
+  };
+  audit: {
+    record(input: { message: string; operation: string }): Promise<string>;
+    list(): Promise<import("./audit").AuditSummary[]>;
+    read(id: string): Promise<import("./audit").AuditRecord>;
+    reveal(id: string): Promise<void>;
+  };
   maximizeWindow(url: string): Promise<void>;
-  editors: { dirty(count: number): void; flushed(error?: string): void };
+  editors: {
+    dirty(count: number): void;
+    flushed(error?: string): void;
+    load(): Promise<import("./editor-state").SavedEditorDrafts | undefined>;
+  };
   files: {
     open(iri: string): Promise<void>;
     reveal(iri: string): Promise<void>;
