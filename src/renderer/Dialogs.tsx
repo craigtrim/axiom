@@ -8,11 +8,13 @@ export function Modal({
   close,
   children,
   document: owner,
+  onClosed,
 }: {
   title: string;
   close: () => void;
   children: ReactNode;
   document?: Document;
+  onClosed?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     target = useRef(owner ?? focusedDocument());
@@ -25,6 +27,7 @@ export function Modal({
       removeAccess();
       d.close();
       previous?.focus();
+      onClosed?.();
     };
   }, []);
   return createPortal(
@@ -174,92 +177,6 @@ export function Palette({
         ))}
         {!matches.length && <p>No matching commands.</p>}
       </div>
-    </Modal>
-  );
-}
-
-export function SearchDialog({ close }: { close: () => void }) {
-  const [text, setText] = useState(""),
-    [rows, setRows] = useState<{ iri: string; name: string; kind: string }[]>(
-      [],
-    ),
-    [selected, setSelected] = useState(0),
-    [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    const timer = setTimeout(
-      () =>
-        void request<typeof rows>("search", { text })
-          .then((r) => {
-            if (active) {
-              setRows(r);
-              setSelected(0);
-            }
-          })
-          .catch((e) => {
-            if (active) setError(e.message);
-          }),
-      100,
-    );
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [text]);
-  const reveal = async (iri: string) => {
-    await request("select", { iri });
-    await request("seed", { iris: [iri] });
-    close();
-    command("view.graph");
-    command("graph.fit");
-  };
-  return (
-    <Modal title="Find entities" close={close}>
-      <input
-        autoFocus
-        aria-label="Search entities"
-        placeholder="Name, IRI or order reference"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            setSelected(Math.min(rows.length - 1, selected + 1));
-          }
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
-            setSelected(Math.max(0, selected - 1));
-          }
-          if (e.key === "Enter" && rows[selected])
-            void reveal(rows[selected].iri);
-        }}
-      />
-      {error && <p role="alert">{error}</p>}
-      <div
-        className="palette-results"
-        role="listbox"
-        aria-label="Matching entities"
-      >
-        {rows.map((r, i) => (
-          <button
-            key={r.iri}
-            role="option"
-            aria-selected={selected === i}
-            title={r.iri}
-            onMouseMove={() => setSelected(i)}
-            onClick={() => void reveal(r.iri)}
-          >
-            <span>{r.name}</span>
-            <small>{r.kind}</small>
-          </button>
-        ))}
-        {text && !rows.length && <p>No matching entities.</p>}
-      </div>
-      {rows.length === 80 && (
-        <p className="muted">
-          Showing the first 80 matches. Add more text to narrow the search.
-        </p>
-      )}
     </Modal>
   );
 }

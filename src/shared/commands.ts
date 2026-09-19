@@ -81,7 +81,7 @@ export const menuTree: MenuDefinition[] = [
     c("role.paste", "Paste", "Edit", app("Ctrl+V"), "paste"),
     c("role.selectAll", "Select all", "Edit", app("Ctrl+A"), "selectAll"),
     null,
-    c("entity.search", "Find entities", "Edit", app("Ctrl+F")),
+    c("entity.search", "Find...", "Edit", app("Ctrl+F")),
     c("entity.createClass", "New class", "Edit", app("Ctrl+Shift+N")),
     c("entity.createIndividual", "New individual", "Edit", app("Ctrl+Shift+I")),
     c("entity.edit", "Details", "Edit", app("Alt+Enter")),
@@ -121,6 +121,9 @@ export const menuTree: MenuDefinition[] = [
       c("view." + label.toLowerCase(), label, "View", app("Ctrl+" + (i + 1))),
     ),
     null,
+    c("view.find", "Find", "View"),
+    c("view.taxonomy", "Suggestions", "View"),
+    c("view.errorlog", "Error log", "View"),
     c("layout.reset", "Reset pane layout", "View"),
     menu(
       "menu.arrangement",

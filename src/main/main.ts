@@ -25,6 +25,7 @@ import { THING } from "../domain/model";
 import { readPreferences } from "../shared/preferences";
 import { menuTree, commandById, type MenuDefinition } from "../shared/commands";
 import {
+  accessKey,
   mnemonicLabel,
   effectiveBindings,
   readKeyboardSettings,
@@ -869,6 +870,7 @@ function installMenu() {
       return item;
     });
   Menu.setApplicationMenu(Menu.buildFromTemplate(build(menuTree)));
+  if (process.platform === "win32") mainWindow?.setMenuBarVisibility(false);
   refreshMenu();
 }
 app.whenReady().then(async () => {
@@ -992,7 +994,17 @@ app.whenReady().then(async () => {
     ...(validBounds ? bounds : {}),
     minWidth: 840,
     minHeight: 600,
-    title: "Axiom Ontology Workbench",
+    title: "Axiom",
+    ...(process.platform === "win32"
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: {
+            color: "#f3f3f3",
+            symbolColor: "#202020",
+            height: 32,
+          },
+        }
+      : {}),
     icon: path.join(__dirname, "../assets/axiom.ico"),
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#202020" : "#f3f3f3",
     webPreferences: {
@@ -1004,6 +1016,53 @@ app.whenReady().then(async () => {
     },
   });
   const secure = (w: BrowserWindow) => {
+    w.webContents.on("before-input-event", (event, input) => {
+      if (
+        process.platform === "win32" &&
+        w === mainWindow &&
+        !modalWindows.size &&
+        input.type === "keyDown" &&
+        input.key === "F10" &&
+        !input.shift &&
+        !input.control &&
+        !input.alt &&
+        !input.meta
+      ) {
+        event.preventDefault();
+        w.webContents.send("command", "menu.focus");
+        return;
+      }
+      if (
+        process.platform !== "win32" ||
+        w !== mainWindow ||
+        modalWindows.size ||
+        input.type !== "keyDown" ||
+        !input.alt ||
+        input.control ||
+        input.meta ||
+        input.key.length !== 1
+      )
+        return;
+      const item = menuTree.find(
+        (m) =>
+          m &&
+          typeof m !== "string" &&
+          accessKey(m.id, preferences.keyboard) === input.key.toUpperCase(),
+      );
+      if (!item || typeof item === "string") return;
+      event.preventDefault();
+      Menu.getApplicationMenu()
+        ?.getMenuItemById(item.id)
+        ?.submenu?.popup({
+          window: w,
+          x: 0,
+          y: 60,
+          sourceType: "keyboard",
+          callback: () => {
+            if (!w.isDestroyed()) w.webContents.focus();
+          },
+        });
+    });
     w.webContents.on("will-navigate", (event, url) => {
       if (!url.startsWith("app://axiom/")) event.preventDefault();
     });
@@ -1180,7 +1239,73 @@ app.whenReady().then(async () => {
     if (queryAssistantJob) queryAssistantJob.cancelled = true;
     queryAssistant.cancel();
   });
-  ipcMain.handle("taxonomyAssistant:run", (event, input) => {
+  handle("chrome:info", (event) => {
+    authorised(event);
+    return windowTitleInfo();
+  });
+  handle("chrome:menu", (event, id, x, y) => {
+    authorised(event);
+    if (
+      !menuTree.some((m) => m && typeof m !== "string" && m.id === id) ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    )
+      throw Error("Unknown application menu.");
+    const owner = BrowserWindow.fromWebContents(event.sender)!;
+    Menu.getApplicationMenu()
+      ?.getMenuItemById(id)
+      ?.submenu?.popup({
+        window: owner,
+        x: Math.max(0, Math.round(x)),
+        y: Math.max(0, Math.round(y)),
+        callback: () => {
+          if (!owner.isDestroyed()) owner.webContents.focus();
+        },
+      });
+  });
+  handle("suggestions:definitions", (event) => {
+    authorised(event);
+    return suggestions.listDefinitions();
+  });
+  handle("suggestions:saveDefinition", async (event, input) => {
+    authorised(event);
+    const result = await suggestions.saveDefinition(input);
+    for (const w of BrowserWindow.getAllWindows())
+      w.webContents.send("command", "suggestions.changed");
+    return result;
+  });
+  handle("suggestions:history", (event) => {
+    authorised(event);
+    return suggestions.history();
+  });
+  const suggestionsChanged = () => {
+    for (const w of BrowserWindow.getAllWindows())
+      if (!w.isDestroyed())
+        w.webContents.send("command", "suggestions.historyChanged");
+  };
+  handle("suggestions:run", async (event, input) => {
+    authorised(event);
+    try {
+      return await suggestions.run(input);
+    } finally {
+      suggestionsChanged();
+    }
+  });
+  handle("suggestions:status", (event) => {
+    authorised(event);
+    return suggestions.status();
+  });
+  handle("suggestions:cancel", (event, id) => {
+    authorised(event);
+    suggestions.cancel(id);
+  });
+  handle("suggestions:apply", async (event, id, indices) => {
+    authorised(event);
+    const r = await suggestions.apply(id, indices);
+    suggestionsChanged();
+    return r;
+  });
+  handle("taxonomyAssistant:run", (event, input) => {
     authorised(event);
     return taxonomyAssistant.run(input);
   });

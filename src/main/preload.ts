@@ -18,8 +18,28 @@ const listen = (channel: string, fn: (value: any) => void) => {
   return () => ipcRenderer.removeListener(channel, handler);
 };
 const bridge: AxiomBridge = {
-  maximizeWindow: (url) => ipcRenderer.invoke("pane:maximizeWindow", url),
+  chrome: {
+    info: () => invoke("chrome:info"),
+    menu: (id, x, y) => invoke("chrome:menu", id, x, y),
+  },
+  suggestions: {
+    definitions: () => invoke("suggestions:definitions"),
+    saveDefinition: (input) => invoke("suggestions:saveDefinition", input),
+    history: () => invoke("suggestions:history"),
+    run: (input) => invoke("suggestions:run", input),
+    status: () => invoke("suggestions:status"),
+    cancel: (id) => invoke("suggestions:cancel", id),
+    apply: (id, indices) => invoke("suggestions:apply", id, indices),
+  },
+  audit: {
+    record: (input) => invoke("audit:record", input),
+    list: () => invoke("audit:list"),
+    read: (id) => invoke("audit:read", id),
+    reveal: (id) => invoke("audit:reveal", id),
+  },
+  maximizeWindow: (url) => invoke("pane:maximizeWindow", url),
   editors: {
+    load: () => invoke("editors:load"),
     dirty: (count) => ipcRenderer.send("editors:dirty", count),
     flushed: (error) => ipcRenderer.send("editors:flushed", error),
   },

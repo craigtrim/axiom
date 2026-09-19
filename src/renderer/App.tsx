@@ -1,4 +1,12 @@
-import { SubclassSuggestions } from "./SubclassSuggestions";
+import { captureWorkspaceDrafts } from "./workspace-drafts";
+import { syncFindEpoch } from "./find-state";
+import { FindDialog, FindPanel } from "./FindPanel";
+import { WindowChrome } from "./WindowChrome";
+import { ErrorLogPanel } from "./ErrorLogPanel";
+import { ErrorDetailsButton } from "./ErrorNotice";
+import { selectAudit } from "./audit-state";
+import { SuggestionsPanel } from "./SuggestionsPanel";
+import { openTaxonomy } from "./taxonomy-view";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
@@ -50,13 +58,7 @@ const QueryResultsPanel = lazy(() =>
 const QueryPanel = lazy(() =>
   import("./QueryPanel").then((m) => ({ default: m.QueryPanel })),
 );
-import {
-  EditDialog,
-  Modal,
-  Palette,
-  SearchDialog,
-  type EntityDialog,
-} from "./Dialogs";
+import { EditDialog, Modal, Palette, type EntityDialog } from "./Dialogs";
 import {
   useSnapshot,
   state,
@@ -76,6 +78,7 @@ import {
   focusedDocument,
   rememberDocument,
   recordUiChange,
+  flushUiHistory,
 } from "./client";
 import examples from "../domain/data/examples.json";
 import tokens from "../domain/data/tokens.json";
@@ -87,16 +90,25 @@ const names: Record<string, string> = {
   individuals: "Individuals",
   query: "Query",
   research: "Research",
+  taxonomy: "Suggestions",
+  errorlog: "Error log",
+  find: "Find",
   provenance: "Filesystem provenance",
   source: "Source",
 };
 const tab = (id: string) => ({
   type: "tab" as const,
   id,
-  component: id.startsWith("graph:") ? "graph" : id,
+  component: id.startsWith("graph:")
+    ? "graph"
+    : id.startsWith("taxonomy:")
+      ? "taxonomy"
+      : id,
   name: id.startsWith("graph:")
     ? "Graph " + (Object.keys(state?.graphs ?? {}).indexOf(id) + 1)
-    : names[id],
+    : id.startsWith("taxonomy:")
+      ? "Suggestions"
+      : names[id],
 });
 
 export function defaultLayout(
@@ -229,6 +241,11 @@ export function restoreLayout(value: unknown): Model {
             staleGraphs.push(n);
           return;
         }
+        if (
+          id === "taxonomy" &&
+          /^taxonomy(?::[a-f0-9-]{36})?$/.test(n.getId())
+        )
+          return;
         if (!names[id] || seen.has(id)) throw Error();
         seen.add(id);
       }
@@ -310,7 +327,6 @@ export function applyTheme(doc: Document = document) {
     root.style.setProperty("--" + k, v);
 }
 export function App() {
-  const [subclassTarget, setSubclassTarget] = useState<string | null>(null);
   useAssistantActivityPolling();
   const items = commandDefinitions.map((c) => {
     const action =
@@ -348,7 +364,10 @@ export function App() {
     active = useRef("graph"),
     pendingLayout = useRef<unknown>(null);
   modelRef.current = model;
-  useEffect(() => syncEditorEpoch(s.datasetEpoch), [s.datasetEpoch]);
+  useEffect(() => {
+    syncEditorEpoch(s.datasetEpoch);
+    syncFindEpoch(s.datasetEpoch);
+  }, [s.datasetEpoch]);
 
   const updatePaneMenu = () => {
     const m = modelRef.current,
@@ -425,7 +444,13 @@ export function App() {
             : undefined;
       const target =
         dataSibling ??
-        (id === "provenance" || id === "source" || id === "details"
+        (id === "find" ||
+        id === "errorlog" ||
+        id === "taxonomy" ||
+        id.startsWith("taxonomy:") ||
+        id === "provenance" ||
+        id === "source" ||
+        id === "details"
           ? (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!)
           : id === "research"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
@@ -435,6 +460,10 @@ export function App() {
           tab(id),
           target.getId(),
           dataSibling ||
+            id === "find" ||
+            id === "errorlog" ||
+            id === "taxonomy" ||
+            id.startsWith("taxonomy:") ||
             id === "research" ||
             id === "provenance" ||
             id === "source" ||
@@ -686,6 +715,10 @@ export function App() {
         setTimeout(() => command(id), 40);
         return;
       }
+      if (id.startsWith("audit.open:")) {
+        selectAudit(id.slice(11));
+        show("errorlog");
+      }
       if (id.startsWith("view.")) show(id.slice(5));
       if (id.startsWith("pane.")) pane(id);
       if (id === "palette") setPalette(true);
@@ -753,7 +786,7 @@ export function App() {
         });
         for (const id of staleGraphs)
           modelRef.current.doAction(Actions.deleteTab(id));
-        setSubclassTarget(null);
+
         preferences.panelState = {
           ...preferences.panelState,
           "query.text":
@@ -777,8 +810,11 @@ export function App() {
       }
       if (id === "workspace.capture") {
         preferences.layout = modelRef.current.toJson();
-        void flushQueryHistory()
-          .then(() => window.axiom.preferences.save(preferences, true))
+        void Promise.all([flushQueryHistory(), flushUiHistory()])
+          .then(() => captureWorkspaceDrafts())
+          .then((drafts) =>
+            window.axiom.preferences.save(preferences, true, drafts),
+          )
           .catch((e) => report(e.message, true));
       }
       if (id === "workspace.preferences")
@@ -790,16 +826,10 @@ export function App() {
           setThemeVersion((n) => n + 1);
         });
       if (id === "subclasses.suggest" && state?.selected)
-        setSubclassTarget(state.selected);
+        openTaxonomy(state.selected, "parents");
       if (id === "file.provenance") show("provenance");
       if (id === "entity.search") {
-        if (
-          focusedDocument().activeElement?.closest(
-            '[data-panel="source"] .monaco-editor',
-          )
-        )
-          command("source.find");
-        else setSearch(true);
+        setSearch(true);
       } else if (id === "entity.newGraph") {
         void request<string>("graphCreate", {
           iris: state?.selected ? [state.selected] : [],
@@ -973,47 +1003,9 @@ export function App() {
         updatePaneMenu();
       }}
     >
-      <div className="command-bar">
-        <span className="app-mark" aria-hidden="true">
-          A
-        </span>
-        <button
-          title={keyHint("entity.createClass")}
-          onClick={() => beginCreation("Class")}
-        >
-          New class
-        </button>
-        <button
-          title={keyHint("entity.createIndividual")}
-          onClick={() => beginCreation("Individual")}
-        >
-          New individual
-        </button>
-        <span className="toolbar-divider" />
-        <button
-          disabled={!s.canUndo}
-          title={s.undoLabel ? "Undo " + s.undoLabel : "Undo"}
-          onClick={() => void act("undo")}
-        >
-          Undo
-        </button>
-        <button disabled={!s.canRedo} onClick={() => void act("redo")}>
-          Redo
-        </button>
-        <button
-          title={keyHint("file.save")}
-          onClick={() => window.axiom.command("file.save")}
-        >
-          Save{s.dirty ? " *" : ""}
-        </button>
-        <button className="search-command" onClick={() => command("search")}>
-          Find entities <kbd>{keyHint("entity.search")}</kbd>
-        </button>
-        <span className="toolbar-spacer" />
-        {!s.ontology.example && (
-          <span className="ontology-name">{s.ontology.name}</span>
-        )}
-        {s.ontology.example && (
+      <WindowChrome />
+      {s.ontology.example && (
+        <div className="command-bar">
           <label className="dataset-label">
             Dataset{" "}
             <select
@@ -1034,15 +1026,8 @@ export function App() {
               )}
             </select>
           </label>
-        )}
-        <button
-          title={"Command palette (" + keyHint("palette") + ")"}
-          aria-label="Command palette"
-          onClick={() => setPalette(true)}
-        >
-          ⌘
-        </button>
-      </div>
+        </div>
+      )}
       <div className="docking-workspace">
         <Layout
           model={model}
@@ -1091,6 +1076,9 @@ export function App() {
                   graph: <GraphPanel graphId={n.getId()} />,
                   inspector: <InspectorPanel />,
                   research: <ResearchPanel />,
+                  taxonomy: <SuggestionsPanel paneId={n.getId()} />,
+                  errorlog: <ErrorLogPanel />,
+                  find: <FindPanel />,
                   individuals: <IndividualsPanel />,
                   queryResults: (
                     <Suspense
@@ -1165,14 +1153,9 @@ export function App() {
         >
           {notice.text}
         </span>
+        {notice.error && <ErrorDetailsButton error={notice.text} />}
         <button onClick={() => command("help.shortcuts")}>Shortcuts</button>
       </footer>
-      {subclassTarget && (
-        <SubclassSuggestions
-          iri={subclassTarget}
-          close={() => setSubclassTarget(null)}
-        />
-      )}
       {styles && (
         <StylesDialog
           advanced={styles === "advanced"}
@@ -1180,7 +1163,7 @@ export function App() {
         />
       )}
       {edit && <EditDialog kind={edit} close={() => setEdit(null)} />}
-      {search && <SearchDialog close={() => setSearch(false)} />}
+      {search && <FindDialog close={() => setSearch(false)} />}
       {palette && (
         <Palette items={items} close={() => setPalette(false)} run={run} />
       )}
