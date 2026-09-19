@@ -1,14 +1,16 @@
 # Assistant activity in workbench panes
 
-External assistant tasks show a fixed status strip above the pane's scrolling content. The strip identifies the assistant and task, shows elapsed seconds, and provides Cancel. A spinner also appears beside the pane's tab title. Reduced-motion settings stop the spinner animation; the task text remains visible.
+External assistant tasks show a fixed status strip above the pane's scrolling content. The strip identifies the assistant and task, shows elapsed seconds, and provides Cancel. Research and Query also show a spinner beside their tab titles. Reduced-motion settings stop the spinner animation; the task text remains visible.
 
-| Task | Owning pane | Launch control |
-| --- | --- | --- |
-| Ontology research | Research | Run research, menu command or keyboard shortcut |
-| SPARQL generation | Query | Generate query / Generate again |
-| Child-class or named-instance suggestions | Hierarchy | Add children / Find instances, then Find suggestions again |
+| Task                                      | Owning pane | Launch control                                  |
+| ----------------------------------------- | ----------- | ----------------------------------------------- |
+| Ontology research                         | Research    | Run research, menu command or keyboard shortcut |
+| SPARQL generation                         | Query       | Generate query / Generate again                 |
+| Child-class or named-instance suggestions | Suggestions | Find children / Find instances, then New run    |
 
-The taxonomy review dialog repeats the status because it covers its owning pane. Closing that dialog cancels its request. Closing the Query composer, Research pane or Query pane allows the task to continue. Reopening the pane restores its running indicator and cancellation control. Detached and compact panes use the same behavior.
+Suggestion status is confined to its Suggestions view, including elapsed time and Cancel. Hierarchy shows no duplicate status.
+
+Closing the Suggestions view, Query composer, Research pane or Query pane allows the task to continue. Suggestions stores each run with its node and restores the latest run when that node is reopened. Reopening the pane restores its running indicator and cancellation control. Detached and compact panes use the same behavior.
 
 Research retains the entity name captured at launch, even when selection changes. Input controls and repeated launch actions remain disabled during the request. Different assistant workflows may run independently.
 
@@ -25,7 +27,6 @@ The main process also rejects concurrent requests. Query's reservation includes 
 The store tests cover 100 repeated requests per workflow, stale polling, cancellation during preparation, retry, cancellation failure and independent jobs. Desktop tests launch controlled CLI processes and check repeated clicks, direct IPC retries, original entity attribution, closed and reopened panes, both taxonomy modes, cancellation, malformed output, detached pane sizes and reduced motion. The activity strip has a targeted axe scan.
 
 These checks exercise subprocess management and the interface. They do not call the live Codex or Claude service.
-
 
 ## Research cache
 

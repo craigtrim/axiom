@@ -18,7 +18,9 @@ let app: ElectronApplication,
   visited = new Set<string>();
 // The appearance workflows live in their own desktop suite.
 const coverage: Record<string, string[]> = {
-  "Graph appearance settings (tests/e2e/graph-appearance.spec.ts)": ["graph.appearance"],
+  "Graph appearance settings (tests/e2e/graph-appearance.spec.ts)": [
+    "graph.appearance",
+  ],
 };
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
@@ -323,11 +325,11 @@ journey(
     const dialog = page.getByRole("dialog", { name: "Find entities" });
     await expect(dialog).toBeVisible();
     await dialog
-      .getByRole("textbox", { name: "Search entities" })
+      .getByRole("combobox", { name: "Search entities" })
       .fill("NutTopping");
     await expect(dialog.getByRole("option").first()).toBeVisible();
     await dialog
-      .getByRole("textbox", { name: "Search entities" })
+      .getByRole("combobox", { name: "Search entities" })
       .press("Enter");
     await expect(dialog).toHaveCount(0);
     await expect
@@ -346,6 +348,7 @@ journey(
     "view.query",
     "view.source",
     "view.details",
+    "view.find",
     "layout.reset",
     "palette",
   ],
@@ -358,6 +361,7 @@ journey(
       "query",
       "source",
       "details",
+      "find",
     ]) {
       await menu("view." + id);
       await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
@@ -1018,7 +1022,9 @@ journey(
     const d = page.getByRole("dialog", { name: "Graph stylesheet" }),
       input = d.getByRole("textbox", { name: "Graph stylesheet" });
     await input.fill("node { size: 900px; }");
-    await expect(d.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+    await expect(
+      d.getByRole("button", { name: "Apply", exact: true }),
+    ).toBeDisabled();
     await expect(d.getByRole("alert")).toContainText("size");
     expect((await state()).graph.stylesheet).toBe("");
     const css =
@@ -1034,7 +1040,10 @@ journey(
     const svg = path.resolve("artifacts/testing/styled.svg");
     await saveTo(svg);
     await menu("graph.export.svg");
-    await page.getByRole("dialog", {name:"Export",exact:true}).getByRole("button", {name:"Export",exact:true}).click();
+    await page
+      .getByRole("dialog", { name: "Export", exact: true })
+      .getByRole("button", { name: "Export", exact: true })
+      .click();
     await expect
       .poll(async () => {
         try {

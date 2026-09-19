@@ -166,9 +166,7 @@ test("Details shows compact statements and preserves language, datatype, and edi
       (t: any) => t.predicate === base + "score" && t.object.datatype,
     ),
   ).toBe(true);
-  await details()
-    .getByRole("button", { name: "Add statement", exact: true })
-    .click();
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
   await table
     .getByRole("combobox", { name: "Predicate 9", exact: true })
     .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");

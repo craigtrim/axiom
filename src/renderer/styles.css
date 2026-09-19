@@ -557,8 +557,52 @@ a {
   box-shadow: var(--shadow-dialog);
   overflow: auto;
 }
-.modal:has(.taxonomy-assistant) {
-  width: min(760px, 90vw);
+.taxonomy-heading {
+  padding: 12px;
+  border-bottom: 1px solid var(--stroke);
+}
+.taxonomy-heading h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.taxonomy-run-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.taxonomy-run-actions label {
+  flex: 1;
+  min-width: 120px;
+  margin: 0;
+}
+.taxonomy-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+.taxonomy-history select {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.taxonomy-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+.taxonomy-footer {
+  flex-shrink: 0;
+}
+.taxonomy-choice {
+  display: flex;
+}
+.taxonomy-context textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
 .taxonomy-assistant p,
 .taxonomy-assistant code {
@@ -574,7 +618,8 @@ a {
   max-height: 220px;
   overflow: auto;
 }
-.taxonomy-assistant .taxonomy-choice {
+.taxonomy-assistant .taxonomy-choice,
+.suggestions-view .taxonomy-choice {
   flex-direction: row;
   align-items: center;
   gap: 10px;
@@ -590,13 +635,6 @@ a {
 .taxonomy-suggestions > li {
   border-top: 1px solid var(--stroke);
   padding: 16px 0;
-}
-.taxonomy-assistant footer {
-  position: sticky;
-  bottom: -24px;
-  background: var(--surface);
-  padding: 12px 0;
-  flex-wrap: wrap;
 }
 .modal::backdrop {
   background: #0007;

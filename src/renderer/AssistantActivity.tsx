@@ -4,7 +4,6 @@ export { assistantActivities } from "./assistant-activity";
 const paneAssistants: Partial<Record<string, AssistantKind>> = {
   research: "research",
   query: "query",
-  hierarchy: "taxonomy",
 };
 export const paneAssistant = (id: string) => paneAssistants[id];
 export function useAssistantActivity(kind?: AssistantKind) {

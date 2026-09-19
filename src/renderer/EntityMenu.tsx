@@ -1,7 +1,7 @@
+import { openTaxonomy } from "./taxonomy-view";
 import { taxonomyChildren } from "../domain/class-expressions";
 import { instanceAction, countLabel } from "../shared/action-state";
 import { showInstances } from "./instance-report";
-import { useAssistantActivity } from "./AssistantActivity";
 import { editEntity } from "./authoring";
 import { startInlineRename } from "./InlineRename";
 import { ContextMenu, type ContextAction } from "./ContextMenu";
@@ -26,7 +26,6 @@ export function EntityMenu({
     mode: import("../shared/taxonomy-assistant").TaxonomyMode,
   ) => void;
 }) {
-  const taxonomyBusy = !!useAssistantActivity("taxonomy");
   const s = useSnapshot()!,
     entity = s.entities.find((e) => e.iri === iri),
     node = s.graph.nodes.find((n) => n.iri === iri);
@@ -112,24 +111,41 @@ export function EntityMenu({
     },
     null,
     {
-      label: "Suggest Sub Classes",
+      label: "Suggest",
       key: "G",
-      visible: isClass,
-      run: () => command("subclasses.suggest"),
+      visible: !!entity,
+      run: () => {},
+      children: [
+        {
+          label: "Add Children",
+          enabled: isClass,
+          key: "C",
+          run: () => openTaxonomy(iri, "children"),
+        },
+        {
+          label: "Add Parents",
+          enabled: isClass,
+          key: "P",
+          run: () => openTaxonomy(iri, "parents"),
+        },
+        {
+          label: "Find Synonyms",
+          key: "S",
+          enabled: !iri.startsWith("_:"),
+          run: () => openTaxonomy(iri, "synonyms"),
+        },
+        {
+          label: "Define New",
+          key: "N",
+          run: () => openTaxonomy(iri, "define"),
+        },
+      ],
     },
     { label: "Research...", key: "E", run: () => command("research.open") },
-    {
-      label: "Add children",
-      key: "H",
-      visible: !!taxonomy && isClass,
-      enabled: !taxonomyBusy,
-      run: () => taxonomy?.("children"),
-    },
     {
       label: "Find instances",
       key: "F",
       visible: !!taxonomy && isClass,
-      enabled: !taxonomyBusy,
       run: () => taxonomy?.("instances"),
     },
     null,

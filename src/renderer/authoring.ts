@@ -52,3 +52,11 @@ export function takeEditorIri() {
   return iri ?? state?.selected;
 }
 export const entityDragType = "application/x-axiom-entity";
+
+export const taxonomyDragType = "application/x-axiom-taxonomy";
+export interface TaxonomyDrag {
+  iri: string;
+  fromParent: string | null;
+  version: number;
+  datasetEpoch: number;
+}

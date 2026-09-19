@@ -1,3 +1,4 @@
+import { openTaxonomy } from "./taxonomy-view";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
 import { GraphScope, useGraphScope } from "./GraphScope";
@@ -1093,6 +1094,14 @@ function GraphContent() {
                     : "default";
             }
           }}
+          onPointerLeave={() => {
+            if (hover.current || hoveredEdge.current) {
+              hover.current = null;
+              hoveredEdge.current = null;
+              dirty.current = true;
+            }
+            canvasRef.current!.title = "";
+          }}
           onPointerCancel={() => {
             finishDrag();
             connectRef.current?.cancel();
@@ -1749,19 +1758,42 @@ function GraphContent() {
               run: () => showInstances(context.iri),
             },
             {
-              label: "Suggest Sub Classes",
+              label: "Suggest",
               key: "G",
-              visible: !!snapshot?.entities.some(
-                (e) =>
-                  e.iri === context.iri &&
-                  ["Class", "Defined"].includes(e.kind),
-              ),
-              run: () => {
-                setContext(null);
-                void request("select", { iri: context.iri }).then(() =>
-                  command("subclasses.suggest"),
-                );
-              },
+              run: () => {},
+              children: [
+                {
+                  label: "Add Children",
+                  enabled: !!snapshot?.entities.some(
+                    (e) =>
+                      e.iri === context.iri &&
+                      ["Class", "Defined"].includes(e.kind),
+                  ),
+                  key: "C",
+                  run: () => openTaxonomy(context.iri, "children"),
+                },
+                {
+                  label: "Add Parents",
+                  enabled: !!snapshot?.entities.some(
+                    (e) =>
+                      e.iri === context.iri &&
+                      ["Class", "Defined"].includes(e.kind),
+                  ),
+                  key: "P",
+                  run: () => openTaxonomy(context.iri, "parents"),
+                },
+                {
+                  label: "Find Synonyms",
+                  key: "S",
+                  enabled: !context.iri.startsWith("_:"),
+                  run: () => openTaxonomy(context.iri, "synonyms"),
+                },
+                {
+                  label: "Define New",
+                  key: "N",
+                  run: () => openTaxonomy(context.iri, "define"),
+                },
+              ],
             },
             {
               label: "Research...",

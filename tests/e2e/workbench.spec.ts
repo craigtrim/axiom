@@ -251,9 +251,9 @@ test("drag a tab into another group, detach and reattach a pane", async () => {
   await page.screenshot({ path: "artifacts/testing/docking.png" });
 });
 test("export SVG, PNG and clipboard and use global search", async () => {
-  await menu("Find entities");
+  await menu("entity.search");
   await page
-    .getByRole("textbox", { name: "Search entities" })
+    .getByRole("combobox", { name: "Search entities" })
     .fill("Pizza_000001");
   await page.getByRole("option").filter({ hasText: "AX-100000" }).click();
   await expect(page.locator(".inspector-content")).toContainText(

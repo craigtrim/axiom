@@ -60,6 +60,31 @@ export function readPreferences(input: unknown): Preferences {
     out["assistant.provider"] = s["assistant.provider"];
   if (typeof s["details.source.open"] === "boolean")
     out["details.source.open"] = s["details.source.open"];
+  for (const [key, target] of Object.entries(s)) {
+    if (!/^taxonomy(?::[a-f0-9-]{36})?\.target$/.test(key)) continue;
+    if (
+      object(target) &&
+      typeof target.iri === "string" &&
+      target.iri.length < 10000 &&
+      typeof target.namespace === "string" &&
+      target.namespace.length < 10000 &&
+      typeof target.mode === "string" &&
+      /^(children|instances|parents|synonyms|define|custom:[a-zA-Z0-9-]{1,100})$/.test(
+        target.mode,
+      )
+    )
+      out[key] = {
+        iri: target.iri,
+        namespace: target.namespace,
+        mode: target.mode,
+      };
+  }
+  if (object(s["find.view"]))
+    out["find.view"] = readFindOptions(s["find.view"]);
+  if (Array.isArray(s["find.recent"]))
+    out["find.recent"] = s["find.recent"]
+      .filter((q) => typeof q === "string" && q.length <= 256)
+      .slice(0, 10);
   const prompts = s["research.templates"];
   if (
     object(prompts) &&
