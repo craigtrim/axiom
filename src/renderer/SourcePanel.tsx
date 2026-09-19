@@ -1,3 +1,4 @@
+import { ErrorNotice } from "./ErrorNotice";
 import { ontologyLanguage } from "./ontology-language";
 import { PaneToolbar, PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
@@ -276,9 +277,7 @@ export function SourcePanel() {
         </p>
       )}
       {error && (
-        <p className="source-message field-error" role="alert">
-          {error}
-        </p>
+        <ErrorNotice className="source-message field-error" error={error} />
       )}
       {doc?.namedGraphs && (
         <PaneDetails title="Named graph formats" className="source-format-help">

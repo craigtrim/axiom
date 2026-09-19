@@ -1,3 +1,4 @@
+import { ErrorNotice } from "./ErrorNotice";
 import { useAssistantProvider } from "./assistant-provider";
 import { assistantActivities, useAssistantActivity } from "./AssistantActivity";
 import { PaneDetails } from "./AdaptivePane";
@@ -202,9 +203,10 @@ export function QueryComposer({
           </p>
         </PaneDetails>
         {(error || status.error) && (
-          <p role="alert" className="query-error">
-            {error || status.error}
-          </p>
+          <ErrorNotice
+            className="query-error"
+            error={error || status.error || ""}
+          />
         )}
         {status.response?.result.status === "unsupported" && (
           <p role="status">{status.response.result.explanation}</p>

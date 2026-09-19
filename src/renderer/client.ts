@@ -1,3 +1,4 @@
+import { rememberAudit } from "./audit-state";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { assistantActivities } from "./assistant-activity";
 import { useSyncExternalStore } from "react";
@@ -138,6 +139,7 @@ export async function initialise() {
   preferences.panelState ??= {};
   window.axiom.onCommand(command);
   window.axiom.onEvent(({ type, data }) => {
+    if (type === "audit-error") rememberAudit(data);
     if (type === "keyboard-changed") {
       preferences.keyboard = data;
       command("keyboard.changed");

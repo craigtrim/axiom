@@ -1,3 +1,4 @@
+import { ErrorNotice } from "./ErrorNotice";
 import { PaneToolbar, usePaneLayout } from "./AdaptivePane";
 import { queryResultId, queryTitle } from "../shared/query-history";
 import { showQueryResults } from "./query-results";
@@ -659,11 +660,7 @@ export function QueryPanel() {
                   </span>
                 )}
               </div>
-              {error && (
-                <div className="query-error" role="alert">
-                  {error}
-                </div>
-              )}
+              {error && <ErrorNotice className="query-error" error={error} />}
             </div>
           </div>
           <div className="panel-note query-footnote">

@@ -1,3 +1,4 @@
+import { ErrorNotice } from "./ErrorNotice";
 import { useAssistantProvider } from "./assistant-provider";
 import { useEffect, useState } from "react";
 import { PaneToolbar, PaneDetails, usePaneLayout } from "./AdaptivePane";
@@ -310,11 +311,7 @@ export function ResearchPanel() {
           </span>
         )}
       </div>
-      {error && (
-        <p role="alert" className="error pane-alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorNotice error={error} />}
       <div className="research-workspace" data-has-results={!!response}>
         <div id="research-options" className="research-options">
           <PaneDetails title="About research" className="research-help">
