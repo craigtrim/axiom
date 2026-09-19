@@ -117,6 +117,7 @@ const methods = new Set<DomainMethod>([
   "freeze",
   "clear",
   "rename",
+  "moveClass",
   "createClass",
   "deleteClass",
   "editCell",

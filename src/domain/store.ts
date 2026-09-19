@@ -1,3 +1,4 @@
+import { classMoveIssue } from "./taxonomy-move";
 import { simplifySubclassIntersections } from "./intersection-definitions";
 import { discardUnusedIntersection } from "./intersection-cleanup";
 import {
@@ -806,6 +807,50 @@ export class Store {
       },
       () => this.restoreSchema(before),
     );
+  }
+  moveClass(iri: string, parent: string, fromParent: string | null) {
+    const issue = classMoveIssue(this.entities, iri, parent);
+    if (issue) throw Error(issue);
+    const entity = this.entities.get(iri)!;
+    if (
+      fromParent !== null &&
+      !(entity.taxonomyParents ?? entity.parents).includes(fromParent)
+    )
+      throw Error("The original parent changed. Drag the class again.");
+    const statements = this.entityStatements(iri);
+    const previous = statements.filter(
+      (t) =>
+        t.predicate === SUBCLASS &&
+        !t.object.literal &&
+        t.object.value === fromParent,
+    );
+    const existing = statements.filter(
+      (t) =>
+        t.predicate === SUBCLASS &&
+        !t.object.literal &&
+        t.object.value === parent,
+    );
+    if (parent === fromParent && existing.length) return false;
+    // The dragged branch changes. Other parents, restrictions and definitions remain asserted.
+    const target = [
+      ...existing,
+      ...(previous.length
+        ? previous.map((t) => ({ ...t, object: iriTerm(parent) }))
+        : existing.length
+          ? []
+          : [{ subject: iri, predicate: SUBCLASS, object: iriTerm(parent) }]),
+    ];
+    const next = [
+      ...target,
+      ...statements.filter(
+        (t) => !previous.includes(t) && !existing.includes(t),
+      ),
+    ];
+    if (JSON.stringify(next) === JSON.stringify(statements)) return false;
+    this.updateEntity(iri, next);
+    this.undoStack[this.undoStack.length - 1].label =
+      "Move " + this.label(iri) + " under " + this.label(parent);
+    return true;
   }
   addClassParents(owner: string, members: string[]) {
     const e = this.entities.get(owner);

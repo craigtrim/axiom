@@ -319,6 +319,7 @@ const tracked = new Set<DomainMethod>([
   "freeze",
   "clear",
   "rename",
+  "moveClass",
   "createClass",
   "createProperty",
   "updateEntity",
@@ -1533,6 +1534,23 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       retargetGraph(iri, next);
       mutate("Entity renamed.");
       return next;
+    }
+    case "moveClass": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error("The ontology changed. Drag the class again.");
+      const iri = string(a, "iri"),
+        parent = string(a, "parent");
+      const fromParent = a.fromParent === null ? null : string(a, "fromParent");
+      if (!store.moveClass(iri, parent, fromParent)) return false;
+      selected = iri;
+      mutate(
+        "Moved " +
+          store.label(iri) +
+          " under " +
+          store.label(parent) +
+          ". Undo restores the previous parent.",
+      );
+      return true;
     }
     case "createClass":
       validateCreation(a);

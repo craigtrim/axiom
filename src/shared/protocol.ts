@@ -139,6 +139,7 @@ export type DomainMethod =
   | "freeze"
   | "clear"
   | "rename"
+  | "moveClass"
   | "createClass"
   | "deleteClass"
   | "editCell"
@@ -270,6 +271,10 @@ export interface AxiomBridge {
     status(): Promise<import("./query-assistant").QueryAssistantStatus>;
   };
   taxonomyAssistant: {
+    history(): Promise<import("./taxonomy-assistant").TaxonomyHistorySummary[]>;
+    read(
+      id: string,
+    ): Promise<import("./taxonomy-assistant").TaxonomyHistoryReview>;
     run(
       input: import("./taxonomy-assistant").TaxonomyRequest,
     ): Promise<import("./taxonomy-assistant").TaxonomyResponse>;

@@ -1,5 +1,10 @@
+import { classMoveIssue } from "../domain/taxonomy-move";
 import { taxonomyRows } from "../domain/taxonomy-rows";
-import { takeTaxonomyReveal } from "./taxonomy-navigation";
+import {
+  alignTaxonomyRow,
+  takeTaxonomyReveal,
+  revealInTaxonomy,
+} from "./taxonomy-navigation";
 import {
   namedClass,
   taxonomyParents,
@@ -9,13 +14,18 @@ import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import { PaneToolbar } from "./AdaptivePane";
 import { InlineCreate } from "./InlineCreate";
-import { takeCreation, entityDragType, type Creation } from "./authoring";
+import {
+  takeCreation,
+  entityDragType,
+  taxonomyDragType,
+  type TaxonomyDrag,
+  type Creation,
+} from "./authoring";
 import { displayName } from "../domain/rdf-model";
 import { Fragment } from "react";
 import { EditableEntityName } from "./InlineRename";
 import { EntityMenu } from "./EntityMenu";
-import { TaxonomyAssistant } from "./TaxonomyAssistant";
-import type { TaxonomyMode } from "../shared/taxonomy-assistant";
+import { openTaxonomy } from "./taxonomy-view";
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
   useSnapshot,
@@ -31,11 +41,6 @@ export function HierarchyPanel() {
     [tab, setTab] = useState(panel("hierarchy.tab", "classes")),
     [filter, setFilter] = useState(""),
     [draft, setDraft] = useState<Creation | null>(null),
-    [discovery, setDiscovery] = useState<{
-      iri: string;
-      mode: TaxonomyMode;
-      doc: Document;
-    } | null>(null),
     [context, setContext] = useState<{
       iri: string;
       x: number;
@@ -55,13 +60,14 @@ export function HierarchyPanel() {
         ),
     );
   const rootRef = useRef<HTMLElement>(null);
-  const revealRef = useRef<string | null>(null);
+  const revealRef = useRef<ReturnType<typeof takeTaxonomyReveal>>(null);
   const [revealTick, setRevealTick] = useState(0);
   useEffect(() => {
     const reveal = () => {
-      const iri = takeTaxonomyReveal();
-      if (!iri) return;
-      revealRef.current = iri;
+      const request = takeTaxonomyReveal();
+      if (!request) return;
+      const { iri } = request;
+      revealRef.current = request;
       setFilter("");
       const entity = s.entities.find((e) => e.iri === iri);
       setTab(entity?.kind.endsWith("Property") ? "properties" : "classes");
@@ -73,25 +79,172 @@ export function HierarchyPanel() {
     });
   }, [s.entities]);
   useEffect(() => {
-    if (!revealRef.current) return;
-    const row = [
-      ...(rootRef.current?.querySelectorAll<HTMLElement>("[data-entity-iri]") ??
-        []),
-    ].find((r) => r.dataset.entityIri === revealRef.current);
-    if (row) {
-      row.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const request = revealRef.current;
+    const tree = rootRef.current?.querySelector<HTMLElement>('[role="tree"]');
+    if (!request || !tree) return;
+    if (request.epoch !== s.datasetEpoch || request.iri !== s.selected) {
       revealRef.current = null;
+      return;
     }
-  }, [revealTick, open, filter, tab, s.selected]);
+    const win = tree.ownerDocument.defaultView!;
+    let frame = 0;
+    const align = () => {
+      if (revealRef.current !== request) return;
+      const row = [
+        ...tree.querySelectorAll<HTMLElement>("[data-entity-iri]"),
+      ].find((r) => r.dataset.entityIri === request.iri);
+      if (row && alignTaxonomyRow(tree, row, request.anchor)) {
+        revealRef.current = null;
+        observer.disconnect();
+      }
+    };
+    const schedule = () => {
+      win.cancelAnimationFrame(frame);
+      frame = win.requestAnimationFrame(() => {
+        frame = win.requestAnimationFrame(align);
+      });
+    };
+    // A reveal can arrive while its pane is hidden. Finish when it is visible.
+    const observer = new win.ResizeObserver(schedule);
+    observer.observe(tree);
+    schedule();
+    return () => {
+      observer.disconnect();
+      win.cancelAnimationFrame(frame);
+    };
+  }, [revealTick, open, filter, tab, s.selected, s.datasetEpoch]);
   const map = useMemo(
     () => new Map(s.entities.map((e) => [e.iri, e])),
     [s.entities],
   );
-  const properties = tab === "properties",
-    entities = s.entities.filter((e) =>
-      properties ? e.kind.endsWith("Property") : namedClass(e),
-    );
-  const rows = taxonomyRows(entities, open, filter);
+  const properties = tab === "properties";
+  const entities = useMemo(
+    () =>
+      s.entities.filter((e) =>
+        properties ? e.kind.endsWith("Property") : namedClass(e),
+      ),
+    [s.entities, properties],
+  );
+  const rows = useMemo(
+    () => taxonomyRows(entities, open, filter),
+    [entities, open, filter],
+  );
+  const rowParents = useMemo(() => {
+    const parents = new Map<string, string | null>(),
+      path: string[] = [];
+    for (const row of rows) {
+      parents.set(row.iri, row.depth ? path[row.depth - 1] : null);
+      path[row.depth] = row.iri;
+      path.length = row.depth + 1;
+    }
+    return parents;
+  }, [rows]);
+  const selectedVisible = rows.some((r) => r.iri === s.selected);
+  const dragging = useRef<TaxonomyDrag | null>(null),
+    hover = useRef<{
+      iri: string;
+      timer: ReturnType<typeof setTimeout>;
+    } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null),
+    [dropMessage, setDropMessage] = useState("");
+  const allowed = useRef(new Map<string, string | undefined>());
+  const scroll = useRef<{
+    win: Window;
+    frame: number;
+    speed: number;
+    tree: HTMLElement;
+  } | null>(null);
+  const clearHover = () => {
+    if (hover.current) clearTimeout(hover.current.timer);
+    hover.current = null;
+  };
+  const stopDrag = () => {
+    clearHover();
+    dragging.current = null;
+    allowed.current.clear();
+    setDropTarget(null);
+    setDropMessage("");
+    if (scroll.current)
+      scroll.current.win.cancelAnimationFrame(scroll.current.frame);
+    scroll.current = null;
+  };
+  useEffect(() => {
+    stopDrag();
+  }, [s.datasetEpoch]);
+  useEffect(
+    () => () => {
+      clearHover();
+      if (scroll.current)
+        scroll.current.win.cancelAnimationFrame(scroll.current.frame);
+    },
+    [],
+  );
+  const over = (ev: React.DragEvent, parent: string) => {
+    if (
+      draft ||
+      properties ||
+      !ev.dataTransfer.types.includes(taxonomyDragType)
+    )
+      return;
+    const target = map.get(parent);
+    if (!target || !namedClass(target)) return;
+    ev.preventDefault();
+    const source = dragging.current;
+    if (source && !allowed.current.has(parent))
+      allowed.current.set(parent, classMoveIssue(map, source.iri, parent));
+    const issue = source ? allowed.current.get(parent) : undefined;
+    ev.dataTransfer.dropEffect = issue ? "none" : "move";
+    setDropTarget(issue ? null : parent);
+    setDropMessage(issue ?? "Move under " + displayName(target));
+    if (hover.current?.iri !== parent) {
+      clearHover();
+      if (!issue && !open.has(parent) && taxonomyChildren(target).length)
+        hover.current = {
+          iri: parent,
+          timer: setTimeout(() => {
+            setOpen((previous) => {
+              const next = new Set([...previous, parent]);
+              savePanel("hierarchy.open", [...next], false);
+              return next;
+            });
+          }, 650),
+        };
+    }
+  };
+  const drop = async (ev: React.DragEvent, parent: string) => {
+    if (
+      !ev.dataTransfer.types.includes(taxonomyDragType) ||
+      properties ||
+      draft
+    )
+      return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const data = ev.dataTransfer.getData(taxonomyDragType);
+    stopDrag();
+    let source: TaxonomyDrag;
+    try {
+      source = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (
+      !source ||
+      typeof source.iri !== "string" ||
+      !(source.fromParent === null || typeof source.fromParent === "string")
+    )
+      return;
+    const moved = await act("moveClass", { ...source, parent });
+    if (moved) {
+      setFilter("");
+      setOpen((previous) => {
+        const next = new Set([...previous, parent]);
+        savePanel("hierarchy.open", [...next], false);
+        return next;
+      });
+      revealInTaxonomy(source.iri);
+    }
+  };
   const toggle = (iri: string) => {
     setOpen((previous) => {
       savePanel("hierarchy.open", [...previous], false);
@@ -105,6 +258,15 @@ export function HierarchyPanel() {
   useEffect(
     () =>
       onCommand((id) => {
+        if (id.startsWith("taxonomy.added:")) {
+          const iri = id.slice("taxonomy.added:".length);
+          setFilter("");
+          setOpen((previous) => {
+            const next = new Set([...previous, iri]);
+            savePanel("hierarchy.open", [...next], false);
+            return next;
+          });
+        }
         if (id === "authoring.create") {
           const next = takeCreation();
           if (next) {
@@ -217,6 +379,47 @@ export function HierarchyPanel() {
         role="tree"
         aria-label={properties ? "Property hierarchy" : "Class hierarchy"}
         className="tree"
+        onDragOver={(ev) => {
+          if (!ev.dataTransfer.types.includes(taxonomyDragType)) return;
+          const tree = ev.currentTarget,
+            rect = tree.getBoundingClientRect(),
+            win = tree.ownerDocument.defaultView!;
+          const speed =
+            ev.clientY < rect.top + 36
+              ? -10
+              : ev.clientY > rect.bottom - 36
+                ? 10
+                : 0;
+          if (scroll.current) scroll.current.speed = speed;
+          else if (speed) {
+            const tick = () => {
+              const current = scroll.current;
+              if (!current) return;
+              if (!current.speed) {
+                scroll.current = null;
+                return;
+              }
+              current.tree.scrollTop += current.speed;
+              current.frame = current.win.requestAnimationFrame(tick);
+            };
+            scroll.current = {
+              win,
+              tree,
+              speed,
+              frame: win.requestAnimationFrame(tick),
+            };
+          }
+          if (!(ev.target as Element).closest(".tree-row")) over(ev, THING);
+        }}
+        onDragLeave={(ev) => {
+          if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) {
+            clearHover();
+            setDropTarget(null);
+            setDropMessage("");
+            if (scroll.current) scroll.current.speed = 0;
+          }
+        }}
+        onDrop={(ev) => void drop(ev, THING)}
       >
         {draft && properties && (
           <InlineCreate draft={draft} close={() => setDraft(null)} />
@@ -235,20 +438,49 @@ export function HierarchyPanel() {
                 }
                 aria-selected={s.selected === iri}
                 tabIndex={
-                  s.selected === iri ||
-                  (!rows.some((r) => r.iri === s.selected) && index === 0)
+                  s.selected === iri || (!selectedVisible && index === 0)
                     ? 0
                     : -1
                 }
                 key={iri}
-                className={"tree-row " + (s.selected === iri ? "selected" : "")}
+                className={
+                  "tree-row " +
+                  (s.selected === iri ? "selected " : "") +
+                  (dropTarget === iri ? "taxonomy-drop-target" : "")
+                }
                 style={{ paddingLeft: 8 + depth * 16 }}
                 draggable={!draft}
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData(entityDragType, iri);
                   ev.dataTransfer.setData("text/plain", iri);
-                  ev.dataTransfer.effectAllowed = "copy";
+                  ev.dataTransfer.effectAllowed = "copyMove";
+                  if (!properties && namedClass(e) && iri !== THING) {
+                    const source = {
+                      iri,
+                      fromParent: rowParents.get(iri) ?? null,
+                      version: s.version,
+                      datasetEpoch: s.datasetEpoch,
+                    };
+                    dragging.current = source;
+                    allowed.current.clear();
+                    ev.dataTransfer.setData(
+                      taxonomyDragType,
+                      JSON.stringify(source),
+                    );
+                  }
                 }}
+                onDragOver={(ev) => over(ev, iri)}
+                onDragLeave={(ev) => {
+                  if (
+                    !ev.currentTarget.contains(
+                      ev.relatedTarget as Node | null,
+                    ) &&
+                    hover.current?.iri === iri
+                  )
+                    clearHover();
+                }}
+                onDragEnd={stopDrag}
+                onDrop={(ev) => void drop(ev, iri)}
                 onClick={() => void act("select", { iri })}
                 onDoubleClick={() => {
                   if (taxonomyChildren(e).length) toggle(iri);
@@ -394,6 +626,11 @@ export function HierarchyPanel() {
         })}
         {!rows.length && <p className="empty">No matching entities.</p>}
       </div>
+      {dropMessage && (
+        <div className="taxonomy-drop-hint" role="status">
+          {dropMessage}
+        </div>
+      )}
       <div className="panel-toolbar bottom">
         <button
           disabled={!s.selected}
@@ -407,28 +644,12 @@ export function HierarchyPanel() {
           Show in graph
         </button>
       </div>
-      {discovery && (
-        <TaxonomyAssistant
-          {...discovery}
-          close={() => setDiscovery(null)}
-          added={() => {
-            setFilter("");
-            setOpen((previous) => {
-              const next = new Set([...previous, discovery.iri]);
-              savePanel("hierarchy.open", [...next], false);
-              return next;
-            });
-          }}
-        />
-      )}
       {context && (
         <EntityMenu
           {...context}
           document={context.doc}
           close={() => setContext(null)}
-          taxonomy={(mode) =>
-            setDiscovery({ iri: context.iri, mode, doc: context.doc })
-          }
+          taxonomy={(mode) => openTaxonomy(context.iri, mode)}
           branch={
             map.get(context.iri)?.children.length
               ? {
