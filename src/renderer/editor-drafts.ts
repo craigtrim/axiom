@@ -1,20 +1,9 @@
 import { request, onCommand, report } from "./client";
-import type { Entity, Triple } from "../domain/model";
-export interface DocumentData {
-  parentExpressions?: Record<string, string[]>;
-  entity: Entity;
-  statements: Triple[];
-  version: number;
-  datasetEpoch: number;
-}
-export interface EditorDraft {
-  iri: string;
-  nextIri: string;
-  automaticIri?: boolean;
-  statements: Triple[];
-  loaded: DocumentData;
-}
+import type { Triple } from "../domain/model";
+import type { DocumentData, EditorDraft } from "../shared/editor-state";
+export type { DocumentData, EditorDraft } from "../shared/editor-state";
 const drafts = new Map<string, EditorDraft>();
+export const editorDraftSnapshot = () => structuredClone([...drafts.values()]);
 const documentDrafts = new Map<
   string,
   { flush(): Promise<unknown>; discard(): void }
@@ -118,6 +107,14 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   return operation;
 }
 async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
+  if (
+    d.statements.some(
+      (t) => !t.predicate || (!t.object.literal && !t.object.value),
+    )
+  )
+    throw Error(
+      "Finish or remove the incomplete row in Details before saving. Resource values need a matching entity or an IRI.",
+    );
   const current = await request<DocumentData>("entityDocument", { iri: d.iri });
   if (
     current.datasetEpoch !== d.loaded.datasetEpoch ||
@@ -153,14 +150,28 @@ async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
   return result;
 }
 onCommand((id) => {
-  if (id !== "editors.flush") return;
+  if (id !== "editors.flush" && id !== "editors.flushGrid") return;
   void (async () => {
     try {
       // Applying one draft can retarget references in another. Read each
       // remaining draft after the previous identifier change has completed.
-      while (documentDrafts.size)
-        await documentDrafts.values().next().value!.flush();
-      while (drafts.size) await applyEditorDraft(drafts.values().next().value!);
+      if (id === "editors.flush") {
+        while (documentDrafts.size)
+          await documentDrafts.values().next().value!.flush();
+        while (drafts.size)
+          await applyEditorDraft(drafts.values().next().value!);
+      } else {
+        // File Save commits complete grid edits; unfinished rows and source
+        // drafts are retained in the workspace for later editing.
+        const complete = () =>
+          [...drafts.values()].find((d) =>
+            d.statements.every(
+              (t) => t.predicate && (t.object.literal || t.object.value),
+            ),
+          );
+        for (let draft = complete(); draft; draft = complete())
+          await applyEditorDraft(draft);
+      }
       window.axiom.editors.flushed();
     } catch (e) {
       const message = (e as Error).message;

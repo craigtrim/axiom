@@ -298,17 +298,27 @@ async function rememberFile(file: string) {
   }
   installMenu();
 }
-let sessionBaseline: SavedSession;
+const workspaceFiles = new WorkspaceFiles();
+let capturedDrafts: SavedEditorDrafts | undefined;
+let restoredDrafts: SavedEditorDrafts | undefined;
+let recoveryPath: string | undefined;
+let closePending = false;
+let workspaceSwitching = false;
+let closeAfterWorkspaceChange = false;
+let autosaveTimer: ReturnType<typeof setInterval> | undefined;
+const AUTOSAVE_INTERVAL = 30_000;
 async function checkpointSession(capture = true) {
   if (capture) await capturePreferences();
-  sessionBaseline = {
+  const session: SavedSession = {
     format: "axiom-session",
     version: 1,
     workspace: await request<Workspace>("serialize"),
     workspacePath,
+    recoveryPath,
+    editorDrafts: capturedDrafts,
     workbench: preferences,
   };
-  await sessions.save(sessionBaseline);
+  await sessions.save(session);
 }
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
 let saveQueue = Promise.resolve();
@@ -362,7 +372,7 @@ function send(command: string) {
 let editorDraftCount = 0;
 let editorFlush:
   { resolve: () => void; reject: (e: Error) => void } | undefined;
-async function flushEditors() {
+async function flushEditors(gridOnly = false) {
   if (!editorDraftCount) return;
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -383,45 +393,46 @@ async function flushEditors() {
         reject(e);
       },
     };
-    send("editors.flush");
+    send(gridOnly ? "editors.flushGrid" : "editors.flush");
   });
 }
-async function confirmDiscard(onDiscard?: () => void) {
-  if (!lastState?.dirty && !editorDraftCount) return true;
-  const r = await dialog.showMessageBox(mainWindow!, {
-    type: "question",
-    buttons: ["Save workspace", "Discard changes", "Cancel"],
-    defaultId: 0,
-    cancelId: 2,
-    message: "Save changes to this workspace?",
-  });
-  if (r.response === 2) return false;
-  if (r.response === 0)
-    return (
-      (await saveWorkspace(false)) && !lastState?.dirty && !editorDraftCount
-    );
-  onDiscard?.();
+async function saveBeforeWorkspaceChange() {
+  if (saving) await saving;
+  await saveWorkspace(false, true, true);
   return true;
 }
 let saving: Promise<boolean> | undefined;
-function saveWorkspace(as: boolean) {
-  if (saving) return saving;
-  saving = writeWorkspace(as).finally(() => {
-    saving = undefined;
-  });
-  return saving;
+function saveWorkspace(as: boolean, automatic = false, archive = false) {
+  const previous = saving;
+  const operation = (
+    previous ? previous.catch(() => false) : Promise.resolve()
+  ).then(() => writeWorkspace(as, automatic, archive));
+  saving = operation;
+  void operation
+    .finally(() => {
+      if (saving === operation) saving = undefined;
+    })
+    .catch(() => {});
+  return operation;
 }
 let captureResolve: (() => void) | undefined;
 let capturing: Promise<void> | undefined;
 function capturePreferences() {
   if (capturing) return capturing;
-  capturing = new Promise<void>((resolve) => {
+  capturing = new Promise<void>((resolve, reject) => {
     const done = () => {
       clearTimeout(timer);
       captureResolve = undefined;
       resolve();
     };
-    const timer = setTimeout(done, 1500);
+    const timer = setTimeout(() => {
+      captureResolve = undefined;
+      reject(
+        Error(
+          "Axiom could not capture the open views. Your workspace remains open; try saving again.",
+        ),
+      );
+    }, 10000);
     captureResolve = done;
     send("workspace.capture");
   }).finally(() => {
@@ -429,10 +440,13 @@ function capturePreferences() {
   });
   return capturing;
 }
-async function writeWorkspace(as: boolean) {
-  await flushEditors();
+async function writeWorkspace(
+  as: boolean,
+  automatic: boolean,
+  archive: boolean,
+) {
   let file = workspacePath;
-  if (!file || as) {
+  if (!automatic && (!file || as)) {
     const r = await dialog.showSaveDialog(mainWindow!, {
       title: "Save Axiom workspace",
       defaultPath: file ?? "Ontology.axiom",
@@ -441,33 +455,92 @@ async function writeWorkspace(as: boolean) {
     if (r.canceled || !r.filePath) return false;
     file = r.filePath;
   }
+  if (!automatic) await flushEditors(true);
   await capturePreferences();
-  const document = await request<{
-    storeVersion: number;
-    datasetEpoch: number;
-  }>("serialize");
-  const temp = file + ".tmp";
-  await writeFile(
-    temp,
-    JSON.stringify({
-      ...(document as object),
-      workbench: { ...preferences, keyboard: undefined },
-    }),
-    { encoding: "utf8" },
-  );
-  await rename(temp, file);
-  workspacePath = file;
-  await request("markSaved", {
-    version: document.storeVersion,
-    epoch: document.datasetEpoch,
-    revision: (document as any).workspaceRevision,
-  });
-  await checkpointSession(false);
-  await rememberFile(file);
+  const document = await request<
+    Workspace & {
+      storeVersion: number;
+      datasetEpoch: number;
+      workspaceRevision: number;
+    }
+  >("serialize");
+  const editorDrafts = capturedDrafts && {
+    ...capturedDrafts,
+    storeVersion: document.storeVersion,
+  };
+  // Unnamed workspaces keep an independent copy when closing or changing workspaces.
+  // The single last-session checkpoint can then safely move to the next workspace.
+  if (
+    !file &&
+    archive &&
+    (lastState?.dirty ||
+      editorDrafts ||
+      lastState?.ontology.source ||
+      lastState?.ontology.example ||
+      lastState?.graph.nodes.length)
+  ) {
+    recoveryPath ??= path.join(
+      app.getPath("userData"),
+      "workspaces",
+      randomUUID() + ".axiom",
+    );
+  }
+  const destination = file ?? recoveryPath;
+  const session: SavedSession = {
+    format: "axiom-session",
+    version: 1,
+    workspace: document,
+    workspacePath,
+    recoveryPath,
+    workbench: preferences,
+    editorDrafts,
+  };
+  // Save recovery first, including when a named destination is unavailable.
+  await sessions.save(session);
+  if (destination) {
+    await workspaceFiles.write(
+      destination,
+      JSON.stringify({
+        ...document,
+        workbench: { ...preferences, keyboard: undefined },
+        editorDrafts,
+      }),
+      !file,
+    );
+    if (file && workspacePath !== file) {
+      workspacePath = file;
+      await sessions.save({ ...session, workspacePath: file });
+    }
+    await request("markSaved", {
+      version: document.storeVersion,
+      epoch: document.datasetEpoch,
+      revision: document.workspaceRevision,
+    });
+    if (!automatic || archive) await rememberFile(destination);
+  }
   return true;
 }
+async function autosave() {
+  if (
+    closing ||
+    closePending ||
+    workspaceSwitching ||
+    saving ||
+    !mainWindow ||
+    mainWindow.isDestroyed()
+  )
+    return;
+  try {
+    await errorLog.run("Autosave workspace", errorContext(), () =>
+      saveWorkspace(false, true),
+    );
+  } catch (error) {
+    // AuditLog surfaces the failure with a link to diagnostics. Retry next interval.
+    console.warn("Workspace autosave failed:", cleanErrorMessage(error));
+  }
+}
 async function openWorkspace(recentFile?: string) {
-  if (!(await confirmDiscard())) return;
+  if (!(await saveBeforeWorkspaceChange())) return;
   let file = recentFile;
   if (!file) {
     const r = await dialog.showOpenDialog(mainWindow!, {
@@ -507,7 +580,10 @@ async function openWorkspace(recentFile?: string) {
       : readPreferences({ ...data.workbench, keyboard: preferences.keyboard });
   await request("load", { document: data });
   workspacePath = file;
-  mainWindow?.setTitle(path.basename(file) + " | Axiom");
+  recoveryPath = undefined;
+  restoredDrafts = readEditorDrafts(data.editorDrafts);
+  send("workspace.drafts");
+  updateWindowTitle();
   if (restored) {
     await savePreferences(restored);
     nativeTheme.themeSource = preferences.theme;
@@ -728,6 +804,33 @@ function recentMenu(): MenuItemConstructorOptions[] {
     };
   });
 }
+function windowTitleInfo() {
+  let file = workspacePath;
+  try {
+    if (!file && lastState?.ontology.source?.baseIRI.startsWith("file:"))
+      file = fileURLToPath(lastState.ontology.source.baseIRI);
+  } catch {}
+  return {
+    custom: process.platform === "win32",
+    directory: file
+      ? path.resolve(file).slice(0, -path.basename(file).length)
+      : "",
+    fileName: file
+      ? path.basename(file)
+      : (lastState?.ontology.name ?? "Untitled ontology"),
+    dirty: !!lastState?.dirty,
+  };
+}
+function updateWindowTitle() {
+  const info = windowTitleInfo();
+  mainWindow?.setTitle(
+    "Axiom | " + info.directory + info.fileName + (info.dirty ? " *" : ""),
+  );
+  mainWindow?.webContents.send("domain:event", {
+    type: "window-title",
+    data: info,
+  });
+}
 function installMenu() {
   const build = (
     nodes: (MenuDefinition | string | null)[],
@@ -804,14 +907,10 @@ app.whenReady().then(async () => {
           graph: { ...lastState.graph, selectedEdge: null },
         };
       if (packet.event.type === "state") {
+        if (lastState?.datasetEpoch !== packet.event.data.datasetEpoch)
+          capturedDrafts = undefined;
         lastState = packet.event.data;
-        mainWindow?.setTitle(
-          (workspacePath
-            ? path.basename(workspacePath)
-            : (lastState?.ontology.name ?? "Untitled ontology")) +
-            (lastState?.dirty ? " *" : "") +
-            " | Axiom",
-        );
+        updateWindowTitle();
       }
       refreshMenu();
       for (const w of BrowserWindow.getAllWindows())
@@ -845,13 +944,13 @@ app.whenReady().then(async () => {
       keyboard: preferences.keyboard,
     });
     workspacePath = session.workspacePath;
-    if (workspacePath) {
-      try {
-        await stat(workspacePath);
-      } catch {
-        workspacePath = undefined;
-      }
-    }
+    recoveryPath =
+      session.recoveryPath &&
+      path.dirname(session.recoveryPath) ===
+        path.join(app.getPath("userData"), "workspaces")
+        ? session.recoveryPath
+        : undefined;
+    restoredDrafts = session.editorDrafts;
   });
   if (!recentFiles.list().length && restoredSession.session) {
     // Carry a known file from the last session into newly introduced history.
@@ -874,13 +973,6 @@ app.whenReady().then(async () => {
     };
   }
   nativeTheme.themeSource = preferences.theme;
-  sessionBaseline = {
-    format: "axiom-session",
-    version: 1,
-    workspace: await request<Workspace>("serialize"),
-    workspacePath,
-    workbench: preferences,
-  };
   const bounds = preferences.bounds;
   const validBounds =
     bounds &&
@@ -1021,7 +1113,7 @@ app.whenReady().then(async () => {
     const s = provenance.status();
     if (s.status === "running" || !s.entries || !s.rdfPath)
       throw Error("Finish collecting before opening the ontology.");
-    if (!(await confirmDiscard())) return false;
+    if (!(await saveBeforeWorkspaceChange())) return false;
     await importOntologyFile(s.rdfPath);
     return true;
   });
@@ -1250,18 +1342,29 @@ app.whenReady().then(async () => {
     await writeFile(r.filePath, JSON.stringify(settings, null, 2), "utf8");
     return r.filePath;
   });
-  ipcMain.handle("preferences:load", (event) => {
+  handle("editors:load", () => restoredDrafts);
+  handle("preferences:load", (event) => {
     authorised(event);
     return preferences;
   });
-  ipcMain.handle(
+  handle(
     "preferences:save",
-    async (event, p: Preferences, captured?: boolean) => {
+    async (
+      event,
+      p: Preferences,
+      captured?: boolean,
+      drafts?: SavedEditorDrafts,
+    ) => {
       authorised(event);
       if (!p || p.version !== 1 || JSON.stringify(p).length > 2000000)
         throw Error("Invalid layout settings.");
       const previousTheme = preferences.theme;
-      await savePreferences(p);
+      if (captured === true) capturedDrafts = readEditorDrafts(drafts);
+      await savePreferences({
+        ...p,
+        bounds: mainWindow?.getNormalBounds() ?? p.bounds,
+        maximized: mainWindow?.isMaximized() ?? p.maximized,
+      });
       if (captured === true) captureResolve?.();
       nativeTheme.themeSource = preferences.theme;
       if (previousTheme !== preferences.theme) installMenu();
@@ -1350,50 +1453,40 @@ app.whenReady().then(async () => {
     );
     return r.filePath;
   });
-  let closePending = false;
   mainWindow.on("close", (event) => {
     if (closing) return;
     event.preventDefault();
     if (closePending) return;
+    if (workspaceSwitching) {
+      closeAfterWorkspaceChange = true;
+      return;
+    }
     closePending = true;
-    void (async () => {
-      await capturePreferences();
-      let discarded = false;
-      if (
-        !(await confirmDiscard(() => {
-          discarded = true;
-        }))
-      ) {
+    void errorLog
+      .run("Save workspace on close", errorContext(), async () => {
+        if (saving) await saving;
+        await saveWorkspace(false, true, true);
+        closing = true;
+        clearInterval(autosaveTimer);
+        mainWindow?.close();
+      })
+      .catch(async (e) => {
         closePending = false;
-        return;
-      }
-      closing = true;
-      if (mainWindow && !mainWindow.isDestroyed())
-        await savePreferences({
-          ...preferences,
-          bounds: mainWindow.getNormalBounds(),
-          maximized: mainWindow.isMaximized(),
+        closing = false;
+        const result = await dialog.showMessageBox(mainWindow!, {
+          type: "error",
+          message: "Axiom could not save the workspace. It has been kept open.",
+          detail: cleanErrorMessage(e),
+          buttons: ["Keep open", "Error details"],
+          defaultId: 0,
+          cancelId: 0,
         });
-      if (discarded)
-        await sessions.save({ ...sessionBaseline, workbench: preferences });
-      else await checkpointSession(false);
-      mainWindow?.close();
-    })().catch((e) => {
-      closePending = false;
-      closing = false;
-      void dialog.showMessageBox(mainWindow!, {
-        type: "error",
-        message: "Could not close the workspace.",
-        detail: String(e),
+        if (result.response === 1) send("view.errorlog");
       });
-    });
   });
   await mainWindow.loadURL("app://axiom/index.html");
   lastState = await request<Snapshot>("state");
-  mainWindow.setTitle(
-    (workspacePath ? path.basename(workspacePath) : lastState.ontology.name) +
-      " | Axiom",
-  );
+  updateWindowTitle();
   if (!restoredSession.session && restoredSession.errors.length)
     void dialog.showMessageBox(mainWindow, {
       type: "warning",
@@ -1403,9 +1496,13 @@ app.whenReady().then(async () => {
     });
   refreshMenu();
   if (preferences.maximized) mainWindow.maximize();
+  autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
+  autosaveTimer.unref();
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
+  const suggestion = suggestions.status();
+  if (suggestion) suggestions.cancel(suggestion.id);
   taxonomyAssistant.cancel();
   queryAssistant.cancel();
   provenance.close();
@@ -1422,13 +1519,16 @@ async function importOntologyFile(file: string) {
     baseIRI: pathToFileURL(file).href,
   });
   workspacePath = undefined;
+  recoveryPath = undefined;
+  restoredDrafts = undefined;
+  updateWindowTitle();
   send("workspace.imported");
   await checkpointSession();
   await rememberFile(file);
   return result;
 }
 async function importOntology() {
-  if (!(await confirmDiscard())) return;
+  if (!(await saveBeforeWorkspaceChange())) return;
   const result = await dialog.showOpenDialog(mainWindow!, {
     title: "Import ontology",
     properties: ["openFile"],

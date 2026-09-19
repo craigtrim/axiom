@@ -7,6 +7,7 @@ export interface SourceDraft {
   text: string;
 }
 let draft: SourceDraft | undefined;
+export const sourceDraftSnapshot = () => draft && structuredClone(draft);
 let applying: Promise<unknown> | undefined;
 const listeners = new Set<() => void>();
 export const useSourceDraft = () =>

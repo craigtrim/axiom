@@ -8,7 +8,7 @@ import { Store } from "./store";
 import { isLayoutMode } from "../shared/layout-options";
 import { parseGraphStyle } from "./graph-style";
 import { Viewport, type EdgeBend } from "./viewport";
-import { Layouts, type LayoutMode } from "./layouts";
+import { Layouts, type LayoutMode, type GroupBlock } from "./layouts";
 import {
   NS,
   branches,
@@ -40,6 +40,12 @@ export interface Workspace {
     pins: { iri: string; x: number; y: number }[];
     budget: number;
     layout: LayoutMode;
+    evictionMode?: string;
+    geometry?: {
+      groups: GroupBlock[];
+      rings: number[];
+      ringOrigin: { x: number; y: number };
+    };
     spacing?: number;
     edgesVisible?: boolean;
     countsVisible?: boolean;
@@ -274,6 +280,12 @@ export function readWorkspace(input: unknown) {
   );
   view.edgesVisible = g.edgesVisible !== false;
   view.countsVisible = g.countsVisible !== false;
+  if (
+    g.evictionMode !== undefined &&
+    !["degree", "lru", "refuse"].includes(g.evictionMode)
+  )
+    throw Error("Invalid graph eviction policy.");
+  view.evictionMode = g.evictionMode ?? "degree";
   view.setBudget(g.budget);
   view.seed(g.iris, true, false);
   for (const iri of g.expanded ?? []) {
@@ -299,6 +311,37 @@ export function readWorkspace(input: unknown) {
       n.x = p.x;
       n.y = p.y;
     }
+  }
+  if (g.geometry !== undefined) {
+    const geometry = g.geometry;
+    if (
+      !geometry ||
+      !Array.isArray(geometry.groups) ||
+      geometry.groups.length > MAX_VISIBLE_NODES ||
+      !geometry.groups.every(
+        (block) =>
+          block &&
+          typeof block.label === "string" &&
+          block.label.length <= 10000 &&
+          [block.count, block.x, block.y, block.width, block.height].every(
+            Number.isFinite,
+          ) &&
+          block.count >= 0 &&
+          block.width >= 0 &&
+          block.height >= 0,
+      ) ||
+      !Array.isArray(geometry.rings) ||
+      geometry.rings.length > MAX_VISIBLE_NODES ||
+      !geometry.rings.every(
+        (radius) => Number.isFinite(radius) && radius >= 0,
+      ) ||
+      !geometry.ringOrigin ||
+      ![geometry.ringOrigin.x, geometry.ringOrigin.y].every(Number.isFinite)
+    )
+      throw Error("Invalid saved graph geometry.");
+    layouts.groups = structuredClone(geometry.groups);
+    layouts.rings = [...geometry.rings];
+    layouts.ringOrigin = { ...geometry.ringOrigin };
   }
   view.alpha = 0;
   view.selected =

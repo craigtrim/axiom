@@ -6,6 +6,8 @@ export interface EntitySourceDraft {
   text: string;
 }
 const drafts = new Map<string, EntitySourceDraft>();
+export const entitySourceDraftSnapshot = () =>
+  structuredClone([...drafts.values()]);
 const listeners = new Set<() => void>();
 const key = (iri: string, epoch: number) =>
   "entity-source:" + epoch + ":" + iri;

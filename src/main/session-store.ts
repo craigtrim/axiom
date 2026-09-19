@@ -1,5 +1,9 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  readEditorDrafts,
+  type SavedEditorDrafts,
+} from "../shared/editor-state";
 import type { Workspace } from "../domain/workspace";
 import { readPreferences } from "../shared/preferences";
 import type { Preferences } from "../shared/protocol";
@@ -9,6 +13,8 @@ export interface SavedSession {
   version: 1;
   workspace: Workspace;
   workspacePath?: string;
+  recoveryPath?: string;
+  editorDrafts?: SavedEditorDrafts;
   workbench: Preferences;
 }
 const limit = 256 * 1024 * 1024;
@@ -19,13 +25,20 @@ function readSession(value: unknown): SavedSession {
     s.format !== "axiom-session" ||
     s.version !== 1 ||
     s.workspace?.format !== "axiom-workspace" ||
-    (s.workspacePath !== undefined &&
-      (typeof s.workspacePath !== "string" ||
-        s.workspacePath.length > 32768 ||
-        !path.isAbsolute(s.workspacePath)))
+    [s.workspacePath, s.recoveryPath].some(
+      (file) =>
+        file !== undefined &&
+        (typeof file !== "string" ||
+          file.length > 32768 ||
+          !path.isAbsolute(file)),
+    )
   )
     throw Error("Invalid saved session.");
-  return { ...s, workbench: readPreferences(s.workbench) };
+  return {
+    ...s,
+    workbench: readPreferences(s.workbench),
+    editorDrafts: readEditorDrafts(s.editorDrafts),
+  };
 }
 
 // This copy belongs to the app profile, independently of the user's source file.

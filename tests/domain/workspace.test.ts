@@ -24,6 +24,36 @@ function document(): Workspace {
   };
 }
 describe("workspace integrity", () => {
+  it("retains graph decorations, unpinned positions and the node eviction policy", () => {
+    const d = document();
+    d.graph.evictionMode = "refuse";
+    d.graph.positions = [{ iri: NS.pizza + "Pizza", x: 456, y: 789 }];
+    d.graph.geometry = {
+      groups: [
+        {
+          label: "Saved group",
+          count: 1,
+          x: -50,
+          y: 10,
+          width: 90,
+          height: 80,
+        },
+      ],
+      rings: [40, 120],
+      ringOrigin: { x: 32, y: 48 },
+    };
+    const result = readWorkspace(d);
+    expect(result.view.evictionMode).toBe("refuse");
+    expect(result.view.nodes.get(NS.pizza + "Pizza")).toMatchObject({
+      x: 456,
+      y: 789,
+    });
+    expect(result.layouts.groups).toEqual(d.graph.geometry.groups);
+    expect(result.layouts.rings).toEqual(d.graph.geometry.rings);
+    expect(result.layouts.ringOrigin).toEqual(d.graph.geometry.ringOrigin);
+    d.graph.geometry.rings = [-1];
+    expect(() => readWorkspace(d)).toThrow(/graph geometry/);
+  });
   it("round-trips edits, schema, focus and pins", () => {
     const d = document(),
       s = readWorkspace(d);

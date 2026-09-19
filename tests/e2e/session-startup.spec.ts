@@ -25,6 +25,10 @@ async function launch() {
     env,
   });
   page = await app.firstWindow();
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (
+      await app.browserWindow(page)
+    ).evaluate((w) => w.setFocusable(false));
   page.on("pageerror", (e) => errors.push(e.message));
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({
@@ -164,9 +168,8 @@ test("saved workspaces resume graph tabs, positions, selected edges, Details, an
     a,
   );
   await menu("view.graph");
-  await page.evaluate(() =>
-    window.axiom.request("graphActivate", { id: "graph" }),
-  );
+  await page.getByRole("tab", { name: "Graph", exact: true }).click();
+  await expect.poll(async () => (await state()).activeGraphId).toBe("graph");
   const edge = JSON.stringify([
     b,
     "http://www.w3.org/2000/01/rdf-schema#subClassOf",
@@ -217,7 +220,7 @@ test("saved workspaces resume graph tabs, positions, selected edges, Details, an
     )
     .toBe("Chemistry revised");
 });
-test("Cancel keeps the app open and Discard does not resurrect unsaved edits", async () => {
+test("closing automatically saves the latest edits without a confirmation dialog", async () => {
   const iri = await page.evaluate(
     (root) =>
       window.axiom.request<string>("createClass", {
@@ -226,33 +229,29 @@ test("Cancel keeps the app open and Discard does not resurrect unsaved edits", a
       }),
     root,
   );
-  await save(path.join(profile, "saved.axiom"));
+  const file = path.join(profile, "saved.axiom");
+  await save(file);
   await page.evaluate(
-    (iri) => window.axiom.request("rename", { iri, name: "Discard this" }),
+    (iri) => window.axiom.request("rename", { iri, name: "Keep this edit" }),
     iri,
   );
-  await app!.evaluate(({ dialog, BrowserWindow }) => {
-    dialog.showMessageBox = async () => ({
-      response: 2,
-      checkboxChecked: false,
-    });
-    BrowserWindow.getAllWindows()[0].close();
-  });
-  await expect
-    .poll(
-      async () => (await state()).entities.find((e) => e.iri === iri)?.label,
-    )
-    .toBe("Discard this");
   await app!.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 1,
-      checkboxChecked: false,
-    });
+    dialog.showMessageBox = async () => {
+      throw Error("Unexpected close confirmation");
+    };
+    dialog.showSaveDialog = async () => {
+      throw Error("Unexpected save dialog");
+    };
   });
   await close();
+  expect(
+    JSON.parse(await readFile(file, "utf8")).entities.find(
+      (e: any) => e.iri === iri,
+    )?.label,
+  ).toBe("Keep this edit");
   await launch();
   expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
-    "Saved course",
+    "Keep this edit",
   );
 });
 test("Save on close keeps the latest edits for the next launch", async () => {

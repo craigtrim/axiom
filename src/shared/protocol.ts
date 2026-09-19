@@ -305,7 +305,11 @@ export interface AxiomBridge {
   ): Promise<T>;
   preferences: {
     load(): Promise<Preferences>;
-    save(p: Preferences, captured?: boolean): Promise<void>;
+    save(
+      p: Preferences,
+      captured?: boolean,
+      drafts?: import("./editor-state").SavedEditorDrafts,
+    ): Promise<void>;
   };
   onEvent(fn: (event: { type: string; data: any }) => void): () => void;
   onCommand(fn: (command: string) => void): () => void;
