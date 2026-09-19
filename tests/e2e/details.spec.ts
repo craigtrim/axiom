@@ -237,9 +237,7 @@ test("Details follows selection behind another tab and in a detached pane withou
   await clickNode(ids.a);
   await expect(identifier(child)).toHaveAttribute("data-entity-iri", ids.a);
   await expect(page.getByTestId("graph-canvas")).toBeFocused();
-  await child
-    .getByRole("button", { name: "Add statement", exact: true })
-    .focus();
+  await child.getByRole("button", { name: "Add row", exact: true }).focus();
   await menu("view.details");
   await expect.poll(() => app.windows().length).toBe(2);
   await expect(page.locator('[data-panel="details"]')).toHaveCount(0);
@@ -515,7 +513,13 @@ test("Save workspace applies a retained edge draft after switching to a node", a
 });
 
 test("Details identifies intersection branches and edits members against the original expression", async () => {
-  const file = path.resolve("tests/fixtures/intersections/courses.ttl");
+  const file = path.join(profile, "equivalent-courses.ttl");
+  await writeFile(
+    file,
+    (
+      await readFile("tests/fixtures/intersections/courses.ttl", "utf8")
+    ).replace("rdfs:subClassOf", "owl:equivalentClass"),
+  );
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -525,7 +529,7 @@ test("Details identifies intersection branches and edits members against the ori
   await menu("file.open");
   await expect
     .poll(async () => (await state()).ontology.name)
-    .toBe("courses.ttl");
+    .toBe("equivalent-courses.ttl");
   await request("seed", {
     iris: ["http://devry.edu/courses#3D_Design_and_3D_Printing"],
   });

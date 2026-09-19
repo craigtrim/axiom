@@ -181,9 +181,7 @@ test("two-column grid uses predicates, commits cell edits, preserves language an
     .getByRole("button", { name: "Save source", exact: true })
     .click();
   await expect.poll(sourceText).toMatch(/"Alpha updated"@fr/);
-  await details()
-    .getByRole("button", { name: "Add statement", exact: true })
-    .click();
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
   const last = details().locator("tbody tr").last();
   await last
     .getByRole("combobox", { name: /Predicate/ })
@@ -461,9 +459,12 @@ test("indexed parent choices edit ordinary subclass statements and support Escap
   await expect(
     parents().nth(0).getByRole("combobox", { name: /Value/ }),
   ).toHaveValue("Beta");
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
   await details()
-    .getByRole("button", { name: "Add parent", exact: true })
-    .click();
+    .locator("tbody tr")
+    .last()
+    .getByRole("combobox", { name: /Predicate/ })
+    .selectOption(NS.rdfs + "subClassOf");
   const added = parents().last().getByRole("combobox", { name: /Value/ });
   await added.fill("alph");
   await page

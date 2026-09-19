@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
 import { useSnapshot, savePanel } from "./client";
 import { displayName, LABEL, COMMENT } from "../domain/rdf-model";
@@ -13,6 +14,7 @@ import { ResourceInput } from "./ResourceInput";
 import { compactIri, entityNamespace } from "../shared/terms";
 export { compactIri, expandIri, entityNamespace } from "../shared/terms";
 export function StatementGrid({
+  subject,
   triples,
   ontology,
   replace,
@@ -20,6 +22,7 @@ export function StatementGrid({
   classEntity,
   parentExpressions = {},
 }: {
+  subject: string;
   triples: Triple[];
   ontology: OntologyInfo;
   replace(triples: Triple[]): void;
@@ -27,13 +30,36 @@ export function StatementGrid({
   classEntity: boolean;
   parentExpressions?: Record<string, string[]>;
 }) {
+  const table = useRef<HTMLTableElement>(null);
+  const pendingFocus = useRef<number | null>(null);
+  const focusPredicate = (index: number) =>
+    table.current
+      ?.querySelector<HTMLSelectElement>(
+        'tr[data-statement-index="' + index + '"] select',
+      )
+      ?.focus();
+  useLayoutEffect(() => {
+    if (pendingFocus.current !== null) {
+      focusPredicate(pendingFocus.current);
+      pendingFocus.current = null;
+    }
+  }, [triples]);
+  const addRow = () => {
+    const blank = triples.findIndex((t) => !t.predicate);
+    if (blank >= 0) {
+      focusPredicate(blank);
+      return;
+    }
+    pendingFocus.current = triples.length;
+    replace([
+      ...triples,
+      { subject, predicate: "", object: { literal: true, value: "" } },
+    ]);
+  };
   const snapshot = useSnapshot()!;
   const predicates = usePredicateOptions(triples.map((t) => t.predicate));
   const entities = new Map(snapshot.entities.map((e) => [e.iri, e]));
-  const namespace = entityNamespace(
-    triples[0]?.subject ?? "",
-    ontology.namespace,
-  );
+  const namespace = entityNamespace(subject, ontology.namespace);
   const declaration = (t: Triple) =>
     classEntity &&
     t.predicate === TYPE &&
@@ -97,7 +123,11 @@ export function StatementGrid({
     );
   };
   return (
-    <table className="statement-grid" aria-label="Entity statements">
+    <table
+      ref={table}
+      className="statement-grid"
+      aria-label="Entity statements"
+    >
       <colgroup>
         <col className="statement-predicate-column" />
         <col />
@@ -130,12 +160,13 @@ export function StatementGrid({
           return (
             <tr
               key={index + ":" + member}
+              data-statement-index={index}
               data-predicate={t.predicate}
               data-readonly={locked || undefined}
             >
               <td>
-                {locked ? (
-                  <span className="statement-fixed" title="Class declaration">
+                {t.predicate === TYPE ? (
+                  <span className="statement-fixed" title="Type declaration">
                     rdf:type
                   </span>
                 ) : (
@@ -149,8 +180,6 @@ export function StatementGrid({
                         [
                           TYPE,
                           SUBCLASS,
-                          NS.rdfs + "seeAlso",
-                          NS.rdfs + "isDefinedBy",
                           NS.rdfs + "domain",
                           NS.rdfs + "range",
                           NS.owl + "equivalentClass",
@@ -158,11 +187,19 @@ export function StatementGrid({
                           NS.owl + "inverseOf",
                         ].includes(predicate) ||
                         entities.get(predicate)?.kind === "ObjectProperty";
+                      const previous = triples.find(
+                        (row, i) => i !== index && row.predicate === predicate,
+                      );
                       change({
                         ...t,
                         predicate,
                         ...(!t.object.value
-                          ? { object: { ...t.object, literal: !resource } }
+                          ? {
+                              object: {
+                                ...t.object,
+                                literal: previous?.object.literal ?? !resource,
+                              },
+                            }
                           : {}),
                       });
                     }}
@@ -178,6 +215,27 @@ export function StatementGrid({
                     >
                       owl:Class
                     </span>
+                  ) : [NS.rdfs + "seeAlso", NS.rdfs + "isDefinedBy"].includes(
+                      t.predicate,
+                    ) ||
+                    entities.get(t.predicate)?.kind === "AnnotationProperty" ? (
+                    <ResourceInput
+                      value={t.object.value}
+                      textValue={t.object.literal}
+                      namespace={namespace}
+                      label={label}
+                      useText={(value) =>
+                        change({
+                          ...t,
+                          object: t.object.literal
+                            ? { ...t.object, value }
+                            : { literal: true, value },
+                        })
+                      }
+                      change={(value) =>
+                        change({ ...t, object: { literal: false, value } })
+                      }
+                    />
                   ) : t.object.literal ? (
                     <textarea
                       aria-label={label}
@@ -259,6 +317,15 @@ export function StatementGrid({
           );
         })}
       </tbody>
+      <tfoot>
+        <tr>
+          <td colSpan={2}>
+            <button className="statement-add-row" onClick={addRow}>
+              <span aria-hidden="true">＋</span> Add row
+            </button>
+          </td>
+        </tr>
+      </tfoot>
     </table>
   );
 }

@@ -185,10 +185,15 @@ export async function initialise() {
   });
   const desiredStyle = panel("graph.stylesheet", "");
   const limit = panel<number | null>("graph.limit", null);
-  if (limit !== null) await request("budget", { value: limit, record: false });
-  if (desiredStyle)
+  const restored = await request<Snapshot>("state");
+  // Reapplying the saved budget relayouts unpinned nodes. A restored graph
+  // already has its exact positions and appearance; only apply actual changes.
+  if (limit !== null && limit !== restored.graph.budget)
+    await request("budget", { value: limit, record: false });
+  if (desiredStyle && desiredStyle !== (restored.graph.stylesheet ?? ""))
     await request("stylesheet", { text: desiredStyle, record: false });
   setState(await request<Snapshot>("state"));
+  await (await import("./workspace-drafts")).restoreWorkspaceDrafts();
   void act("motion", {
     reduced: matchMedia("(prefers-reduced-motion: reduce)").matches,
   });

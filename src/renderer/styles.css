@@ -3596,3 +3596,632 @@ a {
 .subclass-suggestions input[type="checkbox"] {
   flex: 0 0 auto;
 }
+
+.error-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.error-details-button {
+  flex-shrink: 0;
+}
+.error-log-heading {
+  padding: 12px;
+  border-bottom: 1px solid var(--stroke);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.error-log-actions input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.error-log-heading label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.error-log-heading select {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.error-log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.error-log-content {
+  padding: 12px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.error-log-content h3 {
+  margin: 0 0 12px;
+}
+.error-log-content details {
+  margin: 12px 0;
+}
+.error-log-content summary {
+  cursor: pointer;
+}
+.error-log-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-alt);
+  padding: 12px;
+  max-height: 400px;
+  overflow: auto;
+  font-size: 12px;
+}
+.error-log-content table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.error-log-content th,
+.error-log-content td {
+  text-align: left;
+  vertical-align: top;
+  padding: 6px;
+  border-bottom: 1px solid var(--stroke);
+}
+.error-log-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  font-size: 12px;
+}
+.error-log-facts > div {
+  display: contents;
+}
+.error-log-facts dt {
+  color: var(--text-secondary);
+}
+.error-log-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Details ancestry follows the pane's aspect ratio, including detached panes. */
+.ancestry {
+  --trail-line: color-mix(in srgb, var(--accent) 40%, var(--stroke));
+  margin: 4px 0 20px;
+  padding: 14px 16px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--stroke));
+  border-top: 3px solid var(--accent);
+  border-radius: 8px;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent) 6%, var(--surface)),
+    var(--surface)
+  );
+  min-width: 0;
+}
+.ancestry-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+.ancestry-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ancestry-title svg {
+  width: 16px;
+  height: 16px;
+}
+.ancestry-summary {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ancestry-track {
+  overflow-x: auto;
+  /* Start at the selected entity on the right when a long trail scrolls. */
+  direction: rtl;
+  padding: 4px;
+}
+.ancestry-trail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(140px, 1fr);
+  align-items: center;
+  gap: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ancestry-trail > li {
+  position: relative;
+  min-width: 0;
+  direction: ltr;
+}
+.ancestry-trail > li + li::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 1px;
+  background: var(--trail-line);
+  right: -20px;
+  top: 50%;
+}
+.ancestry-trail > li + li::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid var(--trail-line);
+  border-right: 1px solid var(--trail-line);
+  transform: rotate(-135deg);
+  right: -7px;
+  top: calc(50% - 2px);
+}
+.ancestry-crumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 6px;
+  background: var(--surface);
+  text-align: left;
+  white-space: normal;
+}
+.ancestry-crumb[data-root="true"],
+.ancestry-group[data-root="true"] {
+  border-color: var(--trail-line);
+}
+.ancestry-node-mark {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+.ancestry-crumb-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.ancestry-crumb small,
+.ancestry-group-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+.ancestry-crumb strong {
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ancestry-current {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.ancestry-current small,
+.ancestry-current .ancestry-node-mark {
+  color: inherit;
+}
+.ancestry-current small {
+  opacity: 0.9;
+}
+.ancestry-current strong {
+  font-size: 14px;
+}
+.ancestry-group {
+  border: 1px solid var(--stroke);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 8px 4px 4px;
+}
+.ancestry-group-label {
+  display: block;
+  margin: 0 10px 3px;
+}
+.ancestry-group .ancestry-crumb {
+  border: 0;
+  min-height: 30px;
+  padding: 5px 9px;
+  background: transparent;
+}
+.ancestry-group button.ancestry-crumb:hover {
+  background: var(--item-hover);
+}
+.ancestry-group-more {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  margin: 3px 9px;
+  font-size: 11px;
+}
+.ancestry-gap button {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+  min-height: 54px;
+  border: 1px dashed var(--trail-line);
+  background: transparent;
+  font-size: 11px;
+  color: var(--accent);
+}
+.ancestry-dots {
+  font-size: 22px;
+  line-height: 16px;
+  letter-spacing: 3px;
+}
+.ancestry-actions {
+  margin-top: 12px;
+}
+.ancestry-actions button {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  color: var(--accent);
+  font-size: 12px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-track {
+  direction: ltr;
+}
+.ancestry[data-orientation="vertical"] .ancestry-trail {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  gap: 12px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-crumb {
+  min-height: 38px;
+  padding: 6px 12px;
+}
+.ancestry[data-orientation="vertical"]
+  .ancestry-crumb:not(.ancestry-current)
+  small {
+  display: none;
+}
+.ancestry[data-orientation="vertical"] .ancestry-current {
+  min-height: 48px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-gap button {
+  min-height: 28px;
+  flex-direction: row;
+  gap: 10px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-trail > li + li::before {
+  width: 1px;
+  height: 12px;
+  left: 20px;
+  right: auto;
+  top: -12px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-trail > li + li::after {
+  left: 18px;
+  right: auto;
+  top: -7px;
+  transform: rotate(135deg);
+}
+
+.statement-grid tfoot td {
+  border-bottom: 0;
+  padding-top: 6px;
+}
+.statement-grid .statement-add-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 7px;
+  text-align: left;
+  color: var(--text-secondary);
+  border-radius: 3px;
+  font-size: 12px;
+}
+.statement-add-row span {
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* One Suggestions view, with independently dockable copies. */
+.suggestions-view {
+  overflow: hidden;
+}
+.suggestion-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.suggestion-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+.suggestion-pages label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.suggestion-pages select {
+  max-width: 240px;
+}
+.suggestion-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.suggestion-body > .panel {
+  flex: 1;
+  min-height: 0;
+}
+.suggestion-definition {
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.suggestion-definition h2,
+.suggestion-definition p {
+  margin: 0;
+}
+.suggestion-definition label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.suggestion-definition input,
+.suggestion-definition textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.suggestion-definition textarea {
+  resize: vertical;
+}
+.suggestion-definition-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.suggestion-definition-fields > label {
+  flex: 1;
+  min-width: 160px;
+}
+.suggestion-prompt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  padding: 12px;
+}
+
+.window-titlebar {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 150px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f3f3;
+  color: #202020;
+  app-region: drag;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.window-app-icon {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 4px;
+  background: #086bbb;
+  color: white;
+  font-weight: 700;
+}
+.window-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.window-menubar {
+  display: flex;
+  padding: 0 4px;
+  min-height: 28px;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+.window-menubar button {
+  border: 0;
+  border-radius: 3px;
+  padding: 3px 10px;
+  min-height: 28px;
+  background: transparent;
+}
+.window-menubar button:hover {
+  background: var(--accent-soft, #e5edf5);
+}
+
+/* Find uses a small launcher and a persistent results pane. */
+.quick-find > input {
+  width: 100%;
+  font-size: 16px;
+}
+.quick-find-matches {
+  max-height: 280px;
+  margin-top: 10px;
+}
+.find-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+.find-controls {
+  padding: 12px;
+  border-bottom: 1px solid var(--stroke);
+}
+.find-query,
+.find-filters,
+.find-pagination,
+.find-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.find-query > input {
+  flex: 1 1 200px;
+  min-width: 100px;
+}
+.find-query > select {
+  max-width: 180px;
+}
+.find-filters {
+  margin-top: 10px;
+  align-items: flex-end;
+}
+.find-filters label {
+  display: flex;
+  flex: 1 1 135px;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.find-filters select {
+  color: var(--text);
+  width: 100%;
+  max-width: none;
+}
+.find-summary {
+  padding: 7px 12px;
+  color: var(--text-secondary);
+}
+.find-results-scroll {
+  flex: 1;
+  min-height: 55px;
+  overflow: auto;
+}
+.find-results {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.find-results th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+  text-align: left;
+  color: var(--text-secondary);
+}
+.find-results th,
+.find-results td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--stroke);
+  vertical-align: top;
+}
+.find-results th:last-child {
+  width: 120px;
+}
+.find-results tr[data-selected="true"] {
+  background: var(--layer-selected);
+}
+.find-result-name {
+  border: 0;
+  padding: 0 2px;
+  min-height: 24px;
+  background: transparent;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: normal;
+  text-align: left;
+}
+.find-result-iri {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+}
+.find-result-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 5px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.find-empty {
+  padding: 18px;
+  color: var(--text-secondary);
+}
+.find-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--stroke);
+  display: grid;
+  gap: 10px;
+}
+.find-pagination {
+  font-size: 12px;
+}
+.find-selected {
+  flex: 1 1 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.find-actions button {
+  font-size: 12px;
+}
+.adaptive-pane[data-pane-shallow="true"] .find-controls {
+  padding: 6px 10px;
+}
+.adaptive-pane[data-pane-shallow="true"] .find-filters {
+  margin-top: 5px;
+}
+.adaptive-pane[data-pane-shallow="true"] .find-footer {
+  padding: 5px 10px;
+  gap: 5px;
+}
+
+.tree-row.taxonomy-drop-target {
+  background: var(--accent-soft, #e1efff);
+  outline: 2px solid var(--accent, #0876cf);
+  outline-offset: -2px;
+}
+.taxonomy-drop-hint {
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--stroke);
+  font-size: 12px;
+}

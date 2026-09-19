@@ -12,6 +12,8 @@ export function ResourceInput({
   exclude = [],
   disabled = false,
   change,
+  textValue = false,
+  useText,
 }: {
   value: string;
   namespace: string;
@@ -20,6 +22,8 @@ export function ResourceInput({
   exclude?: string[];
   disabled?: boolean;
   change(value: string): void;
+  textValue?: boolean;
+  useText?(value: string): void;
 }) {
   const s = useSnapshot()!;
   const name = (iri: string) => {
@@ -31,7 +35,7 @@ export function ResourceInput({
         ? displayName(e)
         : compact;
   };
-  const shown = name(value);
+  const shown = textValue ? value : name(value);
   const [text, setText] = useState(shown),
     [open, setOpen] = useState(false),
     [items, setItems] = useState<ResourceMatch[]>([]),
@@ -121,6 +125,13 @@ export function ResourceInput({
     change(iri);
     input.current?.blur();
   };
+  const chooseText = () => {
+    skipBlur.current = true;
+    setOpen(false);
+    setError("");
+    useText?.(text);
+    input.current?.blur();
+  };
   const commit = () => {
     if (text === shown) return;
     const normalized = text.trim().toLocaleLowerCase();
@@ -129,6 +140,10 @@ export function ResourceInput({
         (n) => n.toLocaleLowerCase() === normalized,
       ),
     );
+    if (useText && (textValue || !exact.length)) {
+      chooseText();
+      return;
+    }
     if (exact.length === 1) {
       choose(exact[0].iri);
       return;
@@ -189,11 +204,11 @@ export function ResourceInput({
             e.preventDefault();
             setOpen(true);
             setActive((i) =>
-              items.length
+              items.length + (useText ? 1 : 0)
                 ? Math.max(
                     0,
                     Math.min(
-                      items.length - 1,
+                      items.length - 1 + (useText ? 1 : 0),
                       i + (e.key === "ArrowDown" ? 1 : -1),
                     ),
                   )
@@ -212,6 +227,7 @@ export function ResourceInput({
           if (e.key === "Enter") {
             e.preventDefault();
             if (open && active >= 0 && items[active]) choose(items[active].iri);
+            else if (open && active === items.length && useText) chooseText();
             else commit();
           }
         }}
@@ -250,7 +266,20 @@ export function ResourceInput({
                 </small>
               </div>
             ))}
-            {!items.length && (
+            {useText && (
+              <div
+                id={id + "-" + items.length}
+                role="option"
+                aria-selected={active === items.length}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActive(items.length)}
+                onClick={chooseText}
+              >
+                <span>Use text “{text}”</span>
+                <small>Store a text value</small>
+              </div>
+            )}
+            {!items.length && !useText && (
               <div className="muted">Type a name or IRI to find matches.</div>
             )}
           </div>,

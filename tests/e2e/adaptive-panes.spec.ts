@@ -474,9 +474,12 @@ test("Entity statements and query results retain their working content when resi
   ] as const) {
     await resize(child, width, height, mode);
     await expect(label).toHaveValue("Retained statement draft");
+    await child
+      .getByRole("button", { name: "Add row", exact: true })
+      .scrollIntoViewIfNeeded();
     await fits(
       child.locator(".adaptive-pane"),
-      child.getByRole("button", { name: "Add statement", exact: true }),
+      child.getByRole("button", { name: "Add row", exact: true }),
     );
     expect(
       await child

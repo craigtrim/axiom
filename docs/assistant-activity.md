@@ -37,3 +37,7 @@ An identical prompt reuses the cached result before assistant discovery or launc
 Cache hits use the current local context version for suggestion review, while retaining the original research timestamp. They receive a new response ID so the view updates its context and review state. Suggestions still require explicit acceptance and the existing validation at application time.
 
 The stored prompt must match exactly as well as its MD5 key. Cache reads validate the file format and result structure. Missing, malformed or unreadable entries are treated as misses. Writes use a temporary file and rename. Failed or cancelled assistant responses are excluded. A cache-write failure preserves the result and displays a message that repeating the request may run the assistant again.
+
+## Error details
+
+Assistant errors offer **Error details**, with earlier records available from **View > Error log**. The saved record includes the failed stage, process diagnostics and rejected response. Suggestions history reopens the record for the selected failed run. See `docs/error-audits.md` for retained fields and limits.

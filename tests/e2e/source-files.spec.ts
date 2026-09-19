@@ -197,7 +197,7 @@ test("invalid and conflicting source drafts survive switching views and cannot o
   );
 });
 
-test("saving a workspace flushes source edits from a closed pane and reopening preserves the result", async () => {
+test("saving a workspace preserves source drafts from a closed pane without applying them", async () => {
   await menu("view.source");
   await expect(source().getByRole("status")).toContainText("Synchronized");
   await enter(ttl.replace('"Course"', '"Saved source course"'));
@@ -219,6 +219,18 @@ test("saving a workspace flushes source edits from a closed pane and reopening p
     })
     .toContain("Saved source course");
   await openFile(file, "file.open");
+  expect(
+    (await state()).entities.find((e) => e.iri === "https://example.org/Course")
+      ?.label,
+  ).toBe("Course");
+  await menu("view.source");
+  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().locator(".monaco-editor")).toContainText(
+    "Saved source course",
+  );
+  await source()
+    .getByRole("button", { name: "Apply changes", exact: true })
+    .click();
   await expect
     .poll(
       async () =>

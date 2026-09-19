@@ -30,7 +30,9 @@ export function usePredicateOptions(current: string[]) {
       active = false;
     };
   }, [s.version, s.datasetEpoch]);
-  return [...new Set([...common, ...known, ...current].filter(Boolean))].sort();
+  return [...new Set([...current, ...[...common, ...known].sort()])].filter(
+    (iri) => !!iri && iri !== TYPE,
+  );
 }
 export function PredicateSelect({
   value,
@@ -51,6 +53,10 @@ export function PredicateSelect({
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const choose = (iri: string) => {
+    if (iri === TYPE) {
+      setError("The class or instance declaration already supplies rdf:type.");
+      return;
+    }
     change(iri);
     setMode(null);
     setQuery("");
@@ -77,11 +83,13 @@ export function PredicateSelect({
             Choose predicate
           </option>
         )}
-        {[...new Set([...options, ...(value ? [value] : [])])].map((iri) => (
-          <option key={iri} value={iri}>
-            {compactIri(iri, namespace)}
-          </option>
-        ))}
+        {[...new Set([...options, ...(value ? [value] : [])])]
+          .filter((iri) => iri !== TYPE)
+          .map((iri) => (
+            <option key={iri} value={iri}>
+              {compactIri(iri, namespace)}
+            </option>
+          ))}
         <option value="__find">Find predicate…</option>
         <option value="__add">Add predicate…</option>
       </select>

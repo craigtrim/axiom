@@ -89,9 +89,7 @@ test("natural labels create in the taxonomy and full entity details open beside 
     page.getByRole("tab", { name: "Graph", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await editor
-    .getByRole("button", { name: "Add statement", exact: true })
-    .click();
+  await editor.getByRole("button", { name: "Add row", exact: true }).click();
   await editor
     .locator("tbody tr")
     .last()

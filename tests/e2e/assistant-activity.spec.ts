@@ -71,6 +71,14 @@ test.beforeEach(async () => {
   const profile = await mkdtemp(
     path.resolve("artifacts/testing/assistant-activity-"),
   );
+  // Always select the fixture provider; application profiles default to Claude.
+  await writeFile(
+    path.join(profile, "workbench.json"),
+    JSON.stringify({
+      version: 1,
+      panelState: { "assistant.provider": "codex" },
+    }),
+  );
   behavior = path.join(profile, "behavior.json");
   launches = path.join(profile, "launches.txt");
   await writeFile(behavior, "{}");
@@ -261,7 +269,7 @@ for (const mode of ["children", "instances"])
   test(
     "Taxonomy " +
       mode +
-      " shares pane activity, blocks repeated retry and cancels on dialog close",
+      " shares pane activity, blocks repeated retry and continues after closing its view",
     async () => {
       await menu("view.hierarchy");
       await page
@@ -274,8 +282,14 @@ for (const mode of ["children", "instances"])
           exact: true,
         })
         .click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.locator(".assistant-activity")).toContainText(
+      const dialog = page.getByRole("region", { name: "Taxonomy suggestions" });
+      await dialog
+        .getByRole("button", {
+          name: mode === "children" ? "Find children" : "Find instances",
+          exact: true,
+        })
+        .click();
+      await expect(activity("taxonomy")).toContainText(
         mode === "children" ? "Finding child classes" : "Finding instances",
       );
       await expect(activity("hierarchy")).toContainText("Codex");
@@ -301,14 +315,20 @@ for (const mode of ["children", "instances"])
         ),
       ).toBe(100);
       expect(await count()).toBe(1);
-      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await activity("taxonomy")
+        .getByRole("button", { name: "Cancel suggestions", exact: true })
+        .click();
       await expect(activity("hierarchy")).toHaveCount(0);
-      await click100(
-        dialog.getByRole("button", { name: "Find suggestions again" }),
-      );
+      await click100(dialog.getByRole("button", { name: "New run" }));
       await expect.poll(count).toBe(2);
-      await page.keyboard.press("Escape");
+      await menu("pane.close");
       await expect(dialog).toHaveCount(0);
+      await expect(activity("hierarchy")).toBeVisible();
+      await menu("view.taxonomy");
+      await expect(activity("taxonomy")).toBeVisible();
+      await activity("taxonomy")
+        .getByRole("button", { name: "Cancel suggestions", exact: true })
+        .click();
       await expect(activity("hierarchy")).toHaveCount(0);
       expect(
         await page.evaluate(
