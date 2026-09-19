@@ -1,3 +1,4 @@
+import { nodeRelevance } from "./graph-relevance";
 import { Store } from "./store";
 import { Viewport, nodeRadius } from "./viewport";
 import { kindLabel, NS, type Kind } from "./model";
@@ -22,6 +23,7 @@ export interface GraphStyleCatalog {
 interface Analysis {
   catalog: GraphStyleCatalog;
   metrics: Map<string, NodeStyleMetrics>;
+  relevance: Map<string, number>;
 }
 const cache = new WeakMap<Store, Analysis>();
 export function graphStyleAnalysis(store: Store): Analysis {
@@ -108,7 +110,10 @@ export function graphStyleAnalysis(store: Store): Analysis {
       count: maxCount,
     },
   };
-  const result = { catalog, metrics };
+  const relevance = new Map(
+    [...metrics].map(([iri, m]) => [iri, nodeRelevance(m)]),
+  );
+  const result = { catalog, metrics, relevance };
   cache.set(store, result);
   return result;
 }
@@ -149,14 +154,15 @@ export function applyGraphAppearance(view: Viewport, text: string) {
     (r) =>
       r.values["size-by"] && !["auto", "fixed"].includes(r.values["size-by"]),
   );
-  const analysis = needsMetrics ? graphStyleAnalysis(view.store) : undefined;
+  const analysis = view.nodes.size ? graphStyleAnalysis(view.store) : undefined;
   for (const n of view.nodes.values()) {
     n.taxonomyAncestors = ancestors.get(n.iri);
     n.baseRadius = nodeRadius(n.degree, n.kind);
     n.types = view.store.resolve(n.iri)?.types;
     if (view.store.individualIndex.has(n.iri))
       n.types = [...new Set([...(n.types ?? []), NS.demo + "Order"])];
-    n.styleMetrics = analysis?.metrics.get(n.iri);
+    n.relevance = analysis?.relevance.get(n.iri);
+    n.styleMetrics = needsMetrics ? analysis?.metrics.get(n.iri) : undefined;
     n.radius = styledRadius(n, text);
   }
 }

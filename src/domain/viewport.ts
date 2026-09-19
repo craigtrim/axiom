@@ -12,6 +12,7 @@ export interface GraphNode {
   charge: number;
   degree: number;
   shownDegree: number;
+  relevance?: number;
   distance: number;
   radius: number;
   baseRadius?: number;

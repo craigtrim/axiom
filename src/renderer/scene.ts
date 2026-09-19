@@ -1,3 +1,4 @@
+import { labelOrder } from "./label-priority";
 import { MIN_GRAPH_ZOOM } from "../shared/graph-limits";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { EQUIVALENT_CLASS } from "../domain/class-expressions";
@@ -478,6 +479,7 @@ export function render(
     onLabel?: (iri: string, rect: Rect) => void;
   } = {},
 ) {
+  const orderedLabels = labelOrder(g, selected, hover);
   const visibleEdges = g.edgesVisible === false ? [] : g.edges;
   const rules = styleRules(g.stylesheet),
     styles = new Map(
@@ -629,7 +631,6 @@ export function render(
         C("canvas"),
       );
     }
-  const focus = new Set(g.focus);
   d.beginBatch();
   for (const n of g.nodes) {
     const p = screenPoint(n, c),
@@ -732,16 +733,10 @@ export function render(
       height: 32,
     }));
   const occupied = new Map<string, Rect[]>();
-  const priority = (n: GraphNode) =>
-    (focus.has(n.iri) ? 4000 : 0) +
-    (selected === n.iri ? 3000 : 0) +
-    (hover === n.iri ? 2000 : 0) +
-    (n.pinned ? 900 : 0) +
-    n.radius * 18 +
-    n.shownDegree;
   let labels = 0;
-  for (const n of g.nodes.slice().sort((a, b) => priority(b) - priority(a))) {
+  for (const ranked of orderedLabels) {
     if (labels >= maxLabels) break;
+    const n = nodes.get(ranked.iri)!;
     const p = screenPoint(n, c);
     p.y += n.radius * k + 4;
     if (p.x < -240 || p.y < -40 || p.x > w + 240 || p.y > h + 40) continue;

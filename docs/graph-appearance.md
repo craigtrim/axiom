@@ -96,6 +96,14 @@ The slider previews changes while dragging. One drag is one Undo operation; keyb
 
 **Center**, beside Fit in the graph toolbar, brings the graph's first remaining starting node to the middle of the canvas at the current zoom. If none of the starting nodes remain, it centres on the visible node with the most visible connections. Selection, node positions and relationships stay unchanged. The action is also available from Graph > Center graph and the command palette. Each graph keeps its own camera, and Center is disabled on empty graphs.
 
+## Label relevance at crowded zoom levels
+
+When labels compete for space, Axiom ranks nodes by total connectivity and direct instance count across the dataset, including connections and instances outside the current graph. The two metrics have equal weight after logarithmic normalization. Highly connected classes remain useful landmarks even in ontologies with no instances. Drawn node size does not affect relevance.
+
+Starting nodes, the selected node, the hovered node and pinned nodes receive priority over automatic rankings. Visible connectivity breaks score ties, followed by a stable identifier order. Moving the pointer away clears hover priority. Zooming in reveals more labels as space becomes available; graph membership, node positions and ontology data stay unchanged.
+
+Relevance scores share the cached dataset analysis used by graph appearance. Ontology edits and Undo/Redo invalidate that index. The renderer caches the label order for each graph snapshot and reuses it during zoom, pan and layout motion. SVG and PNG exports use the same ordering when All node labels is turned off.
+
 ## Graph zoom
 
 The mouse wheel and graph zoom shortcuts continue below 5%, so large layouts can be viewed from farther away. Fit frames the entire visible graph regardless of its spread. Zoom stays centred under the pointer for the wheel and at the centre of the canvas for keyboard commands. Each graph restores its saved zoom when the app reopens.
