@@ -1,3 +1,5 @@
+import { AncestryBreadcrumb } from "./AncestryBreadcrumb";
+import { ErrorNotice } from "./ErrorNotice";
 import { DetailsBack, DetailsNavigation } from "./DetailsNavigation";
 import { StatementGrid } from "./StatementGrid";
 import { EdgeInspector } from "./EdgeInspector";
@@ -89,13 +91,10 @@ export function EntityEditor({
         </span>
       </PaneToolbar>
       <div className="entity-editor-content">
-        {error && (
-          <div className="error" role="alert">
-            {error}
-          </div>
-        )}
+        {error && <ErrorNotice error={error} />}
         {loaded && (
           <>
+            <AncestryBreadcrumb key={s.datasetEpoch + ":" + iri} iri={iri} />
             <div className="statement-grid-toolbar">
               <span>
                 {triples
@@ -111,38 +110,9 @@ export function EntityEditor({
                   .toLocaleString()}{" "}
                 statements
               </span>
-              {namedClass(loaded.entity) && (
-                <button
-                  onClick={() =>
-                    setTriples((ts) => [
-                      ...ts,
-                      {
-                        subject: iri,
-                        predicate: SUBCLASS,
-                        object: { literal: false, value: "" },
-                      },
-                    ])
-                  }
-                >
-                  Add parent
-                </button>
-              )}
-              <button
-                onClick={() =>
-                  setTriples((ts) => [
-                    ...ts,
-                    {
-                      subject: iri,
-                      predicate: "",
-                      object: { literal: true, value: "" },
-                    },
-                  ])
-                }
-              >
-                Add statement
-              </button>
             </div>
             <StatementGrid
+              subject={iri}
               triples={triples}
               ontology={s.ontology}
               replace={setTriples}
