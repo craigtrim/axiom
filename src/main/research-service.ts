@@ -1,3 +1,4 @@
+import { auditStep, auditMetadata } from "./audit-log";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { ResearchCache, researchPromptHash } from "./research-cache";
@@ -71,7 +72,13 @@ export class ResearchService {
     this.cancelled = false;
     this.error = undefined;
     try {
+      auditStep("Preparing ontology context");
       const context = await this.context(input.iri);
+      auditMetadata({
+        entity: context.entity.name,
+        iri: context.entity.iri,
+        provider: input.provider,
+      });
       this.activeEntity = context.entity.name;
       if (
         context.datasetEpoch !== input.datasetEpoch ||
@@ -107,6 +114,7 @@ export class ResearchService {
         input.web,
       );
       if (this.cancelled) throw Error("Research cancelled.");
+      auditStep("Parsing research response");
       const response: ResearchResponse = {
         context,
         result: parseResearchResult(

@@ -1,3 +1,4 @@
+import { auditStep, auditDetail, auditMetadata } from "./audit-log";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
   access,
@@ -173,7 +174,12 @@ export class LocalAssistantRunner {
     };
     this.active = job;
     let dir: string | undefined;
+    let diagnosticStdout = "",
+      diagnosticStderr = "";
     try {
+      auditMetadata({ provider });
+      auditDetail("Prompt", prompt);
+      auditStep("Finding assistant", provider);
       const command = (await this.discover()).find((c) => c.id === provider);
       if (!command)
         throw Error("The selected assistant was not found on PATH.");
@@ -188,6 +194,12 @@ export class LocalAssistantRunner {
       if (job.cancelled) throw Error("Assistant cancelled.");
       if (prompt.length > 150000)
         throw Error("The selected ontology context is too large.");
+      auditMetadata({ executable: command.file, workingDirectory: dir });
+      auditDetail("Arguments", [
+        ...command.args,
+        ...assistantArguments(command.id, dir, web, schema),
+      ]);
+      auditStep("Starting assistant", provider);
       const output = await new Promise<string>((resolve, reject) => {
         const child = spawn(
           command.file,
@@ -216,20 +228,30 @@ export class LocalAssistantRunner {
         }, this.timeoutMs);
         child.stdout!.on("data", (data) => {
           stdout += data.toString();
-          if (stdout.length > 2000000) {
+          diagnosticStdout =
+            stdout.slice(0, 262144) +
+            (stdout.length > 262144 ? "\n[Output truncated]" : "");
+          if (stdout.length > 2000000 && !failure) {
             failure = Error("Assistant output exceeded the size limit.");
             this.cancel();
           }
+          stdout = stdout.slice(0, 2000001);
         });
         child.stderr!.on("data", (data) => {
           stderr = (stderr + data.toString()).slice(-8000);
+          diagnosticStderr = stderr;
         });
         child.stdin!.on("error", () => {});
         child.on("error", (e) => {
           clearTimeout(timer);
           reject(e);
         });
-        child.on("close", (code) => {
+        child.on("close", (code, signal) => {
+          auditMetadata({ exitCode: code, signal });
+          auditStep(
+            "Assistant exited",
+            "Exit code " + code + (signal ? ", signal " + signal : ""),
+          );
           clearTimeout(timer);
           if (failure) reject(failure);
           else if (job.cancelled) reject(Error("Assistant cancelled."));
@@ -246,6 +268,7 @@ export class LocalAssistantRunner {
         });
         child.stdin!.end(prompt);
       });
+      auditStep("Reading assistant response");
       let raw: unknown;
       if (command.id === "codex") {
         const file = path.join(dir, "result.json");
@@ -262,8 +285,11 @@ export class LocalAssistantRunner {
           );
         raw = envelope.structured_output ?? envelope.result ?? "";
       }
+      auditDetail("Assistant response", raw);
       return raw;
     } finally {
+      auditDetail("Process stdout", diagnosticStdout);
+      auditDetail("Process stderr (last 8,000 characters)", diagnosticStderr);
       this.active = undefined;
       if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
     }

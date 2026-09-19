@@ -1,3 +1,12 @@
+import { randomUUID } from "node:crypto";
+import { WorkspaceFiles } from "./workspace-files";
+import {
+  readEditorDrafts,
+  type SavedEditorDrafts,
+} from "../shared/editor-state";
+import { SuggestionService } from "./suggestion-service";
+import { AuditLog, auditFailureId } from "./audit-log";
+import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
 import type { Workspace } from "../domain/workspace";
@@ -153,6 +162,46 @@ const methods = new Set<DomainMethod>([
   "researchContext",
   "applySuggestions",
 ]);
+const errorLog = new AuditLog(
+  path.join(app.getPath("userData"), "error-logs"),
+  (summary) => {
+    mainWindow?.webContents.send("domain:event", {
+      type: "audit-error",
+      data: summary,
+    });
+  },
+);
+function errorContext() {
+  return {
+    workspace: workspacePath ?? lastState?.ontology.name ?? "",
+    appVersion: app.getVersion(),
+    application: process.execPath,
+    platform: process.platform,
+    electron: process.versions.electron ?? "",
+    datasetEpoch: lastState?.datasetEpoch ?? 0,
+    version: lastState?.version ?? 0,
+  };
+}
+function handle(
+  channel: string,
+  listener: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any,
+) {
+  ipcMain.handle(channel, (event, ...args) => {
+    authorised(event);
+    const input = channel === "domain:request" ? args[1] : args[0];
+    const metadata: Record<string, string | number | boolean | null> =
+      errorContext();
+    if (input && typeof input === "object")
+      for (const key of ["id", "iri", "provider", "datasetEpoch", "version"])
+        if (["string", "number", "boolean"].includes(typeof input[key]))
+          metadata[key] = input[key];
+    return errorLog.run(
+      channel === "domain:request" ? "Ontology: " + args[0] : channel,
+      metadata,
+      () => listener(event, ...args),
+    );
+  });
+}
 function request<T = unknown>(
   method: DomainMethod,
   args: Record<string, unknown> = {},
@@ -464,79 +513,111 @@ async function openWorkspace(recentFile?: string) {
   await rememberFile(file);
 }
 async function command(id: string, recentFile?: string) {
+  const changesWorkspace = [
+    "file.new",
+    "file.open",
+    "file.import",
+    "file.example",
+    "file.close",
+  ].includes(id);
+  if (closePending || (changesWorkspace && workspaceSwitching)) return;
+  if (changesWorkspace) workspaceSwitching = true;
   try {
-    if (id.startsWith("role.")) {
-      const item = Menu.getApplicationMenu()?.getMenuItemById(id),
-        w = BrowserWindow.getFocusedWindow() ?? mainWindow;
-      if (item && w) item.click({} as never, w, w.webContents as never);
-      return;
-    }
-    switch (id) {
-      case "graph.fit":
-        send("graph.fit.manual");
-        break;
-      case "file.import":
-        await importOntology();
-        break;
-      case "file.exportOntology":
-        await exportOntology();
-        break;
-      case "file.close":
-        if (await confirmDiscard()) {
-          workspacePath = undefined;
-          await request("new", { blank: true });
-          send("workspace.new");
-          await checkpointSession();
+    await errorLog.run(
+      commandById.get(id)?.label ?? id,
+      errorContext(),
+      async () => {
+        if (id.startsWith("role.")) {
+          const item = Menu.getApplicationMenu()?.getMenuItemById(id),
+            w = BrowserWindow.getFocusedWindow() ?? mainWindow;
+          if (item && w) item.click({} as never, w, w.webContents as never);
+          return;
         }
-        break;
-      case "file.open":
-        await openWorkspace(recentFile);
-        break;
-      case "file.save":
-        await saveWorkspace(false);
-        break;
-      case "file.saveAs":
-        await saveWorkspace(true);
-        break;
-      case "file.example":
-        if (await confirmDiscard()) {
-          workspacePath = undefined;
-          await request("example");
-          send("workspace.example");
-          await checkpointSession();
+        switch (id) {
+          case "graph.fit":
+            send("graph.fit.manual");
+            break;
+          case "file.import":
+            await importOntology();
+            break;
+          case "file.exportOntology":
+            await exportOntology();
+            break;
+          case "file.close":
+            if (await saveBeforeWorkspaceChange()) {
+              workspacePath = undefined;
+              recoveryPath = undefined;
+              restoredDrafts = undefined;
+              await request("new", { blank: true });
+              send("workspace.new");
+              await checkpointSession();
+            }
+            break;
+          case "file.open":
+            await openWorkspace(recentFile);
+            break;
+          case "file.save":
+            await saveWorkspace(false);
+            break;
+          case "file.saveAs":
+            await saveWorkspace(true);
+            break;
+          case "file.example":
+            if (await saveBeforeWorkspaceChange()) {
+              workspacePath = undefined;
+              recoveryPath = undefined;
+              restoredDrafts = undefined;
+              await request("example");
+              send("workspace.example");
+              await checkpointSession();
+            }
+            break;
+          case "file.new":
+            if (await saveBeforeWorkspaceChange()) {
+              workspacePath = undefined;
+              recoveryPath = undefined;
+              restoredDrafts = undefined;
+              await request("new");
+              send("workspace.new");
+              await checkpointSession();
+            }
+            break;
+          case "app.quit":
+            app.quit();
+            break;
+          case "help.about":
+            await dialog.showMessageBox(mainWindow!, {
+              type: "info",
+              title: "About Axiom",
+              message: "Axiom Ontology Workbench",
+              detail:
+                "Version " +
+                app.getVersion() +
+                "\nElectron desktop application\n\nCreate an ontology or explore the Pizza example. Edit classes and individuals and run the supported SELECT query subset. Workspace files preserve RDF data and the workbench. Import RDF/XML, Turtle, N-Triples, N-Quads, TriG and JSON-LD. This release displays asserted statements without OWL reasoning.",
+            });
+            break;
+          default:
+            send(id);
         }
-        break;
-      case "file.new":
-        if (await confirmDiscard()) {
-          workspacePath = undefined;
-          await request("new");
-          send("workspace.new");
-          await checkpointSession();
-        }
-        break;
-      case "app.quit":
-        app.quit();
-        break;
-      case "help.about":
-        await dialog.showMessageBox(mainWindow!, {
-          type: "info",
-          title: "About Axiom",
-          message: "Axiom Ontology Workbench",
-          detail:
-            "Version " +
-            app.getVersion() +
-            "\nElectron desktop application\n\nCreate an ontology or explore the Pizza example. Edit classes and individuals and run the supported SELECT query subset. Workspace files preserve RDF data and the workbench. Import RDF/XML, Turtle, N-Triples, N-Quads, TriG and JSON-LD. This release displays asserted statements without OWL reasoning.",
-        });
-        break;
-      default:
-        send(id);
-    }
+      },
+    );
   } catch (e) {
-    await dialog.showMessageBox(mainWindow!, {
+    const result = await dialog.showMessageBox(mainWindow!, {
+      buttons: ["Close", "Error details"],
+      defaultId: 0,
       type: "error",
       message: "The operation could not be completed.",
-      detail: e instanceof Error ? e.message : String(e),
+      detail: cleanErrorMessage(e),
     });
+    if (result.response === 1) send("audit.open:" + (auditFailureId(e) ?? ""));
+  } finally {
+    if (changesWorkspace) {
+      workspaceSwitching = false;
+      if (closeAfterWorkspaceChange) {
+        closeAfterWorkspaceChange = false;
+        mainWindow?.close();
+      }
+    }
   }
 }
 let queryRunning = false,
@@ -853,7 +934,7 @@ app.whenReady().then(async () => {
   };
   secure(mainWindow);
   installMenu();
-  ipcMain.handle(
+  handle(
     "domain:request",
     (event, method: DomainMethod, args: Record<string, unknown>) => {
       authorised(event);
@@ -891,24 +972,24 @@ app.whenReady().then(async () => {
     else editorFlush?.resolve();
     editorFlush = undefined;
   });
-  ipcMain.handle("files:open", async (event, iri) => {
+  handle("files:open", async (event, iri) => {
     authorised(event);
     const file = await resolveLinkedFile(iri);
     await stat(file.path);
     const error = await shell.openPath(file.path);
     if (error) throw Error(error);
   });
-  ipcMain.handle("files:reveal", async (event, iri) => {
+  handle("files:reveal", async (event, iri) => {
     authorised(event);
     const file = await resolveLinkedFile(iri);
     await stat(file.path);
     shell.showItemInFolder(file.path);
   });
-  ipcMain.handle("files:thumbnail", async (event, iri) => {
+  handle("files:thumbnail", async (event, iri) => {
     authorised(event);
     return filePreviews.thumbnail(await resolveLinkedFile(iri));
   });
-  ipcMain.handle("provenance:choose", async (event) => {
+  handle("provenance:choose", async (event) => {
     authorised(event);
     if (provenance.status().status === "running")
       throw Error("Cancel collection before selecting another folder.");
@@ -918,19 +999,19 @@ app.whenReady().then(async () => {
     });
     return r.canceled ? null : provenance.select(r.filePaths[0]);
   });
-  ipcMain.handle("provenance:status", (event) => {
+  handle("provenance:status", (event) => {
     authorised(event);
     return provenance.status();
   });
-  ipcMain.handle("provenance:start", (event, o) => {
+  handle("provenance:start", (event, o) => {
     authorised(event);
     return provenance.start(o);
   });
-  ipcMain.handle("provenance:cancel", (event) => {
+  handle("provenance:cancel", (event) => {
     authorised(event);
     provenance.cancel();
   });
-  ipcMain.handle("provenance:open", async (event) => {
+  handle("provenance:open", async (event) => {
     authorised(event);
     const s = provenance.status();
     if (s.status === "running" || !s.entries || !s.rdfPath)
@@ -939,32 +1020,32 @@ app.whenReady().then(async () => {
     await importOntologyFile(s.rdfPath);
     return true;
   });
-  ipcMain.handle("provenance:reveal", (event) => {
+  handle("provenance:reveal", (event) => {
     authorised(event);
     const file = provenance.status().evidencePath;
     if (file) shell.showItemInFolder(file);
   });
-  ipcMain.handle("queryAssistant:assistants", (event) => {
+  handle("queryAssistant:assistants", (event) => {
     authorised(event);
     return queryAssistant.assistants();
   });
-  ipcMain.handle("queryHistory:result", (event, id) => {
+  handle("queryHistory:result", (event, id) => {
     authorised(event);
     return queryHistory.result(id);
   });
-  ipcMain.handle("queryHistory:load", (event) => {
+  handle("queryHistory:load", (event) => {
     authorised(event);
     return queryHistory.load();
   });
-  ipcMain.handle("queryHistory:apply", (event, action) => {
+  handle("queryHistory:apply", (event, action) => {
     authorised(event);
     return queryHistory.apply(action);
   });
-  ipcMain.handle("queryHistory:search", (event, text) => {
+  handle("queryHistory:search", (event, text) => {
     authorised(event);
     return queryHistory.search(text);
   });
-  ipcMain.handle("queryAssistant:run", async (event, input) => {
+  handle("queryAssistant:run", async (event, input) => {
     authorised(event);
     if (queryAssistantJob) throw Error("Query generation is already running.");
     const job = {
@@ -984,7 +1065,7 @@ app.whenReady().then(async () => {
       queryAssistantJob = undefined;
     }
   });
-  ipcMain.handle("queryAssistant:status", (event) => {
+  handle("queryAssistant:status", (event) => {
     authorised(event);
     const status = queryAssistant.status();
     return queryAssistantJob
@@ -997,7 +1078,7 @@ app.whenReady().then(async () => {
         }
       : status;
   });
-  ipcMain.handle("queryAssistant:cancel", (event) => {
+  handle("queryAssistant:cancel", (event) => {
     authorised(event);
     if (queryAssistantJob) queryAssistantJob.cancelled = true;
     queryAssistant.cancel();
@@ -1006,40 +1087,79 @@ app.whenReady().then(async () => {
     authorised(event);
     return taxonomyAssistant.run(input);
   });
-  ipcMain.handle("taxonomyAssistant:status", (event) => {
+  ipcMain.handle("audit:record", (event, input) => {
+    authorised(event);
+    if (
+      !input ||
+      typeof input.message !== "string" ||
+      input.message.length > 20000 ||
+      typeof input.operation !== "string" ||
+      input.operation.length > 200
+    )
+      throw Error("Invalid error report.");
+    return errorLog.record(input.message, input.operation, {
+      ...errorContext(),
+      evidence:
+        "Only the displayed error was available. No assistant output was recorded for this entry.",
+    });
+  });
+  ipcMain.handle("audit:list", (event) => {
+    authorised(event);
+    return errorLog.list();
+  });
+  ipcMain.handle("audit:read", (event, id) => {
+    authorised(event);
+    return errorLog.read(id);
+  });
+  ipcMain.handle("audit:reveal", async (event, id) => {
+    authorised(event);
+    const record = await errorLog.read(id);
+    if (!record.file)
+      throw Error("This log could not be saved. Use Copy report instead.");
+    shell.showItemInFolder(record.file);
+  });
+  handle("taxonomyAssistant:history", (event) => {
+    authorised(event);
+    return taxonomyAssistant.history();
+  });
+  handle("taxonomyAssistant:read", (event, id) => {
+    authorised(event);
+    return taxonomyAssistant.read(id);
+  });
+  handle("taxonomyAssistant:status", (event) => {
     authorised(event);
     return taxonomyAssistant.status();
   });
-  ipcMain.handle("taxonomyAssistant:cancel", (event, id) => {
+  handle("taxonomyAssistant:cancel", (event, id) => {
     authorised(event);
     if (typeof id !== "string" || !id || id.length > 100)
       throw Error("Invalid request ID.");
     taxonomyAssistant.cancel(id);
   });
-  ipcMain.handle("taxonomyAssistant:apply", (event, id, indices) => {
+  handle("taxonomyAssistant:apply", (event, id, indices) => {
     authorised(event);
     return taxonomyAssistant.apply(id, indices);
   });
-  ipcMain.handle("research:assistants", (event) => {
+  handle("research:assistants", (event) => {
     authorised(event);
     return research.assistants();
   });
-  ipcMain.handle("research:run", (event, input) => {
+  handle("research:run", (event, input) => {
     authorised(event);
     const pending = research.run(input);
     refreshMenu();
     return pending.finally(() => refreshMenu());
   });
-  ipcMain.handle("research:cancel", (event) => {
+  handle("research:cancel", (event) => {
     authorised(event);
     research.cancel();
     refreshMenu();
   });
-  ipcMain.handle("research:status", (event) => {
+  handle("research:status", (event) => {
     authorised(event);
     return research.status();
   });
-  ipcMain.handle("research:open", (event, url) => {
+  handle("research:open", (event, url) => {
     authorised(event);
     if (typeof url !== "string" || url.length > 10000)
       throw Error("Invalid source URL.");
@@ -1081,7 +1201,7 @@ app.whenReady().then(async () => {
     else modalWindows.delete(id);
     refreshMenu();
   });
-  ipcMain.handle("keyboard:save", async (event, input) => {
+  handle("keyboard:save", async (event, input) => {
     authorised(event);
     const settings = readKeyboardSettings(input);
     await savePreferences({ ...preferences, keyboard: settings });
@@ -1093,7 +1213,7 @@ app.whenReady().then(async () => {
       });
     return settings;
   });
-  ipcMain.handle("keyboard:import", async (event) => {
+  handle("keyboard:import", async (event) => {
     authorised(event);
     const r = await dialog.showOpenDialog(
       BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
@@ -1110,7 +1230,7 @@ app.whenReady().then(async () => {
       JSON.parse(await readFile(r.filePaths[0], "utf8")),
     );
   });
-  ipcMain.handle("keyboard:export", async (event, input) => {
+  handle("keyboard:export", async (event, input) => {
     authorised(event);
     const settings = readKeyboardSettings(input);
     const r = await dialog.showSaveDialog(
@@ -1155,7 +1275,7 @@ app.whenReady().then(async () => {
     );
     refreshMenu();
   });
-  ipcMain.handle("pane:maximizeWindow", (event, url: string) => {
+  handle("pane:maximizeWindow", (event, url: string) => {
     authorised(event);
     if (
       typeof url !== "string" ||
@@ -1175,13 +1295,13 @@ app.whenReady().then(async () => {
       if (!item || item.enabled) void command(id);
     }
   });
-  ipcMain.handle("copy", (event, text: string) => {
+  handle("copy", (event, text: string) => {
     authorised(event);
     if (typeof text !== "string" || text.length > 10000000)
       throw Error("Invalid clipboard data.");
     return clipboard.writeText(text);
   });
-  ipcMain.handle("export:document", async (event, input) => {
+  handle("export:document", async (event, input) => {
     authorised(event);
     return exportDocument(
       input,
@@ -1189,7 +1309,7 @@ app.whenReady().then(async () => {
       request,
     );
   });
-  ipcMain.handle("export", async (event, format: string, data: string) => {
+  handle("export", async (event, format: string, data: string) => {
     authorised(event);
     if (
       !["svg", "png", "clipboard"].includes(format) ||

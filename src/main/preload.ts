@@ -1,9 +1,17 @@
+import { cleanErrorMessage } from "../shared/audit";
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   AxiomBridge,
   DomainMethod,
   Preferences,
 } from "../shared/protocol";
+const invoke = async (channel: string, ...args: unknown[]) => {
+  try {
+    return await ipcRenderer.invoke(channel, ...args);
+  } catch (error) {
+    throw Error(cleanErrorMessage(error));
+  }
+};
 const listen = (channel: string, fn: (value: any) => void) => {
   const handler = (_event: Electron.IpcRendererEvent, value: any) => fn(value);
   ipcRenderer.on(channel, handler);
@@ -16,64 +24,68 @@ const bridge: AxiomBridge = {
     flushed: (error) => ipcRenderer.send("editors:flushed", error),
   },
   files: {
-    open: (iri) => ipcRenderer.invoke("files:open", iri),
-    reveal: (iri) => ipcRenderer.invoke("files:reveal", iri),
-    thumbnail: (iri) => ipcRenderer.invoke("files:thumbnail", iri),
+    open: (iri) => invoke("files:open", iri),
+    reveal: (iri) => invoke("files:reveal", iri),
+    thumbnail: (iri) => invoke("files:thumbnail", iri),
   },
   provenance: {
-    choose: () => ipcRenderer.invoke("provenance:choose"),
-    start: (o) => ipcRenderer.invoke("provenance:start", o),
-    status: () => ipcRenderer.invoke("provenance:status"),
-    cancel: () => ipcRenderer.invoke("provenance:cancel"),
-    open: () => ipcRenderer.invoke("provenance:open"),
-    reveal: () => ipcRenderer.invoke("provenance:reveal"),
+    choose: () => invoke("provenance:choose"),
+    start: (o) => invoke("provenance:start", o),
+    status: () => invoke("provenance:status"),
+    cancel: () => invoke("provenance:cancel"),
+    open: () => invoke("provenance:open"),
+    reveal: () => invoke("provenance:reveal"),
   },
   keyboard: {
     modal: (active) => ipcRenderer.send("keyboard:modal", active),
     menu: () => ipcRenderer.send("keyboard:menu"),
-    save: (settings) => ipcRenderer.invoke("keyboard:save", settings),
-    import: () => ipcRenderer.invoke("keyboard:import"),
-    export: (settings) => ipcRenderer.invoke("keyboard:export", settings),
+    save: (settings) => invoke("keyboard:save", settings),
+    import: () => invoke("keyboard:import"),
+    export: (settings) => invoke("keyboard:export", settings),
   },
   queryHistory: {
-    result: (id) => ipcRenderer.invoke("queryHistory:result", id),
-    load: () => ipcRenderer.invoke("queryHistory:load"),
-    apply: (action) => ipcRenderer.invoke("queryHistory:apply", action),
-    search: (text) => ipcRenderer.invoke("queryHistory:search", text),
+    result: (id) => invoke("queryHistory:result", id),
+    load: () => invoke("queryHistory:load"),
+    apply: (action) => invoke("queryHistory:apply", action),
+    search: (text) => invoke("queryHistory:search", text),
   },
   queryAssistant: {
-    assistants: () => ipcRenderer.invoke("queryAssistant:assistants"),
-    run: (r) => ipcRenderer.invoke("queryAssistant:run", r),
-    cancel: () => ipcRenderer.invoke("queryAssistant:cancel"),
-    status: () => ipcRenderer.invoke("queryAssistant:status"),
+    assistants: () => invoke("queryAssistant:assistants"),
+    run: (r) => invoke("queryAssistant:run", r),
+    cancel: () => invoke("queryAssistant:cancel"),
+    status: () => invoke("queryAssistant:status"),
   },
   taxonomyAssistant: {
-    run: (input) => ipcRenderer.invoke("taxonomyAssistant:run", input),
-    status: () => ipcRenderer.invoke("taxonomyAssistant:status"),
-    cancel: (id) => ipcRenderer.invoke("taxonomyAssistant:cancel", id),
-    apply: (id, indices) =>
-      ipcRenderer.invoke("taxonomyAssistant:apply", id, indices),
+    history: () => invoke("taxonomyAssistant:history"),
+    read: (id) => invoke("taxonomyAssistant:read", id),
+    run: (input) => invoke("taxonomyAssistant:run", input),
+    status: () => invoke("taxonomyAssistant:status"),
+    cancel: (id) => invoke("taxonomyAssistant:cancel", id),
+    apply: (id, indices) => invoke("taxonomyAssistant:apply", id, indices),
   },
   research: {
-    assistants: () => ipcRenderer.invoke("research:assistants"),
-    run: (r) => ipcRenderer.invoke("research:run", r),
-    cancel: () => ipcRenderer.invoke("research:cancel"),
-    status: () => ipcRenderer.invoke("research:status"),
-    open: (url) => ipcRenderer.invoke("research:open", url),
+    assistants: () => invoke("research:assistants"),
+    run: (r) => invoke("research:run", r),
+    cancel: () => invoke("research:cancel"),
+    status: () => invoke("research:status"),
+    open: (url) => invoke("research:open", url),
   },
   request: <T>(method: DomainMethod, args?: Record<string, unknown>) =>
-    ipcRenderer.invoke("domain:request", method, args) as Promise<T>,
+    invoke("domain:request", method, args) as Promise<T>,
   preferences: {
-    load: () => ipcRenderer.invoke("preferences:load"),
-    save: (p: Preferences, captured?: boolean) =>
-      ipcRenderer.invoke("preferences:save", p, captured),
+    load: () => invoke("preferences:load"),
+    save: (
+      p: Preferences,
+      captured?: boolean,
+      drafts?: import("../shared/editor-state").SavedEditorDrafts,
+    ) => invoke("preferences:save", p, captured, drafts),
   },
   onEvent: (fn) => listen("domain:event", fn),
   onCommand: (fn) => listen("command", fn),
   menuState: (state) => ipcRenderer.send("menu:state", state),
   command: (command) => ipcRenderer.send("command", command),
-  exportFile: (format, data) => ipcRenderer.invoke("export", format, data),
-  exportDocument: (input) => ipcRenderer.invoke("export:document", input),
-  copy: (text) => ipcRenderer.invoke("copy", text),
+  exportFile: (format, data) => invoke("export", format, data),
+  exportDocument: (input) => invoke("export:document", input),
+  copy: (text) => invoke("copy", text),
 };
 contextBridge.exposeInMainWorld("axiom", bridge);

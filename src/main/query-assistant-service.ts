@@ -1,3 +1,4 @@
+import { auditStep, auditMetadata } from "./audit-log";
 import { LocalAssistantRunner, discoverAssistants } from "./local-assistant";
 import {
   buildQueryPrompt,
@@ -93,6 +94,7 @@ export class QueryAssistantService {
     };
     this.cancelled = false;
     try {
+      auditStep("Preparing ontology context");
       const context = await this.context(input.instructions);
       if (
         context.version !== input.version ||
@@ -108,7 +110,9 @@ export class QueryAssistantService {
         querySchema,
       );
       if (this.cancelled) throw Error("Query generation cancelled.");
+      auditStep("Parsing query proposal");
       const result = extractQueryProposal(raw);
+      auditStep("Validating generated query");
       const validation =
         result.status === "query"
           ? validateQueryProposal(result.sparql, context)
