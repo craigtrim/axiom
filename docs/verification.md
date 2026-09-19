@@ -106,18 +106,18 @@ Measurements were taken on an AMD Ryzen Threadripper 3960X with approximately 12
 
 Raw reports are generated at [domain.json](../artifacts/benchmarks/domain.json) and [desktop.json](../artifacts/benchmarks/desktop.json). The domain harness uses a warmup and five or seven measured samples. Its values below are p95 unless stated otherwise.
 
-| Operation | Observed |
-| --- | ---: |
-| Generate 100,000 orders and indexes | 164 ms |
-| Margherita adjacency at 100,000 orders | 7.1 ms |
-| Customer adjacency at 100,000 orders | 11.1 ms |
-| Filter 100,000 rows | 59 ms |
-| Sort 100,000 rows by price | 38 ms |
-| Worked query 1, all fixture sizes | below 1 ms |
-| Worked query 4, 100,000 orders | 292 ms |
-| Worked query 5, 100,000 orders | 425 ms |
-| Hierarchy / radial / grid, 3,000 nodes | 33 / 17 / 6 ms |
-| Fresh force layout, 3,000 nodes, 240 ticks | 2,531 ms |
+| Operation                                  |       Observed |
+| ------------------------------------------ | -------------: |
+| Generate 100,000 orders and indexes        |         164 ms |
+| Margherita adjacency at 100,000 orders     |         7.1 ms |
+| Customer adjacency at 100,000 orders       |        11.1 ms |
+| Filter 100,000 rows                        |          59 ms |
+| Sort 100,000 rows by price                 |          38 ms |
+| Worked query 1, all fixture sizes          |     below 1 ms |
+| Worked query 4, 100,000 orders             |         292 ms |
+| Worked query 5, 100,000 orders             |         425 ms |
+| Hierarchy / radial / grid, 3,000 nodes     | 33 / 17 / 6 ms |
+| Fresh force layout, 3,000 nodes, 240 ticks |       2,531 ms |
 
 The domain query measurements exclude IPC and snapshot construction. They do not establish the full submission-to-result budgets. Fresh force settling exceeds the original 2,000 ms target on this measurement.
 
@@ -125,16 +125,16 @@ The desktop harness records 600 actual graph draw events per workload. It applie
 
 The earlier rewrite package produced the measurements below. Those complete benchmark workloads have not been repeated for the current package. The current styled-graph diagnostic is reported separately below.
 
-| Desktop operation | Observed |
-| --- | ---: |
-| Startup to graph ready | 918 ms |
-| Regenerate 100,000 orders to updated UI | 247 ms |
-| 1,000-node force, draw submission p95 / p99 | 3.8 / 4.0 ms |
-| 3,000-node force, draw submission p95 / p99 | 9.5 / 11.2 ms |
-| 3,000-node grid, draw submission p95 / p99 | 9.4 / 10.4 ms |
-| 3,000-node force, frame interval p95 / p99 | 17.4 / 18.3 ms |
-| 3,000-node grid, frame interval p95 / p99 | 17.4 / 18.1 ms |
-| Aggregate working set after renderer collection | 448 MB |
+| Desktop operation                               |       Observed |
+| ----------------------------------------------- | -------------: |
+| Startup to graph ready                          |         918 ms |
+| Regenerate 100,000 orders to updated UI         |         247 ms |
+| 1,000-node force, draw submission p95 / p99     |   3.8 / 4.0 ms |
+| 3,000-node force, draw submission p95 / p99     |  9.5 / 11.2 ms |
+| 3,000-node grid, draw submission p95 / p99      |  9.4 / 10.4 ms |
+| 3,000-node force, frame interval p95 / p99      | 17.4 / 18.3 ms |
+| 3,000-node grid, frame interval p95 / p99       | 17.4 / 18.1 ms |
+| Aggregate working set after renderer collection |         448 MB |
 
 The display limit is enforced independently of fixture size. The initial limit of 1,000 is retained as a starting point, not as a claim that every 1,000-node view is readable. Users can select a smaller limit without discarding data from the Store.
 
@@ -184,7 +184,6 @@ The portable folder is approximately 414 MiB. Keep its DLLs, resources and local
 
 No .NET project participates in the active source tree, package scripts or CI.
 
-
 ## Formatting and result freshness
 
 The formatting fix passed 1,693 targeted offline checks, including 32 query-identity regressions and the SPARQL conformance suite. Four desktop tests passed against the packaged executable. They verify that formatting, comments and Undo preserve the recorded execution, while substantive query edits and underlying data changes retain their warnings. Formatting also preserves validation of a generated proposal.
@@ -215,7 +214,6 @@ D:\git\axiom\artifacts\electron-20260915T020009Z\Axiom-win32-x64\Axiom.exe
 
 artifacts/testing/query-results-delivery-verification.json records SHA-256 hashes, comparison of 17 packaged runtime files with the tested build, and test reports. The real Codex suite was not rerun for this UI change; it remains an explicit opt-in suite.
 
-
 ## Adaptive pane layouts
 
 Implemented on 15 September 2026. All ten dockable component types measure the space inside their pane. Research, forms, tables and editors use expanded, narrow and shallow layouts. Compact views reserve primary actions outside the content scroller and expose secondary content through Options, More and named disclosures. Graph retains its canvas and existing presentation.
@@ -232,7 +230,6 @@ D:\git\axiom\artifacts\electron-20260915T195959Z\Axiom-win32-x64\Axiom.exe
 
 The [delivery record](../artifacts/testing/adaptive-pane-delivery-verification.json) contains SHA-256 hashes and the runtime comparison. The [desktop report](../artifacts/adaptive-desktop-results.json) records the initial packaged run. The [follow-up report](../artifacts/adaptive-desktop-followup.json) and [final query checks](../artifacts/adaptive-desktop-final.json) cover the remaining cases. The initial run passed 140 cases; follow-ups updated the remaining compact-control interactions and repeated cases that received unexpected A/W text. The last two query checks used AXIOM_TEST_BACKGROUND=1 to isolate test windows from physical desktop input. The large-dataset query assertion allows 30 seconds for the same expected 103 rows. These are local artifacts. The [design research](adaptive-pane-ux.md) records sources, layout rules and remaining usability measurements. Real-assistant tests were not rerun for this layout change; ordinary desktop tests use controlled assistant responses.
 
-
 ## Assistant activity and duplicate-run protection
 
 Research, Query generation and both taxonomy suggestion actions now show a fixed activity strip on their owning pane, with assistant/task text, elapsed time and Cancel. A tab spinner remains visible when another tab is selected. Query feedback survives closing its composer, and reopening Research or Query restores the active request. Taxonomy repeats the status in its review dialog. All use the same synchronous launch reservation, with cancellation retaining the lock until the request settles. [Assistant activity behavior](assistant-activity.md) describes the lifecycle.
@@ -247,7 +244,6 @@ D:\git\axiom\artifacts\electron-20260915T221124Z\Axiom-win32-x64\Axiom.exe
 
 The [delivery record](../artifacts/testing/assistant-activity-delivery-verification.json) contains executable/archive hashes, runtime comparison and test results. The [packaged desktop report](../artifacts/assistant-activity-packaged.json) records all 32 passing cases. Desktop checks use controlled assistant subprocesses; live Codex and Claude services were not invoked.
 
-
 ## Persistent Research cache
 
 Research now caches validated results by the MD5 hash of the exact prompt. An identical prompt reuses its original result before assistant discovery or launch. Cached results show their original assistant and completion time. Internal session/version counters remain local freshness checks, so unchanged prompts can survive workspace reopening and app restart. Prompt text, whitespace, ontology context and web-setting changes produce separate cache entries. [Cache behavior](assistant-activity.md#research-cache) describes persistence and failure handling.
@@ -261,7 +257,6 @@ D:\git\axiom\artifacts\electron-20260915T222516Z\Axiom-win32-x64\Axiom.exe
 ```
 
 The [delivery record](../artifacts/testing/research-cache-delivery-verification.json) contains hashes and validation results. The [packaged report](../artifacts/research-cache-packaged.json) records all 13 passing desktop cases. Tests use controlled local assistant subprocesses and do not invoke live Codex or Claude services.
-
 
 ## Plain-language taxonomy suggestions
 
@@ -278,7 +273,6 @@ D:\git\axiom\artifacts\electron-20260915T224749Z\Axiom-win32-x64\Axiom.exe
 ```
 
 The [delivery record](../artifacts/testing/taxonomy-language-delivery-verification.json) contains hashes and validation results. The [desktop report](../artifacts/taxonomy-language-desktop.json), [live Codex report](../artifacts/taxonomy-language-live.json) and [packaged report](../artifacts/taxonomy-language-packaged.json) retain the results. [Taxonomy suggestions](taxonomy-suggestions.md) describes the exchange and unchanged review workflow.
-
 
 ## Instance reports and grouped menus
 
@@ -298,7 +292,6 @@ D:\git\axiom\artifacts\electron-20260916T022626Z\Axiom-win32-x64\Axiom.exe
 
 The [delivery record](../artifacts/testing/instances-menu-delivery-verification.json) contains hashes and validation results. The [report and menu checks](../artifacts/instances-menu-desktop.json), [related regressions](../artifacts/instances-menu-regressions.json) and [packaged checks](../artifacts/instances-menu-packaged.json) retain the passing outcomes. The earlier combined run found an access-key label mismatch in the new menu tests; it was corrected before these final runs. Taxonomy regression tests use controlled assistant subprocesses.
 
-
 ## Counts and disabled collection actions
 
 Instance actions now show the direct-instance count everywhere they are offered. Show instances (0) remains visible and disabled; Show instances (527) opens the existing paged report. The shared rule covers hierarchy and graph menus, the graph selection button, hierarchy and Inspector counts, Edit, the command palette and class filters. Counts update after creation and Undo. Creation and discovery remain available for empty classes. The report and graph behavior are unchanged. [Menu design](menu-ux.md#counts-and-action-availability) records the rule and related branch and graph controls.
@@ -314,7 +307,6 @@ Verified executable:
 ```text
 D:\git\axiom\artifacts\electron-20260916T140235Z\Axiom-win32-x64\Axiom.exe
 ```
-
 
 ## Research setup visible on first open
 
@@ -416,6 +408,7 @@ Inspector and Details share retained edge drafts. Switching selection preserves 
 Validation passed: TypeScript, 58 targeted domain tests, 12 packaged Details/edge desktop tests and the native edge-menu journey. The packaged runtime matches all 24 build files. Records are in `artifacts/edge-details-unit.json`, `artifacts/edge-details-packaged.json`, `artifacts/edge-details-menu-packaged.json` and `artifacts/testing/edge-details-delivery-verification.json`.
 
 Executable: `D:\git\axiom\artifacts\electron-20260916T204248Z\Axiom-win32-x64\Axiom.exe`.
+
 ## Graph appearance settings, 2026-09-16
 
 Added Edit > Settings > Graph appearance, backed by the existing CSS-like stylesheet. The editor analyzes dataset-wide node kinds, named classes, and relationship types. It offers coordinated Paul Tol palettes, class-node versus class-instance rules, previews, fixed sizing, metric sizing, and weighted combinations with bounded diameters. Graph > Edit graph stylesheet retains direct access to the Advanced section.
@@ -518,7 +511,6 @@ D:\git\axiom\artifacts\electron-20260917T135625Z\Axiom-win32-x64\Axiom.exe
 
 Records: `artifacts/session-all-unit.json`, `artifacts/session-final-packaged.json`, `artifacts/testing/session-package-verification.json` and `artifacts/testing/session-delivery-verification.json`.
 
-
 ## Details resource values and class parents (17 September 2026)
 
 Details uses recognized skos:, dc: and dcterms: predicate names. The named-class declaration stays first and read-only; instance types remain editable. Resource values and edge endpoints use indexed type-ahead. A row's ellipsis opens the referenced entity and its scoped Source in the same Details tab. The old statement-options dialog has been removed.
@@ -538,7 +530,6 @@ D:\git\axiom\artifacts\electron-20260917T151255Z\Axiom-win32-x64\Axiom.exe
 ```
 
 Records: artifacts/details-values-final-unit.json, artifacts/details-values-delivery-packaged.json and artifacts/testing/details-values-delivery-verification.json. Implementation notes: docs/details-editing.md.
-
 
 ## File Open submenu (17 September 2026)
 
@@ -691,3 +682,148 @@ TypeScript, 29 focused domain tests and three packaged desktop tests passed. Che
 Added Center beside Fit and Graph > Center graph. The camera moves to the first remaining starting node, or the node with the most visible connections if all starting nodes have been hidden. It preserves zoom, selection and node positions, works independently in each graph tab, and is disabled for empty graphs.
 
 TypeScript and 29 keyboard/menu checks passed. An isolated packaged desktop check verified the toolbar action with a different node selected, the menu fallback after hiding the starting node, independent graph cameras and empty-state disabling. All three packaged zoom regression tests passed. The toolbar was visually checked, and all 33 packaged runtime files match the build. Records: artifacts/graph-center-desktop.json, artifacts/graph-center-keyboard.json, artifacts/graph-center-zoom-regression.json and artifacts/graph-center-package-check.json.
+
+## Relevance-ranked graph labels
+
+Crowded graph labels now use an equal-weight score from dataset-wide connectivity and direct instance counts, with logarithmic normalization. Starting nodes, selection, hover and pins retain explicit priority. Drawn size no longer determines relevance. The existing versioned graph-analysis cache stores scores; the renderer caches ordering per snapshot and reuses it while zooming and panning. Pointer leave clears stale hover priority.
+
+TypeScript, 40 focused domain tests and five packaged desktop tests passed. Coverage includes real label collisions, zoom-out and zoom-in behavior, full-dataset counts outside the map, cosmetic styles, deterministic ties, 15,000-node ranking reuse, edit and Undo invalidation, visible-label hit testing, export parity and restored cameras. An isolated copy of courses.owl expanded to 5,830 nodes and 7,299 relationships and completed 24 zoom steps without renderer errors. The Desktop source hash remained unchanged. Its diagnostic draw-submission p95 was 53.7 ms; this is not a compositor FPS measurement. All 33 packaged runtime files match the build.
+
+Records: artifacts/graph-relevance-unit.json, artifacts/graph-relevance-packaged.json, artifacts/graph-relevance-courses.json and artifacts/graph-relevance-package-check.json.
+
+## Persistent suggestion view
+
+Add children and Find instances open the dockable Suggestions view. Each node opens at its latest run; a new node opens ready to start a run. The history selector provides access to older runs and other nodes in the current ontology. Closing the pane or switching nodes preserves an active request. Runs, original prompts, outcomes and accepted suggestions persist across application restart.
+
+All 74 focused service, history, parsing, activity and preference checks pass. All 19 packaged desktop checks pass, including cancellation, repeated-run protection, stale results, separate node histories, choosing an older run on another node, closing a running pane, restart, reviewed insertion and Undo, detached windows, and Research/Query regressions. The test fixture explicitly selects its mock Codex provider. After widening the history selector, three packaged checks passed again for normal review, restart and a detached narrow view. TypeScript, formatting and the whitespace check pass. All 33 packaged runtime files match the build.
+
+Records: `artifacts/taxonomy-view-unit.json`, `artifacts/taxonomy-view-packaged.json`, `artifacts/taxonomy-view-final-layout.json` and `artifacts/taxonomy-view-package-check.json`. Screenshots: `artifacts/testing/taxonomy-view.png` and `artifacts/testing/taxonomy-view-detached.png`.
+
+## Optional error audit logs
+
+Failed assistant requests and desktop operations retain local audit records. Error details opens a dockable Error log tab on request; View > Error log provides earlier entries. Logs include the failing stage, timeline, prompt, rejected response, bounded process output, exit information and application context. Copy report and Show log file expose the record. Suggestions histories retain the exact failure reference after retry and restart. Recognized credentials are redacted, and write failures keep diagnostics available in memory without replacing the original error. Taxonomy parsing reports specific missing fields and malformed outline content.
+
+All 118 focused unit checks and 22 packaged desktop checks pass. Coverage includes mock Claude and Codex failures, process exits, concurrent request separation, redaction, truncation, storage failure, restart persistence, optional opening, clipboard content, absolute log paths, generic ontology failures and native File Open failures. TypeScript, formatting and the whitespace check pass. Visual inspection confirmed the tab layout and collapsed raw-output sections. All 34 packaged runtime files match the build. The response from the older screenshot could not be recovered because that version deleted temporary assistant output.
+
+Records: artifacts/error-audit-unit.json, artifacts/error-audit-desktop.json, artifacts/error-audit-packaged.json and artifacts/error-audit-package-check.json. Screenshots: artifacts/testing/error-audit-summary.png and artifacts/testing/error-audit-view.png.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260918T155905Z\Axiom-win32-x64\Axiom.exe
+```
+
+## Details ancestry breadcrumb and inline rows
+
+Details now shows a responsive ancestry breadcrumb for classes and individuals. The selected entity has an accent background; ancestor buttons navigate the shared Details history. Wide panes show horizontal paths, while tall panes use a compact vertical trail. Multiple inheritance and instance memberships retain separate paths. Long paths fold intermediate steps, large path sets load on request, and cycles are identified without inventing roots or changing RDF. The Add parent and Add statement toolbar buttons are replaced by one Add row control in the table footer. It focuses the predicate selector and retains existing automatic cell saves.
+
+All 25 focused domain checks pass. They cover diamond inheritance, multiple roots and instance types, equivalent-class definitions, cycles, unresolved references and traversal bounds over a dataset with 15,000 unrelated classes. Twenty-two existing Details/source desktop checks passed across the development runs; the intersection-edge fixture was updated to use an explicit equivalent-class definition. Seven packaged desktop checks pass for ancestry navigation and Back, responsive detached panes, instance/definition semantics, the inline row workflow, resized statement editing, class creation and compact grid editing. The breadcrumb accessibility scan found no serious or critical violations. TypeScript, formatting and scoped whitespace checks pass. Wide and tall screenshots were visually inspected. All 34 packaged runtime files match the build.
+
+Records: artifacts/details-ancestry-unit.json, artifacts/details-ancestry-desktop.json, artifacts/details-ancestry-focused.json, artifacts/details-ancestry-packaged.json and artifacts/details-ancestry-package-check.json. Final screenshots: artifacts/testing/details-breadcrumb-wide.png and artifacts/testing/details-breadcrumb-tall.png.
+
+Executable:
+
+```text
+D:\git\axiom\artifacts\electron-20260918T170631Z\Axiom-win32-x64\Axiom.exe
+```
+
+## 2026-09-18: Shared suggestions and workbench controls
+
+- Added Suggest > Add Children, Add Parents and Define New to node context menus. Children, local parent matching and saved custom suggestions share a dockable view with Previous/Next navigation, a type selector and independent copies.
+- Custom definitions persist in Axiom properties across workspace changes and restarts. Parent and custom histories retain reviewed results, original instructions, accepted values and errors. Suggestions status is confined to the Suggestions view.
+- Removed repeated top toolbar actions, the filename indicator and palette icon. The Windows title bar displays Axiom followed by the absolute path, with the filename bold. View > Command palette, Ctrl+Shift+P, remapping, Alt menu paths and F10 remain available.
+- Details prioritizes existing predicates in row order and excludes rdf:type from choices. Annotation values accept text or matched resources and preserve existing literal metadata.
+
+Validation:
+
+- TypeScript, formatting and scoped whitespace checks passed.
+- 52 domain tests passed in artifacts/suggestions-unit.json.
+- 10 desktop checks passed against the final executable in artifacts/suggestions-final-desktop.json. These cover native Alt/F10 navigation, remapping, palette access, title formatting, text/resource annotation edits, language preservation, global definitions, review, independent tabs, workspace reopening, history restoration, progress placement and a focused accessibility scan.
+- All 16 existing taxonomy desktop regressions passed in the preceding full packaged run. That report also recorded the F10 failure subsequently fixed and covered by the final ten checks. See artifacts/suggestions-packaged.json and artifacts/suggestions-final-desktop.json.
+- All 34 packaged runtime files match the build: artifacts/suggestions-package-check.json.
+- Assistant calls used controlled local fixtures. No live Claude or Codex request was made.
+
+Final executable: D:\git\axiom\artifacts\electron-20260918T182042Z\Axiom-win32-x64\Axiom.exe
+
+## 2026-09-18: Consolidated ancestry trail
+
+Details now shows one ancestry trail from the selected entity toward the roots. Horizontal panes flow right to left; tall panes flow downward. Shared ancestors appear once in grouped stages. Basic English displays four stages: Basic English, English Language, English and Language together, and Course. The existing card styling, ancestor navigation and Details Back history remain available. Traversal is bounded by unique ancestors and handles cycles without repeated paths or RDF changes.
+
+All eight focused domain tests and five packaged desktop tests passed. Coverage includes the exact Basic English definition and cycle, shared roots, multiple instance memberships, deep and broad taxonomies, responsive detached panes, navigation, live parent edits and a focused accessibility scan. Wide and tall screenshots were visually inspected. TypeScript and scoped formatting/whitespace checks passed. All 34 packaged runtime files match the build.
+
+Records: artifacts/ancestry-trail-unit.json, artifacts/ancestry-trail-packaged.json and artifacts/ancestry-trail-package-check.json. Screenshots: artifacts/testing/ancestry-trail-basic-english.png and artifacts/testing/ancestry-trail-tall.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260918T193959Z\Axiom-win32-x64\Axiom.exe
+
+## 2026-09-18: Ancestry selection and taxonomy alignment
+
+Selecting an ancestry card reveals the selected row in the taxonomy after the new Details card renders. The row aligns with that card when their visible vertical ranges overlap. Otherwise it centers in the taxonomy viewport, including when Details is detached. The reveal clears a hiding filter, retains Details focus, respects scroll boundaries and compensates for pane zoom. Ordinary taxonomy clicks preserve the current scroll position; Find in taxonomy retains Graph focus.
+
+All nine focused desktop checks passed against the final executable, including a taxonomy with more than 2,000 classes, alignment after zoom, top and bottom scroll limits, detached panes, ancestry navigation, inline edits and the existing graph reveal action. An earlier run caught zoom rounding; the final build corrects the rendered row position after the initial scroll. TypeScript, scoped formatting and whitespace checks passed. All 34 packaged runtime files match the build. The aligned view was visually inspected.
+
+Records: artifacts/ancestry-taxonomy-final-packaged.json, artifacts/ancestry-taxonomy-zoom-final.json and artifacts/ancestry-taxonomy-package-check.json. Screenshots: artifacts/testing/ancestry-taxonomy-alignment.png and artifacts/testing/ancestry-taxonomy-zoom.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260918T222342Z\Axiom-win32-x64\Axiom.exe
+
+## 2026-09-18: Sampled suggestion context
+
+Each new assistant run independently samples at most 20 direct children and 20 descendants without replacement. Lists with 20 or fewer entries remain complete. The view and prompt report sampled and total counts, and history retains the exact sent sample and prompt. Full branch context remains local for duplicate detection and stale-result checks, including after partial application and restart. Large descendant branches no longer hit the former traversal limit before sampling.
+
+All 67 focused unit checks and six packaged desktop checks passed. Coverage includes sample boundaries, distinct random samples, a branch beyond 1,500 classes, exact prompt capture, history persistence, duplicate prevention, stale results, partial application and undo/redo. One packaged check initially exceeded its five-second mock-assistant wait and passed unchanged on recheck. TypeScript, formatting and scoped whitespace checks passed. All 34 packaged runtime files match the build. Assistant calls used local mocks.
+
+Records: artifacts/taxonomy-sampling-unit.json, artifacts/taxonomy-sampling-desktop.json, artifacts/taxonomy-sampling-packaged.json, artifacts/taxonomy-sampling-review-recheck.json and artifacts/taxonomy-sampling-package-check.json. Screenshot: artifacts/testing/taxonomy-sampled-context.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260918T223901Z\Axiom-win32-x64\Axiom.exe
+
+## 2026-09-18: Quick Find and dockable results
+
+The top Find entities button is removed. Edit > Find and Ctrl+F open a compact modal with the text cursor ready and six type-ahead matches. Submitting opens the Find pane, also available from View > Find, and leaves the graph unchanged. The pane provides type and field filters, word/phrase/exact matching, sorting, recent searches, complete paginated results, descriptions and actions for Details, taxonomy, new/current graphs and Copy IRI. Query and filter settings survive pane closure and restart. Source and query editors keep their local Ctrl+F behavior.
+
+The pane shares the existing resource index with Details type-ahead. Full result queries avoid the suggestion cap and cache their sorted matches for pagination. Revision changes invalidate the index. Asynchronous responses cannot overwrite a newer query. Modal dismissal restores focus before opening the results pane.
+
+All 18 focused domain checks and nine packaged desktop checks passed. Coverage includes aliases, accents, exact matching, entity filters, 15,025-result pagination, edits and undo, settings validation, keyboard focus and remapping, closing/reopening, saved workspace restart, detached panes, accessibility, native menu navigation, source-editor Find and graph export. The existing 100,000-class type-ahead performance check passed. Early desktop checks required Electron-compatible accessibility configuration and searchbox selectors; the corrected checks caught and verified the modal focus handoff fix. TypeScript, formatting and scoped whitespace checks passed. All 34 packaged runtime files match the build. The modal and results pane screenshots were visually inspected.
+
+Records: artifacts/find-unit.json, artifacts/find-desktop-final.json, artifacts/find-packaged.json and artifacts/find-package-check.json. Screenshots: artifacts/testing/find-quick.png, artifacts/testing/find-results.png and artifacts/testing/find-detached.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260919T022114Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-18: Full workspace autosave
+
+Axiom saves the complete session every 30 seconds and saves again before closing or changing workspaces. Named .axiom files update automatically. Unnamed workspaces retain session recovery and a separate archived workspace on close or switch, accessible from Recent. Ontology data, graph positions, cluster and radial guides, pins, edge routes, visibility, node admission settings, styles, camera, selection, pane layout and window bounds are retained. Existing imported source files remain separate.
+
+Source and unfinished grid drafts are serialized separately and restored without applying them. Stale source drafts remain stale after restart. Manual workspace Save still commits complete grid edits. Saves are serialized, including a Save as requested while another save is running. Recovery precedes the named-file write; an unsuccessful final save keeps the window open with an error audit. Startup no longer reapplies unchanged graph settings and moves saved nodes. Capture resets the draft epoch synchronously to keep drafts with their own ontology when switching workspaces.
+
+Validation: 36 domain checks and 19 distinct packaged desktop checks passed across the save, startup and source suites. The final executable passed all nine autosave journeys, including the 30-second checkpoint followed by forced exit, exact graph restoration, unnamed recovery, entity and whole-source drafts, stale drafts, incomplete rows, failed destination recovery, overlapping Save as, and workspace isolation. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build.
+
+Records: artifacts/autosave-unit.json, artifacts/autosave-packaged.json, artifacts/autosave-final-packaged.json and artifacts/autosave-package-check.json.
+
+Executable: D:\git\axiom\artifacts\electron-20260919T025252Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-18: Find Synonyms
+
+Suggest > Find Synonyms is available from Graph and Hierarchy in the shared Suggestions view. It sends the selected entity, hierarchy context and existing rdfs:seeAlso text and links. Children, descendants and siblings are each sampled to 20 entries; up to 20 additional annotated relatives supply omitted seeAlso context. The prompt asks for close wording variants and excludes sibling, broader, narrower and related concepts.
+
+A cached ontology-wide name and alias index checks collisions, including word order and ordinary inflections. A conservative lexical filter rejects loose substitutions. Exclusions retain reasons in the run history. Only reviewed values become rdfs:seeAlso string literals, with Undo and revalidation before adding. Exact prompts, contexts and outcomes persist across restarts. Built-in settings remain separate from custom suggestion definitions.
+
+Testing also exposed a close request lost during workspace opening. Axiom now waits for the workspace operation, saves, and closes. The older restore test now opens a separate snapshot because opening autosaves the active file.
+
+Validation: 65 unit checks and 10 packaged desktop journeys passed. Desktop checks include both menus, scoped progress, context inspection, exclusions, literal edits and Undo, history after restart, independent views, new runs, stale sibling aliases, existing custom and parent suggestions, accessibility, close during opening and failed-save recovery. Assistant responses were mocked; no live assistant was invoked. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build.
+
+Records: artifacts/synonyms-unit.json, artifacts/synonyms-final-packaged.json and artifacts/synonyms-package-check.json. Screenshot: artifacts/testing/synonyms-review.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260919T035603Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-18: Taxonomy drag-and-drop moves
+
+Dragging a class onto another class changes its rdfs:subClassOf assertion. The move replaces the dragged branch and preserves other parents, descendants, instances, annotations, restrictions and equivalent-class definitions. A definition-derived branch gains an explicit subclass assertion. The drop target becomes the preferred visible parent. Details, Source and graph views refresh from the same RDF change; one Undo restores the prior relationships and graph state.
+
+Destinations highlight during dragging, collapsed targets expand on hover, and dragging near the tree edges scrolls long taxonomies. Dropping into empty tree space moves the class under owl:Thing. Self-parenting, descendant cycles, stale drags and moving owl:Thing are rejected. Existing drag-to-Details navigation still works.
+
+Validation: 18 unit checks and all 15 focused packaged desktop journeys passed. Coverage includes native drag gestures, multiple parents, equivalent definitions, graph and Details synchronization, Undo/Redo, saved workspace restart, hover expansion, edge scrolling and cancellation, named graph provenance, invalid drops, accessibility and existing ancestry navigation. The first broader run exposed a transient Details rapid-edit failure; the earlier package and repeated current-package runs passed without changing editor code. A scrolling fixture initially used a worker-only operation and was corrected to open its test file through File Open. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build. The move screenshot was visually inspected.
+
+Records: artifacts/taxonomy-move-unit.json, artifacts/taxonomy-move-final-packaged.json and artifacts/taxonomy-move-package-check.json. Screenshot: artifacts/testing/taxonomy-move.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260919T041414Z\Axiom-win32-x64\Axiom.exe
