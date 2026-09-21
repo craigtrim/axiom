@@ -92,6 +92,8 @@ export type DomainMethod =
   | "applySubclassSuggestions"
   | "applyIntersection"
   | "graphCreate"
+  | "graphArchive"
+  | "graphRestore"
   | "graphActivate"
   | "new"
   | "importRdf"

@@ -102,6 +102,10 @@ type GraphSession = {
   version: number;
 };
 const graphSessions = new Map<string, GraphSession>();
+const graphArchives = new Map<
+  string,
+  import("../domain/workspace").Workspace["graph"]
+>();
 let activeGraphId = "graph";
 function keepGraph() {
   graphSessions.set(activeGraphId, {
@@ -113,6 +117,7 @@ function keepGraph() {
 }
 function resetGraphs() {
   graphSessions.clear();
+  graphArchives.clear();
   activeGraphId = "graph";
   keepGraph();
 }
@@ -981,6 +986,81 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       changed("New graph opened.");
       return activeGraphId;
     }
+    case "graphArchive": {
+      if (a.datasetEpoch !== datasetEpoch) return false;
+      const id = string(a, "id", 100);
+      keepGraph();
+      if (!graphSessions.has(id)) return true;
+      if (a.retain === true) {
+        if (graphArchives.size >= 1000 && !graphArchives.has(id))
+          throw Error("The workspace already contains 1,000 archived graphs.");
+        const doc = (await dispatch(
+          "serialize",
+          {},
+        )) as import("../domain/workspace").Workspace;
+        graphArchives.set(id, doc.graphs![id]);
+      }
+      if (id === activeGraphId) {
+        stopExternal();
+        graphSessions.delete(id);
+        const next = graphSessions.entries().next().value;
+        if (next) {
+          activeGraphId = next[0];
+          ({ view, layouts, frozen } = next[1]);
+        } else {
+          activeGraphId = "graph:" + crypto.randomUUID();
+          view = new Viewport(store);
+          layouts = new Layouts(view, store);
+          frozen = false;
+        }
+        selected = view.selected;
+        keepGraph();
+      } else graphSessions.delete(id);
+      dirty = true;
+      documentRevision = ++nextRevision;
+      changed("Tab closed.");
+      return true;
+    }
+    case "graphRestore": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw Error("The workspace changed. Open Tab History again.");
+      const id = string(a, "id", 100);
+      if (graphSessions.has(id)) {
+        activateGraph(id);
+        publish();
+        return id;
+      }
+      const saved = graphArchives.get(id);
+      if (!saved) throw Error("This saved graph is no longer available.");
+      if (graphSessions.size >= 16)
+        throw Error(
+          "Close a graph tab before restoring another. Up to 16 graphs can be open.",
+        );
+      const doc = (await dispatch(
+        "serialize",
+        {},
+      )) as import("../domain/workspace").Workspace;
+      const loaded = readWorkspace({
+        ...doc,
+        graph: saved,
+        graphs: undefined,
+        archivedGraphs: undefined,
+      });
+      loaded.view.store = store;
+      loaded.layouts.store = store;
+      graphSessions.set(id, {
+        view: loaded.view,
+        layouts: loaded.layouts,
+        frozen: !!saved.frozen,
+        version: store.version,
+      });
+      graphArchives.delete(id);
+      activateGraph(id);
+      dirty = true;
+      documentRevision = ++nextRevision;
+      changed("Saved graph opened.");
+      return id;
+    }
     case "graphActivate":
       activateGraph(string(a, "id", 100));
       publish();
@@ -1731,6 +1811,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         individuals: store.individuals,
         customers: store.customers,
         activeGraphId,
+        archivedGraphs: Object.fromEntries(graphArchives),
         graphs: Object.fromEntries(
           [...graphSessions].map(([id, session]) => [
             id,
@@ -1846,7 +1927,10 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       tableCache = undefined;
       datasetEpoch++;
       resetGraphs();
-      if (saved.graphs) {
+      for (const [id, graph] of Object.entries(saved.archivedGraphs ?? {}))
+        graphArchives.set(id, graph);
+      if (loadedGraphs.length) {
+        graphSessions.clear();
         for (const { id, g, loaded } of loadedGraphs) {
           loaded.view.store = store;
           loaded.layouts.store = store;
@@ -1857,11 +1941,12 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
             version: store.version,
           });
         }
-        if (saved.activeGraphId && graphSessions.has(saved.activeGraphId)) {
-          activeGraphId = saved.activeGraphId;
-          ({ view, layouts, frozen } = graphSessions.get(activeGraphId)!);
-          selected = view.selected;
-        }
+        activeGraphId =
+          saved.activeGraphId && graphSessions.has(saved.activeGraphId)
+            ? saved.activeGraphId
+            : loadedGraphs[0].id;
+        ({ view, layouts, frozen } = graphSessions.get(activeGraphId)!);
+        selected = view.selected;
       }
       changed("Workspace opened.");
       return true;

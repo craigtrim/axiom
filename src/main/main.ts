@@ -152,6 +152,8 @@ const methods = new Set<DomainMethod>([
   "stylesheet",
   "graphStyleCatalog",
   "graphCreate",
+  "graphArchive",
+  "graphRestore",
   "intersectionSuggestions",
   "subclassSuggestions",
   "applySubclassSuggestions",

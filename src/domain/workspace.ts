@@ -55,6 +55,7 @@ export interface Workspace {
   };
   graphs?: Record<string, Workspace["graph"]>;
   activeGraphId?: string;
+  archivedGraphs?: Record<string, Workspace["graph"]>;
   selected: string | null;
 }
 const text = (v: unknown, max = 10000): v is string =>
@@ -172,6 +173,20 @@ export function readWorkspace(input: unknown) {
       ))
   )
     throw Error("Invalid graph views.");
+  if (
+    doc.archivedGraphs !== undefined &&
+    (!doc.archivedGraphs ||
+      typeof doc.archivedGraphs !== "object" ||
+      Array.isArray(doc.archivedGraphs) ||
+      Object.keys(doc.archivedGraphs).length > 1000 ||
+      Object.entries(doc.archivedGraphs).some(
+        ([id, g]) =>
+          !/^graph(?::[a-zA-Z0-9-]+)?$/.test(id) ||
+          !g ||
+          !strings(g.iris, MAX_VISIBLE_NODES),
+      ))
+  )
+    throw Error("Invalid archived graph views.");
   const g = doc.graph;
   if (
     g?.positions &&
