@@ -76,7 +76,7 @@ app.setAppUserModelId("com.craigtrim.axiom");
 let mainWindow: BrowserWindow | null = null,
   worker: Worker,
   sequence = 0,
-  preferences: Preferences = { version: 1, theme: "light" },
+  preferences: Preferences = readPreferences({ version: 1, theme: "light" }),
   lastState: Snapshot | undefined,
   workspacePath: string | undefined,
   closing = false;
@@ -578,10 +578,16 @@ async function openWorkspace(recentFile?: string) {
   if ((await stat(file)).size > 256 * 1024 * 1024)
     throw Error("Workspace exceeds the 256 MB limit.");
   const data = JSON.parse(await readFile(file, "utf8"));
-  const restored =
-    data.workbench === undefined
-      ? undefined
-      : readPreferences({ ...data.workbench, keyboard: preferences.keyboard });
+  const restored = readPreferences({
+    ...preferences,
+    ...data.workbench,
+    version: 1,
+    layout: data.workbench?.layout,
+    panelState: data.workbench?.panelState ?? {},
+    tabHistory: data.workbench?.tabHistory,
+    keyboard: preferences.keyboard,
+    tabSavePolicy: preferences.tabSavePolicy,
+  });
   await request("load", { document: data });
   workspacePath = file;
   recoveryPath = undefined;
@@ -947,6 +953,7 @@ app.whenReady().then(async () => {
     preferences = readPreferences({
       ...session.workbench,
       keyboard: preferences.keyboard,
+      tabSavePolicy: preferences.tabSavePolicy,
     });
     workspacePath = session.workspacePath;
     recoveryPath =
@@ -1484,7 +1491,7 @@ app.whenReady().then(async () => {
       drafts?: SavedEditorDrafts,
     ) => {
       authorised(event);
-      if (!p || p.version !== 1 || JSON.stringify(p).length > 2000000)
+      if (!p || p.version !== 1 || JSON.stringify(p).length > 16000000)
         throw Error("Invalid layout settings.");
       const previousTheme = preferences.theme;
       if (captured === true) capturedDrafts = readEditorDrafts(drafts);

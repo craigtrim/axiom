@@ -1,3 +1,21 @@
+import {
+  TabHistoryPanel,
+  TabHistorySettings,
+  RenameTabDialog,
+} from "./TabHistoryPanel";
+import {
+  captureTab,
+  ensureTabMetadata,
+  syncTabHistory,
+  renameTab,
+  tabHistory,
+  restoreTabState,
+  notifyTabHistory,
+} from "./tab-history";
+import { emptyTabHistory, type SavedTab } from "../shared/tab-history";
+import { ContextMenu } from "./ContextMenu";
+import { setState } from "./client";
+import type { Snapshot } from "../shared/protocol";
 import { SparsityPanel } from "./SparsityPanel";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
@@ -94,6 +112,7 @@ const names: Record<string, string> = {
   taxonomy: "Suggestions",
   errorlog: "Error log",
   find: "Find",
+  tabhistory: "Tab History",
   sparsity: "Sparsity",
   provenance: "Filesystem provenance",
   source: "Source",
@@ -132,7 +151,13 @@ export function defaultLayout(
         id: "graph-group",
         weight: profile === "wide" ? 66 : 57,
         active: true,
-        children: [tab("graph")],
+        children: [
+          tab(
+            state?.graphs && !state.graphs.graph
+              ? (state.activeGraphId ?? "graph")
+              : "graph",
+          ),
+        ],
       },
       {
         type: "tabset" as const,
@@ -150,7 +175,7 @@ export function defaultLayout(
       tabEnablePopout: true,
       tabEnablePopoutIcon: true,
       tabEnablePin: true,
-      tabEnableRename: false,
+      tabEnableRename: true,
       tabEnableClose: true,
       tabEnableScrollbars: false,
       tabSetMinWidth: 180,
@@ -209,6 +234,7 @@ export function restoreLayout(value: unknown): Model {
         ),
       );
     const v = structuredClone(value) as IJsonModel;
+    v.global = { ...v.global, tabEnableRename: true };
     if (!v.layout || JSON.stringify(v).length > 100000) throw Error();
     const model = Model.fromJson(v),
       seen = new Set<string>(),
@@ -261,8 +287,8 @@ export function restoreLayout(value: unknown): Model {
         model.doAction(
           Actions.updateNodeAttributes(n.getId(), {
             component: "details",
-            name: "Details",
-            config: {},
+            name: n.getComponent() === "entity" ? "Details" : n.getName(),
+            config: n.getComponent() === "entity" ? {} : n.getConfig(),
           }),
         );
       else model.doAction(Actions.deleteTab(n.getId()));
@@ -282,17 +308,23 @@ function rearrangedLayout(profile: "standard" | "wide", previous: Model) {
     profile === "wide" ? "individuals-group" : "graph-group",
   )!;
   previous.visitNodes((n) => {
-    if (
-      n instanceof TabNode &&
-      ["queryResults", "details"].includes(n.getComponent() ?? "")
-    )
+    if (!(n instanceof TabNode)) return;
+    const existing = next.getNodeById(n.getId());
+    if (existing)
+      next.doAction(
+        Actions.updateNodeAttributes(n.getId(), {
+          name: n.getName(),
+          config: n.getConfig(),
+        }),
+      );
+    else
       next.doAction(
         Actions.addTab(
           n.toJson(),
           target.getId(),
           DockLocation.CENTER,
           -1,
-          n.getComponent() === "details" ? false : undefined,
+          false,
         ),
       );
   });
@@ -361,6 +393,17 @@ export function App() {
     [palette, setPalette] = useState(false),
     [shortcuts, setShortcuts] = useState(false),
     [keyboardSettings, setKeyboardSettings] = useState(false),
+    [tabSettings, setTabSettings] = useState(false),
+    [tabRename, setTabRename] = useState<{ id: string; name: string } | null>(
+      null,
+    ),
+    [tabMenu, setTabMenu] = useState<{
+      id: string;
+      document: Document;
+      x: number;
+      y: number;
+    } | null>(null),
+    tabOperations = useRef(new Set<Promise<unknown>>()),
     [regenerate, setRegenerate] = useState<number | null>(null),
     [themeVersion, setThemeVersion] = useState(0),
     active = useRef("graph"),
@@ -410,6 +453,7 @@ export function App() {
     });
   };
   const saveLayout = (m: Model) => {
+    syncTabHistory(m);
     if (pendingLayout.current) {
       preferences.arrangement = "custom";
       recordUiChange("layout", pendingLayout.current, {
@@ -422,6 +466,78 @@ export function App() {
     setTimeout(updatePaneMenu, 0);
     preferences.layout = m.toJson();
     persist();
+  };
+  const closeTab = (id: string) => {
+    const m = modelRef.current,
+      node = m.getNodeById(id),
+      epoch = state!.datasetEpoch;
+    if (!(node instanceof TabNode)) return;
+    syncTabHistory(m);
+    captureTab(node);
+    const operation = (async () => {
+      if (node.getComponent() === "graph") {
+        await request("graphArchive", {
+          id,
+          retain: tabHistory().entries.some((t) => t.id === id),
+          datasetEpoch: epoch,
+        });
+        setState(await request<Snapshot>("state"));
+      }
+      if (state?.datasetEpoch !== epoch) return;
+      m.doAction(Actions.deleteTab(id));
+      saveLayout(m);
+    })();
+    tabOperations.current.add(operation);
+    void operation
+      .catch((e) => report(e.message, true))
+      .finally(() => tabOperations.current.delete(operation));
+    return operation;
+  };
+  const openSavedTab = async (saved: SavedTab, restore = true) => {
+    const m = modelRef.current;
+    if (m.getNodeById(saved.id)) {
+      if (saved.type === "graph") {
+        await request("graphActivate", { id: saved.id });
+        setState(await request<Snapshot>("state"));
+      }
+      show(saved.id);
+      return;
+    }
+    if (saved.type === "graph") {
+      await request("graphRestore", {
+        id: saved.id,
+        datasetEpoch: state!.datasetEpoch,
+      });
+      setState(await request<Snapshot>("state"));
+    }
+    if (restore) restoreTabState(saved);
+    if (
+      restore &&
+      saved.type !== "graph" &&
+      saved.selected &&
+      state?.entities.some((e) => e.iri === saved.selected)
+    )
+      await request("select", { iri: saved.selected });
+    const target =
+      m.getNodeById("graph")?.getParent() ??
+      m.getNodeById("hierarchy")?.getParent() ??
+      m.getRootRow()!;
+    m.doAction(
+      Actions.addTab(
+        {
+          type: "tab",
+          id: saved.id,
+          component: saved.type,
+          name: saved.name,
+          config: saved.config,
+        },
+        target.getId(),
+        DockLocation.CENTER,
+        -1,
+      ),
+    );
+    show(saved.id);
+    saveLayout(m);
   };
   const show = (id: string, focusPanel = true) => {
     if (id === "graph") id = state?.activeGraphId ?? "graph";
@@ -438,6 +554,11 @@ export function App() {
       if (n) id = n.getId();
     }
     if (!n) {
+      const saved = tabHistory().entries.find((t) => t.id === id);
+      if (saved) {
+        void openSavedTab(saved, false).catch((e) => report(e.message, true));
+        return;
+      }
       const dataSibling = id.startsWith("graph:")
         ? m.getNodeById("graph")?.getParent()
         : id === "query"
@@ -447,7 +568,8 @@ export function App() {
             : undefined;
       const target =
         dataSibling ??
-        (id === "sparsity" ||
+        (id === "tabhistory" ||
+        id === "sparsity" ||
         id === "find" ||
         id === "errorlog" ||
         id === "taxonomy" ||
@@ -455,7 +577,9 @@ export function App() {
         id === "provenance" ||
         id === "source" ||
         id === "details"
-          ? (m.getNodeById("graph")?.getParent() ?? m.getRootRow()!)
+          ? (m.getNodeById("graph")?.getParent() ??
+            m.getNodeById("hierarchy")?.getParent() ??
+            m.getRootRow()!)
           : id === "research"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
             : m.getRootRow()!);
@@ -464,6 +588,7 @@ export function App() {
           tab(id),
           target.getId(),
           dataSibling ||
+            id === "tabhistory" ||
             id === "sparsity" ||
             id === "find" ||
             id === "errorlog" ||
@@ -679,7 +804,10 @@ export function App() {
           Actions.moveNode(n.getId(), target.getId(), DockLocation.CENTER, -1),
         );
     }
-    if (id === "pane.close") m.doAction(Actions.deleteTab(n.getId()));
+    if (id === "pane.close") {
+      void closeTab(n.getId());
+      return;
+    }
     if (id === "pane.float" || id === "pane.detach")
       m.doAction(
         Actions.popoutTab(n.getId(), id === "pane.float" ? "float" : "window"),
@@ -727,6 +855,11 @@ export function App() {
       if (id.startsWith("view.")) show(id.slice(5));
       if (id.startsWith("pane.")) pane(id);
       if (id === "palette") setPalette(true);
+      if (id === "tabs.settings") setTabSettings(true);
+      if (id === "tabs.capture") {
+        syncTabHistory(modelRef.current);
+        persist();
+      }
       if (id === "taxonomy.reveal.open") show("hierarchy", false);
       if (id === "graph.styles") setStyles("advanced");
       if (id === "graph.appearance") setStyles("visual");
@@ -780,18 +913,11 @@ export function App() {
         id === "workspace.example" ||
         id === "workspace.imported"
       ) {
-        const staleGraphs: string[] = [];
-        modelRef.current.visitNodes((n) => {
-          if (
-            n instanceof TabNode &&
-            n.getComponent() === "graph" &&
-            n.getId() !== "graph"
-          )
-            staleGraphs.push(n.getId());
-        });
-        for (const id of staleGraphs)
-          modelRef.current.doAction(Actions.deleteTab(id));
-
+        preferences.tabHistory = emptyTabHistory();
+        const fresh = Model.fromJson(defaultLayout());
+        modelRef.current = fresh;
+        setModel(fresh);
+        notifyTabHistory();
         preferences.panelState = {
           ...preferences.panelState,
           "query.text":
@@ -814,8 +940,15 @@ export function App() {
         setRegenerate(null);
       }
       if (id === "workspace.capture") {
-        preferences.layout = modelRef.current.toJson();
-        void Promise.all([flushQueryHistory(), flushUiHistory()])
+        void Promise.all([
+          ...tabOperations.current,
+          flushQueryHistory(),
+          flushUiHistory(),
+        ])
+          .then(() => {
+            syncTabHistory(modelRef.current);
+            preferences.layout = modelRef.current.toJson();
+          })
           .then(() => captureWorkspaceDrafts())
           .then((drafts) =>
             window.axiom.preferences.save(preferences, true, drafts),
@@ -825,6 +958,7 @@ export function App() {
       if (id === "workspace.preferences")
         void window.axiom.preferences.load().then((p) => {
           setPreferences(p);
+          notifyTabHistory();
           command("query.reset");
           setModel(restoreLayout(p.layout));
           for (const d of documents) applyTheme(d);
@@ -970,7 +1104,9 @@ export function App() {
     const motion = matchMedia("(prefers-reduced-motion: reduce)"),
       motionChange = () => void act("motion", { reduced: motion.matches });
     motion.addEventListener("change", motionChange);
+    syncTabHistory(modelRef.current);
     const flush = () => {
+      syncTabHistory(modelRef.current);
       preferences.layout = modelRef.current.toJson();
       void window.axiom.preferences.save(preferences);
     };
@@ -1036,6 +1172,16 @@ export function App() {
       <div className="docking-workspace">
         <Layout
           model={model}
+          onContextMenu={(node, e) => {
+            if (!(node instanceof TabNode)) return;
+            e.preventDefault();
+            setTabMenu({
+              id: node.getId(),
+              document: (e.target as HTMLElement).ownerDocument,
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
           onRenderTab={(node, values) => {
             values.leading = <AssistantTabActivity paneId={node.getId()} />;
           }}
@@ -1084,6 +1230,18 @@ export function App() {
                   taxonomy: <SuggestionsPanel paneId={n.getId()} />,
                   errorlog: <ErrorLogPanel />,
                   find: <FindPanel />,
+                  tabhistory: (
+                    <TabHistoryPanel
+                      open={openSavedTab}
+                      openIds={() => {
+                        const ids = new Set<string>();
+                        modelRef.current.visitNodes((n) => {
+                          if (n instanceof TabNode) ids.add(n.getId());
+                        });
+                        return ids;
+                      }}
+                    />
+                  ),
                   sparsity: <SparsityPanel />,
                   individuals: <IndividualsPanel />,
                   queryResults: (
@@ -1130,6 +1288,18 @@ export function App() {
             setTimeout(updatePaneMenu, 0);
           }}
           onAction={(a) => {
+            if (a.type === Actions.RENAME_TAB) {
+              try {
+                renameTab(modelRef.current, a.data.node, a.data.text);
+              } catch (e) {
+                report((e as Error).message, true);
+              }
+              return undefined;
+            }
+            if (a.type === Actions.DELETE_TAB) {
+              void closeTab(a.data.node);
+              return undefined;
+            }
             if (
               ![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(a.type)
             )
@@ -1172,6 +1342,37 @@ export function App() {
       {search && <FindDialog close={() => setSearch(false)} />}
       {palette && (
         <Palette items={items} close={() => setPalette(false)} run={run} />
+      )}
+      {tabMenu && (
+        <ContextMenu
+          label="Tab actions"
+          {...tabMenu}
+          close={() => setTabMenu(null)}
+          actions={[
+            {
+              label: "Rename tab",
+              key: "R",
+              run: () => {
+                const n = modelRef.current.getNodeById(tabMenu.id);
+                if (n instanceof TabNode)
+                  setTabRename({ id: n.getId(), name: n.getName() });
+              },
+            },
+            { label: "Tab History", key: "H", run: () => show("tabhistory") },
+            null,
+            { label: "Close tab", key: "C", run: () => closeTab(tabMenu.id) },
+          ]}
+        />
+      )}
+      {tabRename && (
+        <RenameTabDialog
+          name={tabRename.name}
+          close={() => setTabRename(null)}
+          rename={(name) => renameTab(modelRef.current, tabRename.id, name)}
+        />
+      )}
+      {tabSettings && (
+        <TabHistorySettings close={() => setTabSettings(false)} />
       )}
       {keyboardSettings && (
         <KeyboardDialog close={() => setKeyboardSettings(false)} />

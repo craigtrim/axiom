@@ -218,7 +218,7 @@ test("each graph restores its own small zoom after restarting", async () => {
   await attach();
   await expect.poll(() => camera()).toEqual(first);
   await expect.poll(() => camera(id)).toEqual(second);
-  await page.getByRole("tab", { name: "Graph 2", exact: true }).click();
+  await page.getByRole("tab", { name: "Graph_2", exact: true }).click();
   await canvas().focus();
   await canvas().press("-");
   await expect

@@ -1,3 +1,4 @@
+import { readTabHistory } from "./tab-history";
 import { readSparsityOptions } from "./sparsity";
 import { readFindOptions } from "./find";
 import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
@@ -13,7 +14,7 @@ export function readPreferences(input: unknown): Preferences {
   if (
     !object(input) ||
     input.version !== 1 ||
-    JSON.stringify(input).length > 2000000
+    JSON.stringify(input).length > 16000000
   )
     throw Error("Invalid workbench settings.");
   const p: Preferences = {
@@ -22,6 +23,8 @@ export function readPreferences(input: unknown): Preferences {
       ? (input.theme as Preferences["theme"])
       : "light",
     panelState: {},
+    tabSavePolicy: input.tabSavePolicy === "all" ? "all" : "named",
+    tabHistory: readTabHistory(input.tabHistory),
   };
   if (
     ["auto", "standard", "wide", "custom"].includes(String(input.arrangement))

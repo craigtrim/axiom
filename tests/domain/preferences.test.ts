@@ -44,7 +44,13 @@ describe("workbench preferences", () => {
           "table.accessible": "true",
         },
       }),
-    ).toEqual({ version: 1, theme: "light", panelState: {} }));
+    ).toEqual({
+      version: 1,
+      theme: "light",
+      panelState: {},
+      tabSavePolicy: "named",
+      tabHistory: { version: 1, entries: [], counters: {} },
+    }));
   it("retains independent pane zoom and drops invalid values", () => {
     expect(
       readPreferences({

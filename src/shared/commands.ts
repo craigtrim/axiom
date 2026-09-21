@@ -97,6 +97,7 @@ export const menuTree: MenuDefinition[] = [
     null,
     menu("menu.settings", "Settings", "S", [
       c("graph.appearance", "Graph appearance...", "Edit > Settings"),
+      c("tabs.settings", "Tab history...", "Edit > Settings"),
     ]),
     c(
       "keyboard.settings",
@@ -122,6 +123,7 @@ export const menuTree: MenuDefinition[] = [
     ),
     null,
     c("view.find", "Find", "View"),
+    c("view.tabhistory", "Tab History", "View"),
     c("view.sparsity", "Sparsity", "View"),
     c("view.taxonomy", "Suggestions", "View"),
     c("view.errorlog", "Error log", "View"),

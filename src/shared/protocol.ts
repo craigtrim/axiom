@@ -172,6 +172,8 @@ export type DomainMethod =
   | "researchContext"
   | "applySuggestions";
 export interface Preferences {
+  tabSavePolicy?: import("./tab-history").TabSavePolicy;
+  tabHistory?: import("./tab-history").TabHistory;
   keyboard?: import("./shortcuts").KeyboardSettings;
   version: 1;
   theme: "system" | "light" | "dark";
