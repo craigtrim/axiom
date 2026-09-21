@@ -1,3 +1,4 @@
+import { SparsityPanel } from "./SparsityPanel";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
@@ -93,6 +94,7 @@ const names: Record<string, string> = {
   taxonomy: "Suggestions",
   errorlog: "Error log",
   find: "Find",
+  sparsity: "Sparsity",
   provenance: "Filesystem provenance",
   source: "Source",
 };
@@ -444,7 +446,8 @@ export function App() {
             : undefined;
       const target =
         dataSibling ??
-        (id === "find" ||
+        (id === "sparsity" ||
+        id === "find" ||
         id === "errorlog" ||
         id === "taxonomy" ||
         id.startsWith("taxonomy:") ||
@@ -460,6 +463,7 @@ export function App() {
           tab(id),
           target.getId(),
           dataSibling ||
+            id === "sparsity" ||
             id === "find" ||
             id === "errorlog" ||
             id === "taxonomy" ||
@@ -1079,6 +1083,7 @@ export function App() {
                   taxonomy: <SuggestionsPanel paneId={n.getId()} />,
                   errorlog: <ErrorLogPanel />,
                   find: <FindPanel />,
+                  sparsity: <SparsityPanel />,
                   individuals: <IndividualsPanel />,
                   queryResults: (
                     <Suspense

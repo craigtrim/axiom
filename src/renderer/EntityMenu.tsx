@@ -1,3 +1,4 @@
+import { openSparsity } from "./sparsity-view";
 import { openTaxonomy } from "./taxonomy-view";
 import { taxonomyChildren } from "../domain/class-expressions";
 import { instanceAction, countLabel } from "../shared/action-state";
@@ -110,6 +111,12 @@ export function EntityMenu({
       run: () => command("entity.createIndividual"),
     },
     null,
+    {
+      label: "Analyze sparsity",
+      key: "Y",
+      visible: isClass,
+      run: () => openSparsity(iri),
+    },
     {
       label: "Suggest",
       key: "G",

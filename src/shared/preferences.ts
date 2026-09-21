@@ -1,3 +1,4 @@
+import { readSparsityOptions } from "./sparsity";
 import { readFindOptions } from "./find";
 import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
 import { readKeyboardSettings } from "./shortcuts";
@@ -79,6 +80,8 @@ export function readPreferences(input: unknown): Preferences {
         mode: target.mode,
       };
   }
+  if (object(s["sparsity.view"]))
+    out["sparsity.view"] = readSparsityOptions(s["sparsity.view"]);
   if (object(s["find.view"]))
     out["find.view"] = readFindOptions(s["find.view"]);
   if (Array.isArray(s["find.recent"]))
