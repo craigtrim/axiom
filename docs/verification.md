@@ -853,3 +853,40 @@ Validation: TypeScript, whitespace checks and all ten scheduling tests passed. A
 Records: artifacts/suggestion-starts-unit.json, artifacts/suggestion-autostart-desktop.json, artifacts/suggestion-autostart-queue.json, artifacts/suggestion-autostart-packaged.json and artifacts/suggestion-autostart-package-check.json.
 
 Executable: D:\git\axiom\artifacts\electron-20260920T013904Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-21: Faceted cosine search
+
+Find now offers cosine similarity in the quick dialog and dockable results pane. A typed query is compared with indexed entity values without requiring an existing entity. Type checkboxes independently select classes, instances, properties and other entities. Field checkboxes expose names, aliases, IRIs and all populated RDF predicates, including custom and generated instance fields. Results show scores and the matching field value, with a minimum-score slider, paging and existing navigation actions. Hierarchy and Graph node menus also offer Find similar, excluding the source entity.
+
+The reusable text index uses normalized TF-IDF vectors over word and within-word character-trigram features. Queries visit shared-feature postings and use the same weighting and normalization as indexed values. Unknown query features remain in the norm. Entity scoring takes the maximum matching value; indexes and ranked results are cached by field selection and dataset revision. Search is local and read-only. Method details and sources are in docs/find-similarity.md.
+
+Validation: TypeScript, whitespace checks and 22 focused unit tests passed. Coverage includes previously unseen queries, exact normalized cosine, word order, Unicode, empty vectors, unknown features, every predicate, generated instance values, class/instance facets, thresholds, edits, Undo and complete paging over 15,000 classes. Existing 100,000-class type-ahead coverage also passed. All eight packaged desktop journeys passed, covering quick Find, focus and shortcuts, field selection, score display, filtering, graph and taxonomy actions, restart persistence, detached panes and accessibility. The first desktop run exposed test selectors that also matched the new mode dropdown; selectors now target the result listbox. Visual inspection prompted a facet sidebar and compact narrow-pane layout to preserve result space. The packaged screenshot was inspected. All 38 packaged runtime files match the build. No model or network requests occur during searches.
+
+Records: artifacts/cosine-find-unit.json, artifacts/cosine-find-packaged.json and artifacts/cosine-find-package-check.json. Screenshot: artifacts/testing/find-cosine.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260921T155458Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-21: Find results with shared ancestry
+
+Find now opens the complete filtered result set in a separate graph tab. Pagination does not limit the exported results. A breadth-first traversal includes unique ancestors through every parent path to the recorded roots, including instance types and property ancestry. Equivalent intersections preserve their original relationships. Graphs open radially around their roots; existing graphs and Find state are preserved. Results exceeding the graph node limit are rejected before any view changes.
+
+Validation: TypeScript and 16 focused unit tests passed, covering all pages, cosine thresholds, fields and type facets, multiple roots, shared ancestors, cycles, equivalent intersections, generated instances, a 1,100-class ancestor chain and limit refusal. All ten packaged Find desktop tests passed, including repeated new tabs, unchanged original graph geometry, instance ancestry, empty results and workspace restart. A repeated-opening test found a snapshot timing race that could return focus to the previous graph. The action now loads the new graph snapshot before opening its tab and lets that canvas fit itself. Visual inspection prompted the radial default for broad result sets. All 38 packaged runtime files match the build.
+
+Records: artifacts/find-graph-unit.json, artifacts/find-graph-packaged.json and artifacts/find-graph-package-check.json. Screenshots: artifacts/testing/find-open-results.png and artifacts/testing/find-results-ancestry.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260921T184719Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-21: Saved tab names and workspace history
+
+Tabs support inline renaming by double-click and a Rename tab context action. View > Tab History groups retained tabs by type, creation date and name, with filtering and open/closed status. Selecting an entry activates or restores the tab. Edit > Settings > Tab history defaults to named tabs only; all-tabs mode also retains numbered default names. The policy stays in Axiom settings, while entries and numbering belong to each workspace. Existing saved entries survive policy changes.
+
+Closed graphs are archived in the workspace and release their live graph slot. Restoring a graph recovers its positions, layout settings, camera and visibility controls. Find tabs recover their query and facets. History participates in workspace autosave and saving on close. Opening and switching workspaces preserve the correct history.
+
+Validation: TypeScript, formatting and whitespace checks passed, along with 22 unit tests. All 28 packaged desktop tests passed across tab history, Find, graph zoom and workspace autosave. The five history tests passed again against the final executable after correcting activation of an already open graph and preservation of Details metadata. Coverage includes both rename methods, default retention, eighteen successive closed graphs, restart restoration, workspace isolation, policy persistence and accessibility. Testing also caught a pane-placement problem after closing the last graph and a restart graph-ID collision; both are fixed. The history screenshot was visually inspected. All 38 packaged runtime files match the build.
+
+Records: artifacts/tab-history-unit.json, artifacts/tab-history-packaged.json, artifacts/tab-history-final-packaged.json and artifacts/tab-history-package-check.json. Screenshot: artifacts/testing/tab-history.png. Usage: docs/tab-history.md.
+
+Executable: D:\git\axiom\artifacts\electron-20260921T210417Z\Axiom-win32-x64\Axiom.exe
