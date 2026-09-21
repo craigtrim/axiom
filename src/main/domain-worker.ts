@@ -3,6 +3,7 @@ import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
 import { findEntities } from "../domain/resource-search";
+import { findGraphNodes } from "../domain/find-graph";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { subclassSuggestions } from "../domain/subclass-suggestions";
 import { MIN_GRAPH_SPACING, MAX_GRAPH_SPACING } from "../shared/graph-spacing";
@@ -941,18 +942,37 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "graphCreate": {
       if (graphSessions.size >= 16)
         throw Error("Up to 16 graph views can be kept in a workspace.");
+      if (
+        a.find !== undefined &&
+        (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      )
+        throw Error(
+          "The ontology changed. Wait for Find to refresh and try again.",
+        );
+      // Resolve and validate the complete result graph before changing any view.
+      const results =
+        a.find === undefined ? undefined : findGraphNodes(store, a.find);
+      const iris =
+        results?.iris ??
+        (Array.isArray(a.iris)
+          ? a.iris.filter(
+              (i): i is string => typeof i === "string" && store.exists(i),
+            )
+          : []);
       stopExternal();
       keepGraph();
       activeGraphId = "graph:" + crypto.randomUUID();
       view = new Viewport(store);
       layouts = new Layouts(view, store);
       frozen = false;
-      const iris = Array.isArray(a.iris)
-        ? a.iris.filter(
-            (i): i is string => typeof i === "string" && store.exists(i),
-          )
-        : [];
-      view.seed(iris);
+      if (results) view.setBudget(Math.max(view.budget, iris.length));
+      view.seed(iris, true, !results);
+      if (results) {
+        view.focus = new Set(
+          results.roots.length ? results.roots : results.matches.slice(0, 1),
+        );
+        layouts.choice = "radial";
+      }
       selected = view.selected = iris[0] ?? null;
       runLayout();
       keepGraph();

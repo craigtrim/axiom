@@ -1,9 +1,25 @@
 import type { Kind } from "../domain/model";
+export type FindKind = "classes" | "individuals" | "properties" | "other";
+export const findKinds: FindKind[] = [
+  "classes",
+  "individuals",
+  "properties",
+  "other",
+];
+export interface FindFacet {
+  id: string;
+  label: string;
+  count: number;
+}
 export interface FindOptions {
   text: string;
   kind: "all" | "classes" | "individuals" | "properties";
   field: "all" | "name" | "iri";
-  match: "words" | "phrase" | "exact";
+  match: "words" | "phrase" | "exact" | "cosine";
+  kinds: FindKind[];
+  fields: string[];
+  minimumSimilarity: number;
+  excludeIri: string;
   sort: "relevance" | "name" | "name-desc" | "iri";
   offset: number;
   limit: number;
@@ -13,6 +29,10 @@ export const defaultFindOptions: FindOptions = {
   kind: "all",
   field: "all",
   match: "words",
+  kinds: [...findKinds],
+  fields: ["name", "iri"],
+  minimumSimilarity: 0,
+  excludeIri: "",
   sort: "relevance",
   offset: 0,
   limit: 50,
@@ -23,9 +43,14 @@ export interface FindRow {
   kind: Kind;
   identifier: string;
   description: string;
+  similarity?: number;
+  matchedField?: string;
+  matchedValue?: string;
 }
 export interface FindResults {
   rows: FindRow[];
+  fields: FindFacet[];
+  kinds: FindFacet[];
   total: number;
   offset: number;
 }
@@ -44,7 +69,36 @@ export function readFindOptions(input: unknown): FindOptions {
       "all",
     ),
     field: choice("field", ["all", "name", "iri"], "all"),
-    match: choice("match", ["words", "phrase", "exact"], "words"),
+    match: choice("match", ["words", "phrase", "exact", "cosine"], "words"),
+    kinds: Array.isArray(v.kinds)
+      ? findKinds.filter((k) => (v.kinds as unknown[]).includes(k))
+      : findKinds.filter(
+          (k) =>
+            !["classes", "individuals", "properties"].includes(
+              String(v.kind),
+            ) || k === v.kind,
+        ),
+    fields: Array.isArray(v.fields)
+      ? [
+          ...new Set(
+            v.fields.filter(
+              (f): f is string =>
+                typeof f === "string" && f.length > 0 && f.length <= 10000,
+            ),
+          ),
+        ].slice(0, 10000)
+      : v.field === "name"
+        ? ["name"]
+        : v.field === "iri"
+          ? ["iri"]
+          : ["name", "iri"],
+    minimumSimilarity:
+      typeof v.minimumSimilarity === "number" &&
+      Number.isFinite(v.minimumSimilarity)
+        ? Math.min(1, Math.max(0, v.minimumSimilarity))
+        : 0,
+    excludeIri:
+      typeof v.excludeIri === "string" ? v.excludeIri.slice(0, 10000) : "",
     sort: choice(
       "sort",
       ["relevance", "name", "name-desc", "iri"],
