@@ -63,6 +63,7 @@ export const request = <T = unknown>(
     "uiHistory",
     "state",
     "find",
+    "analyzeSparsity",
     "inspector",
     "instances",
     "table",

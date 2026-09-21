@@ -1,3 +1,4 @@
+import { analyzeSparsity } from "../domain/sparsity";
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
@@ -1001,6 +1002,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return true;
     }
+    case "analyzeSparsity":
+      return analyzeSparsity(store, a);
     case "find":
       return findEntities(store, a);
     case "search": {

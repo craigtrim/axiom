@@ -110,6 +110,7 @@ export type DomainMethod =
   | "example"
   | "search"
   | "find"
+  | "analyzeSparsity"
   | "state"
   | "regenerate"
   | "select"
