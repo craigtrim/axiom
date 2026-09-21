@@ -827,3 +827,29 @@ Validation: 18 unit checks and all 15 focused packaged desktop journeys passed. 
 Records: artifacts/taxonomy-move-unit.json, artifacts/taxonomy-move-final-packaged.json and artifacts/taxonomy-move-package-check.json. Screenshot: artifacts/testing/taxonomy-move.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T041414Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-19: Local taxonomy sparsity analysis
+
+Hierarchy's class context menu now offers Analyze sparsity. Findings open in the dockable Sparsity pane, also available from View. Analysis can start at any class or cover the whole taxonomy. It compares each branch with its siblings, using direct child deficits as the main signal and discounted descendants at levels two through four as context. The 80/20 weights and threshold are documented application choices informed by Lemant et al. (2022) on tree balance and Neher et al. (2014) on local branching. The report treats a high score as a review signal.
+
+The pane provides ranked findings, comparison bars, peer counts and means, leaf and text filters, score threshold and descendant influence controls, and paged results. Findings navigate to Hierarchy and Details. Scope and options survive pane closure and workspace restart. Measures are cached per store revision and refresh after edits or Undo. Analysis uses local RDF hierarchy data and makes no ontology edits or assistant requests. Shared descendants count once per branch. Cycle-containing branches are excluded with visible counts.
+
+Validation: 30 unit checks and all nine packaged desktop journeys passed. Unit coverage includes the five-versus-one example, scope isolation, depth discounting, multiple inheritance, cycles, projected definitions, read-only behavior, edits and Undo, a 2,000-level chain, and 15,000 classes. Desktop coverage includes both menu entry points, explanation accuracy, keyboard controls, filters, live refresh, navigation, persisted scope, new-workspace isolation, paging, detached panes and accessibility in light and dark themes. Testing caught a missing-target case after creating a workspace; the pane now returns to its empty state. Electron accessibility checks use the supported legacy runner. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build. Both report screenshots were visually inspected.
+
+Method and references: docs/sparsity-analysis.md. Records: artifacts/sparsity-unit-final.json, artifacts/sparsity-packaged.json and artifacts/sparsity-package-check.json. Screenshots: artifacts/testing/sparsity-report.png and artifacts/testing/sparsity-detached.png.
+
+Executable: D:\git\axiom\artifacts\electron-20260920T012025Z\Axiom-win32-x64\Axiom.exe
+
+
+## 2026-09-19: Start ready suggestions on selection
+
+Selecting Add Children, Add Parents, Find Synonyms, Find Instances or a saved custom suggestion now starts its run automatically. Switching suggestion types and saving a completed definition also start the selected suggestion. Define New remains an editor until saved. Results still require review and explicit application.
+
+Reopening a pane, cloning a view, restoring a workspace and browsing history do not start another run. Repeated selection of an active request reuses it. A different selected request waits for its runner, then starts automatically. Pending starts live only in memory and are cleared when the workspace changes. Browsing history cancels a pending start for that pane.
+
+Validation: TypeScript, whitespace checks and all ten scheduling tests passed. All 26 focused desktop cases passed across the initial suite and queue follow-up, using isolated profiles and mocked assistants. The initial queue test timed out after five seconds while its second deliberately slow mock was running; allowing time for both runs resolved the test without a runtime change. Six core journeys also passed against the packaged executable: saved custom suggestions, graph synonyms, queued parents, queued children with duplicate clicks, detached Hierarchy and restored history. Existing review, cancellation, audit, context sampling, Undo and accessibility checks passed. No live assistant requests were made. All 38 packaged runtime files match the build.
+
+Records: artifacts/suggestion-starts-unit.json, artifacts/suggestion-autostart-desktop.json, artifacts/suggestion-autostart-queue.json, artifacts/suggestion-autostart-packaged.json and artifacts/suggestion-autostart-package-check.json.
+
+Executable: D:\git\axiom\artifacts\electron-20260920T013904Z\Axiom-win32-x64\Axiom.exe
