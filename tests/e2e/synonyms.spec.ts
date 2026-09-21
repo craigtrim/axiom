@@ -155,9 +155,6 @@ test("finds synonyms from hierarchy context, reviews literal edits, excludes sib
   await expect(
     view().getByRole("button", { name: "Edit definition", exact: true }),
   ).toHaveCount(0);
-  await view()
-    .getByRole("button", { name: "Find synonyms", exact: true })
-    .click();
   await expect(view().getByRole("status")).toContainText("Find Synonyms");
   await expect(
     page.locator('[data-pane-id="hierarchy"] .assistant-activity'),
@@ -219,13 +216,10 @@ test("finds synonyms from hierarchy context, reviews literal edits, excludes sib
 });
 test("retains synonym runs, independent views and mode through closing and reopening Axiom", async () => {
   await suggest("Basic English", "Find Synonyms");
-  await view()
-    .getByRole("button", { name: "Find synonyms", exact: true })
-    .click();
   await expect(
     view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
   ).toBeVisible();
-  const run = await page.evaluate(
+  const firstRun = await page.evaluate(
     async () => (await window.axiom.suggestions.history())[0],
   );
   await view()
@@ -238,6 +232,20 @@ test("retains synonym runs, independent views and mode through closing and reope
   await expect(
     view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
   ).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.suggestions.history())).filter(
+          (r) => r.mode === "synonyms" && r.state !== "running",
+        ).length,
+    )
+    .toBe(2);
+  const synonymRuns = await page.evaluate(async () =>
+    (await window.axiom.suggestions.history()).filter(
+      (r) => r.mode === "synonyms",
+    ),
+  );
+  expect(synonymRuns.some((r) => r.id === firstRun.id)).toBe(true);
   await view().getByRole("button", { name: "Open another view" }).click();
   const other = page.locator('.suggestions-view[data-panel^="taxonomy:"]');
   await expect(other).toBeVisible();
@@ -248,6 +256,14 @@ test("retains synonym runs, independent views and mode through closing and reope
   await expect(
     view().getByRole("combobox", { name: "Suggestion type", exact: true }),
   ).toHaveValue("synonyms");
+  await expect
+    .poll(
+      async () => await page.evaluate(() => window.axiom.suggestions.status()),
+    )
+    .toBeUndefined();
+  const beforeRestart = await page.evaluate(() =>
+    window.axiom.suggestions.history(),
+  );
   await app.close();
   await launch();
   await menu("view.taxonomy");
@@ -257,11 +273,9 @@ test("retains synonym runs, independent views and mode through closing and reope
   await expect(
     view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
   ).toBeVisible();
-  expect(
-    await page.evaluate(
-      async () => (await window.axiom.suggestions.history())[0],
-    ),
-  ).toEqual(run);
+  expect(await page.evaluate(() => window.axiom.suggestions.history())).toEqual(
+    beforeRestart,
+  );
   await view()
     .getByRole("checkbox", { name: "Add Basic Engl.", exact: true })
     .check();
@@ -278,9 +292,6 @@ test("retains synonym runs, independent views and mode through closing and reope
 });
 test("blocks a stale candidate when a sibling acquires its alias after the run", async () => {
   await suggest("Basic English", "Find Synonyms");
-  await view()
-    .getByRole("button", { name: "Find synonyms", exact: true })
-    .click();
   await expect(
     view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
   ).toBeVisible();
@@ -342,9 +353,6 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
   await expect(
     view().getByRole("combobox", { name: "Suggestion type", exact: true }),
   ).toHaveValue("synonyms");
-  await view()
-    .getByRole("button", { name: "Find synonyms", exact: true })
-    .click();
   await expect(
     view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
   ).toBeVisible();
@@ -359,4 +367,43 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
         ).length,
     ),
   ).toBe(2);
+});
+
+test("reuses active synonyms and starts a queued parent search without a second click", async () => {
+  await suggest("Basic English", "Find Synonyms");
+  await expect
+    .poll(
+      async () => await page.evaluate(() => window.axiom.suggestions.status()),
+    )
+    .toMatchObject({ mode: "synonyms" });
+  await suggest("Basic English", "Find Synonyms");
+  await suggest("Alpha Beta Gamma", "Add Parents");
+  await expect(view()).toContainText(
+    "Waiting for the current suggestions to finish",
+  );
+  await expect(
+    view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
+  ).toBeVisible();
+  const runs = await page.evaluate(() => window.axiom.suggestions.history());
+  expect(runs).toHaveLength(2);
+  expect(runs.map((r) => r.state)).toEqual(["completed", "completed"]);
+  expect(runs.map((r) => r.mode).sort()).toEqual(["parents", "synonyms"]);
+  await view().getByRole("button", { name: "Open another view" }).click();
+  const other = page.locator('.suggestions-view[data-panel^="taxonomy:"]');
+  await expect(
+    other.getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.axiom.suggestions.history())).toEqual(
+    runs,
+  );
+  await menu("view.taxonomy");
+  await view()
+    .getByRole("combobox", { name: "Run history" })
+    .selectOption(runs.find((r) => r.mode === "synonyms")!.id);
+  await expect(
+    view().getByRole("checkbox", { name: "Add English Basics", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.axiom.suggestions.history())).toEqual(
+    runs,
+  );
 });

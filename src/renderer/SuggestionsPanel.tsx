@@ -1,7 +1,12 @@
 import { synonymDefinition } from "../shared/synonyms";
 import { useEffect, useRef, useState } from "react";
 import { TaxonomyAssistant } from "./TaxonomyAssistant";
-import { openTaxonomy, useTaxonomyTarget } from "./taxonomy-view";
+import {
+  openTaxonomy,
+  useTaxonomyTarget,
+  suggestionStarts,
+  useSuggestionStart,
+} from "./taxonomy-view";
 import { onCommand, useSnapshot, flushUiHistory, command } from "./client";
 import { useAssistantProvider } from "./assistant-provider";
 import { ErrorNotice } from "./ErrorNotice";
@@ -104,6 +109,7 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
               mode,
               undefined,
               "taxonomy:" + crypto.randomUUID(),
+              false,
             )
           }
         >
@@ -132,7 +138,12 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
             }}
           />
         ) : mode === "children" || mode === "instances" ? (
-          <TaxonomyAssistant paneId={paneId} />
+          <TaxonomyAssistant
+            key={
+              s.datasetEpoch + ":" + iri + ":" + mode + ":" + target?.revision
+            }
+            paneId={paneId}
+          />
         ) : (
           <SavedSuggestionView
             key={
@@ -277,6 +288,8 @@ function SavedSuggestionView({
 }) {
   const s = useSnapshot()!,
     target = useTaxonomyTarget(paneId)!;
+  const start = useSuggestionStart(paneId);
+  const [ready, setReady] = useState(false);
   const [provider, setProvider] = useAssistantProvider();
   const [history, setHistory] = useState<SuggestionRun[]>([]),
     [id, setId] = useState(target?.runId ?? "");
@@ -305,6 +318,7 @@ function SavedSuggestionView({
     setNow(Date.now());
     if (!loaded.current) {
       loaded.current = true;
+      setReady(true);
       setId(
         target?.runId ??
           runs.find(
@@ -362,7 +376,16 @@ function SavedSuggestionView({
     !!entry &&
     (entry.namespace !== s.ontology.namespace || entry.iri !== target?.iri);
   const generate = async () => {
-    if (busy || active || !exists) return;
+    if (
+      generating.current ||
+      busy ||
+      active ||
+      !exists ||
+      (!parents && !definition)
+    )
+      return;
+    const release = suggestionStarts.reserve(target, s.datasetEpoch);
+    if (!release) return;
     setBusy(true);
     generating.current = true;
     setError("");
@@ -378,24 +401,60 @@ function SavedSuggestionView({
       if (live.current) setError((e as Error).message);
     } finally {
       generating.current = false;
-      if (live.current) {
-        setBusy(false);
-        await refresh();
-        const runs = await window.axiom.suggestions.history();
-        if (live.current)
-          setId(
-            runs.find(
-              (r) =>
-                r.iri === target.iri &&
-                r.mode === target.mode &&
-                r.namespace === target.namespace,
-            )?.id ?? "",
-          );
+      try {
+        if (live.current) {
+          setBusy(false);
+          await refresh();
+          const runs = await window.axiom.suggestions.history();
+          if (live.current)
+            setId(
+              runs.find(
+                (r) =>
+                  r.iri === target.iri &&
+                  r.mode === target.mode &&
+                  r.namespace === target.namespace,
+              )?.id ?? "",
+            );
+        }
+      } catch (e) {
+        if (live.current) setError((e as Error).message);
+      } finally {
+        release();
       }
     }
   };
+  useEffect(() => {
+    if (
+      !start ||
+      start.target !== target ||
+      start.epoch !== s.datasetEpoch ||
+      !ready ||
+      busy ||
+      active ||
+      !exists ||
+      (!parents && !definition)
+    )
+      return;
+    void generate();
+  }, [
+    start,
+    target,
+    s.datasetEpoch,
+    ready,
+    busy,
+    active,
+    exists,
+    parents,
+    definition,
+  ]);
   return (
     <section className="panel taxonomy-panel">
+      {start && active && (
+        <p role="status" className="panel-note">
+          Waiting for the current suggestions to finish. This run will start
+          automatically.
+        </p>
+      )}
       {active?.iri === target?.iri && active.mode === target.mode && (
         <div className="assistant-activity">
           <span className="assistant-spinner" aria-hidden="true" />
@@ -457,6 +516,7 @@ function SavedSuggestionView({
             aria-label="Run history"
             value={id}
             onChange={(e) => {
+              suggestionStarts.consume(paneId, target, s.datasetEpoch);
               const r = runs.find((r) => r.id === e.target.value);
               setSelected([]);
               if (r && (r.iri !== target.iri || r.mode !== target.mode))

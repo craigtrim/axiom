@@ -56,12 +56,6 @@ async function open(mode = "children", keyboard = false, label = "Vehicle") {
 }
 async function ready(mode = "children", keyboard = false) {
   const view = await open(mode, keyboard);
-  await view
-    .getByRole("button", {
-      name: mode === "children" ? "Find children" : "Find instances",
-      exact: true,
-    })
-    .click();
   await expect(
     view.getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();
@@ -245,9 +239,6 @@ test("accepts zero suggestions without adding anything", async () => {
 test("blocks duplicates and preserves the right-clicked parent when selection changes during generation", async () => {
   await writeFile(behavior, '{"duplicate":true,"delay":800}');
   const dialog = await open();
-  await dialog
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await bridge.evaluate(
     (iri) => window.axiom.request("select", { iri }),
     THING,
@@ -312,9 +303,6 @@ test("rejects stale proposals and retains the ontology when it changes during or
 test("cancels Codex, retries, and reports malformed responses without changing data", async () => {
   await writeFile(behavior, '{"delay":20000}');
   const dialog = await open();
-  await dialog
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await expect
     .poll(
       async () =>
@@ -380,9 +368,6 @@ test("fits the dockable view in a small window and provides scrollable context",
 test("closing a running view keeps the job and restores its completed result", async () => {
   await writeFile(behavior, '{"delay":1800}');
   const view = await open();
-  await view
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await expect
     .poll(
       async () =>
@@ -399,7 +384,8 @@ test("closing a running view keeps the job and restores its completed result", a
           .running,
     )
     .toBe(false);
-  const reopened = await open();
+  await menu("view.taxonomy");
+  const reopened = bridge.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(
     reopened.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
   ).toBeVisible();
@@ -424,16 +410,18 @@ test("keeps separate histories, opens the latest run, and browses an earlier run
   expect(second).not.toBe(first);
   await open("children", false, "Land vehicle");
   await expect(
-    view.getByRole("button", { name: "Find children", exact: true }),
+    view.getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();
-  await expect(view).not.toContainText("No new direct children suggested.");
+  await expect(view).toContainText("No new direct children suggested.");
   // Browsing history does not run a provider or change selection in the ontology.
   await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
   await expect(view.getByRole("heading")).toContainText("Vehicle");
   await expect(
     view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
   ).toBeVisible();
-  await open();
+  await view
+    .getByRole("combobox", { name: "Run history" })
+    .selectOption(second);
   await expect(view.getByRole("combobox", { name: "Run history" })).toHaveValue(
     second,
   );
@@ -442,15 +430,12 @@ test("keeps separate histories, opens the latest run, and browses an earlier run
     (await readFile(path.join(profile, "calls.txt"), "utf8"))
       .trim()
       .split("\n"),
-  ).toHaveLength(2);
+  ).toHaveLength(3);
 });
 
-test("switching nodes during a run leaves the new node fresh and preserves the original result", async () => {
-  await writeFile(behavior, '{"delay":1600}');
+test("queues a different node automatically and reuses an already running request", async () => {
+  await writeFile(behavior, '{"delay":2800}');
   const view = await open();
-  await view
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await expect
     .poll(
       async () =>
@@ -458,21 +443,43 @@ test("switching nodes during a run leaves the new node fresh and preserves the o
           .running,
     )
     .toBe(true);
-  await open("children", false, "Land vehicle");
-  await expect(view.getByRole("heading")).toContainText("Land vehicle");
-  await expect(
-    view.getByRole("button", { name: "Find children", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    view.getByRole("button", { name: "Find children", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
-  ).toHaveCount(0);
   await open();
+  await open("children", false, "Land vehicle");
+  await expect(view).toContainText(
+    "Waiting for the current suggestions to finish",
+  );
+  await expect
+    .poll(
+      async () =>
+        (
+          await bridge.evaluate(() => window.axiom.taxonomyAssistant.history())
+        ).filter((r) => r.state === "completed").length,
+      { timeout: 15000 },
+    )
+    .toBe(2);
   await expect(
     view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
   ).toBeVisible();
+  const history = await bridge.evaluate(() =>
+    window.axiom.taxonomyAssistant.history(),
+  );
+  expect(history).toHaveLength(2);
+  expect(history.map((r) => r.label).sort()).toEqual([
+    "Land vehicle",
+    "Vehicle",
+  ]);
+  await view
+    .getByRole("combobox", { name: "Run history" })
+    .selectOption(history.find((r) => r.iri === vehicle)!.id);
+  await expect(view.getByRole("heading")).toContainText("Vehicle");
+  await expect(
+    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+  ).toBeVisible();
+  expect(
+    (await readFile(path.join(profile, "calls.txt"), "utf8"))
+      .trim()
+      .split("\n"),
+  ).toHaveLength(2);
 });
 
 test("restores history after restart and applies a retained proposal without another assistant run", async () => {
@@ -789,12 +796,6 @@ test("sends only 20 sampled children and 20 sampled descendants and retains the 
     .poll(async () => (await state()).ontology.name)
     .toBe("wide-branch.ttl");
   const view = await open();
-  await expect(view.getByText(/^Context preview for Codex/)).toContainText(
-    "20 of 143 children · 20 of 372 descendants",
-  );
-  await view
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await expect(
     view.getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();

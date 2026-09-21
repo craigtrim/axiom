@@ -7,7 +7,7 @@ import { ErrorLogPanel } from "./ErrorLogPanel";
 import { ErrorDetailsButton } from "./ErrorNotice";
 import { selectAudit } from "./audit-state";
 import { SuggestionsPanel } from "./SuggestionsPanel";
-import { openTaxonomy } from "./taxonomy-view";
+import { openTaxonomy, suggestionStarts } from "./taxonomy-view";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
@@ -369,6 +369,7 @@ export function App() {
   useEffect(() => {
     syncEditorEpoch(s.datasetEpoch);
     syncFindEpoch(s.datasetEpoch);
+    suggestionStarts.clearOtherEpochs(s.datasetEpoch);
   }, [s.datasetEpoch]);
 
   const updatePaneMenu = () => {

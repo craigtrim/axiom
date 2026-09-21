@@ -264,12 +264,12 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
 });
 test("uses local parent matching in the shared view, keeps histories and opens another view", async () => {
   await suggest("Alpha Beta Gamma", "Add Parents");
-  await view()
-    .getByRole("button", { name: "Find parents", exact: true })
-    .click();
   await expect(
     view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
   ).toBeVisible();
+  const first = await view()
+    .getByRole("combobox", { name: "Run history" })
+    .inputValue();
   await view()
     .getByRole("checkbox", { name: "Add Alpha Gamma", exact: true })
     .check();
@@ -288,6 +288,18 @@ test("uses local parent matching in the shared view, keeps histories and opens a
     .click();
   await expect(view().getByRole("heading")).toContainText("Add children");
   await view().getByRole("button", { name: "Next suggestion type" }).click();
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.suggestions.history())).length,
+    )
+    .toBe(2);
+  await expect(
+    view().getByRole("button", { name: "New run", exact: true }),
+  ).toBeEnabled();
+  await view()
+    .getByRole("combobox", { name: "Run history" })
+    .selectOption(first);
   await expect(
     view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
   ).toBeDisabled();
@@ -322,6 +334,9 @@ test("uses local parent matching in the shared view, keeps histories and opens a
   await app.close();
   await launch();
   await menu("view.taxonomy");
+  await view()
+    .getByRole("combobox", { name: "Run history" })
+    .selectOption(first);
   await expect(
     view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
   ).toBeDisabled();
@@ -354,9 +369,6 @@ test("saves custom suggestions globally, reviews values and confines child progr
   await form
     .getByRole("button", { name: "Save suggestion", exact: true })
     .click();
-  await view()
-    .getByRole("button", { name: "Find suggestions", exact: true })
-    .click();
   await expect(
     view().getByRole("checkbox", {
       name: "Add Foundations of English",
@@ -384,9 +396,6 @@ test("saves custom suggestions globally, reviews values and confines child progr
   await view()
     .getByRole("combobox", { name: "Suggestion type", exact: true })
     .selectOption("children");
-  await view()
-    .getByRole("button", { name: "Find children", exact: true })
-    .click();
   await expect(view().locator('[data-assistant="taxonomy"]')).toBeVisible();
   await expect(
     page.locator('[data-pane-id="hierarchy"] .assistant-activity'),

@@ -2,7 +2,7 @@
 
 ## Add Parents using existing class names
 
-Choose **Suggest > Add Parents** from a class context menu in Graph or Hierarchy, then **Find parents**. The selected class is the child. A local index finds shorter existing class names by omitting words while retaining their order, including omissions in the middle. For Alpha Beta Gamma, existing Alpha Gamma and Beta Gamma are possible parents. Matching normalizes case, punctuation and camel case. It matches complete words, so Alpha does not match Alphabet. The review lists up to 100 matches, with the closest names first.
+Choose **Suggest > Add Parents** from a class context menu in Graph or Hierarchy. The search starts immediately. The selected class is the child. A local index finds shorter existing class names by omitting words while retaining their order, including omissions in the middle. For Alpha Beta Gamma, existing Alpha Gamma and Beta Gamma are possible parents. Matching normalizes case, punctuation and camel case. It matches complete words, so Alpha does not match Alphabet. The review lists up to 100 matches, with the closest names first.
 
 Existing ancestors, descendants, negated target names, anonymous expressions and individuals are excluded. Review the unchecked candidates, then choose **Add selected parents**. Axiom adds an ordinary rdfs:subClassOf link from the selected class to each chosen parent. Existing statements are preserved, and one Undo reverses the batch. Changing the selected entity invalidates an open review, and parent candidates are checked again before applying. This action uses no LLM or network service.
 
@@ -10,7 +10,7 @@ Existing ancestors, descendants, negated target names, anonymous expressions and
 
 Right-click a class in Graph or Hierarchy and choose **Suggest > Add Children** to open the dockable **Suggestions** view. Shift+F10 opens the same context menu. The view can be moved, detached, maximized and reopened through **View > Suggestions**.
 
-A new node opens with its context and a **Find children** button. Choose Claude or Codex, then start the run. Reopening a node displays its latest run. **New run** starts another request without replacing the earlier result. **Run history** lists the selected node's runs and runs for other nodes in the current ontology. Opening or browsing history does not call an assistant.
+Selecting **Add Children** opens the view and starts a run with the saved assistant preference. Selecting it again starts a new run, unless the same request is already running. Reopening the pane through **View > Suggestions** displays its latest run. **New run** starts another request without replacing the earlier result. **Run history** lists the selected node's runs and runs for other nodes in the current ontology. Opening or browsing history does not call an assistant.
 
 Each run retains its original context, exact prompt, provider, time, proposals and outcome in Axiom's local user-data directory under `taxonomy-runs/history`. Accepted proposals are marked **Added**. Completed, failed and cancelled runs survive closing the view and restarting Axiom. A run interrupted by application shutdown is retained as interrupted. Closing the view or switching nodes lets an active request continue; use **Cancel suggestions** to stop it.
 
@@ -28,7 +28,7 @@ Existing labels and normalized identifier names are checked locally across the o
 
 ## Find instances
 
-**Find instances** is a separate context-menu action with a separate prompt. It asks for identifiable real members of the selected class, using general subject knowledge and the same plain-text exchange. It can return an empty result when no useful additions are justified. Accepted individuals receive rdf:type relationships to the selected class. They do not become subclasses.
+**Find instances** is a separate context-menu action with a separate prompt. Selecting it starts the run immediately. It asks for identifiable real members of the selected class, using general subject knowledge and the same plain-text exchange. It can return an empty result when no useful additions are justified. Accepted individuals receive rdf:type relationships to the selected class. They do not become subclasses.
 
 The prompt includes up to 50 existing individuals from the selected branch and the total count. All existing names are still checked locally. Proposals use model knowledge without web research; they are not presented as externally verified facts. Review their membership and descriptions before adding them.
 
@@ -36,17 +36,17 @@ Both actions default to Claude and offer Codex in the Assistant selector. This p
 
 ## Shared view and custom suggestions
 
-The Suggestions view has a **Suggestion type** selector and Previous/Next buttons. Switch between Add Children, Add Parents, Find Synonyms, saved custom suggestions and Find Instances in the current view. **Open another view** creates an independent dockable tab with its own selected entity and suggestion type. Saved workspaces and restored sessions retain these tabs. Running-operation status stays in Suggestions; Hierarchy does not repeat it.
+The Suggestions view has a **Suggestion type** selector and Previous/Next buttons. Switch between Add Children, Add Parents, Find Synonyms, saved custom suggestions and Find Instances in the current view. Selecting a ready suggestion starts it automatically. If its runner is occupied, the selected request waits and starts when the runner is available. Browsing history cancels a pending start for that pane. **Open another view** creates an independent dockable tab with its own selected entity and suggestion type. Opening another view or restoring a session shows history without starting another run. Saved workspaces and restored sessions retain these tabs. Running-operation status stays in Suggestions; Hierarchy does not repeat it.
 
-**Suggest > Define New** opens a form for a name, instructions, optional examples, a predicate and a value type (text or resource IRI). **Save suggestion** stores the definition in axiom-properties.json under Axiom's user-data directory. Definitions are available across workspaces and app restarts; opening a workspace does not replace them. **Edit definition** updates a saved definition. Earlier runs keep the instructions used at the time.
+**Suggest > Define New** opens a form for a name, instructions, optional examples, a predicate and a value type (text or resource IRI). **Save suggestion** stores the definition in axiom-properties.json under Axiom's user-data directory. Saving the form starts the completed suggestion. Opening **Define New** does not start a run. Definitions are available across workspaces and app restarts; opening a workspace does not replace them. **Edit definition** updates a saved definition. Earlier runs keep the instructions used at the time.
 
 Custom runs send the selected entity's statements and the saved instructions to the selected assistant. Results are values with reasons. Review them and choose **Add selected values** to append statements using the configured predicate. Existing statements are retained. One Undo reverses the batch. Invalid results and changed entity context block application. No proposed value is added automatically.
 
-Parent and custom histories are retained in suggestion-history in the user-data directory. They retain the node, definition, context, prompt, results, errors and accepted selections. Returning to a node shows its latest run for the chosen suggestion type. **New run** keeps the earlier runs. Error details use the shared audit log.
+Parent and custom histories are retained in suggestion-history in the user-data directory. They retain the node, definition, context, prompt, results, errors and accepted selections. Reopening a pane shows its latest run for the chosen suggestion type. **New run** keeps the earlier runs. Error details use the shared audit log.
 
 ## Find synonyms
 
-**Suggest > Find Synonyms** opens the shared Suggestions view from Graph or Hierarchy. Choose Claude or Codex and **Find synonyms**. The request asks for close wording variations of the same entity, including spelling variants, word-order changes and established abbreviations. Broader, narrower, sibling and merely related concepts are excluded. An empty result is valid.
+**Suggest > Find Synonyms** opens the shared Suggestions view from Graph or Hierarchy. The request starts immediately with the saved assistant preference. The request asks for close wording variations of the same entity, including spelling variants, word-order changes and established abbreviations. Broader, narrower, sibling and merely related concepts are excluded. An empty result is valid.
 
 The prompt includes the selected entity's meaning, ancestry, children, descendants and siblings. Existing rdfs:seeAlso values accompany these terms, with text distinguished from resource links. Children, descendants and siblings are independently sampled to 20 terms per list. Up to 20 additional annotated relatives supply seeAlso examples omitted by those samples. Ancestors are included in full. The exact context and prompt are saved with the run.
 

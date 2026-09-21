@@ -13,7 +13,12 @@ import {
   flushUiHistory,
   command,
 } from "./client";
-import { openTaxonomy, useTaxonomyTarget } from "./taxonomy-view";
+import {
+  openTaxonomy,
+  useTaxonomyTarget,
+  suggestionStarts,
+  useSuggestionStart,
+} from "./taxonomy-view";
 import {
   buildTaxonomyPrompt,
   sampleTaxonomyContext,
@@ -30,6 +35,7 @@ export function TaxonomyAssistant({
 }) {
   const snapshot = useSnapshot()!;
   const target = useTaxonomyTarget(paneId);
+  const start = useSuggestionStart(paneId);
   const [provider, setProvider] = useAssistantProvider();
   const providerName = provider === "claude" ? "Claude" : "Codex";
   const activity = useAssistantActivity("taxonomy");
@@ -72,7 +78,7 @@ export function TaxonomyAssistant({
       (e) => e.iri === target.iri && ["Class", "Defined"].includes(e.kind),
     );
 
-  // Opening a node always returns to its latest run, without launching an assistant.
+  // Load history first. Only a fresh explicit suggestion selection starts a run.
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -164,6 +170,28 @@ export function TaxonomyAssistant({
     setSelected(new Set());
   }, [runId]);
 
+  useEffect(() => {
+    if (
+      !start ||
+      start.target !== target ||
+      start.epoch !== snapshot.datasetEpoch ||
+      loading ||
+      !targetExists ||
+      activity ||
+      applying
+    )
+      return;
+    void generate();
+  }, [
+    start,
+    target,
+    snapshot.datasetEpoch,
+    loading,
+    targetExists,
+    activity,
+    applying,
+  ]);
+
   async function generate() {
     if (
       !target ||
@@ -172,6 +200,8 @@ export function TaxonomyAssistant({
       applying
     )
       return;
+    const release = suggestionStarts.reserve(target, snapshot.datasetEpoch);
+    if (!release) return;
     const origin = target;
     const id = crypto.randomUUID();
     setRunId(id);
@@ -209,9 +239,15 @@ export function TaxonomyAssistant({
     } catch (e) {
       if (currentTarget.current === origin) setError((e as Error).message);
     } finally {
-      const items = await window.axiom.taxonomyAssistant.history();
-      setHistory(items);
-      if (currentTarget.current === origin) setRevision((r) => r + 1);
+      try {
+        const items = await window.axiom.taxonomyAssistant.history();
+        setHistory(items);
+        if (currentTarget.current === origin) setRevision((r) => r + 1);
+      } catch (e) {
+        if (currentTarget.current === origin) setError((e as Error).message);
+      } finally {
+        release();
+      }
     }
   }
   async function apply() {
@@ -266,6 +302,12 @@ export function TaxonomyAssistant({
       aria-label="Taxonomy suggestions"
     >
       {entry?.state === "running" && <AssistantActivity kind="taxonomy" />}
+      {start && activity && (
+        <p role="status" className="panel-note">
+          Waiting for the current suggestions to finish. This run will start
+          automatically.
+        </p>
+      )}
       <header className="taxonomy-heading">
         <h2 title={target?.iri}>
           {children ? "Add children to " : "Find instances of "}
@@ -305,6 +347,8 @@ export function TaxonomyAssistant({
             value={summary ? runId : ""}
             disabled={applying || loading}
             onChange={(e) => {
+              if (target)
+                suggestionStarts.consume(paneId, target, snapshot.datasetEpoch);
               const item = history.find((h) => h.id === e.target.value);
               if (!item) {
                 setRunId("");
