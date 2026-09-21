@@ -1,3 +1,4 @@
+import { openSimilar } from "./find-state";
 import { openTaxonomy } from "./taxonomy-view";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
@@ -1740,6 +1741,17 @@ function GraphContent() {
               },
             },
             null,
+            {
+              label: "Find similar",
+              key: "M",
+              run: () => {
+                const iri = context.iri;
+                const name =
+                  graph?.nodes.find((n) => n.iri === iri)?.label ?? iri;
+                setContext(null);
+                openSimilar(name, iri);
+              },
+            },
             {
               label: "New instance",
               key: "W",

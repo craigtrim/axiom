@@ -4471,3 +4471,274 @@ button.sparsity-link {
   padding: 14px;
   gap: 12px;
 }
+
+/* Field facets stay compact in docked and detached Find panes. */
+.find-controls {
+  max-height: 58%;
+  overflow: auto;
+  flex-shrink: 0;
+}
+.quick-find-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.find-method {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 8px 0;
+}
+.find-facets {
+  margin-top: 12px;
+  border-top: 1px solid var(--stroke);
+  padding-top: 8px;
+}
+.find-facets summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.find-facets fieldset {
+  border: 0;
+  padding: 6px 0;
+  margin: 4px 0 0;
+  min-width: 0;
+}
+.find-facets legend {
+  font-weight: 600;
+  font-size: 12px;
+}
+.find-type-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.find-type-facets label,
+.find-field-list label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+.find-type-facets label > span,
+.find-field-list small {
+  color: var(--text-secondary);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.find-facet-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.find-facet-tools input {
+  flex: 1 1 140px;
+  min-width: 80px;
+}
+.find-facet-tools button {
+  font-size: 12px;
+}
+.find-field-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 7px 20px;
+  max-height: 122px;
+  overflow: auto;
+  padding: 3px;
+}
+.find-field-list label {
+  min-width: 0;
+}
+.find-field-list label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.find-score strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.find-score meter {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: 7px;
+  accent-color: var(--accent);
+}
+.find-results th.find-score-column {
+  width: 86px;
+}
+.find-match-evidence {
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.find-threshold input {
+  min-width: 110px;
+  width: 100%;
+}
+
+.find-panel {
+  container-type: inline-size;
+  container-name: find-pane;
+}
+.find-controls {
+  max-height: 45%;
+}
+.find-workarea {
+  flex: 1;
+  min-height: 100px;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+.find-matches {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.find-workarea > .find-facets {
+  margin: 0;
+  border-top: 0;
+  border-right: 1px solid var(--stroke);
+  padding: 10px;
+  overflow: auto;
+  background: var(--surface);
+}
+.find-workarea:has(> .find-facets:not([open])) {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+.find-type-facets {
+  display: grid;
+  gap: 7px;
+}
+.find-field-list {
+  grid-template-columns: minmax(0, 1fr);
+  max-height: none;
+  overflow: visible;
+}
+.find-facet-tools button {
+  padding: 4px 7px;
+}
+.find-results th:nth-child(2) {
+  width: 95px;
+}
+.find-score {
+  white-space: nowrap;
+}
+.find-actions {
+  gap: 6px;
+}
+.find-selected {
+  flex: 0 1 auto;
+}
+@container find-pane (max-width: 650px) {
+  .find-workarea,
+  .find-workarea:has(> .find-facets:not([open])) {
+    display: flex;
+    flex-direction: column;
+  }
+  .find-workarea > .find-facets {
+    flex: 0 0 auto;
+    max-height: 130px;
+    border-right: 0;
+    border-bottom: 1px solid var(--stroke);
+  }
+  .find-matches {
+    flex: 1;
+  }
+  .find-type-facets {
+    display: flex;
+  }
+  .find-field-list {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .find-filters label {
+    flex-basis: 110px;
+  }
+}
+
+.find-results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 12px;
+}
+.find-results-toolbar .find-summary {
+  padding: 0;
+}
+
+.tab-history-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tab-history-tools {
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.tab-history-tools input {
+  flex: 1;
+  min-width: 120px;
+}
+.tab-history-tree {
+  overflow: auto;
+  flex: 1;
+  padding: 8px;
+}
+.tab-history-tree button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  min-height: 34px;
+}
+.tab-history-tree button:hover,
+.tab-history-tree button:focus-visible {
+  background: var(--layer-selected);
+}
+.tab-history-tree small {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+.tab-history-tree .tab-history-date {
+  padding-left: 30px;
+}
+.tab-history-tree .tab-history-leaf {
+  padding-left: 54px;
+}
+.tab-history-leaf > span:first-child {
+  color: var(--accent, #006fc9);
+}
+.tab-history-empty,
+.tab-history-footer {
+  padding: 12px;
+  color: var(--text-secondary);
+}
+.tab-history-footer {
+  border-top: 1px solid var(--border);
+}
+.tab-history-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+.tab-history-settings label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

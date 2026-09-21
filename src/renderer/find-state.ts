@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from "react";
-import { panel, savePanel } from "./client";
-import { readFindOptions, type FindOptions } from "../shared/find";
+import { panel, savePanel, command } from "./client";
+import {
+  defaultFindOptions,
+  readFindOptions,
+  type FindOptions,
+} from "../shared/find";
 let current:
   { options: FindOptions; selected: string; recent: string[] } | undefined;
 const listeners = new Set<() => void>();
@@ -42,4 +46,17 @@ export function syncFindEpoch(value: number) {
   if (epoch === value) return;
   epoch = value;
   if (current) selectFind("");
+}
+
+export function openSimilar(name: string, iri: string) {
+  updateFind({
+    ...defaultFindOptions,
+    text: name,
+    match: "cosine",
+    fields: ["name"],
+    kinds: ["classes", "individuals"],
+    excludeIri: iri,
+  });
+  rememberFind();
+  command("view.find");
 }

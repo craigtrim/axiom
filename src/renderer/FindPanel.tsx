@@ -1,17 +1,21 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { command, request, useSnapshot } from "./client";
+import { command, request, setState, useSnapshot } from "./client";
+import type { Snapshot } from "../shared/protocol";
 import { Modal } from "./Dialogs";
 import { editEntity } from "./authoring";
 import { revealInTaxonomy } from "./taxonomy-navigation";
+import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
 import {
   defaultFindOptions,
+  findKinds,
   type FindOptions,
   type FindResults,
 } from "../shared/find";
 import {
   findState,
   rememberFind,
+  openSimilar,
   selectFind,
   updateFind,
   useFindState,
@@ -26,6 +30,7 @@ function useFindResults(options: FindOptions) {
   ]);
   const [result, setResult] = useState<{
     key: string;
+    epoch: number;
     data?: FindResults;
     error?: string;
   }>();
@@ -34,10 +39,15 @@ function useFindResults(options: FindOptions) {
     const timer = setTimeout(() => {
       void request<FindResults>("find", { ...options })
         .then((data) => {
-          if (active) setResult({ key, data });
+          if (active) setResult({ key, epoch: snapshot.datasetEpoch, data });
         })
         .catch((error) => {
-          if (active) setResult({ key, error: error.message });
+          if (active)
+            setResult({
+              key,
+              epoch: snapshot.datasetEpoch,
+              error: error.message,
+            });
         });
     }, 90);
     return () => {
@@ -47,6 +57,7 @@ function useFindResults(options: FindOptions) {
   }, [key]);
   return {
     data: result?.key === key ? result.data : undefined,
+    facets: result?.epoch === snapshot.datasetEpoch ? result.data : undefined,
     error: result?.key === key ? result.error : undefined,
     busy: result?.key !== key,
   };
@@ -55,13 +66,21 @@ function useFindResults(options: FindOptions) {
 export function FindDialog({ close }: { close: () => void }) {
   const [text, setText] = useState(() => findState().options.text);
   const [selected, setSelected] = useState(0);
+  const [match, setMatch] = useState<"words" | "cosine">(() =>
+    findState().options.match === "cosine" ? "cosine" : "words",
+  );
+  const quickOptions = {
+    ...defaultFindOptions,
+    match,
+    fields: match === "cosine" ? ["name"] : defaultFindOptions.fields,
+  };
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const submitted = useRef(false);
   const listId = useId();
   const { data, busy, error } = useFindResults({
-    ...defaultFindOptions,
+    ...quickOptions,
     text,
     limit: 6,
   });
@@ -82,7 +101,7 @@ export function FindDialog({ close }: { close: () => void }) {
     setSubmitError("");
     try {
       if (iri) await request("select", { iri });
-      updateFind({ ...defaultFindOptions, text: text.trim() }, iri);
+      updateFind({ ...quickOptions, text: text.trim() }, iri);
       rememberFind();
       submitted.current = true;
       close();
@@ -107,6 +126,21 @@ export function FindDialog({ close }: { close: () => void }) {
           void submit();
         }}
       >
+        <label className="quick-find-mode">
+          Match
+          <select
+            aria-label="Quick Find match"
+            value={match}
+            onChange={(e) => {
+              setMatch(e.target.value as "words" | "cosine");
+              setSelected(0);
+              input.current?.focus();
+            }}
+          >
+            <option value="words">Words / type-ahead</option>
+            <option value="cosine">Cosine similarity</option>
+          </select>
+        </label>
         <input
           ref={input}
           autoFocus
@@ -164,7 +198,11 @@ export function FindDialog({ close }: { close: () => void }) {
               title={row.iri}
             >
               <span>{row.name}</span>
-              <small>{kindLabel(row.kind)}</small>
+              <small>
+                {kindLabel(row.kind)}
+                {row.similarity !== undefined &&
+                  " · " + row.similarity.toFixed(3)}
+              </small>
             </button>
           ))}
         </div>
@@ -200,11 +238,26 @@ export function FindDialog({ close }: { close: () => void }) {
 
 export function FindPanel() {
   const { options, selected, recent } = useFindState();
-  const { data, busy, error } = useFindResults(options);
+  const { data, facets, busy, error } = useFindResults(options);
+  const [fieldFilter, setFieldFilter] = useState("");
+  const fields = facets?.fields ?? [];
+  const cosine = options.match === "cosine";
+  const fieldSelected = (id: string) =>
+    options.fields.includes("*") || options.fields.includes(id);
+  const toggleField = (id: string, checked: boolean) => {
+    const current = options.fields.includes("*")
+      ? fields.map((f) => f.id)
+      : options.fields;
+    updateFind({
+      fields: checked ? [...current, id] : current.filter((f) => f !== id),
+    });
+  };
   const snapshot = useSnapshot()!;
   const root = useRef<HTMLElement>(null);
   const [actionError, setActionError] = useState("");
   const [message, setMessage] = useState("");
+  const [openingGraph, setOpeningGraph] = useState(false);
+  const graphPending = useRef(false);
   const rows = data?.rows ?? [];
   const active = rows.find((row) => row.iri === selected);
   useEffect(() => {
@@ -213,7 +266,15 @@ export function FindPanel() {
   }, [snapshot.datasetEpoch]);
   useEffect(() => {
     root.current?.querySelector(".find-results-scroll")?.scrollTo({ top: 0 });
-  }, [options.offset, options.text, options.kind, options.sort]);
+  }, [
+    options.offset,
+    options.text,
+    options.kinds,
+    options.fields,
+    options.match,
+    options.minimumSimilarity,
+    options.sort,
+  ]);
   const run = (action: () => Promise<unknown>) => {
     setActionError("");
     setMessage("");
@@ -234,6 +295,27 @@ export function FindPanel() {
         command("view.graph");
       }
       command("graph.fit");
+    });
+  };
+  const graphResults = () => {
+    if (busy || !data?.total || graphPending.current) return;
+    graphPending.current = true;
+    setOpeningGraph(true);
+    run(async () => {
+      try {
+        const id = await request<string>("graphCreate", {
+          find: options,
+          datasetEpoch: snapshot.datasetEpoch,
+          version: snapshot.version,
+        });
+        // IPC replies can arrive before the broadcast snapshot. Register the
+        // new graph before opening its tab; the new canvas fits itself on mount.
+        setState(await request<Snapshot>("state"));
+        command("view." + id);
+      } finally {
+        graphPending.current = false;
+        setOpeningGraph(false);
+      }
     });
   };
   const offset = data?.offset ?? options.offset;
@@ -268,7 +350,9 @@ export function FindPanel() {
             maxLength={256}
             placeholder="Name, IRI or order reference"
             value={options.text}
-            onChange={(e) => updateFind({ text: e.target.value })}
+            onChange={(e) =>
+              updateFind({ text: e.target.value, excludeIri: "" })
+            }
             onBlur={rememberFind}
           />
           <button
@@ -282,7 +366,9 @@ export function FindPanel() {
             <select
               aria-label="Recent searches"
               value=""
-              onChange={(e) => updateFind({ text: e.target.value })}
+              onChange={(e) =>
+                updateFind({ text: e.target.value, excludeIri: "" })
+              }
             >
               <option value="" disabled>
                 Recent searches
@@ -297,43 +383,21 @@ export function FindPanel() {
         </div>
         <div className="find-filters">
           <label>
-            Type
-            <select
-              aria-label="Entity type"
-              value={options.kind}
-              onChange={(e) =>
-                updateFind({ kind: e.target.value as FindOptions["kind"] })
-              }
-            >
-              <option value="all">All entities</option>
-              <option value="classes">Classes</option>
-              <option value="individuals">Individuals</option>
-              <option value="properties">Properties</option>
-            </select>
-          </label>
-          <label>
-            Search in
-            <select
-              aria-label="Search in"
-              value={options.field}
-              onChange={(e) =>
-                updateFind({ field: e.target.value as FindOptions["field"] })
-              }
-            >
-              <option value="all">Names and IRIs</option>
-              <option value="name">Names and aliases</option>
-              <option value="iri">IRIs</option>
-            </select>
-          </label>
-          <label>
             Match
             <select
               aria-label="Match mode"
               value={options.match}
               onChange={(e) =>
-                updateFind({ match: e.target.value as FindOptions["match"] })
+                updateFind({
+                  match: e.target.value as FindOptions["match"],
+                  ...(e.target.value === "cosine" &&
+                  options.fields.join(",") === "name,iri"
+                    ? { fields: ["name"] }
+                    : {}),
+                })
               }
             >
+              <option value="cosine">Cosine similarity</option>
               <option value="words">All words / type-ahead</option>
               <option value="phrase">Contains phrase</option>
               <option value="exact">Exact</option>
@@ -354,6 +418,22 @@ export function FindPanel() {
               <option value="iri">IRI</option>
             </select>
           </label>
+          {cosine && (
+            <label className="find-threshold">
+              Minimum similarity: {options.minimumSimilarity.toFixed(2)}
+              <input
+                aria-label="Minimum similarity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={options.minimumSimilarity}
+                onChange={(e) =>
+                  updateFind({ minimumSimilarity: +e.target.value })
+                }
+              />
+            </label>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -363,57 +443,210 @@ export function FindPanel() {
             Reset filters
           </button>
         </div>
-      </form>
-      <div className="find-summary" role="status">
-        {busy
-          ? "Searching..."
-          : options.text.trim()
-            ? total.toLocaleString() + (total === 1 ? " match" : " matches")
-            : "Type a name, IRI or order reference to find entities."}
-      </div>
-      {(error || actionError) && (
-        <p className="validation-error" role="alert">
-          {error || actionError}
-        </p>
-      )}
-      <div className="find-results-scroll" aria-busy={busy}>
-        <table className="find-results" aria-label="Found entities">
-          <thead>
-            <tr>
-              <th scope="col">Entity</th>
-              <th scope="col">Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.iri} data-selected={selected === row.iri}>
-                <td>
-                  <button
-                    type="button"
-                    className="find-result-name"
-                    aria-pressed={selected === row.iri}
-                    onClick={() => choose(row.iri)}
-                    onDoubleClick={() => editEntity(row.iri)}
-                  >
-                    {row.name}
-                  </button>
-                  <div className="find-result-iri" title={row.iri}>
-                    {row.iri}
-                  </div>
-                  {row.description && (
-                    <p className="find-result-description">{row.description}</p>
-                  )}
-                </td>
-                <td>{kindLabel(row.kind)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!busy && !rows.length && options.text.trim() && (
-          <p className="find-empty">
-            No matches. Try fewer words or reset the filters.
+        {cosine && (
+          <p className="find-method">
+            Cosine scores run from 0 to 1. Higher means closer wording. Each
+            result uses its best matching selected field.
           </p>
         )}
+      </form>
+      <div className="find-workarea">
+        <details className="find-facets" open>
+          <summary>
+            Search scope ·{" "}
+            {options.fields.includes("*")
+              ? "All fields"
+              : options.fields.length +
+                (options.fields.length === 1 ? " field" : " fields")}
+          </summary>
+          <fieldset className="find-type-facets">
+            <legend>Entity types</legend>
+            {findKinds.map((id) => {
+              const facet = facets?.kinds.find((f) => f.id === id);
+              const label =
+                facet?.label ??
+                {
+                  classes: "Classes",
+                  individuals: "Instances",
+                  properties: "Properties",
+                  other: "Other entities",
+                }[id];
+              return (
+                <label key={id}>
+                  <input
+                    type="checkbox"
+                    aria-label={label}
+                    checked={options.kinds.includes(id)}
+                    onChange={(e) =>
+                      updateFind({
+                        kinds: e.target.checked
+                          ? [...options.kinds, id]
+                          : options.kinds.filter((k) => k !== id),
+                      })
+                    }
+                  />
+                  {label}
+                  <span>{facet?.count ?? 0}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+          <fieldset className="find-field-facets">
+            <legend>Search fields</legend>
+            <div className="find-facet-tools">
+              <input
+                type="search"
+                aria-label="Filter search fields"
+                placeholder="Filter fields"
+                value={fieldFilter}
+                onChange={(e) => setFieldFilter(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => updateFind({ fields: ["*"] })}
+              >
+                All fields
+              </button>
+              <button
+                type="button"
+                onClick={() => updateFind({ fields: ["name"] })}
+              >
+                Names only
+              </button>
+              <button type="button" onClick={() => updateFind({ fields: [] })}>
+                Clear fields
+              </button>
+            </div>
+            <div className="find-field-list">
+              {fields
+                .filter((f) =>
+                  (f.label + " " + f.id)
+                    .toLocaleLowerCase()
+                    .includes(fieldFilter.toLocaleLowerCase()),
+                )
+                .map((f) => (
+                  <label
+                    key={f.id}
+                    title={
+                      f.id +
+                      " · " +
+                      f.count.toLocaleString() +
+                      " entities with this field"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={f.label}
+                      checked={fieldSelected(f.id)}
+                      onChange={(e) => toggleField(f.id, e.target.checked)}
+                    />
+                    <span>{f.label}</span>
+                    <small>{f.count.toLocaleString()}</small>
+                  </label>
+                ))}
+            </div>
+            {!options.fields.length && (
+              <p className="find-method">
+                Select at least one field to search.
+              </p>
+            )}
+          </fieldset>
+        </details>
+        <div className="find-matches">
+          <div className="find-results-toolbar">
+            <div className="find-summary" role="status">
+              {busy
+                ? "Searching..."
+                : options.text.trim()
+                  ? total.toLocaleString() +
+                    (total === 1 ? " match" : " matches")
+                  : "Type a name, IRI or order reference to find entities."}
+            </div>
+            <button
+              type="button"
+              onClick={graphResults}
+              disabled={busy || !total || openingGraph}
+              title="Open all filtered matches, across every page, with shared ancestry back to the roots"
+            >
+              {openingGraph ? "Opening graph..." : "Open results in new graph"}
+            </button>
+          </div>
+          {(error || actionError) && (
+            <p className="validation-error" role="alert">
+              {error || actionError}
+            </p>
+          )}
+          <div className="find-results-scroll" aria-busy={busy}>
+            <table className="find-results" aria-label="Found entities">
+              <thead>
+                <tr>
+                  <th scope="col">Entity</th>
+                  <th scope="col">Type</th>
+                  {cosine && (
+                    <th scope="col" className="find-score-column">
+                      Cosine
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.iri} data-selected={selected === row.iri}>
+                    <td>
+                      <button
+                        type="button"
+                        className="find-result-name"
+                        aria-pressed={selected === row.iri}
+                        onClick={() => choose(row.iri)}
+                        onDoubleClick={() => editEntity(row.iri)}
+                      >
+                        {row.name}
+                      </button>
+                      <div className="find-result-iri" title={row.iri}>
+                        {row.iri}
+                      </div>
+                      {cosine && row.matchedField && (
+                        <p className="find-match-evidence">
+                          <strong>
+                            {fields.find((f) => f.id === row.matchedField)
+                              ?.label ??
+                              compactIri(
+                                row.matchedField,
+                                snapshot.ontology.namespace,
+                              )}
+                          </strong>
+                          : {row.matchedValue}
+                        </p>
+                      )}
+                      {row.description && (
+                        <p className="find-result-description">
+                          {row.description}
+                        </p>
+                      )}
+                    </td>
+                    <td>{kindLabel(row.kind)}</td>
+                    {cosine && (
+                      <td className="find-score">
+                        <strong>{row.similarity?.toFixed(3)}</strong>
+                        <meter
+                          aria-label={"Cosine similarity for " + row.name}
+                          min="0"
+                          max="1"
+                          value={row.similarity ?? 0}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!busy && !rows.length && options.text.trim() && (
+              <p className="find-empty">
+                No matches. Try fewer words or reset the filters.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
       <footer className="find-footer">
         <div className="find-pagination" aria-label="Result pages">
@@ -482,36 +715,46 @@ export function FindPanel() {
           <span className="find-selected">
             {active?.name ?? "Select a result"}
           </span>
-          <button
-            disabled={!active}
-            onClick={() => active && editEntity(active.iri)}
-          >
-            Details
-          </button>
-          <button
-            disabled={!taxonomy}
-            onClick={() => active && revealInTaxonomy(active.iri)}
-          >
-            Find in taxonomy
-          </button>
-          <button disabled={!active} onClick={() => graph(true)}>
-            New graph
-          </button>
-          <button disabled={!active} onClick={() => graph(false)}>
-            Current graph
-          </button>
-          <button
-            disabled={!active}
-            onClick={() =>
-              active &&
-              run(async () => {
-                await window.axiom.copy(active.iri);
-                setMessage("IRI copied.");
-              })
-            }
-          >
-            Copy IRI
-          </button>
+          {active && (
+            <>
+              <button
+                disabled={!active}
+                onClick={() => active && editEntity(active.iri)}
+              >
+                Details
+              </button>
+              <button
+                disabled={!taxonomy}
+                onClick={() => active && revealInTaxonomy(active.iri)}
+              >
+                Find in taxonomy
+              </button>
+              <button
+                disabled={!active}
+                onClick={() => active && openSimilar(active.name, active.iri)}
+              >
+                Find similar
+              </button>
+              <button disabled={!active} onClick={() => graph(true)}>
+                New graph
+              </button>
+              <button disabled={!active} onClick={() => graph(false)}>
+                Current graph
+              </button>
+              <button
+                disabled={!active}
+                onClick={() =>
+                  active &&
+                  run(async () => {
+                    await window.axiom.copy(active.iri);
+                    setMessage("IRI copied.");
+                  })
+                }
+              >
+                Copy IRI
+              </button>
+            </>
+          )}
         </div>
         {message && <span role="status">{message}</span>}
       </footer>

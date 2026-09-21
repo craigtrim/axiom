@@ -1,3 +1,4 @@
+import { openSimilar } from "./find-state";
 import { openSparsity } from "./sparsity-view";
 import { openTaxonomy } from "./taxonomy-view";
 import { taxonomyChildren } from "../domain/class-expressions";
@@ -111,6 +112,12 @@ export function EntityMenu({
       run: () => command("entity.createIndividual"),
     },
     null,
+    {
+      label: "Find similar",
+      key: "M",
+      enabled: !!entity || !!node,
+      run: () => openSimilar(entity?.name || node?.label || iri, iri),
+    },
     {
       label: "Analyze sparsity",
       key: "Y",
