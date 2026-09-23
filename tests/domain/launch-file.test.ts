@@ -71,3 +71,15 @@ it("keeps a path that contains spaces intact", () => {
 it("keeps a relative path for the caller to resolve", () => {
   expect(launchCandidates([exe, "Ontology.axiom"])).toEqual(["Ontology.axiom"]);
 });
+it("keeps a bare application id distinguishable from a path", () => {
+  // main.ts reports a missing file only when the candidate carries a separator, so
+  // an id that merely ends in ".axiom" never reaches the error log as a file name.
+  const [id, file] = launchCandidates([
+    exe,
+    "--source-app-id",
+    "com.craigtrim.axiom",
+    workspace,
+  ]);
+  expect(/[\\/]/.test(id)).toBe(false);
+  expect(/[\\/]/.test(file)).toBe(true);
+});
