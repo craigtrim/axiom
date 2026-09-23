@@ -443,17 +443,22 @@ async function flushEditors(gridOnly = false) {
     send(gridOnly ? "editors.flushGrid" : "editors.flush");
   });
 }
-async function saveBeforeWorkspaceChange() {
+async function saveBeforeWorkspaceChange(capture = true) {
   if (saving) await saving;
-  await saveWorkspace(false, true, true);
+  await saveWorkspace(false, true, true, capture);
   return true;
 }
 let saving: Promise<boolean> | undefined;
-function saveWorkspace(as: boolean, automatic = false, archive = false) {
+function saveWorkspace(
+  as: boolean,
+  automatic = false,
+  archive = false,
+  capture = true,
+) {
   const previous = saving;
   const operation = (
     previous ? previous.catch(() => false) : Promise.resolve()
-  ).then(() => writeWorkspace(as, automatic, archive));
+  ).then(() => writeWorkspace(as, automatic, archive, capture));
   saving = operation;
   void operation
     .finally(() => {
@@ -491,6 +496,7 @@ async function writeWorkspace(
   as: boolean,
   automatic: boolean,
   archive: boolean,
+  capture = true,
 ) {
   let file = workspacePath;
   if (!automatic && (!file || as)) {
@@ -503,7 +509,7 @@ async function writeWorkspace(
     file = r.filePath;
   }
   if (!automatic) await flushEditors(true);
-  await capturePreferences();
+  if (capture) await capturePreferences();
   const document = await request<
     Workspace & {
       storeVersion: number;
@@ -588,8 +594,9 @@ async function autosave() {
 }
 async function openWorkspace(recentFile?: string, atStartup = false) {
   // A launch path arrives before the workbench mounts, so there is no view state to
-  // capture and no listener to answer the request.
-  if (!atStartup && !(await saveBeforeWorkspaceChange())) return;
+  // capture and no listener to answer the request. The archive still runs, so an
+  // unsaved workspace restored from the last session keeps its recovery copy.
+  if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
   let file = recentFile;
   if (!file) {
     const r = await dialog.showOpenDialog(mainWindow!, {
