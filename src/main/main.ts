@@ -9,6 +9,7 @@ import { AuditLog, auditFailureId } from "./audit-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
+import { launchPath, openableExtensions } from "../shared/launch-file";
 import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
@@ -73,6 +74,10 @@ if (process.env.AXIOM_USER_DATA)
   app.setPath("userData", path.resolve(process.env.AXIOM_USER_DATA));
 app.setName("Axiom");
 app.setAppUserModelId("com.craigtrim.axiom");
+// craigtrim/axiom#1: a second launch hands its argv to the running instance instead of
+// starting a rival process that would contend for the session file and the autosave.
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) app.quit();
 let mainWindow: BrowserWindow | null = null,
   worker: Worker,
   sequence = 0,
@@ -80,6 +85,44 @@ let mainWindow: BrowserWindow | null = null,
   lastState: Snapshot | undefined,
   workspacePath: string | undefined,
   closing = false;
+let launchFile: string | undefined,
+  launchReady = false;
+function resolveLaunchPath(argv: readonly string[], cwd: string) {
+  const file = launchPath(argv);
+  return file ? path.resolve(cwd, file) : undefined;
+}
+async function openLaunchFile(file: string, atStartup = false) {
+  launchFile = undefined;
+  try {
+    await stat(file);
+  } catch {
+    // A path that no longer exists reaches the error log rather than a modal at startup.
+    await errorLog.record(
+      "The file could not be opened because it is missing or unreadable.",
+      "Open file from launch",
+      { ...errorContext(), file },
+    );
+    return;
+  }
+  await command("file.open", file, atStartup);
+}
+launchFile = resolveLaunchPath(process.argv, process.cwd());
+app.on("second-instance", (_event, argv, cwd) => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+  const file = resolveLaunchPath(argv, cwd);
+  if (!file) return;
+  if (launchReady) void openLaunchFile(file);
+  else launchFile = file;
+});
+// macOS never carries the path in argv, and this can arrive before the window exists.
+app.on("open-file", (event, file) => {
+  event.preventDefault();
+  if (launchReady) void openLaunchFile(file);
+  else launchFile = file;
+});
 const pending = new Map<
   number,
   { resolve: (v: any) => void; reject: (e: Error) => void }
@@ -400,17 +443,22 @@ async function flushEditors(gridOnly = false) {
     send(gridOnly ? "editors.flushGrid" : "editors.flush");
   });
 }
-async function saveBeforeWorkspaceChange() {
+async function saveBeforeWorkspaceChange(capture = true) {
   if (saving) await saving;
-  await saveWorkspace(false, true, true);
+  await saveWorkspace(false, true, true, capture);
   return true;
 }
 let saving: Promise<boolean> | undefined;
-function saveWorkspace(as: boolean, automatic = false, archive = false) {
+function saveWorkspace(
+  as: boolean,
+  automatic = false,
+  archive = false,
+  capture = true,
+) {
   const previous = saving;
   const operation = (
     previous ? previous.catch(() => false) : Promise.resolve()
-  ).then(() => writeWorkspace(as, automatic, archive));
+  ).then(() => writeWorkspace(as, automatic, archive, capture));
   saving = operation;
   void operation
     .finally(() => {
@@ -448,6 +496,7 @@ async function writeWorkspace(
   as: boolean,
   automatic: boolean,
   archive: boolean,
+  capture = true,
 ) {
   let file = workspacePath;
   if (!automatic && (!file || as)) {
@@ -460,7 +509,7 @@ async function writeWorkspace(
     file = r.filePath;
   }
   if (!automatic) await flushEditors(true);
-  await capturePreferences();
+  if (capture) await capturePreferences();
   const document = await request<
     Workspace & {
       storeVersion: number;
@@ -543,28 +592,18 @@ async function autosave() {
     console.warn("Workspace autosave failed:", cleanErrorMessage(error));
   }
 }
-async function openWorkspace(recentFile?: string) {
-  if (!(await saveBeforeWorkspaceChange())) return;
+async function openWorkspace(recentFile?: string, atStartup = false) {
+  // A launch path arrives before the workbench mounts, so there is no view state to
+  // capture and no listener to answer the request. The archive still runs, so an
+  // unsaved workspace restored from the last session keeps its recovery copy.
+  if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
   let file = recentFile;
   if (!file) {
     const r = await dialog.showOpenDialog(mainWindow!, {
       title: "Open Axiom workspace",
       properties: ["openFile"],
       filters: [
-        {
-          name: "Workspaces and ontologies",
-          extensions: [
-            "axiom",
-            "ttl",
-            "rdf",
-            "owl",
-            "xml",
-            "nt",
-            "nq",
-            "trig",
-            "jsonld",
-          ],
-        },
+        { name: "Workspaces and ontologies", extensions: openableExtensions },
         { name: "Axiom workspace", extensions: ["axiom"] },
       ],
     });
@@ -603,7 +642,7 @@ async function openWorkspace(recentFile?: string) {
   await checkpointSession();
   await rememberFile(file);
 }
-async function command(id: string, recentFile?: string) {
+async function command(id: string, recentFile?: string, atStartup = false) {
   const changesWorkspace = [
     "file.new",
     "file.open",
@@ -645,7 +684,7 @@ async function command(id: string, recentFile?: string) {
             }
             break;
           case "file.open":
-            await openWorkspace(recentFile);
+            await openWorkspace(recentFile, atStartup);
             break;
           case "file.save":
             await saveWorkspace(false);
@@ -883,6 +922,7 @@ function installMenu() {
   refreshMenu();
 }
 app.whenReady().then(async () => {
+  if (!hasInstanceLock) return;
   try {
     const p = JSON.parse(await readFile(settingsPath(), "utf8"));
     preferences = readPreferences(p);
@@ -1630,6 +1670,8 @@ app.whenReady().then(async () => {
       detail: "You can open your saved ontology or workspace from File > Open.",
     });
   refreshMenu();
+  launchReady = true;
+  if (launchFile) await openLaunchFile(launchFile, true);
   if (preferences.maximized) mainWindow.maximize();
   autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
   autosaveTimer.unref();
