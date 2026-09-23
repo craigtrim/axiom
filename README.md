@@ -34,6 +34,8 @@ npm run package
 
 Packaging creates an immutable folder under artifacts/electron-<timestamp>/Axiom-win32-x64 and prints the absolute path to Axiom.exe. The latest build is also recorded in artifacts/latest-electron.json.
 
+To open .axiom files by double-clicking them, copy the packaged folder somewhere permanent and register the extension with scripts/register-file-type.ps1. See docs/file-association.md.
+
 ## Work with the ontology
 
 The workbench has Hierarchy, Graph, Inspector, Research, Individuals, Query and Source panes, plus entity document tabs and Filesystem provenance. Drag tabs to reorganize them; drag dividers to resize. Use the Window menu for keyboard alternatives and View to reopen a closed pane. Layout, theme, filters, query text and window bounds are saved locally. Light is the default theme; an existing theme choice is preserved.
