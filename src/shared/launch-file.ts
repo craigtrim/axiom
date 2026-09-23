@@ -12,20 +12,18 @@ export const openableExtensions = [
   "jsonld",
 ];
 /**
- * Switches whose value arrives as the following argument rather than after an equals
- * sign. Electron adds --source-app-id when a second launch hands its argv over, and
- * the application id it carries ends in ".axiom" like a workspace would.
+ * Windows and Linux deliver a launch path in argv, mixed in with Chromium switches and
+ * the application directory of a development run. Matching on the extensions Axiom
+ * opens keeps those out without relying on argument position.
+ *
+ * More than one argument can match. A handover from a second launch carries
+ * --source-app-id, and a build that passes its value as a separate argument passes the
+ * application id, which ends in ".axiom" the way a workspace does. The caller resolves
+ * the candidates in order and prefers one that exists, which tells the two apart.
  */
-const switchesTakingAValue = ["--source-app-id"];
-/**
- * Windows and Linux deliver a launch path in argv, mixed in with Chromium switches
- * and the application directory of a development run. Matching on the extensions
- * Axiom opens keeps those out without relying on argument position.
- */
-export function launchPath(argv: readonly string[]) {
-  return argv.slice(1).find((argument, index, all) => {
+export function launchCandidates(argv: readonly string[]) {
+  return argv.slice(1).filter((argument) => {
     if (argument.startsWith("-")) return false;
-    if (switchesTakingAValue.includes(all[index - 1])) return false;
     const dot = argument.lastIndexOf(".");
     return (
       dot > 0 &&

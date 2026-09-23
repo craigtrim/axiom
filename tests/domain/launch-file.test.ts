@@ -1,36 +1,42 @@
 // craigtrim/axiom#1
 import { expect, it } from "vitest";
-import { launchPath } from "../../src/shared/launch-file";
+import { launchCandidates } from "../../src/shared/launch-file";
 const exe = "C:\\Program Files\\Axiom\\Axiom.exe";
 const electron = "C:\\git\\axiom\\node_modules\\electron\\dist\\electron.exe";
 const workspace = "C:\\work\\Ontology.axiom";
 
 it("reads the file a packaged build receives", () => {
-  expect(launchPath([exe, workspace])).toBe(workspace);
+  expect(launchCandidates([exe, workspace])).toEqual([workspace]);
 });
 it("skips the application directory a development run carries", () => {
-  expect(launchPath([electron, ".", workspace])).toBe(workspace);
+  expect(launchCandidates([electron, ".", workspace])).toEqual([workspace]);
 });
 it("ignores Chromium switches wherever they appear", () => {
-  expect(launchPath([exe, "--allow-file-access-from-files", workspace])).toBe(
-    workspace,
-  );
-  expect(launchPath([electron, "--inspect", ".", workspace])).toBe(workspace);
-});
-it("ignores the value a switch carries as its own argument", () => {
-  // A handover from a second launch arrives with --source-app-id and its value.
+  // These are the switches a real handover carries, in the order Electron sends them.
   expect(
-    launchPath([
+    launchCandidates([
       exe,
+      "--allow-file-access-from-files",
       "--secure-schemes=app",
       "--source-app-id",
-      ".",
       workspace,
     ]),
-  ).toBe(workspace);
-  expect(launchPath([exe, "--source-app-id", "com.craigtrim.axiom"])).toBe(
-    undefined,
-  );
+  ).toEqual([workspace]);
+  expect(launchCandidates([electron, "--inspect", ".", workspace])).toEqual([
+    workspace,
+  ]);
+});
+it("keeps an application id ahead of the file so the caller can tell them apart", () => {
+  // Where a build gives --source-app-id a value of its own, that value ends in
+  // ".axiom" too. Both are returned in order, and only the file exists on disk.
+  expect(
+    launchCandidates([
+      exe,
+      "--source-app-id",
+      "com.craigtrim.axiom",
+      workspace,
+    ]),
+  ).toEqual(["com.craigtrim.axiom", workspace]);
 });
 it("accepts the ontology files File > Open accepts", () => {
   for (const extension of [
@@ -43,30 +49,25 @@ it("accepts the ontology files File > Open accepts", () => {
     "trig",
     "jsonld",
   ])
-    expect(launchPath([exe, "C:\\work\\Pizza." + extension])).toBe(
+    expect(launchCandidates([exe, "C:\\work\\Pizza." + extension])).toEqual([
       "C:\\work\\Pizza." + extension,
-    );
+    ]);
 });
 it("matches an extension in any case", () => {
-  expect(launchPath([exe, "C:\\work\\Ontology.AXIOM"])).toBe(
+  expect(launchCandidates([exe, "C:\\work\\Ontology.AXIOM"])).toEqual([
     "C:\\work\\Ontology.AXIOM",
-  );
+  ]);
 });
 it("returns nothing when no openable file was supplied", () => {
-  expect(launchPath([exe])).toBeUndefined();
-  expect(launchPath([electron, "."])).toBeUndefined();
-  expect(launchPath([exe, "C:\\work\\notes.txt"])).toBeUndefined();
-  expect(launchPath([exe, "--enable-logging"])).toBeUndefined();
-});
-it("takes only the first path when several are supplied", () => {
-  expect(launchPath([exe, workspace, "C:\\work\\Second.axiom"])).toBe(
-    workspace,
-  );
+  expect(launchCandidates([exe])).toEqual([]);
+  expect(launchCandidates([electron, "."])).toEqual([]);
+  expect(launchCandidates([exe, "C:\\work\\notes.txt"])).toEqual([]);
+  expect(launchCandidates([exe, "--enable-logging"])).toEqual([]);
 });
 it("keeps a path that contains spaces intact", () => {
   const spaced = "C:\\My Work\\Pizza Ontology.axiom";
-  expect(launchPath([exe, spaced])).toBe(spaced);
+  expect(launchCandidates([exe, spaced])).toEqual([spaced]);
 });
 it("keeps a relative path for the caller to resolve", () => {
-  expect(launchPath([exe, "Ontology.axiom"])).toBe("Ontology.axiom");
+  expect(launchCandidates([exe, "Ontology.axiom"])).toEqual(["Ontology.axiom"]);
 });

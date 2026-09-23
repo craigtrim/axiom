@@ -787,7 +787,6 @@ Records: artifacts/find-unit.json, artifacts/find-desktop-final.json, artifacts/
 
 Executable: D:\git\axiom\artifacts\electron-20260919T022114Z\Axiom-win32-x64\Axiom.exe
 
-
 ## 2026-09-18: Full workspace autosave
 
 Axiom saves the complete session every 30 seconds and saves again before closing or changing workspaces. Named .axiom files update automatically. Unnamed workspaces retain session recovery and a separate archived workspace on close or switch, accessible from Recent. Ontology data, graph positions, cluster and radial guides, pins, edge routes, visibility, node admission settings, styles, camera, selection, pane layout and window bounds are retained. Existing imported source files remain separate.
@@ -799,7 +798,6 @@ Validation: 36 domain checks and 19 distinct packaged desktop checks passed acro
 Records: artifacts/autosave-unit.json, artifacts/autosave-packaged.json, artifacts/autosave-final-packaged.json and artifacts/autosave-package-check.json.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T025252Z\Axiom-win32-x64\Axiom.exe
-
 
 ## 2026-09-18: Find Synonyms
 
@@ -815,7 +813,6 @@ Records: artifacts/synonyms-unit.json, artifacts/synonyms-final-packaged.json an
 
 Executable: D:\git\axiom\artifacts\electron-20260919T035603Z\Axiom-win32-x64\Axiom.exe
 
-
 ## 2026-09-18: Taxonomy drag-and-drop moves
 
 Dragging a class onto another class changes its rdfs:subClassOf assertion. The move replaces the dragged branch and preserves other parents, descendants, instances, annotations, restrictions and equivalent-class definitions. A definition-derived branch gains an explicit subclass assertion. The drop target becomes the preferred visible parent. Details, Source and graph views refresh from the same RDF change; one Undo restores the prior relationships and graph state.
@@ -827,7 +824,6 @@ Validation: 18 unit checks and all 15 focused packaged desktop journeys passed. 
 Records: artifacts/taxonomy-move-unit.json, artifacts/taxonomy-move-final-packaged.json and artifacts/taxonomy-move-package-check.json. Screenshot: artifacts/testing/taxonomy-move.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T041414Z\Axiom-win32-x64\Axiom.exe
-
 
 ## 2026-09-19: Local taxonomy sparsity analysis
 
@@ -841,7 +837,6 @@ Method and references: docs/sparsity-analysis.md. Records: artifacts/sparsity-un
 
 Executable: D:\git\axiom\artifacts\electron-20260920T012025Z\Axiom-win32-x64\Axiom.exe
 
-
 ## 2026-09-19: Start ready suggestions on selection
 
 Selecting Add Children, Add Parents, Find Synonyms, Find Instances or a saved custom suggestion now starts its run automatically. Switching suggestion types and saving a completed definition also start the selected suggestion. Define New remains an editor until saved. Results still require review and explicit application.
@@ -853,7 +848,6 @@ Validation: TypeScript, whitespace checks and all ten scheduling tests passed. A
 Records: artifacts/suggestion-starts-unit.json, artifacts/suggestion-autostart-desktop.json, artifacts/suggestion-autostart-queue.json, artifacts/suggestion-autostart-packaged.json and artifacts/suggestion-autostart-package-check.json.
 
 Executable: D:\git\axiom\artifacts\electron-20260920T013904Z\Axiom-win32-x64\Axiom.exe
-
 
 ## 2026-09-21: Faceted cosine search
 
@@ -867,7 +861,6 @@ Records: artifacts/cosine-find-unit.json, artifacts/cosine-find-packaged.json an
 
 Executable: D:\git\axiom\artifacts\electron-20260921T155458Z\Axiom-win32-x64\Axiom.exe
 
-
 ## 2026-09-21: Find results with shared ancestry
 
 Find now opens the complete filtered result set in a separate graph tab. Pagination does not limit the exported results. A breadth-first traversal includes unique ancestors through every parent path to the recorded roots, including instance types and property ancestry. Equivalent intersections preserve their original relationships. Graphs open radially around their roots; existing graphs and Find state are preserved. Results exceeding the graph node limit are rejected before any view changes.
@@ -877,7 +870,6 @@ Validation: TypeScript and 16 focused unit tests passed, covering all pages, cos
 Records: artifacts/find-graph-unit.json, artifacts/find-graph-packaged.json and artifacts/find-graph-package-check.json. Screenshots: artifacts/testing/find-open-results.png and artifacts/testing/find-results-ancestry.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260921T184719Z\Axiom-win32-x64\Axiom.exe
-
 
 ## 2026-09-21: Saved tab names and workspace history
 
@@ -890,3 +882,13 @@ Validation: TypeScript, formatting and whitespace checks passed, along with 22 u
 Records: artifacts/tab-history-unit.json, artifacts/tab-history-packaged.json, artifacts/tab-history-final-packaged.json and artifacts/tab-history-package-check.json. Screenshot: artifacts/testing/tab-history.png. Usage: docs/tab-history.md.
 
 Executable: D:\git\axiom\artifacts\electron-20260921T210417Z\Axiom-win32-x64\Axiom.exe
+
+## 2026-09-23: Opening .axiom files from the desktop
+
+Axiom opens a workspace or ontology path given at launch. Windows and Linux deliver it in argv, macOS through open-file, and a second launch through second-instance under a single-instance lock, which keeps one Axiom per profile. The argv parser matches the extensions File > Open accepts rather than argument position, because a development run carries the application directory and a handover carries --source-app-id with the application id, which itself ends in .axiom. A launch path skips the pre-save view capture, since the workbench has not mounted and no listener would answer it, while the recovery archive still runs. A missing path is recorded in the error log instead of a modal over an empty window.
+
+scripts/register-file-type.ps1 writes an Axiom.Workspace ProgID and the .axiom entry under the per-user class root, with an icon, a command line quoting %1, and a removal switch. It refuses a directory with no Axiom.exe and rewrites existing entries when Axiom moves.
+
+Validation: TypeScript, formatting and 2254 unit tests passed, including ten parser tests covering the switch-value collision, the development application directory, mixed switches and unopenable extensions. Seven registration tests drive the script through powershell.exe against a scratch class root per run, asserting the command line, icon, ProgID, content type, repointing, removal and both refusals, then deleting the scratch root. Four desktop tests launch the real application with a workspace path, an ontology path, a path handed to a running instance from a plain process, and a path that does not exist. The 34 ontology lifecycle and session startup desktop tests passed unchanged.
+
+Records: docs/file-association.md. Screenshot: artifacts/testing/launch-workspace.png.
