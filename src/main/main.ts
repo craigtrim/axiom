@@ -10,6 +10,7 @@ import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
+import { startUpdates } from "./updates";
 import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
@@ -1679,6 +1680,7 @@ app.whenReady().then(async () => {
   launchReady = true;
   if (launchFile) await openLaunchFile(launchFile, true);
   if (preferences.maximized) mainWindow.maximize();
+  startUpdates((message) => console.warn(message));
   autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
   autosaveTimer.unref();
 });
