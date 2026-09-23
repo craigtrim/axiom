@@ -9,7 +9,7 @@ import { AuditLog, auditFailureId } from "./audit-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
-import { launchPath } from "../shared/launch-file";
+import { launchPath, openableExtensions } from "../shared/launch-file";
 import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
@@ -603,20 +603,7 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
       title: "Open Axiom workspace",
       properties: ["openFile"],
       filters: [
-        {
-          name: "Workspaces and ontologies",
-          extensions: [
-            "axiom",
-            "ttl",
-            "rdf",
-            "owl",
-            "xml",
-            "nt",
-            "nq",
-            "trig",
-            "jsonld",
-          ],
-        },
+        { name: "Workspaces and ontologies", extensions: openableExtensions },
         { name: "Axiom workspace", extensions: ["axiom"] },
       ],
     });
