@@ -9,7 +9,7 @@ import { AuditLog, auditFailureId } from "./audit-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
-import { launchPath, openableExtensions } from "../shared/launch-file";
+import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
@@ -56,6 +56,7 @@ import {
   copyFile,
   stat,
 } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { DomainMethod, Preferences, Snapshot } from "../shared/protocol";
@@ -88,8 +89,13 @@ let mainWindow: BrowserWindow | null = null,
 let launchFile: string | undefined,
   launchReady = false;
 function resolveLaunchPath(argv: readonly string[], cwd: string) {
-  const file = launchPath(argv);
-  return file ? path.resolve(cwd, file) : undefined;
+  // An argument that exists wins over one that only looks like a path, which separates
+  // a real file from the application id a handover can carry. A path that is simply
+  // gone still returns, so it reaches the error log rather than vanishing.
+  const candidates = launchCandidates(argv).map((file) =>
+    path.resolve(cwd, file),
+  );
+  return candidates.find((file) => existsSync(file)) ?? candidates[0];
 }
 async function openLaunchFile(file: string, atStartup = false) {
   launchFile = undefined;
