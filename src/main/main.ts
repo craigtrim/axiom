@@ -10,6 +10,7 @@ import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, type SavedSession } from "./session-store";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
+import { startUpdates } from "./updates";
 import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
@@ -90,12 +91,16 @@ let launchFile: string | undefined,
   launchReady = false;
 function resolveLaunchPath(argv: readonly string[], cwd: string) {
   // An argument that exists wins over one that only looks like a path, which separates
-  // a real file from the application id a handover can carry. A path that is simply
-  // gone still returns, so it reaches the error log rather than vanishing.
-  const candidates = launchCandidates(argv).map((file) =>
-    path.resolve(cwd, file),
-  );
-  return candidates.find((file) => existsSync(file)) ?? candidates[0];
+  // a real file from the application id a handover can carry.
+  const candidates = launchCandidates(argv);
+  const resolved = candidates.map((file) => path.resolve(cwd, file));
+  const existing = resolved.find((file) => existsSync(file));
+  if (existing) return existing;
+  // Nothing exists, so a file that is simply gone should still reach the error log.
+  // Only a candidate carrying a separator is reported: a bare dotted name is the
+  // application id rather than a path, and naming it would report the wrong file.
+  const shaped = candidates.findIndex((file) => /[\\/]/.test(file));
+  return shaped < 0 ? undefined : resolved[shaped];
 }
 async function openLaunchFile(file: string, atStartup = false) {
   launchFile = undefined;
@@ -1679,6 +1684,7 @@ app.whenReady().then(async () => {
   launchReady = true;
   if (launchFile) await openLaunchFile(launchFile, true);
   if (preferences.maximized) mainWindow.maximize();
+  startUpdates((message) => console.warn(message));
   autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
   autosaveTimer.unref();
 });

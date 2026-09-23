@@ -1,82 +1,37 @@
-import { packager } from "@electron/packager";
-import {
-  mkdir,
-  mkdtemp,
-  cp,
-  writeFile,
-  readFile,
-  stat,
-} from "node:fs/promises";
+// craigtrim/axiom#6: builds Axiom-Setup.exe, replacing the loose packaged folder.
+import { build, Platform } from "electron-builder";
+import { readFile, writeFile, stat, mkdir } from "node:fs/promises";
 import path from "node:path";
-const root = process.cwd(),
-  stamp = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d+Z$/, "Z"),
-  out = path.join(root, "artifacts", "electron-" + stamp);
-await mkdir(path.join(root, "artifacts", "package-input"), { recursive: true });
-const stage = await mkdtemp(
-  path.join(root, "artifacts", "package-input", "axiom-"),
-);
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const config = require("../electron-builder.config.cjs");
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
-await cp("dist", path.join(stage, "dist"), {
-  recursive: true,
-  filter: (source) => !source.endsWith(".map"),
-});
-await writeFile(
-  path.join(stage, "package.json"),
-  JSON.stringify({
-    name: pkg.name,
-    productName: "Axiom",
-    version: pkg.version,
-    main: pkg.main,
-    description: pkg.description,
-    author: pkg.author,
-  }),
-);
 await import("./notices.mjs");
-await cp("LICENSES.md", path.join(stage, "LICENSES.md"));
-await cp(
-  "THIRD-PARTY-NOTICES.txt",
-  path.join(stage, "THIRD-PARTY-NOTICES.txt"),
-);
-const dirs = await packager({
-  dir: stage,
-  out,
-  name: "Axiom",
-  icon: path.join(root, "assets/axiom.ico"),
-  executableName: "Axiom",
-  platform: "win32",
-  arch: "x64",
-  electronVersion: pkg.devDependencies.electron,
-  asar: { unpackDir: "**/metadata" },
-  extraResource: [
-    path.join(root, "THIRD-PARTY-NOTICES.txt"),
-    path.join(root, "LICENSES.md"),
-  ],
-  prune: false,
-  overwrite: false,
-  appVersion: pkg.version,
-  buildVersion: pkg.version,
-  win32metadata: {
-    CompanyName: "Craig Trim",
-    FileDescription: "Axiom Ontology Workbench",
-    ProductName: "Axiom",
-  },
+const outputs = await build({
+  targets: Platform.WINDOWS.createTarget(),
+  config,
 });
-const executable = path.join(dirs[0], "Axiom.exe");
+const installer = outputs.find((file) => file.toLowerCase().endsWith(".exe"));
+if (!installer) throw Error("electron-builder produced no installer.");
+// The unpacked application is what the desktop tests run against.
+const directory = path.resolve(config.directories.output, "win-unpacked");
+const executable = path.join(directory, "Axiom.exe");
 await stat(executable);
+await mkdir("artifacts", { recursive: true });
 await writeFile(
   "artifacts/latest-electron.json",
   JSON.stringify(
     {
       version: pkg.version,
       builtAt: new Date().toISOString(),
-      directory: dirs[0],
+      directory,
       executable,
+      installer: path.resolve(installer),
+      signed: !!process.env.AXIOM_AZURE_SIGNING_ENDPOINT,
     },
     null,
     2,
   ),
 );
+console.log("Windows installer: " + path.resolve(installer));
 console.log("Windows executable: " + executable);

@@ -9,8 +9,10 @@ const supplemental = new Map([
   ["@rubensworks/saxes@6.0.1", "licenses/rubensworks-saxes-LICENSE.txt"],
   ["undici-types@5.26.5", "licenses/undici-types-5.26.5-LICENSE.txt"],
 ]);
+// craigtrim/axiom#6 added lazy-val, reached through electron-updater.
 const declaredMit = new Set([
   "asyncjoin@1.2.5",
+  "lazy-val@1.0.5",
   "sparqlalgebrajs@5.0.2",
   "tr46@0.0.3",
 ]);
@@ -91,5 +93,8 @@ for (const [location, metadata] of Object.entries(lock.packages)) {
     notices.push(mit.slice(mit.indexOf("Permission is hereby granted")));
   } else throw Error("Missing license for " + key);
 }
-await writeFile("THIRD-PARTY-NOTICES.txt", notices.join("\n\n").replace(/[ \t]+$/gm, ""));
+await writeFile(
+  "THIRD-PARTY-NOTICES.txt",
+  notices.join("\n\n").replace(/[ \t]+$/gm, ""),
+);
 console.log("Bundled dependency notices written.");

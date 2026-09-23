@@ -12,9 +12,11 @@ Axiom is a Windows desktop application built with Electron and TypeScript. It pr
 
 The previous WinUI implementation is recorded in [archive/](archive/README.md); its source archive is kept outside version control. Electron is the only active application.
 
-## Run a packaged build
+## Install a build
 
-Open the absolute executable path recorded in [artifacts/latest-electron.json](artifacts/latest-electron.json). Keep the executable beside its accompanying DLLs, resources and locales. The complete folder is portable and needs no separate Node.js or .NET installation.
+Run `Axiom-Setup-<version>.exe` from artifacts/installer/. It installs for the current account with no administrator prompt, adds Start menu and uninstall entries, and registers the .axiom file type so double-clicking a workspace opens it. See [docs/installation.md](docs/installation.md).
+
+The unpacked application is also written to artifacts/installer/win-unpacked, and its absolute path is recorded in [artifacts/latest-electron.json](artifacts/latest-electron.json) for desktop tests. That folder is portable and needs no separate Node.js or .NET installation.
 
 These local packages are unsigned. Signing and validation on a clean Windows 11 machine remain release requirements.
 
@@ -32,9 +34,7 @@ npm run verify
 npm run package
 ```
 
-Packaging creates an immutable folder under artifacts/electron-<timestamp>/Axiom-win32-x64 and prints the absolute path to Axiom.exe. The latest build is also recorded in artifacts/latest-electron.json.
-
-To open .axiom files by double-clicking them, copy the packaged folder somewhere permanent and register the extension with scripts/register-file-type.ps1. See docs/file-association.md.
+Packaging builds the installer and the unpacked application under artifacts/installer/, and prints the absolute path to both. The latest build is also recorded in artifacts/latest-electron.json.
 
 ## Work with the ontology
 
