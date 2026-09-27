@@ -1,7 +1,11 @@
+import {
+  alignAnonymousStatements,
+  mergeEntityStatements,
+} from "./entity-merge";
+import { NS, TYPE } from "./model";
 import { writeTurtleSnippet } from "./turtle-snippet";
 import { randomUUID } from "node:crypto";
 import { parseRdf, writeRdf } from "./rdf-io";
-import { statementKey } from "./rdf-model";
 import type { Store } from "./store";
 import type { Triple } from "./model";
 import {
@@ -34,8 +38,6 @@ export function entitySourceStatements(store: Store, iri: string) {
   }
   return result;
 }
-const fingerprint = (triples: Triple[]) =>
-  triples.map(statementKey).sort().join("\n");
 export async function entitySource(
   store: Store,
   datasetEpoch: number,
@@ -122,9 +124,7 @@ export async function applyEntitySource(
     if (
       input.datasetEpoch !== datasetEpoch ||
       !unchanged() ||
-      !Array.isArray(input.original) ||
-      fingerprint(entitySourceStatements(store, input.iri)) !==
-        fingerprint(input.original)
+      !Array.isArray(input.original)
     )
       throw Error(
         "This entity changed. Your source draft is preserved. Reload Source before saving.",
@@ -210,38 +210,63 @@ export async function applyEntitySource(
   }
   if (related.some((t) => !reachable.has(t.subject)))
     throw Error("Remove disconnected statements from this entity snippet.");
-  // Preserve removed structures still referenced by entities outside this snippet.
-  const scope = new Set(input.original.map((t) => t.subject));
+  const current = entitySourceStatements(store, input.iri);
+  const local = alignAnonymousStatements(
+    input.original,
+    [...roots, ...related],
+    input.iri,
+  );
+  const merged = mergeEntityStatements(
+    input.original,
+    local,
+    current,
+    new Set(
+      store.tbox
+        .filter(
+          (t) =>
+            t.predicate === TYPE &&
+            !t.object.literal &&
+            t.object.value === NS.owl + "FunctionalProperty",
+        )
+        .map((t) => t.subject),
+    ),
+  );
+  // Preserve shared anonymous descriptions even when this entity drops its link.
+  const scope = new Set([...input.original, ...current].map((t) => t.subject));
   const retained = new Set<string>();
   for (const t of store.tbox)
-    if (
-      !scope.has(t.subject) &&
-      !t.object.literal &&
-      originalBlanks.has(t.object.value) &&
-      !reachable.has(t.object.value)
-    )
+    if (!scope.has(t.subject) && !t.object.literal && scope.has(t.object.value))
       retained.add(t.object.value);
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const t of input.original)
+  const bySubject = new Map<string, Triple[]>();
+  for (const t of store.tbox) {
+    if (!bySubject.has(t.subject)) bySubject.set(t.subject, []);
+    bySubject.get(t.subject)!.push(t);
+  }
+  const pending = [...retained];
+  while (pending.length) {
+    for (const t of bySubject.get(pending.pop()!) ?? [])
       if (
-        retained.has(t.subject) &&
         !t.object.literal &&
-        originalBlanks.has(t.object.value) &&
+        scope.has(t.object.value) &&
         !retained.has(t.object.value)
       ) {
         retained.add(t.object.value);
-        changed = true;
+        pending.push(t.object.value);
       }
   }
-  const removed = new Set([...scope].filter((id) => id.startsWith("_:")));
-  return store.updateEntity(input.iri, roots, nextIri, {
-    subjects: removed,
-    statements: [
-      ...related,
-      ...input.original.filter(
-        (t) => retained.has(t.subject) && !reachable.has(t.subject),
-      ),
-    ],
-  });
+  const mergedSubjects = new Set(merged.map((t) => t.subject));
+  return store.updateEntity(
+    input.iri,
+    merged.filter((t) => t.subject === input.iri),
+    nextIri,
+    {
+      subjects: new Set([...scope].filter((id) => id.startsWith("_:"))),
+      statements: [
+        ...merged.filter((t) => t.subject !== input.iri),
+        ...store.tbox.filter(
+          (t) => retained.has(t.subject) && !mergedSubjects.has(t.subject),
+        ),
+      ],
+    },
+  );
 }

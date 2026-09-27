@@ -125,7 +125,8 @@ describe("entity source snippets", () => {
     const text = await writeRdf(
       doc.original.filter(
         (t) =>
-          t.subject === base + "A" && t.predicate !== NS.owl + "equivalentClass",
+          t.subject === base + "A" &&
+          t.predicate !== NS.owl + "equivalentClass",
       ),
       "turtle",
     );
@@ -133,5 +134,57 @@ describe("entity source snippets", () => {
     expect(store.resolve(base + "A")?.classExpressions ?? []).toHaveLength(0);
     expect(store.resolve(base + "Other")?.classExpressions).toHaveLength(1);
     expect([...store.scan(expression)].length).toBeGreaterThan(0);
+  });
+});
+
+describe("concurrent entity source edits", () => {
+  it.each(sourceFormats)(
+    "merges $id source label edits with a later parent addition",
+    async ({ id }) => {
+      const store = await make();
+      store.ontology.source = {
+        fileName: "ontology",
+        format: id,
+        baseIRI: base,
+        importedAt: "test",
+      };
+      const doc = await entitySource(store, 7, base + "A");
+      store.updateEntity(base + "A", [
+        ...store.entityStatements(base + "A"),
+        {
+          subject: base + "A",
+          predicate: NS.rdfs + "subClassOf",
+          object: { literal: false, value: base + "B" },
+        },
+      ]);
+      const before = structuredClone(store.tbox);
+      await applyEntitySource(store, 7, {
+        ...doc,
+        text: doc.text.replace("Alpha", "Updated"),
+      });
+      expect(store.resolve(base + "A")?.label).toBe("Updated");
+      expect(store.resolve(base + "A")?.parents).toContain(base + "B");
+      const expression = store.resolve(base + "A")?.classExpressions?.[0].iri;
+      expect(store.resolve(expression!)?.intersection?.members).toEqual([
+        base + "B",
+        base + "C",
+      ]);
+      store.undo();
+      expect(store.tbox).toEqual(before);
+    },
+  );
+  it("preserves a new external annotation while applying an unchanged source snippet", async () => {
+    const store = await make(),
+      doc = await entitySource(store, 4, base + "A");
+    store.updateEntity(base + "A", [
+      ...store.entityStatements(base + "A"),
+      {
+        subject: base + "A",
+        predicate: NS.rdfs + "comment",
+        object: { literal: true, value: "Added elsewhere" },
+      },
+    ]);
+    await applyEntitySource(store, 4, doc);
+    expect(store.resolve(base + "A")?.comment).toBe("Added elsewhere");
   });
 });

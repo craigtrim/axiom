@@ -1,4 +1,5 @@
 import { completeEditorStatement } from "../shared/statement-values";
+import { mergeEntityStatements } from "../domain/entity-merge";
 import { request, onCommand, report, state } from "./client";
 import type { Triple } from "../domain/model";
 import type { DocumentData, EditorDraft } from "../shared/editor-state";
@@ -110,43 +111,70 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
 async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
   if (
     d.statements.some(
-      (t) => !completeEditorStatement(t, d.loaded.statements, state?.entities.find(e=>e.iri===t.predicate)?.kind),
+      (t) =>
+        !completeEditorStatement(
+          t,
+          d.loaded.statements,
+          state?.entities.find((e) => e.iri === t.predicate)?.kind,
+        ),
     )
   )
     throw Error(
       "Finish or remove the incomplete row in Details before saving. Resource values need a matching entity or an IRI.",
     );
-  const current = await request<DocumentData>("entityDocument", { iri: d.iri });
-  if (
-    current.datasetEpoch !== d.loaded.datasetEpoch ||
-    JSON.stringify(current.statements) !== JSON.stringify(d.loaded.statements)
-  )
-    throw Error(
-      "This entity changed since editing began. Review it and reload before applying changes.",
-    );
-  const result = await request<string>("updateEntity", {
+  const { iri: result, document: loaded } = await request<{
+    iri: string;
+    document: DocumentData;
+  }>("updateEntity", {
     iri: d.iri,
     preserveSelection,
     nextIri: d.automaticIri ? d.iri : d.nextIri,
     statements: d.statements,
-    version: current.version,
-    datasetEpoch: current.datasetEpoch,
+    original: d.loaded.statements,
+    version: d.loaded.version,
+    datasetEpoch: d.loaded.datasetEpoch,
+    returnDocument: true,
   });
+  // A workspace switch clears drafts. Never restore one from the previous file.
+  if (epoch !== d.loaded.datasetEpoch) return result;
   const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
-  drafts.delete(key(d.iri, d.loaded.datasetEpoch));
+  const retarget = (t: Triple): Triple => ({
+    ...t,
+    subject: t.subject === d.iri ? result : t.subject,
+    predicate: t.predicate === d.iri ? result : t.predicate,
+    object:
+      !t.object.literal && t.object.value === d.iri
+        ? { ...t.object, value: result }
+        : t.object,
+    ...(t.graph === d.iri ? { graph: result } : {}),
+  });
+  if (result !== d.iri) entityRetargeted(d.iri, result, loaded.datasetEpoch);
   if (
     latest &&
-    JSON.stringify(latest.statements) !== JSON.stringify(d.statements)
+    (JSON.stringify(latest.statements) !== JSON.stringify(d.statements) ||
+      latest.nextIri !== d.nextIri)
   ) {
-    const loaded = await request<DocumentData>("entityDocument", {
+    // Rebase keystrokes made while the save was in flight onto what was saved,
+    // including changes merged by the worker. Keep the draft on conflict.
+    const next = {
+      ...latest,
       iri: result,
-    });
-    drafts.set(key(d.iri, d.loaded.datasetEpoch), {
-      ...(getEditorDraft(d.iri, d.loaded.datasetEpoch) ?? latest),
-      loaded,
-    });
-  }
-  if (result !== d.iri) entityRetargeted(d.iri, result, current.datasetEpoch);
+      nextIri: latest.nextIri === d.nextIri ? result : latest.nextIri,
+      statements: latest.statements.map(retarget),
+      loaded: { ...loaded, statements: d.statements.map(retarget) },
+    };
+    drafts.set(key(result, loaded.datasetEpoch), next);
+    try {
+      next.statements = mergeEntityStatements(
+        next.loaded.statements,
+        next.statements,
+        loaded.statements,
+      );
+      next.loaded = loaded;
+    } finally {
+      notify();
+    }
+  } else drafts.delete(key(result, loaded.datasetEpoch));
   notify();
   return result;
 }
@@ -166,8 +194,12 @@ onCommand((id) => {
         // drafts are retained in the workspace for later editing.
         const complete = () =>
           [...drafts.values()].find((d) =>
-            d.statements.every(
-              (t) => completeEditorStatement(t, d.loaded.statements, state?.entities.find(e=>e.iri===t.predicate)?.kind),
+            d.statements.every((t) =>
+              completeEditorStatement(
+                t,
+                d.loaded.statements,
+                state?.entities.find((e) => e.iri === t.predicate)?.kind,
+              ),
             ),
           );
         for (let draft = complete(); draft; draft = complete())

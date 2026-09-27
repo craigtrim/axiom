@@ -590,6 +590,37 @@ const engineeringFixture =
 :MilitaryScience a owl:Class; rdfs:label "Military Science" .
 :MilitaryEngineering a owl:Class; rdfs:label "Military Engineering";
  rdfs:comment "Original comment"; rdfs:subClassOf :MilitaryScience .`;
+async function externalEdit(
+  iri: string,
+  predicate: string,
+  value: string,
+  append = false,
+) {
+  await page.evaluate(
+    async ({ iri, predicate, value, append }) => {
+      const doc = await window.axiom.request<any>("entityDocument", { iri });
+      const statements = append
+        ? [
+            ...doc.statements,
+            { subject: iri, predicate, object: { literal: false, value } },
+          ]
+        : doc.statements.map((t: any) =>
+            t.predicate === predicate
+              ? { ...t, object: { ...t.object, value } }
+              : t,
+          );
+      await window.axiom.request("updateEntity", {
+        iri,
+        nextIri: iri,
+        statements,
+        version: doc.version,
+        datasetEpoch: doc.datasetEpoch,
+        preserveSelection: true,
+      });
+    },
+    { iri, predicate, value, append },
+  );
+}
 test("Engineering type-ahead repairs literal parent rows and stays available for new rows", async () => {
   await importText(
     engineeringFixture +
@@ -675,4 +706,123 @@ test("changing a populated text row to subClassOf restores suggestions without i
         )?.parents,
     )
     .toEqual([base + "MilitaryScience", base + "Engineering"]);
+});
+test("a pending comment merges with another view adding a parent and Undo retains that parent", async () => {
+  await comment().fill("Edited here");
+  await externalEdit(
+    base + "Alpha",
+    NS.rdfs + "subClassOf",
+    base + "Gamma",
+    true,
+  );
+  await expect(comment()).toHaveValue("Edited here");
+  await comment().press("Tab");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === base + "Alpha")?.comment,
+    )
+    .toBe("Edited here");
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "Alpha")?.parents,
+  ).toEqual([base + "Beta", base + "Gamma"]);
+  await expect(details().getByRole("alert")).toHaveCount(0);
+  await details().locator(".panel-toolbar strong").first().click();
+  await menu("edit.undo");
+  await expect(comment()).toHaveValue("Original comment");
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "Alpha")?.parents,
+  ).toContain(base + "Gamma");
+});
+test("contradictory comment edits preserve the draft and identify the conflicting field", async () => {
+  await comment().fill("Local replacement");
+  await externalEdit(base + "Alpha", NS.rdfs + "comment", "Remote replacement");
+  await comment().press("Tab");
+  await expect(details().getByRole("alert")).toContainText("rdfs:comment");
+  await expect(comment()).toHaveValue("Local replacement");
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "Alpha")?.comment,
+  ).toBe("Remote replacement");
+});
+test("source and grid merge independent edits to the same entity", async () => {
+  await openSource();
+  await setSource((await sourceText()).replace('"Alpha"', '"From source"'));
+  await comment().fill("From grid");
+  await comment().press("Tab");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === base + "Alpha")?.comment,
+    )
+    .toBe("From grid");
+  await details()
+    .getByRole("button", { name: "Save source", exact: true })
+    .click();
+  await expect(label()).toHaveValue("From source");
+  await expect(comment()).toHaveValue("From grid");
+  await expect(details().getByRole("alert")).toHaveCount(0);
+});
+test("two stale worker requests atomically merge parent additions without dropping either", async () => {
+  const result = await page.evaluate(
+    async ({ iri, parents, predicate }) => {
+      const doc = await window.axiom.request<any>("entityDocument", { iri });
+      await Promise.all(
+        parents.map((value) =>
+          window.axiom.request("updateEntity", {
+            iri,
+            nextIri: iri,
+            original: doc.statements,
+            version: doc.version,
+            datasetEpoch: doc.datasetEpoch,
+            statements: [
+              ...doc.statements,
+              { subject: iri, predicate, object: { literal: false, value } },
+            ],
+          }),
+        ),
+      );
+      return window.axiom.request<any>("entityDocument", { iri });
+    },
+    {
+      iri: base + "Alpha",
+      parents: [base + "Gamma", base + "Combined"],
+      predicate: NS.rdfs + "subClassOf",
+    },
+  );
+  expect(
+    result.statements
+      .filter((t: any) => t.predicate === NS.rdfs + "subClassOf")
+      .map((t: any) => t.object.value)
+      .sort(),
+  ).toEqual([base + "Beta", base + "Gamma", base + "Combined"].sort());
+});
+
+test("an old draft cannot merge into a newly opened ontology", async () => {
+  const doc = await page.evaluate(
+    (iri) => window.axiom.request<any>("entityDocument", { iri }),
+    base + "Alpha",
+  );
+  await importText(ttl, "replacement.ttl");
+  const error = await page.evaluate(
+    async ({ iri, doc }) => {
+      try {
+        await window.axiom.request("updateEntity", {
+          iri,
+          nextIri: iri,
+          original: doc.statements,
+          statements: doc.statements,
+          version: doc.version,
+          datasetEpoch: doc.datasetEpoch,
+        });
+        return "unexpected success";
+      } catch (e) {
+        return String(e);
+      }
+    },
+    { iri: base + "Alpha", doc },
+  );
+  expect(error).toContain("ontology changed");
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "Alpha")?.label,
+  ).toBe("Alpha");
 });

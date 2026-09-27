@@ -1,3 +1,4 @@
+import { mergeEntityStatements } from "../domain/entity-merge";
 import {
   textAnalysisDraft,
   createTextAnalysisClass,
@@ -695,7 +696,10 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       };
     }
     case "updateEntity": {
-      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      if (
+        a.datasetEpoch !== datasetEpoch ||
+        (!Array.isArray(a.original) && a.version !== store.version)
+      )
         throw Error("The ontology changed. Reload this editor before saving.");
       const iri = string(a, "iri"),
         next = typeof a.nextIri === "string" ? a.nextIri : iri;
@@ -704,11 +708,42 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         predicate: TYPE,
         object: { literal: false, value: THING },
       });
-      const updated = store.updateEntity(iri, a.statements as Triple[], next);
+      const statements = Array.isArray(a.original)
+        ? mergeEntityStatements(
+            a.original as Triple[],
+            a.statements as Triple[],
+            store.entityStatements(iri),
+            new Set(
+              store.tbox
+                .filter(
+                  (t) =>
+                    t.predicate === TYPE &&
+                    !t.object.literal &&
+                    t.object.value === NS.owl + "FunctionalProperty",
+                )
+                .map((t) => t.subject),
+            ),
+          )
+        : (a.statements as Triple[]);
+      const updated = store.updateEntity(iri, statements, next);
       if (!a.preserveSelection || selected === iri) selected = updated;
       retargetGraph(iri, updated);
       mutate("Entity updated.");
-      return updated;
+      return a.returnDocument
+        ? {
+            iri: updated,
+            document: {
+              entity: store.resolve(updated),
+              statements: store.entityStatements(updated),
+              parentExpressions: simpleParentExpressions(
+                store,
+                store.entityStatements(updated),
+              ),
+              version: store.version,
+              datasetEpoch,
+            },
+          }
+        : updated;
     }
     case "createProperty": {
       validateCreation(a);
