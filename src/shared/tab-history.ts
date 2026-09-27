@@ -10,6 +10,8 @@ export const tabTypes: Record<string, string> = {
   research: "Research",
   taxonomy: "Suggestions",
   sparsity: "Sparsity",
+  textanalysis: "Text Analysis",
+  textentities: "Text Entities",
   source: "Source",
   provenance: "Filesystem provenance",
   errorlog: "Error log",

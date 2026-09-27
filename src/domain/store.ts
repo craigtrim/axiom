@@ -47,6 +47,12 @@ import {
   type Adjacency,
   type TableFilter,
 } from "./model";
+export interface ClassCreation {
+  id: string;
+  name: string;
+  comment: string;
+  parents: ({ iri: string } | { id: string })[];
+}
 export class Store {
   ontology: OntologyInfo = {
     name: "Pizza ontology",
@@ -1157,6 +1163,85 @@ export class Store {
     this.entities = new Map(structuredClone(s.entities));
     this.tbox = structuredClone(s.tbox);
     this.rebuildSchema();
+  }
+  /** Create a hierarchy as one edit, validating every class before changing RDF. */
+  createClassHierarchy(classes: ClassCreation[]): Map<string, string> {
+    if (!classes.length) throw Error("Choose at least one class to add.");
+    const ids = new Map<string, string>(),
+      reserved = new Set<string>();
+    for (const item of classes) {
+      validLabel(item.name);
+      if (!item.id || ids.has(item.id))
+        throw Error("Duplicate class reference.");
+      if (!item.parents.length) throw Error("Choose an existing superclass.");
+      const iri = uniqueLabelIri(
+        item.name,
+        this.ontology.namespace,
+        (candidate) => reserved.has(candidate) || this.exists(candidate),
+      );
+      ids.set(item.id, iri);
+      reserved.add(iri);
+    }
+    const statements: Triple[] = [],
+      dependencies = new Map<string, Set<string>>();
+    for (const item of classes) {
+      const iri = ids.get(item.id)!;
+      const parents = new Set<string>(),
+        pendingParents = new Set<string>();
+      for (const ref of item.parents) {
+        if ("id" in ref) {
+          const parent = ids.get(ref.id);
+          if (!parent) throw Error("A new superclass is missing.");
+          parents.add(parent);
+          pendingParents.add(ref.id);
+        } else {
+          const parent = this.entities.get(ref.iri);
+          if (!parent || !namedClass(parent) || ref.iri.startsWith("_:"))
+            throw Error("Choose an existing superclass.");
+          parents.add(ref.iri);
+        }
+      }
+      dependencies.set(item.id, pendingParents);
+      statements.push(
+        { subject: iri, predicate: TYPE, object: iriTerm(NS.owl + "Class") },
+        { subject: iri, predicate: LABEL, object: literal(item.name.trim()) },
+        ...[...parents].map((parent) => ({
+          subject: iri,
+          predicate: SUBCLASS,
+          object: iriTerm(parent),
+        })),
+      );
+      if (item.comment.trim())
+        statements.push({
+          subject: iri,
+          predicate: COMMENT,
+          object: literal(item.comment.trim()),
+        });
+    }
+    // Existing classes cannot point to these fresh IRIs. Only new edges can cycle.
+    const ready = [...dependencies]
+      .filter(([, parents]) => !parents.size)
+      .map(([id]) => id);
+    for (const id of ready) {
+      dependencies.delete(id);
+      for (const [child, parents] of dependencies)
+        if (parents.delete(id) && !parents.size) ready.push(child);
+    }
+    if (dependencies.size) throw Error("A class cannot be its own ancestor.");
+    for (const statement of statements) validateStatement(statement);
+    const created = projectEntities(statements);
+    const before = this.schemaState();
+    this.record(
+      "Create " + classes[0].name + (classes.length > 1 ? " and parents" : ""),
+      () => {
+        for (const iri of ids.values())
+          this.entities.set(iri, structuredClone(created.get(iri)!));
+        this.tbox.push(...structuredClone(statements));
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+    return ids;
   }
   createClass(name: string, parent: string, comment = "") {
     const error = this.validateName(name);

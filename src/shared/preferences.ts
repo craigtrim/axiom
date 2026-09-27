@@ -83,6 +83,17 @@ export function readPreferences(input: unknown): Preferences {
         mode: target.mode,
       };
   }
+  if (
+    typeof s["textanalysis.text"] === "string" &&
+    s["textanalysis.text"].length <= 100000
+  )
+    out["textanalysis.text"] = s["textanalysis.text"];
+  if (s["textanalysis.entitiesView"] === true)
+    out["textanalysis.entitiesView"] = true;
+  if (typeof s["textanalysis.pane.open"] === "boolean")
+    out["textanalysis.pane.open"] = s["textanalysis.pane.open"];
+  if (number(s["textanalysis.pane.size"], 15, 70))
+    out["textanalysis.pane.size"] = s["textanalysis.pane.size"];
   if (object(s["sparsity.view"]))
     out["sparsity.view"] = readSparsityOptions(s["sparsity.view"]);
   if (object(s["find.view"]))
