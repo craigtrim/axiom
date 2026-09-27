@@ -10,3 +10,5 @@ coverage/
 .env
 things-i-need
 archive/*.zip
+
+vendor/mutatoc/

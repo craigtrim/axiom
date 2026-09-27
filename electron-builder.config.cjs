@@ -18,7 +18,11 @@ module.exports = {
   copyright: "Craig Trim",
   // The build step has already bundled everything into dist, so nothing else ships.
   files: ["dist/**/*", "!dist/**/*.map", "package.json"],
-  extraResources: ["THIRD-PARTY-NOTICES.txt", "LICENSES.md"],
+  extraResources: [
+    "THIRD-PARTY-NOTICES.txt",
+    "LICENSES.md",
+    { from: "vendor/mutatoc", to: "mutatoc" },
+  ],
   asarUnpack: ["**/metadata/**"],
   directories: { output: "artifacts/installer", buildResources: "build" },
   electronVersion: require("./package.json").devDependencies.electron,

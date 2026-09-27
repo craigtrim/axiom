@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const config = require("../electron-builder.config.cjs");
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 await import("./notices.mjs");
+await import("./setup-mutatoc.mjs");
 const outputs = await build({
   targets: Platform.WINDOWS.createTarget(),
   config,

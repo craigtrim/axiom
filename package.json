@@ -18,7 +18,9 @@
     "format": "prettier --write src tests scripts package.json tsconfig.json playwright.config.ts vitest.config.ts",
     "benchmark:desktop": "npm run build && node scripts/desktop-benchmark.mjs",
     "test:codex": "node scripts/test-codex.mjs",
-    "test:sparql": "vitest run tests/domain/sparql-conformance.test.ts tests/domain/sparql-literals.test.ts --reporter=default --reporter=json --outputFile=artifacts/sparql-conformance.json"
+    "test:sparql": "vitest run tests/domain/sparql-conformance.test.ts tests/domain/sparql-literals.test.ts --reporter=default --reporter=json --outputFile=artifacts/sparql-conformance.json",
+    "setup:mutatoc": "node scripts/setup-mutatoc.mjs",
+    "test:text-analysis": "node scripts/test-text-analysis.mjs"
   },
   "dependencies": {
     "@comunica/actor-function-factory-term-datatype": "5.4.0",
