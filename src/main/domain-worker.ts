@@ -1,3 +1,10 @@
+import {
+  textAnalysisDraft,
+  createTextAnalysisClass,
+  createTextAnalysisHierarchy,
+} from "../domain/text-analysis-authoring";
+import { textAnalysisGraphNodes } from "../domain/text-analysis-graph";
+import { textAnalysisContext } from "../domain/text-analysis-context";
 import { analyzeSparsity } from "../domain/sparsity";
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
@@ -310,6 +317,7 @@ function runLayout(fresh = true) {
   message = "Computing " + layouts.choice + " layout...";
 }
 const tracked = new Set<DomainMethod>([
+  "textAnalysisCreate",
   "seed",
   "expand",
   "expandMax",
@@ -805,6 +813,30 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       mutate("Source changes applied to all views.");
       return result;
     }
+    case "textAnalysisDraft":
+    case "textAnalysisCreate": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error(
+          "The ontology changed. Refresh the selected phrase before adding it.",
+        );
+      if (method === "textAnalysisDraft")
+        return textAnalysisDraft(store, string(a, "label", 256), datasetEpoch);
+      selected =
+        a.creation !== undefined
+          ? createTextAnalysisHierarchy(store, a.creation)
+          : createTextAnalysisClass(
+              store,
+              string(a, "label", 256),
+              string(a, "parent", 10000),
+              typeof a.comment === "string" ? string(a, "comment", 10000) : "",
+            );
+      mutate(
+        "Class and selected parents added from text. Undo removes the addition.",
+      );
+      return selected;
+    }
+    case "textAnalysisContext":
+      return textAnalysisContext(store, datasetEpoch);
     case "rdfExport":
       return writeRdf([...store.scan()], a.format as "turtle");
     case "reportData": {
@@ -954,9 +986,20 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         throw Error(
           "The ontology changed. Wait for Find to refresh and try again.",
         );
+      if (
+        a.textAnalysis !== undefined &&
+        (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      )
+        throw Error(
+          "The ontology changed. Wait for Text Analysis to refresh and try again.",
+        );
       // Resolve and validate the complete result graph before changing any view.
       const results =
-        a.find === undefined ? undefined : findGraphNodes(store, a.find);
+        a.textAnalysis !== undefined
+          ? textAnalysisGraphNodes(store, a.textAnalysis)
+          : a.find === undefined
+            ? undefined
+            : findGraphNodes(store, a.find);
       const iris =
         results?.iris ??
         (Array.isArray(a.iris)
@@ -1385,6 +1428,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return true;
     }
     case "select":
+      if (
+        (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch) ||
+        (a.version !== undefined && a.version !== store.version)
+      )
+        throw Error("The ontology changed. Select the current match again.");
       selected = a.iri === null ? null : string(a, "iri");
       if (selected && !store.exists(selected))
         throw Error("This entity is no longer in the Store.");

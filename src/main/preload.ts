@@ -18,6 +18,7 @@ const listen = (channel: string, fn: (value: any) => void) => {
   return () => ipcRenderer.removeListener(channel, handler);
 };
 const bridge: AxiomBridge = {
+  textAnalysis: { parse: (input) => invoke("textAnalysis:parse", input) },
   chrome: {
     info: () => invoke("chrome:info"),
     menu: (id, x, y) => invoke("chrome:menu", id, x, y),

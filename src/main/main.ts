@@ -1,3 +1,6 @@
+import { TextAnalysisService } from "./text-analysis-service";
+import { mutatocExecutable } from "./mutatoc-client";
+import type { TextAnalysisContext } from "../shared/text-analysis";
 import { randomUUID } from "node:crypto";
 import { WorkspaceFiles } from "./workspace-files";
 import {
@@ -139,6 +142,8 @@ const pending = new Map<
   { resolve: (v: any) => void; reject: (e: Error) => void }
 >();
 const methods = new Set<DomainMethod>([
+  "textAnalysisDraft",
+  "textAnalysisCreate",
   "new",
   "example",
   "search",
@@ -274,6 +279,11 @@ function request<T = unknown>(
     worker.postMessage({ id, method, args });
   });
 }
+const textAnalysis = new TextAnalysisService(
+  () =>
+    mutatocExecutable(app.getAppPath(), process.resourcesPath, app.isPackaged),
+  () => request<TextAnalysisContext>("textAnalysisContext"),
+);
 const research = new ResearchService(
   path.join(app.getPath("userData"), "research-runs"),
   (iri) => request("researchContext", { iri }),
@@ -1151,6 +1161,7 @@ app.whenReady().then(async () => {
   };
   secure(mainWindow);
   installMenu();
+  handle("textAnalysis:parse", (_event, input) => textAnalysis.parse(input));
   handle(
     "domain:request",
     (event, method: DomainMethod, args: Record<string, unknown>) => {
@@ -1690,6 +1701,7 @@ app.whenReady().then(async () => {
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
+  textAnalysis.close();
   const suggestion = suggestions.status();
   if (suggestion) suggestions.cancel(suggestion.id);
   taxonomyAssistant.cancel();

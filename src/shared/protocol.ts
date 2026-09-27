@@ -87,6 +87,9 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  | "textAnalysisDraft"
+  | "textAnalysisCreate"
+  | "textAnalysisContext"
   | "intersectionSuggestions"
   | "subclassSuggestions"
   | "applySubclassSuggestions"
@@ -184,6 +187,11 @@ export interface Preferences {
   arrangement?: "auto" | "standard" | "wide" | "custom";
 }
 export interface AxiomBridge {
+  textAnalysis: {
+    parse(
+      input: import("./text-analysis").TextAnalysisInput,
+    ): Promise<import("./text-analysis").TextAnalysisResult>;
+  };
   chrome: {
     info(): Promise<{
       custom: boolean;
