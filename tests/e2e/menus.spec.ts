@@ -18,6 +18,10 @@ let app: ElectronApplication,
   visited = new Set<string>();
 // The appearance workflows live in their own desktop suite.
 const coverage: Record<string, string[]> = {
+  "Live text analysis (tests/e2e/text-analysis.spec.ts)": [
+    "view.textanalysis",
+    "view.textentities",
+  ],
   "Graph appearance settings (tests/e2e/graph-appearance.spec.ts)": [
     "graph.appearance",
   ],

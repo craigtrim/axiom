@@ -16,6 +16,7 @@ import { emptyTabHistory, type SavedTab } from "../shared/tab-history";
 import { ContextMenu } from "./ContextMenu";
 import { setState } from "./client";
 import type { Snapshot } from "../shared/protocol";
+import { syncTextAnalysisContext } from "./text-analysis-state";
 import { SparsityPanel } from "./SparsityPanel";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
@@ -68,6 +69,12 @@ import { GraphPanel } from "./GraphPanel";
 import { HierarchyPanel } from "./HierarchyPanel";
 import { InspectorPanel } from "./InspectorPanel";
 import { IndividualsPanel } from "./IndividualsPanel";
+const TextAnalysisPanel = lazy(() =>
+  import("./TextAnalysisPanel").then((m) => ({ default: m.TextAnalysisPanel })),
+);
+const TextEntitiesPanel = lazy(() =>
+  import("./TextEntitiesPanel").then((m) => ({ default: m.TextEntitiesPanel })),
+);
 const SourcePanel = lazy(() =>
   import("./SourcePanel").then((m) => ({ default: m.SourcePanel })),
 );
@@ -114,6 +121,8 @@ const names: Record<string, string> = {
   find: "Find",
   tabhistory: "Tab History",
   sparsity: "Sparsity",
+  textanalysis: "Text Analysis",
+  textentities: "Text Entities",
   provenance: "Filesystem provenance",
   source: "Source",
 };
@@ -293,6 +302,26 @@ export function restoreLayout(value: unknown): Model {
         );
       else model.doAction(Actions.deleteTab(n.getId()));
     }
+    const textEditor = model.getNodeById("textanalysis");
+    if (
+      textEditor &&
+      preferences.panelState?.["textanalysis.entitiesView"] !== true
+    ) {
+      if (
+        !model.getNodeById("textentities") &&
+        preferences.panelState?.["textanalysis.pane.open"] !== false
+      )
+        model.doAction(
+          Actions.addTab(
+            tab("textentities"),
+            textEditor.getParent()!.getId(),
+            DockLocation.BOTTOM,
+            -1,
+            false,
+          ),
+        );
+      (preferences.panelState ??= {})["textanalysis.entitiesView"] = true;
+    }
     return model;
   } catch {
     report(
@@ -414,6 +443,10 @@ export function App() {
     syncFindEpoch(s.datasetEpoch);
     suggestionStarts.clearOtherEpochs(s.datasetEpoch);
   }, [s.datasetEpoch]);
+
+  useEffect(() => {
+    syncTextAnalysisContext();
+  }, [s.datasetEpoch, s.version, s.selected, s.graph.selectedEdge]);
 
   const updatePaneMenu = () => {
     const m = modelRef.current,
@@ -570,6 +603,7 @@ export function App() {
         dataSibling ??
         (id === "tabhistory" ||
         id === "sparsity" ||
+        id === "textanalysis" ||
         id === "find" ||
         id === "errorlog" ||
         id === "taxonomy" ||
@@ -590,6 +624,7 @@ export function App() {
           dataSibling ||
             id === "tabhistory" ||
             id === "sparsity" ||
+            id === "textanalysis" ||
             id === "find" ||
             id === "errorlog" ||
             id === "taxonomy" ||
@@ -635,7 +670,7 @@ export function App() {
         const target =
           recovery ??
           content?.querySelector<HTMLElement>(
-            id === "query" || id === "source"
+            id === "query" || id === "source" || id === "textanalysis"
               ? ".monaco-editor textarea"
               : id === "graph" || id.startsWith("graph:")
                 ? "canvas"
@@ -647,6 +682,31 @@ export function App() {
       if (!focus()) setTimeout(focus, 40);
       saveLayout(m);
     }
+  };
+  const showTextEntities = (focusPanel = false) => {
+    (preferences.panelState ??= {})["textanalysis.entitiesView"] = true;
+    const m = modelRef.current;
+    if (!m.getNodeById("textentities")) {
+      const target =
+        m.getNodeById("textanalysis")?.getParent() ??
+        m.getNodeById("graph")?.getParent() ??
+        m.getRootRow()!;
+      const saved = tabHistory().entries.find(
+        (entry) => entry.id === "textentities",
+      );
+      m.doAction(
+        Actions.addTab(
+          {
+            ...tab("textentities"),
+            ...(saved ? { name: saved.name, config: saved.config } : {}),
+          },
+          target.getId(),
+          DockLocation.BOTTOM,
+          -1,
+        ),
+      );
+    }
+    show("textentities", focusPanel);
   };
   const openResults = (result: QueryResultDocument) => {
     const m = modelRef.current,
@@ -852,7 +912,14 @@ export function App() {
         selectAudit(id.slice(11));
         show("errorlog");
       }
-      if (id.startsWith("view.")) show(id.slice(5));
+      if (id === "view.textanalysis") {
+        show("textanalysis");
+        showTextEntities();
+      } else if (id === "view.textentities") showTextEntities(true);
+      else if (id.startsWith("view.")) show(id.slice(5));
+      if (id === "textentities.open") showTextEntities();
+      if (id === "textanalysis.inspect") show("details");
+      if (id === "textanalysis.reveal") show("textanalysis", false);
       if (id.startsWith("pane.")) pane(id);
       if (id === "palette") setPalette(true);
       if (id === "tabs.settings") setTabSettings(true);
@@ -958,6 +1025,7 @@ export function App() {
       if (id === "workspace.preferences")
         void window.axiom.preferences.load().then((p) => {
           setPreferences(p);
+          command("textanalysis.reset");
           notifyTabHistory();
           command("query.reset");
           setModel(restoreLayout(p.layout));
@@ -1014,6 +1082,8 @@ export function App() {
         const focused = focusedDocument().activeElement;
         if (focused?.closest('[data-panel="source"] .monaco-editor'))
           command("source.find");
+        else if (focused?.closest('[data-panel="textanalysis"]'))
+          command("textanalysis.find");
         else if (focused?.closest(".monaco-editor")) command("query.find");
         else setSearch(true);
       }
@@ -1243,6 +1313,24 @@ export function App() {
                     />
                   ),
                   sparsity: <SparsityPanel />,
+                  textanalysis: (
+                    <Suspense
+                      fallback={
+                        <div className="startup">Opening Text Analysis...</div>
+                      }
+                    >
+                      <TextAnalysisPanel />
+                    </Suspense>
+                  ),
+                  textentities: (
+                    <Suspense
+                      fallback={
+                        <div className="startup">Opening Text Entities...</div>
+                      }
+                    >
+                      <TextEntitiesPanel />
+                    </Suspense>
+                  ),
                   individuals: <IndividualsPanel />,
                   queryResults: (
                     <Suspense

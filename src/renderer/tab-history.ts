@@ -153,6 +153,7 @@ export function restoreTabState(saved: SavedTab) {
   if (saved.type === "sparsity")
     updateSparsity(saved.panelState["sparsity.view"] ?? {});
   if (saved.type === "query") command("query.reset");
+  if (saved.type === "textanalysis") command("textanalysis.reset");
   if (saved.type === "hierarchy") command("hierarchy.reset");
   persist();
 }

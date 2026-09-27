@@ -4742,3 +4742,215 @@ button.sparsity-link {
   align-items: center;
   gap: 10px;
 }
+
+.text-analysis-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.text-analysis-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 12px 4px;
+}
+.text-analysis-ontology {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+}
+.text-analysis-status {
+  margin-left: auto;
+  font-size: 12px;
+}
+.text-analysis-hint {
+  margin: 0;
+  padding: 2px 12px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.text-analysis-editor {
+  flex: 1;
+  min-height: 100px;
+  border-top: 1px solid var(--stroke);
+}
+.text-analysis-error {
+  margin: 0;
+  padding: 8px 12px;
+}
+.text-analysis-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--stroke);
+  max-height: 30%;
+  overflow: auto;
+  min-height: 44px;
+}
+.text-analysis-chip {
+  display: inline-flex;
+  gap: 7px;
+  align-items: baseline;
+  padding: 3px 8px;
+}
+.text-analysis-chip small {
+  font-size: 10px;
+}
+.text-analysis-chip b {
+  font-size: 11px;
+}
+
+.text-analysis-heading {
+  flex-wrap: wrap;
+}
+.text-analysis-graph {
+  white-space: nowrap;
+}
+.text-span-details blockquote {
+  margin: 12px 0;
+  padding: 10px;
+  background: var(--surface-alt);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 160px;
+  overflow: auto;
+}
+.text-span-details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+}
+.text-span-details dt {
+  color: var(--muted);
+}
+.text-span-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.text-span-choice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.text-span-choice code {
+  overflow-wrap: anywhere;
+}
+
+.text-entities-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.text-entities-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--stroke);
+}
+.text-entities-heading [role="tablist"] {
+  display: flex;
+  gap: 6px;
+}
+.text-entities-heading [role="tab"][aria-selected="true"] {
+  background: var(--surface-alt);
+  box-shadow: inset 0 -2px var(--accent);
+}
+.text-entities-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.text-entities-panel .text-analysis-legend {
+  max-height: none;
+  border-top: 0;
+  align-content: flex-start;
+}
+.text-entity-create {
+  padding: 10px 14px;
+}
+.text-entity-create {
+  max-width: 850px;
+}
+.text-entity-create p {
+  margin: 0 0 10px;
+}
+.text-entity-create form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.text-entity-create label,
+.text-parent-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.text-entity-create input,
+.text-entity-create textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.text-parent-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid var(--stroke);
+}
+.text-parent-suggestions button[aria-pressed="true"] {
+  background: var(--surface-alt);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.text-entity-create-actions,
+.text-analysis-created {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.text-analysis-created {
+  padding: 8px 14px;
+  flex-wrap: wrap;
+}
+.text-existing-entities button {
+  margin: 0 6px 6px 0;
+}
+
+.text-entity-create-actions {
+  position: sticky;
+  bottom: -10px;
+  background: var(--surface);
+  border-top: 1px solid var(--stroke);
+  padding: 8px 0;
+}
+
+.text-selected-parents {
+  border: 1px solid var(--stroke);
+  min-width: 0;
+}
+.text-selected-parent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+.text-selected-parent > span {
+  flex: 1;
+  min-width: 100px;
+  overflow-wrap: anywhere;
+}
+.text-parent-context {
+  overflow-wrap: anywhere;
+}

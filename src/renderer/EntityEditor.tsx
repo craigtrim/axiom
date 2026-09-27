@@ -1,3 +1,5 @@
+import { TextSpanDetails } from "./TextSpanDetails";
+import { useTextInspection } from "./text-analysis-state";
 import { AncestryBreadcrumb } from "./AncestryBreadcrumb";
 import { ErrorNotice } from "./ErrorNotice";
 import { DetailsBack, DetailsNavigation } from "./DetailsNavigation";
@@ -20,6 +22,21 @@ export function DetailsPanel({ panelId }: { panelId: string }) {
 }
 function DetailsContent({ panelId }: { panelId: string }) {
   const s = useSnapshot()!;
+  const inspection = useTextInspection();
+  if (
+    inspection &&
+    !s.selected &&
+    !s.graph.selectedEdge &&
+    inspection.result.datasetEpoch === s.datasetEpoch &&
+    inspection.result.version === s.version
+  )
+    return (
+      <TextSpanDetails
+        panelId={panelId}
+        entity={inspection.entity}
+        result={inspection.result}
+      />
+    );
   if (s.graph.selectedEdge)
     return (
       <EdgeInspector

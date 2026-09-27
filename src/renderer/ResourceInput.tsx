@@ -13,6 +13,7 @@ export function ResourceInput({
   disabled = false,
   change,
   textValue = false,
+  commitOnBlur = true,
   useText,
 }: {
   value: string;
@@ -23,6 +24,7 @@ export function ResourceInput({
   disabled?: boolean;
   change(value: string): void;
   textValue?: boolean;
+  commitOnBlur?: boolean;
   useText?(value: string): void;
 }) {
   const s = useSnapshot()!;
@@ -195,7 +197,7 @@ export function ResourceInput({
         onBlur={() => {
           focused.current = false;
           setOpen(false);
-          if (!skipBlur.current) commit();
+          if (!skipBlur.current && commitOnBlur) commit();
           skipBlur.current = false;
         }}
         onKeyDown={(e) => {

@@ -163,6 +163,7 @@ export async function initialise() {
     if (type === "layout-error") report(data.message, true);
     if (type === "state") setState(data as Snapshot);
     if (type === "selection" && state) {
+      command("selection.changed");
       graph = { ...state.graph, selectedEdge: null, selected: data.iri };
       if (state.graphs) state.graphs[state.activeGraphId ?? "graph"] = graph;
       state = { ...state, selected: data.iri, graph };

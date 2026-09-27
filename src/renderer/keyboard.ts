@@ -31,7 +31,7 @@ export function installKeyboard(doc: Document) {
     rememberDocument(doc);
     if (
       (e.target as HTMLElement)?.closest(
-        "[data-shortcut-recorder],[data-inline-rename],.inline-create,[data-graph-connecting]",
+        "[data-shortcut-recorder],[data-inline-rename],.inline-create,.text-entity-create,[data-graph-connecting]",
       )
     )
       return;
@@ -94,13 +94,20 @@ export function installKeyboard(doc: Document) {
     e.preventDefault();
     e.stopImmediatePropagation();
     if (
+      match.command === "entity.edit" &&
+      doc.activeElement?.closest('[data-panel="textanalysis"]')
+    )
+      command("textanalysis.details");
+    else if (
       match.command === "entity.search" &&
       doc.activeElement?.closest(".monaco-editor")
     )
       command(
         doc.activeElement?.closest('[data-panel="source"]')
           ? "source.find"
-          : "query.find",
+          : doc.activeElement?.closest('[data-panel="textanalysis"]')
+            ? "textanalysis.find"
+            : "query.find",
       );
     else if (match.command === "edit.undo" || match.command === "edit.redo")
       command(match.command);
