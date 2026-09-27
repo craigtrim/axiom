@@ -678,3 +678,84 @@ test("result graphs follow cosine field filters and instance ancestry without ex
     }),
   ).toBeDisabled();
 });
+
+async function visibleTaxonomySelection(iri: string, target = page) {
+  const selected = target
+    .locator(
+      '[data-panel="hierarchy"] [data-entity-iri="' +
+        iri +
+        '"][aria-selected="true"]',
+    )
+    .first();
+  await expect(selected).toBeVisible();
+  await expect
+    .poll(() =>
+      selected.evaluate((el) => {
+        const tree = el.closest('[role="tree"]')!,
+          r = el.getBoundingClientRect(),
+          v = tree.getBoundingClientRect();
+        return r.top >= v.top && r.bottom <= v.bottom;
+      }),
+    )
+    .toBe(true);
+}
+test("quick Find clears a taxonomy filter and reveals the selection in the visible tree", async () => {
+  const hierarchy = page.locator('[data-panel="hierarchy"]');
+  await hierarchy
+    .getByPlaceholder("Filter hierarchy")
+    .fill("English Course 122");
+  await find("Basic English");
+  await expect(hierarchy.getByPlaceholder("Filter hierarchy")).toHaveValue("");
+  await visibleTaxonomySelection(base + "Basic");
+  await expect(
+    pane().getByRole("searchbox", { name: "Find text" }),
+  ).toBeFocused();
+});
+test("clicking a Find result scrolls the open taxonomy to a distant matching entity", async () => {
+  await find("English");
+  await pane()
+    .getByRole("searchbox", { name: "Find text" })
+    .fill("English Course 122");
+  await pane()
+    .getByRole("button", { name: "English Course 122", exact: true })
+    .click();
+  await visibleTaxonomySelection(base + "Course122");
+  await pane()
+    .getByRole("searchbox", { name: "Find text" })
+    .fill("Basic English");
+  await pane()
+    .getByRole("button", { name: "Basic English", exact: true })
+    .click();
+  await visibleTaxonomySelection(base + "Basic");
+});
+test("Find keeps a closed taxonomy closed", async () => {
+  await menu("view.hierarchy");
+  await menu("pane.close");
+  await expect(page.locator('[data-panel="hierarchy"]')).toHaveCount(0);
+  await find("Basic English");
+  await expect(page.locator('[data-panel="hierarchy"]')).toHaveCount(0);
+  await expect.poll(async () => (await state()).selected).toBe(base + "Basic");
+});
+test("Find reveals properties in the taxonomy Properties tab", async () => {
+  await find("English teaching");
+  await visibleTaxonomySelection(base + "teaches");
+  await expect(
+    page
+      .locator('[data-panel="hierarchy"]')
+      .getByRole("button", { name: /Properties/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("Find also scrolls a detached taxonomy without taking focus from the results", async () => {
+  await menu("view.hierarchy");
+  const popup = app.waitForEvent("window");
+  await menu("pane.detach");
+  const detached = await popup;
+  await expect(detached.locator('[data-panel="hierarchy"]')).toBeVisible();
+  await page.bringToFront();
+  await find("English Course 122");
+  await visibleTaxonomySelection(base + "Course122", detached);
+  await expect(
+    pane().getByRole("searchbox", { name: "Find text" }),
+  ).toBeFocused();
+});

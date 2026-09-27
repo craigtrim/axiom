@@ -1,3 +1,4 @@
+import { clearTaxonomyReveal } from "./taxonomy-navigation";
 import {
   TabHistoryPanel,
   TabHistorySettings,
@@ -928,6 +929,15 @@ export function App() {
         persist();
       }
       if (id === "taxonomy.reveal.open") show("hierarchy", false);
+      if (id === "taxonomy.reveal.existing") {
+        let existingId: string | undefined;
+        modelRef.current.visitNodes((n) => {
+          if (n instanceof TabNode && n.getComponent() === "hierarchy")
+            existingId = n.getId();
+        });
+        if (existingId) show(existingId, false);
+        else clearTaxonomyReveal();
+      }
       if (id === "graph.styles") setStyles("advanced");
       if (id === "graph.appearance") setStyles("visual");
       if (id === "research.open") show("research");

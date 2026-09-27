@@ -10,12 +10,35 @@ let pending: TaxonomyReveal | null = null;
 let ancestryTarget: { iri: string; epoch: number; document: Document } | null =
   null;
 
-export function revealInTaxonomy(iri: string, anchor?: HTMLElement) {
+export function revealInTaxonomy(
+  iri: string,
+  anchor?: HTMLElement,
+  onlyOpen = false,
+) {
   pending = { iri, epoch: state?.datasetEpoch ?? -1, anchor };
   // An ancestry click keeps the current arrangement and focus in Details.
   // The explicit graph action can open a hidden taxonomy pane.
-  if (!anchor) command("taxonomy.reveal.open");
+  if (!anchor)
+    command(onlyOpen ? "taxonomy.reveal.existing" : "taxonomy.reveal.open");
   command("taxonomy.reveal");
+}
+export function revealInOpenTaxonomy(iri: string) {
+  const entity = state?.entities.find((e) => e.iri === iri);
+  if (
+    !entity ||
+    ![
+      "Class",
+      "Defined",
+      "ObjectProperty",
+      "DataProperty",
+      "AnnotationProperty",
+    ].includes(entity.kind)
+  )
+    return;
+  revealInTaxonomy(iri, undefined, true);
+}
+export function clearTaxonomyReveal() {
+  pending = null;
 }
 export function takeTaxonomyReveal() {
   const request = pending;

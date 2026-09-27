@@ -82,10 +82,11 @@ export function HierarchyPanel() {
     const request = revealRef.current;
     const tree = rootRef.current?.querySelector<HTMLElement>('[role="tree"]');
     if (!request || !tree) return;
-    if (request.epoch !== s.datasetEpoch || request.iri !== s.selected) {
+    if (request.epoch !== s.datasetEpoch) {
       revealRef.current = null;
       return;
     }
+    if (request.iri !== s.selected) return;
     const win = tree.ownerDocument.defaultView!;
     let frame = 0;
     const align = () => {
@@ -324,7 +325,7 @@ export function HierarchyPanel() {
     };
     parents(iri);
     if (next.size !== open.size) setOpen(next);
-  }, [s.selected, s.entities, draft?.parent]);
+  }, [s.selected, s.entities, draft?.parent, revealTick]);
   return (
     <section
       ref={rootRef}

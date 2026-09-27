@@ -3,7 +3,7 @@ import { command, request, setState, useSnapshot } from "./client";
 import type { Snapshot } from "../shared/protocol";
 import { Modal } from "./Dialogs";
 import { editEntity } from "./authoring";
-import { revealInTaxonomy } from "./taxonomy-navigation";
+import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
 import {
@@ -100,7 +100,10 @@ export function FindDialog({ close }: { close: () => void }) {
     setSubmitting(true);
     setSubmitError("");
     try {
-      if (iri) await request("select", { iri });
+      if (iri) {
+        await request("select", { iri });
+        revealInOpenTaxonomy(iri);
+      }
       updateFind({ ...quickOptions, text: text.trim() }, iri);
       rememberFind();
       submitted.current = true;
@@ -282,7 +285,10 @@ export function FindPanel() {
   };
   const choose = (iri: string) => {
     selectFind(iri);
-    run(() => request("select", { iri }));
+    run(async () => {
+      await request("select", { iri });
+      revealInOpenTaxonomy(iri);
+    });
   };
   const graph = (fresh: boolean) => {
     if (!active) return;
