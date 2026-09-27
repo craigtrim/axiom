@@ -1,3 +1,4 @@
+import { resourcePredicate as requiresResource } from "../shared/statement-values";
 import { useLayoutEffect, useRef } from "react";
 import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
 import { useSnapshot, savePanel } from "./client";
@@ -60,6 +61,8 @@ export function StatementGrid({
   const predicates = usePredicateOptions(triples.map((t) => t.predicate));
   const entities = new Map(snapshot.entities.map((e) => [e.iri, e]));
   const namespace = entityNamespace(subject, ontology.namespace);
+  const resourcePredicate = (predicate: string) =>
+    requiresResource(predicate, entities.get(predicate)?.kind);
   const declaration = (t: Triple) =>
     classEntity &&
     t.predicate === TYPE &&
@@ -165,7 +168,7 @@ export function StatementGrid({
               data-readonly={locked || undefined}
             >
               <td>
-                {t.predicate === TYPE ? (
+                {locked ? (
                   <span className="statement-fixed" title="Type declaration">
                     rdf:type
                   </span>
@@ -176,32 +179,27 @@ export function StatementGrid({
                     options={predicates}
                     namespace={namespace}
                     change={(predicate) => {
-                      const resource =
-                        [
-                          TYPE,
-                          SUBCLASS,
-                          NS.rdfs + "domain",
-                          NS.rdfs + "range",
-                          NS.owl + "equivalentClass",
-                          NS.owl + "disjointWith",
-                          NS.owl + "inverseOf",
-                        ].includes(predicate) ||
-                        entities.get(predicate)?.kind === "ObjectProperty";
+                      const resource = resourcePredicate(predicate);
                       const previous = triples.find(
                         (row, i) => i !== index && row.predicate === predicate,
                       );
-                      change({
-                        ...t,
-                        predicate,
-                        ...(!t.object.value
-                          ? {
-                              object: {
-                                ...t.object,
-                                literal: previous?.object.literal ?? !resource,
-                              },
-                            }
-                          : {}),
-                      });
+                      change(
+                        {
+                          ...t,
+                          predicate,
+                          ...(!t.object.value
+                            ? {
+                                object: {
+                                  ...t.object,
+                                  literal: resource
+                                    ? false
+                                    : (previous?.object.literal ?? true),
+                                },
+                              }
+                            : {}),
+                        },
+                        !(resource && t.object.literal && !!t.object.value),
+                      );
                     }}
                   />
                 )}
@@ -215,10 +213,12 @@ export function StatementGrid({
                     >
                       owl:Class
                     </span>
-                  ) : [NS.rdfs + "seeAlso", NS.rdfs + "isDefinedBy"].includes(
+                  ) : !resourcePredicate(t.predicate) &&
+                    ([NS.rdfs + "seeAlso", NS.rdfs + "isDefinedBy"].includes(
                       t.predicate,
                     ) ||
-                    entities.get(t.predicate)?.kind === "AnnotationProperty" ? (
+                      entities.get(t.predicate)?.kind ===
+                        "AnnotationProperty") ? (
                     <ResourceInput
                       value={t.object.value}
                       textValue={t.object.literal}
@@ -236,7 +236,7 @@ export function StatementGrid({
                         change({ ...t, object: { literal: false, value } })
                       }
                     />
-                  ) : t.object.literal ? (
+                  ) : t.object.literal && !resourcePredicate(t.predicate) ? (
                     <textarea
                       aria-label={label}
                       title={t.object.value}
@@ -276,6 +276,7 @@ export function StatementGrid({
                       value={t.object.value}
                       namespace={namespace}
                       label={label}
+                      textValue={t.object.literal}
                       classesOnly={classEntity && t.predicate === SUBCLASS}
                       exclude={
                         classEntity && t.predicate === SUBCLASS
@@ -283,7 +284,7 @@ export function StatementGrid({
                           : []
                       }
                       change={(value) =>
-                        change({ ...t, object: { ...t.object, value } })
+                        change({ ...t, object: { literal: false, value } })
                       }
                     />
                   )}

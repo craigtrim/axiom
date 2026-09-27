@@ -582,3 +582,97 @@ test("resource search supports mouse selection in detached Details", async () =>
     path: "artifacts/testing/details-search-detached.png",
   });
 });
+
+const engineeringFixture =
+  ttl +
+  `
+:Engineering a owl:Class; rdfs:label "Engineering" .
+:MilitaryScience a owl:Class; rdfs:label "Military Science" .
+:MilitaryEngineering a owl:Class; rdfs:label "Military Engineering";
+ rdfs:comment "Original comment"; rdfs:subClassOf :MilitaryScience .`;
+test("Engineering type-ahead repairs literal parent rows and stays available for new rows", async () => {
+  await importText(
+    engineeringFixture +
+      ` :MilitaryEngineering rdfs:subClassOf "Engineering" .`,
+  );
+  await select(base + "MilitaryEngineering");
+  await menu("view.details");
+  await expect(label()).toHaveValue("Military Engineering");
+  const parentRows = () => row(NS.rdfs + "subClassOf");
+  const broken = parentRows().last().getByRole("combobox", { name: /Value/ });
+  await expect(broken).toHaveValue("Engineering");
+  // A pre-existing literal must not make a new parent row a text field.
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  await details()
+    .locator("tbody tr")
+    .last()
+    .getByRole("combobox", { name: /Predicate/ })
+    .selectOption(NS.rdfs + "subClassOf");
+  const added = parentRows().last().getByRole("combobox", { name: /Value/ });
+  await added.fill("Enginee");
+  await expect(
+    page.getByRole("listbox").getByRole("option", { name: /^Engineering/ }),
+  ).toBeVisible();
+  await added.press("ArrowDown");
+  await added.press("Enter");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find(
+          (e) => e.iri === base + "MilitaryEngineering",
+        )?.parents,
+    )
+    .toContain(base + "Engineering");
+  const literalParent = parentRows()
+    .filter({ has: page.locator('input[title="Engineering"]') })
+    .getByRole("combobox", { name: /Value/ });
+  await literalParent.click();
+  await expect(
+    page.getByRole("listbox").getByRole("option", { name: /^Engineering/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /^Engineering/ })
+    .click();
+  await expect
+    .poll(async () =>
+      page.evaluate(async (iri) => {
+        const doc = await window.axiom.request<any>("entityDocument", { iri });
+        return doc.statements.filter(
+          (t: any) => t.predicate.endsWith("#subClassOf") && t.object.literal,
+        ).length;
+      }, base + "MilitaryEngineering"),
+    )
+    .toBe(0);
+  await expect(parentRows()).toHaveCount(2);
+  await expect(details().getByRole("alert")).toHaveCount(0);
+});
+test("changing a populated text row to subClassOf restores suggestions without inventing an IRI", async () => {
+  await importText(engineeringFixture);
+  await select(base + "MilitaryEngineering");
+  await menu("view.details");
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  const added = details().locator("tbody tr").last();
+  await added.getByRole("textbox", { name: /Value/ }).fill("Enginee");
+  await added
+    .getByRole("combobox", { name: /Predicate/ })
+    .selectOption(NS.rdfs + "subClassOf");
+  const value = added.getByRole("combobox", { name: /Value/ });
+  await expect(value).toHaveValue("Enginee");
+  await value.click();
+  await expect(
+    page.getByRole("listbox").getByRole("option", { name: /^Engineering/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /^Engineering/ })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find(
+          (e) => e.iri === base + "MilitaryEngineering",
+        )?.parents,
+    )
+    .toEqual([base + "MilitaryScience", base + "Engineering"]);
+});

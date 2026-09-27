@@ -65,7 +65,7 @@ export function ResourceInput({
     setActive(-1);
     const timer = window.setTimeout(() => {
       void request<ResourceMatch[]>("resourceSuggestions", {
-        query: text === shown ? "" : text,
+        query: text === shown && !textValue ? "" : text,
         classesOnly,
         exclude,
       })
@@ -135,13 +135,24 @@ export function ResourceInput({
     input.current?.blur();
   };
   const commit = () => {
-    if (text === shown) return;
+    if (text === shown && (!textValue || useText)) return;
     const normalized = text.trim().toLocaleLowerCase();
     const exact = items.filter((e) =>
       [e.label, e.identifier, e.iri].some(
         (n) => n.toLocaleLowerCase() === normalized,
       ),
     );
+    // A complete IRI remains a resource even if Enter/Tab beats the search
+    // debounce. Plain annotation text still has an explicit literal option.
+    if (
+      !classesOnly &&
+      !textValue &&
+      /^(?:[a-z][a-z0-9+.-]*:|<)/iu.test(text.trim()) &&
+      !/\s/.test(text.trim())
+    ) {
+      choose(expandIri(text, namespace));
+      return;
+    }
     if (useText && (textValue || !exact.length)) {
       chooseText();
       return;

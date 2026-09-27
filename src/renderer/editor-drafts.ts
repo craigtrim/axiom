@@ -1,4 +1,5 @@
-import { request, onCommand, report } from "./client";
+import { completeEditorStatement } from "../shared/statement-values";
+import { request, onCommand, report, state } from "./client";
 import type { Triple } from "../domain/model";
 import type { DocumentData, EditorDraft } from "../shared/editor-state";
 export type { DocumentData, EditorDraft } from "../shared/editor-state";
@@ -109,7 +110,7 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
 async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
   if (
     d.statements.some(
-      (t) => !t.predicate || (!t.object.literal && !t.object.value),
+      (t) => !completeEditorStatement(t, d.loaded.statements, state?.entities.find(e=>e.iri===t.predicate)?.kind),
     )
   )
     throw Error(
@@ -166,7 +167,7 @@ onCommand((id) => {
         const complete = () =>
           [...drafts.values()].find((d) =>
             d.statements.every(
-              (t) => t.predicate && (t.object.literal || t.object.value),
+              (t) => completeEditorStatement(t, d.loaded.statements, state?.entities.find(e=>e.iri===t.predicate)?.kind),
             ),
           );
         for (let draft = complete(); draft; draft = complete())

@@ -1,3 +1,4 @@
+import { completeEditorStatement } from "../shared/statement-values";
 import { useEffect, useRef, useState } from "react";
 import { request, report, useSnapshot, state } from "./client";
 import { LABEL, labelledIri, preferredLabel } from "../domain/rdf-model";
@@ -134,7 +135,12 @@ export function useEntityEditor(iri: string, automatic = false) {
     if (
       automatic &&
       pending.statements.some(
-        (t) => !t.predicate || (!t.object.literal && !t.object.value),
+        (t) =>
+          !completeEditorStatement(
+            t,
+            pending.loaded.statements,
+            state?.entities.find((e) => e.iri === t.predicate)?.kind,
+          ),
       )
     )
       return;
