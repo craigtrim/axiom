@@ -1,0 +1,8 @@
+@prefix : <https://example.org/spans#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+:Entity a owl:Class; rdfs:label "entity" .
+:renal_trauma a owl:Class; rdfs:subClassOf :Entity; rdfs:label "renal trauma"; skos:altLabel "kidney injury" .
+:Acute a owl:Class; rdfs:subClassOf :Entity; rdfs:label "acute"; skos:altLabel "sudden" .
+:Condition a owl:Class; rdfs:subClassOf :Entity; rdfs:label "condition"; skos:altLabel "renal_trauma+acute" .

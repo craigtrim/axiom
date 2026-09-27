@@ -1,0 +1,2117 @@
+{
+  "reference": {
+    "mutatoCommit": "da6bfa5df80b208a3271e111f2921ad281d0da98",
+    "sourceSha256": {
+      "mutato/finder/singlequery/svc/generate_plus_spans.py": "70a5d30f7e76cd28b2f595ae04584609f7d65104983968c6a0b23c474fad04ba",
+      "mutato/parser/dmo/spans/span_distance_check.py": "8dc4b88f31f27dd9913cefd159aec7257de0eff27e424ecc587c544c5570cc01",
+      "mutato/parser/dmo/span_match_swapper.py": "9259653ca81b47aea52b5c591530b3225cf00640928eea776840920b4bf40720"
+    },
+    "spacy": "3.8.2",
+    "model": "3.8.0",
+    "lingpatlab": "1.1.1",
+    "distance": 4
+  },
+  "profiles": [
+    {
+      "name": "plus",
+      "owl": "plus.owl",
+      "cases": [
+        {
+          "id": "plus-001",
+          "text": "alpha beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-002",
+          "text": "alpha blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-003",
+          "text": "alpha blah blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-004",
+          "text": "alpha blah blah blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah blah blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-005",
+          "text": "alpha blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-006",
+          "text": "alpha blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-007",
+          "text": "alpha blah blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-008",
+          "text": "alpha blah blah blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-009",
+          "text": "beta alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-010",
+          "text": "beta blah alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta blah alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-011",
+          "text": "beta blah blah alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta blah blah alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-012",
+          "text": "beta blah blah blah alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta blah blah blah alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-013",
+          "text": "beta blah blah blah blah alpha",
+          "canonical": "beta blah blah blah blah alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-014",
+          "text": "beta blah blah blah blah blah alpha",
+          "canonical": "beta blah blah blah blah blah alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-015",
+          "text": "beta blah blah blah blah blah blah alpha",
+          "canonical": "beta blah blah blah blah blah blah alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-016",
+          "text": "beta blah blah blah blah blah blah blah alpha",
+          "canonical": "beta blah blah blah blah blah blah blah alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-017",
+          "text": "ALPHA BETA",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "ALPHA BETA"
+            }
+          ]
+        },
+        {
+          "id": "plus-018",
+          "text": "ALPHA blah BETA",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "ALPHA blah BETA"
+            }
+          ]
+        },
+        {
+          "id": "plus-019",
+          "text": "ALPHA blah blah BETA",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "ALPHA blah blah BETA"
+            }
+          ]
+        },
+        {
+          "id": "plus-020",
+          "text": "ALPHA blah blah blah BETA",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "ALPHA blah blah blah BETA"
+            }
+          ]
+        },
+        {
+          "id": "plus-021",
+          "text": "ALPHA blah blah blah blah BETA",
+          "canonical": "ALPHA blah blah blah blah BETA",
+          "entities": []
+        },
+        {
+          "id": "plus-022",
+          "text": "ALPHA blah blah blah blah blah BETA",
+          "canonical": "ALPHA blah blah blah blah blah BETA",
+          "entities": []
+        },
+        {
+          "id": "plus-023",
+          "text": "ALPHA blah blah blah blah blah blah BETA",
+          "canonical": "ALPHA blah blah blah blah blah blah BETA",
+          "entities": []
+        },
+        {
+          "id": "plus-024",
+          "text": "ALPHA blah blah blah blah blah blah blah BETA",
+          "canonical": "ALPHA blah blah blah blah blah blah blah BETA",
+          "entities": []
+        },
+        {
+          "id": "plus-025",
+          "text": "Alpha Beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "Alpha Beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-026",
+          "text": "Alpha blah Beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "Alpha blah Beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-027",
+          "text": "Alpha blah blah Beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "Alpha blah blah Beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-028",
+          "text": "Alpha blah blah blah Beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "Alpha blah blah blah Beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-029",
+          "text": "Alpha blah blah blah blah Beta",
+          "canonical": "Alpha blah blah blah blah Beta",
+          "entities": []
+        },
+        {
+          "id": "plus-030",
+          "text": "Alpha blah blah blah blah blah Beta",
+          "canonical": "Alpha blah blah blah blah blah Beta",
+          "entities": []
+        },
+        {
+          "id": "plus-031",
+          "text": "Alpha blah blah blah blah blah blah Beta",
+          "canonical": "Alpha blah blah blah blah blah blah Beta",
+          "entities": []
+        },
+        {
+          "id": "plus-032",
+          "text": "Alpha blah blah blah blah blah blah blah Beta",
+          "canonical": "Alpha blah blah blah blah blah blah blah Beta",
+          "entities": []
+        },
+        {
+          "id": "plus-033",
+          "text": "alpha  beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha  beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-034",
+          "text": "beta  alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta  alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-035",
+          "text": "alpha\tbeta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha\tbeta"
+            }
+          ]
+        },
+        {
+          "id": "plus-036",
+          "text": "beta\talpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta\talpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-037",
+          "text": "alpha\nbeta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha\nbeta"
+            }
+          ]
+        },
+        {
+          "id": "plus-038",
+          "text": "beta\nalpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta\nalpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-039",
+          "text": "alpha\r\nbeta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha\r\nbeta"
+            }
+          ]
+        },
+        {
+          "id": "plus-040",
+          "text": "beta\r\nalpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta\r\nalpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-041",
+          "text": "alpha\n\nbeta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha\n\nbeta"
+            }
+          ]
+        },
+        {
+          "id": "plus-042",
+          "text": "beta\n\nalpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta\n\nalpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-043",
+          "text": "alpha beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-044",
+          "text": "beta alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-045",
+          "text": "alpha, beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha, beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-046",
+          "text": "beta, alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta, alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-047",
+          "text": "alpha; beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha; beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-048",
+          "text": "beta; alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta; alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-049",
+          "text": "alpha: beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha: beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-050",
+          "text": "beta: alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta: alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-051",
+          "text": "alpha. beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha. beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-052",
+          "text": "beta. alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta. alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-053",
+          "text": "alpha! beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha! beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-054",
+          "text": "beta! alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta! alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-055",
+          "text": "alpha? beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha? beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-056",
+          "text": "beta? alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 11,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta? alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-057",
+          "text": "alpha / beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha / beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-058",
+          "text": "beta / alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta / alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-059",
+          "text": "alpha - beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha - beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-060",
+          "text": "beta - alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta - alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-061",
+          "text": "alpha and beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 14,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha and beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-062",
+          "text": "beta and alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 14,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta and alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-063",
+          "text": "alpha or beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 13,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha or beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-064",
+          "text": "beta or alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 13,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta or alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-065",
+          "text": "alpha not beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 14,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha not beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-066",
+          "text": "beta not alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 14,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta not alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-067",
+          "text": "alpha never beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha never beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-068",
+          "text": "beta never alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta never alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-069",
+          "text": "alpha without beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 18,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha without beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-070",
+          "text": "beta without alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 18,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta without alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-071",
+          "text": "alpha in the beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 17,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha in the beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-072",
+          "text": "beta in the alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 17,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta in the alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-073",
+          "text": "alpha one two three beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha one two three beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-074",
+          "text": "beta one two three alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta one two three alpha"
+            }
+          ]
+        },
+        {
+          "id": "plus-075",
+          "text": "alpha one two three four beta",
+          "canonical": "alpha one two three four beta",
+          "entities": []
+        },
+        {
+          "id": "plus-076",
+          "text": "beta one two three four alpha",
+          "canonical": "beta one two three four alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-077",
+          "text": "alpha",
+          "canonical": "alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-078",
+          "text": "beta",
+          "canonical": "beta",
+          "entities": []
+        },
+        {
+          "id": "plus-079",
+          "text": "alpha blah",
+          "canonical": "alpha blah",
+          "entities": []
+        },
+        {
+          "id": "plus-080",
+          "text": "blah beta",
+          "canonical": "blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-081",
+          "text": "alphabet beta",
+          "canonical": "alphabet beta",
+          "entities": []
+        },
+        {
+          "id": "plus-082",
+          "text": "alpha betamax",
+          "canonical": "alpha betamax",
+          "entities": []
+        },
+        {
+          "id": "plus-083",
+          "text": "blah blah",
+          "canonical": "blah blah",
+          "entities": []
+        },
+        {
+          "id": "plus-084",
+          "text": "alpha alpha",
+          "canonical": "alpha alpha",
+          "entities": []
+        },
+        {
+          "id": "plus-085",
+          "text": "beta beta",
+          "canonical": "beta beta",
+          "entities": []
+        },
+        {
+          "id": "plus-086",
+          "text": "alpha+beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha+beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-087",
+          "text": "alpha alpha blah beta",
+          "canonical": "alpha pair",
+          "entities": [
+            {
+              "start": 6,
+              "end": 21,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-088",
+          "text": "alpha blah beta beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-089",
+          "text": "alpha beta alpha beta",
+          "canonical": "pair pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            },
+            {
+              "start": 11,
+              "end": 21,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-090",
+          "text": "alpha beta. alpha beta.",
+          "canonical": "pair . pair .",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            },
+            {
+              "start": 12,
+              "end": 22,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-091",
+          "text": "alpha beta blah blah blah blah alpha",
+          "canonical": "pair blah blah blah blah alpha",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-092",
+          "text": "beta alpha blah blah blah blah beta",
+          "canonical": "beta alpha blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "plus-093",
+          "text": "prefix alpha blah beta suffix",
+          "canonical": "prefix pair suffix",
+          "entities": [
+            {
+              "start": 7,
+              "end": 22,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-094",
+          "text": "  alpha blah beta  ",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 2,
+              "end": 17,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-095",
+          "text": "😀 alpha blah beta 🐈",
+          "canonical": "😀 pair 🐈",
+          "entities": [
+            {
+              "start": 3,
+              "end": 18,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-096",
+          "text": "café alpha blah beta résumé",
+          "canonical": "café pair résumé",
+          "entities": [
+            {
+              "start": 5,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-097",
+          "text": "\"alpha blah beta\"",
+          "canonical": "\" pair \"",
+          "entities": [
+            {
+              "start": 1,
+              "end": 16,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-098",
+          "text": "(alpha blah beta)",
+          "canonical": "( pair )",
+          "entities": [
+            {
+              "start": 1,
+              "end": 16,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-099",
+          "text": "alpha blah, blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 21,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah, blah beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-100",
+          "text": "alpha blah blah, beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 21,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah blah, beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-101",
+          "text": "alpha blah blah blah, beta",
+          "canonical": "alpha blah blah blah , beta",
+          "entities": []
+        },
+        {
+          "id": "plus-102",
+          "text": "alpha\nblah\tbeta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha\nblah\tbeta"
+            }
+          ]
+        },
+        {
+          "id": "plus-103",
+          "text": "alpha in London beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha in London beta"
+            }
+          ]
+        },
+        {
+          "id": "plus-104",
+          "text": "Alice saw alpha blah beta in London",
+          "canonical": "Alice saw pair in London",
+          "entities": [
+            {
+              "start": 10,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "seealso",
+      "owl": "seealso.owl",
+      "cases": [
+        {
+          "id": "seealso-001",
+          "text": "alpha beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 10,
+              "label": "pair",
+              "method": "exact",
+              "surface": "alpha beta"
+            }
+          ]
+        },
+        {
+          "id": "seealso-002",
+          "text": "alpha blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah beta"
+            }
+          ]
+        },
+        {
+          "id": "seealso-003",
+          "text": "alpha blah blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah blah beta"
+            }
+          ]
+        },
+        {
+          "id": "seealso-004",
+          "text": "alpha blah blah blah beta",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 25,
+              "label": "pair",
+              "method": "spans",
+              "surface": "alpha blah blah blah beta"
+            }
+          ]
+        },
+        {
+          "id": "seealso-005",
+          "text": "alpha blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "seealso-006",
+          "text": "alpha blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "seealso-007",
+          "text": "alpha blah blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "seealso-008",
+          "text": "alpha blah blah blah blah blah blah blah beta",
+          "canonical": "alpha blah blah blah blah blah blah blah beta",
+          "entities": []
+        },
+        {
+          "id": "seealso-009",
+          "text": "beta blah alpha",
+          "canonical": "pair",
+          "entities": [
+            {
+              "start": 0,
+              "end": 15,
+              "label": "pair",
+              "method": "spans",
+              "surface": "beta blah alpha"
+            }
+          ]
+        },
+        {
+          "id": "seealso-010",
+          "text": "alpha",
+          "canonical": "alpha",
+          "entities": []
+        },
+        {
+          "id": "seealso-011",
+          "text": "beta",
+          "canonical": "beta",
+          "entities": []
+        }
+      ]
+    },
+    {
+      "name": "nested",
+      "owl": "nested.owl",
+      "cases": [
+        {
+          "id": "nested-001",
+          "text": "kidney injury acute",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 19,
+              "label": "condition",
+              "method": "exact",
+              "surface": "kidney injury acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-002",
+          "text": "kidney injury blah acute",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury blah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-003",
+          "text": "kidney injury blah blah acute",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 29,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury blah blah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-004",
+          "text": "kidney injury blah blah blah acute",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 34,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury blah blah blah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-005",
+          "text": "kidney injury blah blah blah blah acute",
+          "canonical": "renal_trauma blah blah blah blah acute",
+          "entities": [
+            {
+              "start": 0,
+              "end": 13,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "kidney injury"
+            },
+            {
+              "start": 34,
+              "end": 39,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-006",
+          "text": "kidney injury blah blah blah blah blah acute",
+          "canonical": "renal_trauma blah blah blah blah blah acute",
+          "entities": [
+            {
+              "start": 0,
+              "end": 13,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "kidney injury"
+            },
+            {
+              "start": 39,
+              "end": 44,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-007",
+          "text": "acute kidney injury",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 19,
+              "label": "condition",
+              "method": "spans",
+              "surface": "acute kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-008",
+          "text": "acute blah kidney injury",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "condition",
+              "method": "spans",
+              "surface": "acute blah kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-009",
+          "text": "acute blah blah kidney injury",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 29,
+              "label": "condition",
+              "method": "spans",
+              "surface": "acute blah blah kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-010",
+          "text": "acute blah blah blah kidney injury",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 34,
+              "label": "condition",
+              "method": "spans",
+              "surface": "acute blah blah blah kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-011",
+          "text": "acute blah blah blah blah kidney injury",
+          "canonical": "acute blah blah blah blah renal_trauma",
+          "entities": [
+            {
+              "start": 0,
+              "end": 5,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            },
+            {
+              "start": 26,
+              "end": 39,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-012",
+          "text": "acute blah blah blah blah blah kidney injury",
+          "canonical": "acute blah blah blah blah blah renal_trauma",
+          "entities": [
+            {
+              "start": 0,
+              "end": 5,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            },
+            {
+              "start": 31,
+              "end": 44,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-013",
+          "text": "renal trauma sudden",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 19,
+              "label": "condition",
+              "method": "exact",
+              "surface": "renal trauma sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-014",
+          "text": "renal trauma blah sudden",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "condition",
+              "method": "spans",
+              "surface": "renal trauma blah sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-015",
+          "text": "renal trauma blah blah sudden",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 29,
+              "label": "condition",
+              "method": "spans",
+              "surface": "renal trauma blah blah sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-016",
+          "text": "renal trauma blah blah blah sudden",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 34,
+              "label": "condition",
+              "method": "spans",
+              "surface": "renal trauma blah blah blah sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-017",
+          "text": "renal trauma blah blah blah blah sudden",
+          "canonical": "renal_trauma blah blah blah blah acute",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "renal trauma"
+            },
+            {
+              "start": 33,
+              "end": 39,
+              "label": "acute",
+              "method": "exact",
+              "surface": "sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-018",
+          "text": "renal trauma blah blah blah blah blah sudden",
+          "canonical": "renal_trauma blah blah blah blah blah acute",
+          "entities": [
+            {
+              "start": 0,
+              "end": 12,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "renal trauma"
+            },
+            {
+              "start": 38,
+              "end": 44,
+              "label": "acute",
+              "method": "exact",
+              "surface": "sudden"
+            }
+          ]
+        },
+        {
+          "id": "nested-019",
+          "text": "sudden renal trauma",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 19,
+              "label": "condition",
+              "method": "spans",
+              "surface": "sudden renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-020",
+          "text": "sudden blah renal trauma",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "condition",
+              "method": "spans",
+              "surface": "sudden blah renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-021",
+          "text": "sudden blah blah renal trauma",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 29,
+              "label": "condition",
+              "method": "spans",
+              "surface": "sudden blah blah renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-022",
+          "text": "sudden blah blah blah renal trauma",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 34,
+              "label": "condition",
+              "method": "spans",
+              "surface": "sudden blah blah blah renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-023",
+          "text": "sudden blah blah blah blah renal trauma",
+          "canonical": "acute blah blah blah blah renal_trauma",
+          "entities": [
+            {
+              "start": 0,
+              "end": 6,
+              "label": "acute",
+              "method": "exact",
+              "surface": "sudden"
+            },
+            {
+              "start": 27,
+              "end": 39,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-024",
+          "text": "sudden blah blah blah blah blah renal trauma",
+          "canonical": "acute blah blah blah blah blah renal_trauma",
+          "entities": [
+            {
+              "start": 0,
+              "end": 6,
+              "label": "acute",
+              "method": "exact",
+              "surface": "sudden"
+            },
+            {
+              "start": 32,
+              "end": 44,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "renal trauma"
+            }
+          ]
+        },
+        {
+          "id": "nested-025",
+          "text": "😀 kidney injury blah acute.",
+          "canonical": "😀 condition .",
+          "entities": [
+            {
+              "start": 3,
+              "end": 27,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury blah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-026",
+          "text": "😀 kidney injury\nblah acute.",
+          "canonical": "😀 condition .",
+          "entities": [
+            {
+              "start": 3,
+              "end": 27,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury\nblah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-027",
+          "text": "kidney\ninjury blah acute",
+          "canonical": "condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 24,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney\ninjury blah acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-028",
+          "text": "kidney injury",
+          "canonical": "renal_trauma",
+          "entities": [
+            {
+              "start": 0,
+              "end": 13,
+              "label": "renal_trauma",
+              "method": "exact",
+              "surface": "kidney injury"
+            }
+          ]
+        },
+        {
+          "id": "nested-029",
+          "text": "acute",
+          "canonical": "acute",
+          "entities": [
+            {
+              "start": 0,
+              "end": 5,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-030",
+          "text": "injury blah acute",
+          "canonical": "injury blah acute",
+          "entities": [
+            {
+              "start": 12,
+              "end": 17,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-031",
+          "text": "kidney blah acute",
+          "canonical": "kidney blah acute",
+          "entities": [
+            {
+              "start": 12,
+              "end": 17,
+              "label": "acute",
+              "method": "exact",
+              "surface": "acute"
+            }
+          ]
+        },
+        {
+          "id": "nested-032",
+          "text": "kidney injury and acute; kidney injury and acute",
+          "canonical": "condition ; condition",
+          "entities": [
+            {
+              "start": 0,
+              "end": 23,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury and acute"
+            },
+            {
+              "start": 25,
+              "end": 48,
+              "label": "condition",
+              "method": "spans",
+              "surface": "kidney injury and acute"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ordinary",
+      "owl": "ordinary.owl",
+      "cases": [
+        {
+          "id": "ordinary-001",
+          "text": "research methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "research_methods",
+              "method": "exact",
+              "surface": "research methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-002",
+          "text": "research blah methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 21,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "research blah methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-003",
+          "text": "research blah blah methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 26,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "research blah blah methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-004",
+          "text": "research blah blah blah methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 31,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "research blah blah blah methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-005",
+          "text": "research blah blah blah blah methods",
+          "canonical": "research blah blah blah blah methods",
+          "entities": []
+        },
+        {
+          "id": "ordinary-006",
+          "text": "research blah blah blah blah blah methods",
+          "canonical": "research blah blah blah blah blah methods",
+          "entities": []
+        },
+        {
+          "id": "ordinary-007",
+          "text": "research blah blah blah blah blah blah methods",
+          "canonical": "research blah blah blah blah blah blah methods",
+          "entities": []
+        },
+        {
+          "id": "ordinary-008",
+          "text": "methods research",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "methods research"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-009",
+          "text": "methods blah research",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 21,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "methods blah research"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-010",
+          "text": "methods blah blah research",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 26,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "methods blah blah research"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-011",
+          "text": "methods blah blah blah research",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 31,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "methods blah blah blah research"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-012",
+          "text": "methods blah blah blah blah research",
+          "canonical": "methods blah blah blah blah research",
+          "entities": []
+        },
+        {
+          "id": "ordinary-013",
+          "text": "methods blah blah blah blah blah research",
+          "canonical": "methods blah blah blah blah blah research",
+          "entities": []
+        },
+        {
+          "id": "ordinary-014",
+          "text": "methods blah blah blah blah blah blah research",
+          "canonical": "methods blah blah blah blah blah blah research",
+          "entities": []
+        },
+        {
+          "id": "ordinary-015",
+          "text": "Research Methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "research_methods",
+              "method": "exact",
+              "surface": "Research Methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-016",
+          "text": "RESEARCH METHODS",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 16,
+              "label": "research_methods",
+              "method": "exact",
+              "surface": "RESEARCH METHODS"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-017",
+          "text": "research and methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 20,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "research and methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-018",
+          "text": "research in methods",
+          "canonical": "research_methods",
+          "entities": [
+            {
+              "start": 0,
+              "end": 19,
+              "label": "research_methods",
+              "method": "spans",
+              "surface": "research in methods"
+            }
+          ]
+        },
+        {
+          "id": "ordinary-019",
+          "text": "research",
+          "canonical": "research",
+          "entities": []
+        },
+        {
+          "id": "ordinary-020",
+          "text": "methods",
+          "canonical": "methods",
+          "entities": []
+        },
+        {
+          "id": "ordinary-021",
+          "text": "research methodologies",
+          "canonical": "research methodologies",
+          "entities": []
+        }
+      ]
+    }
+  ]
+}
