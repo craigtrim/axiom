@@ -38,6 +38,51 @@ const result = (i: TextAnalysisInput): TextAnalysisResult => ({
 afterEach(() => vi.useRealTimers());
 
 describe("original text highlighting", () => {
+  it("maps literal periods and tildes without substituting source characters", () => {
+    const text = "😀 U.S. History to 1865 ~~ U.S.A.";
+    const tokens = [
+      leaf("😀 "),
+      match(
+        "course",
+        leaf("U"),
+        leaf("."),
+        leaf("S"),
+        leaf(". "),
+        leaf("History "),
+        leaf("to "),
+        leaf("1865"),
+      ),
+      leaf(" ~"),
+      leaf("~ "),
+      match(
+        "country",
+        leaf("U"),
+        leaf("."),
+        leaf("S"),
+        leaf("."),
+        leaf("A"),
+        leaf("."),
+      ),
+    ];
+    expect(
+      textEntities(text, tokens, dictionaries).map((e) => [
+        e.start,
+        e.end,
+        text.slice(e.start, e.end),
+      ]),
+    ).toEqual([
+      [3, 23, "U.S. History to 1865"],
+      [27, 33, "U.S.A."],
+    ]);
+  });
+  it("decodes legacy abbreviation dictionary periods without changing literal tildes", () => {
+    expect(
+      textEntities("dr.", [match("doctor", leaf("dr"), leaf("."))], {
+        contractions: {},
+        abbreviations: { "dr.": "dr~~" },
+      })[0],
+    ).toMatchObject({ start: 0, end: 3 });
+  });
   it("keeps UTF-16 positions through emoji, repeated spaces, tabs and line breaks", () => {
     const text = "😀  Dog\n\tCat Dog";
     const tokens = [

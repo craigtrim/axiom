@@ -17,7 +17,7 @@ const home =
   process.env.AXIOM_MUTATOC_HOME ??
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.1"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.2"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run real NLP desktop tests.",
@@ -275,6 +275,41 @@ async function highlighted(label: string) {
     .join("")
     .replace(/\u00a0/g, " ");
 }
+
+test("dotted course synonyms highlight the full phrase and open the correct Details entry", async () => {
+  await page.evaluate(async () => {
+    const source = await window.axiom.request<
+      import("../../src/shared/source").SourceDocument
+    >("sourceDocument", { format: "turtle" });
+    await window.axiom.request("applySource", {
+      ...source,
+      text:
+        source.text +
+        `\n<https://example.org/text#History> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "History" .
+<https://example.org/text#Course1865> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "American History To 1865"; <http://www.w3.org/2000/01/rdf-schema#seeAlso> "U.S. History to 1865"; <http://www.w3.org/2000/01/rdf-schema#subClassOf> <https://example.org/text#History> .`,
+    });
+  });
+  for (const phrase of [
+    "U.S. History to 1865",
+    "U.S.  History  to  1865",
+    "U.S.\nHistory\nto\n1865",
+  ]) {
+    await enter("😀 " + phrase + " ~~");
+    await expect(chip("course1865")).toBeVisible({ timeout: 30000 });
+    await expect
+      .poll(() => highlighted("course1865"))
+      .toBe(phrase.replace(/\n/g, ""));
+    await expect(chip("history")).toHaveCount(0);
+  }
+  await chip("course1865").click();
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    base + "Course1865",
+  );
+  await enter("U.S. History to 1866");
+  await expect(chip("course1865")).toHaveCount(0);
+  await expect(chip("history")).toBeVisible();
+});
 
 test("plus spans highlight intervening words and stop at the reference distance boundary", async () => {
   for (const text of [

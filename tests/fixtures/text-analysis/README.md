@@ -2,6 +2,8 @@
 
 `reference.json` contains 168 expectations produced by the original Python Mutato `FindOntologyData` and `MutatoAPI.swap_input_text` APIs. Each profile loads its accompanying OWL file as Turtle. The metadata records the Mutato Git revision, span source hashes, LingPatLab version, spaCy version and model version.
 
+Mutatoc 0.2.2 treats whitespace between exact phrase tokens consistently. Six explicitly identified cases (`plus-033`, `plus-035`, `plus-037`, `plus-039`, `plus-041`, and `plus-043`) now report `exact` instead of `spans`. Their canonical text and every source offset remain unchanged. The test records this narrow correction while preserving the original fixture. `text-analysis-punctuation.test.ts` adds 1,512 native matches checked against independently calculated UTF-16 ranges, plus repeated-occurrence and wrong-year regressions.
+
 | Profile  | Cases | Contract                                                                                                                                                       |
 | -------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | plus     |   104 | `skos:altLabel` plus rules, both orders, case, distance boundaries, missing endpoints, punctuation, whitespace, negation words, repeated endpoints and Unicode |

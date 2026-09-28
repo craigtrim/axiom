@@ -40,24 +40,13 @@ function sourceGlyphs(text: string, dictionaries: TokenDictionaries): Glyph[] {
         });
         at += ch.length;
       }
-      // LingPatLab protects repeated periods before abbreviation lookup. The
-      // punctuation pass then emits each tilde separately.
-      if ((word.match(/\./g) ?? []).length >= 2)
-        glyphs = glyphs.flatMap((g) =>
-          g.ch === "."
-            ? [
-                { ...g, ch: "~" },
-                { ...g, ch: "~" },
-              ]
-            : [g],
-        );
-      const protectedWord = glyphs.map((g) => g.ch).join("");
-      const abbreviation = Object.hasOwn(
-        dictionaries.abbreviations,
-        protectedWord,
-      )
-        ? dictionaries.abbreviations[protectedWord]
-        : undefined;
+      // Native tokenization preserves punctuation and only expands dictionary
+      // abbreviations when the original word has fewer than two periods.
+      const abbreviation =
+        (word.match(/\./g) ?? []).length < 2 &&
+        Object.hasOwn(dictionaries.abbreviations, word)
+          ? dictionaries.abbreviations[word].replace(/~~/g, ".")
+          : undefined;
       if (abbreviation !== undefined)
         glyphs = Array.from(abbreviation, (ch) => ({
           ch,

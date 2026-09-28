@@ -8,7 +8,7 @@ const candidates = process.env.AXIOM_MUTATOC_HOME
   ? [path.resolve(process.env.AXIOM_MUTATOC_HOME)]
   : [
       path.join(root, "vendor/mutatoc"),
-      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.1"),
+      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.2"),
     ];
 const home = candidates.find((folder) =>
   existsSync(path.join(folder, executable)),
@@ -26,6 +26,7 @@ const child = spawn(
     "run",
     "tests/domain/text-analysis.test.ts",
     "tests/domain/text-analysis-runtime.test.ts",
+    "tests/domain/text-analysis-punctuation.test.ts",
     "tests/domain/text-analysis-reference.test.ts",
     "tests/domain/text-analysis-service.test.ts",
     "tests/domain/text-analysis-navigation.test.ts",
