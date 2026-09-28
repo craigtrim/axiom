@@ -26,3 +26,20 @@ node --import tsx scripts/benchmark-text-analysis.ts C:\path\courses.owl artifac
 ```
 
 The benchmark reports ontology preparation, cold startup, warm parsing, tokenization, prepared-token matching and source mapping separately. It includes hashes of the source, executable, complete results and spans. Reports from this investigation are in `artifacts/analysis-benchmark-before.json`, `artifacts/analysis-benchmark-after.json`, `artifacts/analysis-desktop-before.json` and `artifacts/analysis-desktop-after.json`.
+
+## Mutatoc 0.2.3
+
+Mutatoc 0.2.3 builds a match index once per loaded ontology. In 0.2.2 every matching request rebuilt a hash set of the ontology's synonyms and scanned JSON objects linearly, so its cost grew with the ontology. Exact matching also stops extending a phrase once it cannot begin any synonym. Axiom loads with `interface: "data"`, and the live view that 0.2.2 built on the first parse is now built during load.
+
+Measurements on September 28, 2026 used the same local `courses.owl` and the same benchmark, with 0.2.2 and 0.2.3 run on the same Windows machine. Warm figures are medians of three runs.
+
+| Operation                                  |    0.2.2 |    0.2.3 |
+| ------------------------------------------ | -------: | -------: |
+| Native ontology setup                      |   860 ms |   856 ms |
+| First parse, including model startup       | 2,621 ms | 1,545 ms |
+| Full parse, 97 characters                  |    30 ms |    15 ms |
+| Full parse, 242 characters                 |    45 ms |    31 ms |
+| Full parse, 2,429 characters               |   221 ms |   148 ms |
+| Prepared-token matching, 2,429 characters  |    91 ms |    16 ms |
+
+Tokenization through the spaCy model now accounts for most of a full parse (131 ms of the 148 ms at 2,429 characters). All nine measured outputs and source spans have the same SHA-256 hashes in both versions. The native text-analysis suite (314 tests) and the Text Analysis desktop tests (24 tests) pass with 0.2.3. The reports are `artifacts/index-benchmark-before.json` and `artifacts/index-benchmark-after.json`.

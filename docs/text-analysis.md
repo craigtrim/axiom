@@ -54,7 +54,7 @@ These semantics are checked against the original Python implementation, includin
 
 ## Runtime
 
-The view uses mutatoc 0.2.2 through its persistent `--serve` interface. Ontology matching and LingPatLab processing run in C. The supplied spaCy model runs through mutatoc's retained Python worker. Text is processed locally. The first analysis includes model startup; later requests reuse the process and model. No LingPatLab Python package is required.
+The view uses mutatoc 0.2.3 through its persistent `--serve` interface. Ontology matching and LingPatLab processing run in C. The supplied spaCy model runs through mutatoc's retained Python worker. Text is processed locally. The first analysis includes model startup; later requests reuse the process and model. No LingPatLab Python package is required.
 
 Dotted synonyms such as `U.S. History to 1865` match the complete phrase. Periods remain part of the source text, and literal tildes remain literal. Exact matches tolerate repeated spaces, tabs and line breaks between words. The original whitespace remains inside the highlight. Long dotted names are no longer restricted by the old ten-token matching limit.
 
@@ -64,10 +64,10 @@ Source positions come from the original tokens retained in mutatoc's swap histor
 
 ## Development and packaging
 
-Extract the complete Windows mutatoc 0.2.2 package, then run:
+Extract the complete Windows mutatoc 0.2.3 package, then run:
 
 ```powershell
-npm run setup:mutatoc -- D:\git\mutatos\mutatoc\dist\mutatoc-win-x64-0.2.2
+npm run setup:mutatoc -- D:\git\mutatos\mutatoc\dist\mutatoc-win-x64-0.2.3
 npm start
 ```
 
@@ -101,4 +101,4 @@ python scripts/generate-text-analysis-reference.py --mutato D:\git\mutatos\mutat
 
 The generator imports that source tree directly and never uses mutatoc to create expected results. See [the fixture provenance](../tests/fixtures/text-analysis/README.md) for the covered contracts.
 
-[Performance measurements](text-analysis-performance.md) describe the 0.2.1 optimizations and the reproducible benchmark.
+[Performance measurements](text-analysis-performance.md) describe the 0.2.1 and 0.2.3 optimizations and the reproducible benchmark.

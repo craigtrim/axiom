@@ -12,4 +12,4 @@ The Pizza ontology fixture is derived from the University of Manchester and Stan
 
 SPARQL execution uses Comunica, Traqula and their dependencies. Version-checked supplemental notices are documented in licenses/README.md and included in the generated third-party notice file. The vendored W3C SPARQL corpus retains its own licenses and source revision in tests/conformance/w3c/SOURCE.md.
 
-Text Analysis bundles mutatoc 0.2.1, its native LingPatLab implementation, Python, spaCy, the English model and RDFLib compatibility worker. Their original licenses, notices and dependency metadata accompany the runtime under resources/mutatoc. See [Text Analysis](docs/text-analysis.md).
+Text Analysis bundles mutatoc 0.2.3, its native LingPatLab implementation, Python, spaCy, the English model and RDFLib compatibility worker. Their original licenses, notices and dependency metadata accompany the runtime under resources/mutatoc. See [Text Analysis](docs/text-analysis.md).
