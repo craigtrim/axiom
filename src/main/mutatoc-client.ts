@@ -26,7 +26,7 @@ export function mutatocExecutable(
           path.join(appPath, "vendor", "mutatoc", executable),
           path.resolve(
             appPath,
-            "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.2",
+            "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3",
             executable,
           ),
         ];

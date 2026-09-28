@@ -17,7 +17,7 @@ const home =
   process.env.AXIOM_MUTATOC_HOME ??
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.2"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run real NLP desktop tests.",

@@ -17,7 +17,7 @@ const source = candidate
   ? path.resolve(candidate)
   : existsSync(path.join(target, "package-manifest.json"))
     ? target
-    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.2");
+    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3");
 let manifest;
 try {
   manifest = JSON.parse(
@@ -25,11 +25,11 @@ try {
   );
 } catch {
   throw Error(
-    "Install the complete mutatoc 0.2.2 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
+    "Install the complete mutatoc 0.2.3 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
   );
 }
-if (manifest.version !== "0.2.2")
-  throw Error("Axiom requires the tested mutatoc 0.2.2 runtime.");
+if (manifest.version !== "0.2.3")
+  throw Error("Axiom requires the tested mutatoc 0.2.3 runtime.");
 const entries = Object.entries(manifest.files);
 for (const required of [
   "mutatoc.exe",
