@@ -127,6 +127,205 @@ test.afterEach(async ({}, info) => {
   }
   expect(errors).toEqual([]);
 });
+async function openSynonymFixture() {
+  const file = path.join(profile, "synonyms.ttl");
+  await writeFile(
+    file,
+    `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
+    :Developmental_Psychology a owl:Class; rdfs:label "Developmental Psychology"; rdfs:seeAlso "Developmental Psyc".
+    :Psychoanalysis a owl:Class; rdfs:label "Developmental Psychoanalysis".`,
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () => (await state()).ontology.name)
+    .toBe("synonyms.ttl");
+}
+const synonymDocument = () =>
+  page.evaluate(
+    (iri) =>
+      window.axiom.request<
+        import("../../src/shared/editor-state").DocumentData
+      >("entityDocument", { iri }),
+    base + "Developmental_Psychology",
+  );
+
+test("Find adds its search text as a synonym without clearing results and refreshes Details with Undo and Redo", async () => {
+  await openSynonymFixture();
+  await find("Developmental Psycho");
+  const p = pane(),
+    query = p.getByRole("searchbox", { name: "Find text" });
+  await query.fill("  Developmental Psycho  ");
+  const name = p.getByRole("button", {
+    name: "Developmental Psychology",
+    exact: true,
+  });
+  await name.click();
+  await p.getByRole("button", { name: "Details", exact: true }).click();
+  const details = page.locator('[data-panel="details"]');
+  const values = details
+    .locator('tr[data-predicate="' + NS.rdfs + 'seeAlso"]')
+    .getByRole("combobox", { name: /Value/ });
+  await expect(values).toHaveValue("Developmental Psyc");
+  await menu("view.find");
+  await expect(p.locator("tbody tr")).toHaveCount(2);
+  await expect(p.locator(".find-results-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await app.evaluate(
+    ({ dialog }, file) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+    },
+    path.join(profile, "synonyms.axiom"),
+  );
+  await menu("file.saveAs");
+  await expect.poll(async () => (await state()).dirty).toBe(false);
+  const before = await synonymDocument();
+  await p.locator("tbody").evaluate((body) => {
+    const observation = {
+      minimum: body.children.length,
+      observer: new MutationObserver(() => {
+        observation.minimum = Math.min(
+          observation.minimum,
+          body.children.length,
+        );
+      }),
+    };
+    observation.observer.observe(body, { childList: true });
+    (window as any).findRowObservation = observation;
+  });
+  const row = p.locator("tbody tr").filter({
+    has: page.getByRole("button", {
+      name: "Developmental Psychology",
+      exact: true,
+    }),
+  });
+  const add = row.getByRole("button", {
+    name: 'Add "Developmental Psycho" as synonym for Developmental Psychology',
+    exact: true,
+  });
+  await expect(add).toHaveAttribute(
+    "title",
+    'Add "Developmental Psycho" as rdfs:seeAlso',
+  );
+  await add.click();
+  await expect(row.locator(".find-synonym")).toHaveText("Added");
+  await expect(row.locator(".find-synonym")).toBeDisabled();
+  await expect(p).toContainText(
+    "Added “Developmental Psycho” as a synonym for Developmental Psychology.",
+  );
+  await expect(p.locator(".find-results-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  expect(
+    await page.evaluate(() => {
+      const observation = (window as any).findRowObservation;
+      observation.observer.disconnect();
+      return observation.minimum;
+    }),
+  ).toBe(2);
+  await expect(query).toHaveValue("  Developmental Psycho  ");
+  await expect(name).toHaveAttribute("aria-pressed", "true");
+  expect((await state()).dirty).toBe(true);
+  const after = await synonymDocument();
+  expect(after.statements).toEqual([
+    ...before.statements,
+    {
+      subject: base + "Developmental_Psychology",
+      predicate: NS.rdfs + "seeAlso",
+      object: { literal: true, value: "Developmental Psycho" },
+    },
+  ]);
+  await menu("view.details");
+  await expect(details).toHaveAttribute(
+    "data-entity-iri",
+    base + "Developmental_Psychology",
+  );
+  await expect(values).toHaveCount(2);
+  await expect(values.nth(1)).toHaveValue("Developmental Psycho");
+  await menu("view.find");
+  // Find focuses its search box on opening; use ontology Undo, not text Undo.
+  await name.focus();
+  expect((await state()).undoLabel).toBe("Add synonym");
+  await menu("edit.undo");
+  await expect(add).toBeEnabled();
+  expect((await synonymDocument()).statements).toEqual(before.statements);
+  await expect(p.locator("tbody tr")).toHaveCount(2);
+  await name.focus();
+  expect((await state()).redoLabel).toBe("Add synonym");
+  await menu("edit.redo");
+  await expect(p.locator(".find-results-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await expect(row.locator(".find-synonym")).toHaveText("Exists");
+  await expect(row.locator(".find-synonym")).toBeDisabled();
+  expect((await synonymDocument()).statements).toEqual(after.statements);
+  await page.screenshot({ path: "artifacts/testing/find-add-synonym.png" });
+});
+
+test("Find synonym action blocks case-insensitive duplicates and query syntax and supports keyboard activation", async () => {
+  await openSynonymFixture();
+  await find("DEVELOPMENTAL PSYCHOLOGY");
+  const p = pane(),
+    query = p.getByRole("searchbox", { name: "Find text" });
+  const name = p.getByRole("button", {
+    name: "Developmental Psychology",
+    exact: true,
+  });
+  const row = p.locator("tbody tr").filter({
+    has: page.getByRole("button", {
+      name: "Developmental Psychology",
+      exact: true,
+    }),
+  });
+  const before = await synonymDocument();
+  await expect(row.locator(".find-synonym")).toBeDisabled();
+  await expect(row.locator(".find-synonym")).toHaveAttribute(
+    "title",
+    /already matches this entity's name/,
+  );
+  await query.fill("developmental psyc");
+  await expect(row.locator(".find-synonym")).toBeDisabled();
+  await expect(row.locator(".find-synonym")).toHaveAttribute(
+    "title",
+    /already exists as rdfs:seeAlso/,
+  );
+  for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
+    await query.fill(text);
+    await expect(
+      p.getByRole("columnheader", { name: "Synonym", exact: true }),
+    ).toHaveCount(0);
+  }
+  expect((await synonymDocument()).statements).toEqual(before.statements);
+  expect((await synonymDocument()).version).toBe(before.version);
+  await query.fill("Developmental Psycho");
+  await name.click();
+  const add = p.locator(".find-actions").getByRole("button", {
+    name: 'Add "Developmental Psycho" as synonym for Developmental Psychology',
+    exact: true,
+  });
+  await add.focus();
+  await add.press("Enter");
+  await expect(
+    p.locator(".find-actions").getByRole("button", {
+      name: 'Added "Developmental Psycho" as rdfs:seeAlso',
+      exact: true,
+    }),
+  ).toBeDisabled();
+  expect(
+    (await synonymDocument()).statements
+      .filter((t) => t.predicate === NS.rdfs + "seeAlso")
+      .map((t) => t.object.value),
+  ).toEqual(["Developmental Psyc", "Developmental Psycho"]);
+});
 test("quick Find focuses type-ahead and sends results to a pane without changing the graph", async () => {
   await expect(page.locator(".search-command")).toHaveCount(0);
   await expect(page.locator(".command-bar")).toHaveCount(0);

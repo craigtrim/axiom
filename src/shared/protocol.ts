@@ -169,6 +169,7 @@ export type DomainMethod =
   | "cancelLayout"
   | "queryContext"
   | "synonymContext"
+  | "addFindSynonym"
   | "validateSynonyms"
   | "taxonomyContext"
   | "validateTaxonomySuggestions"

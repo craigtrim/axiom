@@ -15,6 +15,7 @@ import {
 import type { Store } from "./store";
 import { NS, local, type Kind } from "./model";
 import { displayName } from "./rdf-model";
+import { findSynonymStatus } from "./find-synonyms";
 import { compactIri } from "../shared/terms";
 interface RecordRow extends FindRow {
   category: FindKind;
@@ -59,7 +60,7 @@ export class EntityFindIndex {
     ids: number[];
     kinds: FindFacet[];
   };
-  constructor(store: Store) {
+  constructor(private store: Store) {
     const ids = new Map<string, number>();
     const members = new Map<string, Set<number>>();
     const add = (iri: string, name: string, kind: Kind, description = "") => {
@@ -327,6 +328,7 @@ export class EntityFindIndex {
           match = matches.get(id)!;
         return {
           ...row,
+          synonym: findSynonymStatus(this.store, row.iri, options.text),
           ...(options.match === "cosine" ? { similarity: match.score } : {}),
           matchedField: match.value?.field,
           matchedValue: match.value?.text,

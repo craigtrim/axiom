@@ -38,6 +38,7 @@ export const defaultFindOptions: FindOptions = {
   limit: 50,
 };
 export interface FindRow {
+  synonym?: import("./find-synonyms").FindSynonymStatus;
   iri: string;
   name: string;
   kind: Kind;

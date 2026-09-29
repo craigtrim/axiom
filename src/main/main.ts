@@ -222,6 +222,7 @@ const methods = new Set<DomainMethod>([
   "cancelLayout",
   "queryContext",
   "synonymContext",
+  "addFindSynonym",
   "validateSynonyms",
   "semanticSimilarity",
   "taxonomyContext",

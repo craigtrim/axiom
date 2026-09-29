@@ -1,5 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { command, request, setState, useSnapshot } from "./client";
+import { command, request, setState, useSnapshot, state } from "./client";
+import {
+  findSynonymText,
+  type FindSynonymResult,
+} from "../shared/find-synonyms";
 import type { Snapshot } from "../shared/protocol";
 import { Modal } from "./Dialogs";
 import { editEntity } from "./authoring";
@@ -11,6 +15,7 @@ import {
   findKinds,
   type FindOptions,
   type FindResults,
+  type FindRow,
 } from "../shared/find";
 import {
   findState,
@@ -23,6 +28,7 @@ import {
 
 function useFindResults(options: FindOptions) {
   const snapshot = useSnapshot()!;
+  const queryKey = JSON.stringify([options, snapshot.datasetEpoch]);
   const key = JSON.stringify([
     options,
     snapshot.datasetEpoch,
@@ -30,6 +36,7 @@ function useFindResults(options: FindOptions) {
   ]);
   const [result, setResult] = useState<{
     key: string;
+    queryKey: string;
     epoch: number;
     data?: FindResults;
     error?: string;
@@ -39,12 +46,14 @@ function useFindResults(options: FindOptions) {
     const timer = setTimeout(() => {
       void request<FindResults>("find", { ...options })
         .then((data) => {
-          if (active) setResult({ key, epoch: snapshot.datasetEpoch, data });
+          if (active)
+            setResult({ key, queryKey, epoch: snapshot.datasetEpoch, data });
         })
         .catch((error) => {
           if (active)
             setResult({
               key,
+              queryKey,
               epoch: snapshot.datasetEpoch,
               error: error.message,
             });
@@ -56,7 +65,8 @@ function useFindResults(options: FindOptions) {
     };
   }, [key]);
   return {
-    data: result?.key === key ? result.data : undefined,
+    // Keep this query's rows in place while an ontology edit refreshes them.
+    data: result?.queryKey === queryKey ? result.data : undefined,
     facets: result?.epoch === snapshot.datasetEpoch ? result.data : undefined,
     error: result?.key === key ? result.error : undefined,
     busy: result?.key !== key,
@@ -260,13 +270,33 @@ export function FindPanel() {
   const [actionError, setActionError] = useState("");
   const [message, setMessage] = useState("");
   const [openingGraph, setOpeningGraph] = useState(false);
+  const synonymText = findSynonymText(options.text);
+  const [addingSynonym, setAddingSynonym] = useState("");
+  const synonymPending = useRef(false);
+  const [addedSynonyms, setAddedSynonyms] = useState(new Set<string>());
   const graphPending = useRef(false);
   const rows = data?.rows ?? [];
   const active = rows.find((row) => row.iri === selected);
   useEffect(() => {
     setActionError("");
     setMessage("");
-  }, [snapshot.datasetEpoch]);
+    setAddedSynonyms(new Set());
+  }, [snapshot.datasetEpoch, options.text]);
+  useEffect(() => {
+    // Undo or an edit in another view can make a recently added term available.
+    if (data)
+      setAddedSynonyms(
+        (previous) =>
+          new Set(
+            [...previous].filter(
+              (iri) =>
+                !data.rows.some(
+                  (row) => row.iri === iri && row.synonym === "available",
+                ),
+            ),
+          ),
+      );
+  }, [data]);
   useEffect(() => {
     root.current?.querySelector(".find-results-scroll")?.scrollTo({ top: 0 });
   }, [
@@ -289,6 +319,76 @@ export function FindPanel() {
       await request("select", { iri });
       revealInOpenTaxonomy(iri);
     });
+  };
+  const addSynonym = (row: FindRow) => {
+    if (
+      !synonymText ||
+      busy ||
+      row.synonym !== "available" ||
+      synonymPending.current
+    )
+      return;
+    const text = synonymText,
+      epoch = snapshot.datasetEpoch;
+    synonymPending.current = true;
+    setAddingSynonym(row.iri);
+    run(async () => {
+      try {
+        const result = await request<FindSynonymResult>("addFindSynonym", {
+          iri: row.iri,
+          text,
+          datasetEpoch: epoch,
+        });
+        if (
+          state?.datasetEpoch !== epoch ||
+          findState().options.text.trim() !== text
+        )
+          return;
+        setAddedSynonyms((previous) => new Set([...previous, row.iri]));
+        setMessage(
+          result.added
+            ? `Added “${result.value}” as a synonym for ${row.name}.`
+            : `“${result.value}” is already recorded for ${row.name}.`,
+        );
+      } finally {
+        synonymPending.current = false;
+        setAddingSynonym("");
+      }
+    });
+  };
+  const synonymButton = (row: FindRow | undefined, compact = false) => {
+    if (!synonymText || !row?.synonym) return null;
+    const added = addedSynonyms.has(row.iri),
+      available = row.synonym === "available" && !added;
+    const title = added
+      ? `Added "${synonymText}" as rdfs:seeAlso`
+      : row.synonym === "label"
+        ? `"${synonymText}" already matches this entity's name`
+        : row.synonym === "exists"
+          ? `"${synonymText}" already exists as rdfs:seeAlso`
+          : `Add "${synonymText}" as rdfs:seeAlso`;
+    return (
+      <button
+        type="button"
+        className={compact ? "find-synonym" : undefined}
+        title={title}
+        aria-label={
+          available ? `Add "${synonymText}" as synonym for ${row.name}` : title
+        }
+        disabled={busy || !!addingSynonym || !available}
+        onClick={() => addSynonym(row)}
+      >
+        {addingSynonym === row.iri
+          ? "Adding…"
+          : added
+            ? "Added"
+            : !available
+              ? "Exists"
+              : compact
+                ? "+ Add"
+                : "Add as synonym"}
+      </button>
+    );
   };
   const graph = (fresh: boolean) => {
     if (!active) return;
@@ -595,6 +695,11 @@ export function FindPanel() {
                       Cosine
                     </th>
                   )}
+                  {synonymText && (
+                    <th scope="col" className="find-synonym-column">
+                      Synonym
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -644,6 +749,7 @@ export function FindPanel() {
                         />
                       </td>
                     )}
+                    {synonymText && <td>{synonymButton(row, true)}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -743,6 +849,7 @@ export function FindPanel() {
               >
                 Find similar
               </button>
+              {synonymButton(active)}
               <button disabled={!active} onClick={() => graph(true)}>
                 New graph
               </button>

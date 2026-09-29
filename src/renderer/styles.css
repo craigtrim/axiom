@@ -4570,6 +4570,14 @@ button.sparsity-link {
 .find-results th.find-score-column {
   width: 86px;
 }
+.find-results th.find-synonym-column {
+  width: 88px;
+}
+.find-synonym {
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
 .find-match-evidence {
   margin: 6px 0;
   font-size: 12px;

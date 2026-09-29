@@ -1394,12 +1394,11 @@ export class Store {
       () => replace(i),
     );
   }
-  addSynonym(iri: string, label: string) {
+  addSynonym(iri: string, label: string, predicate = NS.skos + "altLabel") {
     if (!this.exists(iri)) throw Error("The entity no longer exists.");
     label = label.trim();
     if (!label || label.length > 256)
       throw Error("Enter a synonym of 1 to 256 characters.");
-    const predicate = "http://www.w3.org/2004/02/skos/core#altLabel";
     if (
       this.tbox.some(
         (t) =>

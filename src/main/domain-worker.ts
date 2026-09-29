@@ -8,6 +8,7 @@ import { textAnalysisGraphNodes } from "../domain/text-analysis-graph";
 import { textAnalysisContext } from "../domain/text-analysis-context";
 import { analyzeSparsity } from "../domain/sparsity";
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
+import { addFindSynonym } from "../domain/find-synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
 import { findEntities, prepareSemanticFind } from "../domain/resource-search";
@@ -354,6 +355,7 @@ const tracked = new Set<DomainMethod>([
   "createClass",
   "createProperty",
   "updateEntity",
+  "addFindSynonym",
   "applySource",
   "applyEntitySource",
   "editEdge",
@@ -918,6 +920,19 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
     case "synonymContext":
       return synonymContext(store, string(a, "iri", 10000), datasetEpoch);
+    case "addFindSynonym": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw Error(
+          "The workspace changed. Search again before adding a synonym.",
+        );
+      const result = addFindSynonym(
+        store,
+        string(a, "iri", 10000),
+        string(a, "text", 256),
+      );
+      if (result.added) mutate("Added synonym. Use Undo to remove it.");
+      return result;
+    }
     case "validateSynonyms":
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error("The ontology changed. Start a new synonym run.");
