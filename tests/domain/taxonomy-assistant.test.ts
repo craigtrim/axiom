@@ -17,6 +17,7 @@ import {
   sampleTaxonomyContext,
   parseTaxonomyResult,
   taxonomyNameKey,
+  taxonomyDrift,
   type TaxonomySuggestion,
   type TaxonomyRequest,
 } from "../../src/shared/taxonomy-assistant";
@@ -46,6 +47,39 @@ function fixture() {
   store.rebuildSchema();
   return { store, vehicle, machine, land, car, sedan };
 }
+it("reports drift only for the selected class and the branch above it", () => {
+  const store = buildEmptyStore();
+  const vehicle = store.createClass("Vehicle", THING);
+  const machine = store.createClass("Machine", THING);
+  const land = store.createClass("Land vehicle", vehicle);
+  const car = store.createClass("Car", land);
+  store.createClass("Sedan", car);
+  const now = () => taxonomyContext(store, car, "children", 4);
+  const literal = (predicate: string, value: string) => [
+    ...store.entityStatements(car),
+    { subject: car, predicate, object: { literal: true, value } },
+  ];
+  // An unrelated predicate, a new child and a new sibling leave the run usable.
+  const before = now();
+  store.updateEntity(car, literal(NS.rdfs + "seeAlso", "Motorcar"));
+  store.createClass("Coupe", car);
+  store.createClass("Bicycle", vehicle);
+  expect(taxonomyDrift(before, now())).toBe("");
+  store.updateEntity(car, literal(NS.rdfs + "comment", "A road car."));
+  expect(taxonomyDrift(before, now())).toBe(
+    "The description of Car changed after this run.",
+  );
+  const described = now();
+  store.rename(vehicle, "Conveyance");
+  expect(taxonomyDrift(described, now())).toBe(
+    "The classes above Car changed after this run.",
+  );
+  const renamed = now();
+  store.moveClass(car, machine, land);
+  expect(taxonomyDrift(renamed, now())).toBe(
+    "The parents of Car changed after this run.",
+  );
+});
 it("includes complete ancestry, every direct link and descendant depth without unrelated branches or instances", () => {
   const { store, vehicle, machine, land, car, sedan } = fixture();
   const c = taxonomyContext(store, car, "children", 4);

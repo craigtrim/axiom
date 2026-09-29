@@ -5,6 +5,7 @@ import { LocalAssistantRunner, discoverAssistants } from "./local-assistant";
 import {
   buildTaxonomyPrompt,
   sampleTaxonomyContext,
+  taxonomyDrift,
   parseTaxonomyReply,
   taxonomyMode,
   type TaxonomyContext,
@@ -168,24 +169,33 @@ export class TaxonomyAssistantService {
       count: e.response?.result.suggestions.length ?? 0,
     }));
   }
+  /**
+   * Editing the ontology never invalidates a run on its own. Only a class that
+   * has gone, or a different ontology, leaves nothing to add the suggestions to.
+   */
   private async reviewContext(entry: TaxonomyHistoryEntry) {
     const original = entry.reviewContext ?? entry.context;
-    const current = await this.context({
-      id: entry.id,
-      iri: original.selected.iri,
-      mode: original.mode,
-      datasetEpoch: original.datasetEpoch,
-      version: original.version,
-    });
+    let current: TaxonomyContext;
+    try {
+      current = await this.context({
+        id: entry.id,
+        iri: original.selected.iri,
+        mode: original.mode,
+        datasetEpoch: original.datasetEpoch,
+        version: original.version,
+      });
+    } catch (e) {
+      throw Error(
+        "These suggestions have nowhere to go. " + (e as Error).message,
+      );
+    }
     if (
       current.ontology.namespace !== original.ontology.namespace ||
       (entry.session === this.session &&
-        (current.datasetEpoch !== original.datasetEpoch ||
-          current.version !== original.version)) ||
-      buildTaxonomyPrompt(current) !== buildTaxonomyPrompt(original)
+        current.datasetEpoch !== original.datasetEpoch)
     )
       throw Error(
-        "The ontology changed. Start a new run before adding suggestions.",
+        "These suggestions belong to a different ontology. Start a new run.",
       );
     return current;
   }
@@ -196,13 +206,17 @@ export class TaxonomyAssistantService {
       throw Error(
         "These suggestions are no longer available. Start a new run.",
       );
-    let stale = false;
+    let blocked = "",
+      drift = "";
     try {
-      await this.reviewContext(entry);
-    } catch {
-      stale = true;
+      drift = taxonomyDrift(
+        entry.reviewContext ?? entry.context,
+        await this.reviewContext(entry),
+      );
+    } catch (e) {
+      blocked = (e as Error).message;
     }
-    return { entry, stale };
+    return { entry, blocked, drift };
   }
   async apply(id: string, indices: number[]) {
     if (this.current.running || this.applying)

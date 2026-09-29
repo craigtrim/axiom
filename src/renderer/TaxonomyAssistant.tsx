@@ -1,3 +1,7 @@
+import {
+  AddChildrenSuggestions,
+  type ChildSuggestionNavigation,
+} from "./AddChildrenSuggestions";
 import { ErrorNotice } from "./ErrorNotice";
 import { useAssistantProvider } from "./assistant-provider";
 import { useEffect, useRef, useState } from "react";
@@ -30,8 +34,10 @@ import { identifier } from "../domain/rdf-model";
 
 export function TaxonomyAssistant({
   paneId = "taxonomy",
+  navigation,
 }: {
   paneId?: string;
+  navigation?: ChildSuggestionNavigation;
 }) {
   const snapshot = useSnapshot()!;
   const target = useTaxonomyTarget(paneId);
@@ -46,7 +52,8 @@ export function TaxonomyAssistant({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [stale, setStale] = useState(false);
+  const [blocked, setBlocked] = useState("");
+  const [drift, setDrift] = useState("");
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const currentTarget = useRef(target);
@@ -134,7 +141,8 @@ export function TaxonomyAssistant({
     let live = true;
     if (!runId) {
       setEntry(undefined);
-      setStale(false);
+      setBlocked("");
+      setDrift("");
       if (targetExists)
         void request<TaxonomyContext>("taxonomyContext", {
           iri: target!.iri,
@@ -148,7 +156,8 @@ export function TaxonomyAssistant({
         .then((review) => {
           if (!live) return;
           setEntry(review.entry);
-          setStale(review.stale);
+          setBlocked(review.blocked);
+          setDrift(review.drift);
           setError(review.entry.error ?? "");
         })
         .catch((e) => live && setError(e.message));
@@ -250,15 +259,16 @@ export function TaxonomyAssistant({
       }
     }
   }
-  async function apply() {
-    if (!response || stale || applying || activity) return;
+  async function apply(indices = [...selected]) {
+    if (!response || blocked || applying || activity) return;
     setApplying(true);
     setError("");
     try {
       await flushUiHistory();
-      const created = await window.axiom.taxonomyAssistant.apply(response.id, [
-        ...selected,
-      ]);
+      const created = await window.axiom.taxonomyAssistant.apply(
+        response.id,
+        indices,
+      );
       setSelected(new Set());
       setHistory(await window.axiom.taxonomyAssistant.history());
       setRevision((r) => r + 1);
@@ -269,6 +279,7 @@ export function TaxonomyAssistant({
           (children ? " child classes." : " named instances.") +
           " Undo restores the previous ontology.",
       );
+      return created.length;
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -295,6 +306,47 @@ export function TaxonomyAssistant({
         " suggestions" +
         (h.applied ? ", " + h.applied + " added" : "")
       : h.state);
+  if (children)
+    return (
+      <AddChildrenSuggestions
+        key={snapshot.datasetEpoch + ":" + target?.iri}
+        navigation={navigation}
+        name={name}
+        targetIri={target?.iri ?? ""}
+        context={context}
+        entry={entry}
+        history={relevantHistory.filter((h) => h.mode === "children")}
+        runId={runId}
+        provider={provider}
+        setProvider={setProvider}
+        loading={loading}
+        applying={applying}
+        activity={!!activity}
+        waiting={!!start && !!activity}
+        targetExists={!!targetExists}
+        blocked={blocked}
+        drift={drift}
+        error={error}
+        entities={snapshot.entities}
+        generate={generate}
+        apply={apply}
+        selectRun={(id) => {
+          if (target)
+            suggestionStarts.consume(paneId, target, snapshot.datasetEpoch);
+          setRunId(id);
+          setEntry(undefined);
+          setError("");
+        }}
+        selectTarget={(iri, id) =>
+          openTaxonomy(iri, "children", id, paneId, false)
+        }
+        copyPrompt={() =>
+          void window.axiom
+            .copy(entry?.prompt ?? buildTaxonomyPrompt(context!))
+            .catch((e) => setError(e.message))
+        }
+      />
+    );
   return (
     <section
       className="panel taxonomy-panel"
@@ -523,10 +575,12 @@ export function TaxonomyAssistant({
             auditId={error === entry?.error ? entry?.auditId : undefined}
           />
         )}
-        {stale && !busy && (
-          <p role="alert">
-            The ontology changed. This run is kept for reference. Start a new
-            run before adding suggestions.
+        {blocked && !busy && (
+          <p role="alert">{blocked} This run is kept for reference.</p>
+        )}
+        {drift && !blocked && !busy && (
+          <p role="status" className="muted">
+            {drift} Check that the suggestions still fit before adding them.
           </p>
         )}
         {response && (
@@ -557,7 +611,7 @@ export function TaxonomyAssistant({
                     type="checkbox"
                     aria-label="Select all available suggestions"
                     disabled={
-                      stale || !!activity || applying || !available.length
+                      !!blocked || !!activity || applying || !available.length
                     }
                     checked={
                       !!available.length && selected.size === available.length
@@ -578,7 +632,7 @@ export function TaxonomyAssistant({
                           type="checkbox"
                           aria-label={"Add " + suggestion.label}
                           disabled={
-                            stale ||
+                            !!blocked ||
                             !!activity ||
                             applying ||
                             !!(
@@ -634,7 +688,7 @@ export function TaxonomyAssistant({
         <footer className="panel-toolbar taxonomy-footer">
           <button
             className="primary"
-            disabled={stale || applying || !!activity || !selected.size}
+            disabled={!!blocked || applying || !!activity || !selected.size}
             onClick={() => void apply()}
           >
             {applying

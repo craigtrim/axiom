@@ -83,6 +83,51 @@ export function sampleTaxonomyContext(
   return result;
 }
 
+const ordered = (values: string[]) => JSON.stringify([...values].sort());
+const axioms = (term: TaxonomyTerm) =>
+  JSON.stringify({
+    disjoint: [...term.disjoint].sort(),
+    restrictions: term.restrictions,
+    equivalents: term.equivalents,
+  });
+const ancestry = (context: TaxonomyContext) =>
+  JSON.stringify({
+    ancestors: context.ancestors.map((t) => t.iri + " " + t.label).sort(),
+    links: context.ancestorLinks.map((l) => l.child + " " + l.parent).sort(),
+    roots: [...context.roots].sort(),
+  });
+/**
+ * Report only the edits that change what the assistant was asked about: the
+ * selected class itself and the branch above it. Unrelated statements, new
+ * siblings and edits elsewhere in the ontology leave a run usable, and new
+ * children are caught by the duplicate checks when suggestions are added.
+ */
+export function taxonomyDrift(
+  original: TaxonomyContext,
+  current: TaxonomyContext,
+): string {
+  const before = original.selected,
+    after = current.selected,
+    name = before.label;
+  if (after.label !== before.label)
+    return (
+      'This class is now named "' +
+      after.label +
+      '". These suggestions were made for "' +
+      name +
+      '".'
+    );
+  if (after.comment !== before.comment)
+    return "The description of " + name + " changed after this run.";
+  if (ordered(before.parents) !== ordered(after.parents))
+    return "The parents of " + name + " changed after this run.";
+  if (axioms(before) !== axioms(after))
+    return "The axioms on " + name + " changed after this run.";
+  if (ancestry(original) !== ancestry(current))
+    return "The classes above " + name + " changed after this run.";
+  return "";
+}
+
 export interface TaxonomySuggestion {
   kind: "class" | "individual";
   label: string;
@@ -140,7 +185,10 @@ export interface TaxonomyHistorySummary {
 }
 export interface TaxonomyHistoryReview {
   entry: TaxonomyHistoryEntry;
-  stale: boolean;
+  /** Why these suggestions can no longer be added at all; empty when they can. */
+  blocked: string;
+  /** Why the class no longer matches what was asked. Advisory: adding still works. */
+  drift: string;
 }
 export interface TaxonomyStatus {
   provider?: AssistantId;

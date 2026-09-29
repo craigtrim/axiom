@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -50,7 +51,7 @@ async function open(mode = "children", keyboard = false, label = "Vehicle") {
     .click();
   const view = bridge.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(view).toBeVisible();
-  await expect(view.getByRole("heading")).toContainText(label);
+  await expect(view.getByRole("heading", { level: 2 })).toContainText(label);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   return view;
 }
@@ -80,7 +81,7 @@ test.beforeEach(async () => {
     const behavior=JSON.parse(fs.readFileSync(${JSON.stringify(behavior)},"utf8"));
     if(process.argv.includes("--output-schema"))process.exit(3);
     const children=prompt.startsWith("Suggest useful additional types");
-    const names=children?["Water vehicle","Air vehicle"]:["Apollo 15 rover"];
+    const names=behavior.names ?? (children?["Water vehicle","Air vehicle"]:["Apollo 15 rover"]);
     if(behavior.duplicate)names.push("Car");
     const result="Summary: "+(behavior.empty?"No new additions are justified.":"Proposals for review.")+"\\nSuggestions:\\n"+(behavior.empty?"None.":names.map((label,i)=>(i+1)+". "+label+"\\nDescription: A proposed "+(children?"category":"named example")+".\\nReason: Fits the supplied background.").join("\\n\\n"));
     setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"bad output":result),behavior.delay??20);
@@ -162,10 +163,17 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   const dialog = await ready();
   await page.screenshot({ path: "artifacts/testing/taxonomy-view.png" });
   expect((await state()).classCount).toBe(before.classCount);
-  await dialog.getByText(/^Context sent to Codex/).click();
-  await expect(dialog).toContainText("Thing");
-  await expect(dialog).toContainText("Land vehicle");
-  await expect(dialog).toContainText("depth 2");
+  await dialog.getByRole("button", { name: "Context", exact: true }).click();
+  await expect(
+    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+  ).toContainText("Thing");
+  await expect(
+    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+  ).toContainText("Land vehicle");
+  await expect(
+    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+  ).toContainText("depth 2");
+  await bridge.getByRole("button", { name: "Close Context" }).click();
   const prompt = await readFile(path.join(profile, "prompt.txt"), "utf8");
   expect(prompt).toContain("types that fit better inside an existing category");
   expect(prompt).not.toContain("parentIri");
@@ -175,10 +183,15 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   await dialog
     .getByRole("checkbox", { name: "Select all available suggestions" })
     .check();
-  await dialog.getByRole("button", { name: /^Add selected children/ }).click();
-  await expect(dialog).toContainText("2 added");
+  await dialog
+    .getByRole("button", { name: /^Add \d+ (child|children)$/ })
+    .click();
+  await expect(dialog).toContainText("2 children added under Vehicle");
   await expect(
-    dialog.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    dialog.getByRole("checkbox", {
+      name: "Water vehicle, Added, cannot be added",
+      exact: true,
+    }),
   ).toBeDisabled();
   const after = await state();
   const created = after.entities.filter((e) =>
@@ -232,8 +245,10 @@ test("accepts zero suggestions without adding anything", async () => {
     dialog = await ready();
   await expect(dialog).toContainText("No new direct children suggested.");
   await expect(
-    dialog.getByRole("button", { name: /^Add selected/ }),
-  ).toHaveCount(0);
+    dialog.getByRole("button", {
+      name: /^Add (\d+ (child|children)|selected children)$/,
+    }),
+  ).toBeDisabled();
   expect((await state()).version).toBe(before.version);
 });
 test("blocks duplicates and preserves the right-clicked parent when selection changes during generation", async () => {
@@ -245,20 +260,27 @@ test("blocks duplicates and preserves the right-clicked parent when selection ch
   );
   await expect(dialog.getByRole("button", { name: "New run" })).toBeVisible();
   await expect(
-    dialog.getByRole("checkbox", { name: "Add Car", exact: true }),
+    dialog.getByRole("checkbox", {
+      name: "Car, Exists, cannot be added",
+      exact: true,
+    }),
   ).toBeDisabled();
   await dialog
-    .getByRole("checkbox", { name: "Add Water vehicle", exact: true })
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
     .check();
-  await dialog.getByRole("button", { name: /^Add selected/ }).click();
+  await dialog
+    .getByRole("button", {
+      name: /^Add (\d+ (child|children)|selected children)$/,
+    })
+    .click();
   expect(
     (await state()).entities.find((e) => e.name === "Water vehicle")?.parents,
   ).toEqual([vehicle]);
 });
-test("rejects stale proposals and retains the ontology when it changes during or after generation", async () => {
+test("survives unrelated edits, warns when the class moves, and retains the ontology when it changes during generation", async () => {
   const dialog = await ready();
   await dialog
-    .getByRole("checkbox", { name: "Add Water vehicle", exact: true })
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
     .check();
   await bridge.evaluate(
     (root) =>
@@ -269,18 +291,47 @@ test("rejects stale proposals and retains the ontology when it changes during or
     THING,
   );
   await expect(
-    dialog.getByRole("button", { name: /^Add selected/ }),
-  ).toBeDisabled();
-  await expect(dialog).toContainText("The ontology changed.");
-  const status = await bridge.evaluate(() =>
-    window.axiom.taxonomyAssistant.status(),
+    dialog.getByRole("button", {
+      name: /^Add (\d+ (child|children)|selected children)$/,
+    }),
+  ).toBeEnabled();
+  await expect(dialog).not.toContainText("after this run");
+  const machine = await bridge.evaluate(
+    (root) =>
+      window.axiom.request<string>("createClass", {
+        name: "Machine",
+        parent: root,
+      }),
+    THING,
   );
-  await expect(
-    bridge.evaluate(
-      (id) => window.axiom.taxonomyAssistant.apply(id, [0]),
-      status.response!.id,
-    ),
-  ).rejects.toThrow(/ontology changed/);
+  await bridge.evaluate(
+    async ([iri, parent, root]) => {
+      const s = await window.axiom.request<Snapshot>("state");
+      await window.axiom.request("moveClass", {
+        iri,
+        parent,
+        fromParent: root,
+        version: s.version,
+        datasetEpoch: s.datasetEpoch,
+      });
+    },
+    [vehicle, machine, THING],
+  );
+  await expect(dialog).toContainText(
+    "The parents of Vehicle changed after this run.",
+  );
+  await dialog
+    .getByRole("button", {
+      name: /^Add (\d+ (child|children)|selected children)$/,
+    })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.name === "Water vehicle")
+          ?.parents,
+    )
+    .toEqual([vehicle]);
   await writeFile(behavior, '{"delay":1500}');
   await dialog.getByRole("button", { name: "New run" }).click();
   await expect(
@@ -324,7 +375,7 @@ test("cancels Codex, retries, and reports malformed responses without changing d
   await writeFile(behavior, "{}");
   await dialog.getByRole("button", { name: "New run" }).click();
   await expect(
-    dialog.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    dialog.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
 });
 test("opens the dockable view from a keyboard context action in detached Hierarchy", async () => {
@@ -347,8 +398,8 @@ test("fits the dockable view in a small window and provides scrollable context",
   await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setSize(900, 640),
   );
-  await dialog.getByText(/^Context sent to Codex/).click();
-  await dialog.getByText("Exact prompt", { exact: true }).click();
+  await dialog.getByRole("button", { name: "Context", exact: true }).click();
+  await bridge.getByText("Exact prompt", { exact: true }).click();
   const box = await dialog.boundingBox();
   const viewport = await page.evaluate(() => ({
     width: innerWidth,
@@ -357,7 +408,7 @@ test("fits the dockable view in a small window and provides scrollable context",
   expect(box!.width).toBeLessThan(viewport.width);
   expect(box!.height).toBeLessThan(viewport.height);
   await expect(
-    dialog.getByRole("textbox", { name: "Taxonomy prompt" }),
+    bridge.getByRole("textbox", { name: "Taxonomy prompt" }),
   ).toHaveValue(/BACKGROUND/);
   await info.attach("compact-review", {
     body: await page.screenshot(),
@@ -387,7 +438,10 @@ test("closing a running view keeps the job and restores its completed result", a
   await menu("view.taxonomy");
   const reopened = bridge.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(
-    reopened.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    reopened.getByRole("checkbox", {
+      name: "Select Water vehicle",
+      exact: true,
+    }),
   ).toBeVisible();
   expect(
     (await readFile(path.join(profile, "calls.txt"), "utf8"))
@@ -414,10 +468,21 @@ test("keeps separate histories, opens the latest run, and browses an earlier run
   ).toBeEnabled();
   await expect(view).toContainText("No new direct children suggested.");
   // Browsing history does not run a provider or change selection in the ontology.
-  await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
-  await expect(view.getByRole("heading")).toContainText("Vehicle");
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("button", { name: "Next target" }),
+  ).toBeDisabled();
+  await view.getByRole("searchbox").fill("old target filter");
+  await view.getByRole("button", { name: "Previous target" }).click();
+  await expect(
+    view.getByRole("button", { name: "Previous target" }),
+  ).toBeDisabled();
+  await expect(view.getByRole("searchbox")).toHaveValue("");
+  await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
+  await expect(view.getByRole("heading", { level: 2 })).toContainText(
+    "Vehicle",
+  );
+  await expect(
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   await view
     .getByRole("combobox", { name: "Run history" })
@@ -458,7 +523,7 @@ test("queues a different node automatically and reuses an already running reques
     )
     .toBe(2);
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   const history = await bridge.evaluate(() =>
     window.axiom.taxonomyAssistant.history(),
@@ -468,12 +533,12 @@ test("queues a different node automatically and reuses an already running reques
     "Land vehicle",
     "Vehicle",
   ]);
-  await view
-    .getByRole("combobox", { name: "Run history" })
-    .selectOption(history.find((r) => r.iri === vehicle)!.id);
-  await expect(view.getByRole("heading")).toContainText("Vehicle");
+  await view.getByRole("button", { name: "Previous target" }).click();
+  await expect(view.getByRole("heading", { level: 2 })).toContainText(
+    "Vehicle",
+  );
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   expect(
     (await readFile(path.join(profile, "calls.txt"), "utf8"))
@@ -526,12 +591,12 @@ test("restores history after restart and applies a retained proposal without ano
     restored.getByRole("combobox", { name: "Run history" }),
   ).toHaveValue(id);
   await restored
-    .getByRole("checkbox", { name: "Add Water vehicle", exact: true })
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
     .check();
   await restored
-    .getByRole("button", { name: /^Add selected children/ })
+    .getByRole("button", { name: /^Add \d+ (child|children)$/ })
     .click();
-  await expect(restored).toContainText("1 added");
+  await expect(restored).toContainText("1 child added under Vehicle");
   expect(
     (await state()).entities.find((e) => e.name === "Water vehicle")?.parents,
   ).toEqual([vehicle]);
@@ -557,7 +622,7 @@ test("detaches Suggestions with its history and keeps the run controls usable in
   });
   const view = child.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   const first = await view
     .getByRole("combobox", { name: "Run history" })
@@ -571,7 +636,7 @@ test("detaches Suggestions with its history and keeps the run controls usable in
   ).not.toHaveValue(first);
   await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   await child.screenshot({
     path: "artifacts/testing/taxonomy-view-detached.png",
@@ -645,7 +710,7 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
   await writeFile(behavior, "{}");
   await view.getByRole("button", { name: "New run", exact: true }).click();
   await expect(
-    view.getByRole("checkbox", { name: "Add Water vehicle", exact: true }),
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
   ).toBeVisible();
   const workspace = path.join(profile, "audited.axiom");
   await app.evaluate(({ dialog }, file) => {
@@ -799,18 +864,18 @@ test("sends only 20 sampled children and 20 sampled descendants and retains the 
   await expect(
     view.getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();
-  await view.getByText(/^Context sent to Codex/).click();
-  await expect(view.getByText(/^Context sent to Codex/)).toContainText(
-    "20 of 143 children · 20 of 372 descendants",
-  );
+  await view.getByRole("button", { name: "Context", exact: true }).click();
+  await expect(
+    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+  ).toContainText("20 of 143 children · 20 of 372 descendants");
   const id = await view
     .getByRole("combobox", { name: "Run history" })
     .inputValue();
-  const { entry, stale } = await page.evaluate(
+  const { entry, blocked } = await page.evaluate(
     (id) => window.axiom.taxonomyAssistant.read(id),
     id,
   );
-  expect(stale).toBe(false);
+  expect(blocked).toBe("");
   expect(entry.context.directChildren).toHaveLength(20);
   expect(entry.context.descendants).toHaveLength(20);
   expect(entry.context.sample).toEqual({ children: 143, descendants: 372 });
@@ -818,9 +883,9 @@ test("sends only 20 sampled children and 20 sampled descendants and retains the 
   expect(sent).toBe(entry.prompt);
   expect(sent).toContain("20 of 143 direct children; 20 of 372 descendants");
   expect(sent).not.toContain("All narrower categories:");
-  await view.getByText("Exact prompt", { exact: true }).click();
+  await bridge.getByText("Exact prompt", { exact: true }).click();
   await expect(
-    view.getByRole("textbox", { name: "Taxonomy prompt" }),
+    bridge.getByRole("textbox", { name: "Taxonomy prompt" }),
   ).toHaveValue(sent);
   await page.screenshot({
     path: "artifacts/testing/taxonomy-sampled-context.png",
@@ -837,12 +902,359 @@ test("sends only 20 sampled children and 20 sampled descendants and retains the 
     view.getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();
   await view.getByRole("combobox", { name: "Run history" }).selectOption(id);
+  await view.getByRole("button", { name: "Context", exact: true }).click();
+  await bridge.getByText("Exact prompt", { exact: true }).click();
   await expect(
-    view.getByRole("textbox", { name: "Taxonomy prompt" }),
+    bridge.getByRole("textbox", { name: "Taxonomy prompt" }),
   ).toHaveValue(sent);
   await view
-    .getByRole("checkbox", { name: "Add Water vehicle", exact: true })
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
     .check();
-  await view.getByRole("button", { name: /^Add selected children/ }).click();
-  await expect(view).toContainText("1 added");
+  await view
+    .getByRole("button", { name: /^Add \d+ (child|children)$/ })
+    .click();
+  await expect(view).toContainText("1 child added under Vehicle");
+});
+
+test("table filtering and sorting preserve hidden selections and scope select-all to available rows", async () => {
+  await writeFile(
+    behavior,
+    JSON.stringify({
+      duplicate: true,
+      names: ["Water vehicle", "Air vehicle", "Space vehicle"],
+    }),
+  );
+  const view = await ready();
+  const names = () => view.locator(".ac-row .ac-name").allTextContents();
+  const search = view.getByRole("searchbox", {
+    name: "Filter suggestions by label or definition",
+  });
+  const all = view.getByRole("checkbox", {
+    name: "Select all available suggestions",
+  });
+  await expect(view.locator(".ac-command")).toHaveCount(1);
+  await expect(page.locator(".suggestion-switcher")).toHaveCount(0);
+  await expect(
+    view.getByRole("button", { name: "All 4", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await view
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
+    .check();
+  await expect(all).toHaveJSProperty("indeterminate", true);
+  await search.fill("AIR");
+  await expect(
+    view.getByRole("button", { name: "Available 3", exact: true }),
+  ).toBeVisible();
+  await all.check();
+  await expect(view).toContainText("2 of 3 available selected");
+  await all.uncheck();
+  await search.clear();
+  await expect(
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
+  ).toBeChecked();
+  await expect(
+    view.getByRole("checkbox", { name: "Select Air vehicle", exact: true }),
+  ).not.toBeChecked();
+  await view
+    .getByRole("button", { name: "Suggestion", exact: false })
+    .filter({ hasText: "Suggestion" })
+    .click();
+  expect(await names()).toEqual([
+    "Air vehicle",
+    "Car",
+    "Space vehicle",
+    "Water vehicle",
+  ]);
+  await expect(
+    view.getByRole("columnheader", { name: /Suggestion/ }),
+  ).toHaveAttribute("aria-sort", "ascending");
+  await view.locator(".ac-sort").first().click();
+  expect(await names()).toEqual([
+    "Water vehicle",
+    "Space vehicle",
+    "Car",
+    "Air vehicle",
+  ]);
+  await view.locator(".ac-sort").first().click();
+  expect(await names()).toEqual([
+    "Water vehicle",
+    "Air vehicle",
+    "Space vehicle",
+    "Car",
+  ]);
+  await view
+    .getByRole("button", { name: "Already exist 1", exact: true })
+    .click();
+  await expect(all).toBeDisabled();
+  await expect(
+    view.getByRole("checkbox", { name: "Car, Exists, cannot be added" }),
+  ).toBeDisabled();
+  await view.getByRole("button", { name: "Details for Car" }).click();
+  await expect(view).toContainText("It will not be duplicated or moved.");
+  await expect(view.locator(".ac-identifiers")).toContainText(
+    "Existing entity",
+  );
+  await search.fill("unmatched");
+  await expect(view).toContainText(
+    'Nothing in this run matches "unmatched" under the current status filter.',
+  );
+  await view.getByRole("button", { name: "Clear filter and search" }).click();
+  await expect(search).toHaveValue("");
+  await expect(
+    view.getByRole("checkbox", { name: "Select Water vehicle", exact: true }),
+  ).toBeChecked();
+  await view
+    .getByRole("button", { name: "Clear selection", exact: true })
+    .click();
+  await expect(view).toContainText("No suggestions selected");
+  await view.getByRole("button", { name: "Added 0", exact: true }).click();
+  await expect(view).toContainText("Nothing in this run has that status.");
+});
+
+test("row details and a single commit retain the review while a new run resets it", async () => {
+  await writeFile(behavior, '{"duplicate":true}');
+  const before = await state(),
+    view = await ready();
+  const water = view.getByRole("button", { name: "Details for Water vehicle" });
+  const air = view.getByRole("button", { name: "Details for Air vehicle" });
+  await water.focus();
+  await page.keyboard.press("Enter");
+  await air.click();
+  await expect(water).toHaveAttribute("aria-expanded", "true");
+  await expect(air).toHaveAttribute("aria-expanded", "true");
+  const row = view
+    .locator("tbody")
+    .filter({
+      has: page.getByRole("button", {
+        name: "Details for Water vehicle",
+        exact: true,
+      }),
+    });
+  await view.getByRole("searchbox").fill("vehicle");
+  await row
+    .getByRole("button", { name: "Add this child", exact: true })
+    .click();
+  await expect(view).toContainText("1 child added under Vehicle");
+  await expect(view.getByRole("searchbox")).toHaveValue("vehicle");
+  await expect(water).toHaveAttribute("aria-expanded", "true");
+  await expect(row).toContainText(
+    "Added to the ontology in this run as a direct child.",
+  );
+  await expect(row.getByRole("button", { name: "Add this child" })).toHaveCount(
+    0,
+  );
+  expect((await state()).classCount).toBe(before.classCount + 1);
+  await view
+    .getByRole("checkbox", { name: "Select Air vehicle", exact: true })
+    .check();
+  await view.getByRole("button", { name: "Add 1 child", exact: true }).click();
+  await expect(
+    view.getByRole("button", { name: "Added 2", exact: true }),
+  ).toBeVisible();
+  await view.getByRole("searchbox").clear();
+  await view
+    .getByRole("button", { name: "Status", exact: false })
+    .filter({ hasText: "Status" })
+    .click();
+  expect(await view.locator(".ac-row .ac-name").allTextContents()).toEqual([
+    "Air vehicle",
+    "Water vehicle",
+    "Car",
+  ]);
+  const first = await view
+    .getByRole("combobox", { name: "Run history" })
+    .inputValue();
+  await view.getByRole("button", { name: "Added 2", exact: true }).click();
+  await view.getByRole("button", { name: "Analysis", exact: true }).click();
+  await view.getByRole("button", { name: "New run", exact: true }).click();
+  await expect(
+    view.getByRole("button", { name: "New run", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    view.getByRole("button", { name: "All 3", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(view.locator(".ac-detail")).toHaveCount(0);
+  await expect(
+    view.getByRole("columnheader", { name: /Status/ }),
+  ).toHaveAttribute("aria-sort", "none");
+  await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
+  await expect(
+    view.getByRole("button", { name: "Added 2", exact: true }),
+  ).toBeVisible();
+  await expect(
+    view.getByRole("checkbox", {
+      name: "Water vehicle, Added, cannot be added",
+    }),
+  ).toBeDisabled();
+});
+
+test("analysis and context overlays do not move rows and close with Escape, outside click and table scroll", async () => {
+  await writeFile(
+    behavior,
+    JSON.stringify({
+      names: Array.from({ length: 12 }, (_, i) => "Vehicle type " + i),
+    }),
+  );
+  const view = await ready(),
+    table = view.getByRole("table");
+  const first = await table.boundingBox();
+  const analysis = view.getByRole("button", { name: "Analysis", exact: true });
+  await analysis.click();
+  await expect(
+    page.getByRole("dialog", { name: "Why Codex proposed these" }),
+  ).toContainText("Proposals for review.");
+  expect(await table.boundingBox()).toEqual(first);
+  await page.keyboard.press("Escape");
+  await expect(analysis).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await analysis.click();
+  await view.getByRole("button", { name: "Context", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("dialog")).toHaveAccessibleName(
+    "Context sent to the assistant",
+  );
+  expect(await table.boundingBox()).toEqual(first);
+  await view.getByRole("heading", { level: 2 }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await analysis.click();
+  await view.locator(".ac-scroll").evaluate((e) => (e.scrollTop = 200));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const scrollBox = await view.locator(".ac-scroll").boundingBox();
+  const head = await view.locator("thead th").first().boundingBox();
+  expect(Math.abs(head!.y - scrollBox!.y)).toBeLessThan(2);
+  await view.locator(".ac-scroll").evaluate((e) => (e.scrollTop = 0));
+  await view
+    .getByRole("button", { name: "Details for Vehicle type 0" })
+    .click();
+  await view
+    .locator(".ac-row")
+    .first()
+    .getByText("Vehicle type 0", { exact: true })
+    .click();
+  await expect(
+    view.getByRole("button", { name: "Details for Vehicle type 0" }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
+test("compact review stays accessible in light and dark themes and at 375px in a detached view", async () => {
+  await writeFile(behavior, '{"duplicate":true}');
+  const view = await ready();
+  await view
+    .getByRole("checkbox", { name: "Select Water vehicle", exact: true })
+    .check();
+  await view.getByRole("button", { name: "Add 1 child", exact: true }).click();
+  await expect(
+    view.getByRole("checkbox", {
+      name: "Water vehicle, Added, cannot be added",
+    }),
+  ).toBeDisabled();
+  const waiting = app.waitForEvent("window");
+  await menu("pane.detach");
+  const child = await waiting;
+  child.on("pageerror", (e) => errors.push(e.message));
+  const detached = child.getByRole("region", { name: "Taxonomy suggestions" });
+  const win = await app.browserWindow(child);
+  await expect(detached).toBeVisible();
+  await win.evaluate((w) => {
+    w.setMinimumSize(320, 240);
+    w.webContents.setZoomFactor(1);
+    w.setContentSize(1500, 900);
+  });
+  await expect
+    .poll(() => detached.evaluate((e) => e.clientWidth))
+    .toBeGreaterThan(1100);
+  await expect(
+    detached.getByRole("columnheader", { name: "Definition", exact: true }),
+  ).toBeVisible();
+  for (const theme of ["light", "dark"]) {
+    await menu("theme." + theme);
+    await detached.getByRole("button", { name: "Details for Car" }).click();
+    await child.screenshot({
+      path: `artifacts/testing/add-children-${theme}.png`,
+    });
+    const audit = await new AxeBuilder({ page: child })
+      .setLegacyMode(true)
+      .include(".add-children-panel")
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(audit.violations).toEqual([]);
+    await detached.getByRole("button", { name: "Details for Car" }).click();
+  }
+  await win.evaluate((w) => w.setContentSize(375, 720));
+  await expect(
+    detached.getByRole("columnheader", { name: "Definition", exact: true }),
+  ).toBeHidden();
+  expect(
+    await detached.evaluate((e) => e.scrollWidth - e.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    await detached
+      .locator(".ac-scroll")
+      .evaluate((e) => e.scrollWidth - e.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  await expect(detached.locator(".ac-status-word").first()).toBeHidden();
+  await expect(
+    detached.getByRole("button", { name: "New run", exact: true }),
+  ).toBeVisible();
+  await detached.getByRole("button", { name: "Context", exact: true }).click();
+  const popover = child.getByRole("dialog", {
+    name: "Context sent to the assistant",
+  });
+  await expect(popover).toBeVisible();
+  const box = await popover.boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  await child.screenshot({
+    path: "artifacts/testing/add-children-375-context.png",
+  });
+  expect(
+    (
+      await new AxeBuilder({ page: child })
+        .setLegacyMode(true)
+        .include(".add-children-panel")
+        .include(".ac-popover")
+        .withTags(["wcag2a", "wcag2aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await child.keyboard.press("Escape");
+  await detached.dispatchEvent("wheel", {
+    deltaY: -148.762,
+    ctrlKey: true,
+    bubbles: true,
+  });
+  await expect(child.locator(".adaptive-pane")).toHaveAttribute(
+    "data-pane-zoom",
+    "1.25",
+  );
+  await expect
+    .poll(() =>
+      detached.evaluate(
+        (e) =>
+          e.getBoundingClientRect().right -
+          e.ownerDocument.defaultView!.innerWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+  expect(
+    await detached.evaluate((e) => e.scrollWidth - e.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  const viewport = await child.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+  }));
+  for (const control of await detached
+    .locator(
+      ".ac-band button:visible, .ac-band select:visible, .ac-band input:visible",
+    )
+    .all()) {
+    const bounds = await control.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height + 1);
+  }
+  await child.screenshot({
+    path: "artifacts/testing/add-children-375-zoom.png",
+  });
 });

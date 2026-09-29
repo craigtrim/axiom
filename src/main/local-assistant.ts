@@ -167,6 +167,7 @@ export class LocalAssistantRunner {
     prompt: string,
     schema: object | null,
     web = false,
+    maxPromptLength = 150000,
   ): Promise<unknown> {
     if (this.active) throw Error("An assistant request is already running.");
     const job: { child?: ChildProcess; cancelled: boolean } = {
@@ -192,7 +193,7 @@ export class LocalAssistantRunner {
           "utf8",
         );
       if (job.cancelled) throw Error("Assistant cancelled.");
-      if (prompt.length > 150000)
+      if (prompt.length > maxPromptLength)
         throw Error("The selected ontology context is too large.");
       auditMetadata({ executable: command.file, workingDirectory: dir });
       auditDetail("Arguments", [

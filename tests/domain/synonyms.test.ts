@@ -4,20 +4,17 @@ import path from "node:path";
 import os from "node:os";
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
 import { NS, SUBCLASS, type Triple } from "../../src/domain/model";
-import {
-  synonymContext,
-  validateSynonyms,
-  closeSynonymForm,
-} from "../../src/domain/synonyms";
+import { synonymContext, validateSynonyms } from "../../src/domain/synonyms";
 import {
   buildSynonymPrompt,
   synonymDefinition,
   sampleSynonymTerms,
 } from "../../src/shared/synonyms";
 import { SuggestionService } from "../../src/main/suggestion-service";
-import type {
-  SuggestionValue,
-  SuggestionDocument,
+import {
+  parseSuggestionValues,
+  type SuggestionValue,
+  type SuggestionDocument,
 } from "../../src/shared/suggestions";
 import type { DomainMethod } from "../../src/shared/protocol";
 import { readPreferences } from "../../src/shared/preferences";
@@ -70,10 +67,10 @@ it("includes hierarchy meaning and literal/link seeAlso context without unrelate
   expect(c.children[0].seeAlso[0].value).toBe("Spoken Basic Engl.");
   expect(c.siblings[0].seeAlso[0].value).toBe("ADV ENG");
   const prompt = buildSynonymPrompt(c);
+  expect(prompt).toContain("The user decides which candidates to add");
   expect(prompt).toContain(
-    "same scope, subject, level, population and qualifiers",
+    "even when they share a name or alias with an existing entity",
   );
-  expect(prompt).toContain("sibling label");
   expect(prompt).toContain("rdfs:seeAlso string literals");
   expect(prompt).toContain("BASIC ENG");
   expect(prompt).toContain("ADV ENG");
@@ -140,83 +137,64 @@ it("includes the types and peers of a named individual", async () => {
   expect(c.siblings.map((v) => v.label)).toEqual(["Basic English 102"]);
   expect(c.children).toEqual([]);
 });
-it.each([
-  ["English Basics", "Basic English", true],
-  ["Basic Engl.", "Basic English", true],
-  ["Computer Sci.", "Computer Science", true],
-  ["CS", "Computer Science", true],
-  ["B.Sc.", "Bachelor of Science", true],
-  ["Behavioral Science", "Behavioural Science", true],
-  ["Color Theory", "Colour Theory", true],
-  ["Pediatrics", "Paediatrics", true],
-  ["Health-care", "Health Care", true],
-  ["Advanced English", "Basic English", false],
-  ["English", "Basic English", false],
-  ["Introductory English", "Basic English", false],
-  ["Information Technology", "Computer Science", false],
-  ["Data Sciences", "Data Science", true],
-])("checks close lexical forms: %s / %s", (candidate, label, accepted) => {
-  expect(closeSynonymForm(candidate, label)).toBe(accepted);
+it("offers abbreviations and names used by other entities for user review", async () => {
+  const store = await fixture(
+    ':SystemsAdministration a owl:Class; rdfs:label "Systems Administration". :SystemAdministration a owl:Class; rdfs:label "System Administration".',
+  );
+  const candidates = values(
+    "System Administration",
+    "Systems Admin",
+    "System Admin",
+  );
+  expect(
+    validateSynonyms(store, base + "SystemsAdministration", candidates),
+  ).toEqual({ values: candidates, excluded: [] });
 });
-it("excludes existing names, aliases and unrelated wording, while retaining safe variants", async () => {
+it("deduplicates synonyms without regard to case and omits the selected name", async () => {
   const store = await fixture(
     ':AdvancedEnglish skos:altLabel "English Basics". :Unrelated rdfs:seeAlso "Basic Engl.".',
   );
-  const result = validateSynonyms(
-    store,
-    base + "BasicEnglish",
-    values(
-      "English Basics",
-      "Basic Engl.",
-      "basic eng",
-      "English",
-      "Advanced English",
-      "Basic, English",
-      "Introductory English",
-      "https://example.org/BasicEnglish",
+  const candidates = values(
+    "English Basics",
+    "Basic Engl.",
+    "BASIC ENG",
+    "basic eng",
+    "English",
+    "Advanced English",
+    "Basic English",
+    "Introductory English",
+  );
+  const result = validateSynonyms(store, base + "BasicEnglish", candidates);
+  expect(result.values).toEqual(
+    candidates.filter(
+      (v) => !["BASIC ENG", "basic eng", "Basic English"].includes(v.value),
     ),
   );
-  expect(result.values).toEqual([]);
-  expect(
-    validateSynonyms(
-      await fixture(),
-      base + "BasicEnglish",
-      values("Basic, English"),
-    ).values.map((v) => v.value),
-  ).toEqual(["Basic, English"]);
-  expect(
-    result.excluded.find((v) => v.value === "English Basics")?.reason,
-  ).toContain("Advanced English");
-  expect(
-    result.excluded.find((v) => v.value === "Basic Engl.")?.reason,
-  ).toContain("Private branch");
-  expect(
-    result.excluded.find((v) => v.value === "basic eng")?.reason,
-  ).toContain("Already");
-});
-it("checks names outside the hierarchy sample and refreshes its index after edits", async () => {
-  const store = await fixture();
-  const candidates = values("English Basics");
-  expect(
-    validateSynonyms(store, base + "BasicEnglish", candidates).values,
-  ).toHaveLength(1);
-  const iri = base + "Unrelated";
-  store.updateEntity(iri, [
-    ...store.entityStatements(iri),
-    {
-      subject: iri,
-      predicate: NS.rdfs + "seeAlso",
-      object: { literal: true, value: "ENGLISH-BASICS" },
-    },
+  expect(result.excluded).toEqual([
+    { value: "BASIC ENG", reason: "Already recorded for this entity." },
   ]);
-  expect(
-    validateSynonyms(store, base + "BasicEnglish", candidates).excluded[0]
-      .reason,
-  ).toContain("Private branch");
-  store.undo();
-  expect(
-    validateSynonyms(store, base + "BasicEnglish", candidates).values,
-  ).toHaveLength(1);
+});
+it("omits zero-distance and case-only variants while retaining positive distances", async () => {
+  const store = await fixture(
+    ':AmericanHistory a owl:Class; rdfs:label "American History To 1877".',
+  );
+  const result = validateSynonyms(
+    store,
+    base + "AmericanHistory",
+    values(
+      "American History To 1877",
+      "American History to 1877",
+      "AMERICAN HISTORY TO 1877",
+      "US History to 1877",
+      "us history TO 1877",
+      "American History To 1877.",
+    ),
+  );
+  expect(result.values.map((v) => v.value)).toEqual([
+    "US History to 1877",
+    "American History To 1877.",
+  ]);
+  expect(result.excluded).toEqual([]);
 });
 it("retains synonym pane targets through preference validation", () => {
   const target = {
@@ -278,7 +256,13 @@ async function serviceFixture(
         return validateSynonyms(
           store,
           String(args.iri),
-          args.values as SuggestionValue[],
+          parseSuggestionValues(
+            { suggestions: args.values },
+            synonymDefinition,
+            {
+              allowEmptyReason: true,
+            },
+          ),
         ) as T;
       changes++;
       return store.updateEntity(
@@ -315,7 +299,7 @@ async function serviceFixture(
     },
   };
 }
-it("sends exact context, retains exclusions and applies only reviewed string literals with undo", async () => {
+it("sends context, retains all new candidates and applies only selected string literals with undo", async () => {
   const f = await serviceFixture(),
     before = f.document().statements;
   const run = await f.run();
@@ -324,8 +308,13 @@ it("sends exact context, retains exclusions and applies only reviewed string lit
   expect(run.values.map((v) => v.value)).toEqual([
     "English Basics",
     "Basic Engl.",
+    "Advanced English",
+    "English",
+    "Introductory English",
   ]);
-  expect(run.excluded).toHaveLength(4);
+  expect(run.excluded).toEqual([
+    { value: "BASIC ENG", reason: "Already recorded for this entity." },
+  ]);
   expect(f.changes).toBe(0);
   await f.service.apply(run.id, [0]);
   expect(f.document().statements).toEqual([
@@ -360,7 +349,7 @@ it("preserves history and exact prompts after restart without changing the built
   );
   expect((await restored.history())[0].applied).toEqual([0]);
 });
-it("rechecks new sibling aliases before applying a prior run", async () => {
+it("allows the user to add a synonym even if another entity acquired it after the run", async () => {
   const f = await serviceFixture(),
     run = await f.run(),
     iri = base + "AdvancedEnglish";
@@ -372,17 +361,19 @@ it("rechecks new sibling aliases before applying a prior run", async () => {
       object: { literal: true, value: "English Basics" },
     },
   ]);
-  await expect(f.service.apply(run.id, [0])).rejects.toThrow(/another entity/);
-  expect(f.changes).toBe(0);
+  await f.service.apply(run.id, [0]);
+  expect(f.changes).toBe(1);
   expect(
     f.document().statements.some((t) => t.object.value === "English Basics"),
-  ).toBe(false);
+  ).toBe(true);
 });
-it("rejects changed workspaces and changed selected entities before applying", async () => {
+it("rejects a replaced workspace before applying", async () => {
   const f = await serviceFixture(),
     run = await f.run();
   f.changeWorkspace();
-  await expect(f.service.apply(run.id, [0])).rejects.toThrow(/changed/);
+  await expect(f.service.apply(run.id, [0])).rejects.toThrow(
+    /different ontology/,
+  );
   expect(f.changes).toBe(0);
 });
 it("accepts empty results and retains malformed responses as failed runs", async () => {
@@ -400,18 +391,6 @@ it("accepts empty results and retains malformed responses as failed runs", async
   expect(invalid.changes).toBe(0);
 });
 
-it("rejects reordered and inflected forms of a different entity's alias", async () => {
-  const store = await fixture(
-    ':AdvancedEnglish skos:altLabel "English Basic".',
-  );
-  const result = validateSynonyms(
-    store,
-    base + "BasicEnglish",
-    values("English Basics"),
-  );
-  expect(result.values).toEqual([]);
-  expect(result.excluded[0].reason).toContain("Advanced English");
-});
 it("rejects ontology edits made while the assistant is running and retains the failed run", async () => {
   const f = await serviceFixture();
   const service = new SuggestionService(f.root, f.request, async () => {
@@ -428,7 +407,7 @@ it("rejects ontology edits made while the assistant is running and retains the f
   expect((await service.history())[0].state).toBe("failed");
   expect(f.changes).toBe(0);
 });
-it("rejects changes to the selected entity before applying a prior run", async () => {
+it("applies a prior run onto an entity edited since, and blocks one that is gone", async () => {
   const f = await serviceFixture(),
     run = await f.run(),
     iri = base + "BasicEnglish";
@@ -440,6 +419,113 @@ it("rejects changes to the selected entity before applying a prior run", async (
       object: { literal: true, value: "A changed meaning." },
     },
   ]);
-  await expect(f.service.apply(run.id, [0])).rejects.toThrow(/entity changed/);
-  expect(f.changes).toBe(0);
+  await f.service.apply(run.id, [0]);
+  const statements = f.document().statements;
+  expect(
+    statements.some(
+      (t) =>
+        t.predicate === NS.rdfs + "comment" &&
+        t.object.value === "A changed meaning.",
+    ),
+  ).toBe(true);
+  expect(statements.at(-1)?.object).toEqual({
+    literal: true,
+    value: "English Basics",
+  });
+  f.store.deleteClass(iri);
+  await expect(f.service.apply(run.id, [1])).rejects.toThrow(/nowhere to go/);
+});
+
+it("restores old rejected candidates without changing saved application indices", async () => {
+  const f = await serviceFixture(),
+    run = await f.run();
+  await f.service.apply(run.id, [0]);
+  const legacy = {
+    ...run,
+    values: run.values.slice(0, 1),
+    excluded: [
+      {
+        value: "System Administration",
+        reason: 'Names or aliases another entity: "System Administration".',
+      },
+      {
+        value: "Systems Admin",
+        reason:
+          "Not a close spelling, abbreviation or word-order variation of the selected name.",
+      },
+      {
+        value: "System Admin",
+        reason:
+          "Not a close spelling, abbreviation or word-order variation of the selected name.",
+      },
+      { value: "BASIC ENG", reason: "Already recorded for this entity." },
+    ],
+  };
+  await writeFile(
+    path.join(f.root, "suggestion-history", run.id + ".json"),
+    JSON.stringify(legacy),
+  );
+  const restored = new SuggestionService(f.root, f.request, f.discover);
+  const [review] = await restored.history();
+  expect(review.applied).toEqual([0]);
+  expect(review.values.map((v) => v.value)).toEqual([
+    "English Basics",
+    "System Administration",
+    "Systems Admin",
+    "System Admin",
+  ]);
+  expect(review.excluded).toEqual([
+    { value: "BASIC ENG", reason: "Already recorded for this entity." },
+  ]);
+  expect(review.values.slice(1).every((v) => v.reason === "")).toBe(true);
+  await restored.apply(run.id, [1, 2, 3]);
+  const saved = new SuggestionService(f.root, f.request, f.discover);
+  expect((await saved.history())[0].applied).toEqual([0, 1, 2, 3]);
+  expect((await saved.history())[0].values).toHaveLength(4);
+  expect(
+    f
+      .document()
+      .statements.filter((t) => t.predicate === synonymDefinition.predicate)
+      .map((t) => t.object.value),
+  ).toEqual([
+    "BASIC ENG",
+    "English Basics",
+    "System Administration",
+    "Systems Admin",
+    "System Admin",
+  ]);
+});
+
+it("rechecks old selections for zero distance and case-insensitive duplicates before adding", async () => {
+  const f = await serviceFixture(),
+    run = await f.run();
+  const before = f.document().statements;
+  const legacy = {
+    ...run,
+    values: values(
+      "basic english",
+      "BASIC ENGLISH",
+      "English Basics",
+      "english basics",
+      "basic eng",
+      "Introductory English",
+    ),
+  };
+  await writeFile(
+    path.join(f.root, "suggestion-history", run.id + ".json"),
+    JSON.stringify(legacy),
+  );
+  const restored = new SuggestionService(f.root, f.request, f.discover);
+  const applied = await restored.apply(run.id, [0, 1, 2, 3, 4, 5]);
+  expect(applied.applied).toEqual([2, 5]);
+  expect(
+    f
+      .document()
+      .statements.slice(before.length)
+      .map((t) => t.object.value),
+  ).toEqual(["English Basics", "Introductory English"]);
+  expect(f.changes).toBe(1);
+  await restored.apply(run.id, [0, 1, 3, 4]);
+  expect(f.changes).toBe(1);
+  expect((await restored.history())[0].applied).toEqual([2, 5]);
 });
