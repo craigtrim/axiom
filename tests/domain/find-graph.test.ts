@@ -87,7 +87,10 @@ describe("Find result graph ancestry", () => {
       match: "cosine",
       minimumSimilarity: 1,
     };
-    expect(findGraphNodes(s, cosine).matches).toEqual([iri("Basic")]);
+    const semanticScores = new Map([["Basic English", 1]]);
+    expect(
+      findGraphNodes(s, cosine, undefined, semanticScores).matches,
+    ).toEqual([iri("Basic")]);
     const field = {
       ...options,
       text: "foundation",
@@ -102,7 +105,12 @@ describe("Find result graph ancestry", () => {
       findGraphNodes(s, { ...options, excludeIri: iri("English") }).iris,
     ).toContain(iri("English"));
     expect(() =>
-      findGraphNodes(s, { ...cosine, excludeIri: iri("Basic") }),
+      findGraphNodes(
+        s,
+        { ...cosine, excludeIri: iri("Basic") },
+        undefined,
+        semanticScores,
+      ),
     ).toThrow("no search results");
   });
   it("follows instance types and property ancestry, excluding declaration metadata", async () => {

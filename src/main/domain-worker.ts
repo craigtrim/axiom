@@ -10,7 +10,9 @@ import { analyzeSparsity } from "../domain/sparsity";
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
-import { findEntities } from "../domain/resource-search";
+import { findEntities, prepareSemanticFind } from "../domain/resource-search";
+import { EmbeddingService } from "./embedding-service";
+const embeddings = new EmbeddingService();
 import { findGraphNodes } from "../domain/find-graph";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { subclassSuggestions } from "../domain/subclass-suggestions";
@@ -101,6 +103,19 @@ let activeQuery: AbortController | undefined,
   tableCache: { key: string; rows: Individual[] } | undefined;
 const emit = (type: string, data: unknown) =>
   parentPort!.postMessage({ event: { type, data } });
+async function semanticFindScores(input: unknown) {
+  const current = store,
+    version = store.version,
+    epoch = datasetEpoch;
+  const scores = await prepareSemanticFind(current, input, (query, texts) =>
+    embeddings.search(query, texts),
+  );
+  if (store !== current || store.version !== version || datasetEpoch !== epoch)
+    throw Error(
+      "The ontology changed. Wait for Find to refresh and try again.",
+    );
+  return scores;
+}
 // A fresh profile starts with a blank graph. Demos are opened explicitly.
 
 type GraphSession = {
@@ -909,7 +924,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return validateSynonyms(
         store,
         string(a, "iri", 10000),
-        parseSuggestionValues({ suggestions: a.values }, synonymDefinition),
+        // Older saved runs can lack the original explanation. Duplicate checks
+        // only need the value; fresh assistant output is parsed strictly first.
+        parseSuggestionValues({ suggestions: a.values }, synonymDefinition, {
+          allowEmptyReason: true,
+        }),
       );
     case "taxonomyContext":
       return taxonomyContext(
@@ -972,16 +991,13 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       if (a.version !== store.version || a.datasetEpoch !== datasetEpoch)
         throw Error("The ontology changed. Find suggestions again.");
       const iri = string(a, "iri", 10000);
-      const allowed = new Set(
-        subclassSuggestions(store, iri).map((s) => s.iri),
-      );
       if (
         !Array.isArray(a.parents) ||
         !a.parents.length ||
         a.parents.length > 100 ||
-        a.parents.some((id) => typeof id !== "string" || !allowed.has(id))
+        a.parents.some((id) => typeof id !== "string")
       )
-        throw Error("Choose classes from the current suggestions.");
+        throw Error("Choose existing parent classes.");
       store.addClassParents(iri, a.parents as string[]);
       mutate("Parent classes added. Use Undo to remove them.");
       return true;
@@ -1029,12 +1045,14 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           "The ontology changed. Wait for Text Analysis to refresh and try again.",
         );
       // Resolve and validate the complete result graph before changing any view.
+      const scores =
+        a.find === undefined ? undefined : await semanticFindScores(a.find);
       const results =
         a.textAnalysis !== undefined
           ? textAnalysisGraphNodes(store, a.textAnalysis)
           : a.find === undefined
             ? undefined
-            : findGraphNodes(store, a.find);
+            : findGraphNodes(store, a.find, MAX_VISIBLE_NODES, scores);
       const iris =
         results?.iris ??
         (Array.isArray(a.iris)
@@ -1182,8 +1200,23 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "analyzeSparsity":
       return analyzeSparsity(store, a);
-    case "find":
-      return findEntities(store, a);
+    case "find": {
+      const scores = await semanticFindScores(a);
+      return findEntities(store, a, scores);
+    }
+    case "semanticSimilarity": {
+      const query = string(a, "query", 10000);
+      if (
+        !Array.isArray(a.texts) ||
+        a.texts.length > 100 ||
+        a.texts.some(
+          (text) =>
+            typeof text !== "string" || !text.trim() || text.length > 10000,
+        )
+      )
+        throw Error("Choose up to 100 text values to compare.");
+      return embeddings.compare(query, a.texts as string[]);
+    }
     case "search": {
       const q = string(a, "text", 256).trim().toLowerCase();
       if (!q) return [];
@@ -1473,7 +1506,10 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         throw Error("This entity is no longer in the Store.");
       view.selected = selected;
       view.selectedEdge = null;
-      emit("selection", { iri: selected });
+      emit("selection", {
+        iri: selected,
+        origin: a.origin === "hierarchy" ? "hierarchy" : undefined,
+      });
       return true;
     case "inspector": {
       const iri = string(a, "iri"),

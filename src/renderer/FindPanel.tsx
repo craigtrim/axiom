@@ -451,8 +451,8 @@ export function FindPanel() {
         </div>
         {cosine && (
           <p className="find-method">
-            Cosine scores run from 0 to 1. Higher means closer wording. Each
-            result uses its best matching selected field.
+            Local MPNet meaning similarity (full precision). Higher scores mean
+            closer meaning. Each result uses its best matching selected field.
           </p>
         )}
       </form>
@@ -562,7 +562,9 @@ export function FindPanel() {
           <div className="find-results-toolbar">
             <div className="find-summary" role="status">
               {busy
-                ? "Searching..."
+                ? cosine && options.text.trim()
+                  ? "Comparing meanings locally… The first search builds the embedding cache."
+                  : "Searching..."
                 : options.text.trim()
                   ? total.toLocaleString() +
                     (total === 1 ? " match" : " matches")

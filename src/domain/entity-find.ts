@@ -6,7 +6,12 @@ import {
   type FindRow,
   type FindResults,
 } from "../shared/find";
-import { CosineTextIndex, normalizeSearchText as normalize } from "./cosine";
+import { normalizeSearchText as normalize } from "./cosine";
+import {
+  embeddingText,
+  type SemanticScores,
+  type SemanticScorer,
+} from "../shared/embeddings";
 import type { Store } from "./store";
 import { NS, local, type Kind } from "./model";
 import { displayName } from "./rdf-model";
@@ -26,7 +31,7 @@ interface Prepared {
   byRow: Map<number, Value[]>;
   postings: Map<string, Set<number>>;
   vocabulary: string[];
-  cosine?: CosineTextIndex;
+  semantic?: { query: string; scores: Promise<SemanticScores> };
 }
 const category = (kind: Kind): FindKind =>
   kind === "Class" || kind === "Defined"
@@ -49,6 +54,7 @@ export class EntityFindIndex {
   private prepared = new Map<string, Prepared>();
   private found?: {
     key: string;
+    scores?: SemanticScores;
     matches: Map<number, { score: number; value?: Value }>;
     ids: number[];
     kinds: FindFacet[];
@@ -188,23 +194,48 @@ export class EntityFindIndex {
       for (const id of index.postings.get(index.vocabulary[i])!) ids.add(id);
     return ids;
   }
-  matchingIris(input: unknown): string[] {
-    this.find(input);
+  matchingIris(input: unknown, scores?: SemanticScores): string[] {
+    this.find(input, scores);
     return this.found!.ids.map((id) => this.rows[id].iri);
   }
 
-  find(input: unknown): FindResults {
+  async semanticScores(
+    input: unknown,
+    score: SemanticScorer,
+  ): Promise<SemanticScores | undefined> {
+    const options = readFindOptions(input);
+    if (options.match !== "cosine" || !options.text.trim()) return;
+    const index = this.prepare(options.fields),
+      query = embeddingText(options.text);
+    if (!index.semantic || index.semantic.query !== query) {
+      const scores = score(query, [
+        ...new Set(index.values.map((value) => value.text)),
+      ]);
+      const cached = (index.semantic = { query, scores });
+      scores.catch(() => {
+        if (index.semantic === cached) index.semantic = undefined;
+      });
+    }
+    return index.semantic.scores;
+  }
+
+  find(input: unknown, scores?: SemanticScores): FindResults {
     const options = readFindOptions(input),
-      text = normalize(options.text);
+      text =
+        options.match === "cosine"
+          ? embeddingText(options.text)
+          : normalize(options.text);
     const key = JSON.stringify({ ...options, text, offset: 0, limit: 0 });
-    if (this.found?.key !== key) {
+    if (this.found?.key !== key || this.found?.scores !== scores) {
       const index = this.prepare(options.fields);
       const matches = new Map<number, { score: number; value?: Value }>();
       if (text && options.match === "cosine") {
-        index.cosine ??= new CosineTextIndex(index.values.map((v) => v.text));
-        for (const [id, score] of index.cosine.search(text)) {
+        if (!scores)
+          throw Error("Semantic search requires the local MPNet model.");
+        for (const value of index.values) {
+          const score = scores.get(value.text);
+          if (score === undefined || !Number.isFinite(score)) continue;
           if (score + 1e-12 < options.minimumSimilarity || score <= 0) continue;
-          const value = index.values[id];
           if (score > (matches.get(value.row)?.score ?? -1))
             matches.set(value.row, { score, value });
         }
@@ -271,6 +302,7 @@ export class EntityFindIndex {
         });
       this.found = {
         key,
+        scores,
         matches,
         ids,
         kinds: findKinds.map((id) => ({

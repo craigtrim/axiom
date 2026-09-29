@@ -15,6 +15,10 @@ export let preferences: Preferences = {
   panelState: {},
 };
 export let graph: GraphSnapshot | null = null;
+export let selectionFromHierarchy = false;
+export function setSelectionOrigin(origin?: unknown) {
+  selectionFromHierarchy = origin === "hierarchy";
+}
 export let notice = { text: "Loading the ontology...", error: false };
 const stateListeners = new Set<() => void>(),
   graphListeners = new Set<() => void>(),
@@ -78,7 +82,11 @@ export const request = <T = unknown>(
   ].includes(method)
     ? Promise.resolve()
     : flushUiHistory()
-  ).then(() => window.axiom.request<T>(method, args));
+  ).then(() => {
+    // Suppress a queued reveal before the selection round trip finishes.
+    if (method === "select") setSelectionOrigin(args?.origin);
+    return window.axiom.request<T>(method, args);
+  });
 export async function act(
   method: DomainMethod,
   args?: Record<string, unknown>,
@@ -90,6 +98,8 @@ export async function act(
   }
 }
 export function setState(s: Snapshot) {
+  if (state?.datasetEpoch !== s.datasetEpoch || state?.selected !== s.selected)
+    setSelectionOrigin();
   if (state && state.datasetEpoch !== s.datasetEpoch) {
     pendingUi.length = 0;
     clearTimeout(uiTimer);
@@ -163,12 +173,14 @@ export async function initialise() {
     if (type === "layout-error") report(data.message, true);
     if (type === "state") setState(data as Snapshot);
     if (type === "selection" && state) {
+      setSelectionOrigin(data.origin);
       command("selection.changed");
       graph = { ...state.graph, selectedEdge: null, selected: data.iri };
       if (state.graphs) state.graphs[state.activeGraphId ?? "graph"] = graph;
       state = { ...state, selected: data.iri, graph };
       for (const fn of stateListeners) fn();
       for (const fn of graphListeners) fn();
+      command("selection.follow");
     }
     const positionedGraph = state?.graphs?.[data?.graphId] ?? graph;
     if (

@@ -144,14 +144,28 @@ export class ResourceSearchIndex {
     return { lists, size };
   }
   /** Shared local search, including field facets and cosine similarity. */
-  matchingIris(input: unknown): string[] {
+  matchingIris(
+    input: unknown,
+    scores?: import("../shared/embeddings").SemanticScores,
+  ): string[] {
     this.finder ??= new EntityFindIndex(this.store);
-    return this.finder.matchingIris(input);
+    return this.finder.matchingIris(input, scores);
   }
 
-  find(input: unknown): FindResults {
+  semanticScores(
+    input: unknown,
+    score: import("../shared/embeddings").SemanticScorer,
+  ) {
     this.finder ??= new EntityFindIndex(this.store);
-    return this.finder.find(input);
+    return this.finder.semanticScores(input, score);
+  }
+
+  find(
+    input: unknown,
+    scores?: import("../shared/embeddings").SemanticScores,
+  ): FindResults {
+    this.finder ??= new EntityFindIndex(this.store);
+    return this.finder.find(input, scores);
   }
 
   search(
@@ -224,11 +238,26 @@ function indexFor(store: Store) {
   }
   return saved.index;
 }
-export function findEntities(store: Store, options: unknown) {
-  return indexFor(store).find(options);
+export function prepareSemanticFind(
+  store: Store,
+  options: unknown,
+  score: import("../shared/embeddings").SemanticScorer,
+) {
+  return indexFor(store).semanticScores(options, score);
 }
-export function findEntityIris(store: Store, options: unknown) {
-  return indexFor(store).matchingIris(options);
+export function findEntities(
+  store: Store,
+  options: unknown,
+  scores?: import("../shared/embeddings").SemanticScores,
+) {
+  return indexFor(store).find(options, scores);
+}
+export function findEntityIris(
+  store: Store,
+  options: unknown,
+  scores?: import("../shared/embeddings").SemanticScores,
+) {
+  return indexFor(store).matchingIris(options, scores);
 }
 export function resourceSuggestions(
   store: Store,

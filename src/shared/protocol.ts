@@ -87,6 +87,7 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  | "semanticSimilarity"
   | "textAnalysisDraft"
   | "textAnalysisCreate"
   | "textAnalysisContext"
@@ -207,11 +208,9 @@ export interface AxiomBridge {
       input: import("./suggestions").SuggestionDefinition,
     ): Promise<import("./suggestions").SuggestionDefinition>;
     history(): Promise<import("./suggestions").SuggestionRun[]>;
-    run(input: {
-      iri: string;
-      mode: string;
-      provider?: import("./research").AssistantId;
-    }): Promise<import("./suggestions").SuggestionRun>;
+    run(
+      input: import("./suggestions").SuggestionRequest,
+    ): Promise<import("./suggestions").SuggestionRun>;
     status(): Promise<
       | Pick<
           import("./suggestions").SuggestionRun,

@@ -1,4 +1,5 @@
 import { classMoveIssue } from "./taxonomy-move";
+import { removeRedundantThingParents } from "./class-parents";
 import { simplifySubclassIntersections } from "./intersection-definitions";
 import { discardUnusedIntersection } from "./intersection-cleanup";
 import {
@@ -641,6 +642,7 @@ export class Store {
       if (t.subject !== iri)
         throw Error("All edited statements must describe this entity.");
     }
+    statements = removeRedundantThingParents(statements);
     if (nextIri === iri)
       nextIri = labelledIri(
         iri,
@@ -774,6 +776,15 @@ export class Store {
           index,
           original ? 1 : 0,
           ...(replacement ? [structuredClone(replacement)] : []),
+        );
+        this.tbox = removeRedundantThingParents(
+          this.tbox,
+          new Set([
+            ...(original?.predicate === SUBCLASS ? [original.subject] : []),
+            ...(replacement?.predicate === SUBCLASS
+              ? [replacement.subject]
+              : []),
+          ]),
         );
         const projected = projectEntities(this.tbox);
         if (this.ontology.assertedOnly)
@@ -995,6 +1006,7 @@ export class Store {
             this.entities.delete(iri);
         }
         this.tbox.push(...structuredClone(additions));
+        this.tbox = removeRedundantThingParents(this.tbox, new Set([owner]));
         const projected = projectEntities(this.tbox);
         for (const [iri, next] of projected) {
           const prior = this.entities.get(iri);
@@ -1047,8 +1059,8 @@ export class Store {
     return iri;
   }
   replaceRdf(statements: Triple[]) {
-    const next = structuredClone(statements);
-    for (const t of next) validateStatement(t);
+    for (const t of statements) validateStatement(t);
+    const next = removeRedundantThingParents(structuredClone(statements));
     const projected = projectEntities(next);
     const before = {
       schema: this.schemaState(),
@@ -1202,6 +1214,7 @@ export class Store {
         }
       }
       dependencies.set(item.id, pendingParents);
+      if (parents.size > 1) parents.delete(THING);
       statements.push(
         { subject: iri, predicate: TYPE, object: iriTerm(NS.owl + "Class") },
         { subject: iri, predicate: LABEL, object: literal(item.name.trim()) },
@@ -1313,6 +1326,18 @@ export class Store {
                 ),
               ]),
             ];
+            if (c.parents.some((parent) => parent !== THING)) {
+              c.parents = c.parents.filter((parent) => parent !== THING);
+              this.tbox = this.tbox.filter(
+                (t) =>
+                  !(
+                    t.subject === c.iri &&
+                    t.predicate === SUBCLASS &&
+                    !t.object.literal &&
+                    t.object.value === THING
+                  ),
+              );
+            }
             for (const p of c.parents)
               if (
                 !this.tbox.some(

@@ -360,6 +360,72 @@ test("Find is usable in a detached narrow pane and opens quick Find there", asyn
   await expect(pane()).toBeVisible();
 });
 
+test("MPNet Find recognizes synonyms without spelling overlap and opens the same results in a graph", async () => {
+  const modelFile = path.join(profile, "meaning.ttl");
+  await writeFile(
+    modelFile,
+    `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
+      :Vehicle a owl:Class; rdfs:label "Vehicle".
+      :Automobile a owl:Class; rdfs:label "Automobile"; rdfs:subClassOf :Vehicle.
+      :Carpet a owl:Class; rdfs:label "Carpet".
+      :Banana a owl:Class; rdfs:label "Banana".`,
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, modelFile);
+  await menu("file.open");
+  await expect
+    .poll(async () =>
+      (await state()).entities.some((e) => e.iri === base + "Automobile"),
+    )
+    .toBe(true);
+  await menu("view.find");
+  const p = pane();
+  await p.getByRole("combobox", { name: "Match mode" }).selectOption("cosine");
+  await p.getByRole("button", { name: "Names only", exact: true }).click();
+  await p.getByRole("searchbox", { name: "Find text" }).fill("car");
+  await p.getByRole("slider", { name: "Minimum similarity" }).fill("0.8");
+  await expect(p.locator("tbody tr").first()).toContainText("Automobile", {
+    timeout: 30000,
+  });
+  await expect(p.locator("tbody tr")).toHaveCount(2);
+  await expect(p).toContainText("Local MPNet meaning similarity");
+  const result = await page.evaluate(() =>
+    window.axiom.request<{
+      model: string;
+      precision: string;
+      similarities: number[];
+    }>("semanticSimilarity", { query: "car", texts: ["automobile", "carpet"] }),
+  );
+  expect(result.precision).toBe("fp32");
+  expect(result.model).toBe("sentence-transformers/all-mpnet-base-v2");
+  expect(result.similarities[0]).toBeGreaterThan(result.similarities[1] + 0.3);
+  const before = await state();
+  await page.evaluate(async (s) => {
+    await window.axiom.request("graphCreate", {
+      find: {
+        text: "car",
+        match: "cosine",
+        fields: ["name"],
+        minimumSimilarity: 0.8,
+      },
+      version: s.version,
+      datasetEpoch: s.datasetEpoch,
+    });
+  }, before);
+  expect((await state()).graph.nodes.map((n) => n.iri)).toEqual(
+    expect.arrayContaining([base + "Automobile", base + "Vehicle"]),
+  );
+  expect(
+    (await state()).graph.nodes.some((n) => n.iri === base + "Carpet"),
+  ).toBe(false);
+  await menu("view.find");
+  await page.screenshot({ path: "artifacts/testing/find-mpnet.png" });
+});
+
 test("cosine Find ranks an unseen query, facets all fields and shows match scores", async () => {
   await menu("entity.search");
   const dialog = page.getByRole("dialog", { name: "Find entities" });
@@ -368,13 +434,13 @@ test("cosine Find ranks an unseen query, facets all fields and shows match score
     .selectOption("cosine");
   await dialog
     .getByRole("combobox", { name: "Search entities" })
-    .fill("Englsh basc");
+    .fill("English for beginners");
   await expect(
     dialog
       .getByRole("listbox", { name: "Matching entities" })
       .getByRole("option")
       .first(),
-  ).toContainText("Basic English");
+  ).toContainText("Basic English", { timeout: 30000 });
   await dialog
     .getByRole("combobox", { name: "Search entities" })
     .press("Enter");
@@ -403,7 +469,7 @@ test("cosine Find ranks an unseen query, facets all fields and shows match score
     p.getByRole("checkbox", { name: "rdf:type", exact: true }),
   ).toBeChecked();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Find text" }).fill("English Basic");
+  await p.getByRole("searchbox", { name: "Find text" }).fill("Basic English");
   await p.getByRole("slider", { name: "Minimum similarity" }).fill("1");
   await expect(p.locator("tbody tr")).toHaveCount(1);
   await expect(p.locator(".find-score strong")).toHaveText("1.000");

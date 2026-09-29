@@ -223,6 +223,7 @@ const methods = new Set<DomainMethod>([
   "queryContext",
   "synonymContext",
   "validateSynonyms",
+  "semanticSimilarity",
   "taxonomyContext",
   "validateTaxonomySuggestions",
   "applyTaxonomySuggestions",

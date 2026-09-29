@@ -500,6 +500,7 @@ export function App() {
     setTimeout(updatePaneMenu, 0);
     preferences.layout = m.toJson();
     persist();
+    command("taxonomy.layout");
   };
   const closeTab = (id: string) => {
     const m = modelRef.current,
