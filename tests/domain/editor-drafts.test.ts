@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.stubGlobal(
     "window",
     Object.assign(new EventTarget(), {
-      axiom: { editors: { dirty: vi.fn() } },
+      axiom: { editors: { dirty: vi.fn(), flushed: vi.fn() } },
     }),
   );
   epoch++;
@@ -198,4 +198,63 @@ it("retains unresolved parent text as a draft until an entity is chosen", async 
   );
   expect(mocks.request).not.toHaveBeenCalled();
   expect(getEditorDraft(iri, epoch)?.statements).toContainEqual(unresolved);
+});
+
+it("saves a synonym while keeping the unused Add row out of RDF", async () => {
+  const synonym = (value: string): Triple => ({
+    subject: iri,
+    predicate: NS.rdfs + "seeAlso",
+    object: { literal: true, value },
+  });
+  const blank: Triple = {
+    subject: iri,
+    predicate: "",
+    object: { literal: true, value: "" },
+  };
+  const base = [parent("urn:Science"), synonym("")];
+  const statements = [parent("urn:Science"), synonym("phleb")];
+  const d = draft(base, [...statements, blank]);
+  rememberEditorDraft(d);
+  mocks.request.mockResolvedValue({ iri, document: document(statements) });
+  await applyEditorDraft(d, true);
+  expect(mocks.request).toHaveBeenCalledWith(
+    "updateEntity",
+    expect.objectContaining({ statements, original: base }),
+  );
+  const pending = getEditorDraft(iri, epoch)!;
+  expect(pending.statements).toEqual([...statements, blank]);
+  expect(pending.loaded.statements).toEqual(statements);
+  await applyEditorDraft(pending, true);
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  expect(getEditorDraft(iri, epoch)?.statements).toContainEqual(blank);
+  // Explicit Save clears the unused row without creating another Undo step.
+  await applyEditorDraft(pending);
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  expect(editorDraftSnapshot()).toEqual([]);
+});
+
+it("File Save applies a restored synonym draft with a blank row and finishes once", async () => {
+  const synonym: Triple = {
+    subject: iri,
+    predicate: NS.rdfs + "seeAlso",
+    object: { literal: true, value: "phleb" },
+  };
+  const blank: Triple = {
+    subject: iri,
+    predicate: "",
+    object: { literal: true, value: "" },
+  };
+  const statements = [parent("urn:Science"), synonym];
+  rememberEditorDraft(draft([parent("urn:Science")], [...statements, blank]));
+  mocks.request.mockResolvedValue({ iri, document: document(statements) });
+  mocks.onCommand.mock.calls[0][0]("editors.flushGrid");
+  await vi.waitFor(() =>
+    expect(window.axiom.editors.flushed).toHaveBeenCalledWith(),
+  );
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  expect(mocks.request).toHaveBeenCalledWith(
+    "updateEntity",
+    expect.objectContaining({ statements }),
+  );
+  expect(editorDraftSnapshot()).toEqual([]);
 });

@@ -24,6 +24,16 @@ const resources = new Set([
 ]);
 export const resourcePredicate = (predicate: string, kind?: Kind) =>
   resources.has(predicate) || kind === "ObjectProperty";
+/** Add row creates a UI placeholder, not an RDF assertion. */
+export const emptyEditorStatement = (t: Triple) =>
+  !t.predicate &&
+  t.object.literal &&
+  !t.object.value &&
+  !t.object.datatype &&
+  !t.object.language &&
+  !t.graph;
+export const editorStatements = (statements: Triple[]) =>
+  statements.filter((t) => !emptyEditorStatement(t));
 export function completeEditorStatement(
   t: Triple,
   original: Triple[],

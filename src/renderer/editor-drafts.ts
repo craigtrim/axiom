@@ -1,4 +1,8 @@
-import { completeEditorStatement } from "../shared/statement-values";
+import {
+  completeEditorStatement,
+  editorStatements,
+} from "../shared/statement-values";
+import { editorDraftChanged } from "../shared/editor-state";
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { request, onCommand, report, state } from "./client";
 import type { Triple } from "../domain/model";
@@ -109,6 +113,13 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   return operation;
 }
 async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
+  d = { ...d, statements: editorStatements(d.statements) };
+  if (!editorDraftChanged(d)) {
+    // Explicit Save may clear a placeholder, but must not add an empty Undo
+    // step. Automatic saves leave it available for the user's next entry.
+    if (!preserveSelection) discardEditorDraft(d.iri, d.loaded.datasetEpoch);
+    return d.iri;
+  }
   if (
     d.statements.some(
       (t) =>
@@ -194,7 +205,7 @@ onCommand((id) => {
         // drafts are retained in the workspace for later editing.
         const complete = () =>
           [...drafts.values()].find((d) =>
-            d.statements.every((t) =>
+            editorStatements(d.statements).every((t) =>
               completeEditorStatement(
                 t,
                 d.loaded.statements,

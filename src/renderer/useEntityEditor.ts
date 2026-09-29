@@ -1,4 +1,9 @@
-import { completeEditorStatement } from "../shared/statement-values";
+import {
+  completeEditorStatement,
+  editorStatements,
+  emptyEditorStatement,
+} from "../shared/statement-values";
+import { editorDraftChanged } from "../shared/editor-state";
 import { useEffect, useRef, useState } from "react";
 import { request, report, useSnapshot, state } from "./client";
 import { LABEL, labelledIri, preferredLabel } from "../domain/rdf-model";
@@ -39,7 +44,10 @@ export function useEntityEditor(iri: string, automatic = false) {
     setError("");
     if (discard) discardEditorDraft(iri, s.datasetEpoch);
     const pending = getEditorDraft(iri, s.datasetEpoch);
-    if (pending) {
+    if (
+      pending &&
+      (pending.loaded.version === state?.version || editorDraftChanged(pending))
+    ) {
       accept(pending);
       return;
     }
@@ -50,16 +58,23 @@ export function useEntityEditor(iri: string, automatic = false) {
         loaded.datasetEpoch !== s.datasetEpoch
       )
         return;
+      const retained = getEditorDraft(iri, s.datasetEpoch);
       const next =
-        getEditorDraft(iri, s.datasetEpoch) ??
-        normalize({
-          iri,
-          nextIri: iri,
-          statements: loaded.statements,
-          loaded,
-        });
+        retained && editorDraftChanged(retained)
+          ? retained
+          : normalize({
+              iri,
+              nextIri: iri,
+              // An unused row must not keep old values visible after Undo or a
+              // change in another view. Refresh the RDF and retain the empty row.
+              statements: [
+                ...loaded.statements,
+                ...(retained?.statements.filter(emptyEditorStatement) ?? []),
+              ],
+              loaded,
+            });
       accept(next);
-      if (next.automaticIri && !getEditorDraft(iri, s.datasetEpoch))
+      if ((retained && next !== retained) || (next.automaticIri && !retained))
         rememberEditorDraft(next);
     } catch (e) {
       if (ticket === generation.current) setError((e as Error).message);
@@ -125,16 +140,13 @@ export function useEntityEditor(iri: string, automatic = false) {
             i === j ? { ...t, object: { ...t.object, value } } : t,
           );
     });
-  const changed =
-    !!draft &&
-    (draft.nextIri !== iri ||
-      JSON.stringify(triples) !== JSON.stringify(draft.loaded.statements));
+  const changed = !!draft && editorDraftChanged(draft);
   async function save() {
     const pending = current.current;
     if (!pending || (saving && !automatic)) return;
     if (
       automatic &&
-      pending.statements.some(
+      editorStatements(pending.statements).some(
         (t) =>
           !completeEditorStatement(
             t,
@@ -144,12 +156,7 @@ export function useEntityEditor(iri: string, automatic = false) {
       )
     )
       return;
-    if (
-      JSON.stringify(pending.statements) ===
-        JSON.stringify(pending.loaded.statements) &&
-      pending.nextIri === pending.iri
-    )
-      return;
+    if (!editorDraftChanged(pending)) return;
     setSaving(true);
     setError("");
     try {

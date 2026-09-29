@@ -86,7 +86,9 @@ async function launch() {
   });
   page = await app.firstWindow();
   page.on("pageerror", (error) => errors.push(error.message));
-  await app.evaluate(({ dialog }, file) => {
+  await app.evaluate(({ dialog, BrowserWindow }, file) => {
+    if (process.env.AXIOM_TEST_BACKGROUND === "1")
+      BrowserWindow.getAllWindows()[0].setFocusable(false);
     dialog.showOpenDialog = async () => ({
       canceled: false,
       filePaths: [file],
@@ -289,6 +291,71 @@ async function highlighted(label: string) {
     .join("")
     .replace(/\u00a0/g, " ");
 }
+
+test("a seeAlso synonym added beside an empty Details row matches immediately, case-insensitively and after restart", async () => {
+  await page.evaluate(async () => {
+    const source = await window.axiom.request<
+      import("../../src/shared/source").SourceDocument
+    >("sourceDocument", { format: "turtle" });
+    await window.axiom.request("applySource", {
+      ...source,
+      text:
+        source.text +
+        '\n<https://example.org/text#Phlebotomy> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Phlebotomy"; <http://www.w3.org/2000/01/rdf-schema#seeAlso> "" .',
+    });
+    await window.axiom.request("select", {
+      iri: "https://example.org/text#Phlebotomy",
+    });
+  });
+  await enter("Principles & Practice of Phleb");
+  await expect(chip("phlebotomy")).toHaveCount(0);
+  await menu("view.details");
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    base + "Phlebotomy",
+  );
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  const synonym = details()
+    .locator(
+      'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
+    )
+    .getByRole("combobox", { name: /Value/ });
+  await synonym.fill("phleb");
+  await synonym.press("Tab");
+  await expect(chip("phlebotomy")).toBeVisible({ timeout: 20000 });
+  await expect(details().locator('tr[data-predicate=""]')).toHaveCount(1);
+  await expect(details().locator(".entity-save-status")).toHaveText("Saved");
+  const savedSynonyms = () =>
+    page.evaluate(async (iri) => {
+      const doc = await window.axiom.request<
+        import("../../src/shared/editor-state").DocumentData
+      >("entityDocument", { iri });
+      return doc.statements
+        .filter((t) => t.predicate.endsWith("#seeAlso"))
+        .map((t) => ({ literal: t.object.literal, value: t.object.value }));
+    }, base + "Phlebotomy");
+  expect(await savedSynonyms()).toEqual([{ literal: true, value: "phleb" }]);
+  await menu("edit.undo");
+  await expect(chip("phlebotomy")).toHaveCount(0);
+  await expect(synonym).toHaveValue("");
+  await menu("edit.redo");
+  await expect(chip("phlebotomy")).toBeVisible();
+  await expect(synonym).toHaveValue("phleb");
+  await enter("phleb Phleb PHLEB");
+  await expect(chip("phlebotomy")).toContainText("3");
+  await chip("phlebotomy").click();
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    base + "Phlebotomy",
+  );
+  await menu("file.save");
+  await expect(details().locator('tr[data-predicate=""]')).toHaveCount(0);
+  await app.close();
+  await launch();
+  await menu("view.textanalysis");
+  await expect(chip("phlebotomy")).toContainText("3", { timeout: 20000 });
+  expect(await savedSynonyms()).toEqual([{ literal: true, value: "phleb" }]);
+});
 
 test("dotted course synonyms highlight the full phrase and open the correct Details entry", async () => {
   await page.evaluate(async () => {

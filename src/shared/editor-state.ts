@@ -1,4 +1,5 @@
 import type { Entity, Triple } from "../domain/model";
+import { editorStatements } from "./statement-values";
 import {
   sourceFormats,
   type SourceDocument,
@@ -18,6 +19,10 @@ export interface EditorDraft {
   statements: Triple[];
   loaded: DocumentData;
 }
+export const editorDraftChanged = (draft: EditorDraft) =>
+  draft.nextIri !== draft.iri ||
+  JSON.stringify(editorStatements(draft.statements)) !==
+    JSON.stringify(draft.loaded.statements);
 export interface SourceDraft {
   loaded: SourceDocument;
   text: string;

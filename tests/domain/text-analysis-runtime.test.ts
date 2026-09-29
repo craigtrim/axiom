@@ -1,6 +1,7 @@
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
 import { buildStore } from "../../src/domain/fixture";
 import { textAnalysisContext } from "../../src/domain/text-analysis-context";
+import { NS } from "../../src/domain/model";
 import { expect, it } from "vitest";
 import path from "node:path";
 import { TextAnalysisService } from "../../src/main/text-analysis-service";
@@ -20,6 +21,69 @@ try {
   // The dedicated test:text-analysis command requires a runtime up front.
 }
 const available = !!executable;
+it.skipIf(!available)(
+  "matches a newly added seeAlso literal in every case and removes the match on Undo",
+  async () => {
+    const iri = "https://example.org/text#Phlebotomy";
+    const store = storeFromRdf(
+      (
+        await parseRdf(
+          `<${iri}> a <${NS.owl}Class>; <${NS.rdfs}label> "Phlebotomy".`,
+          "phlebotomy.ttl",
+          iri,
+        )
+      ).triples,
+      "Phlebotomy",
+    );
+    const service = new TextAnalysisService(
+      () => executable,
+      () => textAnalysisContext(store, 1),
+    );
+    const parse = (text: string) =>
+      service.parse({ text, datasetEpoch: 1, version: store.version });
+    try {
+      expect(
+        (await parse("Phleb")).entities.filter((e) => e.source === "ontology"),
+      ).toEqual([]);
+      store.updateEntity(iri, [
+        ...store.entityStatements(iri),
+        {
+          subject: iri,
+          predicate: NS.rdfs + "seeAlso",
+          object: { literal: true, value: "phleb" },
+        },
+      ]);
+      for (const text of [
+        "phleb",
+        "Phleb",
+        "PHLEB",
+        "Principles & Practice of Phleb",
+      ]) {
+        const result = await parse(text);
+        const matches = result.entities.filter((e) => e.source === "ontology");
+        expect(matches).toHaveLength(1);
+        expect(text.slice(matches[0].start, matches[0].end).toLowerCase()).toBe(
+          "phleb",
+        );
+        expect(result.concepts?.[matches[0].label]?.map((c) => c.iri)).toEqual([
+          iri,
+        ]);
+      }
+      store.undo();
+      expect(
+        (await parse("Phleb")).entities.filter((e) => e.source === "ontology"),
+      ).toEqual([]);
+      store.redo();
+      expect(
+        (await parse("Phleb")).entities.some(
+          (e) => e.source === "ontology" && e.label === "phlebotomy",
+        ),
+      ).toBe(true);
+    } finally {
+      service.close();
+    }
+  },
+);
 const turtle = `@prefix : <https://example.org/text#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
