@@ -18,6 +18,14 @@ const base = {
 await Promise.all([
   build({
     ...base,
+    entryPoints: ["src/main/embedding-worker.ts"],
+    outfile: "dist/main/embedding-worker.cjs",
+    platform: "node",
+    external: ["@huggingface/transformers"],
+    format: "cjs",
+  }),
+  build({
+    ...base,
     entryPoints: ["src/main/main.ts"],
     outfile: "dist/main/main.cjs",
     platform: "node",

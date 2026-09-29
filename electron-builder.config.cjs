@@ -17,13 +17,20 @@ module.exports = {
   productName: "Axiom",
   copyright: "Craig Trim",
   // The build step has already bundled everything into dist, so nothing else ships.
-  files: ["dist/**/*", "!dist/**/*.map", "package.json"],
+  files: [
+    "dist/**/*",
+    "!dist/**/*.map",
+    "package.json",
+    "!node_modules/onnxruntime-node/bin/**/darwin/**/*",
+    "!node_modules/onnxruntime-node/bin/**/linux/**/*",
+    "!node_modules/onnxruntime-node/bin/**/win32/arm64/**/*",
+  ],
   extraResources: [
     "THIRD-PARTY-NOTICES.txt",
     "LICENSES.md",
     { from: "vendor/mutatoc", to: "mutatoc" },
   ],
-  asarUnpack: ["**/metadata/**"],
+  asarUnpack: ["**/metadata/**", "node_modules/onnxruntime-node/bin/**/*"],
   directories: { output: "artifacts/installer", buildResources: "build" },
   electronVersion: require("./package.json").devDependencies.electron,
   buildVersion: version,

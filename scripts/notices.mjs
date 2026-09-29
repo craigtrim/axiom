@@ -8,6 +8,16 @@ const notices = [
 const supplemental = new Map([
   ["@rubensworks/saxes@6.0.1", "licenses/rubensworks-saxes-LICENSE.txt"],
   ["undici-types@5.26.5", "licenses/undici-types-5.26.5-LICENSE.txt"],
+  ["onnxruntime-common@1.30.0", "licenses/onnxruntime-1.30.0-LICENSE.txt"],
+  ["onnxruntime-node@1.30.0", "licenses/onnxruntime-1.30.0-LICENSE.txt"],
+  [
+    "onnxruntime-web@1.31.0-dev.20260914-8d85527a0",
+    "licenses/onnxruntime-8d85527a0-LICENSE.txt",
+  ],
+  [
+    "onnxruntime-common@1.31.0-dev.20260911-2a43ec07e",
+    "licenses/onnxruntime-2a43ec07e-LICENSE.txt",
+  ],
 ]);
 // craigtrim/axiom#6 added lazy-val, reached through electron-updater.
 const declaredMit = new Set([
@@ -28,8 +38,8 @@ for (const [location, metadata] of Object.entries(lock.packages)) {
     if (
       error.code === "ENOENT" &&
       metadata.optional &&
-      metadata.os?.length &&
-      !metadata.os.includes(process.platform)
+      ((metadata.os?.length && !metadata.os.includes(process.platform)) ||
+        (metadata.cpu?.length && !metadata.cpu.includes(process.arch)))
     )
       continue;
     throw error;
@@ -91,6 +101,14 @@ for (const [location, metadata] of Object.entries(lock.packages)) {
     // using SPDX's standard permission/disclaimer text without inventing one.
     const mit = await readFile("licenses/MIT.txt", "utf8");
     notices.push(mit.slice(mit.indexOf("Permission is hereby granted")));
+  } else if (key === "guid-typescript@1.0.9" && pkg.license === "ISC") {
+    notices.push(
+      "The published package declares ISC in package.json and supplies no separate license file.",
+      "Package author: " + pkg.author,
+      "Package metadata: https://registry.npmjs.org/guid-typescript/1.0.9",
+    );
+    const isc = await readFile("licenses/ISC.txt", "utf8");
+    notices.push(isc.slice(isc.indexOf("Permission to use")));
   } else throw Error("Missing license for " + key);
 }
 await writeFile(

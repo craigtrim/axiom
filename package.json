@@ -20,6 +20,7 @@
     "test:codex": "node scripts/test-codex.mjs",
     "test:sparql": "vitest run tests/domain/sparql-conformance.test.ts tests/domain/sparql-literals.test.ts --reporter=default --reporter=json --outputFile=artifacts/sparql-conformance.json",
     "setup:mutatoc": "node scripts/setup-mutatoc.mjs",
+    "setup:embeddings": "tsx scripts/setup-embeddings.ts",
     "test:text-analysis": "node scripts/test-text-analysis.mjs"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@comunica/actor-function-factory-term-lang": "5.4.0",
     "@comunica/query-sparql-rdfjs": "5.4.1",
     "@comunica/utils-expression-evaluator": "5.4.0",
+    "@huggingface/transformers": "4.3.0",
     "@traqula/generator-sparql-1-1": "1.3.1",
     "@traqula/parser-sparql-1-1": "1.3.1",
     "@traqula/rules-sparql-1-1": "1.3.0",
