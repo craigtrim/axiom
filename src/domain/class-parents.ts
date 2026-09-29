@@ -1,6 +1,7 @@
-import { NS, TYPE, SUBCLASS, type Triple } from "./model";
+import { NS, TYPE, SUBCLASS, THING, type Triple } from "./model";
 import type { Store } from "./store";
 import { namedClass, INTERSECTION } from "./class-expressions";
+
 /** Only plain, unannotated intersections can be presented as ordinary parent rows. */
 export function simpleParentExpressions(store: Store, statements: Triple[]) {
   const result: Record<string, string[]> = {};
@@ -57,4 +58,31 @@ export function simpleParentExpressions(store: Store, statements: Triple[]) {
     if (safe) result[t.object.value] = expr.members;
   }
   return result;
+}
+
+/** owl:Thing is a fallback only while the edited class has no other superclass. */
+export function removeRedundantThingParents(
+  statements: Triple[],
+  subjects?: ReadonlySet<string>,
+): Triple[] {
+  const specific = new Set(
+    statements
+      .filter(
+        (t) =>
+          (!subjects || subjects.has(t.subject)) &&
+          t.predicate === SUBCLASS &&
+          !t.object.literal &&
+          t.object.value !== THING,
+      )
+      .map((t) => t.subject),
+  );
+  return statements.filter(
+    (t) =>
+      !(
+        specific.has(t.subject) &&
+        t.predicate === SUBCLASS &&
+        !t.object.literal &&
+        t.object.value === THING
+      ),
+  );
 }
