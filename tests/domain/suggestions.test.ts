@@ -10,6 +10,7 @@ import {
   type SuggestionDocument,
 } from "../../src/shared/suggestions";
 import type { DomainMethod } from "../../src/shared/protocol";
+import { entity } from "../../src/domain/model";
 const definition: SuggestionDefinition = {
   id: "friendly-labels",
   name: "Friendly labels",
@@ -29,14 +30,17 @@ async function fixture(
   const script = path.join(root, "mock.cjs");
   await writeFile(
     script,
-    'const fs=require("fs");process.stdin.resume();process.stdin.on("end",()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],' +
-      JSON.stringify(JSON.stringify(raw)) +
-      "));",
+    'const fs=require("fs");let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{fs.writeFileSync(' +
+      JSON.stringify(path.join(root, "received-prompt.txt")) +
+      ',p);const result=p.startsWith("Suggest parents for")?{suggestions:[{value:JSON.parse(p.split("\\n").find(l=>l.startsWith("[\\\"c")&&JSON.parse(l)[1]==="English"))[0],reason:"A language course belongs under its language."}]}:' +
+      JSON.stringify(raw) +
+      ';if(process.argv.includes("--output-last-message"))fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(result));else process.stdout.write(JSON.stringify({structured_output:result}));});',
   );
   let namespace = "https://example.org/#",
     epoch = 1;
   let document = {
     entity: {
+      ...entity(namespace + "BasicEnglish", "Class"),
       iri: namespace + "BasicEnglish",
       name: "Basic English",
       kind: "Class",
@@ -51,7 +55,15 @@ async function fixture(
     args?: Record<string, unknown>,
   ): Promise<T> => {
     if (method === "state")
-      return { ontology: { namespace }, datasetEpoch: epoch } as T;
+      return {
+        ontology: { name: "Courses", namespace },
+        datasetEpoch: epoch,
+        version: document.version,
+        entities: [
+          document.entity,
+          { ...entity(namespace + "English", "Class"), name: "English" },
+        ],
+      } as T;
     if (method === "entityDocument") return structuredClone(document) as T;
     if (method === "subclassSuggestions")
       return {
@@ -78,7 +90,11 @@ async function fixture(
   };
   const discover = async () => {
     discovered++;
-    return [{ id: "codex" as const, file: process.execPath, args: [script] }];
+    return (["claude", "codex"] as const).map((id) => ({
+      id,
+      file: process.execPath,
+      args: [script],
+    }));
   };
   const service = new SuggestionService(root, request, discover);
   return {
@@ -122,6 +138,13 @@ it("validates definitions and resource responses while deduplicating values", ()
       { ...definition, valueType: "resource" },
     ),
   ).toThrow(/IRI/);
+});
+it("allows missing saved explanations only when explicitly requested", () => {
+  const raw = { suggestions: [{ value: "English Basics", reason: "" }] };
+  expect(() => parseSuggestionValues(raw, definition)).toThrow(/reason/);
+  expect(
+    parseSuggestionValues(raw, definition, { allowEmptyReason: true }),
+  ).toEqual([{ value: "English Basics", label: "English Basics", reason: "" }]);
 });
 it("persists definitions globally and snapshots instructions in each run", async () => {
   const f = await fixture();
@@ -171,20 +194,114 @@ it("adds only reviewed custom values and rejects repeat application and changed 
     mode: "parents",
   });
   f.switchDataset();
-  await expect(f.service.apply(next.id, [0])).rejects.toThrow(/changed/);
+  await expect(f.service.apply(next.id, [0])).rejects.toThrow(
+    /different ontology/,
+  );
 });
-it("keeps parent matching local, reviewable and available after restart", async () => {
+it.each(["claude", "codex"] as const)(
+  "calls local %s for parents and retains the exact prompt across restart",
+  async (provider) => {
+    const f = await fixture();
+    const run = await f.service.run({
+      iri: f.document.entity.iri,
+      mode: "parents",
+      provider,
+    });
+    expect(f.discovered).toBe(1);
+    expect(run.provider).toBe(provider);
+    expect(run.prompt).toBe(
+      await readFile(path.join(f.root, "received-prompt.txt"), "utf8"),
+    );
+    expect(run.prompt).toContain("Complete class catalog");
+    expect(run.values[0].label).toBe("English");
+    expect(run.values[0].reason).toBe(
+      "A language course belongs under its language.",
+    );
+    expect(f.document.statements).toHaveLength(0);
+    const restored = new SuggestionService(f.root, f.request, f.discover);
+    await restored.apply(run.id, [0]);
+    expect(f.document.statements[0].object.literal).toBe(false);
+    expect((await restored.history())[0].applied).toEqual([0]);
+  },
+);
+it("suggests draft parents without creating or modifying any class", async () => {
   const f = await fixture();
   const run = await f.service.run({
+    iri: "",
+    mode: "parents",
+    provider: "codex",
+    draft: {
+      label: "Multiculturalism at Work",
+      comment: "A course about workplace cultures.",
+      parents: [],
+      version: 1,
+      datasetEpoch: 1,
+    },
+  });
+  expect(run.draft).toBe(true);
+  expect(run.prompt).toContain("workplace cultures");
+  expect(run.values[0].label).toBe("English");
+  expect(f.document.statements).toEqual([]);
+  await expect(f.service.apply(run.id, [0])).rejects.toThrow(/available/);
+  await expect(
+    f.service.run({
+      iri: "",
+      mode: "parents",
+      provider: "codex",
+      draft: {
+        label: "Different",
+        comment: "",
+        parents: [],
+        version: 0,
+        datasetEpoch: 1,
+      },
+    }),
+  ).rejects.toThrow(/changed/);
+});
+it("reports a missing assistant without falling back to name matching", async () => {
+  const f = await fixture();
+  const service = new SuggestionService(f.root, f.request, async () => []);
+  await expect(
+    service.run({
+      iri: f.document.entity.iri,
+      mode: "parents",
+      provider: "codex",
+    }),
+  ).rejects.toThrow(/not found on PATH/);
+  const [run] = await service.history();
+  expect(run.state).toBe("failed");
+  expect(run.prompt).toContain("Suggest parents for");
+  expect(run.values).toEqual([]);
+});
+it("exposes the prompt while running and retains it after cancellation", async () => {
+  const f = await fixture();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let entered = false;
+  const service = new SuggestionService(f.root, f.request, async () => {
+    entered = true;
+    await gate;
+    return f.discover();
+  });
+  const running = service.run({
     iri: f.document.entity.iri,
     mode: "parents",
+    provider: "codex",
   });
-  expect(f.discovered).toBe(0);
-  expect(f.document.statements).toHaveLength(0);
-  const restored = new SuggestionService(f.root, f.request, f.discover);
-  await restored.apply(run.id, [0]);
-  expect(f.document.statements[0].object.literal).toBe(false);
-  expect((await restored.history())[0].applied).toEqual([0]);
+  const cancelled = expect(running).rejects.toThrow(/cancelled/);
+  await expect.poll(() => entered).toBe(true);
+  const [pending] = await service.history();
+  expect(pending.state).toBe("running");
+  expect(pending.prompt).toContain("Basic English");
+  service.cancel(pending.id);
+  release();
+  await cancelled;
+  const [finished] = await service.history();
+  expect(finished.state).toBe("cancelled");
+  expect(finished.prompt).toBe(pending.prompt);
+  expect(finished.values).toEqual([]);
 });
 it("retains invalid assistant responses as failed runs for inspection", async () => {
   const f = await fixture({ oops: true });

@@ -115,7 +115,13 @@ test.beforeEach(async () => {
   await writeFile(path.join(folder, "package.json"), '{"type":"module"}');
   await writeFile(
     path.join(folder, "codex.js"),
-    'import fs from "node:fs";let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{const custom=p.startsWith("Propose values");const result=custom?JSON.stringify({suggestions:[{value:"Foundations of English",reason:"Clear alternative wording."}]}):"Summary: Useful child class.\\nSuggestions:\\n1. Conversational English\\nDescription: English for conversation.\\nReason: Fits immediately below the selected class.";setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],result),1800);});',
+    String.raw`import fs from "node:fs";
+      let p=""; process.stdin.on("data",d=>p+=d); process.stdin.on("end",()=>{
+        const custom=p.startsWith("Propose values"), parents=p.startsWith("Suggest parents for");
+        const unavailable=parents?JSON.parse(p.split("\n").find(l=>l.startsWith("Unavailable IDs")).split(": ")[1]):[];
+        const result=parents?JSON.stringify({suggestions:p.split("\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l)).filter(r=>["Alpha Gamma","Beta Gamma"].includes(r[1])&&!unavailable.includes(r[0])).map(r=>({value:r[0],reason:"This is a broader subject category."}))}):custom?JSON.stringify({suggestions:[{value:"Foundations of English",reason:"Clear alternative wording."}]}):"Summary: Useful child class.\nSuggestions:\n1. Conversational English\nDescription: English for conversation.\nReason: Fits immediately below the selected class.";
+        setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],result),1800);
+      });`,
   );
   await writeFile(
     path.join(profile, "workbench.json"),
@@ -262,19 +268,61 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
   await menu("file.save");
   await expect.poll(async () => (await state()).dirty).toBe(false);
 });
-test("uses local parent matching in the shared view, keeps histories and opens another view", async () => {
+test("uses the local assistant for parents in the shared view, keeps histories and opens another view", async () => {
   await suggest("Alpha Beta Gamma", "Add Parents");
   await expect(
-    view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
+    view().getByRole("checkbox", { name: "Select Alpha Gamma", exact: true }),
   ).toBeVisible();
+  await expect(
+    view().getByRole("table", { name: "Suggested parent classes" }),
+  ).toBeVisible();
+  await expect(
+    view().getByRole("combobox", { name: "Taxonomy assistant" }),
+  ).toHaveValue("codex");
+  await expect(
+    view().getByRole("button", { name: "Available 2", exact: true }),
+  ).toBeVisible();
+  await view()
+    .getByRole("button", { name: "Details for Alpha Gamma", exact: true })
+    .click();
+  await expect(view().locator(".ac-detail")).toContainText(
+    "Why Codex proposed this",
+  );
+  await expect(view().locator(".ac-detail")).toContainText(
+    "Alpha Beta Gamma rdfs:subClassOf Alpha Gamma",
+  );
+  const table = view().getByRole("table");
+  const box = await table.boundingBox();
+  await view().getByRole("button", { name: "Context", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Context sent to the assistant" }),
+  ).toContainText("class names and their parent links were sent");
+  expect(await table.boundingBox()).toEqual(box);
+  await page.keyboard.press("Escape");
+  await view().getByRole("searchbox").fill("Alpha");
+  await view()
+    .getByRole("checkbox", { name: "Select all available suggestions" })
+    .check();
+  await view().getByRole("searchbox").clear();
+  await expect(
+    view().getByRole("checkbox", { name: "Select Beta Gamma", exact: true }),
+  ).not.toBeChecked();
+  await view()
+    .getByRole("button", { name: "Suggestion", exact: false })
+    .filter({ hasText: "Suggestion" })
+    .click();
+  expect(await view().locator(".ac-name").allTextContents()).toEqual([
+    "Alpha Gamma",
+    "Beta Gamma",
+  ]);
   const first = await view()
     .getByRole("combobox", { name: "Run history" })
     .inputValue();
   await view()
-    .getByRole("checkbox", { name: "Add Alpha Gamma", exact: true })
+    .getByRole("checkbox", { name: "Select Alpha Gamma", exact: true })
     .check();
   await view()
-    .getByRole("button", { name: /Add selected parents/ })
+    .getByRole("button", { name: "Add 1 parent", exact: true })
     .click();
   await expect
     .poll(
@@ -284,10 +332,12 @@ test("uses local parent matching in the shared view, keeps histories and opens a
     )
     .toContain(base + "AlphaGamma");
   await view()
-    .getByRole("button", { name: "Previous suggestion type" })
-    .click();
+    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .selectOption("children");
   await expect(view().getByRole("heading")).toContainText("Add children");
-  await view().getByRole("button", { name: "Next suggestion type" }).click();
+  await view()
+    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .selectOption("parents");
   await expect
     .poll(
       async () =>
@@ -301,7 +351,10 @@ test("uses local parent matching in the shared view, keeps histories and opens a
     .getByRole("combobox", { name: "Run history" })
     .selectOption(first);
   await expect(
-    view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
+    view().getByRole("checkbox", {
+      name: "Alpha Gamma, Added, cannot be added",
+      exact: true,
+    }),
   ).toBeDisabled();
   await view().getByRole("button", { name: "Open another view" }).click();
   const other = page.locator('.suggestions-view[data-panel^="taxonomy:"]');
@@ -338,13 +391,16 @@ test("uses local parent matching in the shared view, keeps histories and opens a
     .getByRole("combobox", { name: "Run history" })
     .selectOption(first);
   await expect(
-    view().getByRole("checkbox", { name: "Add Alpha Gamma", exact: true }),
+    view().getByRole("checkbox", {
+      name: "Alpha Gamma, Added, cannot be added",
+      exact: true,
+    }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("tab", { name: "Suggestions", exact: true }),
+    page.getByRole("tab", { name: /^Suggestions(?:_\d+)?$/ }),
   ).toHaveCount(2);
   await page
-    .getByRole("tab", { name: "Suggestions", exact: true })
+    .getByRole("tab", { name: /^Suggestions(?:_\d+)?$/ })
     .nth(1)
     .click();
   await expect(
@@ -402,7 +458,7 @@ test("saves custom suggestions globally, reviews values and confines child progr
   ).toHaveCount(0);
   await expect(
     view().getByRole("checkbox", {
-      name: "Add Conversational English",
+      name: "Select Conversational English",
       exact: true,
     }),
   ).toBeVisible();

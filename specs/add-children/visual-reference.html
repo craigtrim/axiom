@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom: Add Children Suggestions, visual reference</title>
+<style>
+/* ============================================================
+   Visual reference for specs/add-children/README.md
+   Descriptive, non normative. Owns no requirements.
+
+   Every specimen below is annotated with the SUG requirement it
+   demonstrates. Every value shown is the value recorded in the
+   Constants table of README.md.
+
+   Interaction states (hover, focus, open) are rendered through
+   explicit state classes rather than live pseudo classes, so that
+   all states of a control are auditable at once without a pointer.
+   ============================================================ */
+
+/* ---------- theme token sets, both rendered simultaneously ---------- */
+.t {
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+.t-light {
+  --ground: #ffffff; --surface: #f6f7f9; --raised: #ffffff; --sunken: #f0f2f5;
+  --border: #e1e4e8; --border-strong: #d0d7de;
+  --text: #1b1f24; --text-muted: #57606a;
+  --accent: #0b5fd0; --accent-hover: #0a52b4; --accent-fg: #ffffff;
+  --ok: #0a7a3d; --ok-bg: #e8f5ed; --ok-border: #a9d8bd;
+  --warn: #8a6116; --warn-bg: #fdf5e3; --warn-border: #e6cf95;
+  --idle: #57606a; --idle-border: #c6cbd1;
+  --row-hover: #f6f7f9; --row-selected: #eaf2fd;
+  --focus: #0b5fd0; --shadow-pop: 0 8px 24px rgba(27, 31, 36, .18);
+}
+
+.t-dark {
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-hover: #6aabff; --accent-fg: #06192e;
+  --ok: #4ade80; --ok-bg: #0f2a1b; --ok-border: #1d5233;
+  --warn: #e3b341; --warn-bg: #2b2211; --warn-border: #5a4718;
+  --idle: #9ba7b4; --idle-border: #454c54;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+}
+
+/* ---------- the document around the specimens ---------- */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #f0f2f5;
+  color: #1b1f24;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 64px; }
+
+.doc header.masthead {
+  padding-bottom: 20px;
+  border-bottom: 2px solid #d0d7de;
+  margin-bottom: 32px;
+}
+h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
+.lede { margin: 0 0 12px; font-size: 16px; max-width: 78ch; }
+.meta { margin: 0; font-size: 14px; color: #57606a; }
+.meta code { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; }
+.meta a { color: #0b5fd0; }
+
+.callout {
+  margin: 16px 0 0;
+  padding: 12px 16px;
+  background: #fdf5e3;
+  border: 1px solid #e6cf95;
+  border-radius: 6px;
+  font-size: 15px;
+  color: #6b4c11;
+}
+
+section.spec { margin: 0 0 40px; }
+
+h2 {
+  margin: 0 0 4px;
+  font-size: 19px; font-weight: 600;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d0d7de;
+}
+.demonstrates {
+  margin: 0 0 16px;
+  font-size: 13px; color: #57606a;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+}
+.note { margin: 0 0 16px; font-size: 15px; color: #424a53; max-width: 82ch; }
+
+/* two themes side by side */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1000px) { .pair { grid-template-columns: 1fr; } }
+
+.panel {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.panel > .panel-head {
+  padding: 6px 12px;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: #57606a; background: #f6f7f9;
+  border-bottom: 1px solid #e1e4e8;
+}
+.stage {
+  padding: 20px 16px;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font);
+}
+.stage.on-surface { background: var(--surface); }
+
+/* specimen layout inside a stage */
+.specimens { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.specimen { display: flex; flex-direction: column; gap: 6px; }
+.specimen > .cap {
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--mono);
+}
+.stack { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+
+/* ============================================================
+   The specimens themselves. These declarations are the ones the
+   surface uses; they are reproduced here so the specimen and the
+   product cannot drift apart silently.
+   ============================================================ */
+.icon { width: 16px; height: 16px; flex: none; display: block; }
+
+/* status pill, SUG-30 */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  border: 1px solid;
+}
+.pill .icon { width: 13px; height: 13px; }
+.pill-available { color: var(--idle); background: transparent;    border-color: var(--idle-border); border-style: dashed; }
+.pill-added     { color: var(--ok);   background: var(--ok-bg);   border-color: var(--ok-border); }
+.pill-exists    { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
+.pill.narrow { padding: 0 6px; }
+.pill.narrow .pill-text { display: none; }
+
+/* selection control, SUG-46 */
+.check {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0;
+  border: 1.5px solid var(--border-strong); border-radius: 3px;
+  background: var(--raised);
+  display: grid; place-content: center;
+}
+.check:checked, .check:indeterminate { background: var(--accent); border-color: var(--accent); }
+.check:checked::after {
+  content: ""; width: 10px; height: 10px; background: var(--accent-fg);
+  clip-path: polygon(14% 47%, 0 60%, 39% 100%, 100% 22%, 86% 10%, 37% 72%);
+}
+.check:indeterminate::after { content: ""; width: 9px; height: 2px; border-radius: 1px; background: var(--accent-fg); }
+.check[disabled] { background: var(--sunken); border-color: var(--border); border-style: dashed; }
+.check.is-focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* buttons, SUG-48 */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl);
+  background: var(--raised); color: var(--text);
+  font: inherit; font-size: 14px; white-space: nowrap;
+}
+.btn.is-hover { background: var(--row-hover); border-color: var(--text-muted); }
+.btn.is-focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+.btn.is-disabled { opacity: .45; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.btn-primary.is-hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-lg { height: 34px; padding: 0 var(--sp-4); font-size: 15px; }
+
+/* filter chips, SUG-37 */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-pill);
+  background: var(--raised); color: var(--text-muted);
+  font: inherit; font-size: 14px; white-space: nowrap;
+}
+.chip .n { font-variant-numeric: tabular-nums; opacity: .85; }
+.chip.is-pressed { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.chip.is-hover { color: var(--text); border-color: var(--text-muted); }
+
+/* suggestion row, SUG-24 to SUG-29 */
+.rowset { width: 100%; border-top: 1px solid var(--border); }
+.rowhead, .row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 150px 44px;
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+}
+.rowhead {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-strong);
+}
+.rowhead > span {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.row > * { padding: var(--sp-2) var(--sp-3); }
+.row.is-hover { background: var(--row-hover); }
+.row.is-selected { background: var(--row-selected); }
+.cell-check { padding-inline: var(--sp-4) 0 !important; }
+.name { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.kind {
+  display: inline-block; margin-inline-start: 6px; padding: 0 6px;
+  font-size: 13px; font-weight: 500; line-height: 18px;
+  color: var(--text-muted); background: var(--sunken);
+  border: 1px solid var(--border); border-radius: 3px;
+  vertical-align: 2px;
+}
+.def {
+  margin: 2px 0 0;
+  font-size: 16px; line-height: 1.45;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.expander {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; margin: 0 auto;
+  border: 0; border-radius: var(--r-ctl);
+  background: none; color: var(--text-muted);
+}
+.expander.is-open .icon { transform: rotate(90deg); }
+
+/* detail disclosure, SUG-32 to SUG-34 */
+.detail { padding: 0 var(--sp-3) var(--sp-3); background: var(--row-hover); border-bottom: 1px solid var(--border); }
+.detail-panel {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  background: var(--ground);
+}
+.detail-label {
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
+}
+.rationale { margin: 0; font-size: 16px; line-height: 1.6; }
+.idgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) var(--sp-6); margin: 6px 0 0; }
+.idgrid dt { font-size: 13px; color: var(--text-muted); }
+.idgrid dd { margin: 0; font-size: 15px; }
+.idgrid dd.mono { font-family: var(--mono); font-size: 14px; }
+.statusnote {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-ctl);
+  font-size: 15px; line-height: 1.45;
+}
+.statusnote-exists { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.statusnote-added  { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-border); }
+.rule { border: 0; border-top: 1px solid var(--border); margin: 0; }
+
+/* overlay panels, SUG-54 to SUG-62 */
+.pop-demo { position: relative; padding-bottom: 240px; }
+.pop-trigger.is-open { background: var(--row-hover); border-color: var(--text-muted); }
+.pop-trigger.is-open .icon { transform: rotate(90deg); }
+.pop-panel {
+  position: absolute; top: 40px; inset-inline-start: 0;
+  width: min(560px, 100%);
+  max-height: 220px; overflow-y: auto;
+  padding: var(--sp-3);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+}
+.pop-title {
+  margin: 0 0 var(--sp-2);
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.pop-panel p { margin: 0 0 var(--sp-2); font-size: 15px; line-height: 1.6; }
+.pop-panel p:last-child { margin-bottom: 0; }
+.ctxgrid { display: grid; gap: var(--sp-3); margin: 0; }
+.ctxgrid dt { font-size: 13px; color: var(--text-muted); }
+.ctxgrid dd { margin: 0; font-size: 15px; }
+
+/* empty result, SUG-43 */
+.empty {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  text-align: center; padding: var(--sp-8) var(--sp-4);
+  color: var(--text-muted);
+}
+.empty .icon { width: 28px; height: 28px; }
+.empty h3 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.empty p { margin: 0; font-size: 16px; max-width: 48ch; }
+
+/* action bar, SUG-47 */
+.actionbar {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.selcount { font-size: 15px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.selcount b { color: var(--text); font-weight: 600; }
+.grow { flex: 1 1 0; }
+
+/* vertical budget, SUG-18 */
+.budget { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 1000px) { .budget { grid-template-columns: 1fr; } }
+.budget h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.bands { border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; background: #fff; }
+.band {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #e1e4e8;
+  background: #eef2f6;
+  color: #1b1f24;
+}
+.band.gone { background: #fdecec; color: #8a1c1c; }
+.band.list { background: #fff; color: #57606a; }
+.band .px { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 12px; color: #57606a; }
+.band.gone .px { color: #8a1c1c; }
+.total { padding: 8px 12px; font-size: 14px; font-weight: 600; background: #f6f7f9; }
+
+/* tables in the prose */
+table.ref { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.ref th, table.ref td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; vertical-align: top; }
+table.ref th { background: #f6f7f9; font-weight: 600; }
+table.ref code { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; }
+
+/* token swatches */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.sw { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.sw i {
+  width: 30px; height: 30px; flex: none;
+  border-radius: 4px; border: 1px solid var(--border-strong);
+}
+.sw code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true"><defs>
+  <symbol id="i-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 11.7 13 4.9"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></symbol>
+  <symbol id="i-dup" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5"/><path d="M5.5 13.5h6a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="i-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 5.5 4h13L21 9.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19z"/><path d="M3 9.5h5l1 2.5h6l1-2.5h5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 7.2v3.6M8 5.1v.1"/></symbol>
+</defs></svg>
+
+<div class="doc">
+
+<header class="masthead">
+  <h1>Axiom: Add Children Suggestions, visual reference</h1>
+  <p class="lede">A rendered specimen of every component state on the Suggestions Surface, in both themes at once. It is a picture, not a specification.</p>
+  <p class="meta">
+    <strong>Status:</strong> Descriptive, non normative. Owns no requirement prefix.<br>
+    <strong>Specifies:</strong> nothing. The normative document is <a href="README.md">README.md</a>.<br>
+    <strong>Reference implementation:</strong> <code>...\projects\dd6f8408-986c-4b38-9c30-3fe336496345\index.html</code>, read only.
+  </p>
+  <p class="callout">
+    Interaction states are rendered through explicit state classes rather than live pseudo classes, so that every state of a control is visible at once without a pointer. In the product these are <code>:hover</code>, <code>:focus-visible</code>, <code>:checked</code>, <code>:indeterminate</code> and <code>:disabled</code>. Nothing on this page is interactive, and nothing on this page is a requirement.
+  </p>
+</header>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>1. Status pill</h2>
+  <p class="demonstrates">SUG-30, SUG-31, SUG-75</p>
+  <p class="note">Three cues carry Status simultaneously: a word, a shape and a colour. Withdraw the colour and the pill still reads. Withdraw the word, which happens below 680px, and the shape plus the accessible name still carry it. The dashed border on <code>Available</code> is the third cue and marks it as the only actionable state.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage"><div class="specimens">
+        <div class="specimen"><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span><span class="cap">available</span></div>
+        <div class="specimen"><span class="pill pill-added"><svg class="icon"><use href="#i-check"/></svg><span class="pill-text">Added</span></span><span class="cap">added</span></div>
+        <div class="specimen"><span class="pill pill-exists"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span><span class="cap">exists</span></div>
+        <div class="specimen">
+          <span style="display:inline-flex;gap:6px">
+            <span class="pill pill-available narrow"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span>
+            <span class="pill pill-added narrow"><svg class="icon"><use href="#i-check"/></svg><span class="pill-text">Added</span></span>
+            <span class="pill pill-exists narrow"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span>
+          </span>
+          <span class="cap">below 680px</span>
+        </div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage"><div class="specimens">
+        <div class="specimen"><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span><span class="cap">available</span></div>
+        <div class="specimen"><span class="pill pill-added"><svg class="icon"><use href="#i-check"/></svg><span class="pill-text">Added</span></span><span class="cap">added</span></div>
+        <div class="specimen"><span class="pill pill-exists"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span><span class="cap">exists</span></div>
+        <div class="specimen">
+          <span style="display:inline-flex;gap:6px">
+            <span class="pill pill-available narrow"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span>
+            <span class="pill pill-added narrow"><svg class="icon"><use href="#i-check"/></svg><span class="pill-text">Added</span></span>
+            <span class="pill pill-exists narrow"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span>
+          </span>
+          <span class="cap">below 680px</span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>2. Selection control</h2>
+  <p class="demonstrates">SUG-11, SUG-46</p>
+  <p class="note">The select-all control is tri-state and scoped to the rows that are both visible and selectable. The disabled control is dashed and sunken, which is what a row at Status <code>added</code> or <code>exists</code> presents; it is deliberately not the same shape as an empty enabled control, because the two must not be confused at a glance.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage"><div class="specimens">
+        <div class="specimen"><input class="check" type="checkbox" disabled><span class="cap">unchecked</span></div>
+        <div class="specimen"><input class="check" type="checkbox" checked disabled><span class="cap">checked</span></div>
+        <div class="specimen"><input class="check" type="checkbox" disabled id="l-ind"><span class="cap">indeterminate</span></div>
+        <div class="specimen"><input class="check is-focus" type="checkbox" disabled><span class="cap">focus</span></div>
+        <div class="specimen"><input class="check" type="checkbox" disabled data-disabled="1"><span class="cap">not selectable</span></div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage"><div class="specimens">
+        <div class="specimen"><input class="check" type="checkbox" disabled><span class="cap">unchecked</span></div>
+        <div class="specimen"><input class="check" type="checkbox" checked disabled><span class="cap">checked</span></div>
+        <div class="specimen"><input class="check" type="checkbox" disabled id="d-ind"><span class="cap">indeterminate</span></div>
+        <div class="specimen"><input class="check is-focus" type="checkbox" disabled><span class="cap">focus</span></div>
+        <div class="specimen"><input class="check" type="checkbox" disabled data-disabled="1"><span class="cap">not selectable</span></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>3. Buttons and filter chips</h2>
+  <p class="demonstrates">SUG-37, SUG-48, SUG-49</p>
+  <p class="note">The commit action carries the Selection size in its own label and agrees in grammatical number. At zero selection it is disabled and reverts to its neutral wording. Filter chips carry a live count that is computed from the Run and is not affected by the search text.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage">
+        <div class="specimens" style="margin-bottom:20px">
+          <div class="specimen"><span class="btn">Clear selection</span><span class="cap">rest</span></div>
+          <div class="specimen"><span class="btn is-hover">Clear selection</span><span class="cap">hover</span></div>
+          <div class="specimen"><span class="btn is-focus">Clear selection</span><span class="cap">focus</span></div>
+          <div class="specimen"><span class="btn is-disabled">Clear selection</span><span class="cap">disabled</span></div>
+        </div>
+        <div class="specimens" style="margin-bottom:20px">
+          <div class="specimen"><span class="btn btn-primary btn-lg is-disabled">Add selected children</span><span class="cap">commit, 0 selected</span></div>
+          <div class="specimen"><span class="btn btn-primary btn-lg">Add 1 child</span><span class="cap">commit, 1 selected</span></div>
+          <div class="specimen"><span class="btn btn-primary btn-lg is-hover">Add 3 children</span><span class="cap">commit, hover</span></div>
+        </div>
+        <div class="specimens">
+          <div class="specimen">
+            <span style="display:inline-flex;gap:8px">
+              <span class="chip is-pressed">All <span class="n">10</span></span>
+              <span class="chip">Available <span class="n">5</span></span>
+              <span class="chip is-hover">Added <span class="n">2</span></span>
+              <span class="chip">Already exist <span class="n">3</span></span>
+            </span>
+            <span class="cap">filter bar, All active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage">
+        <div class="specimens" style="margin-bottom:20px">
+          <div class="specimen"><span class="btn">Clear selection</span><span class="cap">rest</span></div>
+          <div class="specimen"><span class="btn is-hover">Clear selection</span><span class="cap">hover</span></div>
+          <div class="specimen"><span class="btn is-focus">Clear selection</span><span class="cap">focus</span></div>
+          <div class="specimen"><span class="btn is-disabled">Clear selection</span><span class="cap">disabled</span></div>
+        </div>
+        <div class="specimens" style="margin-bottom:20px">
+          <div class="specimen"><span class="btn btn-primary btn-lg is-disabled">Add selected children</span><span class="cap">commit, 0 selected</span></div>
+          <div class="specimen"><span class="btn btn-primary btn-lg">Add 1 child</span><span class="cap">commit, 1 selected</span></div>
+          <div class="specimen"><span class="btn btn-primary btn-lg is-hover">Add 3 children</span><span class="cap">commit, hover</span></div>
+        </div>
+        <div class="specimens">
+          <div class="specimen">
+            <span style="display:inline-flex;gap:8px">
+              <span class="chip is-pressed">All <span class="n">10</span></span>
+              <span class="chip">Available <span class="n">5</span></span>
+              <span class="chip is-hover">Added <span class="n">2</span></span>
+              <span class="chip">Already exist <span class="n">3</span></span>
+            </span>
+            <span class="cap">filter bar, All active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>4. The suggestion row</h2>
+  <p class="demonstrates">SUG-24 to SUG-29</p>
+  <p class="note">Four states in reading order: at rest, hovered, selected, and a row whose Status makes it unselectable. The definition is clamped to two lines; the full text is reached through the detail disclosure. A selected row carries a persistent background so selection survives the pointer leaving it.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage" style="padding:0">
+        <div class="rowset">
+          <div class="rowhead"><span></span><span>Suggestion</span><span>Status</span><span></span></div>
+          <div class="row">
+            <div class="cell-check"><input class="check" type="checkbox" disabled></div>
+            <div><span class="name">Fashion Marketing and Promotion</span><span class="kind">Class</span><p class="def">Positioning, advertising, and promotional campaigns that build demand for apparel and accessory lines.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row is-hover">
+            <div class="cell-check"><input class="check" type="checkbox" disabled></div>
+            <div><span class="name">Assortment Planning</span><span class="kind">Class</span><p class="def">Deciding the mix of styles, colours, sizes, and price points offered in a given season and channel.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row is-selected">
+            <div class="cell-check"><input class="check" type="checkbox" checked disabled></div>
+            <div><span class="name">Fashion Sourcing and Production</span><span class="kind">Class</span><p class="def">Identifying suppliers, negotiating terms, and managing the manufacture and delivery of apparel orders.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row">
+            <div class="cell-check"><input class="check" type="checkbox" disabled data-disabled="1"></div>
+            <div><span class="name">Visual Merchandising</span><span class="kind">Class</span><p class="def">The presentation of garments through window displays, store layout, fixtures, and styling to drive selling.</p></div>
+            <div><span class="pill pill-exists"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage" style="padding:0">
+        <div class="rowset">
+          <div class="rowhead"><span></span><span>Suggestion</span><span>Status</span><span></span></div>
+          <div class="row">
+            <div class="cell-check"><input class="check" type="checkbox" disabled></div>
+            <div><span class="name">Fashion Marketing and Promotion</span><span class="kind">Class</span><p class="def">Positioning, advertising, and promotional campaigns that build demand for apparel and accessory lines.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row is-hover">
+            <div class="cell-check"><input class="check" type="checkbox" disabled></div>
+            <div><span class="name">Assortment Planning</span><span class="kind">Class</span><p class="def">Deciding the mix of styles, colours, sizes, and price points offered in a given season and channel.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row is-selected">
+            <div class="cell-check"><input class="check" type="checkbox" checked disabled></div>
+            <div><span class="name">Fashion Sourcing and Production</span><span class="kind">Class</span><p class="def">Identifying suppliers, negotiating terms, and managing the manufacture and delivery of apparel orders.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="row">
+            <div class="cell-check"><input class="check" type="checkbox" disabled data-disabled="1"></div>
+            <div><span class="name">Visual Merchandising</span><span class="kind">Class</span><p class="def">The presentation of garments through window displays, store layout, fixtures, and styling to drive selling.</p></div>
+            <div><span class="pill pill-exists"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span></div>
+            <div><span class="expander"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>5. The detail disclosure</h2>
+  <p class="demonstrates">SUG-32, SUG-33, SUG-34, SUG-51</p>
+  <p class="note">An expanded row in two Statuses. The <code>available</code> case carries the single-row commit action; the <code>exists</code> case carries the Status note verbatim and names the entity it collided with, and carries no action. Identifiers are monospace so a normalised name and an IRI can be compared character by character.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, status available</div>
+      <div class="t t-light stage" style="padding:0">
+        <div class="rowset">
+          <div class="row is-selected" style="border-bottom-color:transparent">
+            <div class="cell-check"><input class="check" type="checkbox" checked disabled></div>
+            <div><span class="name">Assortment Planning</span><span class="kind">Class</span><p class="def">Deciding the mix of styles, colours, sizes, and price points offered in a given season and channel.</p></div>
+            <div><span class="pill pill-available"><svg class="icon"><use href="#i-plus"/></svg><span class="pill-text">Available</span></span></div>
+            <div><span class="expander is-open"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="detail" style="background:var(--row-selected)">
+            <div class="detail-panel">
+              <div>
+                <div class="detail-label">Why Claude proposed these</div>
+                <p class="rationale">Narrower than merchandise planning but taught as a distinct skill; proposed as a sibling so the two can be linked later if the finer grain proves unnecessary.</p>
+              </div>
+              <hr class="rule">
+              <div>
+                <div class="detail-label">Identifier and relationship</div>
+                <dl class="idgrid">
+                  <div><dt>Label</dt><dd>Assortment Planning</dd></div>
+                  <div><dt>Normalized name</dt><dd class="mono">assortment_planning</dd></div>
+                  <div><dt>Identifier</dt><dd class="mono">axiom:AssortmentPlanning</dd></div>
+                  <div><dt>Parent relation</dt><dd class="mono">rdfs:subClassOf axiom:FashionMerchandising</dd></div>
+                </dl>
+              </div>
+              <div><span class="btn btn-primary"><svg class="icon"><use href="#i-plus"/></svg> Add this child</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, status exists</div>
+      <div class="t t-dark stage" style="padding:0">
+        <div class="rowset">
+          <div class="row" style="border-bottom-color:transparent">
+            <div class="cell-check"><input class="check" type="checkbox" disabled data-disabled="1"></div>
+            <div><span class="name">Visual Merchandising</span><span class="kind">Class</span><p class="def">The presentation of garments through window displays, store layout, fixtures, and styling to drive selling.</p></div>
+            <div><span class="pill pill-exists"><svg class="icon"><use href="#i-dup"/></svg><span class="pill-text">Exists</span></span></div>
+            <div><span class="expander is-open"><svg class="icon"><use href="#i-chev"/></svg></span></div>
+          </div>
+          <div class="detail">
+            <div class="detail-panel">
+              <div>
+                <div class="detail-label">Why Claude proposed these</div>
+                <p class="rationale">It is a recognised branch of merchandising that bridges fashion and business, matching the topic's dual placement under both parents.</p>
+              </div>
+              <hr class="rule">
+              <div>
+                <div class="detail-label">Identifier and relationship</div>
+                <dl class="idgrid">
+                  <div><dt>Label</dt><dd>Visual Merchandising</dd></div>
+                  <div><dt>Normalized name</dt><dd class="mono">visual_merchandising</dd></div>
+                  <div><dt>Identifier</dt><dd class="mono">axiom:VisualMerchandising</dd></div>
+                  <div><dt>Parent relation</dt><dd class="mono">rdfs:subClassOf axiom:FashionMerchandising</dd></div>
+                  <div><dt>Existing entity</dt><dd>Visual Merchandising · Fashion › Fashion Presentation</dd></div>
+                </dl>
+              </div>
+              <div class="statusnote statusnote-exists">
+                <svg class="icon" style="margin-top:3px"><use href="#i-dup"/></svg>
+                <span>An entity with this label or normalized name already exists. It will not be duplicated or moved.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>6. The overlay panels</h2>
+  <p class="demonstrates">SUG-54 to SUG-62</p>
+  <p class="note">Analysis and Context are reference material, consulted occasionally and never needed at the same time as the list. As overlays they cost nothing but their trigger when closed, and displace nothing when open. Both are shown open here; in the product at most one is open at a time.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, Analysis open</div>
+      <div class="t t-light stage">
+        <div class="pop-demo">
+          <span class="btn pop-trigger is-open"><svg class="icon"><use href="#i-chev"/></svg> Analysis</span>
+          <div class="pop-panel">
+            <p class="pop-title">Why Claude proposed these</p>
+            <p>Fashion merchandising is the business side of getting apparel and accessories from concept to the customer, so its natural subtypes are the functional specialisms taught as course subjects: buying, planning, retailing, presentation, promotion, and sourcing.</p>
+            <p>The topic currently has only one recorded type, which reads as a combined degree program rather than a functional area, so the suggestions sit alongside it without overlapping it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, Context open</div>
+      <div class="t t-dark stage">
+        <div class="pop-demo">
+          <span class="btn pop-trigger is-open"><svg class="icon"><use href="#i-chev"/></svg> Context</span>
+          <div class="pop-panel">
+            <p class="pop-title">Context sent</p>
+            <dl class="ctxgrid">
+              <div><dt>Ancestors</dt><dd><b>3</b> Academic Subject › Business › Fashion</dd></div>
+              <div><dt>Children</dt><dd><b>1</b> Fashion Merchandising and Management</dd></div>
+              <div><dt>Descendants</dt><dd><b>1</b> no deeper levels recorded</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>7. Empty result and the action bar</h2>
+  <p class="demonstrates">SUG-43, SUG-44, SUG-47, SUG-49</p>
+  <p class="note">An empty result names its cause and offers the remedy. The action bar states the Selection against the number of available Suggestions, and disables both actions when the Selection is empty.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, no match</div>
+      <div class="t t-light stage" style="padding:0">
+        <div class="empty">
+          <svg class="icon"><use href="#i-empty"/></svg>
+          <h3>No suggestions match this filter</h3>
+          <p>Nothing in this run matches "retail" under the current status filter.</p>
+          <span class="btn">Clear filter and search</span>
+        </div>
+        <div class="actionbar">
+          <span class="selcount">No suggestions selected</span>
+          <span class="grow"></span>
+          <span class="btn is-disabled">Clear selection</span>
+          <span class="btn btn-primary btn-lg is-disabled">Add selected children</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, three selected</div>
+      <div class="t t-dark stage" style="padding:0">
+        <div class="empty">
+          <svg class="icon"><use href="#i-empty"/></svg>
+          <h3>No suggestions match this filter</h3>
+          <p>Nothing in this run has that status.</p>
+          <span class="btn">Clear filter and search</span>
+        </div>
+        <div class="actionbar">
+          <span class="selcount"><b>3</b> of <b>5</b> available selected</span>
+          <span class="grow"></span>
+          <span class="btn">Clear selection</span>
+          <span class="btn btn-primary btn-lg">Add 3 children</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>8. The vertical budget</h2>
+  <p class="demonstrates">SUG-16, SUG-17, SUG-18, SUG-21, SUG-55</p>
+  <p class="note">
+    The reason SUG-18 exists. The earlier arrangement carried seven bands above the list, two of which restated values shown elsewhere and two of which were disclosures that displaced the list when opened. The arrangement below carries four, and the disclosures became overlays. Each height is the arithmetic of declared constants: band padding of 8px top and bottom, plus the tallest control in the band, plus a 1px separator.
+  </p>
+  <div class="budget">
+    <div>
+      <h3>Before: seven bands</h3>
+      <div class="bands">
+        <div class="band" style="height:42px">Tab strip <span class="px">42</span></div>
+        <div class="band" style="height:47px">Command bar <span class="px">47</span></div>
+        <div class="band" style="height:50px">Title and count chips <span class="px">50</span></div>
+        <div class="band gone" style="height:28px">Run meta line, restates the Run chooser <span class="px">28</span></div>
+        <div class="band gone" style="height:37px">Analysis accordion, displaces the list <span class="px">37</span></div>
+        <div class="band gone" style="height:150px">Context accordion, open <span class="px">150</span></div>
+        <div class="band" style="height:47px">Filter bar <span class="px">47</span></div>
+        <div class="band list" style="height:60px">first suggestion row</div>
+        <div class="total">401px before the list, with Context open</div>
+      </div>
+    </div>
+    <div>
+      <h3>After: four bands</h3>
+      <div class="bands">
+        <div class="band" style="height:42px">Tab strip <span class="px">42</span></div>
+        <div class="band" style="height:47px">Command bar <span class="px">47</span></div>
+        <div class="band" style="height:47px">Run bar, with both overlay triggers <span class="px">47</span></div>
+        <div class="band" style="height:47px">Filter bar <span class="px">47</span></div>
+        <div class="band list" style="height:60px">first suggestion row</div>
+        <div class="band list" style="height:60px">second suggestion row</div>
+        <div class="band list" style="height:60px">third suggestion row</div>
+        <div class="total">183px before the list, whether or not a panel is open</div>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:16px">
+    The counts that the title band carried are now carried by the filter chips, which were already showing them. The Run timestamp and assistant that the meta line carried are now carried by the Run chooser, which was already showing them. Nothing was lost; two duplications and two displacements were removed. The Analysis preview described by SUG-21 recovers the one thing the accordions gave for free, a glimpse of the reasoning, by putting it in horizontal space that was empty anyway.
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>9. Token reference</h2>
+  <p class="demonstrates">SUG-76, and the Token bindings table in README.md</p>
+  <p class="note">Every colour the surface uses, in both themes. These are the prototype's token names. An implementation binds each to its counterpart in <code>40-design-system.md</code> and takes the value from there, never from this page.</p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage"><div class="swatches">
+        <div class="sw"><i style="background:var(--ground)"></i><code>--ground</code></div>
+        <div class="sw"><i style="background:var(--surface)"></i><code>--surface</code></div>
+        <div class="sw"><i style="background:var(--raised)"></i><code>--raised</code></div>
+        <div class="sw"><i style="background:var(--sunken)"></i><code>--sunken</code></div>
+        <div class="sw"><i style="background:var(--border)"></i><code>--border</code></div>
+        <div class="sw"><i style="background:var(--border-strong)"></i><code>--border-strong</code></div>
+        <div class="sw"><i style="background:var(--text)"></i><code>--text</code></div>
+        <div class="sw"><i style="background:var(--text-muted)"></i><code>--text-muted</code></div>
+        <div class="sw"><i style="background:var(--accent)"></i><code>--accent</code></div>
+        <div class="sw"><i style="background:var(--ok)"></i><code>--ok</code></div>
+        <div class="sw"><i style="background:var(--warn)"></i><code>--warn</code></div>
+        <div class="sw"><i style="background:var(--idle)"></i><code>--idle</code></div>
+        <div class="sw"><i style="background:var(--row-selected)"></i><code>--row-selected</code></div>
+        <div class="sw"><i style="background:var(--focus)"></i><code>--focus</code></div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage"><div class="swatches">
+        <div class="sw"><i style="background:var(--ground)"></i><code>--ground</code></div>
+        <div class="sw"><i style="background:var(--surface)"></i><code>--surface</code></div>
+        <div class="sw"><i style="background:var(--raised)"></i><code>--raised</code></div>
+        <div class="sw"><i style="background:var(--sunken)"></i><code>--sunken</code></div>
+        <div class="sw"><i style="background:var(--border)"></i><code>--border</code></div>
+        <div class="sw"><i style="background:var(--border-strong)"></i><code>--border-strong</code></div>
+        <div class="sw"><i style="background:var(--text)"></i><code>--text</code></div>
+        <div class="sw"><i style="background:var(--text-muted)"></i><code>--text-muted</code></div>
+        <div class="sw"><i style="background:var(--accent)"></i><code>--accent</code></div>
+        <div class="sw"><i style="background:var(--ok)"></i><code>--ok</code></div>
+        <div class="sw"><i style="background:var(--warn)"></i><code>--warn</code></div>
+        <div class="sw"><i style="background:var(--idle)"></i><code>--idle</code></div>
+        <div class="sw"><i style="background:var(--row-selected)"></i><code>--row-selected</code></div>
+        <div class="sw"><i style="background:var(--focus)"></i><code>--focus</code></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>10. Responsive surrender order</h2>
+  <p class="demonstrates">SUG-79, SUG-80, SUG-81</p>
+  <p class="note">Width is surrendered in a fixed order, and the band count never increases as it is. No essential action is withdrawn at any step: selection, commit, filter, search and expansion remain available at every width down to 375px.</p>
+  <table class="ref">
+    <thead><tr><th>Width</th><th>Withdrawn</th><th>Where it goes instead</th><th>Constant</th></tr></thead>
+    <tbody>
+      <tr><td>1100px and below</td><td>The Analysis preview</td><td>Nowhere. It was a bonus occupying otherwise empty width</td><td><code>.hide-md</code></td></tr>
+      <tr><td>900px and below</td><td>The Definition column</td><td>Beneath the label in the Suggestion column, still clamped to two lines</td><td><code>.c-def</code></td></tr>
+      <tr><td>680px and below</td><td>The Status pill word, and the band labels</td><td>The pill keeps its shape and its accessible name; selects keep their accessible names</td><td><code>.hide-sm</code></td></tr>
+      <tr><td>375px</td><td>Nothing further</td><td>The narrowest supported width. No horizontal scrolling at or above it</td><td>README.md</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer style="margin-top:48px;padding-top:20px;border-top:1px solid #d0d7de;font-size:14px;color:#57606a">
+  <p style="margin:0 0 6px"><strong>This page is descriptive.</strong> It defines no requirements and carries no normative force. Where it and <a href="README.md">README.md</a> disagree, README.md wins.</p>
+  <p style="margin:0">No screenshots were produced for this document. Live specimens are used instead, because a screenshot cannot be inspected, cannot be audited for contrast, and goes stale silently.</p>
+</footer>
+
+</div>
+
+<script>
+/* The only script on the page: the indeterminate state cannot be set
+   from markup, so it is set here. Nothing else is interactive. */
+["l-ind", "d-ind"].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (el) { el.indeterminate = true; }
+});
+</script>
+</body>
+</html>

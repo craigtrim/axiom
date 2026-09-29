@@ -1,5 +1,8 @@
 import { synonymDefinition } from "../shared/synonyms";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { parentContext, buildParentPrompt } from "../shared/parent-suggestions";
+import { SavedSuggestionReview } from "./SavedSuggestionReview";
+import type { SuggestionNavigation } from "./SuggestionWorkbench";
 import { TaxonomyAssistant } from "./TaxonomyAssistant";
 import {
   openTaxonomy,
@@ -54,6 +57,18 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
     setEditing(undefined);
     openTaxonomy(iri, value, undefined, paneId);
   };
+  const navigation: SuggestionNavigation = {
+    modes,
+    changeMode: switchMode,
+    openAnother: () =>
+      openTaxonomy(
+        iri,
+        mode,
+        undefined,
+        "taxonomy:" + crypto.randomUUID(),
+        false,
+      ),
+  };
   const definition =
     mode === "synonyms"
       ? synonymDefinition
@@ -64,63 +79,65 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
       data-panel={paneId}
       aria-label="Suggestions"
     >
-      <header className="suggestion-switcher">
-        <div
-          className="suggestion-pages"
-          role="group"
-          aria-label="Suggestion type"
-        >
-          <button
-            aria-label="Previous suggestion type"
-            disabled={index <= 0}
-            onClick={() => switchMode(modes[index - 1].id)}
+      {!["children", "parents", "synonyms"].includes(mode) && (
+        <header className="suggestion-switcher">
+          <div
+            className="suggestion-pages"
+            role="group"
+            aria-label="Suggestion type"
           >
-            ‹
-          </button>
-          <label>
-            <span className="muted">Suggest</span>
-            <select
-              aria-label="Suggestion type"
-              value={mode}
-              onChange={(e) => switchMode(e.target.value)}
+            <button
+              aria-label="Previous suggestion type"
+              disabled={index <= 0}
+              onClick={() => switchMode(modes[index - 1].id)}
             >
-              {modes.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              ‹
+            </button>
+            <label>
+              <span className="muted">Suggest</span>
+              <select
+                aria-label="Suggestion type"
+                value={mode}
+                onChange={(e) => switchMode(e.target.value)}
+              >
+                {modes.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              aria-label="Next suggestion type"
+              disabled={index < 0 || index === modes.length - 1}
+              onClick={() => switchMode(modes[index + 1].id)}
+            >
+              ›
+            </button>
+            <span className="muted">
+              {index + 1} / {modes.length}
+            </span>
+          </div>
           <button
-            aria-label="Next suggestion type"
-            disabled={index < 0 || index === modes.length - 1}
-            onClick={() => switchMode(modes[index + 1].id)}
+            onClick={() =>
+              openTaxonomy(
+                iri,
+                mode,
+                undefined,
+                "taxonomy:" + crypto.randomUUID(),
+                false,
+              )
+            }
           >
-            ›
+            Open another view
           </button>
-          <span className="muted">
-            {index + 1} / {modes.length}
-          </span>
-        </div>
-        <button
-          onClick={() =>
-            openTaxonomy(
-              iri,
-              mode,
-              undefined,
-              "taxonomy:" + crypto.randomUUID(),
-              false,
-            )
-          }
-        >
-          Open another view
-        </button>
-        {definition && mode.startsWith("custom:") && (
-          <button onClick={() => setEditing(definition)}>
-            Edit definition
-          </button>
-        )}
-      </header>
+          {definition && mode.startsWith("custom:") && (
+            <button onClick={() => setEditing(definition)}>
+              Edit definition
+            </button>
+          )}
+        </header>
+      )}
       {error && <ErrorNotice error={error} />}
       <div className="suggestion-body">
         {mode === "define" || editing ? (
@@ -143,6 +160,7 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
               s.datasetEpoch + ":" + iri + ":" + mode + ":" + target?.revision
             }
             paneId={paneId}
+            navigation={navigation}
           />
         ) : (
           <SavedSuggestionView
@@ -157,6 +175,7 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
             }
             paneId={paneId}
             definition={definition}
+            navigation={navigation}
           />
         )}
       </div>
@@ -282,9 +301,11 @@ function SuggestionDefinitionEditor({
 function SavedSuggestionView({
   paneId,
   definition,
+  navigation,
 }: {
   paneId: string;
   definition?: SuggestionDefinition;
+  navigation: SuggestionNavigation;
 }) {
   const s = useSnapshot()!,
     target = useTaxonomyTarget(paneId)!;
@@ -296,6 +317,7 @@ function SavedSuggestionView({
   const [selected, setSelected] = useState<number[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
+    [applying, setApplying] = useState(false),
     [active, setActive] =
       useState<Pick<SuggestionRun, "id" | "iri" | "mode" | "startedAt">>();
   const [now, setNow] = useState(Date.now());
@@ -367,14 +389,34 @@ function SavedSuggestionView({
       clearInterval(timer);
     };
   }, []);
-  const runs = history.filter((r) => r.namespace === s.ontology.namespace),
+  const runs = history.filter(
+      (r) => !r.draft && r.namespace === s.ontology.namespace,
+    ),
     entry = runs.find((r) => r.id === id);
   const relevant = runs.filter(
     (r) => r.iri === target?.iri && r.mode === target.mode,
   );
+  const parentPreview = useMemo(() => {
+    if (!parents || !exists) return "";
+    try {
+      return buildParentPrompt(parentContext(s, target.iri));
+    } catch (e) {
+      return (e as Error).message;
+    }
+  }, [parents, exists, s.version, s.datasetEpoch, target.iri]);
   const stale =
     !!entry &&
     (entry.namespace !== s.ontology.namespace || entry.iri !== target?.iri);
+  // Editing the entity no longer blocks a run. Name what changed and let the
+  // reader judge whether the suggestions still fit.
+  const drift =
+    entry && entity && !stale
+      ? entity.name !== entry.document.entity.name
+        ? 'This entity is now named "' + entity.name + '".'
+        : entity.comment !== entry.document.entity.comment
+          ? "The description of " + entity.name + " changed after this run."
+          : ""
+      : "";
   const generate = async () => {
     if (
       generating.current ||
@@ -447,6 +489,100 @@ function SavedSuggestionView({
     parents,
     definition,
   ]);
+  async function apply(indices: number[]) {
+    if (!entry || busy || active || stale || !exists) return;
+    setBusy(true);
+    setApplying(true);
+    setError("");
+    try {
+      await flushUiHistory();
+      const result = await window.axiom.suggestions.apply(entry.id, indices);
+      if (live.current) {
+        setSelected([]);
+        await refresh();
+        command("taxonomy.added:" + target.iri);
+      }
+      return result.applied.length - entry.applied.length;
+    } catch (e) {
+      if (live.current) setError((e as Error).message);
+    } finally {
+      if (live.current) {
+        setBusy(false);
+        setApplying(false);
+      }
+    }
+  }
+  const progress = active?.iri === target?.iri &&
+    active.mode === target.mode && (
+      <div className="assistant-activity">
+        <span className="assistant-spinner" aria-hidden="true" />
+        <span role="status">
+          {parents
+            ? "Asking " +
+              (entry?.provider === "codex"
+                ? "Codex"
+                : entry?.provider === "claude"
+                  ? "Claude"
+                  : provider === "codex"
+                    ? "Codex"
+                    : "Claude") +
+              " for parents"
+            : "Running " + (definition?.name ?? "suggestions")}{" "}
+          for {name}…
+        </span>
+        <span>{Math.floor((now - active.startedAt) / 1000)}s</span>
+        <button onClick={() => void window.axiom.suggestions.cancel(active.id)}>
+          Cancel suggestions
+        </button>
+      </div>
+    );
+  if (parents || synonyms)
+    return (
+      <SavedSuggestionReview
+        navigation={navigation}
+        mode={parents ? "parents" : "synonyms"}
+        name={name}
+        targetIri={target.iri}
+        entry={entry}
+        history={runs}
+        runId={id}
+        provider={provider}
+        setProvider={setProvider}
+        loading={!ready}
+        applying={applying}
+        activity={!!active || (busy && !applying)}
+        waiting={!!start && !!active && !generating.current}
+        targetExists={exists}
+        blocked={
+          stale
+            ? "These suggestions belong to another entity."
+            : !exists
+              ? "This entity is no longer in the current workspace."
+              : ""
+        }
+        drift={drift}
+        error={error || entry?.error || ""}
+        entities={s.entities}
+        previewPrompt={parentPreview}
+        progress={progress}
+        generate={generate}
+        apply={apply}
+        selectRun={(id) => {
+          suggestionStarts.consume(paneId, target, s.datasetEpoch);
+          setId(id);
+          setSelected([]);
+          setError("");
+        }}
+        selectTarget={(iri, id) =>
+          openTaxonomy(iri, target.mode, id, paneId, false)
+        }
+        copyPrompt={(prompt) =>
+          void window.axiom
+            .copy(prompt ?? entry?.prompt ?? "")
+            .catch((e) => setError(e.message))
+        }
+      />
+    );
   return (
     <section className="panel taxonomy-panel">
       {start && active && (
@@ -455,23 +591,7 @@ function SavedSuggestionView({
           automatically.
         </p>
       )}
-      {active?.iri === target?.iri && active.mode === target.mode && (
-        <div className="assistant-activity">
-          <span className="assistant-spinner" aria-hidden="true" />
-          <span role="status">
-            {parents
-              ? "Finding existing parents"
-              : "Running " + (definition?.name ?? "suggestions")}{" "}
-            for {name}…
-          </span>
-          <span>{Math.floor((now - active.startedAt) / 1000)}s</span>
-          <button
-            onClick={() => void window.axiom.suggestions.cancel(active.id)}
-          >
-            Cancel suggestions
-          </button>
-        </div>
-      )}
+      {progress}
       <header className="taxonomy-heading">
         <h2>
           {parents
@@ -557,6 +677,11 @@ function SavedSuggestionView({
             {new Date(entry.startedAt).toLocaleString()} · {entry.state}
           </p>
         )}
+        {drift && entry?.state === "completed" && (
+          <p role="status" className="muted">
+            {drift} Check that the suggestions still fit before adding them.
+          </p>
+        )}
         {entry?.prompt && (
           <details>
             <summary>Instructions and context for this run</summary>
@@ -621,21 +746,7 @@ function SavedSuggestionView({
           <button
             className="primary"
             disabled={busy || stale || !selected.length}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await flushUiHistory();
-                await window.axiom.suggestions.apply(entry.id, selected);
-                setSelected([]);
-                await refresh();
-                command("taxonomy.added:" + target.iri);
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onClick={() => void apply(selected)}
           >
             Add selected{" "}
             {parents ? "parents" : synonyms ? "synonyms" : "values"}

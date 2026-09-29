@@ -33,12 +33,21 @@ export interface SuggestionRun {
   document: SuggestionDocument;
   prompt: string;
   synonymContext?: SynonymContext;
+  parentContext?: import("./parent-suggestions").ParentContext;
+  draft?: boolean;
   excluded?: SynonymValidation["excluded"];
   values: SuggestionValue[];
   applied: number[];
   error?: string;
   auditId?: string;
   session: string;
+}
+export interface SuggestionRequest {
+  iri: string;
+  mode: string;
+  provider?: AssistantId;
+  id?: string;
+  draft?: import("./parent-suggestions").ParentDraft;
 }
 export function readSuggestionDefinition(value: unknown): SuggestionDefinition {
   const v = value as SuggestionDefinition;
@@ -74,6 +83,7 @@ export function readSuggestionDefinition(value: unknown): SuggestionDefinition {
 export function parseSuggestionValues(
   raw: unknown,
   definition: SuggestionDefinition,
+  options: { allowEmptyReason?: boolean } = {},
 ): SuggestionValue[] {
   if (typeof raw === "string") {
     const text = raw
@@ -101,7 +111,7 @@ export function parseSuggestionValues(
         !v.value.trim() ||
         v.value.length > 10000 ||
         typeof v.reason !== "string" ||
-        !v.reason.trim() ||
+        (!options.allowEmptyReason && !v.reason.trim()) ||
         v.reason.length > 4000
       )
         throw Error("Each suggestion needs a value and a reason.");

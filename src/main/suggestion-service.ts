@@ -1,5 +1,6 @@
 import {
   synonymDefinition,
+  synonymKey,
   buildSynonymPrompt,
   type SynonymContext,
   type SynonymValidation,
@@ -17,8 +18,14 @@ import {
   type SuggestionRun,
 } from "../shared/suggestions";
 import type { DomainMethod, Snapshot } from "../shared/protocol";
-import type { AssistantId } from "../shared/research";
-import type { SubclassSuggestion } from "../domain/subclass-suggestions";
+import type { SuggestionRequest } from "../shared/suggestions";
+import {
+  parentContext,
+  buildParentPrompt,
+  parseParentSuggestions,
+  parentPromptLimit,
+} from "../shared/parent-suggestions";
+import { entity } from "../domain/model";
 
 type Request = <T>(
   method: DomainMethod,
@@ -75,6 +82,41 @@ export class SuggestionService {
             !Array.isArray(r.applied)
           )
             continue;
+          if (r.mode === "synonyms" && r.excluded?.length) {
+            // Append restored candidates so saved application indices retain their meaning.
+            const recorded = new Set(
+              r.document.statements
+                .filter(
+                  (t) =>
+                    t.predicate === synonymDefinition.predicate &&
+                    t.object.literal,
+                )
+                .map((t) => synonymKey(t.object.value)),
+            );
+            const names = new Set(
+              [r.label, r.document.entity.name].map(synonymKey),
+            );
+            const seen = new Set(r.values.map((v) => synonymKey(v.value)));
+            const remaining: NonNullable<SuggestionRun["excluded"]> = [];
+            for (const candidate of r.excluded) {
+              const key = synonymKey(candidate.value);
+              if (names.has(key) || seen.has(key)) continue;
+              seen.add(key);
+              if (recorded.has(key)) {
+                remaining.push({
+                  value: candidate.value,
+                  reason: "Already recorded for this entity.",
+                });
+              } else {
+                r.values.push({
+                  value: candidate.value,
+                  label: candidate.value,
+                  reason: "",
+                });
+              }
+            }
+            r.excluded = remaining;
+          }
           if (r.state === "running") {
             r.state = "interrupted";
             r.error =
@@ -139,7 +181,7 @@ export class SuggestionService {
       this.runner.cancel();
     }
   }
-  async run(input: { iri: string; mode: string; provider?: AssistantId }) {
+  async run(input: SuggestionRequest) {
     await this.load();
     if (this.active || this.applying)
       throw Error("Wait for the current suggestions to finish.");
@@ -153,27 +195,43 @@ export class SuggestionService {
     if (!["claude", "codex"].includes(provider))
       throw Error("Choose Claude or Codex.");
     // Reserve before awaiting context so rapid clicks cannot start two runs.
-    const id = randomUUID();
+    const id = input.id ?? randomUUID();
+    if (!/^[a-f0-9-]{36}$/.test(id) || this.runs.has(id))
+      throw Error("Choose a new suggestion run ID.");
+    if (input.draft && input.mode !== "parents")
+      throw Error("Draft suggestions support parents only.");
     this.active = id;
     this.cancelled = false;
     let run: SuggestionRun | undefined;
     try {
       const s = await this.request<Snapshot>("state");
-      const document = await this.request<SuggestionDocument>(
-        "entityDocument",
-        { iri: input.iri },
-      );
+      const document: SuggestionDocument = input.draft
+        ? {
+            entity: {
+              ...entity("urn:axiom:draft:" + id, "Class"),
+              name: input.draft.label,
+              comment: input.draft.comment,
+              parents: input.draft.parents,
+            },
+            statements: [],
+            version: s.version,
+            datasetEpoch: s.datasetEpoch,
+          }
+        : await this.request<SuggestionDocument>("entityDocument", {
+            iri: input.iri,
+          });
       if (s.datasetEpoch !== document.datasetEpoch)
         throw Error("The workspace changed. Start a new run.");
       run = {
         id,
         mode: input.mode,
-        iri: input.iri,
+        iri: document.entity.iri,
         label: document.entity.name,
         namespace: s.ontology.namespace,
         document,
         definition,
-        provider: definition ? provider : undefined,
+        provider,
+        draft: !!input.draft,
         prompt: "",
         values: [],
         applied: [],
@@ -182,7 +240,12 @@ export class SuggestionService {
         session: this.session,
         auditId: auditId(),
       };
-      if (input.mode === "synonyms") {
+      if (input.mode === "parents") {
+        if (s.version !== document.version)
+          throw Error("The ontology changed. Suggest parents again.");
+        run.parentContext = parentContext(s, input.draft ?? input.iri);
+        run.prompt = buildParentPrompt(run.parentContext);
+      } else if (input.mode === "synonyms") {
         const context = await this.request<SynonymContext>("synonymContext", {
           iri: input.iri,
         });
@@ -214,34 +277,45 @@ export class SuggestionService {
       }
       await this.put(run);
       if (this.cancelled) throw Error("Suggestions cancelled.");
-      if (definition) {
-        auditDetail("Suggestion definition", definition);
+      {
+        if (definition) auditDetail("Suggestion definition", definition);
         auditDetail("Prompt", run.prompt);
-        const raw = await this.runner.run(provider, run.prompt, {
-          type: "object",
-          additionalProperties: false,
-          required: ["suggestions"],
-          properties: {
-            suggestions: {
-              type: "array",
-              maxItems: input.mode === "synonyms" ? 12 : 100,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                required: ["value", "reason"],
-                properties: {
-                  value: { type: "string" },
-                  reason: { type: "string" },
+        const raw = await this.runner.run(
+          provider,
+          run.prompt,
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["suggestions"],
+            properties: {
+              suggestions: {
+                type: "array",
+                maxItems: ["synonyms", "parents"].includes(input.mode)
+                  ? 12
+                  : 100,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["value", "reason"],
+                  properties: {
+                    value: { type: "string" },
+                    reason: { type: "string" },
+                  },
                 },
               },
             },
           },
-        });
+          false,
+          input.mode === "parents" ? parentPromptLimit : 150000,
+        );
         auditStep("Validating suggested values");
-        const values = parseSuggestionValues(raw, definition);
-        if (input.mode === "synonyms") {
+        const values = run.parentContext
+          ? parseParentSuggestions(raw, run.parentContext)
+          : parseSuggestionValues(raw, definition!);
+        if (input.mode === "parents") run.values = values;
+        else if (input.mode === "synonyms") {
           if (values.length > 12)
-            throw Error("Expected at most 12 close synonym suggestions.");
+            throw Error("Expected at most 12 synonym suggestions.");
           const result = await this.request<SynonymValidation>(
             "validateSynonyms",
             {
@@ -259,21 +333,11 @@ export class SuggestionService {
             (v) =>
               !document.statements.some(
                 (t) =>
-                  t.predicate === definition.predicate &&
-                  t.object.literal === (definition.valueType === "text") &&
+                  t.predicate === definition!.predicate &&
+                  t.object.literal === (definition!.valueType === "text") &&
                   t.object.value === v.value,
               ),
           );
-      } else {
-        const matches = await this.request<{
-          suggestions: SubclassSuggestion[];
-        }>("subclassSuggestions", { iri: input.iri });
-        run.values = matches.suggestions.map((v) => ({
-          value: v.iri,
-          label: v.label,
-          reason:
-            "Existing class whose name is contained in this class name, with words in the same order.",
-        }));
       }
       if (this.cancelled) throw Error("Suggestions cancelled.");
       run.state = "completed";
@@ -299,6 +363,7 @@ export class SuggestionService {
       const run = this.runs.get(id);
       if (
         !run ||
+        run.draft ||
         run.state !== "completed" ||
         !Array.isArray(indices) ||
         !indices.length ||
@@ -312,22 +377,31 @@ export class SuggestionService {
         )
       )
         throw Error("Select available suggestions.");
-      const s = await this.request<Snapshot>("state"),
+      // Editing the entity does not invalidate a run. Values are appended to
+      // whatever it holds now. Synonyms are checked for case-insensitive duplicates
+      // and self matches; the user decides which meanings belong together.
+      const s = await this.request<Snapshot>("state");
+      let current: SuggestionDocument;
+      try {
         current = await this.request<SuggestionDocument>("entityDocument", {
           iri: run.iri,
         });
+      } catch (e) {
+        throw Error(
+          "These suggestions have nowhere to go. " + (e as Error).message,
+        );
+      }
       if (
         s.ontology.namespace !== run.namespace ||
         (run.session === this.session &&
-          current.datasetEpoch !== run.document.datasetEpoch) ||
-        JSON.stringify(current.statements) !==
-          JSON.stringify(run.document.statements)
+          current.datasetEpoch !== run.document.datasetEpoch)
       )
         throw Error(
-          "This entity changed. Start a new run before adding suggestions.",
+          "These suggestions belong to a different ontology. Start a new run.",
         );
       const definition =
         run.mode === "synonyms" ? synonymDefinition : run.definition;
+      let appliedIndices = indices;
       if (run.mode === "synonyms") {
         const checked = await this.request<SynonymValidation>(
           "validateSynonyms",
@@ -338,12 +412,14 @@ export class SuggestionService {
             datasetEpoch: current.datasetEpoch,
           },
         );
-        if (checked.excluded.length)
-          throw Error(
-            "These suggestions no longer pass the synonym checks. Start a new run. " +
-              checked.excluded.map((v) => v.value + ": " + v.reason).join(" "),
-          );
+        const available = new Set(
+          checked.values.map((v) => synonymKey(v.value)),
+        );
+        appliedIndices = indices.filter((i) =>
+          available.delete(synonymKey(run.values[i].value)),
+        );
       }
+      const additions = appliedIndices.map((i) => run.values[i]);
       if (run.mode === "parents")
         await this.request("applySubclassSuggestions", {
           iri: run.iri,
@@ -351,7 +427,7 @@ export class SuggestionService {
           version: current.version,
           datasetEpoch: current.datasetEpoch,
         });
-      else
+      else if (additions.length)
         await this.request("updateEntity", {
           iri: run.iri,
           nextIri: run.iri,
@@ -360,12 +436,12 @@ export class SuggestionService {
           datasetEpoch: current.datasetEpoch,
           statements: [
             ...current.statements,
-            ...indices.map((i) => ({
+            ...additions.map((value) => ({
               subject: run.iri,
               predicate: definition!.predicate,
               object: {
                 literal: definition!.valueType === "text",
-                value: run.values[i].value,
+                value: value.value,
               },
             })),
           ],
@@ -374,7 +450,7 @@ export class SuggestionService {
         iri: run.iri,
       });
       run.session = this.session;
-      run.applied.push(...indices);
+      run.applied.push(...appliedIndices);
       await this.put(run);
       return run;
     } finally {

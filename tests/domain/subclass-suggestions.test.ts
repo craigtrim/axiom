@@ -69,9 +69,11 @@ test("accepted parents create ordinary links from the selected child with one Un
     expect(s.entities.get(parent)!.parents).not.toContain(child);
   }
   expect(s.entities.get(child)!.parents).toEqual(
-    expect.arrayContaining([THING, a, b]),
+    expect.arrayContaining([a, b]),
   );
-  expect(s.tbox.length).toBe(before.length + 2);
+  expect(s.entities.get(child)!.parents).not.toContain(THING);
+  expect(s.entities.get(THING)!.children).not.toContain(child);
+  expect(s.tbox.length).toBe(before.length + 1);
   expect(subclassSuggestions(s, child)).toEqual([]);
   expect(
     s.tbox.some((t) =>
