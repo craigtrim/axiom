@@ -7,13 +7,14 @@ import {
 } from "@playwright/test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { NS } from "../../src/domain/model";
+import { NS, SUBCLASS, THING } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
 import AxeBuilder from "@axe-core/playwright";
 const base = "https://example.org/courses#";
 const ttl = `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
 :Knowledge a owl:Class; rdfs:label "Knowledge".
 :Course a owl:Class; rdfs:label "Course".
+:Workplace a owl:Class; rdfs:label "Multiculturalism at Work"; rdfs:subClassOf owl:Thing.
 :Society a owl:Class; rdfs:label "Society"; rdfs:subClassOf :Course.
 :CivicEngagement a owl:Class; rdfs:label "Civic Engagement"; rdfs:subClassOf :Society.
 :Activism a owl:Class; rdfs:label "Activism"; rdfs:subClassOf :CivicEngagement.
@@ -67,7 +68,15 @@ test.beforeEach(async () => {
   const file = path.join(profile, "courses.ttl");
   const padding = Array.from({ length: 1000 }, (_, i) => {
     const n = String(i).padStart(3, "0");
-    return ":A" + n + " a owl:Class. :Z" + n + " a owl:Class.";
+    return (
+      ":A" +
+      n +
+      " a owl:Class. :Z" +
+      n +
+      " a owl:Class. :P" +
+      n +
+      " a owl:ObjectProperty."
+    );
   }).join("\n");
   await writeFile(
     file,
@@ -288,6 +297,51 @@ test("folds a deep trail, reveals every stage and keeps the selected entity on t
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Deep0");
 });
 
+test("adding a parent in Details replaces the Thing fallback and Undo restores it", async () => {
+  await select("Workplace");
+  const root = (name: string) =>
+    ancestry().getByRole("button", {
+      name: `View ${name} details`,
+      exact: true,
+    });
+  await expect(root("Thing")).toBeVisible();
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  const last = details().locator("tbody tr").last();
+  await last
+    .getByRole("combobox", { name: /Predicate/ })
+    .selectOption(SUBCLASS);
+  await last.getByRole("combobox", { name: /Value/ }).fill("Course");
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /^Course/ })
+    .click();
+  await expect(root("Course")).toBeVisible();
+  await expect(root("Thing")).toHaveCount(0);
+  const parents = details().locator(`tbody tr[data-predicate="${SUBCLASS}"]`);
+  await expect(parents).toHaveCount(1);
+  await expect(parents.getByRole("combobox", { name: /Value/ })).toHaveValue(
+    "Course",
+  );
+  await expect(details().locator('[role="status"]')).toContainText("Saved");
+  await page.screenshot({
+    path: "artifacts/testing/details-thing-parent-replaced.png",
+  });
+  await menu("edit.undo");
+  await expect(root("Thing")).toBeVisible();
+  await expect(root("Course")).toHaveCount(0);
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === base + "Workplace")
+          ?.parents,
+    )
+    .toEqual([THING]);
+  await menu("edit.redo");
+  await expect(root("Course")).toBeVisible();
+  await expect(root("Thing")).toHaveCount(0);
+  await expect(parents).toHaveCount(1);
+});
+
 test("adds a row in place and refreshes the consolidated ancestry after editing a parent", async () => {
   const add = details().getByRole("button", { name: "Add row", exact: true });
   await add.click();
@@ -353,6 +407,180 @@ async function alignmentError(name: string, p = page, centered = false) {
     : (await ancestry(p).locator('[aria-current="page"]').boundingBox())!;
   return Math.abs(row.y + row.height / 2 - anchor.y - anchor.height / 2);
 }
+async function expectStableScroll(
+  view: ReturnType<typeof tree>,
+  before: number,
+) {
+  const movement = await view.evaluate(async (el, before) => {
+    let movement = Math.abs(el.scrollTop - before);
+    // Include the deferred layout and ancestry reveal frames.
+    for (let i = 0; i < 12; i++) {
+      await new Promise<void>((resolve) =>
+        el.ownerDocument.defaultView!.requestAnimationFrame(() => resolve()),
+      );
+      movement = Math.max(movement, Math.abs(el.scrollTop - before));
+    }
+    return movement;
+  }, before);
+  expect(movement).toBeLessThan(0.5);
+}
+
+test("hierarchy clicks keep rows under the mouse while external selection of the same node still centers", async () => {
+  await showTaxonomy();
+  await select("A490");
+  await expect.poll(() => alignmentError("A490")).toBeLessThan(2);
+  for (const name of ["A495", "A496", "A497"]) {
+    await expect(treeRow(name)).toBeInViewport();
+    const before = await tree().evaluate((el) => el.scrollTop);
+    const position = (await treeRow(name).boundingBox())!;
+    await treeRow(name).click();
+    await expect(details()).toHaveAttribute("data-entity-iri", base + name);
+    await expect(ancestry().locator('[aria-current="page"]')).toContainText(
+      name,
+    );
+    await expectStableScroll(tree(), before);
+    expect((await treeRow(name).boundingBox())!.y).toBe(position.y);
+  }
+  // The pointer remains over Hierarchy; selection origin controls centering.
+  await select("A497");
+  await expect.poll(() => alignmentError("A497")).toBeLessThan(2);
+  await details().getByRole("button", { name: "Back", exact: true }).click();
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "A496");
+  await expect.poll(() => alignmentError("A496")).toBeLessThan(2);
+});
+
+test("hierarchy property clicks retain the filter and scroll position", async () => {
+  await showTaxonomy();
+  await select("P500");
+  const properties = hierarchy().getByRole("tree", {
+    name: "Property hierarchy",
+    exact: true,
+  });
+  const filter = hierarchy().getByRole("textbox", { name: "Filter hierarchy" });
+  await filter.fill("P50");
+  const row = properties.locator('[data-entity-iri="' + base + 'P505"]');
+  await expect(row).toBeInViewport();
+  const before = await properties.evaluate((el) => el.scrollTop);
+  await row.click();
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "P505");
+  await expectStableScroll(properties, before);
+  await expect(filter).toHaveValue("P50");
+});
+
+test("selection and Back align the hierarchy with Details and reveal collapsed, filtered classes", async () => {
+  await showTaxonomy();
+  await select("A500");
+  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+  await hierarchy()
+    .getByRole("textbox", { name: "Filter hierarchy" })
+    .fill("no matches");
+  await select("BasicEnglish");
+  await expect(treeRow("BasicEnglish")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    hierarchy().getByRole("textbox", { name: "Filter hierarchy" }),
+  ).toHaveValue("");
+  await expect.poll(() => alignmentError("BasicEnglish")).toBeLessThan(2);
+  await details().getByRole("button", { name: "Back", exact: true }).click();
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "A500");
+  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+  await expect
+    .poll(() =>
+      details().evaluate((el) =>
+        el
+          .closest(".details-navigation")!
+          .contains(el.ownerDocument.activeElement),
+      ),
+    )
+    .toBe(true);
+  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await tree().evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await details().getByRole("button", { name: "Back", exact: true }).focus();
+  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+});
+
+test("centering follows pane moves, resizing and visibility on the same selection", async () => {
+  await showTaxonomy();
+  await menu("view.query");
+  await menu("pane.close");
+  await menu("view.individuals");
+  await menu("pane.close");
+  await select("A500");
+  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+  await details().getByRole("button", { name: "Back", exact: true }).focus();
+  await menu("pane.move.bottom");
+  const splitter = page
+    .locator('[role="separator"][aria-orientation="horizontal"]')
+    .last();
+  await expect(splitter).toBeVisible();
+  const horizontal = (await splitter.boundingBox())!;
+  await page.mouse.move(
+    horizontal.x + horizontal.width / 2,
+    horizontal.y + horizontal.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    horizontal.x + horizontal.width / 2,
+    horizontal.y - 180,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  await expect(
+    page.locator(".adaptive-pane:has(.details-navigation)"),
+  ).toHaveAttribute("data-pane-recovery", "false");
+  await expect(details()).toBeVisible();
+  await page.screenshot({ path: "artifacts/testing/centering-docking.png" });
+  await expect.poll(() => alignmentError("A500", page, true)).toBeLessThan(2);
+  await menu("pane.maximise");
+  await expect(tree()).not.toBeVisible();
+  await select("A600");
+  await expect(tree()).not.toBeVisible();
+  await menu("pane.maximise");
+  await expect(details()).toBeVisible();
+  await expect.poll(() => alignmentError("A600", page, true)).toBeLessThan(2);
+  await details().getByRole("button", { name: "Back", exact: true }).focus();
+  await menu("pane.move.right");
+  await expect.poll(() => alignmentError("A600")).toBeLessThan(2);
+});
+
+test("reopening Hierarchy centers Details without reopening it on selection", async () => {
+  await showTaxonomy();
+  await select("A600");
+  await expect.poll(() => alignmentError("A600")).toBeLessThan(2);
+  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await menu("pane.close");
+  await expect(hierarchy()).toHaveCount(0);
+  await select("A700");
+  await expect(hierarchy()).toHaveCount(0);
+  await menu("view.hierarchy");
+  await expect(treeRow("A700")).toBeInViewport();
+  await expect.poll(() => alignmentError("A700")).toBeLessThan(2);
+});
+
+test("property selection switches hierarchy type and centers without an ancestry card", async () => {
+  await showTaxonomy();
+  await select("P500");
+  const properties = hierarchy().getByRole("tree", {
+    name: "Property hierarchy",
+    exact: true,
+  });
+  const selected = properties.locator('[data-entity-iri="' + base + 'P500"]');
+  await expect(selected).toHaveAttribute("aria-selected", "true");
+  await expect(ancestry()).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const row = (await selected.boundingBox())!;
+      const pane = (await details().boundingBox())!;
+      return Math.abs(row.y + row.height / 2 - pane.y - pane.height / 2);
+    })
+    .toBeLessThan(2);
+  await select("A500");
+  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+});
 
 test("ancestry navigation aligns the taxonomy row with the selected card and respects pane zoom", async () => {
   await showTaxonomy();
@@ -424,14 +652,22 @@ test("ancestry navigation aligns the taxonomy row with the selected card and res
     path: "artifacts/testing/ancestry-taxonomy-zoom.png",
   });
 
-  // Ordinary clicks in the tree retain the user's scroll position.
+  // Tree clicks update Details without recentering, including at this zoom.
   await tree().evaluate((el) => {
     el.scrollTop = 0;
   });
   await treeRow("A003").click();
   await expect(details()).toHaveAttribute("data-entity-iri", base + "A003");
   await expect(ancestry()).toContainText("Root class");
-  expect(await tree().evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(treeRow("A003")).toBeInViewport();
+  await treeRow("A500").scrollIntoViewIfNeeded();
+  const before = await tree().evaluate((el) => el.scrollTop);
+  await treeRow("A500").click();
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "A500");
+  await expect(ancestry().locator('[aria-current="page"]')).toContainText(
+    "A500",
+  );
+  await expectStableScroll(tree(), before);
 });
 
 test("taxonomy reveal clamps at the first and last rows without adding blank space", async () => {
@@ -499,4 +735,27 @@ test("a detached ancestry view centers the taxonomy selection without taking its
       ),
     )
     .toBe(true);
+  await page.evaluate(
+    (iri) => window.axiom.request("select", { iri }),
+    base + "A500",
+  );
+  await expect(details(child)).toHaveAttribute(
+    "data-entity-iri",
+    base + "A500",
+  );
+  await expect.poll(() => alignmentError("A500", child, true)).toBeLessThan(2);
+  const before = await tree().evaluate((el) => el.scrollTop);
+  await treeRow("A502").click();
+  await expect(details(child)).toHaveAttribute(
+    "data-entity-iri",
+    base + "A502",
+  );
+  await expect(ancestry(child).locator('[aria-current="page"]')).toContainText(
+    "A502",
+  );
+  await expectStableScroll(tree(), before);
+  await details(child)
+    .getByRole("button", { name: "Back", exact: true })
+    .click();
+  await expect.poll(() => alignmentError("A500", child, true)).toBeLessThan(2);
 });

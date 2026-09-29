@@ -87,7 +87,7 @@ it("retains every run independently across nodes, retries and service restart", 
   expect(first.entry.context.selected.iri).toBe(parent);
   expect(first.entry.response?.result.suggestions).toHaveLength(2);
   expect(first.entry.prompt).toContain('"Vehicle"');
-  expect(first.stale).toBe(false);
+  expect(first.blocked).toBe("");
   expect(fake.calls).toBe(3);
 });
 
@@ -101,7 +101,7 @@ it("applies a historical result after restart and records partial additions with
   expect(partial.entry.applied).toEqual([0]);
   expect(partial.entry.context.directChildren).toHaveLength(0);
   expect(partial.entry.reviewContext?.directChildren).toHaveLength(1);
-  expect(partial.stale).toBe(false);
+  expect(partial.blocked).toBe("");
   await restarted.apply("saved", [1]);
   expect((await service().read("saved")).entry.applied).toEqual([0, 1]);
   await expect(restarted.apply("saved", [0])).rejects.toThrow(
@@ -110,25 +110,47 @@ it("applies a historical result after restart and records partial additions with
   expect(fake.calls).toBe(1);
 });
 
-it("keeps old history readable while blocking changed contexts and a different ontology", async () => {
+it("adds suggestions after unrelated edits and only warns when the class itself moves", async () => {
   const current = service();
   await current.run(input("saved"));
   store.createClass("Land vehicle", parent);
   const restarted = service();
-  expect((await restarted.read("saved")).stale).toBe(true);
-  await expect(restarted.apply("saved", [0])).rejects.toThrow(
-    /ontology changed/,
-  );
+  expect(await restarted.read("saved")).toMatchObject({
+    blocked: "",
+    drift: "",
+  });
+  await restarted.apply("saved", [0]);
+  expect(
+    [...store.entities.values()].some((e) => e.name === "Water vehicle"),
+  ).toBe(true);
+  store.moveClass(parent, store.createClass("Machine", THING), THING);
+  const drifted = await restarted.read("saved");
+  expect(drifted.blocked).toBe("");
+  expect(drifted.drift).toBe("The parents of Vehicle changed after this run.");
+  await restarted.apply("saved", [1]);
+  expect((await restarted.read("saved")).entry.applied).toEqual([0, 1]);
+  expect(
+    [...store.entities.values()].some((e) => e.name === "Air vehicle"),
+  ).toBe(true);
+});
+
+it("keeps old history readable while blocking a deleted class and a different ontology", async () => {
+  const current = service();
+  await current.run(input("saved"));
   store.ontology.namespace = "https://other.example/";
-  expect((await restarted.history())[0].namespace).not.toBe(
+  expect((await current.history())[0].namespace).not.toBe(
     store.ontology.namespace,
   );
-  expect((await restarted.read("saved")).entry.context.selected.iri).toBe(
-    parent,
+  expect((await current.read("saved")).blocked).toMatch(/different ontology/);
+  await expect(current.apply("saved", [0])).rejects.toThrow(
+    /different ontology/,
   );
-  await expect(restarted.apply("saved", [0])).rejects.toThrow(
-    /ontology changed/,
-  );
+  store.ontology.namespace = (await current.history())[0].namespace;
+  store.deleteClass(parent);
+  const gone = await current.read("saved");
+  expect(gone.entry.context.selected.iri).toBe(parent);
+  expect(gone.blocked).toMatch(/nowhere to go/);
+  await expect(current.apply("saved", [0])).rejects.toThrow(/nowhere to go/);
 });
 
 it("retains failed and cancelled attempts alongside successful retries", async () => {
@@ -188,7 +210,7 @@ it("protects prior records from reused run IDs and handles interruption without 
   expect(fake.calls).toBe(1);
 });
 
-it("keeps a run's random sample stable across review, partial apply and restart while checking omitted context", async () => {
+it("keeps a run's random sample stable across review, partial apply and restart while ignoring edits outside it", async () => {
   for (let i = 0; i < 45; i++) store.createClass("Existing " + i, parent);
   const random = vi.spyOn(Math, "random").mockReturnValue(0);
   try {
@@ -201,17 +223,17 @@ it("keeps a run's random sample stable across review, partial apply and restart 
     expect(second.context.directChildren).not.toEqual(
       first.context.directChildren,
     );
-    expect((await current.read("sample-one")).stale).toBe(false);
+    expect((await current.read("sample-one")).blocked).toBe("");
     await current.apply("sample-one", [0]);
     const saved = (await current.read("sample-one")).entry;
     expect(saved.context).toEqual(first.context);
-    expect((await current.read("sample-one")).stale).toBe(false);
+    expect((await current.read("sample-one")).blocked).toBe("");
     const restarted = service();
     epoch++;
     expect((await restarted.read("sample-one")).entry.prompt).toBe(
       saved.prompt,
     );
-    expect((await restarted.read("sample-one")).stale).toBe(false);
+    expect((await restarted.read("sample-one")).blocked).toBe("");
     const omitted = saved.reviewContext!.descendants.find(
       (t) =>
         !saved.context.descendants.some((s) => s.iri === t.iri) &&
@@ -219,7 +241,10 @@ it("keeps a run's random sample stable across review, partial apply and restart 
     )!;
     store.entities.get(omitted.iri)!.comment =
       "Changed outside the transmitted sample";
-    expect((await restarted.read("sample-one")).stale).toBe(true);
+    expect(await restarted.read("sample-one")).toMatchObject({
+      blocked: "",
+      drift: "",
+    });
   } finally {
     random.mockRestore();
   }

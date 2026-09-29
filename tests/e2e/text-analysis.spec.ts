@@ -76,6 +76,9 @@ async function launch() {
     delete env.MUTATOC_SPARQL_WORKER;
     env.PATH = path.join(process.env.SystemRoot ?? "C:/Windows", "System32");
   }
+  const prior = env.PATH ?? env.Path ?? "";
+  delete env.Path;
+  env.PATH = path.join(profile, "bin") + path.delimiter + prior;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
@@ -112,6 +115,17 @@ test.beforeEach(async () => {
   profile = await mkdtemp(path.resolve("artifacts/testing/text-analysis-"));
   file = path.join(profile, "animals.ttl");
   await writeFile(file, turtle);
+  const mockDir = path.join(profile, "bin/node_modules/@openai/codex/bin");
+  await mkdir(mockDir, { recursive: true });
+  await writeFile(
+    path.join(mockDir, "codex.js"),
+    `const fs=require("fs");let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{
+    fs.writeFileSync(require("path").join(process.env.AXIOM_USER_DATA,"parent-prompt.txt"),p);
+    const rows=p.split("\\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l));
+    const result={suggestions:rows.filter(r=>r[1]==="Computing").map(r=>({value:r[0],reason:"Digital workplace tools belong within computing."}))};
+    setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(result)),2500);
+  });`,
+  );
   await launch();
   await menu("file.open");
   await expect
@@ -745,6 +759,67 @@ async function selectForCreation(text: string) {
   });
 }
 
+test("draft parent suggestions call Codex, expose the prompt and require the user's parent selection", async () => {
+  const form = await selectForCreation("Digital workplace tools");
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Using technology in the office.");
+  const assistant = form.getByRole("combobox", {
+    name: "Parent suggestion assistant",
+  });
+  await assistant.selectOption("codex");
+  await form.getByRole("button", { name: "Prompt", exact: true }).click();
+  const prompt = await form
+    .getByRole("textbox", { name: "Parent prompt" })
+    .inputValue();
+  expect(prompt).toContain("Using technology in the office.");
+  expect(prompt).toContain("Computing");
+  const before = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  await form
+    .getByRole("button", { name: "Suggest parents", exact: true })
+    .click();
+  await expect(
+    form.getByRole("button", { name: "Cancel suggestions" }),
+  ).toBeVisible();
+  await expect(
+    form.getByRole("textbox", { name: "Parent prompt" }),
+  ).toHaveValue(prompt);
+  await expect(
+    form.getByRole("checkbox", { name: "Use parent Computing" }),
+  ).toBeVisible();
+  const [run] = await page.evaluate(() => window.axiom.suggestions.history());
+  expect(run.draft).toBe(true);
+  expect(run.provider).toBe("codex");
+  expect(run.prompt).toBe(prompt);
+  await form.getByRole("button", { name: "Prompt", exact: true }).click();
+  await page.screenshot({
+    path: "artifacts/testing/draft-parent-assistant.png",
+  });
+  expect(
+    await page
+      .evaluate(() => window.axiom.request<Snapshot>("state"))
+      .then((s) => s.tripleCount),
+  ).toBe(before.tripleCount);
+  await expect(
+    form.getByRole("checkbox", { name: "Use parent Computing" }),
+  ).not.toBeChecked();
+  await form.getByRole("checkbox", { name: "Use parent Computing" }).check();
+  await expect(
+    form.getByRole("button", { name: "Remove parent Computing" }),
+  ).toBeVisible();
+  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+        ).entities.find((e) => e.label === "Digital workplace tools")?.parents,
+    )
+    .toEqual([base + "Computing"]);
+});
+
 test("a selected phrase becomes a class under Systems and immediately gains its own highlight", async () => {
   const phrase = "Electronic Surveillance Systems";
   const form = await selectForCreation(phrase);
@@ -1217,6 +1292,83 @@ test("selected text opens the add pane from Alt+Enter and the editor context men
   await expect(
     form.getByRole("textbox", { name: "Class name", exact: true }),
   ).toHaveValue("Electronic Surveillance Systems");
+});
+
+test("selected text opens Find from the editor context menu and reuses it with default search options", async () => {
+  const find = page.getByRole("region", { name: "Find entities results" });
+  const findSelection = async (text: string) => {
+    await enter(text);
+    await editor().focus();
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("Control+Shift+End");
+    await panel()
+      .locator(".view-line")
+      .first()
+      .click({
+        button: "right",
+        position: { x: 45, y: 10 },
+      });
+    // Monaco enables menu mouse-up handlers after its 100 ms accidental-click guard.
+    await page
+      .getByRole("menuitem", { name: "Find", exact: true })
+      .click({ delay: 150 });
+    await expect(find).toBeVisible();
+    await expect(
+      find.getByRole("searchbox", { name: "Find text" }),
+    ).toHaveValue(text.trim());
+  };
+  await expect(find).toHaveCount(0);
+  await findSelection("  renal trauma  ");
+  await expect(find.locator("tbody tr")).toHaveCount(2);
+  await expect(
+    find.getByRole("button", { name: "renal trauma", exact: true }),
+  ).toBeVisible();
+  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveValue(
+    "words",
+  );
+  await find.getByRole("button", { name: "Clear fields", exact: true }).click();
+  await find
+    .getByRole("combobox", { name: "Match mode" })
+    .selectOption("cosine");
+  await find
+    .getByRole("combobox", { name: "Sort results" })
+    .selectOption("name-desc");
+  await find.getByRole("checkbox", { name: "Classes", exact: true }).uncheck();
+  await findSelection("  Dog  ");
+  await expect(find).toHaveCount(1);
+  await expect(
+    page.getByRole("tab", { name: "Find", exact: true }),
+  ).toHaveCount(1);
+  await expect(find.locator("tbody tr")).toHaveCount(1);
+  await expect(
+    find.getByRole("button", { name: "Dog", exact: true }),
+  ).toBeVisible();
+  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveValue(
+    "words",
+  );
+  await expect(
+    find.getByRole("combobox", { name: "Sort results" }),
+  ).toHaveValue("relevance");
+  await expect(
+    find.getByRole("checkbox", { name: "Classes", exact: true }),
+  ).toBeChecked();
+  await expect(
+    find.getByRole("checkbox", { name: "Names and aliases", exact: true }),
+  ).toBeChecked();
+  await expect(
+    find.getByRole("checkbox", { name: "IRI", exact: true }),
+  ).toBeChecked();
+  await expect(
+    find.getByRole("combobox", { name: "Recent searches" }).locator("option"),
+  ).toHaveText(["Recent searches", "Dog", "renal trauma"]);
+  await menu("view.textanalysis");
+  await editor().focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Shift+F10");
+  await expect(
+    page.getByRole("menuitem", { name: "Find", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
 test("the entity summary survives closing the editor and reopening either view", async () => {

@@ -59,6 +59,7 @@ async function clickNode(iri: string) {
 }
 async function prepare() {
   await menu("file.new");
+  await expect.poll(async () => (await state()).classCount).toBe(1);
   const ids = await page.evaluate(async () => {
     const root = "http://www.w3.org/2002/07/owl#Thing";
     await window.axiom.request("freeze");
@@ -155,8 +156,7 @@ test.afterEach(async ({}, info) => {
 const details = (p = page) =>
   p.getByRole("region", { name: "Details", exact: true });
 const identifier = (p = page) => details(p);
-const detailsTab = () =>
-  page.getByRole("tab", { name: "Details", exact: true });
+const detailsTab = () => page.getByRole("tab", { name: /^Details(?:_\d+)?$/ });
 
 test("Details opens explicitly from View, follows graph clicks and retains each entity draft", async () => {
   const ids = await prepare();

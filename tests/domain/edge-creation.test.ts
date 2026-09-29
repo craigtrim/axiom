@@ -14,7 +14,7 @@ import { connectionTarget } from "../../src/renderer/connection-geometry";
 import type { GraphNode } from "../../src/domain/viewport";
 
 describe("adding graph relationships", () => {
-  it("adds one parent without replacing existing axioms, and undoes as one edit", () => {
+  it("adds one parent, removes the Thing fallback, and undoes as one edit", () => {
     const s = buildEmptyStore(),
       a = s.createClass("Child", THING),
       b = s.createClass("Parent", THING);
@@ -22,10 +22,18 @@ describe("adding graph relationships", () => {
       history = s.undoStack.length;
     const edge = { subject: a, predicate: SUBCLASS, object: iriTerm(b) };
     s.createEdge(edge);
-    expect(s.tbox).toEqual([...before, edge]);
-    expect(s.entities.get(a)?.parents).toEqual(
-      expect.arrayContaining([THING, b]),
-    );
+    expect(s.tbox).toEqual([
+      ...before.filter(
+        (t) =>
+          !(
+            t.subject === a &&
+            t.predicate === SUBCLASS &&
+            t.object.value === THING
+          ),
+      ),
+      edge,
+    ]);
+    expect(s.entities.get(a)?.parents).toEqual([b]);
     expect(s.entities.get(b)?.children).toContain(a);
     expect(s.entities.get(a)?.label).toBe("Child");
     expect(s.undoStack).toHaveLength(history + 1);

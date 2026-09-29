@@ -1,11 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ancestryTrail, type AncestryStep } from "../domain/ancestry";
 import { usePaneLayout } from "./AdaptivePane";
 import { useSnapshot } from "./client";
-import {
-  navigateAncestry,
-  revealAncestrySelection,
-} from "./taxonomy-navigation";
+import { editEntity } from "./authoring";
 
 function description(step: AncestryStep) {
   const relations = step.parents.map((parent) => {
@@ -27,18 +24,6 @@ function description(step: AncestryStep) {
 export function AncestryBreadcrumb({ iri }: { iri: string }) {
   const s = useSnapshot()!;
   const pane = usePaneLayout();
-  const current = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const anchor = current.current;
-    if (!anchor) return;
-    const win = anchor.ownerDocument.defaultView!;
-    let frame = win.requestAnimationFrame(() => {
-      frame = win.requestAnimationFrame(() =>
-        revealAncestrySelection(iri, anchor),
-      );
-    });
-    return () => win.cancelAnimationFrame(frame);
-  }, [iri, pane.width, pane.height]);
   const [expanded, setExpanded] = useState(false);
   const [limit, setLimit] = useState(2048);
   const [groups, setGroups] = useState<Set<string>>(new Set());
@@ -164,7 +149,6 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
                     return selected ? (
                       <div
                         key={step.iri}
-                        ref={current}
                         className="ancestry-crumb ancestry-current"
                         aria-current="page"
                         title={description(step)}
@@ -178,12 +162,7 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
                         data-root={step.root}
                         aria-label={"View " + step.label + " details"}
                         title={description(step)}
-                        onClick={(event) =>
-                          navigateAncestry(
-                            step.iri,
-                            event.currentTarget.ownerDocument,
-                          )
-                        }
+                        onClick={() => editEntity(step.iri)}
                       >
                         {content}
                       </button>

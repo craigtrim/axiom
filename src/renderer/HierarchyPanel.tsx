@@ -34,6 +34,8 @@ import {
   onCommand,
   panel,
   savePanel,
+  selectionFromHierarchy,
+  setSelectionOrigin,
 } from "./client";
 import { THING, NS, kindLabel } from "../domain/model";
 export function HierarchyPanel() {
@@ -66,6 +68,7 @@ export function HierarchyPanel() {
     const reveal = () => {
       const request = takeTaxonomyReveal();
       if (!request) return;
+      if (request.details && selectionFromHierarchy) return;
       const { iri } = request;
       revealRef.current = request;
       setFilter("");
@@ -74,9 +77,11 @@ export function HierarchyPanel() {
       setRevealTick((x) => x + 1);
     };
     reveal();
-    return onCommand((id) => {
+    const off = onCommand((id) => {
       if (id === "taxonomy.reveal") reveal();
     });
+    command("taxonomy.follow");
+    return off;
   }, [s.entities]);
   useEffect(() => {
     const request = revealRef.current;
@@ -91,10 +96,21 @@ export function HierarchyPanel() {
     let frame = 0;
     const align = () => {
       if (revealRef.current !== request) return;
+      if (
+        request.details &&
+        (selectionFromHierarchy ||
+          !request.details.isConnected ||
+          !request.details.checkVisibility({ visibilityProperty: true }))
+      )
+        return;
       const row = [
         ...tree.querySelectorAll<HTMLElement>("[data-entity-iri]"),
       ].find((r) => r.dataset.entityIri === request.iri);
-      if (row && alignTaxonomyRow(tree, row, request.anchor)) {
+      if (
+        row &&
+        alignTaxonomyRow(tree, row, request.anchor) &&
+        !request.details
+      ) {
         revealRef.current = null;
         observer.disconnect();
       }
@@ -108,9 +124,13 @@ export function HierarchyPanel() {
     // A reveal can arrive while its pane is hidden. Finish when it is visible.
     const observer = new win.ResizeObserver(schedule);
     observer.observe(tree);
+    const off = onCommand((id) => {
+      if (id === "taxonomy.layout") schedule();
+    });
     schedule();
     return () => {
       observer.disconnect();
+      off();
       win.cancelAnimationFrame(frame);
     };
   }, [revealTick, open, filter, tab, s.selected, s.datasetEpoch]);
@@ -312,6 +332,7 @@ export function HierarchyPanel() {
   }, []);
   useEffect(() => {
     const iri = draft?.parent ?? s.selected;
+    if (!draft && selectionFromHierarchy) return;
     if (!iri || !map.has(iri)) return;
     const next = new Set(open),
       seen = new Set<string>();
@@ -332,6 +353,7 @@ export function HierarchyPanel() {
       className="panel hierarchy-panel"
       data-panel="hierarchy"
       aria-label="Hierarchy panel"
+      onPointerDownCapture={() => setSelectionOrigin("hierarchy")}
     >
       <div className="hierarchy-controls">
         <PaneToolbar label="Hierarchy type">
@@ -482,14 +504,14 @@ export function HierarchyPanel() {
                 }}
                 onDragEnd={stopDrag}
                 onDrop={(ev) => void drop(ev, iri)}
-                onClick={() => void act("select", { iri })}
+                onClick={() => void act("select", { iri, origin: "hierarchy" })}
                 onDoubleClick={() => {
                   if (taxonomyChildren(e).length) toggle(iri);
                 }}
                 onContextMenu={(ev) => {
                   ev.preventDefault();
                   ev.currentTarget.focus();
-                  void act("select", { iri });
+                  void act("select", { iri, origin: "hierarchy" });
                   setContext({
                     iri,
                     x: ev.clientX,
@@ -547,7 +569,7 @@ export function HierarchyPanel() {
                           ),
                         )
                       ];
-                    void act("select", { iri: row.iri });
+                    void act("select", { iri: row.iri, origin: "hierarchy" });
                     (
                       ev.currentTarget.parentElement?.children[
                         rows.indexOf(row)

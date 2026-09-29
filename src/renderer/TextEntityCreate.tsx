@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { request, setState, state, useSnapshot } from "./client";
 import { ResourceInput } from "./ResourceInput";
+import { DraftParentSuggestions } from "./DraftParentSuggestions";
 import { revealInTaxonomy } from "./taxonomy-navigation";
 import { THING } from "../domain/model";
 import type {
@@ -446,6 +447,28 @@ function TextClassEditor({
                 }
               />
             </label>
+            <DraftParentSuggestions
+              snapshot={snapshot}
+              draft={{
+                label: value.label,
+                comment: value.comment,
+                parents: value.parents.flatMap((p) =>
+                  "iri" in p ? [p.iri] : [],
+                ),
+                version: snapshot.version,
+                datasetEpoch,
+              }}
+              disabled={busy || !valid}
+              toggle={(iri) =>
+                setParents(
+                  selected(iri)
+                    ? value.parents.filter(
+                        (p) => !("iri" in p && p.iri === iri),
+                      )
+                    : [...value.parents, { iri }],
+                )
+              }
+            />
           </>
         )}
         {ancestor && (

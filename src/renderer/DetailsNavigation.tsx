@@ -10,6 +10,7 @@ import { edgeKey } from "../domain/viewport";
 import { displayName } from "../domain/rdf-model";
 import type { Snapshot } from "../shared/protocol";
 import { request, report, state, useSnapshot } from "./client";
+import { followDetailsInTaxonomy } from "./taxonomy-navigation";
 
 type Place =
   | { kind: "node"; iri: string }
@@ -83,6 +84,10 @@ export function DetailsNavigation({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
   const [, update] = useReducer((n: number) => n + 1, 0);
+  useLayoutEffect(() => {
+    if (s.selected && !s.graph.selectedEdge && root.current)
+      return followDetailsInTaxonomy(s.selected, root.current);
+  }, [s.selected, s.graph.selectedEdge, s.datasetEpoch]);
   useLayoutEffect(() => {
     observe(s);
     update();

@@ -34,7 +34,7 @@ export function EntityMenu({
   const run = async (action: () => unknown) => {
     close();
     try {
-      await request("select", { iri });
+      await request("select", { iri, origin: "hierarchy" });
       await action();
     } catch (e) {
       report(String(e), true);

@@ -15,6 +15,8 @@ import {
 } from "./text-analysis-state";
 import { textEntityGroups } from "./text-analysis-session";
 import { entityHue, type TextAnalysisResult } from "../shared/text-analysis";
+import { defaultFindOptions } from "../shared/find";
+import { rememberFind, updateFind } from "./find-state";
 
 export function TextAnalysisPanel() {
   const { snapshot, input, analysis, result } = useTextAnalysis();
@@ -139,6 +141,22 @@ export function TextAnalysisPanel() {
       precondition: "editorHasSelection",
       run: () => addSelection.current(),
     });
+    const findAction = instance.addAction({
+      id: "textanalysis.findSelection",
+      label: "Find",
+      contextMenuGroupId: "9_cutcopypaste",
+      contextMenuOrder: 4,
+      precondition: "editorHasSelection",
+      run: () => {
+        const selection = instance.getSelection();
+        if (!selection || instance.getSelections()?.length !== 1) return;
+        const text = model.getValueInRange(selection).trim();
+        if (!text) return;
+        updateFind({ ...defaultFindOptions, text });
+        rememberFind();
+        command("view.find");
+      },
+    });
     const commands = onCommand((id) => {
       if (!instance.hasTextFocus()) return;
       if (id === "textanalysis.details") {
@@ -181,6 +199,7 @@ export function TextAnalysisPanel() {
       change.dispose();
       selectionChanged.dispose();
       addAction.dispose();
+      findAction.dispose();
       instance.dispose();
       model.dispose();
       editor.current = null;
