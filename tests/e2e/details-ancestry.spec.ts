@@ -35,7 +35,8 @@ const ttl = `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.
 :Deep5 a owl:Class; rdfs:label "Deep 5"; rdfs:subClassOf :Deep4.
 :Deep6 a owl:Class; rdfs:label "Deep 6"; rdfs:subClassOf :Deep5.
 :Deep7 a owl:Class; rdfs:label "Deep 7"; rdfs:subClassOf :Deep6.
-:Deep8 a owl:Class; rdfs:label "Deep 8"; rdfs:subClassOf :Deep7.
+:Deep8 a owl:Class; rdfs:label "Deep 8"; rdfs:subClassOf :Deep7;
+  rdfs:seeAlso ${Array.from({ length: 20 }, (_, i) => `"Deep alias ${i}"`).join(", ")}.
 :CycleA a owl:Class; rdfs:label "Cycle A"; rdfs:subClassOf :CycleB.
 :CycleB a owl:Class; rdfs:label "Cycle B"; rdfs:subClassOf :CycleA.
 `;
@@ -91,7 +92,18 @@ test.beforeEach(async () => {
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
-    args: process.env.AXIOM_TEST_EXE ? [] : ["."],
+    args: [
+      ...(process.env.AXIOM_TEST_EXE ? [] : ["."]),
+      // Packaged launches skip Playwright's Electron loader and its switches.
+      // Keep layout frames running when this isolated test window is covered.
+      ...(process.env.AXIOM_TEST_BACKGROUND === "1"
+        ? [
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+          ]
+        : []),
+    ],
     env,
   });
   page = await app.firstWindow();
@@ -425,6 +437,43 @@ async function expectStableScroll(
   expect(movement).toBeLessThan(0.5);
 }
 
+test("Details scrolling and content changes leave a completed hierarchy reveal in place", async () => {
+  await showTaxonomy();
+  await tree().evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await expect(treeRow("Deep8")).toHaveCount(0);
+  await select("Deep8");
+  // Expanding this large fixture can exceed the default wait while tracing.
+  await expect(treeRow("Deep8")).toBeInViewport({ timeout: 15000 });
+  await expect.poll(() => alignmentError("Deep8")).toBeLessThan(2);
+  const before = await tree().evaluate((el) => el.scrollTop);
+  expect(before).toBeGreaterThan(100);
+  const content = details().locator(".entity-editor-content");
+  await content.evaluate((el) => {
+    el.scrollTop = 250;
+  });
+  await expect
+    .poll(() => content.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(100);
+  await expectStableScroll(tree(), before);
+  await content.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await ancestry()
+    .getByRole("button", { name: /more ancestry stages/ })
+    .click();
+  await expectStableScroll(tree(), before);
+  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await tree().evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await details().getByRole("button", { name: "Back", exact: true }).focus();
+  await expectStableScroll(tree(), 0);
+  await select("Deep8");
+  await expect.poll(() => alignmentError("Deep8")).toBeLessThan(2);
+});
+
 test("hierarchy clicks keep rows under the mouse while external selection of the same node still centers", async () => {
   await showTaxonomy();
   await select("A490");
@@ -500,10 +549,13 @@ test("selection and Back align the hierarchy with Details and reveal collapsed, 
     el.scrollTop = 0;
   });
   await details().getByRole("button", { name: "Back", exact: true }).focus();
-  await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
+  await expectStableScroll(tree(), 0);
 });
 
-test("centering follows pane moves, resizing and visibility on the same selection", async () => {
+test("Details resizing and docking leave the tree still until a new selection needs revealing", async () => {
+  await (
+    await app.browserWindow(page)
+  ).evaluate((w) => w.setContentSize(1800, 900));
   await showTaxonomy();
   await menu("view.query");
   await menu("pane.close");
@@ -512,6 +564,7 @@ test("centering follows pane moves, resizing and visibility on the same selectio
   await select("A500");
   await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
   await details().getByRole("button", { name: "Back", exact: true }).focus();
+  const before = await tree().evaluate((el) => el.scrollTop);
   await menu("pane.move.bottom");
   const splitter = page
     .locator('[role="separator"][aria-orientation="horizontal"]')
@@ -533,8 +586,10 @@ test("centering follows pane moves, resizing and visibility on the same selectio
     page.locator(".adaptive-pane:has(.details-navigation)"),
   ).toHaveAttribute("data-pane-recovery", "false");
   await expect(details()).toBeVisible();
-  await page.screenshot({ path: "artifacts/testing/centering-docking.png" });
-  await expect.poll(() => alignmentError("A500", page, true)).toBeLessThan(2);
+  await expectStableScroll(tree(), before);
+  await page.screenshot({
+    path: "artifacts/testing/details-stable-hierarchy.png",
+  });
   await menu("pane.maximise");
   await expect(tree()).not.toBeVisible();
   await select("A600");
@@ -543,7 +598,11 @@ test("centering follows pane moves, resizing and visibility on the same selectio
   await expect(details()).toBeVisible();
   await expect.poll(() => alignmentError("A600", page, true)).toBeLessThan(2);
   await details().getByRole("button", { name: "Back", exact: true }).focus();
+  const after = await tree().evaluate((el) => el.scrollTop);
   await menu("pane.move.right");
+  await expect(tree()).toBeVisible();
+  await expectStableScroll(tree(), after);
+  await select("A600");
   await expect.poll(() => alignmentError("A600")).toBeLessThan(2);
 });
 

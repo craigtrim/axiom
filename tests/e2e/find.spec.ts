@@ -993,6 +993,33 @@ test("clicking a Find result scrolls the open taxonomy to a distant matching ent
     .click();
   await visibleTaxonomySelection(base + "Basic");
 });
+test("Find in taxonomy reveals the same selection again after the user scrolls away", async () => {
+  await menu("view.details");
+  await find("English Course 122");
+  await visibleTaxonomySelection(base + "Course122");
+  const tree = page.locator('[data-panel="hierarchy"] [role="tree"]');
+  const before = (await state()).selected;
+  await tree.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await pane()
+    .getByRole("button", { name: "Find in taxonomy", exact: true })
+    .click();
+  await visibleTaxonomySelection(base + "Course122");
+  expect((await state()).selected).toBe(before);
+  await tree.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  const scroll = await tree.evaluate(async (el) => {
+    for (let i = 0; i < 12; i++)
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    return el.scrollTop;
+  });
+  expect(scroll).toBe(0);
+});
+
 test("Find keeps a closed taxonomy closed", async () => {
   await menu("view.hierarchy");
   await menu("pane.close");
