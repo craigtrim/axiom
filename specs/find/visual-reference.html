@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom: Find, visual reference</title>
+<style>
+/* ============================================================
+   Visual reference for specs/find/README.md
+   Descriptive, non normative. Owns no requirements.
+
+   Every specimen is annotated with the FND requirement it
+   demonstrates. Every value shown is the value recorded in the
+   Constants table and the Copy catalogue of README.md.
+
+   Interaction states are rendered through explicit state classes
+   rather than live pseudo classes, so that every state of a
+   control is auditable at once without a pointer.
+   ============================================================ */
+
+.t {
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+  --r-ctl: 4px; --r-panel: 6px; --r-card: 8px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+.t-light {
+  --ground: #ffffff; --surface: #f6f7f9; --raised: #ffffff; --sunken: #f0f2f5;
+  --border: #e1e4e8; --border-strong: #d0d7de;
+  --text: #1b1f24; --text-muted: #57606a;
+  --accent: #0b5fd0; --accent-hover: #0a52b4; --accent-fg: #ffffff;
+  --accent-soft: #eaf2fd; --accent-tint: #f4f8fe;
+  --ok: #0a7a3d; --ok-bg: #e8f5ed; --ok-border: #a9d8bd;
+  --warn: #8a6116; --warn-bg: #fdf5e3; --warn-border: #e6cf95;
+  --idle: #57606a; --idle-border: #c6cbd1;
+  --row-hover: #f6f7f9; --row-selected: #eaf2fd;
+  --focus: #0b5fd0; --shadow-pop: 0 8px 24px rgba(27, 31, 36, .18);
+}
+
+.t-dark {
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-hover: #6aabff; --accent-fg: #06192e;
+  --accent-soft: #12243a; --accent-tint: #0f1a28;
+  --ok: #4ade80; --ok-bg: #0f2a1b; --ok-border: #1d5233;
+  --warn: #e3b341; --warn-bg: #2b2211; --warn-border: #5a4718;
+  --idle: #9ba7b4; --idle-border: #454c54;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #f0f2f5;
+  color: #1b1f24;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px; line-height: 1.55;
+}
+
+.doc { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+
+header.masthead { padding-bottom: 20px; border-bottom: 2px solid #d0d7de; margin-bottom: 32px; }
+h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
+.lede { margin: 0 0 12px; font-size: 16px; max-width: 80ch; }
+.meta { margin: 0; font-size: 14px; color: #57606a; }
+.meta code { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; }
+.meta a { color: #0b5fd0; }
+
+.callout {
+  margin: 16px 0 0; padding: 12px 16px;
+  background: #fdf5e3; border: 1px solid #e6cf95; border-radius: 6px;
+  font-size: 15px; color: #6b4c11;
+}
+.callout.red { background: #fdecec; border-color: #f0b9b9; color: #8a1c1c; }
+
+section.spec { margin: 0 0 40px; }
+h2 { margin: 0 0 4px; font-size: 19px; font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid #d0d7de; }
+.demonstrates { margin: 0 0 16px; font-size: 13px; color: #57606a; font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; }
+.note { margin: 0 0 16px; font-size: 15px; color: #424a53; max-width: 84ch; }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1040px) { .pair { grid-template-columns: 1fr; } }
+
+.panel { border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; background: #fff; }
+.panel > .panel-head {
+  padding: 6px 12px;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: #57606a; background: #f6f7f9; border-bottom: 1px solid #e1e4e8;
+}
+.panel > .panel-head.owns-tec { color: #8a1c1c; background: #fdecec; border-bottom-color: #f0b9b9; }
+.panel > .panel-head.owns-fnd { color: #0a52b4; background: #eaf2fd; border-bottom-color: #bcd8f7; }
+
+.stage { padding: 20px 16px; background: var(--ground); color: var(--text); font-family: var(--font); }
+.stage.pad0 { padding: 0; }
+
+.specimens { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.specimen { display: flex; flex-direction: column; gap: 6px; }
+.specimen > .cap { font-size: 12px; color: var(--text-muted); font-family: var(--mono); }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+
+table.ref { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.ref th, table.ref td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; vertical-align: top; }
+table.ref th { background: #f6f7f9; font-weight: 600; }
+table.ref code { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; }
+table.ref td.bad { background: #fdecec; color: #8a1c1c; font-weight: 600; }
+table.ref td.ok { background: #e8f5ed; color: #0a5c2f; font-weight: 600; }
+table.ref td.mid { background: #fdf5e3; color: #6b4c11; font-weight: 600; }
+
+/* ============================================================
+   The specimens. These declarations are the ones the surface
+   uses, reproduced so specimen and product cannot drift apart.
+   ============================================================ */
+.icon { width: 16px; height: 16px; flex: none; display: block; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl);
+  background: var(--raised); color: var(--text);
+  font: inherit; font-size: 14px; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.btn-lg { height: 34px; padding: 0 var(--sp-4); font-size: 15px; }
+.btn.is-disabled { opacity: .45; }
+.btn.is-focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* FND-35 to FND-37 */
+.remedy {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  height: 34px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl);
+  background: var(--raised); color: var(--text);
+  font: inherit; font-size: 15px; white-space: nowrap;
+}
+.remedy.is-hover { background: var(--row-hover); border-color: var(--accent); }
+.remedy .yield {
+  padding: 0 6px; font-size: 13px; font-weight: 600; line-height: 20px;
+  border-radius: var(--r-pill);
+  color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border);
+  font-variant-numeric: tabular-nums;
+}
+.remedy.is-zero { opacity: .55; }
+.remedy.is-zero .yield { color: var(--text-muted); background: var(--sunken); border-color: var(--border); }
+
+/* FND-12 to FND-15 */
+.opt {
+  display: grid; grid-template-columns: 18px minmax(0,1fr) auto;
+  align-items: center; gap: var(--sp-2);
+  padding: 3px 4px; border-radius: var(--r-ctl);
+  width: 236px;
+}
+.opt .t2 { font-size: 14px; }
+.opt .n { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.opt.is-hit .n { color: var(--ok); font-weight: 600; }
+.check {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0;
+  border: 1.5px solid var(--border-strong); border-radius: 3px;
+  background: var(--raised); display: grid; place-content: center;
+}
+.check:checked { background: var(--accent); border-color: var(--accent); }
+.check:checked::after {
+  content: ""; width: 10px; height: 10px; background: var(--accent-fg);
+  clip-path: polygon(14% 47%, 0 60%, 39% 100%, 100% 22%, 86% 10%, 37% 72%);
+}
+
+/* FND-19 to FND-22 */
+.rowset { width: 100%; border-top: 1px solid var(--border); }
+.rowhead, .row {
+  display: grid; grid-template-columns: minmax(0,1fr) 130px 26%;
+  align-items: start; border-bottom: 1px solid var(--border);
+}
+.rowhead { background: var(--surface); border-bottom-color: var(--border-strong); }
+.rowhead > span {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-muted);
+}
+.row > * { padding: var(--sp-2) var(--sp-3); }
+.row.is-hover { background: var(--row-hover); }
+.row.is-selected { background: var(--row-selected); }
+.ename { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.epath { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
+.badge {
+  display: inline-block; padding: 0 6px;
+  font-size: 13px; font-weight: 500; line-height: 18px;
+  color: var(--text-muted); background: var(--sunken);
+  border: 1px solid var(--border); border-radius: 3px;
+}
+.matchin {
+  display: inline-flex; align-items: center; margin-inline-start: 6px; padding: 0 6px;
+  font-size: 12px; line-height: 18px;
+  color: var(--accent); background: var(--accent-soft);
+  border-radius: var(--r-pill); vertical-align: 2px;
+}
+.syn { font-size: 15px; color: var(--text-muted); }
+
+/* FND-47 to FND-55 */
+table.stmts { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.stmts th {
+  text-align: start; padding: 0 var(--sp-2) var(--sp-2);
+  font-size: 15px; font-weight: 500; color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+table.stmts td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.stmt-fixed { font-size: 15px; padding-inline-start: var(--sp-2); }
+.stmt-val { font-size: 15px; }
+.ctl {
+  height: 30px; width: 100%; padding: 0 var(--sp-2);
+  background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl); font: inherit; font-size: 14px; color: var(--text);
+}
+.ctl.mono { font-family: var(--mono); font-size: 13px; }
+.predwrap { position: relative; display: block; }
+.predwrap .fake {
+  display: block; height: 30px; line-height: 30px;
+  padding: 0 26px 0 var(--sp-2);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl);
+  background: var(--raised); font-size: 15px;
+}
+.predwrap .chev {
+  position: absolute; top: 8px; inset-inline-end: 6px;
+  width: 13px; height: 13px; transform: rotate(90deg); color: var(--text-muted);
+}
+
+/* FND-59 to FND-62 */
+.section {
+  border: 1px solid var(--border); border-top: 3px solid var(--accent);
+  border-radius: var(--r-card); background: var(--accent-tint); padding: var(--sp-3);
+}
+.section-head {
+  display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3);
+  color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+.chain-card {
+  display: grid; grid-template-columns: 20px minmax(0,1fr);
+  align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-card);
+  background: var(--raised); color: var(--text);
+}
+.chain-card > .glyph { color: var(--accent); }
+.chain-card .cap { display: block; font-size: 13px; color: var(--text-muted); }
+.chain-card .nm { display: block; font-size: 16px; font-weight: 600; }
+.chain-card.is-subject { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.chain-card.is-subject .cap { color: #dce9fa; }
+.chain-card.is-subject > .glyph { color: var(--accent-fg); }
+.chain-card.is-root { border-style: dashed; background: transparent; }
+.chain-card.is-root .nm { font-weight: 500; color: var(--text-muted); }
+.chain-link {
+  display: flex; flex-direction: column; align-items: center;
+  width: 16px; height: 22px; margin-inline-start: 22px; color: var(--border-strong);
+}
+.chain-link::before { content: ""; flex: 1 1 auto; width: 1px; background: currentColor; }
+.chain-link .icon { width: 12px; height: 12px; margin-top: -3px; transform: rotate(90deg); color: var(--text-muted); }
+
+/* TEC parents region, for the divergence exhibit only */
+.chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: var(--sp-2); min-height: 44px;
+  background: var(--sunken); border: 1px solid var(--border); border-radius: var(--r-ctl);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 var(--sp-2);
+  border: 1px solid var(--border-strong); border-radius: var(--r-pill);
+  background: var(--raised); font-size: 14px;
+}
+.chips-empty { font-size: 14px; color: var(--text-muted); }
+.chips-empty code { font-family: var(--mono); font-size: 13px; }
+
+.notice {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl);
+  font-size: 15px; line-height: 1.45;
+}
+.notice .icon { margin-top: 3px; }
+.notice-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.notice-ok { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
+
+.source-body {
+  margin: 0; padding: var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  background: var(--sunken); color: var(--text);
+  font-family: var(--mono); font-size: 13px; line-height: 1.55;
+  white-space: pre; overflow-x: auto;
+}
+
+.zero-head { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.scopeline { margin: 0 0 16px; font-size: 15px; color: var(--text-muted); }
+.remedy-head {
+  font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: var(--sp-2);
+}
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.sw { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.sw i { width: 30px; height: 30px; flex: none; border-radius: 4px; border: 1px solid var(--border-strong); }
+.sw code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true"><defs>
+  <symbol id="i-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-wide" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h12M5 5 2 8l3 3M11 5l3 3-3 3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3 3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.4v2.9h-2.9"/></symbol>
+  <symbol id="i-dup" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5"/><path d="M5.5 13.5h6a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 11.7 13 4.9"/></symbol>
+  <symbol id="i-node" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><rect x="6" y="6" width="4" height="4" rx=".7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="4.6"/></symbol>
+  <symbol id="i-circle-dot" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5v8a2 2 0 0 0 2 2h6"/><path d="M4 6.5h8"/><circle cx="13.2" cy="6.5" r="1.3"/><circle cx="13.2" cy="12.5" r="1.3"/></symbol>
+</defs></svg>
+
+<div class="doc">
+
+<header class="masthead">
+  <h1>Axiom: Find, visual reference</h1>
+  <p class="lede">A rendered specimen of every component state on the Find surface, in both themes at once, plus the one exhibit this document exists for: the two entity create designs side by side.</p>
+  <p class="meta">
+    <strong>Status:</strong> Descriptive, non normative. Owns no requirement prefix.<br>
+    <strong>Specifies:</strong> nothing. The normative document is <a href="README.md">README.md</a>.<br>
+    <strong>Reference implementation:</strong> <code>...\projects\dd6f8408-986c-4b38-9c30-3fe336496345\find.html</code>, read only.
+  </p>
+  <p class="callout">
+    Interaction states are rendered through explicit state classes rather than live pseudo classes, so every state of a control is visible at once without a pointer. Nothing on this page is interactive, and nothing on this page is a requirement.
+  </p>
+</header>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>1. The divergence this document was written to record</h2>
+  <p class="demonstrates">FND-40, FND-45, FND-46</p>
+  <p class="note">
+    Two designs currently answer the same question, <em>what are this entity's parents</em>. On the left, the parents region specified by <code>text-entity-create</code>, which owns entity creation. On the right, the ancestry chain built into the Find zero state. Neither is wrong on its own. Both existing is the problem, and <code>TEC</code> wins.
+  </p>
+  <div class="pair">
+    <div class="panel">
+      <div class="panel-head owns-tec">Owned by TEC · wins</div>
+      <div class="t t-light stage">
+        <div class="stack">
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Parents</div>
+          <div class="chips">
+            <span class="chip">Literacy</span>
+            <span class="chip">Language Arts</span>
+          </div>
+          <div class="chips">
+            <span class="chips-empty">No parents chosen. This will be written under <code>Thing</code>.</span>
+          </div>
+          <input class="ctl" value="Add a parent, or type a name to create one" readonly>
+          <p class="note" style="margin:0;font-size:13px">One chip list showing the current answer, one combobox through which every route to a parent arrives. Supports creating a parent inline, which pushes a Frame onto the Draft stack.</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head owns-fnd">Rendered by Find · restricts</div>
+      <div class="t t-light stage">
+        <div class="section">
+          <div class="section-head"><svg class="icon" aria-hidden="true"><use href="#i-tree"/></svg>Ancestry</div>
+          <div class="chain-card is-subject">
+            <svg class="icon glyph" aria-hidden="true"><use href="#i-node"/></svg>
+            <span><span class="cap">New class</span><span class="nm">Reading and Comprehension</span></span>
+          </div>
+          <div class="chain-link"><svg class="icon"><use href="#i-chev"/></svg></div>
+          <div class="chain-card">
+            <svg class="icon glyph" aria-hidden="true"><use href="#i-circle"/></svg>
+            <span class="nm">Literacy</span>
+          </div>
+          <div class="chain-link"><svg class="icon"><use href="#i-chev"/></svg></div>
+          <div class="chain-card">
+            <svg class="icon glyph" aria-hidden="true"><use href="#i-circle-dot"/></svg>
+            <span class="nm">Education</span>
+          </div>
+        </div>
+        <p class="note" style="margin:12px 0 0;font-size:13px">Shows where the entity will land, which the chip list does not. Carries one parent, not many. Cannot create a parent inline. That is a permitted restriction only while FND-42's escape to the Add entity view exists.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:20px"><strong>The conformance table, abridged.</strong> The full list is FND-45.</p>
+  <table class="ref">
+    <thead><tr><th>Subject</th><th>TEC</th><th>Find</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td>Draft frame stack, nested parent creation</td><td>TEC-4, TEC-5</td><td>absent</td><td class="mid">Restricts</td></tr>
+      <tr><td>Label 256, comment 10,000, enforced at the input</td><td>TEC-6</td><td>not enforced</td><td class="bad">Contradicts</td></tr>
+      <tr><td>A chosen parent is not offered again</td><td>TEC-11</td><td>everything offered, subject included</td><td class="bad">Contradicts</td></tr>
+      <tr><td>Empty parent list written as <code>owl:Thing</code></td><td>TEC-13</td><td>written as no parent</td><td class="bad">Contradicts</td></tr>
+      <tr><td>Destination stated in two places</td><td>TEC-14</td><td>stated once</td><td class="bad">Contradicts</td></tr>
+      <tr><td>A class may not be its own ancestor</td><td>TEC-72, TEC-73</td><td>not checked</td><td class="bad">Contradicts</td></tr>
+      <tr><td>Creates classes only</td><td>TEC scope</td><td>Class, Instance, Property</td><td class="bad">Contradicts</td></tr>
+      <tr><td>Monospace for exactly three things</td><td>TEC-116</td><td>also the Source block</td><td class="bad">Contradicts</td></tr>
+      <tr><td>Dark theme derived independently</td><td>TEC-115</td><td>both themes authored</td><td class="ok">Conforms</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>2. The remedy ladder</h2>
+  <p class="demonstrates">FND-34, FND-35, FND-36, FND-37</p>
+  <p class="note">
+    Each remedy carries the number of matches it would yield, computed before it is taken, so a user never clicks hopefully. A remedy that would still yield zero renders disabled with its zero showing rather than hiding, because the fact that widening does not help is exactly the fact that justifies creating the entity.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage"><div class="specimens">
+        <div class="specimen">
+          <span class="remedy"><svg class="icon"><use href="#i-wide"/></svg>Search all 9 fields<span class="yield">1 match</span></span>
+          <span class="cap">rest, non zero yield</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy is-hover"><svg class="icon"><use href="#i-search"/></svg>Match any word instead of all<span class="yield">3 matches</span></span>
+          <span class="cap">hover</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy is-zero"><svg class="icon"><use href="#i-plus"/></svg>Include all entity types<span class="yield">0 matches</span></span>
+          <span class="cap">zero yield, disabled and visible</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy"><svg class="icon"><use href="#i-reset"/></svg>Reset every filter<span class="yield">4 matches</span></span>
+          <span class="cap">always applicable</span>
+        </div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage"><div class="specimens">
+        <div class="specimen">
+          <span class="remedy"><svg class="icon"><use href="#i-wide"/></svg>Search all 9 fields<span class="yield">1 match</span></span>
+          <span class="cap">rest, non zero yield</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy is-hover"><svg class="icon"><use href="#i-search"/></svg>Match any word instead of all<span class="yield">3 matches</span></span>
+          <span class="cap">hover</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy is-zero"><svg class="icon"><use href="#i-plus"/></svg>Include all entity types<span class="yield">0 matches</span></span>
+          <span class="cap">zero yield, disabled and visible</span>
+        </div>
+        <div class="specimen">
+          <span class="remedy"><svg class="icon"><use href="#i-reset"/></svg>Reset every filter<span class="yield">4 matches</span></span>
+          <span class="cap">always applicable</span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>3. The two count semantics</h2>
+  <p class="demonstrates">FND-13, FND-14, FND-15</p>
+  <p class="note">
+    The single easiest requirement to lose in implementation. An entity type count reports what currently matches. A search field count reports what that field <em>alone</em> would match, whether or not it is scoped in. That is why a zero beside a ticked field is information, and why the field holding the answer announces itself before the user has ticked it.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Entity types, count = what matches now</div>
+      <div class="t t-light stage">
+        <div class="stack" style="gap:2px">
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">Classes</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">Instances</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">Properties</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">Other entities</span><span class="n">0</span></label>
+        </div>
+        <p class="note" style="margin:12px 0 0;font-size:13px">Every type is scoped in and every count is zero. Nothing matches. Widening the type scope will not help, which is why that remedy renders disabled.</p>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Search fields, count = what it alone would match</div>
+      <div class="t t-light stage">
+        <div class="stack" style="gap:2px">
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">Names and aliases</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" checked disabled><span class="t2">IRI</span><span class="n">0</span></label>
+          <label class="opt is-hit"><input class="check" type="checkbox" disabled><span class="t2">Definition</span><span class="n">1</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" disabled><span class="t2">Synonyms</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" disabled><span class="t2">rdfs:comment</span><span class="n">0</span></label>
+          <label class="opt is-zero"><input class="check" type="checkbox" disabled><span class="t2">owl:equivalentClass</span><span class="n">0</span></label>
+        </div>
+        <p class="note" style="margin:12px 0 0;font-size:13px">Two fields are scoped in and both are zero. <strong>Definition</strong> is not scoped in and reports 1. The answer is one tick away and the rail says so without being asked.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>4. The zero state headline</h2>
+  <p class="demonstrates">FND-30, FND-31, FND-32, FND-33</p>
+  <p class="note">
+    The headline quotes the query, the scope line states what was searched, and the last sentence is the one that must never be weakened: a miss inside a narrowed scope is not an absence. Copy ids <code>ZERO-HEAD</code> and <code>ZERO-SCOPE</code>.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage">
+        <h3 class="zero-head">No matches for &#8220;reading and comprehension&#8221;</h3>
+        <p class="scopeline">Searched <b>2</b> of 9 fields across 4 of 4 entity types, in 28 entities. A miss inside a narrowed scope is not the same as an absence.</p>
+        <div class="remedy-head">Widen the search first</div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage">
+        <h3 class="zero-head">No matches for &#8220;reading and comprehension&#8221;</h3>
+        <p class="scopeline">Searched <b>2</b> of 9 fields across 4 of 4 entity types, in 28 entities. A miss inside a narrowed scope is not the same as an absence.</p>
+        <div class="remedy-head">Widen the search first</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>5. The statement table</h2>
+  <p class="demonstrates">FND-47, FND-48, FND-49, FND-50, FND-52, FND-53</p>
+  <p class="note">
+    A predicate carrying a disclosure affordance is changeable. A predicate without one is fixed. That affordance is the only signal distinguishing the two, so it is never applied decoratively. An individual's parent is a second <code>rdf:type</code> row, not <code>rdfs:subClassOf</code>, because presenting it as a subclass axiom is an error in the ontology and not only in the interface.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, a class</div>
+      <div class="t t-light stage">
+        <p style="margin:0 0 8px;font-size:15px;color:var(--text-muted)">5 statements</p>
+        <table class="stmts">
+          <colgroup><col style="width:180px"><col></colgroup>
+          <thead><tr><th>Predicate</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><span class="stmt-fixed">rdf:type</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">owl:Class</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdfs:label</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">Reading and Comprehension</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdfs:subClassOf</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">Literacy</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdfs:comment</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px;color:var(--text-muted)">One sentence saying what this is</span></td></tr>
+            <tr><td><span class="predwrap"><span class="fake">rdfs:seeAlso</span><svg class="icon chev"><use href="#i-chev"/></svg></span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">READING COMPREHENSION</span></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin:10px 0 0;font-size:13px">Rows one to four are fixed: no chevron, no removal. Row five was added: it carries both.</p>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, an individual</div>
+      <div class="t t-dark stage">
+        <p style="margin:0 0 8px;font-size:15px;color:var(--text-muted)">4 statements</p>
+        <table class="stmts">
+          <colgroup><col style="width:180px"><col></colgroup>
+          <thead><tr><th>Predicate</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><span class="stmt-fixed">rdf:type</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">owl:NamedIndividual</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdfs:label</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">EDU 410 Comprehension Strategies</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdf:type</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px">Reading Instruction</span></td></tr>
+            <tr><td><span class="stmt-fixed">rdfs:comment</span></td><td class="stmt-val"><span class="ctl" style="display:block;line-height:28px;color:var(--text-muted)">One sentence saying what this is</span></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin:10px 0 0;font-size:13px">Two <code>rdf:type</code> rows, which is what OWL says. The second is the individual's class, not a subclass axiom.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>6. Source</h2>
+  <p class="demonstrates">FND-64, FND-65, FND-66, FND-67</p>
+  <p class="note">
+    The statements above, serialised as the RDF they assert. It stays in step with the table on every change, so the panel and its serialisation cannot disagree. Predicates whose object is a resource emit <code>rdf:resource</code>; everything else emits a typed literal. An empty value is omitted rather than serialised empty.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage">
+<pre class="source-body">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:skos="http://www.w3.org/2004/02/skos/core#"&gt;
+
+    &lt;rdf:Description rdf:about="https://example.test/axiom/ReadingAndComprehension"&gt;
+        &lt;rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/&gt;
+        &lt;rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string"&gt;Reading and Comprehension&lt;/rdfs:label&gt;
+        &lt;rdfs:subClassOf rdf:resource="https://example.test/axiom/Literacy"/&gt;
+    &lt;/rdf:Description&gt;
+
+&lt;/rdf:RDF&gt;</pre>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage">
+<pre class="source-body">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:skos="http://www.w3.org/2004/02/skos/core#"&gt;
+
+    &lt;rdf:Description rdf:about="https://example.test/axiom/ReadingAndComprehension"&gt;
+        &lt;rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/&gt;
+        &lt;rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string"&gt;Reading and Comprehension&lt;/rdfs:label&gt;
+        &lt;rdfs:subClassOf rdf:resource="https://example.test/axiom/Literacy"/&gt;
+    &lt;/rdf:Description&gt;
+
+&lt;/rdf:RDF&gt;</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>7. The duplicate guard</h2>
+  <p class="demonstrates">FND-69, FND-71, FND-72, FND-74</p>
+  <p class="note">
+    The safety property the whole feature rests on. The check reads every entity in the Store, independent of the scope that produced the zero result, because reusing that scope would repeat the same mistake with worse consequences. The two collision kinds are worded differently.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, exact label collision</div>
+      <div class="t t-light stage">
+        <div class="notice notice-warn">
+          <svg class="icon" aria-hidden="true"><use href="#i-dup"/></svg>
+          <span><b>Literacy</b> already exists. It sits under Academic Subject &#8250; Education. The search missed it because that field was out of scope.<br>
+          <span class="btn" style="margin-top:8px;height:26px;font-size:13px">Open Literacy</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, normalised name collision</div>
+      <div class="t t-dark stage">
+        <div class="notice notice-warn">
+          <svg class="icon" aria-hidden="true"><use href="#i-dup"/></svg>
+          <span><b>Reading Fluency</b> already exists, and its normalised name is the same as yours. It sits under Academic Subject &#8250; Education &#8250; Literacy. The search missed it because that field was out of scope.<br>
+          <span class="btn" style="margin-top:8px;height:26px;font-size:13px">Open Reading Fluency</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>8. Result rows and the root caution</h2>
+  <p class="demonstrates">FND-20, FND-21, FND-22, FND-62</p>
+  <p class="note">
+    A result that matched on a field other than the label or the IRI names the field it matched in, because a user who cannot see why a row is in the list cannot trust the list. Below, the root card and its caution, which FND-45 row 5 records as currently the only statement of a destination that <code>TEC-14</code> requires stated twice.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light, result rows</div>
+      <div class="t t-light stage pad0">
+        <div class="rowset">
+          <div class="rowhead"><span>Entity</span><span>Type</span><span>Synonym</span></div>
+          <div class="row">
+            <div><span class="ename">Literacy</span><span class="matchin">matched in Definition</span><span class="epath">Academic Subject &#8250; Education</span></div>
+            <div><span class="badge">Class</span></div>
+            <div><span class="syn">Reading and writing ability</span></div>
+          </div>
+          <div class="row is-hover">
+            <div><span class="ename">Reading Fluency</span><span class="epath">Academic Subject &#8250; Education &#8250; Literacy</span></div>
+            <div><span class="badge">Class</span></div>
+            <div><span class="syn"></span></div>
+          </div>
+          <div class="row is-selected">
+            <div><span class="ename">Reading Instruction</span><span class="epath">Academic Subject &#8250; Education</span></div>
+            <div><span class="badge">Class</span></div>
+            <div><span class="syn">Teaching reading</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark, no parent chosen</div>
+      <div class="t t-dark stage">
+        <div class="section">
+          <div class="section-head"><svg class="icon" aria-hidden="true"><use href="#i-tree"/></svg>Ancestry</div>
+          <div class="chain-card is-subject">
+            <svg class="icon glyph" aria-hidden="true"><use href="#i-node"/></svg>
+            <span><span class="cap">New class</span><span class="nm">Reading and Comprehension</span></span>
+          </div>
+          <div class="chain-link"><svg class="icon"><use href="#i-chev"/></svg></div>
+          <div class="chain-card is-root">
+            <svg class="icon glyph" aria-hidden="true"><use href="#i-circle"/></svg>
+            <span><span class="cap">Root level</span><span class="nm">owl:Thing</span></span>
+          </div>
+          <p class="note" style="margin:12px 0 0;font-size:13px;color:var(--text-muted)">This will sit at the root beside Academic Subject. Set rdfs:subClassOf below to place it under an existing parent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>9. Token reference</h2>
+  <p class="demonstrates">FND-93, FND-98, and the Token bindings table in README.md</p>
+  <p class="note">
+    Every colour the surface uses, in both themes. These are the prototype's token names. An implementation binds each to its counterpart in <code>40-design-system.md</code> and takes the value from there. <code>--accent-tint</code> and <code>--r-card</code> are new and must be added to <code>DS</code> before the component library entries in FND-82 are written.
+  </p>
+  <div class="pair">
+    <div class="panel"><div class="panel-head">Light</div>
+      <div class="t t-light stage"><div class="swatches">
+        <div class="sw"><i style="background:var(--ground)"></i><code>--ground</code></div>
+        <div class="sw"><i style="background:var(--surface)"></i><code>--surface</code></div>
+        <div class="sw"><i style="background:var(--raised)"></i><code>--raised</code></div>
+        <div class="sw"><i style="background:var(--sunken)"></i><code>--sunken</code></div>
+        <div class="sw"><i style="background:var(--accent-tint)"></i><code>--accent-tint</code></div>
+        <div class="sw"><i style="background:var(--accent-soft)"></i><code>--accent-soft</code></div>
+        <div class="sw"><i style="background:var(--accent)"></i><code>--accent</code></div>
+        <div class="sw"><i style="background:var(--ok)"></i><code>--ok</code></div>
+        <div class="sw"><i style="background:var(--warn)"></i><code>--warn</code></div>
+        <div class="sw"><i style="background:var(--idle)"></i><code>--idle</code></div>
+        <div class="sw"><i style="background:var(--text)"></i><code>--text</code></div>
+        <div class="sw"><i style="background:var(--text-muted)"></i><code>--text-muted</code></div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="panel-head">Dark</div>
+      <div class="t t-dark stage"><div class="swatches">
+        <div class="sw"><i style="background:var(--ground)"></i><code>--ground</code></div>
+        <div class="sw"><i style="background:var(--surface)"></i><code>--surface</code></div>
+        <div class="sw"><i style="background:var(--raised)"></i><code>--raised</code></div>
+        <div class="sw"><i style="background:var(--sunken)"></i><code>--sunken</code></div>
+        <div class="sw"><i style="background:var(--accent-tint)"></i><code>--accent-tint</code></div>
+        <div class="sw"><i style="background:var(--accent-soft)"></i><code>--accent-soft</code></div>
+        <div class="sw"><i style="background:var(--accent)"></i><code>--accent</code></div>
+        <div class="sw"><i style="background:var(--ok)"></i><code>--ok</code></div>
+        <div class="sw"><i style="background:var(--warn)"></i><code>--warn</code></div>
+        <div class="sw"><i style="background:var(--idle)"></i><code>--idle</code></div>
+        <div class="sw"><i style="background:var(--text)"></i><code>--text</code></div>
+        <div class="sw"><i style="background:var(--text-muted)"></i><code>--text-muted</code></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="spec">
+  <h2>10. Where these composites belong</h2>
+  <p class="demonstrates">FND-81, FND-82, FND-83</p>
+  <p class="note">
+    Nothing on this page is a Find component. The section panel, the ancestry chain, the statement table, the add row action and the Source disclosure came from the Details view and will be wanted by the Add entity view and the class inspector. Specifying them inside a surface document is provisional, and leaving them there is how a product ends up with views that look different.
+  </p>
+  <table class="ref">
+    <thead><tr><th>Proposed CMP entry</th><th>Covers</th><th>Already used by</th></tr></thead>
+    <tbody>
+      <tr><td>Section panel</td><td>accent top rule, tinted ground, icon and uppercase heading</td><td>Details, Find</td></tr>
+      <tr><td>Ancestry chain</td><td>linked cards, subject card, root card, connector</td><td>Details, Find</td></tr>
+      <tr><td>Statement table</td><td>predicate and value columns, fixed against changeable predicates, row actions</td><td>Details, Find</td></tr>
+      <tr><td>Add row action</td><td>the accent text action that appends a row</td><td>Details, Find</td></tr>
+      <tr><td>Source disclosure</td><td>a collapsed serialisation of the surrounding editor's state</td><td>Details, Find</td></tr>
+    </tbody>
+  </table>
+  <p class="callout red" style="margin-top:16px">
+    Two tokens must land in <code>40-design-system.md</code> first: <code>--accent-tint</code> and <code>--r-card</code>. A component library entry may not depend on a token the token document does not carry.
+  </p>
+</section>
+
+<footer style="margin-top:48px;padding-top:20px;border-top:1px solid #d0d7de;font-size:14px;color:#57606a">
+  <p style="margin:0 0 6px"><strong>This page is descriptive.</strong> It defines no requirements. Where it and <a href="README.md">README.md</a> disagree, README.md wins. Where README.md and <code>text-entity-create/README.md</code> disagree about creation, TEC wins.</p>
+  <p style="margin:0">No screenshots were produced. Live specimens are used instead, because a screenshot cannot be inspected, cannot be audited for contrast, and goes stale silently.</p>
+</footer>
+
+</div>
+</body>
+</html>
