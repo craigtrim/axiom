@@ -937,3 +937,11 @@ Removed the 6,000-class latency assertion from the domain suite. One hundred num
 An isolated run on the AMD Ryzen Threadripper 3960X measured 13.12 ms warm p95 for Find and 10.72 ms for resource suggestions, both below the 30 ms budget. Maximums were 29.83 ms and 15.17 ms respectively; first query including index construction was 295.57 ms. These are measured samples, not universal latency bounds. The MPNet benchmark remains independently runnable with `npm run benchmark:search:mpnet`; its earlier measurements were not repeated for this test-only addition.
 
 Records: [functional coverage and case design](search-testing.md), `artifacts/search-functional.json`, `artifacts/search-query-catalog.json`, and `artifacts/benchmarks/search-worker.json`. Generate the complete query catalog with `npm run test:search:catalog`.
+
+## 2026-09-30: Packaged search release verification (#17)
+
+Rebuilt the Windows installer and application from committed source revision `5254ed1a72ba612dba91cbfb0ec40b14f728668f` with `npm run package`. The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. Packaging completed at 17:46:46 UTC. This is a local, unsigned build, with no release uploaded.
+
+All 42 desktop checks in `find.spec.ts` and `details-source.spec.ts` passed against the packaged executable using isolated profiles. These include real local MPNet synonym recognition and automatic enrichment, the missing-model fallback, the `reading and comp` acceptance case, result graphs, filtering, pagination, edits and Undo, detached panes, resource type-ahead, and predicate ordering. No tests were skipped. The existing 5,638 passing unit/integration tests and separate lexical benchmark remain the functional and performance evidence for this source revision.
+
+The installer is 273,257,395 bytes with SHA-256 `43EAD4D6C80060A5E1A0F2B03932C5CB38EF21E094A80A655DE18A47A3E8024D`. The receipt in `artifacts/issue-17-build.json` also records the executable and application archive hashes, source revision, and build time. Packaged test results are in `artifacts/packaged-search-results.json`.
