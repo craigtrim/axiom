@@ -1,5 +1,9 @@
 import { ResourceInput } from "./ResourceInput";
-import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
+import {
+  PredicateSelect,
+  usePredicateOptions,
+  rememberPredicate,
+} from "./PredicateSelect";
 import { DetailsBack } from "./DetailsNavigation";
 import { expandIri, entityNamespace } from "./StatementGrid";
 import { edgeKey } from "../domain/viewport";
@@ -226,7 +230,10 @@ export function EdgeInspector({
                       )}
                       options={predicateOptions}
                       namespace={entityNamespace(source, s.ontology.namespace)}
-                      change={(predicate) => update({ predicate })}
+                      change={(predicate) => {
+                        rememberPredicate(predicate, s.datasetEpoch);
+                        update({ predicate });
+                      }}
                       disabled={
                         !data.statements.length ||
                         busy ||

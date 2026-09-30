@@ -1,39 +1,48 @@
-import { useEffect, useState } from "react";
-import { NS, SUBCLASS, SUBPROPERTY, TYPE } from "../domain/model";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { TYPE } from "../domain/model";
+import { orderPredicates, type PredicateUsage } from "../shared/predicates";
 import { request, useSnapshot } from "./client";
-import { Modal } from "./Dialogs";
-import { compactIri, expandIri } from "../shared/terms";
-const common = [
-  TYPE,
-  NS.rdfs + "label",
-  NS.rdfs + "comment",
-  SUBCLASS,
-  SUBPROPERTY,
-  NS.rdfs + "seeAlso",
-  NS.rdfs + "isDefinedBy",
-  NS.rdfs + "domain",
-  NS.rdfs + "range",
-  NS.owl + "equivalentClass",
-  NS.owl + "disjointWith",
-  NS.owl + "inverseOf",
-  "http://www.w3.org/2004/02/skos/core#altLabel",
-];
+import { compactIri } from "../shared/terms";
+
+let prior: { iri: string; datasetEpoch: number } | undefined;
+const listeners = new Set<() => void>();
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+const getPrior = () => prior;
+
+export function rememberPredicate(iri: string, datasetEpoch: number) {
+  if (!iri || iri === TYPE) return;
+  prior = { iri, datasetEpoch };
+  for (const listener of listeners) listener();
+}
+
 export function usePredicateOptions(current: string[]) {
   const s = useSnapshot()!;
-  const [known, setKnown] = useState<string[]>([]);
+  const previous = useSyncExternalStore(subscribe, getPrior);
+  const [known, setKnown] = useState<{
+    datasetEpoch: number;
+    values: PredicateUsage[];
+  }>();
   useEffect(() => {
     let active = true;
-    void request<string[]>("predicateOptions").then((values) => {
-      if (active) setKnown(values);
+    void request<PredicateUsage[]>("predicateOptions").then((values) => {
+      if (active) setKnown({ datasetEpoch: s.datasetEpoch, values });
     });
     return () => {
       active = false;
     };
   }, [s.version, s.datasetEpoch]);
-  return [...new Set([...current, ...[...common, ...known].sort()])].filter(
-    (iri) => !!iri && iri !== TYPE,
+  return orderPredicates(
+    current,
+    known?.datasetEpoch === s.datasetEpoch ? known.values : [],
+    previous?.datasetEpoch === s.datasetEpoch ? previous.iri : undefined,
   );
 }
+
 export function PredicateSelect({
   value,
   options,
@@ -49,106 +58,26 @@ export function PredicateSelect({
   disabled?: boolean;
   change: (iri: string) => void;
 }) {
-  const [mode, setMode] = useState<"find" | "add" | null>(null);
-  const [query, setQuery] = useState("");
-  const [error, setError] = useState("");
-  const choose = (iri: string) => {
-    if (iri === TYPE) {
-      setError("The class or instance declaration already supplies rdf:type.");
-      return;
-    }
-    change(iri);
-    setMode(null);
-    setQuery("");
-    setError("");
-  };
   return (
-    <>
-      <select
-        aria-label={label}
-        title={value}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => {
-          const next = event.target.value;
-          if (next === "__find" || next === "__add") {
-            setMode(next === "__find" ? "find" : "add");
-            setQuery("");
-            setError("");
-          } else choose(next);
-        }}
-      >
-        {!value && (
-          <option value="" disabled>
-            Choose predicate
-          </option>
-        )}
-        {[...new Set([...options, ...(value ? [value] : [])])]
-          .filter((iri) => iri !== TYPE)
-          .map((iri) => (
-            <option key={iri} value={iri}>
-              {compactIri(iri, namespace)}
-            </option>
-          ))}
-        <option value="__find">Find predicate…</option>
-        <option value="__add">Add predicate…</option>
-      </select>
-      {mode && (
-        <Modal
-          title={mode === "find" ? "Find predicate" : "Add predicate"}
-          close={() => setMode(null)}
-        >
-          <label>
-            {mode === "find" ? "Search predicates" : "Predicate IRI"}
-            <input
-              autoFocus
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          {mode === "find" ? (
-            <div className="predicate-results">
-              {options
-                .filter((iri) =>
-                  (compactIri(iri, namespace) + " " + iri)
-                    .toLocaleLowerCase()
-                    .includes(query.toLocaleLowerCase()),
-                )
-                .map((iri) => (
-                  <button key={iri} onClick={() => choose(iri)} title={iri}>
-                    {compactIri(iri, namespace)}
-                  </button>
-                ))}
-            </div>
-          ) : (
-            <>
-              {error && <p role="alert">{error}</p>}
-              <footer>
-                <button onClick={() => setMode(null)}>Cancel</button>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    const iri = expandIri(query, namespace);
-                    if (
-                      !query.trim() ||
-                      !/^[a-z][a-z0-9+.-]*:\S+$/i.test(iri) ||
-                      iri.startsWith("_:")
-                    ) {
-                      setError(
-                        "Enter a predicate name, prefixed name, or full IRI.",
-                      );
-                      return;
-                    }
-                    choose(iri);
-                  }}
-                >
-                  Use predicate
-                </button>
-              </footer>
-            </>
-          )}
-        </Modal>
+    <select
+      aria-label={label}
+      title={value}
+      value={value}
+      disabled={disabled}
+      onChange={(event) => change(event.target.value)}
+    >
+      {!value && (
+        <option value="" disabled>
+          Choose predicate
+        </option>
       )}
-    </>
+      {[...new Set([...options, ...(value ? [value] : [])])]
+        .filter((iri) => !!iri && iri !== TYPE)
+        .map((iri) => (
+          <option key={iri} value={iri}>
+            {compactIri(iri, namespace)}
+          </option>
+        ))}
+    </select>
   );
 }

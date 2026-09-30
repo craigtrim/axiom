@@ -4,6 +4,7 @@ import { request, useSnapshot } from "./client";
 import type { ResourceMatch } from "../domain/resource-search";
 import { compactIri, expandIri } from "../shared/terms";
 import { displayName } from "../domain/rdf-model";
+import { progressiveSearch } from "./progressive-search";
 export function ResourceInput({
   value,
   namespace,
@@ -53,37 +54,44 @@ export function ResourceInput({
     id = useId(),
     skipBlur = useRef(false),
     focused = useRef(false),
-    ticket = useRef(0);
+    consumer = useRef(crypto.randomUUID()).current;
+  const currentSelection = useRef({ items, active });
+  currentSelection.current = { items, active };
   const omitted = JSON.stringify(exclude);
   useEffect(() => {
     if (!focused.current) setText(shown);
   }, [value, shown]);
   useEffect(() => {
     if (!open) return;
-    const serial = ++ticket.current;
     setItems([]);
     setActive(-1);
-    const timer = window.setTimeout(() => {
-      void request<ResourceMatch[]>("resourceSuggestions", {
+    return progressiveSearch<ResourceMatch[]>(
+      request,
+      "resourceSuggestions",
+      {
         query: text === shown && !textValue ? "" : text,
         classesOnly,
         exclude,
-      })
-        .then((values) => {
-          if (ticket.current === serial) {
-            setItems(values);
-            setError("");
-          }
-        })
-        .catch(() => {
-          if (ticket.current === serial)
-            setError("Search unavailable. Try again.");
-        });
-    }, 80);
-    return () => {
-      clearTimeout(timer);
-      ++ticket.current;
-    };
+        consumer,
+        searchId: crypto.randomUUID(),
+      },
+      (values) => {
+        const selection = currentSelection.current;
+        const iri = selection.items[selection.active]?.iri;
+        const literal =
+          !!useText && selection.active === selection.items.length;
+        setActive(
+          literal
+            ? values.length
+            : iri
+              ? values.findIndex((item) => item.iri === iri)
+              : -1,
+        );
+        setItems(values);
+        setError("");
+      },
+      () => setError("Search unavailable. Try again."),
+    );
   }, [text, open, s.version, s.datasetEpoch, classesOnly, omitted]);
   useEffect(() => {
     if (!open) return;

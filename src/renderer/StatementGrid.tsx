@@ -1,6 +1,10 @@
 import { resourcePredicate as requiresResource } from "../shared/statement-values";
 import { useLayoutEffect, useRef } from "react";
-import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
+import {
+  PredicateSelect,
+  usePredicateOptions,
+  rememberPredicate,
+} from "./PredicateSelect";
 import { useSnapshot, savePanel } from "./client";
 import { displayName, LABEL, COMMENT } from "../domain/rdf-model";
 import {
@@ -179,6 +183,7 @@ export function StatementGrid({
                     options={predicates}
                     namespace={namespace}
                     change={(predicate) => {
+                      rememberPredicate(predicate, snapshot.datasetEpoch);
                       const resource = resourcePredicate(predicate);
                       const previous = triples.find(
                         (row, i) => i !== index && row.predicate === predicate,
