@@ -6,6 +6,6 @@ The prompt includes the selected name, description, current parents, and the com
 
 The Prompt button shows the upcoming request before a new run and the recorded request for an existing run. Each run saves its provider, context, exact prompt, explanations and outcome. Failed and cancelled runs retain the prompt. Old runs produced by the local word-matching rule remain labeled as local matching and do not acquire an invented assistant prompt.
 
-Add Parents applies only selected suggestions. It checks that each parent still exists and that the edit cannot create a hierarchy cycle. An accepted edit supports Undo. A draft's suggested parents become selected form values only when the user checks them; Add class saves the class and its chosen parents together. Closing or changing the draft cancels its pending assistant request.
+Add Parents applies only selected suggestions. It checks that each parent still exists and that the edit cannot create a hierarchy cycle. An accepted edit supports Undo. In Add entity, a suggested parent becomes a chosen parent only when the user chooses its option in the parent combobox; Add class saves the class and its chosen parents together. Closing or changing the draft cancels its pending assistant request.
 
-There is no fallback to word matching when an assistant is missing or fails. The phrase-based parent buttons already present in Add entity remain separately labeled as matches from the phrase.
+There is no fallback to word matching when an assistant is missing or fails. Phrase matches appear under `From the phrase` in the same parent combobox, separately from `Suggested by Claude` or `Suggested by Codex`.

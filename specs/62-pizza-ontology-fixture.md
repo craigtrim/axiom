@@ -1041,6 +1041,21 @@ These notes record where the fixture departs from the upstream ontology, so that
 
 ---
 
+## 18. Text entity creation phrases
+
+**FIX-103** Add entity acceptance tests MUST start with the Pizza TBox and no generated orders. These test inputs MUST NOT be added to the baseline TBox or its golden counts.
+
+| Input | Expected behaviour |
+|---|---|
+| `Smoked Pizza` | A new class draft; `pizza:Pizza` is the phrase-matched default parent |
+| `Smoked Food` | A Created parent draft; `pizza:Food` is its phrase-matched default parent |
+| `PIZZA` | A collision with the existing `pizza:Pizza` class |
+| `Pizzazz` | No phrase match with `pizza:Pizza`; matching requires whole words |
+| `Introduction to Smoked Pizza today` | Select `Smoked Pizza`; the Context row retains `Introduction to ` and ` today` |
+| `First: Smoked Pizza` followed by `Second: Smoked Pizza today` | Selecting the second occurrence retains the second source line |
+
+**FIX-104** Committing `Smoked Pizza` with the drafted parent `Smoked Food` MUST create both classes in one undoable operation. The child retains `pizza:Pizza` and gains the new parent. The new parent has `pizza:Food` as its parent. Summary MUST name both created classes. Cancelling a nested draft MUST leave the TBox unchanged.
+
 ## Appendix A — Native stack mapping (non-normative)
 
 Advisory only. A conformant implementation may satisfy every requirement above by other means.

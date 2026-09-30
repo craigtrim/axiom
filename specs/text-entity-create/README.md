@@ -326,7 +326,7 @@ One region, three parts, in this order: the chip list that states the current an
 
 **TEC-61** Changing the provider MUST discard the previous result `[src: parentsRegion()]`. A suggestion attributed to the wrong assistant is worse than no suggestion.
 
-**TEC-62** While a run is in flight the action MUST show a busy indicator and the text `Thinking...` and MUST be disabled `[src: runAssistant()]`. No other control in the view may be disabled by the run: the user MUST be able to keep typing, keep choosing parents and keep editing the description while the assistant works.
+**TEC-62** While a run is in flight the action MUST show a busy indicator and the text `Thinking…` and MUST be disabled `[src: runAssistant()]`. No other control in the view may be disabled by the run: the user MUST be able to keep typing, keep choosing parents and keep editing the description while the assistant works.
 
 **TEC-63** On completion the dropdown MUST open and focus MUST return to the combobox `[src: runAssistant()]`, so the result is one keystroke from being used.
 
@@ -386,7 +386,7 @@ Five conditions close the commit gate, and the current build already implements 
 
 **TEC-76** A service error MUST be shown verbatim, in an assertive live region, and MUST NOT be summarised or replaced with a generic message `[cur: setError()]`.
 
-**TEC-77** While a commit is in flight the commit action MUST show `Adding...` and every field MUST be disabled `[cur: busy]`. A second commit MUST be impossible while the first is pending `[cur: pending]`.
+**TEC-77** While a commit is in flight the commit action MUST show `Adding…` and every field MUST be disabled `[cur: busy]`. A second commit MUST be impossible while the first is pending `[cur: pending]`.
 
 **TEC-78** Escape anywhere in the view, when not busy and not already handled by an open dropdown, MUST cancel the current Frame `[cur: onKeyDown]` `[src: onkeydown]`. Escape MUST be handled by the dropdown first when one is open, and MUST NOT both close the dropdown and cancel the Frame.
 
@@ -581,6 +581,7 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `FIELD-DESC` | `Description` | field label | `[src: #f-desc]` |
 | `FIELD-DESC-PLACEHOLDER` | `Optional` | description placeholder | `[src: #f-desc]` |
 | `NAME-EMPTY` | `A class needs a name.` | inline field error | `[src: submit()]` |
+| `NAME-CHECKING` | `Checking name…` | below the name while the Preview is pending or stale | TEC-15, TEC-75 |
 | `ANCESTOR` | `A class cannot be its own ancestor. Choose a different parent name.` | form error | `[cur: className=validation-error]` |
 | `PARENTS-EMPTY` | `No parent chosen. Will be added under Thing` | chip list empty state | `[src: .chips-empty]` |
 | `PARENT-NEW` | `new` | chip marker on a Created parent | `[src: .chip-note]` |
@@ -588,6 +589,7 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `COMBO-PLACEHOLDER` | `Search classes, or type a new name…` | the parent combobox | `[src: #combo-input]` |
 | `COMBO-LABEL` | `Parent classes` | listbox accessible name | `[src: #combo-list]` |
 | `COMBO-EMPTY` | `No class matches that. Keep typing to create one.` | dropdown, no match | `[src: .lb-empty]` |
+| `COMBO-PENDING` | `Choose a parent from the list, or press Escape to clear the search.` | help when pending search text loses focus | TEC-74, TEC-75 |
 | `GROUP-PHRASE` | `From the phrase` | dropdown group header | `[src: comboOptions()]` |
 | `GROUP-ASSISTANT` | `Suggested by <assistant>` | dropdown group header | `[src: comboOptions()]` |
 | `GROUP-EXISTING` | `Existing classes` | dropdown group header | `[src: comboOptions()]` |
@@ -595,6 +597,9 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `OPT-CREATE` | `Create “<text>” as a new parent` | dropdown create option | `[src: parentsRegion()]` |
 | `ASSIST-LABEL` | `Assistant` | provider select, accessible name | `[src: parentsRegion()]` |
 | `ASSIST-RUN` | `Suggest` | assistant action, at rest | `[src: parentsRegion()]` |
+| `ASSIST-PROMPT` | `Prompt` | disclosure beside the assistant help | [`parent-suggestions.md`](../parent-suggestions.md) |
+| `ASSIST-PROMPT-LABEL` | `Parent prompt` | read-only prompt field, accessible name | [`parent-suggestions.md`](../parent-suggestions.md) |
+| `ASSIST-COPY` | `Copy prompt` | prompt disclosure | [`parent-suggestions.md`](../parent-suggestions.md) |
 | `ASSIST-BUSY` | `Thinking…` | assistant action, in flight | `[src: parentsRegion()]` |
 | `ASSIST-HELP` | `Uses your installed <assistant> sign-in. Suggestions appear in the same list.` | help line, no result | `[src: .assist-help]` |
 | `ASSIST-DONE` | `<assistant> suggested <n> parents. They are in the list above, under its name.` | help line, result present | `[src: .assist-help]` |
@@ -604,7 +609,7 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `FOOT-THING` | `Adding under Thing.` | footer note, no parents | `[src: footer()]` |
 | `FOOT-NESTED` | `Saved together with <root label> when you add it.` | footer note, Nested Frame | `[src: footer()]` |
 | `ACT-ADD` | `Add class` | commit action, Root Frame | `[src: footer()]` |
-| `ACT-ADD-BUSY` | `Adding...` | commit action, in flight | `[cur: busy]` |
+| `ACT-ADD-BUSY` | `Adding…` | commit action, in flight | TEC-118 |
 | `ACT-USE` | `Use as parent` | commit action, Nested Frame | `[src: footer()]` |
 | `ACT-CANCEL` | `Cancel` | cancel action, Root Frame | `[src: footer()]` |
 | `ACT-DISCARD` | `Discard parent` | cancel action, Nested Frame | `[src: footer()]` |
@@ -614,7 +619,7 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `PANE-LABEL` | `Text Entities` | pane accessible name | `[src: aria-label]` |
 | `FORM-LABEL` | `Add entity` | form region accessible name | `[cur: aria-label="Add entity"]` |
 
-**TEC-118** Three strings in this table carry a character the rest of the document does not: the horizontal ellipsis in `COMBO-PLACEHOLDER` and `ASSIST-BUSY`, and typographic quotation marks in `OPT-CREATE`. These are the real characters, not ASCII substitutes, and MUST be used as written. `ACT-ADD-BUSY` is three full stops, not an ellipsis, because that is what the current build ships `[cur: busy]`; it MUST be brought into line with the other two.
+**TEC-118** `COMBO-PLACEHOLDER`, `ASSIST-BUSY`, `NAME-CHECKING` and `ACT-ADD-BUSY` MUST use the horizontal ellipsis. `OPT-CREATE` MUST use typographic quotation marks. These are the real characters and MUST be used as written.
 
 ---
 
@@ -627,7 +632,7 @@ Recorded so that a reader does not have to work out whether something is a decis
 3. **The Root Frame's existing-class action.** In the prototype, `Open <label> in Taxonomy` re-renders and does nothing, because there is no Taxonomy to open `[src: existingBranch()]`. Its behaviour is specified in TEC-69 from the current build `[cur: openExisting()]`.
 4. **Assistant behaviour in the prototype is a fixture.** The 900ms delay and the label-keyed suggestion pool `[src: runAssistant()]` exist so that the busy state and the result group can be seen. Neither is a requirement. The real behaviour is [`parent-suggestions.md`](../parent-suggestions.md).
 5. **The upper pane is drawn at reduced fidelity.** The prototype's Text Analysis pane exists to give the lower pane its context and its selection link. Its highlight colours, its match count and its timing readout are fixtures.
-6. **Fixture data.** The prototype uses twenty class labels from `courses.owl` in the `http://devry.edu/courses#` namespace `[src: NS]` `[src: CLASSES]`, taken from the screenshots the redesign was drawn from. That is not the fixture in [`62-pizza-ontology-fixture.md`](../62-pizza-ontology-fixture.md) that the suite's acceptance tests assume. Acceptance tests for this view require phrase and class fixtures to be added there first, and until they are, this view has no entry in [`61-acceptance-criteria-and-tests.md`](../61-acceptance-criteria-and-tests.md).
+6. **Fixture data.** The prototype uses twenty class labels from `courses.owl` in the `http://devry.edu/courses#` namespace `[src: NS]` `[src: CLASSES]`, taken from the screenshots the redesign was drawn from. That is not the fixture in [`62-pizza-ontology-fixture.md`](../62-pizza-ontology-fixture.md) that the suite's acceptance tests assume. FIX-103 and FIX-104 now define the Pizza phrases and expected commit; ACC-26 registers the automated coverage. The earlier course and animal cases remain regression fixtures.
 7. **Dark theme.** The prototype is light only and says so `[src: :root]`. TEC-115 governs.
 8. **The Summary view.** The prototype replaces it with an `Added this session` list. TEC-86 forbids that substitution in the product. The one thing the prototype's list shows that the current build does not, that every class a commit created is worth naming, is carried forward as TEC-90.
 9. **Screenshots.** None were produced. [`visual-reference.html`](visual-reference.html) carries the visual burden, and unlike its sibling in [`add-children/`](../add-children/README.md) it is a verbatim copy of the prototype rather than a separate specimen, because in this case the prototype is one view and shows every state of it directly.
@@ -637,27 +642,25 @@ Recorded so that a reader does not have to work out whether something is a decis
 
 ## Registration
 
-This document is not yet registered in the suite index. [`README.md`](../README.md) was deliberately not edited. To register it, add the three entries below.
+This document is registered in the suite index. The entries below record its prefix, document map and reading order placement.
 
-**Prefix registry**, into the table under `Requirement ID prefix registry`:
+**Prefix registry**, in the table under `Requirement ID prefix registry`:
 
 ```
 | `TEC` | [`text-entity-create/README.md`](text-entity-create/README.md) | Add entity: the draft stack, the parents region, the commit gate |
 ```
 
-**Document map**, into the table under `Document map`:
+**Document map**, in the table under `Document map`:
 
 ```
 | [`text-entity-create/README.md`](text-entity-create/README.md) | Text Entity Create | `TEC` | The Add entity view: draft stack, parent selection, validation gates, commit | 30 min |
 ```
 
-**Reading order**, as a new step after the Surface documents and before the design system, beside the entry [`add-children/README.md`](../add-children/README.md#registration) asks for:
+**Reading order**, after the Surface documents and before the design system:
 
 ```
-12. **[`text-entity-create/README.md`](text-entity-create/README.md)** - the Add entity view: how a phrase from Text Analysis becomes a class, with the parents it needs and the parents that have to be created first. Read after the Surfaces, because it writes into the hierarchy the tree presents, and after [`parent-suggestions.md`](parent-suggestions.md), which owns the assistant call this view surfaces.
+11. **[`text-entity-create/README.md`](text-entity-create/README.md)** - the Add entity view: how a phrase from Text Analysis becomes a class, with the parents it needs and the parents that have to be created first. Read after the Surfaces, because it writes into the hierarchy the tree presents, and after [`parent-suggestions.md`](parent-suggestions.md), which owns the assistant call this view surfaces.
 ```
-
-Renumber the subsequent reading order steps.
 
 [`41-component-library.md`](../41-component-library.md) has no entry for a combobox with grouped options, a chip input or a pinned action footer. The five composites named in TEC-2 are specified here for now. If a second surface needs any of them, it is promoted there and this document cites it instead.
 

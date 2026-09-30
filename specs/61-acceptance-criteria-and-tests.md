@@ -891,6 +891,20 @@ Every documented error, with its message and its hint `[src: parseQuery()]`.
 
 ---
 
+## 18. Text entity creation
+
+**ACC-26** The Add entity view MUST satisfy TEC-1 to TEC-118 using FIX-103 and FIX-104 for the Pizza acceptance scenario. The existing animal and course fixtures remain regression cases for synonyms, assistant calls and nested creation.
+
+| Check | Automated coverage |
+|---|---|
+| Phrase and assistant groups, duplicate suppression, eight existing-class options, explicit creation | `tests/domain/text-parent-options.test.ts` |
+| Whitespace, collisions, ancestor cycles, stale epochs and versions, atomic writes and Undo | `tests/domain/text-analysis-authoring.test.ts` |
+| Draft persistence and session invalidation | `tests/domain/text-analysis-session.test.ts` |
+| Codex prompt inspection, explicit parent selection, nested edits, all-class Summary confirmation and Undo | Add entity cases in `tests/e2e/text-analysis.spec.ts` |
+| Wrapping option keys, Escape precedence, source context and accessible errors | Add entity keyboard and layout cases in `tests/e2e/text-analysis.spec.ts` |
+| Pinned action at 375px width and 220px height, two columns at 1100px, dark-theme accessibility | `Add entity preserves source context and its footer at 375px and a short pane` |
+| Pizza TBox and drafted parent commit | `Pizza authoring fixture adds Smoked Pizza and its drafted parent together` |
+
 ## Appendix A — Native stack mapping (non-normative)
 
 Advisory only. A conformant implementation may verify these criteria by any means that actually establishes them.

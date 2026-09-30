@@ -42,13 +42,14 @@ An implementer starting from zero should read in this order. The reason each ste
 8. **[`30-class-tree-and-inspector.md`](30-class-tree-and-inspector.md)** — the hierarchy tree (classes and properties), filtering, keyboard model, and the entity inspector's complete section list including the reserved inferred-axioms region. Read here because it is the first Surface a user touches and the one that seeds the graph.
 9. **[`31-individuals-table.md`](31-individuals-table.md)** — columns, sorting, filtering, virtualisation arithmetic, in-cell editing, and the send-to-graph path. Read after the tree because the two share the selection model.
 10. **[`32-sparql-console.md`](32-sparql-console.md)** — the supported query grammar, tokeniser, parser, evaluator, caps, result reporting and the send-to-graph path. Read last of the Surfaces because it is the only one that depends on the flattened restriction index rather than on the Store's primary structures alone.
-11. **[`40-design-system.md`](40-design-system.md)** — Design tokens: colour, type, spacing, radii, motion, elevation, and both themes in full. Read before writing any view code; every visual value in the product comes from here and nowhere else.
-12. **[`41-component-library.md`](41-component-library.md)** — the component inventory built from those tokens: buttons, fields, chips, tabs, panels, splitters, menus, dialogs, toasts, meters, tables, with every state. Read immediately after the tokens, since components are the only legal consumers of them.
-13. **[`50-visual-reference.html`](50-visual-reference.html)** — a rendered reference of the design system and component states. Open it alongside steps 11 and 12 rather than reading it in sequence; it is a picture, not a specification.
-14. **[`62-pizza-ontology-fixture.md`](62-pizza-ontology-fixture.md)** — the complete fixture: the real Pizza ontology TBox and the generated `demo:` ABox, with the exact generator algorithm and seed. Read before implementation begins in earnest, because every acceptance test and every screenshot in the suite assumes this exact data.
-15. **[`60-implementation-plan.md`](60-implementation-plan.md)** — the phased build order with vertical slices and their exit criteria. Read when you are ready to start cutting code, not before; it presumes you know what the parts are.
-16. **[`61-acceptance-criteria-and-tests.md`](61-acceptance-criteria-and-tests.md)** — the conformance suite: what must be demonstrably true, with the exact fixture, inputs and expected outputs. Read last, and then keep it open; it is the definition of done.
-17. **[`70-defect-register.md`](70-defect-register.md)** — every defect the specification work found in the reference implementation, with a severity, the requirement that supersedes it, and a suggested order of repair. Read it before you copy any behaviour from the reference build; forty-five of them are recorded, two of which stop a shipped feature working entirely.
+11. **[`text-entity-create/README.md`](text-entity-create/README.md)** - the Add entity view: how a phrase from Text Analysis becomes a class, with its chosen and drafted parents. Read after the Surfaces and [`parent-suggestions.md`](parent-suggestions.md), which owns the assistant call.
+12. **[`40-design-system.md`](40-design-system.md)** — Design tokens: colour, type, spacing, radii, motion, elevation, and both themes in full. Read before writing any view code; every visual value in the product comes from here and nowhere else.
+13. **[`41-component-library.md`](41-component-library.md)** — the component inventory built from those tokens: buttons, fields, chips, tabs, panels, splitters, menus, dialogs, toasts, meters, tables, with every state. Read immediately after the tokens, since components are the only legal consumers of them.
+14. **[`50-visual-reference.html`](50-visual-reference.html)** — a rendered reference of the design system and component states. Open it alongside steps 12 and 13 rather than reading it in sequence; it is a picture, not a specification.
+15. **[`62-pizza-ontology-fixture.md`](62-pizza-ontology-fixture.md)** — the complete fixture: the real Pizza ontology TBox and the generated `demo:` ABox, with the exact generator algorithm and seed. Read before implementation begins in earnest, because every acceptance test and every screenshot in the suite assumes this exact data.
+16. **[`60-implementation-plan.md`](60-implementation-plan.md)** — the phased build order with vertical slices and their exit criteria. Read when you are ready to start cutting code, not before; it presumes you know what the parts are.
+17. **[`61-acceptance-criteria-and-tests.md`](61-acceptance-criteria-and-tests.md)** — the conformance suite: what must be demonstrably true, with the exact fixture, inputs and expected outputs. Read last, and then keep it open; it is the definition of done.
+18. **[`70-defect-register.md`](70-defect-register.md)** — every defect the specification work found in the reference implementation, with a severity, the requirement that supersedes it, and a suggested order of repair. Read it before you copy any behaviour from the reference build; forty-five of them are recorded, two of which stop a shipped feature working entirely.
 
 `diagrams/*.svg` are referenced from the documents that use them and are not read standalone.
 
@@ -68,6 +69,7 @@ An implementer starting from zero should read in this order. The reason each ste
 | [`30-class-tree-and-inspector.md`](30-class-tree-and-inspector.md) | Axiom — Class Tree and Inspector | `TREE` | Hierarchy tree, property tree, filtering, keyboard model, inspector sections, inferred-axioms region | 40 min |
 | [`31-individuals-table.md`](31-individuals-table.md) | Axiom — Individuals Table | `TBL` | Columns, sort, filter, virtualisation, in-cell editing, send-to-graph | 30 min |
 | [`32-sparql-console.md`](32-sparql-console.md) | Axiom — SPARQL Console | `SPQ` | Grammar, tokeniser, parser, evaluator, caps, errors, result reporting, examples | 45 min |
+| [`text-entity-create/README.md`](text-entity-create/README.md) | Text Entity Create | `TEC` | The Add entity view: draft stack, parent selection, validation gates, commit | 30 min |
 | [`40-design-system.md`](40-design-system.md) | Axiom — Design System | `DS` | Design tokens: colour, type, space, radius, motion, elevation, both themes | 30 min |
 | [`41-component-library.md`](41-component-library.md) | Axiom — Component Library | `CMP` | Every component and every state, built only from tokens | 40 min |
 | [`50-visual-reference.html`](50-visual-reference.html) | Axiom — Visual Reference | `VIS` | Rendered specimen of tokens, components and states | browse |
@@ -93,6 +95,7 @@ Every normative requirement in the suite carries exactly one stable ID of the fo
 | `TREE` | [`30-class-tree-and-inspector.md`](30-class-tree-and-inspector.md) | Hierarchy tree and entity inspector |
 | `TBL` | [`31-individuals-table.md`](31-individuals-table.md) | Individuals table |
 | `SPQ` | [`32-sparql-console.md`](32-sparql-console.md) | SPARQL console |
+| `TEC` | [`text-entity-create/README.md`](text-entity-create/README.md) | Add entity: the draft stack, the parents region, the commit gate |
 | `DS` | [`40-design-system.md`](40-design-system.md) | Design tokens |
 | `CMP` | [`41-component-library.md`](41-component-library.md) | Component library |
 | `VIS` | [`50-visual-reference.html`](50-visual-reference.html) | Visual reference specimen |
