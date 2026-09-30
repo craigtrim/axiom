@@ -41,7 +41,7 @@ British English is used in this document's prose. Product copy and identifiers a
 
 ### In scope
 
-The query and match model, the scoping model and its counts, the result list, paging, selection and the inspector, the zero result state and its remedies, and the inline create panel that the zero state carries.
+The query model, the scoping model and its counts, the result list, paging, selection and the inspector, the zero result state and its remedies, and the inline create panel that the zero state carries.
 
 ### Out of scope
 
@@ -70,12 +70,11 @@ Used exactly as defined here, in addition to the suite glossary in [`README.md`]
 | Term | Meaning |
 |---|---|
 | **Query** | The text the user is searching for |
-| **Token** | One unit of the Query after splitting and filtering, per FND-6 |
-| **Match mode** | How tokens must occur for a match: all words, any word, or exact phrase |
+| **Term** | One word of the Query as the search engine indexes and matches it |
 | **Search field** | One named field of an entity that a search may read |
 | **Scope** | The set of search fields and the set of entity types currently included |
 | **Scoped miss** | A Query returning no results while the Scope excludes at least one search field or entity type |
-| **Remedy** | A single action that widens the Scope or relaxes the Match mode, carrying the number of matches it would yield |
+| **Remedy** | A single action that widens the Scope, carrying the number of matches it would yield |
 | **Yield** | The number of matches a Remedy would produce, computed before the Remedy is taken |
 | **Statement** | One predicate and value pair asserted about the subject being created |
 | **Subject** | The IRI the create panel will assert statements about |
@@ -98,40 +97,25 @@ The specified zero state answers the question the user actually has, which is *i
 
 ---
 
-## The query and match model
+## The query model
 
 **FND-4** A Query MUST be evaluated against the current Scope only. A search MUST NOT silently read a field the user has excluded `[src: evaluate()]`.
 
 **FND-5** An empty Query MUST match every entity within the entity type Scope, so that the surface with no Query entered is a browsable list rather than a blank `[src: evaluate()]`.
 
-**FND-6** Tokenisation MUST lower-case the Query, split it on every run of characters outside `[a-z0-9]`, and discard tokens shorter than the minimum token length in [Constants](#constants) `[src: tokens()]`.
+**FND-6** The surface MUST offer one search and MUST NOT ask the user to choose a matching algorithm. How a Query is matched and ranked belongs to the application. The prototype's Match mode selector is not adopted; see [Deviations and known gaps](#deviations-and-known-gaps).
 
-**FND-7** Three Match modes MUST be offered, and each MUST be evaluated case-insensitively `[src: hitsField()]`.
+**FND-7** A Query MUST find the intended entity whether it carries filler words, words out of order, an unfinished last word or a typo. A record that matches some Terms but not all MUST rank lower rather than disappear. The engine that meets this, its field weights, stop word handling, prefix and fuzzy thresholds, and its semantic recall, are specified in [#17](https://github.com/craigtrim/axiom/issues/17), and this document does not restate them.
 
-| Mode | Matches when |
-|---|---|
-| All words | every Token occurs |
-| Any word | at least one Token occurs |
-| Exact phrase | the trimmed Query occurs as a substring |
+**FND-8** A match MAY draw its Terms from any of the scoped fields taken together. The Scope rail's per field count evaluates each field on its own against the same Query; the result list reports the combined result.
 
-**FND-8** In All words mode a match MUST be satisfied either by one scoped field containing every Token on its own, or by the scoped fields taken together containing every Token between them `[src: evaluate()]`. The per field result is what the Scope rail reports; the combined result is what the result list reports.
-
-**FND-9** Exact phrase mode MUST NOT use Tokens. An empty or whitespace Query in this mode MUST match nothing `[src: hitsField()]`.
+**FND-9** Withdrawn. Its subject, Exact phrase mode, went with the Match mode selector under FND-6.
 
 ### Sorting
 
 **FND-10** Four sort orders MUST be offered: best match, name ascending, name descending, and type `[src: sortResults()]`.
 
-**FND-11** Best match MUST rank in this order, and MUST break every tie on the label ascending `[src: score()]`.
-
-| Rank | Condition |
-|---|---|
-| 0 | the label equals the Query |
-| 1 | the label starts with the Query |
-| 2 | the label contains the Query |
-| 3 | the match was on the label field |
-| 4 | the match was on the IRI field |
-| 5 | the match was on any other scoped field |
+**FND-11** Best match MUST place an exact label match first and a label prefix match next, and MUST order everything else by the engine's relevance score, breaking every tie on the label ascending. No semantic match may displace an exact or label prefix match.
 
 ---
 
@@ -207,9 +191,8 @@ This is the surface's central idea and the reason the zero state can be honest.
 | # | Remedy | Applicable when | Effect |
 |---|---|---|---|
 | 1 | Search all fields | fewer fields are scoped than exist | scopes in every search field |
-| 2 | Match any word instead of all | the Match mode is All words | sets the Match mode to Any word |
-| 3 | Include all entity types | fewer types are scoped than exist | scopes in every entity type |
-| 4 | Reset every filter | always | scopes everything in and relaxes the Match mode |
+| 2 | Include all entity types | fewer types are scoped than exist | scopes in every entity type |
+| 3 | Reset every filter | always | scopes every field and every entity type in |
 
 **FND-36** Each Remedy MUST carry its Yield, computed against the Store before the Remedy is taken `[src: remedies()]`. A user MUST never have to take a Remedy to discover whether it would have helped.
 
@@ -332,7 +315,7 @@ The panel presents creation as what it is: asserting statements about a subject.
 
 This is the safety property that the whole feature rests on.
 
-**FND-69** The duplicate check MUST run against **every entity in the Store**, independent of the active Scope and the Match mode `[src: findCollision()]`. The Scope produced the zero result that led the user here; reusing it to decide whether the entity already exists would repeat the same mistake with worse consequences.
+**FND-69** The duplicate check MUST run against **every entity in the Store**, independent of the active Scope `[src: findCollision()]`. The Scope produced the zero result that led the user here; reusing it to decide whether the entity already exists would repeat the same mistake with worse consequences.
 
 **FND-70** The check MUST run on the label as it is typed, not only at commit `[src: renderZero()]`.
 
@@ -425,7 +408,7 @@ This is the safety property that the whole feature rests on.
 
 | Width | Withdrawn | Where it goes |
 |---|---|---|
-| 1100px and below | the Match and Sort labels | the controls keep their accessible names |
+| 1100px and below | the Sort label | the controls keep their accessible names |
 | 900px and below | the two column workspace | the rail moves above the results and gains its own height cap |
 | 900px and below | predicate column width | reduced, so the value column keeps its room |
 | 680px and below | the recent searches control | the query field takes the full width |
@@ -438,7 +421,6 @@ This is the safety property that the whole feature rests on.
 
 | Constant | Value | Applies to | Source |
 |---|---|---|---|
-| Minimum token length | 3 characters | tokenisation | `[src: tokens()]` |
 | Spacing step | 4px | all spacing | `[src: --sp-1]` |
 | Control height | 30px | query field, selects, buttons | `[src: .btn]` |
 | Primary action height | 34px | the commit action | `[src: .btn-lg]` |
@@ -493,9 +475,6 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 |---|---|---|---|
 | `Q-PLACEHOLDER` | `Search names, IRIs and annotations` | query field | `[src: #q]` |
 | `Q-NAME` | `Search the ontology` | query field accessible name | `[src: #q]` |
-| `MODE-ALL` | `All words` | match mode | `[src: #matchMode]` |
-| `MODE-ANY` | `Any word` | match mode | `[src: #matchMode]` |
-| `MODE-PHRASE` | `Exact phrase` | match mode | `[src: #matchMode]` |
 | `SORT-BEST` | `Best match` | sort | `[src: #sortBy]` |
 | `RECENT` | `Recent searches` | recent searches | `[src: #recent]` |
 | `RESET-ALL` | `Reset filters` | query bar | `[src: #resetAll]` |
@@ -521,7 +500,6 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 | `ZERO-SCOPE` | `Searched {fields} of {fieldTotal} fields across {types} of {typeTotal} entity types, in {n} entities. A miss inside a narrowed scope is not the same as an absence.` | zero state | `[src: renderZero()]` |
 | `REMEDY-HEAD` | `Widen the search first` | zero state | `[src: .remedy-head]` |
 | `REMEDY-FIELDS` | `Search all {n} fields` | remedy | `[src: remedies()]` |
-| `REMEDY-MODE` | `Match any word instead of all` | remedy | `[src: remedies()]` |
 | `REMEDY-TYPES` | `Include all entity types` | remedy | `[src: remedies()]` |
 | `REMEDY-RESET` | `Reset every filter` | remedy | `[src: remedies()]` |
 | `REMEDY-YIELD` | `{n} matches` | remedy, singular `1 match` | `[src: renderZero()]` |
@@ -567,7 +545,8 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 5. **Parent selection at scale.** The parent control is a plain select over the whole class list `[src: renderZero()]`. At the shipped build's entity count that needs a typeahead with its own performance contract, which this document does not establish. `TEC`'s combobox is the design to adopt.
 6. **The graph view.** `Open results in new graph` is correctly enabled and disabled, but there is no graph view in the prototype to arrive at, so the handoff itself is unspecified here.
 7. **Fixture data.** The prototype's store is an academic subject ontology, not the fixture in [`62-pizza-ontology-fixture.md`](../62-pizza-ontology-fixture.md). This surface therefore has no entry in [`61-acceptance-criteria-and-tests.md`](../61-acceptance-criteria-and-tests.md) until fixture queries are added.
-8. **Retrieval.** The prototype scans every entity for every keystroke `[src: runSearch()]`. That is correct for 28 entities and wrong for the shipped build. Indexing is out of scope here and belongs to [`11-data-model-and-store.md`](../11-data-model-and-store.md).
+8. **Match mode.** The prototype offers All words, Any word and Exact phrase `[src: #matchMode]`, and a remedy that switches between them. Neither is adopted: FND-6 gives the user one search that works without a choice of algorithm, following [#17](https://github.com/craigtrim/axiom/issues/17). This is a decision, not a defect, and this document wins over the prototype on it. [`visual-reference.html`](visual-reference.html) still shows the withdrawn remedy.
+9. **Retrieval.** The prototype scans every entity for every keystroke `[src: runSearch()]`. That is correct for 28 entities and wrong for the shipped build. Indexing is out of scope here and belongs to [`11-data-model-and-store.md`](../11-data-model-and-store.md).
 
 ---
 
