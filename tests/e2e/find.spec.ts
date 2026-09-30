@@ -160,7 +160,7 @@ test("Find adds its search text as a synonym without clearing results and refres
   await openSynonymFixture();
   await find("Developmental Psycho");
   const p = pane(),
-    query = p.getByRole("searchbox", { name: "Find text" });
+    query = p.getByRole("searchbox", { name: "Search the ontology" });
   await query.fill("  Developmental Psycho  ");
   const name = p.getByRole("button", {
     name: "Developmental Psychology",
@@ -174,7 +174,7 @@ test("Find adds its search text as a synonym without clearing results and refres
     .getByRole("combobox", { name: /Value/ });
   await expect(values).toHaveValue("Developmental Psyc");
   await menu("view.find");
-  await expect(p.locator("tbody tr")).toHaveCount(2);
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(2);
   await expect(p.locator(".find-results-scroll")).toHaveAttribute(
     "aria-busy",
     "false",
@@ -201,7 +201,7 @@ test("Find adds its search text as a synonym without clearing results and refres
     observation.observer.observe(body, { childList: true });
     (window as any).findRowObservation = observation;
   });
-  const row = p.locator("tbody tr").filter({
+  const row = p.locator(".find-results tbody tr").filter({
     has: page.getByRole("button", {
       name: "Developmental Psychology",
       exact: true,
@@ -258,7 +258,7 @@ test("Find adds its search text as a synonym without clearing results and refres
   await menu("edit.undo");
   await expect(add).toBeEnabled();
   expect((await synonymDocument()).statements).toEqual(before.statements);
-  await expect(p.locator("tbody tr")).toHaveCount(2);
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(2);
   await name.focus();
   expect((await state()).redoLabel).toBe("Add synonym");
   await menu("edit.redo");
@@ -276,12 +276,12 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
   await openSynonymFixture();
   await find("DEVELOPMENTAL PSYCHOLOGY");
   const p = pane(),
-    query = p.getByRole("searchbox", { name: "Find text" });
+    query = p.getByRole("searchbox", { name: "Search the ontology" });
   const name = p.getByRole("button", {
     name: "Developmental Psychology",
     exact: true,
   });
-  const row = p.locator("tbody tr").filter({
+  const row = p.locator(".find-results tbody tr").filter({
     has: page.getByRole("button", {
       name: "Developmental Psychology",
       exact: true,
@@ -361,7 +361,7 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
     pane().getByRole("button", { name: "Basic English", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toBeFocused();
   expect((await state()).graph.nodes.map((n) => n.iri)).toEqual(before);
   await expect(pane()).toContainText(
@@ -377,7 +377,7 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
   );
   await menu("view.find");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("prep lang");
   await pane()
     .getByRole("button", { name: "Find in taxonomy", exact: true })
@@ -397,11 +397,11 @@ test("Find filters, sorts and pages every match with useful result actions", asy
     .selectOption("25");
   await p.getByRole("combobox", { name: "Sort results" }).selectOption("name");
   await expect(p.getByRole("status").first()).toHaveText("125 matches");
-  await expect(p.locator("tbody tr")).toHaveCount(25);
-  await expect(p.locator("tbody tr").first()).toContainText("Basic English");
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(25);
+  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
   await p.getByRole("button", { name: "Last results page" }).click();
-  await expect(p).toContainText("Page 5 / 5");
-  await expect(p.locator("tbody tr")).toHaveCount(25);
+  await expect(p).toContainText("Page 5 of 5");
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(25);
   await expect(
     p.getByRole("button", { name: "Next results page" }),
   ).toBeDisabled();
@@ -416,7 +416,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
     p.getByRole("button", { name: "English teaching", exact: true }),
   ).toBeVisible();
   await p.getByRole("button", { name: "Reset filters", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Find text" }).fill("asic eng");
+  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("asic eng");
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   await expect(
     p.getByRole("button", { name: "Basic English", exact: true }),
@@ -442,7 +442,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");
-  await pane().getByRole("searchbox", { name: "Find text" }).press("Control+f");
+  await pane().getByRole("searchbox", { name: "Search the ontology" }).press("Control+f");
   const d = page.getByRole("dialog", { name: "Find entities" }),
     input = d.getByRole("combobox", { name: "Search entities" });
   await expect(input).toBeFocused();
@@ -455,7 +455,7 @@ test("Ctrl+F, Escape and remapped Find preserve the previous results", async () 
   await input.fill("cancelled search");
   await input.press("Escape");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Basic");
   await page.evaluate(() =>
     window.axiom.keyboard.save({
@@ -465,7 +465,7 @@ test("Ctrl+F, Escape and remapped Find preserve the previous results", async () 
     }),
   );
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .press("Control+Shift+f");
   await expect(input).toBeFocused();
   await input.press("Escape");
@@ -488,16 +488,16 @@ test("Find refreshes after edits and keeps filters when closed, reopened and res
   }, base + "Basic");
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await expect(pane().getByRole("status").first()).toHaveText("0 matches");
-  await pane().getByRole("searchbox", { name: "Find text" }).fill("Revised");
+  await pane().getByRole("searchbox", { name: "Search the ontology" }).fill("Revised");
   await expect(
     pane().getByRole("button", { name: "Revised English", exact: true }),
   ).toBeVisible();
-  await pane().getByRole("searchbox", { name: "Find text" }).blur();
+  await pane().getByRole("searchbox", { name: "Search the ontology" }).blur();
   await menu("pane.close");
   await expect(pane()).toHaveCount(0);
   await menu("view.find");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Revised");
   await expect(
     pane().getByRole("checkbox", { name: "Classes", exact: true }),
@@ -517,7 +517,7 @@ test("Find refreshes after edits and keeps filters when closed, reopened and res
   await launch();
   await menu("view.find");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Revised");
   await expect(
     pane().getByRole("button", { name: "Revised English", exact: true }),
@@ -525,7 +525,7 @@ test("Find refreshes after edits and keeps filters when closed, reopened and res
 });
 test("Find is usable in a detached narrow pane and opens quick Find there", async () => {
   await find("English");
-  await pane().getByRole("searchbox", { name: "Find text" }).focus();
+  await pane().getByRole("searchbox", { name: "Search the ontology" }).focus();
   const popupPromise = app.waitForEvent("window");
   await menu("pane.detach");
   const detached = await popupPromise;
@@ -537,13 +537,13 @@ test("Find is usable in a detached narrow pane and opens quick Find there", asyn
     w?.setSize(650, 650);
   });
   await pane(detached)
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("Basic");
   await expect(
     pane(detached).getByRole("button", { name: "Basic English", exact: true }),
   ).toBeVisible();
   await pane(detached)
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .press("Control+f");
   await expect(
     detached.getByRole("dialog", { name: "Find entities" }),
@@ -555,7 +555,7 @@ test("Find is usable in a detached narrow pane and opens quick Find there", asyn
     .getByRole("combobox", { name: "Search entities" })
     .press("Enter");
   await expect(
-    pane(detached).getByRole("searchbox", { name: "Find text" }),
+    pane(detached).getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("English");
   await detached.screenshot({ path: "artifacts/testing/find-detached.png" });
   await menu("pane.reattach");
@@ -588,13 +588,13 @@ test("MPNet Find recognizes synonyms without spelling overlap and opens the same
   await menu("view.find");
   const p = pane();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Find text" }).fill("car");
+  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("car");
   await expect(
     p.getByRole("button", { name: "Automobile", exact: true }),
   ).toBeVisible({
     timeout: 30000,
   });
-  await expect(p.locator("tbody tr").first()).toContainText("Carpet");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText("Carpet");
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   const result = await page.evaluate(() =>
     window.axiom.request<{
@@ -642,29 +642,29 @@ test("automatic Find enriches an unseen query and preserves field and type facet
     .press("Enter");
   const p = pane();
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
-  await expect(p.locator("tbody tr").first()).toContainText("Basic English");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
   await expect(
     p.getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeVisible();
-  await p.getByRole("button", { name: "Clear fields", exact: true }).click();
+  await p.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(p).toContainText("Select at least one field");
   await p.getByRole("checkbox", { name: "rdfs:comment", exact: true }).check();
   await p
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("written and spoken English");
-  await expect(p.locator("tbody tr")).toHaveCount(1);
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(1);
   await expect(p.locator(".find-match-evidence")).toContainText("rdfs:comment");
   await p.getByRole("button", { name: "All fields", exact: true }).click();
   await expect(
     p.getByRole("checkbox", { name: "rdf:type", exact: true }),
   ).toBeChecked();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Find text" }).fill("Basic English");
-  await expect(p.locator("tbody tr").first()).toContainText("Basic English");
+  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("Basic English");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
   await types(["Instances"]);
-  await p.getByRole("searchbox", { name: "Find text" }).fill("English learner");
-  await expect(p.locator("tbody tr")).toHaveCount(1);
-  await expect(p.locator("tbody tr")).toContainText("English learner");
+  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("English learner");
+  await expect(p.locator(".find-results tbody tr")).toHaveCount(1);
+  await expect(p.locator(".find-results tbody tr")).toContainText("English learner");
   expect(
     (await p.locator(".find-results-scroll").boundingBox())!.height,
   ).toBeGreaterThan(120);
@@ -694,17 +694,17 @@ test("Find similar starts from a taxonomy node and excludes the source entity", 
     .click();
   await expect(pane()).toBeVisible();
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Basic English");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
-  await expect(pane().locator("tbody tr").first()).toBeVisible();
+  await expect(pane().locator(".find-results tbody tr").first()).toBeVisible();
   await expect(
     pane().getByRole("button", { name: "Basic English", exact: true }),
   ).toHaveCount(0);
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("English Basic");
   await expect(
     pane().getByRole("button", { name: "Basic English", exact: true }),
@@ -725,19 +725,19 @@ test("graph Find similar uses the selected name and field facets survive restart
     .getByRole("menuitem", { name: "Find similar", exact: true })
     .click();
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Basic English");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
   await pane()
-    .getByRole("button", { name: "Clear fields", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
     .click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("written communication");
   await types(["Classes"]);
   await app.evaluate(
@@ -755,7 +755,7 @@ test("graph Find similar uses the selected name and field facets survive restart
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("written communication");
   await expect(
     pane().getByRole("slider", { name: "Minimum similarity" }),
@@ -787,8 +787,8 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
     .selectOption("25");
   await expect(pane().getByRole("status").first()).toHaveText("125 matches");
   await pane().getByRole("button", { name: "Last results page" }).click();
-  await expect(pane()).toContainText("Page 5 / 5");
-  await expect(pane().locator("tbody tr")).toHaveCount(25);
+  await expect(pane()).toContainText("Page 5 of 5");
+  await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
   const before = await state();
   const previousId = before.activeGraphId!;
   await page.screenshot({ path: "artifacts/testing/find-open-results.png" });
@@ -833,9 +833,9 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
   await menu("view.find");
   await expect(pane()).toBeVisible();
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("English");
-  await expect(pane()).toContainText("Page 5 / 5");
+  await expect(pane()).toContainText("Page 5 of 5");
   await pane()
     .getByRole("button", { name: "Open results in new graph", exact: true })
     .click();
@@ -871,13 +871,13 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
 test("result graphs follow field filters and instance ancestry without expanding siblings", async () => {
   await find("Basic");
   await pane()
-    .getByRole("button", { name: "Clear fields", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
     .click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("A foundation in written and spoken English.");
   await expect(pane().getByRole("status").first()).toHaveText("1 match");
   await pane()
@@ -893,7 +893,7 @@ test("result graphs follow field filters and instance ancestry without expanding
   await pane()
     .getByRole("button", { name: "Reset filters", exact: true })
     .click();
-  await pane().getByRole("searchbox", { name: "Find text" }).fill("English");
+  await pane().getByRole("searchbox", { name: "Search the ontology" }).fill("English");
   await types(["Instances"]);
   await expect(pane().getByRole("status").first()).toHaveText("1 match");
   await pane()
@@ -915,7 +915,7 @@ test("result graphs follow field filters and instance ancestry without expanding
   );
   await menu("view.find");
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("no such entity anywhere");
   await expect(pane().getByRole("status").first()).toHaveText("0 matches");
   await expect(
@@ -955,20 +955,20 @@ test("quick Find clears a taxonomy filter and reveals the selection in the visib
   await expect(hierarchy.getByPlaceholder("Filter hierarchy")).toHaveValue("");
   await visibleTaxonomySelection(base + "Basic");
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toBeFocused();
 });
 test("clicking a Find result scrolls the open taxonomy to a distant matching entity", async () => {
   await find("English");
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("English Course 122");
   await pane()
     .getByRole("button", { name: "English Course 122", exact: true })
     .click();
   await visibleTaxonomySelection(base + "Course122");
   await pane()
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("Basic English");
   await pane()
     .getByRole("button", { name: "Basic English", exact: true })
@@ -1030,7 +1030,7 @@ test("Find also scrolls a detached taxonomy without taking focus from the result
   await find("English Course 122");
   await visibleTaxonomySelection(base + "Course122", detached);
   await expect(
-    pane().getByRole("searchbox", { name: "Find text" }),
+    pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toBeFocused();
 });
 
@@ -1053,7 +1053,7 @@ test("Find and resource inputs keep lexical results when the local model is abse
     )
     .toBe(true);
   await find("prep lang");
-  await expect(pane().locator("tbody tr").first()).toContainText(
+  await expect(pane().locator(".find-results tbody tr").first()).toContainText(
     "Basic English",
   );
   const result = await page.evaluate(async () => {
@@ -1168,7 +1168,7 @@ test("reading and comp ranks Reading Comprehension first in quick Find and the r
     )
     .toBe(true);
   await find("reading and comp");
-  await expect(pane().locator("tbody tr").first()).toContainText(
+  await expect(pane().locator(".find-results tbody tr").first()).toContainText(
     "Reading Comprehension",
   );
   await expect(
