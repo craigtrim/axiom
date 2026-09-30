@@ -61,6 +61,9 @@ export interface TextAnalysisClassInput {
   label: string;
   comment: string;
   parents: ({ iri: string } | { create: TextAnalysisClassInput })[];
+  iri?: string;
+  statements?: { predicate: string; object: import("../domain/model").Term }[];
+  checkAllEntities?: boolean;
 }
 
 /** Native names can identify several IRIs; model annotations have no ontology target. */

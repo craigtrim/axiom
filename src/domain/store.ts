@@ -16,6 +16,7 @@ import {
   isDefaultIdentifier,
   preferredLabel,
   validLabel,
+  validResource,
   projectEntities,
   validateStatement,
   statementKey,
@@ -53,6 +54,8 @@ export interface ClassCreation {
   name: string;
   comment: string;
   parents: ({ iri: string } | { id: string })[];
+  iri?: string;
+  statements?: { predicate: string; object: Term }[];
 }
 export class Store {
   ontology: OntologyInfo = {
@@ -1186,7 +1189,8 @@ export class Store {
       if (!item.id || ids.has(item.id))
         throw Error("Duplicate class reference.");
       if (!item.parents.length) throw Error("Choose an existing superclass.");
-      const iri = uniqueLabelIri(
+      if (item.iri !== undefined && (!validResource(item.iri, false) || reserved.has(item.iri) || this.exists(item.iri) || this.bySubject.has(item.iri) || this.byPredicate.has(item.iri) || this.reverse.has(item.iri))) throw Error("The subject IRI is invalid or already in use.");
+      const iri = item.iri ?? uniqueLabelIri(
         item.name,
         this.ontology.namespace,
         (candidate) => reserved.has(candidate) || this.exists(candidate),
@@ -1201,6 +1205,7 @@ export class Store {
       const parents = new Set<string>(),
         pendingParents = new Set<string>();
       for (const ref of item.parents) {
+        if ("iri" in ref && ref.iri === iri) throw Error("A class cannot be its own ancestor.");
         if ("id" in ref) {
           const parent = ids.get(ref.id);
           if (!parent) throw Error("A new superclass is missing.");
@@ -1230,6 +1235,10 @@ export class Store {
           predicate: COMMENT,
           object: literal(item.comment.trim()),
         });
+      for (const statement of item.statements ?? []) {
+        if ([TYPE, LABEL, SUBCLASS, COMMENT].includes(statement.predicate)) throw Error("Edit fixed statements in their own fields.");
+        statements.push({ subject: iri, predicate: statement.predicate, object: { ...statement.object } });
+      }
     }
     // Existing classes cannot point to these fresh IRIs. Only new edges can cycle.
     const ready = [...dependencies]

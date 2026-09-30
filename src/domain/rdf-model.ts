@@ -9,6 +9,7 @@ import {
   type Triple,
   type Kind,
 } from "./model";
+import { entityIdentifier } from "../shared/entity-names";
 export const LABEL = NS.rdfs + "label",
   COMMENT = NS.rdfs + "comment";
 export const displayName = (e: Entity) =>
@@ -16,15 +17,7 @@ export const displayName = (e: Entity) =>
   e.label ??
   e.name.replace(/_/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
 export function identifier(label: string) {
-  const words =
-    label
-      .trim()
-      .normalize("NFKC")
-      .match(/[\p{L}\p{N}_]+/gu) ?? [];
-  let name = words.map((w) => w[0].toLocaleUpperCase() + w.slice(1)).join("");
-  if (!name) name = "Entity";
-  if (!/^\p{L}/u.test(name)) name = "Entity" + name;
-  return name.slice(0, 200);
+  return entityIdentifier(label);
 }
 export function identifierParts(iri: string) {
   const split =

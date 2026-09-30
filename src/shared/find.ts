@@ -18,7 +18,10 @@ export interface FindOptions {
   kinds: FindKind[];
   fields: string[];
   excludeIri: string;
-  sort: "relevance" | "name" | "name-desc" | "iri";
+  sort: "relevance" | "name" | "name-desc" | "iri" | "type";
+  browse?: boolean;
+  diagnostics?: boolean;
+  revealIri?: string;
   offset: number;
   limit: number;
 }
@@ -43,6 +46,12 @@ export interface FindRow {
   similarity?: number;
   matchedField?: string;
   matchedValue?: string;
+  path?: string;
+  aliases?: string[];
+}
+export interface FindRemedy {
+  id: "fields" | "types" | "reset";
+  count: number;
 }
 export interface FindResults {
   resultId?: string;
@@ -51,6 +60,9 @@ export interface FindResults {
   kinds: FindFacet[];
   total: number;
   offset: number;
+  storeTotal?: number;
+  remedies?: FindRemedy[];
+  emptyCause?: "query" | "filters";
 }
 export function readFindOptions(input: unknown): FindOptions {
   const v =
@@ -60,6 +72,9 @@ export function readFindOptions(input: unknown): FindOptions {
   const choice = <T extends string>(key: string, values: T[], fallback: T) =>
     values.includes(v[key] as T) ? (v[key] as T) : fallback;
   return {
+    ...(v.browse === true ? { browse: true } : {}),
+    ...(v.diagnostics === true ? { diagnostics: true } : {}),
+    ...(typeof v.revealIri === "string" && v.revealIri ? { revealIri: v.revealIri.slice(0, 10000) } : {}),
     text: typeof v.text === "string" ? v.text.slice(0, 256) : "",
     kind: choice(
       "kind",
@@ -93,7 +108,7 @@ export function readFindOptions(input: unknown): FindOptions {
       typeof v.excludeIri === "string" ? v.excludeIri.slice(0, 10000) : "",
     sort: choice(
       "sort",
-      ["relevance", "name", "name-desc", "iri"],
+      ["relevance", "name", "name-desc", "iri", "type"],
       "relevance",
     ),
     offset:

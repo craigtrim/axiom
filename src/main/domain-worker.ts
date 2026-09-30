@@ -1,4 +1,6 @@
 import { mergeEntityStatements } from "../domain/entity-merge";
+import { previewFindCreation, createFindEntity } from "../domain/find-creation";
+import { entityNameCollisions } from "../domain/entity-name-index";
 import {
   textAnalysisDraft,
   createTextAnalysisClass,
@@ -153,11 +155,13 @@ async function semanticFindScores(a: Record<string, unknown>) {
     searchId = string(a, "searchId", 200);
   if (searchConsumers.get(consumer) !== searchId || !options.text.trim())
     return;
-  const key = revision + JSON.stringify([...options.fields].sort());
+  // Facet and remedy counts use the same query embedding over the complete corpus.
+  const fields = options.diagnostics ? ["*"] : options.fields;
+  const key = revision + JSON.stringify([...fields].sort());
   const queryKey = key + options.text.toLocaleLowerCase();
   const cached = semanticResults.get(queryKey);
   if (cached) return cached;
-  const texts = indexFor(store).semanticTexts(options.fields);
+  const texts = indexFor(store).semanticTexts(fields);
   if (!texts.length) return;
   const scores = await embeddings.search(key, options.text, texts, consumer);
   if (searchRevision !== revision || searchConsumers.get(consumer) !== searchId)
@@ -397,6 +401,7 @@ function runLayout(fresh = true) {
   message = "Computing " + layouts.choice + " layout...";
 }
 const tracked = new Set<DomainMethod>([
+  "findCreate",
   "textAnalysisCreate",
   "seed",
   "expand",
@@ -948,14 +953,29 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       mutate("Source changes applied to all views.");
       return result;
     }
+    case "findCreatePreview":
+    case "findCreate": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error("The ontology changed. Review the draft before adding it.");
+      if (method === "findCreatePreview") return previewFindCreation(store, a.creation, datasetEpoch);
+      selected = createFindEntity(store, a.creation, datasetEpoch);
+      mutate("Class added from Find. Undo removes the addition.");
+      return selected;
+    }
     case "textAnalysisDraft":
     case "textAnalysisCreate": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error(
           "The ontology changed. Refresh the selected phrase before adding it.",
         );
-      if (method === "textAnalysisDraft")
-        return textAnalysisDraft(store, string(a, "label", 256), datasetEpoch);
+      if (method === "textAnalysisDraft") {
+        const draft = textAnalysisDraft(store, string(a, "label", 256), datasetEpoch);
+        if (a.checkAllEntities === true) {
+          for (const collision of entityNameCollisions(store, draft.label, typeof a.iri === "string" ? a.iri : "").collisions)
+            if (!draft.existing.some(e => e.iri === collision.iri)) draft.existing.push(collision);
+        }
+        return draft;
+      }
       selected =
         a.creation !== undefined
           ? createTextAnalysisHierarchy(store, a.creation)

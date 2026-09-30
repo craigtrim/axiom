@@ -144,6 +144,8 @@ const pending = new Map<
 const methods = new Set<DomainMethod>([
   "textAnalysisDraft",
   "textAnalysisCreate",
+  "findCreatePreview",
+  "findCreate",
   "new",
   "example",
   "search",

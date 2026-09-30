@@ -90,6 +90,8 @@ export type DomainMethod =
   | "semanticSimilarity"
   | "textAnalysisDraft"
   | "textAnalysisCreate"
+  | "findCreatePreview"
+  | "findCreate"
   | "textAnalysisContext"
   | "intersectionSuggestions"
   | "subclassSuggestions"
