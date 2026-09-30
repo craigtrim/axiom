@@ -1,5 +1,11 @@
 import { clearTaxonomyReveal } from "./taxonomy-navigation";
 import {
+  installTextEntitySplitter,
+  setTextEntitySplit,
+  textEntitySplit,
+  textEntityWeights,
+} from "./text-entity-split";
+import {
   TabHistoryPanel,
   TabHistorySettings,
   RenameTabDialog,
@@ -439,6 +445,7 @@ export function App() {
     active = useRef("graph"),
     pendingLayout = useRef<unknown>(null);
   modelRef.current = model;
+  useEffect(() => installTextEntitySplitter(model, document), [model]);
   useEffect(() => {
     syncEditorEpoch(s.datasetEpoch);
     syncFindEpoch(s.datasetEpoch);
@@ -707,6 +714,7 @@ export function App() {
           -1,
         ),
       );
+      setTextEntitySplit(m, 52);
     }
     show("textentities", focusPanel);
   };
@@ -1380,6 +1388,10 @@ export function App() {
             applyTheme(d);
             const remove = installKeyboard(d);
             d.defaultView?.addEventListener("unload", remove, { once: true });
+            const removeSplit = installTextEntitySplitter(modelRef.current, d);
+            d.defaultView?.addEventListener("unload", removeSplit, {
+              once: true,
+            });
           }}
           onPopoutClose={(_m, _w, d) => {
             documents.delete(d);
@@ -1387,6 +1399,18 @@ export function App() {
             setTimeout(updatePaneMenu, 0);
           }}
           onAction={(a) => {
+            if (a.type === Actions.ADJUST_WEIGHTS) {
+              const split = textEntitySplit(modelRef.current);
+              if (split && split.row.getId() === a.data.nodeId) {
+                const weights = a.data.weights as number[];
+                const total = weights[split.index - 1] + weights[split.index];
+                a.data.weights = textEntityWeights(
+                  modelRef.current,
+                  (weights[split.index] / total) * 100,
+                  weights,
+                );
+              }
+            }
             if (a.type === Actions.RENAME_TAB) {
               try {
                 renameTab(modelRef.current, a.data.node, a.data.text);

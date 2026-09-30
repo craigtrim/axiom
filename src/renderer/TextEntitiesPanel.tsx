@@ -101,6 +101,7 @@ export function TextEntitiesPanel() {
         id={id + "-content"}
         aria-labelledby={id + "-" + currentMode}
         className="text-entities-content"
+        data-mode={currentMode}
       >
         {currentMode === "summary" && (
           <>
@@ -109,18 +110,28 @@ export function TextEntitiesPanel() {
                 (entity) => entity.iri === created.iri,
               ) && (
                 <div className="text-analysis-created">
-                  <span role="status">
-                    Added {created.label} under{" "}
-                    {created.parents
-                      .map(
-                        (parent) =>
-                          snapshot.entities.find(
-                            (entity) => entity.iri === parent,
-                          )?.label ?? parent,
+                  <div role="status">
+                    {(created.classes ?? [created])
+                      .filter((item) =>
+                        snapshot.entities.some(
+                          (entity) => entity.iri === item.iri,
+                        ),
                       )
-                      .join(", ")}
-                    .
-                  </span>
+                      .map((item) => (
+                        <p key={item.iri}>
+                          Added {item.label} under{" "}
+                          {item.parents
+                            .map(
+                              (parent) =>
+                                snapshot.entities.find(
+                                  (entity) => entity.iri === parent,
+                                )?.label || parent,
+                            )
+                            .join(", ")}
+                          .
+                        </p>
+                      ))}
+                  </div>
                   <button onClick={() => revealInTaxonomy(created.iri)}>
                     View in Taxonomy
                   </button>
@@ -161,10 +172,11 @@ export function TextEntitiesPanel() {
             draft={creation.draft}
             changeDraft={textAnalysisSession.updateDraft}
             phrase={creation.phrase}
+            context={creation.context}
             datasetEpoch={creation.datasetEpoch}
             close={summary}
-            added={(iri, label, parents) => {
-              textAnalysisSession.added(iri, label, parents);
+            added={(iri, label, parents, classes) => {
+              textAnalysisSession.added(iri, label, parents, classes);
               focusAnalysisText();
             }}
           />

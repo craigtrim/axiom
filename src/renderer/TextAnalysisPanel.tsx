@@ -220,7 +220,11 @@ export function TextAnalysisPanel() {
     if (!model || !selection || instance?.getSelections()?.length !== 1) return;
     const phrase = model.getValueInRange(selection).trim();
     if (!phrase || phrase.length > 256) return;
-    textAnalysisSession.create(phrase);
+    const raw = model.getValueInRange(selection);
+    textAnalysisSession.create(
+      phrase,
+      model.getOffsetAt(selection.getStartPosition()) + raw.indexOf(phrase),
+    );
     command("textentities.open");
   };
   const entities = result?.entities ?? [];

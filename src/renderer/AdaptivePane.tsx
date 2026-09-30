@@ -101,7 +101,8 @@ export function AdaptivePane({
           Math.round(height),
           old,
         ).recovery;
-        if (visual) next.recovery = false;
+        // Text Entities keeps its action footer usable while the form scrolls.
+        if (visual || paneId === "textentities") next.recovery = false;
         if (next.recovery && !old.recovery) {
           const focused = host.ownerDocument
             .activeElement as HTMLElement | null;

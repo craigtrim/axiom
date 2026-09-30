@@ -2,6 +2,8 @@ import { classMoveIssue } from "../domain/taxonomy-move";
 import { taxonomyRows } from "../domain/taxonomy-rows";
 import {
   alignTaxonomyRow,
+  completeTaxonomyReveal,
+  currentTaxonomyReveal,
   takeTaxonomyReveal,
   revealInTaxonomy,
 } from "./taxonomy-navigation";
@@ -87,7 +89,7 @@ export function HierarchyPanel() {
     const request = revealRef.current;
     const tree = rootRef.current?.querySelector<HTMLElement>('[role="tree"]');
     if (!request || !tree) return;
-    if (request.epoch !== s.datasetEpoch) {
+    if (!currentTaxonomyReveal(request)) {
       revealRef.current = null;
       return;
     }
@@ -96,6 +98,11 @@ export function HierarchyPanel() {
     let frame = 0;
     const align = () => {
       if (revealRef.current !== request) return;
+      if (!currentTaxonomyReveal(request)) {
+        revealRef.current = null;
+        observer.disconnect();
+        return;
+      }
       if (
         request.details &&
         (selectionFromHierarchy ||
@@ -106,13 +113,10 @@ export function HierarchyPanel() {
       const row = [
         ...tree.querySelectorAll<HTMLElement>("[data-entity-iri]"),
       ].find((r) => r.dataset.entityIri === request.iri);
-      if (
-        row &&
-        alignTaxonomyRow(tree, row, request.anchor) &&
-        !request.details
-      ) {
+      if (row && alignTaxonomyRow(tree, row, request.anchor)) {
         revealRef.current = null;
         observer.disconnect();
+        completeTaxonomyReveal(request);
       }
     };
     const schedule = () => {

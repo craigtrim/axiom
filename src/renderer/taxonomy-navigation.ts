@@ -3,16 +3,35 @@ import {
   onCommand,
   state,
   selectionFromHierarchy,
+  selectionRevision,
   setSelectionOrigin,
 } from "./client";
 
 interface TaxonomyReveal {
   iri: string;
   epoch: number;
+  revision: number;
   anchor?: HTMLElement;
   details?: HTMLElement;
 }
 let pending: TaxonomyReveal | null = null;
+// Keep completion across Details remounts caused by docking or detaching.
+let completed: Pick<TaxonomyReveal, "iri" | "epoch" | "revision"> | null = null;
+
+export function currentTaxonomyReveal(request: TaxonomyReveal) {
+  return (
+    request.epoch === state?.datasetEpoch &&
+    request.revision === selectionRevision &&
+    request.iri === state?.selected &&
+    !state?.graph.selectedEdge
+  );
+}
+export function completeTaxonomyReveal(request: TaxonomyReveal) {
+  if (!currentTaxonomyReveal(request)) return;
+  const { iri, epoch, revision } = request;
+  completed = { iri, epoch, revision };
+  command("taxonomy.revealed");
+}
 
 export function revealInTaxonomy(
   iri: string,
@@ -20,7 +39,12 @@ export function revealInTaxonomy(
   onlyOpen = false,
 ) {
   setSelectionOrigin();
-  pending = { iri, epoch: state?.datasetEpoch ?? -1, anchor };
+  pending = {
+    iri,
+    epoch: state?.datasetEpoch ?? -1,
+    revision: selectionRevision,
+    anchor,
+  };
   // Explicit navigation can open a hidden taxonomy pane.
   if (!anchor)
     command(onlyOpen ? "taxonomy.reveal.existing" : "taxonomy.reveal.open");
@@ -47,9 +71,9 @@ export function clearTaxonomyReveal() {
 export function takeTaxonomyReveal() {
   const request = pending;
   pending = null;
-  return request?.epoch === state?.datasetEpoch ? request : null;
+  return request && currentTaxonomyReveal(request) ? request : null;
 }
-/** Follow Details without opening, selecting, or focusing another pane. */
+/** Reveal each Details selection once without opening or focusing another pane. */
 export function followDetailsInTaxonomy(iri: string, details: HTMLElement) {
   const entity = state?.entities.find((e) => e.iri === iri);
   if (
@@ -61,10 +85,13 @@ export function followDetailsInTaxonomy(iri: string, details: HTMLElement) {
   const epoch = state!.datasetEpoch;
   const win = details.ownerDocument.defaultView!;
   let frame = 0;
-  let geometry = "";
-  let previousAnchor: HTMLElement | undefined;
+  const done = () =>
+    completed?.iri === iri &&
+    completed.epoch === epoch &&
+    completed.revision === selectionRevision;
   const reveal = () => {
     if (
+      done() ||
       state?.datasetEpoch !== epoch ||
       state.selected !== iri ||
       state.graph.selectedEdge ||
@@ -72,77 +99,57 @@ export function followDetailsInTaxonomy(iri: string, details: HTMLElement) {
       !details.isConnected
     )
       return;
-    if (!details.checkVisibility({ visibilityProperty: true })) {
-      geometry = "";
-      return;
-    }
-    const anchor =
-      details.querySelector<HTMLElement>(".ancestry-current") ?? details;
-    const paneBounds = details.getBoundingClientRect();
-    const anchorBounds = anchor.getBoundingClientRect();
-    const next = [
-      paneBounds.x,
-      paneBounds.y,
-      paneBounds.width,
-      paneBounds.height,
-      anchorBounds.x,
-      anchorBounds.y,
-      anchorBounds.width,
-      anchorBounds.height,
-    ].join(",");
-    if (geometry === next && previousAnchor === anchor) return;
-    geometry = next;
-    previousAnchor = anchor;
-    pending = { iri, epoch, anchor, details };
+    if (!details.checkVisibility({ visibilityProperty: true })) return;
+    const editor = details.querySelector<HTMLElement>("[data-entity-iri]");
+    if (editor?.dataset.entityIri !== iri) return;
+    const anchor = editor.querySelector<HTMLElement>(".ancestry-current");
+    // Class documents load asynchronously. Wait for this selection's card
+    // instead of completing the reveal against the temporary loading panel.
+    if (!anchor && ["Class", "Defined"].includes(entity.kind)) return;
+    pending = {
+      iri,
+      epoch,
+      revision: selectionRevision,
+      anchor: anchor ?? details,
+      details,
+    };
     command("taxonomy.reveal");
   };
   const schedule = () => {
+    if (done() || selectionFromHierarchy) return;
     win.cancelAnimationFrame(frame);
     frame = win.requestAnimationFrame(() => {
       frame = win.requestAnimationFrame(reveal);
     });
   };
   const resize = new win.ResizeObserver(schedule);
-  resize.observe(details);
   // Entity documents and ancestry load after the selection itself changes.
   const content = new win.MutationObserver(schedule);
-  content.observe(details, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-  });
-  const off = onCommand((id) => {
-    if (id === "taxonomy.follow" || id === "selection.follow") geometry = "";
-    if (
-      id === "taxonomy.follow" ||
-      id === "taxonomy.layout" ||
-      id === "selection.follow"
-    )
-      schedule();
-  });
-  const focus = (event: FocusEvent) => {
-    if (details.contains(event.relatedTarget as Node | null)) return;
-    geometry = "";
-    schedule();
-  };
-  const interact = () => {
-    setSelectionOrigin();
-    geometry = "";
-    schedule();
-  };
-  details.addEventListener("pointerdown", interact, true);
-  details.addEventListener("focusin", focus);
-  details.addEventListener("scroll", schedule, true);
-  schedule();
-  return () => {
-    off();
+  const stop = () => {
     resize.disconnect();
     content.disconnect();
-    details.removeEventListener("pointerdown", interact, true);
-    details.removeEventListener("focusin", focus);
-    details.removeEventListener("scroll", schedule, true);
     win.cancelAnimationFrame(frame);
     if (pending?.details === details) pending = null;
+  };
+  const start = () => {
+    if (done() || selectionFromHierarchy) return;
+    resize.observe(details);
+    content.observe(details, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+    schedule();
+  };
+  const off = onCommand((id) => {
+    if (id === "taxonomy.revealed" && done()) stop();
+    if (id === "selection.follow") start();
+    if (id === "taxonomy.follow" || id === "taxonomy.layout") schedule();
+  });
+  start();
+  return () => {
+    off();
+    stop();
   };
 }
 
@@ -152,6 +159,7 @@ export function alignTaxonomyRow(
   row: HTMLElement,
   anchor?: HTMLElement,
 ) {
+  if (!tree.checkVisibility({ visibilityProperty: true })) return false;
   const viewport = tree.getBoundingClientRect();
   const bounds = row.getBoundingClientRect();
   if (!tree.clientHeight || !viewport.height || !bounds.height) return false;

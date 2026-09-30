@@ -16,6 +16,7 @@ export let preferences: Preferences = {
 };
 export let graph: GraphSnapshot | null = null;
 export let selectionFromHierarchy = false;
+export let selectionRevision = 0;
 export function setSelectionOrigin(origin?: unknown) {
   selectionFromHierarchy = origin === "hierarchy";
 }
@@ -98,8 +99,14 @@ export async function act(
   }
 }
 export function setState(s: Snapshot) {
-  if (state?.datasetEpoch !== s.datasetEpoch || state?.selected !== s.selected)
+  if (
+    state?.datasetEpoch !== s.datasetEpoch ||
+    state?.selected !== s.selected ||
+    state?.graph.selectedEdge !== s.graph.selectedEdge
+  ) {
+    selectionRevision++;
     setSelectionOrigin();
+  }
   if (state && state.datasetEpoch !== s.datasetEpoch) {
     pendingUi.length = 0;
     clearTimeout(uiTimer);
@@ -173,6 +180,7 @@ export async function initialise() {
     if (type === "layout-error") report(data.message, true);
     if (type === "state") setState(data as Snapshot);
     if (type === "selection" && state) {
+      selectionRevision++;
       setSelectionOrigin(data.origin);
       command("selection.changed");
       graph = { ...state.graph, selectedEdge: null, selected: data.iri };

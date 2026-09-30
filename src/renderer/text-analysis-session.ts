@@ -1,4 +1,5 @@
 import { LiveAnalysis, type LiveAnalysisState } from "./live-analysis";
+import { selectionContext } from "./text-parent-options";
 import type {
   TextAnalysisInput,
   TextAnalysisResult,
@@ -14,13 +15,23 @@ export interface TextEntityClassDraft {
 export interface TextEntityDraft {
   frames: { value: TextEntityClassDraft; editIndex?: number }[];
 }
+export interface TextEntityCreated {
+  iri: string;
+  label: string;
+  parents: string[];
+}
 export interface TextAnalysisSessionState {
   input: TextAnalysisInput;
   analysis: LiveAnalysisState;
   mode: "summary" | "add";
   details?: { entity: TextEntity; result: TextAnalysisResult };
-  creation?: { phrase: string; datasetEpoch: number; draft?: TextEntityDraft };
-  created?: { iri: string; label: string; parents: string[] };
+  creation?: {
+    phrase: string;
+    datasetEpoch: number;
+    draft?: TextEntityDraft;
+    context?: { before: string; after: string };
+  };
+  created?: TextEntityCreated & { classes?: TextEntityCreated[] };
 }
 /** Both dockable views share one parser queue and the current interaction. */
 export class TextAnalysisSession {
@@ -86,13 +97,14 @@ export class TextAnalysisSession {
   clearDetails() {
     if (this.value.details) this.publish({ details: undefined });
   }
-  create(phrase: string) {
+  create(phrase: string, start?: number) {
     if (!phrase.trim() || phrase.trim().length > 256) return;
     this.publish({
       mode: "add",
       creation: {
         phrase: phrase.trim(),
         datasetEpoch: this.value.input.datasetEpoch,
+        context: selectionContext(this.value.input.text, phrase.trim(), start),
       },
       details: undefined,
       created: undefined,
@@ -112,12 +124,17 @@ export class TextAnalysisSession {
   summary() {
     this.publish({ mode: "summary", creation: undefined });
   }
-  added(iri: string, label: string, parents: string[]) {
+  added(
+    iri: string,
+    label: string,
+    parents: string[],
+    classes?: TextEntityCreated[],
+  ) {
     this.publish({
       mode: "summary",
       details: undefined,
       creation: undefined,
-      created: { iri, label, parents },
+      created: { iri, label, parents, classes },
     });
   }
   reset(input: TextAnalysisInput) {
