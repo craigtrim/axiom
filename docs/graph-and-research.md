@@ -136,7 +136,7 @@ Dragging a divider or moving a pane makes the arrangement custom so subsequent w
 
 ### Details grid and entity source
 
-Details shows Predicate and Value columns. The predicate dropdown includes known relationships, Find predicate and Add predicate. Statement options hold language, datatype and named graph metadata. Open details follows a resource value. Text cells size themselves without resize handles.
+Details shows Predicate and Value columns. The predicate dropdown lists the last predicate chosen in a statement row first, followed by predicates on the entity in row order, predicates used in the workspace by descending statement count, and the remaining known predicates alphabetically. Equal counts sort alphabetically. Each predicate appears once, and rdf:type stays excluded. The last choice resets when the workspace or dataset changes. The dropdown contains only predicates; an empty row also shows Choose predicate. Statement options hold language, datatype and named graph metadata. Open details follows a resource value. Text cells size themselves without resize handles.
 
 The Source disclosure shows the selected entity in the imported document's RDF serialization. New ontologies use Turtle; snippets containing named graphs use a format that preserves them. The snippet includes reachable anonymous structures such as OWL intersections and lists.
 

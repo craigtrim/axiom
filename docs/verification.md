@@ -900,3 +900,40 @@ npm run package now builds Axiom-Setup-<version>.exe with electron-builder and a
 Validation: TypeScript, formatting and 2262 unit tests passed, including eight that hold the installer configuration to per-user install, the application identifier the main process sets, the registry layout of both NSIS macros, shell notification on install and uninstall, and signing that stays off without an endpoint. The four launch desktop tests passed against the electron-builder output. A full install, association check, double-click and silent uninstall ran on Windows: the installer exited 0 without elevation, HKCU carried the ProgID and extension keys, the Start menu shortcut and the Apps and features entry appeared, double-clicking a workspace opened it in the installed copy, and uninstalling removed the ProgID and every artifact while leaving the extension Default value behind.
 
 Records: docs/installation.md. Retired: scripts/register-file-type.ps1 and its test, replaced by the installer.
+
+## 2026-09-30: Automatic entity search and resident MPNet corpora (#17)
+
+Find, result graphs and Details resource inputs now share MiniSearch 7.2.0, pinned as a runtime dependency with its MIT notice included. The old Find and resource matching implementations are removed. Search uses OR retrieval, prefixes on every term, conditional stopword removal, separate field boosts and bounded fuzzy matching. Exact preferred labels and preferred-label prefixes retain precedence. Match selectors, cosine controls and thresholds are removed; saved searches retain their query, filters and sorting.
+
+Lexical results arrive first. After typing pauses, local full-precision MPNet can enrich them using reciprocal-rank fusion with k=60. Semantic admission requires a score of at least 0.5. Semantic-only additions must fall within 0.15 of the best eligible candidate and fill only the first ten results of a thin lexical list. Missing models retain lexical results. Search consumers cancel obsolete pending requests, dataset changes invalidate old work, explicit synonym comparisons remain independent, and result tokens preserve the exact displayed matches when opening graphs.
+
+One embedding worker retains up to four field-specific vector matrices. Corpus preparation groups texts by length and yields between batches. Warm queries embed only their query text and score normalized dot products. Unchanged text vectors remain reusable after edits. Cache writes are atomic, asynchronous and bounded to four concurrent writes and 128 queued vectors.
+
+Validation: 2,737 tests passed across 80 unit/integration files. The 56 affected desktop journeys passed across Find, Details, Source and edges. All 21 Find journeys passed again on the final runtime build; the added `reading and comp` journey also passed, for 57 distinct desktop checks. The final acceptance fixture and real-model checks passed separately, including `understanding what you read` and the `zzqx` negative case. TypeScript and the build passed. Quick Find, semantic results and detached-pane screenshots were inspected. These checks used the development Electron build, not a newly packaged installer.
+
+The worker benchmark used 6,000 entities on an AMD Ryzen Threadripper 3960X and included request/reply overhead. Results below are milliseconds over 100 queries per surface:
+
+| Surface | p50 | p95 | Maximum |
+| --- | ---: | ---: | ---: |
+| Find | 8.60 | 12.45 | 33.18 |
+| Resource suggestions | 6.52 | 10.38 | 12.97 |
+
+The first query, including index construction, took 313.72 ms. Warm p95 meets the 30 ms target; the measurements do not establish a hard maximum of 30 ms. The former 100,000-class timing assertion covered the old all-words matcher. The new timing gate uses issue #17's 6,000-class OR/fuzzy workload. A separate 100,000-class regression retains correct numeric ranking and bounded suggestions; it does not claim the former latency bound.
+
+MPNet was measured with batches of 8, 16 and 32 at 1, 2 and 4 CPU threads. Each configuration used a fresh cache and 64 short course labels; model loading was timed separately. With four threads, cold text preparation took 343.57, 307.85 and 305.41 ms respectively. Batch 16 is the default: its throughput was close to 32 while providing twice as many points to service cancellation and comparison requests. At batch 16/four threads, new query encoding took 15.74 to 17.32 ms. A separate scan of 6,000 normalized vectors took 9.35 ms p50 and 9.56 ms p95. That scan repeats measured vectors to isolate matrix cost; it is not a cold 6,000-text inference measurement.
+
+Records: `artifacts/benchmarks/search-worker.json` and `artifacts/benchmarks/search-mpnet.json`. Reproduction: `tests/performance/search-worker.ts` and `tests/performance/search-mpnet.ts`. Usage: [Find and resource search](find-similarity.md).
+
+## 2026-09-30: Expanded functional search coverage
+
+Added 2,902 deterministic functional cases in six domain test files. The label and alias matrix contains 2,048 named cases: 2,038 distinct query strings and 1,398 distinct strings after normalization. A guard requires at least 1,000 at both levels. Its expected identities come from an authored 64-concept vocabulary with competing labels. Each query exercises Find and class resource suggestions.
+
+The remaining cases cover Unicode and token boundaries, negative queries, fuzzy edit limits, selected RDF fields, all category subsets, facet counts, numeric ranking, exact page contents, graph membership, saved options, and semantic admission and fusion with controlled scores. Five edit scenarios run for every concept, including undo and redo. The suite also checks independent stores and search operations that leave ontology data unchanged.
+
+The focused command `npm run test:search:functional` passed all 2,902 cases. The complete unit/integration suite passed 5,638 tests across 86 files. TypeScript and the application build passed. This addition changes tests, benchmark reporting, commands, and documentation; the earlier desktop validation remains the runtime evidence for the search implementation.
+
+Removed the 6,000-class latency assertion from the domain suite. One hundred numeric ranking cases preserve its functional assertions on a smaller fixture, and the existing 100,000-class functional check remains. `npm run benchmark:search` now owns the warm p95 gate and records its budget and pass/fail result alongside the measurements. The benchmark runs separately from functional tests.
+
+An isolated run on the AMD Ryzen Threadripper 3960X measured 13.12 ms warm p95 for Find and 10.72 ms for resource suggestions, both below the 30 ms budget. Maximums were 29.83 ms and 15.17 ms respectively; first query including index construction was 295.57 ms. These are measured samples, not universal latency bounds. The MPNet benchmark remains independently runnable with `npm run benchmark:search:mpnet`; its earlier measurements were not repeated for this test-only addition.
+
+Records: [functional coverage and case design](search-testing.md), `artifacts/search-functional.json`, `artifacts/search-query-catalog.json`, and `artifacts/benchmarks/search-worker.json`. Generate the complete query catalog with `npm run test:search:catalog`.
