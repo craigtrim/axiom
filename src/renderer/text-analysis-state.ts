@@ -11,12 +11,20 @@ import {
 } from "./client";
 import { textEntityConcepts } from "../shared/text-analysis";
 import { TextAnalysisSession } from "./text-analysis-session";
+import type { TextEntityClassDraft } from "./text-analysis-session";
 import type { TextEntity, TextAnalysisResult } from "../shared/text-analysis";
 
 export const textAnalysisSession = new TextAnalysisSession((input) =>
   window.axiom.textAnalysis.parse(input),
 );
 let initialized = false;
+export function openClassDraft(draft: TextEntityClassDraft, parentLabel?: string) {
+  if (!state) return;
+  initialized = true;
+  textAnalysisSession.update({ text: textAnalysisSession.getSnapshot().input.text, datasetEpoch: state.datasetEpoch, version: state.version });
+  textAnalysisSession.openDraft(draft, parentLabel);
+  command("view.textentities");
+}
 export function syncTextAnalysisContext() {
   if (state?.selected || state?.graph.selectedEdge)
     textAnalysisSession.clearDetails();

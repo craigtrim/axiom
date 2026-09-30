@@ -4,13 +4,19 @@ import type {
   TextAnalysisInput,
   TextAnalysisResult,
   TextEntity,
+  TextAnalysisClassInput,
 } from "../shared/text-analysis";
+import type { FindCreationDraft } from "../shared/find-create";
 
 export interface TextEntityClassDraft {
   label: string;
   comment: string;
   parents: ({ iri: string } | { create: TextEntityClassDraft })[];
   manualParents: boolean;
+  iri?: string;
+  statements?: TextAnalysisClassInput["statements"];
+  checkAllEntities?: boolean;
+  findDraft?: FindCreationDraft;
 }
 export interface TextEntityDraft {
   frames: { value: TextEntityClassDraft; editIndex?: number }[];
@@ -117,6 +123,12 @@ export class TextAnalysisSession {
     if (previous === draft) return;
     this.publish({ creation: { ...creation, draft } });
   };
+  openDraft(draft: TextEntityClassDraft, parentLabel?: string) {
+    const frames = [{ value: draft }];
+    if (parentLabel) frames.push({ value: { label: parentLabel, comment: "", parents: [], manualParents: false, checkAllEntities: true } });
+    this.publish({ mode: "add", details: undefined, created: undefined,
+      creation: { phrase: draft.label, datasetEpoch: this.value.input.datasetEpoch, draft: { frames } } });
+  }
   setMode(mode: TextAnalysisSessionState["mode"]) {
     if (mode === "add" && !this.value.creation) return;
     this.publish({ mode });

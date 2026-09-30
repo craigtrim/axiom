@@ -29,6 +29,8 @@ export function TextParentPicker({
   setText,
   add,
   create,
+  compact = false,
+  excludeIri = "",
 }: {
   snapshot: Snapshot;
   value: TextEntityClassDraft;
@@ -39,6 +41,8 @@ export function TextParentPicker({
   setText(text: string): void;
   add(iri: string): void;
   create(label: string): void;
+  compact?: boolean;
+  excludeIri?: string;
 }) {
   const id = useId(),
     input = useRef<HTMLInputElement>(null);
@@ -75,7 +79,7 @@ export function TextParentPicker({
         preview?.parents ?? [],
         assistant.entry?.state === "completed" ? assistant.entry.values : [],
         assistant.assistant,
-      ),
+      ).filter(option => !option.iri || option.iri !== excludeIri),
     [
       snapshot.entities,
       value.parents,
@@ -83,6 +87,7 @@ export function TextParentPicker({
       preview,
       assistant.entry,
       assistant.assistant,
+      excludeIri,
     ],
   );
   useEffect(() => {
@@ -190,7 +195,7 @@ export function TextParentPicker({
             }
           }}
         />
-        <div className="text-parent-assistant">
+        {!compact && <div className="text-parent-assistant">
           <select
             aria-label="Assistant"
             value={assistant.provider}
@@ -212,9 +217,9 @@ export function TextParentPicker({
             )}
             {assistant.busy ? "Thinking…" : "Suggest"}
           </button>
-        </div>
+        </div>}
       </div>
-      <p className="text-parent-help" role="status">
+      {!compact && <p className="text-parent-help" role="status">
         {assistant.entry?.state === "completed"
           ? `${assistant.assistant} suggested ${assistant.entry.values.length} parents. They are in the list above, under its name.`
           : `Uses your installed ${assistant.assistant} sign-in. Suggestions appear in the same list.`}{" "}
@@ -227,7 +232,7 @@ export function TextParentPicker({
         >
           Prompt
         </button>
-      </p>
+      </p>}
       {text.trim() && !open && (
         <p className="text-parent-help">
           Choose a parent from the list, or press Escape to clear the search.

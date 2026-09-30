@@ -1,0 +1,97 @@
+.find-panel { font-size: var(--fs-subtitle); overflow: auto; }
+.find-panel input, .find-panel select, .find-panel button { min-height: var(--h-find-control); }
+.find-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3); flex-shrink: 0; }
+.find-query { flex: 1 1 320px; }
+.find-filters { margin: 0; align-items: center; }
+.find-filters label { flex-direction: row; align-items: center; font-size: var(--fs-label); }
+.find-filters select { width: auto; }
+.find-workarea { grid-template-columns: var(--w-find-rail) minmax(0, 1fr); min-height: 240px; }
+.find-workarea:has(> .find-facets:not([open])) { grid-template-columns: var(--w-find-rail) minmax(0, 1fr); }
+.find-facets summary, .find-facets legend, .find-type-facets label, .find-field-list label, .find-facet-tools button, .find-method { font-size: var(--fs-label); }
+.find-workarea > .find-facets { padding: var(--sp-3); }
+.find-facets summary { color: var(--text); line-height: var(--lh-body); }
+.find-type-facets label, .find-field-list label { padding-block: var(--sp-1); }
+.find-summary, .find-pagination { font-size: var(--fs-label); }
+.find-results th:nth-child(2) { width: var(--w-result-type); }
+.find-results th.find-synonym-column { width: 26%; }
+.find-results td { overflow-wrap: anywhere; }
+.find-results tbody tr:hover { background: var(--layer-hover); }
+.find-results tbody tr[data-selected="true"] { background: var(--layer-selected); }
+.find-results tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.find-result-name { font-size: var(--fs-subtitle); }
+.find-result-path, .find-row-synonyms { display: block; margin-top: var(--sp-1); font-size: var(--fs-label); color: var(--text-secondary); }
+.find-match-evidence { font-size: var(--fs-label); }
+.find-match-evidence strong { color: var(--accent); background: var(--accent-subtle); border-radius: var(--r-control); padding: var(--sp-1); }
+.find-footer { flex-shrink: 0; max-height: 42%; overflow: auto; }
+.find-inspector p { margin: 0; font-size: var(--fs-label); }
+.find-inspector dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: 0 0 var(--sp-2); font-size: var(--fs-detail); }
+.find-inspector dt { color: var(--text-secondary); }
+.find-inspector dd { margin: 0; overflow-wrap: anywhere; }
+.find-inspector code { font-size: var(--fs-code); }
+.find-created { color: var(--ok); font-size: var(--fs-label); margin-left: var(--sp-2); }
+.find-zero { padding: var(--sp-4); overflow-wrap: anywhere; }
+.find-zero h2 { font-size: var(--fs-title); margin: 0 0 var(--sp-2); }
+.find-zero p { margin: var(--sp-2) 0; }
+.find-remedies { display: grid; gap: var(--sp-2); margin-block: var(--sp-5); }
+.find-remedies h3 { margin: 0; font-size: var(--fs-subtitle); }
+.find-remedies button { display: flex; text-align: left; justify-content: space-between; align-items: center; gap: var(--sp-3); min-height: var(--h-primary); white-space: normal; }
+.find-remedy-yield { font-size: var(--fs-label); color: var(--ok); flex-shrink: 0; }
+.find-remedies button:disabled .find-remedy-yield { color: var(--text-secondary); }
+.entity-section { border: 1px solid var(--stroke-strong); border-radius: var(--r-card); background: var(--surface); margin-block: var(--sp-3); overflow: hidden; }
+.entity-section-heading { margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--accent-tint); border-bottom: 1px solid var(--stroke-strong); font-size: var(--fs-label); font-weight: 600; }
+.find-create-sub { padding-inline: var(--sp-4); color: var(--text-secondary); font-size: var(--fs-label); }
+.find-create-fields { border: 0; padding: var(--sp-3); margin: 0; min-width: 0; }
+.entity-ancestry-chain { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin: 0; padding: var(--sp-3); list-style: none; }
+.entity-ancestry-chain > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; max-width: 100%; }
+.entity-ancestry-chain > li + li::before { content: "›"; color: var(--text-secondary); }
+.entity-ancestry-card { border: 1px solid var(--stroke-strong); border-radius: var(--r-card); padding: var(--sp-2) var(--sp-3); display: grid; min-width: 0; }
+.entity-ancestry-card span { font-size: var(--fs-label); color: var(--text-secondary); }
+.entity-ancestry-card strong { font-size: var(--fs-subtitle); overflow-wrap: anywhere; }
+.entity-root-caution { color: var(--warn); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-label); }
+.entity-subject { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3) 0; }
+.entity-subject > input { min-width: 0; flex: 1 1 200px; font-family: var(--font-mono); font-size: var(--fs-code); }
+.entity-subject > span { font-size: var(--fs-label); color: var(--text-secondary); }
+.entity-statements-wrap { border: 1px solid var(--stroke-strong); border-radius: var(--r-panel); overflow: hidden; }
+.entity-statement-count { padding: var(--sp-2); font-size: var(--fs-label); color: var(--text-secondary); }
+.entity-statements { table-layout: fixed; border-collapse: collapse; width: 100%; }
+.entity-statements th, .entity-statements td { padding: var(--sp-2); text-align: left; vertical-align: top; border-top: 1px solid var(--stroke); overflow-wrap: anywhere; }
+.entity-statements th:first-child { width: var(--w-statement-predicate); }
+.entity-statements th:last-child { width: calc(var(--h-find-control) + var(--sp-4)); }
+.entity-statements thead th { font-size: var(--fs-label); color: var(--text-secondary); }
+.entity-statements tbody th { font-weight: 400; }
+.entity-statements code { font-size: var(--fs-code); }
+.entity-statements input, .entity-statements select, .entity-statements textarea { width: 100%; min-width: 0; max-width: 100%; font-size: var(--fs-detail); }
+.entity-statements th select { font-family: var(--font-mono); font-size: var(--fs-code); }
+.entity-statements .validation-error { display: block; font-size: var(--fs-label); }
+.entity-add-row { width: 100%; margin-block: var(--sp-2); text-align: left; color: var(--accent); }
+.entity-source { border: 1px solid var(--stroke-strong); border-radius: var(--r-panel); margin-block: var(--sp-3); overflow: hidden; }
+.entity-source > button { width: 100%; text-align: left; background: var(--surface-alt); border: 0; }
+.entity-source pre { font: var(--fs-code)/var(--lh-code) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: var(--sp-3); max-height: 320px; overflow: auto; background: var(--surface-sunken); }
+.find-create-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border-top: 1px solid var(--stroke); padding-top: var(--sp-3); }
+.find-create-actions > span { flex: 1 1 180px; color: var(--text-secondary); font-size: var(--fs-label); }
+.find-create-actions .primary { min-height: var(--h-primary); }
+.find-collision { border: 1px solid var(--warn); border-radius: var(--r-control); padding: var(--sp-3); margin-block: var(--sp-3); }
+.find-collision p { color: var(--text); }
+.find-handoff-details { overflow-wrap: anywhere; }
+@container find-pane (max-width: 900px) {
+  .find-workarea, .find-workarea:has(> .find-facets:not([open])) { display: flex; flex-direction: column; }
+  .find-workarea > .find-facets { flex: 0 0 auto; max-height: 180px; border-right: 0; border-bottom: 1px solid var(--stroke); }
+  .find-matches { flex: 1; }
+  .find-type-facets { display: flex; }
+  .find-field-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+  .entity-statements th:first-child { width: var(--w-statement-predicate-narrow); }
+}
+@container find-pane (max-width: 680px) {
+  .find-query > select { display: none; }
+  .find-query { flex-basis: 100%; }
+  .find-zero { padding: var(--sp-2); }
+  .find-create-fields { padding: var(--sp-2); }
+  .find-results th:nth-child(2) { width: 22%; }
+  .find-results th, .find-results td { padding: var(--sp-2); }
+  .entity-statements th:first-child { width: 29%; }
+  .entity-statements th:last-child { width: var(--h-find-control); }
+  .entity-statements th, .entity-statements td { padding: var(--sp-1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .find-panel *, .entity-section *, .entity-source * { transition: none; animation: none; }
+}

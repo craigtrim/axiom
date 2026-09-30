@@ -3,6 +3,9 @@ import { request, setState, state, useSnapshot } from "./client";
 import { TextParentPicker, parentIri } from "./TextParentPicker";
 import { revealInTaxonomy } from "./taxonomy-navigation";
 import { THING } from "../domain/model";
+import { entityNameKey as nameKey } from "../shared/entity-names";
+import { SourceDisclosure } from "./EntityEditorParts";
+import type { FindCreationPreview } from "../shared/find-create";
 import type {
   TextEntityDraft,
   TextEntityClassDraft,
@@ -20,21 +23,35 @@ const newClass = (label = ""): TextEntityClassDraft => ({
   parents: [],
   manualParents: false,
 });
-const nameKey = (label: string) =>
-  label
-    .normalize("NFKC")
-    .toLowerCase()
-    .match(/[\p{L}\p{N}]+/gu)
-    ?.join(" ") ?? label.trim();
 const classInput = (draft: TextEntityClassDraft): TextAnalysisClassInput => ({
   label: draft.label,
   comment: draft.comment,
+  ...(draft.iri !== undefined ? { iri: draft.iri } : {}),
+  ...(draft.statements ? { statements: draft.statements } : {}),
+  ...(draft.checkAllEntities ? { checkAllEntities: true } : {}),
   parents: draft.parents.length
     ? draft.parents.map((parent) =>
         "iri" in parent ? parent : { create: classInput(parent.create) },
       )
     : [{ iri: THING }],
 });
+
+function FindHandoffSource({ value, snapshot, change }: { value: TextEntityClassDraft; snapshot: Snapshot; change(value: TextEntityClassDraft): void }) {
+  const [source, setSource] = useState("");
+  const input = { ...value.findDraft!, label: value.label, iri: value.iri, comment: value.comment, parents: value.parents.flatMap(p => "iri" in p ? [p.iri] : []) };
+  const key = JSON.stringify([input, snapshot.datasetEpoch, snapshot.version]);
+  useEffect(() => {
+    let active = true;
+    setSource("");
+    void request<FindCreationPreview>("findCreatePreview", { creation: input, datasetEpoch: snapshot.datasetEpoch, version: snapshot.version })
+      .then(preview => { if (active) setSource(preview.source); }).catch(() => {});
+    return () => { active = false; };
+  }, [key]);
+  return <>
+    {value.parents.some(p => "create" in p) && <p>New parents are staged with this draft. Source shows the currently saved parent references.</p>}
+    <SourceDisclosure open={value.findDraft!.sourceOpen} change={sourceOpen => change({ ...value, findDraft: { ...value.findDraft!, sourceOpen } })} source={source} />
+  </>;
+}
 
 export function TextEntityCreate({
   phrase,
@@ -108,7 +125,7 @@ export function TextEntityCreate({
       datasetEpoch={datasetEpoch}
       change={change}
       createParent={(label) =>
-        setValue({ frames: [...frames, { value: newClass(label) }] })
+        setValue({ frames: [...frames, { value: { ...newClass(label), checkAllEntities: frames[0].value.checkAllEntities } }] })
       }
       editParent={(index) => {
         const parent = frame.value.parents[index];
@@ -178,6 +195,8 @@ function TextClassEditor({
     const timer = setTimeout(() => {
       void request<TextAnalysisDraft>("textAnalysisDraft", {
         label: value.label,
+        iri: value.iri,
+        checkAllEntities: value.checkAllEntities,
         datasetEpoch,
         version: snapshot.version,
       })
@@ -203,7 +222,7 @@ function TextClassEditor({
       current = false;
       clearTimeout(timer);
     };
-  }, [value.label, datasetEpoch, snapshot.version]);
+  }, [value.label, value.iri, datasetEpoch, snapshot.version]);
   const ancestor = ancestors.some(
     (label) => nameKey(label) === nameKey(value.label),
   );
@@ -329,7 +348,7 @@ function TextClassEditor({
           </>
         ) : (
           <>
-            <span>Adding from selection</span>
+            <span>{value.findDraft ? "Adding from Find" : "Adding from selection"}</span>
             <span className="text-create-source">
               {context?.before}
               <mark>{phrase}</mark>
@@ -372,6 +391,13 @@ function TextClassEditor({
             <div className="text-create-columns">
               <div className="text-create-identity">
                 <h3>Class</h3>
+                {value.findDraft && <div className="find-handoff-details">
+                  <p>Your Find draft is preserved. Parents created here are saved with this class.</p>
+                  <label>Subject<input aria-label="Subject IRI" value={value.iri ?? ""} disabled={busy}
+                    onChange={event => change({ ...value, iri: event.target.value })} /></label>
+                  {value.findDraft.statements.map(row => <p key={row.id}><code>{row.predicate}</code>: {row.value || "empty value"}</p>)}
+                  <FindHandoffSource value={value} snapshot={snapshot} change={change} />
+                </div>}
                 <label className="text-create-name">
                   Name
                   <input

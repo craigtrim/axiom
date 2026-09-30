@@ -11,6 +11,8 @@ import { editEntity } from "./authoring";
 import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
+import { FindCreatePanel } from "./FindCreatePanel";
+import "./find-editor.css";
 import {
   defaultFindOptions,
   findKinds,
@@ -229,10 +231,13 @@ export function FindDialog({ close }: { close: () => void }) {
 }
 
 export function FindPanel() {
-  const { options, selected, recent } = useFindState();
-  const { data, facets, busy, error } = useFindResults(options);
+  const { options, selected, recent, created } = useFindState();
+  const searchOptions = { ...options, browse: true, diagnostics: true };
+  const { data, facets, busy, error } = useFindResults(searchOptions);
   const [fieldFilter, setFieldFilter] = useState("");
   const fields = facets?.fields ?? [];
+  const selectedFieldCount = options.fields.includes("*") ? fields.length : fields.filter(f => options.fields.includes(f.id)).length;
+  const filteredFields = fields.filter(f => (f.label + " " + f.id).toLocaleLowerCase().includes(fieldFilter.toLocaleLowerCase()));
   const fieldSelected = (id: string) =>
     options.fields.includes("*") || options.fields.includes(id);
   const toggleField = (id: string, checked: boolean) => {
@@ -259,7 +264,13 @@ export function FindPanel() {
     setActionError("");
     setMessage("");
     setAddedSynonyms(new Set());
-  }, [snapshot.datasetEpoch, options.text]);
+  }, [snapshot.datasetEpoch]);
+  useEffect(() => { setAddedSynonyms(new Set()); }, [options.text]);
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 4500);
+    return () => clearTimeout(timer);
+  }, [message]);
   useEffect(() => {
     // Undo or an edit in another view can make a recently added term available.
     if (data)
@@ -295,6 +306,14 @@ export function FindPanel() {
       await request("select", { iri });
       revealInOpenTaxonomy(iri);
     });
+  };
+  const reveal = async (iri: string, label: string, acknowledgement: string) => {
+    const epoch = snapshot.datasetEpoch;
+    await request("select", { iri, datasetEpoch: epoch });
+    if (state?.datasetEpoch !== epoch) return;
+    updateFind({ text: label, fields: ["*"], kinds: [...findKinds], excludeIri: "", sort: "relevance", revealIri: iri }, iri);
+    setMessage(acknowledgement);
+    revealInOpenTaxonomy(iri);
   };
   const addSynonym = (row: FindRow) => {
     if (
@@ -386,7 +405,7 @@ export function FindPanel() {
     run(async () => {
       try {
         const id = await request<string>("graphCreate", {
-          find: options,
+          find: searchOptions,
           findResultId: data.resultId,
           datasetEpoch: snapshot.datasetEpoch,
           version: snapshot.version,
@@ -394,6 +413,7 @@ export function FindPanel() {
         // IPC replies can arrive before the broadcast snapshot. Register the
         // new graph before opening its tab; the new canvas fits itself on mount.
         setState(await request<Snapshot>("state"));
+        setMessage(`Sending ${data.total.toLocaleString()} entities to a new graph view`);
         command("view." + id);
       } finally {
         graphPending.current = false;
@@ -403,6 +423,8 @@ export function FindPanel() {
   };
   const offset = data?.offset ?? options.offset;
   const total = data?.total ?? 0;
+  const storeTotal = data?.storeTotal ?? facets?.storeTotal ?? 0;
+  const resetScope = () => updateFind({ fields: ["*"], kinds: [...findKinds], excludeIri: "", sort: "relevance" });
   const taxonomy =
     !!active &&
     [
@@ -428,10 +450,10 @@ export function FindPanel() {
       >
         <div className="find-query">
           <input
-            aria-label="Find text"
+            aria-label="Search the ontology"
             type="search"
             maxLength={256}
-            placeholder="Name, IRI or order reference"
+            placeholder="Search names, IRIs and annotations"
             value={options.text}
             onChange={(e) =>
               updateFind({ text: e.target.value, excludeIri: "" })
@@ -440,7 +462,8 @@ export function FindPanel() {
           />
           <button
             type="button"
-            onClick={() => updateFind({ ...defaultFindOptions })}
+            onClick={() => updateFind({ text: "", excludeIri: "" })}
+            aria-label="Clear query"
             disabled={!options.text}
           >
             Clear
@@ -469,7 +492,7 @@ export function FindPanel() {
             Sort
             <select
               aria-label="Sort results"
-              value={options.sort}
+              value={options.sort === "iri" ? "type" : options.sort}
               onChange={(e) =>
                 updateFind({ sort: e.target.value as FindOptions["sort"] })
               }
@@ -477,14 +500,12 @@ export function FindPanel() {
               <option value="relevance">Best match</option>
               <option value="name">Name A to Z</option>
               <option value="name-desc">Name Z to A</option>
-              <option value="iri">IRI</option>
+              <option value="type">Type</option>
             </select>
           </label>
           <button
             type="button"
-            onClick={() =>
-              updateFind({ ...defaultFindOptions, text: options.text })
-            }
+            onClick={resetScope}
           >
             Reset filters
           </button>
@@ -493,11 +514,7 @@ export function FindPanel() {
       <div className="find-workarea">
         <details className="find-facets" open>
           <summary>
-            Search scope ·{" "}
-            {options.fields.includes("*")
-              ? "All fields"
-              : options.fields.length +
-                (options.fields.length === 1 ? " field" : " fields")}
+            Search scope: {selectedFieldCount} of {fields.length} fields, {options.kinds.length} of {findKinds.length} types
           </summary>
           <fieldset className="find-type-facets">
             <legend>Entity types</legend>
@@ -554,16 +571,11 @@ export function FindPanel() {
                 Names only
               </button>
               <button type="button" onClick={() => updateFind({ fields: [] })}>
-                Clear fields
+                Clear
               </button>
             </div>
             <div className="find-field-list">
-              {fields
-                .filter((f) =>
-                  (f.label + " " + f.id)
-                    .toLocaleLowerCase()
-                    .includes(fieldFilter.toLocaleLowerCase()),
-                )
+              {filteredFields
                 .map((f) => (
                   <label
                     key={f.id}
@@ -571,7 +583,7 @@ export function FindPanel() {
                       f.id +
                       " · " +
                       f.count.toLocaleString() +
-                      " entities with this field"
+                      (options.text.trim() ? " matches in this field" : " entities with a value")
                     }
                   >
                     <input
@@ -584,6 +596,7 @@ export function FindPanel() {
                     <small>{f.count.toLocaleString()}</small>
                   </label>
                 ))}
+              {!filteredFields.length && <p className="muted">No field name contains that text.</p>}
             </div>
             {!options.fields.length && (
               <p className="find-method">
@@ -597,10 +610,7 @@ export function FindPanel() {
             <div className="find-summary" role="status">
               {busy
                 ? "Searching..."
-                : options.text.trim()
-                  ? total.toLocaleString() +
-                    (total === 1 ? " match" : " matches")
-                  : "Type a name, IRI or order reference to find entities."}
+                : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
             </div>
             <button
               type="button"
@@ -617,21 +627,22 @@ export function FindPanel() {
             </p>
           )}
           <div className="find-results-scroll" aria-busy={busy}>
-            <table className="find-results" aria-label="Found entities">
+            {(!data || rows.length > 0) && <table className="find-results" aria-label="Found entities">
               <thead>
                 <tr>
                   <th scope="col">Entity</th>
                   <th scope="col">Type</th>
-                  {synonymText && (
                     <th scope="col" className="find-synonym-column">
                       Synonym
                     </th>
-                  )}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.iri} data-selected={selected === row.iri}>
+                  <tr key={row.iri} data-selected={selected === row.iri} aria-selected={selected === row.iri} tabIndex={0}
+                    onKeyDown={event => {
+                      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); choose(row.iri); }
+                    }}>
                     <td>
                       <button
                         type="button"
@@ -642,12 +653,12 @@ export function FindPanel() {
                       >
                         {row.name}
                       </button>
-                      <div className="find-result-iri" title={row.iri}>
-                        {row.iri}
+                      <div className="find-result-path" title={row.iri}>
+                        {row.path ?? "no parent recorded"}
                       </div>
-                      {row.matchedField && (
+                      {row.matchedField && !["name", "iri"].includes(row.matchedField) && (
                         <p className="find-match-evidence">
-                          <strong>
+                          <strong>matched in {" "}
                             {fields.find((f) => f.id === row.matchedField)
                               ?.label ??
                               compactIri(
@@ -658,23 +669,27 @@ export function FindPanel() {
                           : {row.matchedValue}
                         </p>
                       )}
-                      {row.description && (
-                        <p className="find-result-description">
-                          {row.description}
-                        </p>
-                      )}
                     </td>
                     <td>{kindLabel(row.kind)}</td>
-                    {synonymText && <td>{synonymButton(row, true)}</td>}
+                    <td><span className="find-row-synonyms">{row.aliases?.join(", ") || "none recorded"}</span>{synonymButton(row, true)}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-            {!busy && !rows.length && options.text.trim() && (
-              <p className="find-empty">
-                No matches. Try fewer words or reset the filters.
-              </p>
-            )}
+            </table>}
+            {!busy && data && !rows.length && <div className="find-zero">
+              <h2>No matches for “{options.text}”</h2>
+              <p>Searched {selectedFieldCount} of {fields.length} fields across {options.kinds.length} of {findKinds.length} entity types, in {storeTotal.toLocaleString()} entities. A miss inside a narrowed scope is not the same as an absence.</p>
+              <p className="muted">{data.emptyCause === "filters" ? "The current scope excludes the matching entities." : "The query has no matches in the current scope."}</p>
+              <section className="find-remedies" aria-label="Widen the search first">
+                <h3>Widen the search first</h3>
+                {data.remedies?.map(remedy => <button type="button" key={remedy.id} disabled={!remedy.count}
+                  onClick={() => remedy.id === "fields" ? updateFind({ fields: ["*"] }) : remedy.id === "types" ? updateFind({ kinds: [...findKinds] }) : resetScope()}>
+                  <span>{remedy.id === "fields" ? `Search all ${fields.length} fields` : remedy.id === "types" ? "Include all entity types" : "Reset every filter"}</span>
+                  <span className="find-remedy-yield">{remedy.count.toLocaleString()} {remedy.count === 1 ? "match" : "matches"}</span>
+                </button>)}
+              </section>
+              <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
+            </div>}
           </div>
         </div>
       </div>
@@ -706,7 +721,7 @@ export function FindPanel() {
             ‹
           </button>
           <span>
-            Page {total ? Math.floor(offset / options.limit) + 1 : 0} /{" "}
+            Page {total ? Math.floor(offset / options.limit) + 1 : 0} of{" "}
             {Math.ceil(total / options.limit)}
           </span>
           <button
@@ -734,16 +749,25 @@ export function FindPanel() {
             value={options.limit}
             onChange={(e) => updateFind({ limit: +e.target.value })}
           >
-            {[25, 50, 100].map((n) => (
+            {[...new Set([10, 25, 50, options.limit])].sort((a,b) => a-b).map((n) => (
               <option key={n} value={n}>
                 {n} per page
               </option>
             ))}
           </select>
         </div>
+        <section className="find-inspector" aria-label="Selected entity">
+          {!active ? <p className="muted">Select a result to inspect it.</p> : <dl>
+            <dt>Label</dt><dd>{active.name} {created.includes(active.iri) && <span className="find-created">created here</span>}</dd>
+            <dt>Type</dt><dd>{kindLabel(active.kind)}</dd>
+            <dt>IRI</dt><dd><code>{active.iri}</code></dd>
+            <dt>Ancestry</dt><dd>{active.path ?? "no parent recorded"}</dd>
+            <dt>Synonyms</dt><dd>{active.aliases?.join(", ") || "none recorded"}</dd>
+            <dt>Definition</dt><dd>{active.description || "none recorded"}</dd>
+          </dl>}
         <div className="find-actions" aria-label="Selected result actions">
           <span className="find-selected">
-            {active?.name ?? "Select a result"}
+            {active?.name}
           </span>
           {active && (
             <>
@@ -787,6 +811,7 @@ export function FindPanel() {
             </>
           )}
         </div>
+        </section>
         {message && <span role="status">{message}</span>}
       </footer>
     </section>
