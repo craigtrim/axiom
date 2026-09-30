@@ -22,6 +22,14 @@ export interface SemanticComparison {
   precision: "fp32";
   similarities: number[];
 }
+/** Dot product for embeddings already normalized by the model or validated cache. */
+export function embeddingDot(a: Float32Array, b: Float32Array) {
+  if (a.length !== b.length || !a.length)
+    throw Error("Embedding dimensions differ.");
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return Math.max(-1, Math.min(1, dot));
+}
 /** Cosine similarity of normalized dense embeddings. */
 export function embeddingCosine(a: Float32Array, b: Float32Array) {
   if (a.length !== b.length || !a.length)

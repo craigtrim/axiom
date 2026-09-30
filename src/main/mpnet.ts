@@ -1,12 +1,12 @@
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, stat, writeFile, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 import {
   embeddingModel,
   embeddingText,
-  embeddingCosine,
+  embeddingDot,
 } from "../shared/embeddings";
 import {
   embeddingModelDirectory,
@@ -15,6 +15,55 @@ import {
 
 /** One local FP32 model shared by Find and synonym comparisons in a worker. */
 export class MpnetEmbeddings {
+  constructor(private options: { batchSize?: number; threads?: number } = {}) {}
+  private writes = new Map<string, Float32Array>();
+  private writing?: Promise<void>;
+  async flush() {
+    while (this.writing) await this.writing;
+  }
+  async dispose() {
+    await this.flush();
+    if (this.model) await (await this.model).extractor.dispose();
+    this.model = undefined;
+    this.memory.clear();
+  }
+  private persist(key: string, vector: Float32Array) {
+    // Disk caching is optional. Bound queued work without delaying inference.
+    if (this.writes.size >= 128) return;
+    this.writes.set(key, vector);
+    this.drainWrites();
+  }
+  private drainWrites() {
+    if (this.writing || !this.writes.size) return;
+    this.writing = (async () => {
+      while (this.writes.size) {
+        const entries = [...this.writes].slice(0, 4);
+        entries.forEach(([key]) => this.writes.delete(key));
+        await Promise.all(
+          entries.map(async ([text, values]) => {
+            const filename = this.filename(text),
+              temporary = filename + "." + randomUUID() + ".tmp";
+            try {
+              await writeFile(
+                temporary,
+                Buffer.from(
+                  values.buffer,
+                  values.byteOffset,
+                  values.byteLength,
+                ),
+              );
+              await rename(temporary, filename);
+            } catch {
+              await rm(temporary, { force: true }).catch(() => {});
+            }
+          }),
+        );
+      }
+    })().finally(() => {
+      this.writing = undefined;
+      this.drainWrites();
+    });
+  }
   private model?: Promise<{
     extractor: FeatureExtractionPipeline;
     pool: typeof import("@huggingface/transformers").mean_pooling;
@@ -46,13 +95,15 @@ export class MpnetEmbeddings {
     env.allowRemoteModels = false;
     env.allowLocalModels = true;
     env.useFSCache = false;
-    await mkdir(this.cache, { recursive: true });
+    await mkdir(this.cache, { recursive: true }).catch(() => {});
     const extractor = await pipeline("feature-extraction", directory, {
       dtype: "fp32",
       device: "cpu",
       local_files_only: true,
       session_options: {
-        intraOpNumThreads: Math.max(1, Math.min(4, os.availableParallelism())),
+        intraOpNumThreads:
+          this.options.threads ??
+          Math.max(1, Math.min(4, os.availableParallelism())),
         interOpNumThreads: 1,
       },
     });
@@ -110,8 +161,10 @@ export class MpnetEmbeddings {
         }),
       );
     }
-    for (let i = 0; i < missing.length; i += 8) {
-      const batch = missing.slice(i, i + 8);
+    missing.sort((a, b) => a.length - b.length);
+    const batchSize = this.options.batchSize ?? 16;
+    for (let i = 0; i < missing.length; i += batchSize) {
+      const batch = missing.slice(i, i + batchSize);
       const inputs = extractor.tokenizer(batch, {
         padding: true,
         truncation: true,
@@ -124,32 +177,23 @@ export class MpnetEmbeddings {
       ).normalize(2, -1);
       if (tensor.dims[1] !== embeddingModel.dimensions)
         throw Error("Unexpected MPNet embedding dimensions.");
-      await Promise.all(
-        batch.map(async (key, index) => {
-          const vector = Float32Array.from(
-            tensor.data.slice(
-              index * embeddingModel.dimensions,
-              (index + 1) * embeddingModel.dimensions,
-            ) as Float32Array,
-          );
-          this.remember(key, vector);
-          vectors.set(key, vector);
-          const filename = this.filename(key),
-            temporary = filename + "." + process.pid + ".tmp";
-          try {
-            await writeFile(temporary, Buffer.from(vector.buffer));
-            await rename(temporary, filename);
-          } catch {
-            /* A cache write failure must not prevent an in-memory comparison. */
-          }
-        }),
-      );
+      batch.forEach((key, index) => {
+        const vector = Float32Array.from(
+          tensor.data.slice(
+            index * embeddingModel.dimensions,
+            (index + 1) * embeddingModel.dimensions,
+          ) as Float32Array,
+        );
+        this.remember(key, vector);
+        vectors.set(key, vector);
+        this.persist(key, vector);
+      });
     }
     return keys.map((key) => vectors.get(key)!);
   }
   async compare(query: string, texts: string[]) {
     if (!texts.length) return [];
     const [anchor, ...vectors] = await this.embed([query, ...texts]);
-    return vectors.map((vector) => embeddingCosine(anchor, vector));
+    return vectors.map((vector) => embeddingDot(anchor, vector));
   }
 }
