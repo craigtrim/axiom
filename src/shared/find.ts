@@ -15,10 +15,8 @@ export interface FindOptions {
   text: string;
   kind: "all" | "classes" | "individuals" | "properties";
   field: "all" | "name" | "iri";
-  match: "words" | "phrase" | "exact" | "cosine";
   kinds: FindKind[];
   fields: string[];
-  minimumSimilarity: number;
   excludeIri: string;
   sort: "relevance" | "name" | "name-desc" | "iri";
   offset: number;
@@ -28,10 +26,8 @@ export const defaultFindOptions: FindOptions = {
   text: "",
   kind: "all",
   field: "all",
-  match: "words",
   kinds: [...findKinds],
   fields: ["name", "iri"],
-  minimumSimilarity: 0,
   excludeIri: "",
   sort: "relevance",
   offset: 0,
@@ -49,6 +45,7 @@ export interface FindRow {
   matchedValue?: string;
 }
 export interface FindResults {
+  resultId?: string;
   rows: FindRow[];
   fields: FindFacet[];
   kinds: FindFacet[];
@@ -70,7 +67,6 @@ export function readFindOptions(input: unknown): FindOptions {
       "all",
     ),
     field: choice("field", ["all", "name", "iri"], "all"),
-    match: choice("match", ["words", "phrase", "exact", "cosine"], "words"),
     kinds: Array.isArray(v.kinds)
       ? findKinds.filter((k) => (v.kinds as unknown[]).includes(k))
       : findKinds.filter(
@@ -93,11 +89,6 @@ export function readFindOptions(input: unknown): FindOptions {
         : v.field === "iri"
           ? ["iri"]
           : ["name", "iri"],
-    minimumSimilarity:
-      typeof v.minimumSimilarity === "number" &&
-      Number.isFinite(v.minimumSimilarity)
-        ? Math.min(1, Math.max(0, v.minimumSimilarity))
-        : 0,
     excludeIri:
       typeof v.excludeIri === "string" ? v.excludeIri.slice(0, 10000) : "",
     sort: choice(

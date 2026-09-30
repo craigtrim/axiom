@@ -11,7 +11,14 @@ import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { addFindSynonym } from "../domain/find-synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
-import { findEntities, prepareSemanticFind } from "../domain/resource-search";
+import {
+  findEntities,
+  findEntityIris,
+  indexFor,
+} from "../domain/resource-search";
+import { readFindOptions, type FindResults } from "../shared/find";
+import type { SemanticScores } from "../shared/embeddings";
+import { ancestryGraphNodes } from "../domain/ancestry-graph";
 import { EmbeddingService } from "./embedding-service";
 const embeddings = new EmbeddingService();
 import { findGraphNodes } from "../domain/find-graph";
@@ -21,6 +28,7 @@ import { MIN_GRAPH_SPACING, MAX_GRAPH_SPACING } from "../shared/graph-spacing";
 import { SUBCLASS } from "../domain/model";
 import { simpleParentExpressions } from "../domain/class-parents";
 import { resourceSuggestions } from "../domain/resource-search";
+import { predicateOptions } from "../domain/predicate-options";
 import { entitySource, applyEntitySource } from "../domain/entity-source";
 import type { EntitySourceDocument } from "../shared/source";
 import { intersectionSuggestions } from "../domain/intersection-suggestions";
@@ -104,18 +112,73 @@ let activeQuery: AbortController | undefined,
   tableCache: { key: string; rows: Individual[] } | undefined;
 const emit = (type: string, data: unknown) =>
   parentPort!.postMessage({ event: { type, data } });
-async function semanticFindScores(input: unknown) {
-  const current = store,
-    version = store.version,
-    epoch = datasetEpoch;
-  const scores = await prepareSemanticFind(current, input, (query, texts) =>
-    embeddings.search(query, texts),
-  );
-  if (store !== current || store.version !== version || datasetEpoch !== epoch)
-    throw Error(
-      "The ontology changed. Wait for Find to refresh and try again.",
+let searchRevision = "",
+  warmSearchTimer: ReturnType<typeof setTimeout> | undefined;
+const searchConsumers = new Map<string, string>();
+const semanticResults = new Map<string, SemanticScores>();
+const searchResults = new Map<
+  string,
+  { revision: string; matches: string[] }
+>();
+function refreshSearch() {
+  const revision = datasetEpoch + ":" + store.version;
+  if (revision === searchRevision) return;
+  searchRevision = revision;
+  embeddings.reset();
+  searchConsumers.clear();
+  semanticResults.clear();
+  searchResults.clear();
+  clearTimeout(warmSearchTimer);
+  warmSearchTimer = setTimeout(() => {
+    const options = readFindOptions({});
+    const texts = indexFor(store).semanticTexts(options.fields);
+    void embeddings.prepare(
+      revision + JSON.stringify([...options.fields].sort()),
+      texts,
     );
+  }, 180);
+}
+function beginSearch(a: Record<string, unknown>) {
+  refreshSearch();
+  if (typeof a.consumer === "string" && typeof a.searchId === "string") {
+    searchConsumers.set(a.consumer, a.searchId);
+    embeddings.cancel(a.consumer);
+  }
+}
+async function semanticFindScores(a: Record<string, unknown>) {
+  refreshSearch();
+  const options = readFindOptions(a),
+    revision = searchRevision;
+  const consumer = string(a, "consumer", 200),
+    searchId = string(a, "searchId", 200);
+  if (searchConsumers.get(consumer) !== searchId || !options.text.trim())
+    return;
+  const key = revision + JSON.stringify([...options.fields].sort());
+  const queryKey = key + options.text.toLocaleLowerCase();
+  const cached = semanticResults.get(queryKey);
+  if (cached) return cached;
+  const texts = indexFor(store).semanticTexts(options.fields);
+  if (!texts.length) return;
+  const scores = await embeddings.search(key, options.text, texts, consumer);
+  if (searchRevision !== revision || searchConsumers.get(consumer) !== searchId)
+    return;
+  if (scores) {
+    semanticResults.set(queryKey, scores);
+    if (semanticResults.size > 40)
+      semanticResults.delete(semanticResults.keys().next().value!);
+  }
   return scores;
+}
+function rememberSearch(input: unknown, scores?: SemanticScores): FindResults {
+  const result = findEntities(store, input, scores),
+    resultId = crypto.randomUUID();
+  searchResults.set(resultId, {
+    revision: searchRevision,
+    matches: findEntityIris(store, input, scores),
+  });
+  if (searchResults.size > 128)
+    searchResults.delete(searchResults.keys().next().value!);
+  return { ...result, resultId };
 }
 // A fresh profile starts with a blank graph. Demos are opened explicitly.
 
@@ -591,6 +654,7 @@ function publish() {
   emit("state", snapshot());
 }
 function changed(text: string, layout = false) {
+  refreshSearch();
   message = text;
   if (layout) runLayout(false);
   publish();
@@ -664,6 +728,7 @@ function retargetGraph(iri: string, next: string) {
 async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
   switch (method) {
     case "resourceSuggestions":
+      beginSearch(a);
       return resourceSuggestions(
         store,
         string(a, "query", 512),
@@ -674,15 +739,33 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
               .slice(0, 4096)
           : [],
       );
+    case "resourceSuggestionsSemantic": {
+      const scores = await semanticFindScores({
+        ...a,
+        text: a.query,
+        fields: ["name", "iri"],
+      });
+      if (!scores) return;
+      return resourceSuggestions(
+        store,
+        string(a, "query", 512),
+        a.classesOnly === true,
+        Array.isArray(a.exclude)
+          ? a.exclude.filter((x): x is string => typeof x === "string")
+          : [],
+        scores,
+      );
+    }
+    case "cancelSearch": {
+      const consumer = string(a, "consumer", 200);
+      if (searchConsumers.get(consumer) === a.searchId) {
+        searchConsumers.delete(consumer);
+        embeddings.cancel(consumer);
+      }
+      return;
+    }
     case "predicateOptions":
-      return [
-        ...new Set([
-          ...store.byPredicate.keys(),
-          ...[...store.entities.values()]
-            .filter((e) => e.kind.endsWith("Property"))
-            .map((e) => e.iri),
-        ]),
-      ].sort();
+      return predicateOptions(store);
     case "entitySource":
       return entitySource(store, datasetEpoch, string(a, "iri"));
     case "applyEntitySource": {
@@ -1060,14 +1143,31 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           "The ontology changed. Wait for Text Analysis to refresh and try again.",
         );
       // Resolve and validate the complete result graph before changing any view.
-      const scores =
-        a.find === undefined ? undefined : await semanticFindScores(a.find);
+      const savedSearch =
+        typeof a.findResultId === "string"
+          ? searchResults.get(a.findResultId)
+          : undefined;
+      if (
+        a.findResultId &&
+        (!savedSearch ||
+          savedSearch.revision !== datasetEpoch + ":" + store.version)
+      )
+        throw Error(
+          "The search results changed. Wait for Find to refresh and try again.",
+        );
       const results =
         a.textAnalysis !== undefined
           ? textAnalysisGraphNodes(store, a.textAnalysis)
           : a.find === undefined
             ? undefined
-            : findGraphNodes(store, a.find, MAX_VISIBLE_NODES, scores);
+            : savedSearch
+              ? ancestryGraphNodes(
+                  store,
+                  savedSearch.matches,
+                  MAX_VISIBLE_NODES,
+                  "Narrow the search.",
+                )
+              : findGraphNodes(store, a.find, MAX_VISIBLE_NODES);
       const iris =
         results?.iris ??
         (Array.isArray(a.iris)
@@ -1216,8 +1316,12 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "analyzeSparsity":
       return analyzeSparsity(store, a);
     case "find": {
+      beginSearch(a);
+      return rememberSearch(a);
+    }
+    case "findSemantic": {
       const scores = await semanticFindScores(a);
-      return findEntities(store, a, scores);
+      return scores ? rememberSearch(a, scores) : undefined;
     }
     case "semanticSimilarity": {
       const query = string(a, "query", 10000);

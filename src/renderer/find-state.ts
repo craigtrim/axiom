@@ -52,7 +52,6 @@ export function openSimilar(name: string, iri: string) {
   updateFind({
     ...defaultFindOptions,
     text: name,
-    match: "cosine",
     fields: ["name"],
     kinds: ["classes", "individuals"],
     excludeIri: iri,

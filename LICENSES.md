@@ -2,6 +2,8 @@
 
 Axiom uses Electron (MIT), React (MIT), FlexLayout (MIT), Monaco Editor (MIT), and AG Grid Community (MIT). It does not use AG Grid Enterprise.
 
+Entity search uses MiniSearch 7.2.0 (MIT). Its license accompanies the dependency and is retained in the packaged third-party notices.
+
 The packaged application includes Chromium and Node.js through Electron. Their full notices are supplied beside the executable in LICENSE and LICENSES.chromium.html. JavaScript dependency licence comments are retained by the bundler.
 
 RDF import and export use N3 (MIT), rdfxml-streaming-parser (MIT), and jsonld-streaming-parser (MIT). TIFF export uses UTIF (MIT). Filesystem metadata collection bundles the Windows ExifTool distribution and its portable Perl runtime; their original licence files are retained in the metadata helper directory and the generated third-party notices.

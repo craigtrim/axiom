@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { command, request, setState, useSnapshot, state } from "./client";
+import { progressiveSearch } from "./progressive-search";
 import {
   findSynonymText,
   type FindSynonymResult,
@@ -28,6 +29,7 @@ import {
 
 function useFindResults(options: FindOptions) {
   const snapshot = useSnapshot()!;
+  const consumer = useRef(crypto.randomUUID()).current;
   const queryKey = JSON.stringify([options, snapshot.datasetEpoch]);
   const key = JSON.stringify([
     options,
@@ -42,27 +44,20 @@ function useFindResults(options: FindOptions) {
     error?: string;
   }>();
   useEffect(() => {
-    let active = true;
-    const timer = setTimeout(() => {
-      void request<FindResults>("find", { ...options })
-        .then((data) => {
-          if (active)
-            setResult({ key, queryKey, epoch: snapshot.datasetEpoch, data });
-        })
-        .catch((error) => {
-          if (active)
-            setResult({
-              key,
-              queryKey,
-              epoch: snapshot.datasetEpoch,
-              error: error.message,
-            });
-        });
-    }, 90);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
+    return progressiveSearch<FindResults>(
+      request,
+      "find",
+      { ...options, consumer, searchId: crypto.randomUUID() },
+      (data) =>
+        setResult({ key, queryKey, epoch: snapshot.datasetEpoch, data }),
+      (error) =>
+        setResult({
+          key,
+          queryKey,
+          epoch: snapshot.datasetEpoch,
+          error: error.message,
+        }),
+    );
   }, [key]);
   return {
     // Keep this query's rows in place while an ontology edit refreshes them.
@@ -76,14 +71,7 @@ function useFindResults(options: FindOptions) {
 export function FindDialog({ close }: { close: () => void }) {
   const [text, setText] = useState(() => findState().options.text);
   const [selected, setSelected] = useState(0);
-  const [match, setMatch] = useState<"words" | "cosine">(() =>
-    findState().options.match === "cosine" ? "cosine" : "words",
-  );
-  const quickOptions = {
-    ...defaultFindOptions,
-    match,
-    fields: match === "cosine" ? ["name"] : defaultFindOptions.fields,
-  };
+  const quickOptions = defaultFindOptions;
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -95,6 +83,15 @@ export function FindDialog({ close }: { close: () => void }) {
     limit: 6,
   });
   const rows = data?.rows ?? [];
+  const selectedIri = useRef("");
+  useEffect(() => {
+    const index = rows.findIndex((row) => row.iri === selectedIri.current);
+    if (index >= 0) setSelected(index);
+  }, [data]);
+  const highlight = (index: number) => {
+    selectedIri.current = rows[index]?.iri ?? "";
+    setSelected(index);
+  };
   useEffect(() => {
     const field = input.current!;
     field.focus();
@@ -139,21 +136,6 @@ export function FindDialog({ close }: { close: () => void }) {
           void submit();
         }}
       >
-        <label className="quick-find-mode">
-          Match
-          <select
-            aria-label="Quick Find match"
-            value={match}
-            onChange={(e) => {
-              setMatch(e.target.value as "words" | "cosine");
-              setSelected(0);
-              input.current?.focus();
-            }}
-          >
-            <option value="words">Words / type-ahead</option>
-            <option value="cosine">Cosine similarity</option>
-          </select>
-        </label>
         <input
           ref={input}
           autoFocus
@@ -170,6 +152,7 @@ export function FindDialog({ close }: { close: () => void }) {
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            selectedIri.current = "";
             setSelected(0);
           }}
           onKeyDown={(e) => {
@@ -179,12 +162,12 @@ export function FindDialog({ close }: { close: () => void }) {
             }
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault();
-              setSelected((n) =>
+              highlight(
                 Math.max(
                   0,
                   Math.min(
                     rows.length - 1,
-                    n + (e.key === "ArrowDown" ? 1 : -1),
+                    selected + (e.key === "ArrowDown" ? 1 : -1),
                   ),
                 ),
               );
@@ -205,17 +188,13 @@ export function FindDialog({ close }: { close: () => void }) {
               key={row.iri}
               aria-selected={i === selected}
               tabIndex={-1}
-              onMouseMove={() => setSelected(i)}
+              onMouseMove={() => highlight(i)}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => void submit(row.iri)}
               title={row.iri}
             >
               <span>{row.name}</span>
-              <small>
-                {kindLabel(row.kind)}
-                {row.similarity !== undefined &&
-                  " · " + row.similarity.toFixed(3)}
-              </small>
+              <small>{kindLabel(row.kind)}</small>
             </button>
           ))}
         </div>
@@ -254,7 +233,6 @@ export function FindPanel() {
   const { data, facets, busy, error } = useFindResults(options);
   const [fieldFilter, setFieldFilter] = useState("");
   const fields = facets?.fields ?? [];
-  const cosine = options.match === "cosine";
   const fieldSelected = (id: string) =>
     options.fields.includes("*") || options.fields.includes(id);
   const toggleField = (id: string, checked: boolean) => {
@@ -304,8 +282,6 @@ export function FindPanel() {
     options.text,
     options.kinds,
     options.fields,
-    options.match,
-    options.minimumSimilarity,
     options.sort,
   ]);
   const run = (action: () => Promise<unknown>) => {
@@ -411,6 +387,7 @@ export function FindPanel() {
       try {
         const id = await request<string>("graphCreate", {
           find: options,
+          findResultId: data.resultId,
           datasetEpoch: snapshot.datasetEpoch,
           version: snapshot.version,
         });
@@ -489,27 +466,6 @@ export function FindPanel() {
         </div>
         <div className="find-filters">
           <label>
-            Match
-            <select
-              aria-label="Match mode"
-              value={options.match}
-              onChange={(e) =>
-                updateFind({
-                  match: e.target.value as FindOptions["match"],
-                  ...(e.target.value === "cosine" &&
-                  options.fields.join(",") === "name,iri"
-                    ? { fields: ["name"] }
-                    : {}),
-                })
-              }
-            >
-              <option value="cosine">Cosine similarity</option>
-              <option value="words">All words / type-ahead</option>
-              <option value="phrase">Contains phrase</option>
-              <option value="exact">Exact</option>
-            </select>
-          </label>
-          <label>
             Sort
             <select
               aria-label="Sort results"
@@ -524,22 +480,6 @@ export function FindPanel() {
               <option value="iri">IRI</option>
             </select>
           </label>
-          {cosine && (
-            <label className="find-threshold">
-              Minimum similarity: {options.minimumSimilarity.toFixed(2)}
-              <input
-                aria-label="Minimum similarity"
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={options.minimumSimilarity}
-                onChange={(e) =>
-                  updateFind({ minimumSimilarity: +e.target.value })
-                }
-              />
-            </label>
-          )}
           <button
             type="button"
             onClick={() =>
@@ -549,12 +489,6 @@ export function FindPanel() {
             Reset filters
           </button>
         </div>
-        {cosine && (
-          <p className="find-method">
-            Local MPNet meaning similarity (full precision). Higher scores mean
-            closer meaning. Each result uses its best matching selected field.
-          </p>
-        )}
       </form>
       <div className="find-workarea">
         <details className="find-facets" open>
@@ -662,9 +596,7 @@ export function FindPanel() {
           <div className="find-results-toolbar">
             <div className="find-summary" role="status">
               {busy
-                ? cosine && options.text.trim()
-                  ? "Comparing meanings locally… The first search builds the embedding cache."
-                  : "Searching..."
+                ? "Searching..."
                 : options.text.trim()
                   ? total.toLocaleString() +
                     (total === 1 ? " match" : " matches")
@@ -690,11 +622,6 @@ export function FindPanel() {
                 <tr>
                   <th scope="col">Entity</th>
                   <th scope="col">Type</th>
-                  {cosine && (
-                    <th scope="col" className="find-score-column">
-                      Cosine
-                    </th>
-                  )}
                   {synonymText && (
                     <th scope="col" className="find-synonym-column">
                       Synonym
@@ -718,7 +645,7 @@ export function FindPanel() {
                       <div className="find-result-iri" title={row.iri}>
                         {row.iri}
                       </div>
-                      {cosine && row.matchedField && (
+                      {row.matchedField && (
                         <p className="find-match-evidence">
                           <strong>
                             {fields.find((f) => f.id === row.matchedField)
@@ -738,17 +665,6 @@ export function FindPanel() {
                       )}
                     </td>
                     <td>{kindLabel(row.kind)}</td>
-                    {cosine && (
-                      <td className="find-score">
-                        <strong>{row.similarity?.toFixed(3)}</strong>
-                        <meter
-                          aria-label={"Cosine similarity for " + row.name}
-                          min="0"
-                          max="1"
-                          value={row.similarity ?? 0}
-                        />
-                      </td>
-                    )}
                     {synonymText && <td>{synonymButton(row, true)}</td>}
                   </tr>
                 ))}
