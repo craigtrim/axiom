@@ -279,22 +279,75 @@ test("native RDF/XML source preserves an OWL intersection through editing", asyn
       .classExpressions,
   ).toEqual(before);
 });
-test("predicate dropdown supports finding and explicitly adding predicates", async () => {
+test("predicate dropdown orders entity predicates before workspace counts and unused predicates", async () => {
+  await importText(
+    ttl +
+      `
+    :unused a owl:AnnotationProperty .
+    :Beta :frequent "one", "two", "three"; :bTie "b"; :aTie "a" .
+  `,
+  );
+  await menu("view.details");
+  await expect(label()).toHaveValue("Alpha");
+  const optionValues = () =>
+    row(NS.rdfs + "label")
+      .locator("option")
+      .evaluateAll((options) =>
+        options.map((o) => (o as HTMLOptionElement).value),
+      );
+  const leading = [
+    NS.rdfs + "label",
+    NS.rdfs + "comment",
+    NS.rdfs + "subClassOf",
+    NS.rdfs + "seeAlso",
+    base + "frequent",
+    base + "aTie",
+    base + "bTie",
+  ];
+  await expect
+    .poll(async () => (await optionValues()).slice(0, leading.length))
+    .toEqual(leading);
+  const values = await optionValues();
+  expect(values.slice(leading.length)).toEqual(
+    values.slice(leading.length).sort(),
+  );
+  expect(values.slice(leading.length)).toContain(base + "unused");
+  expect(new Set(values).size).toBe(values.length);
+  // Editing a different entity refreshes workspace frequency in the open grid.
+  await page.evaluate(async (base) => {
+    const iri = base + "Beta";
+    const doc = await window.axiom.request<any>("entityDocument", { iri });
+    await window.axiom.request("updateEntity", {
+      iri,
+      preserveSelection: true,
+      version: doc.version,
+      datasetEpoch: doc.datasetEpoch,
+      statements: [
+        ...doc.statements,
+        ...["second", "third", "fourth"].map((value) => ({
+          subject: iri,
+          predicate: base + "bTie",
+          object: { literal: true, value },
+        })),
+      ],
+    });
+  }, base);
+  await expect.poll(async () => (await optionValues())[4]).toBe(base + "bTie");
+});
+
+test("predicate dropdown lists only real predicates and remembers the last choice across entities", async () => {
   const predicate = row(NS.rdfs + "comment").getByRole("combobox");
-  await predicate.selectOption("__find");
-  const find = page.getByRole("dialog", { name: "Find predicate" });
-  await find
-    .getByRole("textbox", { name: "Search predicates" })
-    .fill("seeAlso");
-  await expect(
-    find.getByRole("button", { name: "rdfs:seeAlso", exact: true }),
-  ).toHaveCount(1);
-  await find.getByRole("button", { name: "Close dialog", exact: true }).click();
-  await predicate.selectOption("__add");
-  const add = page.getByRole("dialog", { name: "Add predicate" });
-  await add.getByRole("textbox", { name: "Predicate IRI" }).fill("notes");
-  await add.getByRole("button", { name: "Use predicate" }).click();
-  await expect(row(base + "notes").getByRole("textbox")).toHaveValue(
+  const values = await predicate
+    .locator("option")
+    .evaluateAll((options) =>
+      options.map((o) => (o as HTMLOptionElement).value),
+    );
+  expect(values).not.toContain("__find");
+  expect(values).not.toContain("__add");
+  expect(values).not.toContain(NS.rdf + "type");
+  expect(values.every((iri) => /^https?:/.test(iri))).toBe(true);
+  await predicate.selectOption(NS.skos + "altLabel");
+  await expect(row(NS.skos + "altLabel").getByRole("textbox")).toHaveValue(
     "Original comment",
   );
   await expect
@@ -304,9 +357,42 @@ test("predicate dropdown supports finding and explicitly adding predicates", asy
           (iri) => window.axiom.request<any>("entityDocument", { iri }),
           base + "Alpha",
         )
-      ).statements.some((t: any) => t.predicate === base + "notes"),
+      ).statements.some((t: any) => t.predicate === NS.skos + "altLabel"),
     )
     .toBe(true);
+  await select(base + "Beta");
+  await expect(label()).toHaveValue("Beta");
+  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  const blank = details().locator('tr[data-predicate=""] select');
+  await expect(blank.locator("option").first()).toHaveText("Choose predicate");
+  await expect(blank.locator("option").nth(1)).toHaveAttribute(
+    "value",
+    NS.skos + "altLabel",
+  );
+  await blank.selectOption(NS.rdfs + "isDefinedBy");
+  // Another mounted row updates immediately, before the blank value can be saved.
+  await expect(
+    row(NS.rdfs + "label")
+      .locator("option")
+      .first(),
+  ).toHaveAttribute("value", NS.rdfs + "isDefinedBy");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await select(base + "Alpha");
+  await expect(
+    row(NS.rdfs + "label")
+      .locator("option")
+      .first(),
+  ).toHaveAttribute("value", NS.rdfs + "isDefinedBy");
+  // The pane can be closed during replacement without retaining the prior choice.
+  await menu("pane.close");
+  await importText();
+  await menu("view.details");
+  await expect(label()).toHaveValue("Alpha");
+  await expect(
+    row(NS.rdfs + "label")
+      .locator("option")
+      .first(),
+  ).toHaveAttribute("value", NS.rdfs + "label");
 });
 test("automatic saves do not take selection back from a resource opened in Details", async () => {
   await comment().fill("Keep this edit while navigating");

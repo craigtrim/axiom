@@ -79,13 +79,11 @@ describe("Find result graph ancestry", () => {
         }),
       );
   });
-  it("uses the same cosine threshold, fields, kind facets and exclusion as the result list", async () => {
+  it("uses the same semantic eligibility, fields, kind facets and exclusion as the result list", async () => {
     const s = await fixture();
     const cosine = {
       ...options,
-      text: "English Basic",
-      match: "cosine",
-      minimumSimilarity: 1,
+      text: "beginner instruction",
     };
     const semanticScores = new Map([["Basic English", 1]]);
     expect(
@@ -167,10 +165,9 @@ describe("Find result graph ancestry", () => {
           .iris,
       ),
     ).toEqual(new Set(["Cyclic", "Loop", "Root"].map(iri)));
-    expect(
-      findGraphNodes(s, { text: "OtherRoot", fields: ["name"], match: "exact" })
-        .iris,
-    ).toEqual([iri("OtherRoot")]);
+    expect(findGraphNodes(s, { text: "Other", fields: ["name"] }).iris).toEqual(
+      [iri("OtherRoot")],
+    );
   });
   it("works with generated individuals and traverses a deep hierarchy iteratively", () => {
     const s = new Store();

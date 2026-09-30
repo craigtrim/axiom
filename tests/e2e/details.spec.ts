@@ -601,20 +601,13 @@ test("Details Back retraces resource links and preserves text editing and drafts
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.a);
   await openValue(ids.b).click();
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
-  // A predicate search dialog owns its keys even when no text field has focus.
+  // A native predicate select owns its keys instead of navigating Details.
   await details()
     .getByRole("combobox", { name: /Predicate/ })
     .first()
-    .selectOption("__find");
-  const dialog = page.getByRole("dialog");
-  await dialog
-    .getByRole("button", { name: "Close dialog", exact: true })
     .focus();
   await page.keyboard.press("Backspace");
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
-  await dialog
-    .getByRole("button", { name: "Close dialog", exact: true })
-    .click();
   await menu("pane.move.right");
   await page.screenshot({ path: "artifacts/testing/details-back.png" });
   await page.getByTestId("graph-canvas").focus();

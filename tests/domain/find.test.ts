@@ -53,7 +53,7 @@ describe("Find entity results", () => {
     ).toBe("Basic English");
     expect(
       findEntities(store, { text: base + "Basic", field: "name" }).total,
-    ).toBe(0);
+    ).toBe(1); // OR retrieval also matches the local "Basic" term in the name.
     expect(
       findEntities(store, { text: "English", kind: "classes" }).total,
     ).toBe(3);
@@ -74,7 +74,7 @@ describe("Find entity results", () => {
     expect(
       findEntities(store, { text: "English", match: "exact", field: "name" })
         .total,
-    ).toBe(1);
+    ).toBe(5); // A saved exact mode migrates to automatic retrieval.
     expect(findEntities(store, { text: "zzzzz" }).total).toBe(0);
   });
   it("pages all results beyond suggestion limits, with stable ordering and bounded offsets", () => {

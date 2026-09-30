@@ -1,15 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
-import { EntityFindIndex } from "../../src/domain/entity-find";
+import {
+  EntitySearchIndex,
+  semanticFillLimit,
+} from "../../src/domain/entity-search";
 import {
   findEntities,
   prepareSemanticFind,
+  indexFor,
 } from "../../src/domain/resource-search";
 import { Store } from "../../src/domain/store";
 import { NS, entity } from "../../src/domain/model";
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
 import { readFindOptions } from "../../src/shared/find";
-import { embeddingCosine, embeddingText } from "../../src/shared/embeddings";
-const base = "https://example.test/cosine#";
+import {
+  embeddingCosine,
+  embeddingDot,
+  embeddingText,
+} from "../../src/shared/embeddings";
+const base = "https://example.test/search#";
 async function fixture() {
   const rdf = await parseRdf(
     `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
@@ -17,12 +25,11 @@ async function fixture() {
     :B a owl:Class; rdfs:label "Carpet".
     :driver a owl:NamedIndividual, :A; rdfs:label "Driver".
     :drives a owl:ObjectProperty; rdfs:label "Drives".`,
-    "cosine.ttl",
+    "search.ttl",
     base,
   );
-  return storeFromRdf(rdf.triples, "Cosine");
+  return storeFromRdf(rdf.triples, "Search");
 }
-// Fixed model outputs isolate search facets and pagination from inference quality.
 const scores = new Map([
   ["Automobile", 0.87],
   ["Motor vehicle", 0.85],
@@ -32,138 +39,168 @@ const scores = new Map([
   ["Road transport", 0.75],
   ["AUTO1", 1],
 ]);
-const options = {
-  text: "car",
-  match: "cosine",
-  fields: ["name"],
-  minimumSimilarity: 0.4,
-};
-describe("semantic cosine search", () => {
-  it("calculates cosine from dense embeddings without changing punctuation or word order", () => {
-    expect(
-      embeddingCosine(new Float32Array([3, 4]), new Float32Array([3, 4])),
-    ).toBeCloseTo(1);
-    expect(
-      embeddingCosine(new Float32Array([1, 0]), new Float32Array([0, 1])),
-    ).toBe(0);
-    expect(
-      embeddingCosine(new Float32Array([1, 0]), new Float32Array([-1, 0])),
-    ).toBe(-1);
+const options = { text: "car", fields: ["name"] };
+describe("automatic semantic enrichment", () => {
+  it("uses dot products equivalent to cosine for normalized embeddings", () => {
+    const a = new Float32Array([0.6, 0.8]),
+      b = new Float32Array([0, 1]);
+    expect(embeddingDot(a, b)).toBeCloseTo(embeddingCosine(a, b));
+    expect(embeddingDot(a, a)).toBeCloseTo(1);
     expect(embeddingText("  Systems ADMIN. ")).toBe("systems admin.");
     expect(embeddingText("English Basic")).not.toBe(
       embeddingText("Basic English"),
     );
   });
-  it("ranks supplied semantic scores without shared words and retains match evidence", async () => {
+  it("preserves a preferred-label prefix and fills with a strong semantic match", async () => {
     const store = await fixture();
     const result = findEntities(store, options, scores);
-    expect(result.rows[0]).toMatchObject({
+    expect(result.rows.map((r) => r.name)).toEqual(["Carpet", "Automobile"]);
+    expect(result.rows[1]).toMatchObject({
       iri: base + "A",
       similarity: 0.87,
       matchedField: "name",
       matchedValue: "Automobile",
     });
-    expect(result.rows.map((r) => r.name)).toEqual([
-      "Automobile",
-      "Driver",
-      "Drives",
-    ]);
+    expect(findEntities(store, { ...options, text: "unrelated" }).rows).toEqual(
+      [],
+    );
     expect(
-      findEntities(store, { ...options, kinds: ["classes"] }, scores).rows.map(
-        (r) => r.name,
-      ),
+      findEntities(
+        store,
+        { ...options, excludeIri: base + "A" },
+        scores,
+      ).rows.map((r) => r.name),
+    ).not.toContain("Automobile");
+  });
+  it("applies semantic eligibility after type filters and exclusions", async () => {
+    const store = await fixture();
+    expect(
+      findEntities(
+        store,
+        { ...options, kinds: ["individuals"] },
+        scores,
+      ).rows.map((r) => r.name),
+    ).toEqual(["Driver"]);
+    const index = indexFor(store);
+    expect(
+      index.search("car", true, [base + "B"], 24, scores).map((r) => r.label),
     ).toEqual(["Automobile"]);
     expect(
-      findEntities(store, { ...options, excludeIri: base + "A" }, scores).rows,
-    ).toHaveLength(2);
-    expect(() => findEntities(store, { ...options, text: "other" })).toThrow(
-      /MPNet/,
-    );
+      findEntities(
+        store,
+        options,
+        new Map([
+          ["Automobile", 0.49],
+          ["Driver", NaN],
+        ]),
+      ).rows.map((r) => r.name),
+    ).toEqual(["Carpet"]);
   });
-  it("prepares only selected fields and reuses model scores across filters and pages", async () => {
-    const store = await fixture();
-    const score = vi.fn(async (_query: string, _texts: string[]) => scores);
-    expect(await prepareSemanticFind(store, options, score)).toBe(scores);
-    const texts = score.mock.calls[0][1];
-    expect(texts).toContain("Motor vehicle");
-    expect(texts).not.toContain("Road transport");
+  it("scores only selected fields, including literal and referenced property values", async () => {
+    const store = await fixture(),
+      scorer = vi.fn(async () => scores);
     await prepareSemanticFind(
       store,
-      { ...options, offset: 20, minimumSimilarity: 0.8 },
-      score,
+      { ...options, fields: [base + "code"] },
+      scorer,
     );
-    expect(score).toHaveBeenCalledTimes(1);
-    await prepareSemanticFind(store, { ...options, text: "car?" }, score);
-    expect(score).toHaveBeenCalledTimes(2);
-    await prepareSemanticFind(store, { ...options, fields: ["*"] }, score);
-    expect(score).toHaveBeenCalledTimes(3);
-  });
-  it("searches arbitrary predicates without diluting a matching field", async () => {
-    const store = await fixture();
-    expect(
-      findEntities(store, { ...options, fields: ["*"] }, scores).rows[0]
-        .similarity,
-    ).toBe(1);
+    expect(scorer).toHaveBeenCalledWith("car", ["AUTO1"]);
     expect(
       findEntities(store, { ...options, fields: [base + "code"] }, scores)
         .rows[0],
     ).toMatchObject({ matchedField: base + "code", matchedValue: "AUTO1" });
-    expect(findEntities(store, { ...options, fields: [] }, scores).total).toBe(
-      0,
-    );
-    expect(
-      findEntities(store, { ...options, fields: ["absent"] }, scores).total,
-    ).toBe(0);
+    for (const fields of [[], ["absent"]])
+      expect(findEntities(store, { ...options, fields }, scores).total).toBe(0);
     expect(findEntities(store, { ...options, kinds: [] }, scores).total).toBe(
       0,
     );
+    expect(indexFor(store).semanticTexts([NS.rdf + "type"])).toContain(
+      NS.owl + "Class",
+    );
+    expect(indexFor(store).semanticTexts(["name", "iri"])).toBe(
+      indexFor(store).semanticTexts(["iri", "name"]),
+    );
   });
-  it("refreshes after edits and undo and retries failed model work", async () => {
-    const store = await fixture();
-    const score = vi.fn(async () => scores);
-    await prepareSemanticFind(store, options, score);
+  it("uses one index per version and rebuilds after edits and undo", async () => {
+    const store = await fixture(),
+      first = indexFor(store);
+    expect(indexFor(store)).toBe(first);
     store.updateEntity(
       base + "A",
       store
         .entityStatements(base + "A")
         .filter((t) => t.predicate !== NS.rdfs + "seeAlso"),
     );
-    await prepareSemanticFind(store, options, score);
-    expect(score).toHaveBeenCalledTimes(2);
+    expect(indexFor(store)).not.toBe(first);
+    expect(indexFor(store).semanticTexts(["name"])).not.toContain(
+      "Motor vehicle",
+    );
     store.undo();
-    await prepareSemanticFind(store, options, score);
-    expect(score).toHaveBeenCalledTimes(3);
-    const index = new EntityFindIndex(store);
-    await expect(
-      index.semanticScores(options, async () => {
-        throw Error("model missing");
-      }),
-    ).rejects.toThrow("model missing");
-    expect(await index.semanticScores(options, score)).toBe(scores);
+    expect(indexFor(store).semanticTexts(["name"])).toContain("Motor vehicle");
   });
-  it("pages 15000 semantic matches without losing results or requiring another model call", () => {
+  it("bounds semantic-only recall and never pads a full lexical result set", () => {
     const store = new Store();
     store.entities.clear();
     const values = new Map<string, number>();
-    for (let i = 0; i < 15000; i++) {
+    for (let i = 0; i < 100; i++) {
       const label = "Course " + i;
       store.entities.set(base + i, { ...entity(base + i, "Class"), label });
-      values.set(label, 0.8 - i / 100000);
+      values.set(label, 0.8 - i / 1000);
     }
-    const index = new EntityFindIndex(store);
-    const first = index.find({ ...options, limit: 100 }, values);
-    expect(first.total).toBe(15000);
-    const last = index.find({ ...options, limit: 100, offset: 14900 }, values);
-    expect(last.rows).toHaveLength(100);
-    expect(last.rows.some((r) => first.rows.some((f) => f.iri === r.iri))).toBe(
-      false,
+    const index = new EntitySearchIndex(store);
+    const result = index.find({ text: "study", fields: ["name"] }, values);
+    expect(result.total).toBe(semanticFillLimit);
+    expect(
+      index.find(
+        { text: "zzqx", fields: ["name"] },
+        new Map([["Course 1", 0.2]]),
+      ).total,
+    ).toBe(0);
+    expect(index.find({ text: "Course", fields: ["name"] }, values).total).toBe(
+      100,
     );
   });
-  it("validates finite thresholds and empty facets", () => {
-    expect(
-      readFindOptions({ minimumSimilarity: Infinity }).minimumSimilarity,
-    ).toBe(0);
-    expect(readFindOptions({ minimumSimilarity: 2 }).minimumSimilarity).toBe(1);
-    expect(readFindOptions({ fields: [], kinds: [] }).fields).toEqual([]);
-  });
+  it.each(["words", "phrase", "exact", "cosine"])(
+    "migrates saved %s mode without losing query or filters",
+    (match) => {
+      const result = readFindOptions({
+        match,
+        minimumSimilarity: 0.99,
+        text: "car",
+        fields: ["name"],
+        kinds: ["classes"],
+        sort: "name-desc",
+      });
+      expect(result).toMatchObject({
+        text: "car",
+        fields: ["name"],
+        kinds: ["classes"],
+        sort: "name-desc",
+      });
+      expect(result).not.toHaveProperty("match");
+      expect(result).not.toHaveProperty("minimumSimilarity");
+    },
+  );
+});
+
+it("fuses semantic and lexical ranks without confusing similarity with eligibility", () => {
+  const store = new Store();
+  for (const name of ["Course Alpha", "Course Beta", "Course Gamma"]) {
+    const iri = base + name.replaceAll(" ", "_");
+    store.entities.set(iri, { ...entity(iri, "Class"), label: name });
+  }
+  const index = new EntitySearchIndex(store);
+  expect(index.find({ text: "Course", fields: ["name"] }).rows[0].name).toBe(
+    "Course Alpha",
+  );
+  const enriched = index.find(
+    { text: "Course", fields: ["name"] },
+    new Map([
+      ["Course Alpha", 0.55],
+      ["Course Beta", 0.6],
+      ["Course Gamma", 0.95],
+    ]),
+  );
+  expect(enriched.rows[0].name).toBe("Course Gamma");
+  expect(enriched.total).toBe(3);
 });

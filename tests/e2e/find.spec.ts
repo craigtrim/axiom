@@ -26,11 +26,12 @@ async function menu(id: string) {
       .click({} as never, w, w.webContents as never);
   }, id);
 }
-async function launch() {
+async function launch(modelDirectory?: string) {
   const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
     string,
     string
   >;
+  if (modelDirectory) env.AXIOM_EMBEDDING_MODEL_DIR = modelDirectory;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -337,9 +338,12 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
   await input.fill("prep lang");
   await expect(
     d.getByRole("listbox", { name: "Matching entities" }).getByRole("option"),
-  ).toHaveCount(1);
+  ).toHaveCount(2);
   await expect(
-    d.getByRole("listbox", { name: "Matching entities" }).getByRole("option"),
+    d
+      .getByRole("listbox", { name: "Matching entities" })
+      .getByRole("option")
+      .first(),
   ).toContainText("Basic English");
   const a = await new AxeBuilder({ page })
     .setLegacyMode()
@@ -413,7 +417,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
   ).toBeVisible();
   await p.getByRole("button", { name: "Reset filters", exact: true }).click();
   await p.getByRole("searchbox", { name: "Find text" }).fill("asic eng");
-  await p.getByRole("combobox", { name: "Match mode" }).selectOption("phrase");
+  await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   await expect(
     p.getByRole("button", { name: "Basic English", exact: true }),
   ).toBeVisible();
@@ -583,15 +587,15 @@ test("MPNet Find recognizes synonyms without spelling overlap and opens the same
     .toBe(true);
   await menu("view.find");
   const p = pane();
-  await p.getByRole("combobox", { name: "Match mode" }).selectOption("cosine");
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await p.getByRole("searchbox", { name: "Find text" }).fill("car");
-  await p.getByRole("slider", { name: "Minimum similarity" }).fill("0.8");
-  await expect(p.locator("tbody tr").first()).toContainText("Automobile", {
+  await expect(
+    p.getByRole("button", { name: "Automobile", exact: true }),
+  ).toBeVisible({
     timeout: 30000,
   });
-  await expect(p.locator("tbody tr")).toHaveCount(2);
-  await expect(p).toContainText("Local MPNet meaning similarity");
+  await expect(p.locator("tbody tr").first()).toContainText("Carpet");
+  await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   const result = await page.evaluate(() =>
     window.axiom.request<{
       model: string;
@@ -602,35 +606,28 @@ test("MPNet Find recognizes synonyms without spelling overlap and opens the same
   expect(result.precision).toBe("fp32");
   expect(result.model).toBe("sentence-transformers/all-mpnet-base-v2");
   expect(result.similarities[0]).toBeGreaterThan(result.similarities[1] + 0.3);
-  const before = await state();
-  await page.evaluate(async (s) => {
-    await window.axiom.request("graphCreate", {
-      find: {
-        text: "car",
-        match: "cosine",
-        fields: ["name"],
-        minimumSimilarity: 0.8,
-      },
-      version: s.version,
-      datasetEpoch: s.datasetEpoch,
-    });
-  }, before);
+  await p
+    .getByRole("button", { name: "Open results in new graph", exact: true })
+    .click();
+  await expect
+    .poll(async () => Object.keys((await state()).graphs ?? {}).length)
+    .toBe(2);
   expect((await state()).graph.nodes.map((n) => n.iri)).toEqual(
     expect.arrayContaining([base + "Automobile", base + "Vehicle"]),
   );
   expect(
     (await state()).graph.nodes.some((n) => n.iri === base + "Carpet"),
-  ).toBe(false);
+  ).toBe(true);
   await menu("view.find");
   await page.screenshot({ path: "artifacts/testing/find-mpnet.png" });
 });
 
-test("cosine Find ranks an unseen query, facets all fields and shows match scores", async () => {
+test("automatic Find enriches an unseen query and preserves field and type facets", async () => {
   await menu("entity.search");
   const dialog = page.getByRole("dialog", { name: "Find entities" });
-  await dialog
-    .getByRole("combobox", { name: "Quick Find match" })
-    .selectOption("cosine");
+  await expect(
+    dialog.getByRole("combobox", { name: "Quick Find match" }),
+  ).toHaveCount(0);
   await dialog
     .getByRole("combobox", { name: "Search entities" })
     .fill("English for beginners");
@@ -644,14 +641,8 @@ test("cosine Find ranks an unseen query, facets all fields and shows match score
     .getByRole("combobox", { name: "Search entities" })
     .press("Enter");
   const p = pane();
-  await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveValue(
-    "cosine",
-  );
+  await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   await expect(p.locator("tbody tr").first()).toContainText("Basic English");
-  await expect(p.locator("tbody tr").first().locator("meter")).toHaveAttribute(
-    "value",
-    /0\./,
-  );
   await expect(
     p.getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeVisible();
@@ -669,19 +660,15 @@ test("cosine Find ranks an unseen query, facets all fields and shows match score
   ).toBeChecked();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await p.getByRole("searchbox", { name: "Find text" }).fill("Basic English");
-  await p.getByRole("slider", { name: "Minimum similarity" }).fill("1");
-  await expect(p.locator("tbody tr")).toHaveCount(1);
-  await expect(p.locator(".find-score strong")).toHaveText("1.000");
+  await expect(p.locator("tbody tr").first()).toContainText("Basic English");
   await types(["Instances"]);
-  await expect(p.locator("tbody tr")).toHaveCount(0);
-  await p.getByRole("slider", { name: "Minimum similarity" }).fill("0.2");
   await p.getByRole("searchbox", { name: "Find text" }).fill("English learner");
   await expect(p.locator("tbody tr")).toHaveCount(1);
   await expect(p.locator("tbody tr")).toContainText("English learner");
   expect(
     (await p.locator(".find-results-scroll").boundingBox())!.height,
   ).toBeGreaterThan(120);
-  await page.screenshot({ path: "artifacts/testing/find-cosine.png" });
+  await page.screenshot({ path: "artifacts/testing/find-automatic.png" });
   const axe = await new AxeBuilder({ page })
     .setLegacyMode()
     .include('[data-panel="find"]')
@@ -711,7 +698,7 @@ test("Find similar starts from a taxonomy node and excludes the source entity", 
   ).toHaveValue("Basic English");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
-  ).toHaveValue("cosine");
+  ).toHaveCount(0);
   await expect(pane().locator("tbody tr").first()).toBeVisible();
   await expect(
     pane().getByRole("button", { name: "Basic English", exact: true }),
@@ -724,7 +711,7 @@ test("Find similar starts from a taxonomy node and excludes the source entity", 
   ).toBeVisible();
 });
 
-test("graph Find similar uses the selected name and cosine facets survive restart", async () => {
+test("graph Find similar uses the selected name and field facets survive restart", async () => {
   await page.evaluate(async (iri) => {
     await window.axiom.request("seed", { iris: [iri], expand: false });
     await window.axiom.request("select", { iri });
@@ -742,7 +729,7 @@ test("graph Find similar uses the selected name and cosine facets survive restar
   ).toHaveValue("Basic English");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
-  ).toHaveValue("cosine");
+  ).toHaveCount(0);
   await pane()
     .getByRole("button", { name: "Clear fields", exact: true })
     .click();
@@ -752,7 +739,6 @@ test("graph Find similar uses the selected name and cosine facets survive restar
   await pane()
     .getByRole("searchbox", { name: "Find text" })
     .fill("written communication");
-  await pane().getByRole("slider", { name: "Minimum similarity" }).fill("0.31");
   await types(["Classes"]);
   await app.evaluate(
     ({ dialog }, file) => {
@@ -767,13 +753,13 @@ test("graph Find similar uses the selected name and cosine facets survive restar
   await menu("view.find");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
-  ).toHaveValue("cosine");
+  ).toHaveCount(0);
   await expect(
     pane().getByRole("searchbox", { name: "Find text" }),
   ).toHaveValue("written communication");
   await expect(
     pane().getByRole("slider", { name: "Minimum similarity" }),
-  ).toHaveValue("0.31");
+  ).toHaveCount(0);
   await expect(
     pane().getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeChecked();
@@ -882,11 +868,8 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
   );
 });
 
-test("result graphs follow cosine field filters and instance ancestry without expanding siblings", async () => {
+test("result graphs follow field filters and instance ancestry without expanding siblings", async () => {
   await find("Basic");
-  await pane()
-    .getByRole("combobox", { name: "Match mode" })
-    .selectOption("cosine");
   await pane()
     .getByRole("button", { name: "Clear fields", exact: true })
     .click();
@@ -896,7 +879,6 @@ test("result graphs follow cosine field filters and instance ancestry without ex
   await pane()
     .getByRole("searchbox", { name: "Find text" })
     .fill("A foundation in written and spoken English.");
-  await pane().getByRole("slider", { name: "Minimum similarity" }).fill("1");
   await expect(pane().getByRole("status").first()).toHaveText("1 match");
   await pane()
     .getByRole("button", { name: "Open results in new graph", exact: true })
@@ -1050,4 +1032,156 @@ test("Find also scrolls a detached taxonomy without taking focus from the result
   await expect(
     pane().getByRole("searchbox", { name: "Find text" }),
   ).toBeFocused();
+});
+
+test("Find and resource inputs keep lexical results when the local model is absent", async () => {
+  await app.close();
+  await launch(path.join(profile, "missing-model"));
+  await app.evaluate(
+    ({ dialog }, file) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [file],
+      });
+    },
+    path.join(profile, "courses.ttl"),
+  );
+  await menu("file.open");
+  await expect
+    .poll(async () =>
+      (await state()).entities.some((e) => e.iri === base + "Basic"),
+    )
+    .toBe(true);
+  await find("prep lang");
+  await expect(pane().locator("tbody tr").first()).toContainText(
+    "Basic English",
+  );
+  const result = await page.evaluate(async () => {
+    const args = {
+      text: "prep lang",
+      fields: ["name"],
+      consumer: "missing-test",
+      searchId: "find",
+    };
+    const lexical = await window.axiom.request<any>("find", args);
+    const enriched = await window.axiom.request("findSemantic", args);
+    const resourceArgs = {
+      query: "prep lang",
+      classesOnly: true,
+      consumer: "missing-test",
+      searchId: "resource",
+    };
+    const resources = await window.axiom.request<any[]>(
+      "resourceSuggestions",
+      resourceArgs,
+    );
+    const semanticResources = await window.axiom.request(
+      "resourceSuggestionsSemantic",
+      resourceArgs,
+    );
+    return { lexical, enriched, resources, semanticResources };
+  });
+  expect(result.lexical.rows[0].iri).toBe(base + "Basic");
+  expect(result.enriched).toBeUndefined();
+  expect(result.resources[0].iri).toBe(base + "Basic");
+  expect(result.semanticResources).toBeUndefined();
+  await expect(pane().getByRole("alert")).toHaveCount(0);
+});
+
+test("a search result token retains its query and rejects stale ontology revisions", async () => {
+  const token = await page.evaluate(async () => {
+    const result = await window.axiom.request<any>("find", {
+      text: "preparatory",
+      fields: ["name"],
+    });
+    await window.axiom.request("find", { text: "English", fields: ["name"] });
+    return result.resultId as string;
+  });
+  await page.evaluate(async (resultId) => {
+    const s = await window.axiom.request<Snapshot>("state");
+    await window.axiom.request("graphCreate", {
+      find: { text: "preparatory", fields: ["name"] },
+      findResultId: resultId,
+      version: s.version,
+      datasetEpoch: s.datasetEpoch,
+    });
+  }, token);
+  expect(new Set((await state()).graph.nodes.map((n) => n.iri))).toEqual(
+    new Set(["Basic", "English", "Course"].map((n) => base + n)),
+  );
+  const graphCount = Object.keys((await state()).graphs ?? {}).length;
+  await page.evaluate(async (iri) => {
+    const document = await window.axiom.request<any>("entityDocument", { iri });
+    await window.axiom.request("updateEntity", {
+      iri,
+      version: document.version,
+      datasetEpoch: document.datasetEpoch,
+      statements: [
+        ...document.statements,
+        {
+          subject: iri,
+          predicate: "http://www.w3.org/2000/01/rdf-schema#seeAlso",
+          object: { literal: true, value: "fresh alias" },
+        },
+      ],
+    });
+  }, base + "Basic");
+  const error = await page.evaluate(async (resultId) => {
+    const s = await window.axiom.request<Snapshot>("state");
+    try {
+      await window.axiom.request("graphCreate", {
+        find: { text: "preparatory", fields: ["name"] },
+        findResultId: resultId,
+        version: s.version,
+        datasetEpoch: s.datasetEpoch,
+      });
+      return "";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }, token);
+  expect(error).toMatch(
+    /search results.*changed|search.*refresh|search.*expired/i,
+  );
+  expect(Object.keys((await state()).graphs ?? {})).toHaveLength(graphCount);
+});
+
+test("reading and comp ranks Reading Comprehension first in quick Find and the results pane", async () => {
+  const file = path.join(profile, "reading.ttl");
+  await writeFile(
+    file,
+    `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
+    :Reading a owl:Class; rdfs:label "Reading Comprehension".
+    :German a owl:Class; rdfs:label "German Reading Comprehension".
+    :Theory a owl:Class; rdfs:label "Theory of Computation".`,
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () =>
+      (await state()).entities.some((e) => e.iri === base + "Reading"),
+    )
+    .toBe(true);
+  await find("reading and comp");
+  await expect(pane().locator("tbody tr").first()).toContainText(
+    "Reading Comprehension",
+  );
+  await expect(
+    pane().getByRole("button", { name: "Reading Comprehension", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    pane().getByRole("combobox", { name: "Match mode" }),
+  ).toHaveCount(0);
+  const resources = await page.evaluate(() =>
+    window.axiom.request<any[]>("resourceSuggestions", {
+      query: "reading and comp",
+      classesOnly: true,
+    }),
+  );
+  expect(resources[0].iri).toBe(base + "Reading");
 });

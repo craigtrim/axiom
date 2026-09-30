@@ -61,6 +61,7 @@ test.afterEach(async () => {
 
 async function prepare() {
   await menu("file.new");
+  await expect.poll(async () => (await state()).classCount).toBe(1);
   const ids = await page.evaluate(async () => {
     const root = "http://www.w3.org/2002/07/owl#Thing";
     const a = await window.axiom.request<string>("createClass", {
@@ -132,14 +133,13 @@ test("edges select on the line, edit endpoints and predicates, and delete indepe
   await page.keyboard.press("Enter");
   await inspector
     .getByRole("combobox", { name: "Edge relationship", exact: true })
-    .selectOption("__add");
-  const add = page.getByRole("dialog", { name: "Add predicate" });
-  await add
-    .getByRole("textbox", { name: "Predicate IRI" })
-    .fill("https://example.org/dependsOn");
-  await add.getByRole("button", { name: "Use predicate" }).click();
+    .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");
   await inspector.getByRole("button", { name: "Apply edge changes" }).click();
-  const next = JSON.stringify([ids.a, "https://example.org/dependsOn", ids.c]);
+  const next = JSON.stringify([
+    ids.a,
+    "http://www.w3.org/2000/01/rdf-schema#seeAlso",
+    ids.c,
+  ]);
   await expect(canvas).toHaveAttribute("data-selected-edge", next);
   expect((await state()).graph.nodes).toHaveLength(3);
   expect((await state()).classCount).toBe(4);
@@ -155,7 +155,7 @@ test("edges select on the line, edit endpoints and predicates, and delete indepe
   expect((await state()).graph.nodes).toHaveLength(3);
   expect(
     (await state()).graph.edges.some(
-      (e) => e.predicate === "https://example.org/dependsOn",
+      (e) => e.predicate === "http://www.w3.org/2000/01/rdf-schema#seeAlso",
     ),
   ).toBe(false);
   await menu("edit.undo");
