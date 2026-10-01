@@ -87,6 +87,7 @@ export function IndividualsPanel() {
   );
 }
 function ExampleIndividualsPanel() {
+  const [editError, setEditError] = useState("");
   const s = useSnapshot()!,
     epoch = useRef(s.datasetEpoch),
     [filter, setFilter] = useState<TableFilter>(
@@ -201,9 +202,12 @@ function ExampleIndividualsPanel() {
           getValidationErrors: ({ value }: { value: unknown }) => {
             try {
               validatePrice(String(value));
+              setEditError("");
               return null;
             } catch (e) {
-              return [(e as Error).message];
+              const message = (e as Error).message;
+              setEditError(message);
+              return [message];
             }
           },
         },
@@ -368,6 +372,8 @@ function ExampleIndividualsPanel() {
           paginationPageSizeSelector={[50, 100, 200]}
           singleClickEdit={true}
           readOnlyEdit={true}
+          invalidEditValueMode="block"
+          onCellEditingStopped={() => setEditError("")}
           stopEditingWhenCellsLoseFocus={true}
           onGridReady={(e) => {
             api.current = e.api;
@@ -429,6 +435,9 @@ function ExampleIndividualsPanel() {
           }}
         />
       </div>
+      <p role="status" className="validation-error table-edit-error">
+        {editError}
+      </p>
     </section>
   );
 }

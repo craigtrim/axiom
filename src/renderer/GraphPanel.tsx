@@ -53,6 +53,7 @@ import {
   type Rect,
 } from "./scene";
 import type { GraphNode } from "../domain/viewport";
+import { NumberField } from "./NumberField";
 export function GraphPanel({ graphId = "graph" }: { graphId?: string }) {
   return (
     <GraphScope.Provider value={graphId}>
@@ -425,15 +426,12 @@ function GraphContent() {
     place();
     return () => win.cancelAnimationFrame(frame);
   }, [renaming]);
-  const [limitText, setLimitText] = useState(String(graph?.budget ?? 1000));
-  useEffect(() => setLimitText(String(info?.budget ?? 1000)), [info?.budget]);
   const setLimit = async (value: number) => {
     try {
       await request("budget", { value });
       savePanel("graph.limit", value);
     } catch (e) {
       report((e as Error).message, true);
-      setLimitText(String(graph?.budget ?? 1000));
     }
   };
   const fitNow = (record = false) => {
@@ -1470,23 +1468,15 @@ function GraphContent() {
             value={info?.budget ?? 1000}
             onChange={(e) => void setLimit(+e.target.value)}
           />
-          <input
+          <NumberField
+            key={snapshot.datasetEpoch + ":" + graphId}
             className="node-limit"
-            type="number"
             aria-label="Visible node limit"
-            min="100"
+            min={100}
             max={MAX_VISIBLE_NODES}
-            step="1"
-            value={limitText}
-            onChange={(e) => setLimitText(e.target.value)}
-            onBlur={() => void setLimit(Number(limitText))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setLimitText(String(info?.budget ?? 1000));
-              }
-            }}
+            integer
+            value={info?.budget ?? 1000}
+            change={(value) => void setLimit(value)}
           />
           <output>
             {info?.nodes.length.toLocaleString("en-GB") ?? 0} /

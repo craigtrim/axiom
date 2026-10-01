@@ -1,6 +1,11 @@
 import { StyleClassTree } from "./StyleClassTree";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./Dialogs";
+import {
+  NumberField,
+  NumberValidation,
+  useNumberValidation,
+} from "./NumberField";
 import { useSnapshot, request, savePanel } from "./client";
 import {
   parseGraphStyle,
@@ -35,23 +40,16 @@ function NumberSetting({
   max: number;
   change: (n: number) => void;
 }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
   return (
     <label>
       {label}
-      <input
-        type="number"
+      <NumberField
+        aria-label={label}
         min={min}
         max={max}
-        step="1"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={(e) => {
-          if (draft !== "" && e.currentTarget.validity.valid)
-            change(Number(draft));
-          else setDraft(String(value));
-        }}
+        integer
+        value={value}
+        change={change}
       />
     </label>
   );
@@ -211,6 +209,7 @@ export function StylesDialog({
   close: () => void;
   advanced?: boolean;
 }) {
+  const numbers = useNumberValidation();
   const s = useSnapshot()!,
     epoch = useRef(s.datasetEpoch),
     [text, setText] = useState(s.graph.stylesheet ?? ""),
@@ -424,6 +423,7 @@ export function StylesDialog({
     fallbackColor;
   const stale = epoch.current !== s.datasetEpoch;
   async function apply() {
+    if (numbers.invalid || busy || stale || parsed.error) return;
     setBusy(true);
     try {
       parseGraphStyle(text);
@@ -507,377 +507,394 @@ export function StylesDialog({
     </aside>
   );
   return (
-    <Modal
-      title={advanced ? "Graph stylesheet" : "Graph appearance"}
-      close={close}
-    >
-      <div className="graph-appearance">
-        <p className="appearance-summary">
-          {loading
-            ? "Analyzing graph categories..."
-            : catalog
-              ? catalog.nodes.toLocaleString() +
-                " nodes · " +
-                catalog.relationships.toLocaleString() +
-                " relationships across the dataset"
-              : "Graph appearance settings"}
-        </p>
-        <div
-          role="tablist"
-          aria-label="Graph appearance sections"
-          className="appearance-tabs"
-        >
-          {pages.map((name, i) => (
-            <button
-              role="tab"
-              key={name}
-              id={"appearance-tab-" + name}
-              aria-controls="appearance-panel"
-              aria-selected={page === name}
-              tabIndex={page === name ? 0 : -1}
-              onClick={() => {
-                setPage(name);
-                setChosen("");
-                setFilter("");
-                setLimit(80);
-              }}
-              onKeyDown={(e) => {
-                const next =
-                  e.key === "ArrowRight"
-                    ? (i + 1) % pages.length
-                    : e.key === "ArrowLeft"
-                      ? (i + pages.length - 1) % pages.length
-                      : e.key === "Home"
-                        ? 0
-                        : e.key === "End"
-                          ? pages.length - 1
-                          : -1;
-                if (next >= 0) {
-                  e.preventDefault();
-                  setPage(pages[next]);
+    <NumberValidation.Provider value={numbers.report}>
+      <Modal
+        title={advanced ? "Graph stylesheet" : "Graph appearance"}
+        close={close}
+      >
+        <div className="graph-appearance">
+          <p className="appearance-summary">
+            {loading
+              ? "Analyzing graph categories..."
+              : catalog
+                ? catalog.nodes.toLocaleString() +
+                  " nodes · " +
+                  catalog.relationships.toLocaleString() +
+                  " relationships across the dataset"
+                : "Graph appearance settings"}
+          </p>
+          <div
+            role="tablist"
+            aria-label="Graph appearance sections"
+            className="appearance-tabs"
+          >
+            {pages.map((name, i) => (
+              <button
+                role="tab"
+                key={name}
+                id={"appearance-tab-" + name}
+                aria-controls="appearance-panel"
+                aria-selected={page === name}
+                tabIndex={page === name ? 0 : -1}
+                onClick={() => {
+                  setPage(name);
                   setChosen("");
                   setFilter("");
-                  (
-                    e.currentTarget.parentElement?.children[next] as HTMLElement
-                  ).focus();
-                }
+                  setLimit(80);
+                }}
+                onKeyDown={(e) => {
+                  const next =
+                    e.key === "ArrowRight"
+                      ? (i + 1) % pages.length
+                      : e.key === "ArrowLeft"
+                        ? (i + pages.length - 1) % pages.length
+                        : e.key === "Home"
+                          ? 0
+                          : e.key === "End"
+                            ? pages.length - 1
+                            : -1;
+                  if (next >= 0) {
+                    e.preventDefault();
+                    setPage(pages[next]);
+                    setChosen("");
+                    setFilter("");
+                    (
+                      e.currentTarget.parentElement?.children[
+                        next
+                      ] as HTMLElement
+                    ).focus();
+                  }
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div
+            id="appearance-panel"
+            role="tabpanel"
+            aria-labelledby={"appearance-tab-" + page}
+            className={
+              "appearance-panel " +
+              (page === "Sizing" || page === "Advanced"
+                ? "appearance-wide"
+                : "")
+            }
+          >
+            {page !== "Sizing" && page !== "Advanced" && catalogList}
+            <div
+              className="appearance-editor"
+              key={`${page}:${scope}:${chosenItem?.id}:${classTarget}`}
+            >
+              {page === "Advanced" ? (
+                <>
+                  <p>
+                    Edit the CSS-like stylesheet. These rules also control PNG
+                    and SVG exports.
+                  </p>
+                  <textarea
+                    aria-label="Graph stylesheet"
+                    className="code-input"
+                    spellCheck={false}
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      setError("");
+                    }}
+                    rows={16}
+                  />
+                  <details>
+                    <summary>Selectors and properties</summary>
+                    <p>
+                      Selectors: node, node.Class, node.Defined,
+                      node.Intersection, node.Individual, node.ObjectProperty,
+                      node.DataProperty, node.AnnotationProperty, node.Resource,
+                      node.Datatype, node:selected, node:pinned,
+                      node[iri="..."], node[type="..."], edge[predicate="..."],
+                      graph[theme="dark"].
+                    </p>
+                    <p>
+                      Nodes: fill, stroke, stroke-width, size, shape, color,
+                      font-size, label, opacity. Edges: stroke, stroke-width,
+                      opacity, line-style. Graph: background.
+                    </p>
+                    <p>
+                      Sizing: size-by (auto, fixed, connections, instances,
+                      count, weighted), size-min, size-max, size-scale (linear,
+                      log), connections-weight, instances-weight, count-weight.
+                      Sizes are graph pixels, between 6 and 120.
+                    </p>
+                    <p>
+                      Specific selectors override general rules. With equal
+                      specificity, the last matching rule wins. This also
+                      applies to individuals with multiple types.
+                    </p>
+                  </details>
+                  <button
+                    onClick={() => {
+                      setText(styleExample);
+                      setError("");
+                    }}
+                  >
+                    Load example
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="appearance-preview">
+                    <canvas
+                      ref={canvas}
+                      width={520}
+                      height={165}
+                      role="img"
+                      aria-label="Graph style preview"
+                    />
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={previewDark}
+                        onChange={(e) => setPreviewDark(e.target.checked)}
+                      />
+                      Dark preview
+                    </label>
+                    <span>Sample appearance</span>
+                  </div>
+                  {page === "Sizing" ? (
+                    <>
+                      <h3>Global node sizing</h3>
+                      <Sizing values={values} change={change} />
+                      <details>
+                        <summary>What the counts mean</summary>
+                        <p>
+                          Connections counts graph relationships attached to
+                          each node, including those outside the visible graph.
+                          Direct instances counts individuals explicitly
+                          assigned to a class. Nodes of the same kind counts all
+                          Class, Individual, or other nodes of that kind.
+                        </p>
+                        <p>
+                          Weighted combination averages the normalized counts
+                          using your weights. For example, weights of 25 for
+                          connections and 75 for instances give instances three
+                          times the influence. Counts update when the dataset
+                          changes. Styles for a specific node, kind, or class
+                          can override global sizing.
+                        </p>
+                      </details>
+                    </>
+                  ) : (
+                    chosenItem && (
+                      <>
+                        <h3 title={chosenItem.id}>{chosenItem.label}</h3>
+                        {scope === "classes" && page === "Nodes" && (
+                          <label>
+                            Apply to
+                            <select
+                              value={classTarget}
+                              onChange={(e) => setClassTarget(e.target.value)}
+                            >
+                              <option value="node">The class node</option>
+                              <option value="branch">
+                                Class and all subclasses
+                              </option>
+                              <option value="instances">
+                                Instances of this class (
+                                {chosenItem.count.toLocaleString()})
+                              </option>
+                            </select>
+                          </label>
+                        )}
+                        <div className="appearance-fields">
+                          <label>
+                            {page === "Relationships"
+                              ? "Line color"
+                              : "Fill color"}
+                            <input
+                              aria-label={
+                                page === "Relationships"
+                                  ? "Line color"
+                                  : "Fill color"
+                              }
+                              type="color"
+                              value={color}
+                              onChange={(e) =>
+                                change({ [colorKey]: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Palette
+                            <select
+                              value={palette}
+                              onChange={(e) =>
+                                setPalette(Number(e.target.value))
+                              }
+                            >
+                              {graphPalettes.map((p, i) => (
+                                <option key={p.id} value={i}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div
+                          className="appearance-swatches"
+                          aria-label="Palette colors"
+                        >
+                          {graphPalettes[palette].colors.map((c) => (
+                            <button
+                              key={c}
+                              aria-label={"Use color " + c}
+                              title={c}
+                              style={{ background: c }}
+                              onClick={() => change({ [colorKey]: c })}
+                            />
+                          ))}
+                        </div>
+                        <div className="appearance-palette-actions">
+                          <button
+                            onClick={() => change({ [colorKey]: undefined })}
+                          >
+                            Use inherited color
+                          </button>
+                          {(scope === "kinds" || page === "Relationships") && (
+                            <button onClick={applyPalette}>
+                              Apply palette to{" "}
+                              {page === "Relationships"
+                                ? "relationship types"
+                                : "node kinds"}
+                            </button>
+                          )}
+                        </div>
+                        <p className="appearance-help">
+                          Colors repeat when categories exceed the palette.
+                          Labels and shapes remain available to distinguish
+                          them.
+                        </p>
+                        {page === "Relationships" ? (
+                          <>
+                            <div className="appearance-fields">
+                              <NumberSetting
+                                label="Line width (px)"
+                                min={0}
+                                max={12}
+                                value={values["stroke-width"] ?? 1}
+                                change={(n) => change({ "stroke-width": n })}
+                              />
+                              <label>
+                                Line style
+                                <select
+                                  value={values["line-style"] ?? "inherit"}
+                                  onChange={(e) =>
+                                    change({
+                                      "line-style":
+                                        e.target.value === "inherit"
+                                          ? undefined
+                                          : e.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="inherit">Inherit</option>
+                                  <option value="solid">Solid</option>
+                                  <option value="dashed">Dashed</option>
+                                </select>
+                              </label>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="appearance-fields">
+                              <label>
+                                Shape
+                                <select
+                                  value={values.shape ?? "inherit"}
+                                  onChange={(e) =>
+                                    change({
+                                      shape:
+                                        e.target.value === "inherit"
+                                          ? undefined
+                                          : e.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="inherit">Inherit</option>
+                                  {[
+                                    "circle",
+                                    "square",
+                                    "diamond",
+                                    "hexagon",
+                                  ].map((x) => (
+                                    <option key={x}>{x}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label>
+                                Caption
+                                <select
+                                  value={values.label ?? "inherit"}
+                                  onChange={(e) =>
+                                    change({
+                                      label:
+                                        e.target.value === "inherit"
+                                          ? undefined
+                                          : e.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="inherit">Inherit</option>
+                                  <option value="name">Name</option>
+                                  <option value="iri">Identifier (IRI)</option>
+                                  <option value="none">None</option>
+                                </select>
+                              </label>
+                            </div>
+                            <Sizing values={values} change={change} inherit />
+                          </>
+                        )}
+                        <button
+                          onClick={resetRule}
+                          disabled={!Object.keys(values).length}
+                        >
+                          Reset this rule
+                        </button>
+                      </>
+                    )
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          {(error || parsed.error || stale) && (
+            <p role="alert">
+              {stale
+                ? "The workspace changed. Close and reopen these settings."
+                : error || parsed.error}
+            </p>
+          )}
+          <footer>
+            <button
+              onClick={() => {
+                setText("");
+                setError("");
               }}
             >
-              {name}
+              Reset styles
             </button>
-          ))}
+            <span className="appearance-footer-space" />
+            <button onClick={close}>Cancel</button>
+            <button
+              className="primary"
+              disabled={
+                busy || stale || !!parsed.error || !!error || numbers.invalid
+              }
+              onClick={() => void apply()}
+            >
+              {busy ? "Applying..." : "Apply"}
+            </button>
+          </footer>
         </div>
-        <div
-          id="appearance-panel"
-          role="tabpanel"
-          aria-labelledby={"appearance-tab-" + page}
-          className={
-            "appearance-panel " +
-            (page === "Sizing" || page === "Advanced" ? "appearance-wide" : "")
-          }
-        >
-          {page !== "Sizing" && page !== "Advanced" && catalogList}
-          <div className="appearance-editor">
-            {page === "Advanced" ? (
-              <>
-                <p>
-                  Edit the CSS-like stylesheet. These rules also control PNG and
-                  SVG exports.
-                </p>
-                <textarea
-                  aria-label="Graph stylesheet"
-                  className="code-input"
-                  spellCheck={false}
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    setError("");
-                  }}
-                  rows={16}
-                />
-                <details>
-                  <summary>Selectors and properties</summary>
-                  <p>
-                    Selectors: node, node.Class, node.Defined,
-                    node.Intersection, node.Individual, node.ObjectProperty,
-                    node.DataProperty, node.AnnotationProperty, node.Resource,
-                    node.Datatype, node:selected, node:pinned, node[iri="..."],
-                    node[type="..."], edge[predicate="..."],
-                    graph[theme="dark"].
-                  </p>
-                  <p>
-                    Nodes: fill, stroke, stroke-width, size, shape, color,
-                    font-size, label, opacity. Edges: stroke, stroke-width,
-                    opacity, line-style. Graph: background.
-                  </p>
-                  <p>
-                    Sizing: size-by (auto, fixed, connections, instances, count,
-                    weighted), size-min, size-max, size-scale (linear, log),
-                    connections-weight, instances-weight, count-weight. Sizes
-                    are graph pixels, between 6 and 120.
-                  </p>
-                  <p>
-                    Specific selectors override general rules. With equal
-                    specificity, the last matching rule wins. This also applies
-                    to individuals with multiple types.
-                  </p>
-                </details>
-                <button
-                  onClick={() => {
-                    setText(styleExample);
-                    setError("");
-                  }}
-                >
-                  Load example
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="appearance-preview">
-                  <canvas
-                    ref={canvas}
-                    width={520}
-                    height={165}
-                    role="img"
-                    aria-label="Graph style preview"
-                  />
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={previewDark}
-                      onChange={(e) => setPreviewDark(e.target.checked)}
-                    />
-                    Dark preview
-                  </label>
-                  <span>Sample appearance</span>
-                </div>
-                {page === "Sizing" ? (
-                  <>
-                    <h3>Global node sizing</h3>
-                    <Sizing values={values} change={change} />
-                    <details>
-                      <summary>What the counts mean</summary>
-                      <p>
-                        Connections counts graph relationships attached to each
-                        node, including those outside the visible graph. Direct
-                        instances counts individuals explicitly assigned to a
-                        class. Nodes of the same kind counts all Class,
-                        Individual, or other nodes of that kind.
-                      </p>
-                      <p>
-                        Weighted combination averages the normalized counts
-                        using your weights. For example, weights of 25 for
-                        connections and 75 for instances give instances three
-                        times the influence. Counts update when the dataset
-                        changes. Styles for a specific node, kind, or class can
-                        override global sizing.
-                      </p>
-                    </details>
-                  </>
-                ) : (
-                  chosenItem && (
-                    <>
-                      <h3 title={chosenItem.id}>{chosenItem.label}</h3>
-                      {scope === "classes" && page === "Nodes" && (
-                        <label>
-                          Apply to
-                          <select
-                            value={classTarget}
-                            onChange={(e) => setClassTarget(e.target.value)}
-                          >
-                            <option value="node">The class node</option>
-                            <option value="branch">
-                              Class and all subclasses
-                            </option>
-                            <option value="instances">
-                              Instances of this class (
-                              {chosenItem.count.toLocaleString()})
-                            </option>
-                          </select>
-                        </label>
-                      )}
-                      <div className="appearance-fields">
-                        <label>
-                          {page === "Relationships"
-                            ? "Line color"
-                            : "Fill color"}
-                          <input
-                            aria-label={
-                              page === "Relationships"
-                                ? "Line color"
-                                : "Fill color"
-                            }
-                            type="color"
-                            value={color}
-                            onChange={(e) =>
-                              change({ [colorKey]: e.target.value })
-                            }
-                          />
-                        </label>
-                        <label>
-                          Palette
-                          <select
-                            value={palette}
-                            onChange={(e) => setPalette(Number(e.target.value))}
-                          >
-                            {graphPalettes.map((p, i) => (
-                              <option key={p.id} value={i}>
-                                {p.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <div
-                        className="appearance-swatches"
-                        aria-label="Palette colors"
-                      >
-                        {graphPalettes[palette].colors.map((c) => (
-                          <button
-                            key={c}
-                            aria-label={"Use color " + c}
-                            title={c}
-                            style={{ background: c }}
-                            onClick={() => change({ [colorKey]: c })}
-                          />
-                        ))}
-                      </div>
-                      <div className="appearance-palette-actions">
-                        <button
-                          onClick={() => change({ [colorKey]: undefined })}
-                        >
-                          Use inherited color
-                        </button>
-                        {(scope === "kinds" || page === "Relationships") && (
-                          <button onClick={applyPalette}>
-                            Apply palette to{" "}
-                            {page === "Relationships"
-                              ? "relationship types"
-                              : "node kinds"}
-                          </button>
-                        )}
-                      </div>
-                      <p className="appearance-help">
-                        Colors repeat when categories exceed the palette. Labels
-                        and shapes remain available to distinguish them.
-                      </p>
-                      {page === "Relationships" ? (
-                        <>
-                          <div className="appearance-fields">
-                            <NumberSetting
-                              label="Line width (px)"
-                              min={0}
-                              max={12}
-                              value={values["stroke-width"] ?? 1}
-                              change={(n) => change({ "stroke-width": n })}
-                            />
-                            <label>
-                              Line style
-                              <select
-                                value={values["line-style"] ?? "inherit"}
-                                onChange={(e) =>
-                                  change({
-                                    "line-style":
-                                      e.target.value === "inherit"
-                                        ? undefined
-                                        : e.target.value,
-                                  })
-                                }
-                              >
-                                <option value="inherit">Inherit</option>
-                                <option value="solid">Solid</option>
-                                <option value="dashed">Dashed</option>
-                              </select>
-                            </label>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="appearance-fields">
-                            <label>
-                              Shape
-                              <select
-                                value={values.shape ?? "inherit"}
-                                onChange={(e) =>
-                                  change({
-                                    shape:
-                                      e.target.value === "inherit"
-                                        ? undefined
-                                        : e.target.value,
-                                  })
-                                }
-                              >
-                                <option value="inherit">Inherit</option>
-                                {["circle", "square", "diamond", "hexagon"].map(
-                                  (x) => (
-                                    <option key={x}>{x}</option>
-                                  ),
-                                )}
-                              </select>
-                            </label>
-                            <label>
-                              Caption
-                              <select
-                                value={values.label ?? "inherit"}
-                                onChange={(e) =>
-                                  change({
-                                    label:
-                                      e.target.value === "inherit"
-                                        ? undefined
-                                        : e.target.value,
-                                  })
-                                }
-                              >
-                                <option value="inherit">Inherit</option>
-                                <option value="name">Name</option>
-                                <option value="iri">Identifier (IRI)</option>
-                                <option value="none">None</option>
-                              </select>
-                            </label>
-                          </div>
-                          <Sizing values={values} change={change} inherit />
-                        </>
-                      )}
-                      <button
-                        onClick={resetRule}
-                        disabled={!Object.keys(values).length}
-                      >
-                        Reset this rule
-                      </button>
-                    </>
-                  )
-                )}
-              </>
-            )}
-          </div>
-        </div>
-        {(error || parsed.error || stale) && (
-          <p role="alert">
-            {stale
-              ? "The workspace changed. Close and reopen these settings."
-              : error || parsed.error}
-          </p>
-        )}
-        <footer>
-          <button
-            onClick={() => {
-              setText("");
-              setError("");
-            }}
-          >
-            Reset styles
-          </button>
-          <span className="appearance-footer-space" />
-          <button onClick={close}>Cancel</button>
-          <button
-            className="primary"
-            disabled={busy || stale || !!parsed.error || !!error}
-            onClick={() => void apply()}
-          >
-            {busy ? "Applying..." : "Apply"}
-          </button>
-        </footer>
-      </div>
-    </Modal>
+      </Modal>
+    </NumberValidation.Provider>
   );
 }

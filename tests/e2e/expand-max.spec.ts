@@ -6,7 +6,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 let app: ElectronApplication, page: Page, profile: string;
@@ -219,7 +219,7 @@ test("node limit slider reaches 15000 and survives workspace reopening", async (
     exact: true,
   });
   await expect(slider).toHaveAttribute("max", "15000");
-  await expect(number).toHaveAttribute("max", "15000");
+  await expect(number).toHaveAttribute("aria-valuemax", "15000");
   await slider.focus();
   await slider.press("End");
   await expect.poll(async () => (await state()).graph.budget).toBe(15000);
@@ -236,6 +236,14 @@ test("node limit slider reaches 15000 and survives workspace reopening", async (
   }, file);
   await menu("file.saveAs");
   await expect.poll(async () => (await state()).dirty).toBe(false);
+  const saved = path.join(profile, "Saved-limit.axiom");
+  await copyFile(file, saved);
+  await app.evaluate(({ dialog }, saved) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [saved],
+    });
+  }, saved);
   await request("budget", { value: 357 });
   await expect.poll(async () => (await state()).graph.budget).toBe(357);
   await menu("file.open");

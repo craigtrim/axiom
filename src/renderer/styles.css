@@ -4832,6 +4832,22 @@ button.sparsity-link {
   min-height: 0;
   padding: 0 var(--sp-1);
 }
+.number-field {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.number-field-error {
+  color: var(--danger);
+  font-size: var(--fs-caption);
+  font-weight: normal;
+}
+.number-field-error:empty {
+  display: none;
+}
+.table-edit-error:empty {
+  display: none;
+}
 .text-parent-chips {
   display: flex;
   flex-wrap: wrap;
