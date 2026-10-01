@@ -109,43 +109,80 @@ function ExampleIndividualsPanel() {
     setFilter(f);
     savePanel("table.filter", f);
   };
+  const dataKey = JSON.stringify([filter, s.version, s.datasetEpoch]);
+  const latestData = useRef({ key: dataKey, filter, epoch: s.datasetEpoch });
+  latestData.current = { key: dataKey, filter, epoch: s.datasetEpoch };
   const datasource = useMemo<IDatasource>(() => {
     let alive = true;
+    const datasetEpoch = s.datasetEpoch;
+    const retries = new Set<ReturnType<typeof setTimeout>>();
     return {
       getRows: (p) => {
-        const sort = p.sortModel[0],
-          f = {
-            ...filter,
-            ...(sort
-              ? {
-                  sort: sort.colId,
-                  direction: sort.sort === "asc" ? 1 : -1,
-                }
-              : {}),
+        const load = () => {
+          if (!alive || latestData.current.epoch !== datasetEpoch) return;
+          const current = latestData.current;
+          const sort = p.sortModel[0],
+            f = {
+              ...current.filter,
+              ...(sort
+                ? {
+                    sort: sort.colId,
+                    direction: sort.sort === "asc" ? 1 : -1,
+                  }
+                : {}),
+            };
+          const retryIfChanged = () => {
+            if (!alive || latestData.current.epoch !== datasetEpoch)
+              return true;
+            if (latestData.current.key === current.key) return false;
+            const timer = setTimeout(() => {
+              retries.delete(timer);
+              load();
+            }, 180);
+            retries.add(timer);
+            return true;
           };
-        void request<TablePage>("table", {
-          filter: f,
-          start: p.startRow,
-          end: Math.min(p.endRow, p.startRow + 1000),
-        })
-          .then((r) => {
-            if (alive) {
-              setTotal(r.total);
-              p.successCallback(r.rows, r.total);
-            }
+          void request<TablePage>("table", {
+            filter: f,
+            start: p.startRow,
+            end: Math.min(p.endRow, p.startRow + 1000),
           })
-          .catch((e) => {
-            if (alive) {
-              p.failCallback();
-              report(e.message, true);
-            }
-          });
+            .then((r) => {
+              if (!retryIfChanged()) {
+                setTotal(r.total);
+                p.successCallback(r.rows, r.total);
+              }
+            })
+            .catch((e) => {
+              if (!retryIfChanged()) {
+                p.failCallback();
+                report(e.message, true);
+              }
+            });
+        };
+        load();
       },
       destroy: () => {
         alive = false;
+        for (const timer of retries) clearTimeout(timer);
       },
     };
-  }, [filter, s.version]);
+  }, [s.datasetEpoch]);
+  const priorFilter = useRef(filter);
+  useEffect(() => {
+    const resetPage = priorFilter.current !== filter;
+    const timer = setTimeout(() => {
+      priorFilter.current = filter;
+      if (!api.current || api.current.isDestroyed()) return;
+      // Refresh retains loaded rows while the new blocks are fetched.
+      api.current.refreshInfiniteCache();
+      if (resetPage) {
+        api.current.paginationGoToFirstPage();
+        api.current.ensureIndexVisible(0);
+      }
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [dataKey]);
   useEffect(() => {
     api.current?.forEachNode((n) => n.setSelected(n.data?.iri === s.selected));
   }, [s.selected]);
@@ -187,7 +224,7 @@ function ExampleIndividualsPanel() {
         field: "branch",
         headerName: "Branch",
         width: 130,
-        editable: true,
+        editable: (p) => !!p.data,
         cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: branches },
       },
@@ -196,7 +233,7 @@ function ExampleIndividualsPanel() {
         field: "price",
         headerName: "Price",
         width: 95,
-        editable: true,
+        editable: (p) => !!p.data,
         cellEditor: "agTextCellEditor",
         cellEditorParams: {
           getValidationErrors: ({ value }: { value: unknown }) => {
@@ -219,7 +256,7 @@ function ExampleIndividualsPanel() {
         field: "rating",
         headerName: "Rating",
         width: 90,
-        editable: true,
+        editable: (p) => !!p.data,
         cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: [1, 2, 3, 4, 5] },
         valueFormatter: (p) => p.value + " / 5",
@@ -345,6 +382,7 @@ function ExampleIndividualsPanel() {
       </div>
       <div className="grid-host">
         <AgGridReact<Row>
+          key={s.datasetEpoch}
           theme={gridTheme(dark)}
           columnDefs={columns}
           defaultColDef={{

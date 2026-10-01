@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { request, useSnapshot } from "./client";
 import type { ResourceMatch } from "../domain/resource-search";
@@ -58,41 +58,90 @@ export function ResourceInput({
   const currentSelection = useRef({ items, active });
   currentSelection.current = { items, active };
   const omitted = JSON.stringify(exclude);
+  const scope = JSON.stringify([
+    s.datasetEpoch,
+    namespace,
+    classesOnly,
+    omitted,
+  ]);
+  const key = JSON.stringify([
+    scope,
+    s.version,
+    text,
+    shown,
+    textValue,
+    disabled,
+  ]);
+  const latest = useRef(key),
+    settled = useRef("");
+  latest.current = key;
+  const alive = useRef(true),
+    intent = useRef(0),
+    pending = useRef<string | undefined>(undefined);
+  if (pending.current && pending.current !== key) {
+    ++intent.current;
+    pending.current = undefined;
+  }
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      ++intent.current;
+    };
+  }, []);
+  useLayoutEffect(() => {
+    setItems([]);
+    setActive(-1);
+    setError("");
+    settled.current = "";
+  }, [scope]);
   useEffect(() => {
     if (!focused.current) setText(shown);
   }, [value, shown]);
   useEffect(() => {
-    if (!open) return;
-    setItems([]);
-    setActive(-1);
-    return progressiveSearch<ResourceMatch[]>(
-      request,
-      "resourceSuggestions",
-      {
-        query: text === shown && !textValue ? "" : text,
-        classesOnly,
-        exclude,
-        consumer,
-        searchId: crypto.randomUUID(),
-      },
-      (values) => {
-        const selection = currentSelection.current;
-        const iri = selection.items[selection.active]?.iri;
-        const literal =
-          !!useText && selection.active === selection.items.length;
-        setActive(
-          literal
+    if (!open || disabled) return;
+    let cancel = () => {};
+    const timer = setTimeout(() => {
+      cancel = progressiveSearch<ResourceMatch[]>(
+        request,
+        "resourceSuggestions",
+        {
+          query: text === shown && !textValue ? "" : text,
+          classesOnly,
+          exclude,
+          consumer,
+          searchId: crypto.randomUUID(),
+        },
+        (values) => {
+          if (latest.current !== key) return;
+          const selection = currentSelection.current;
+          const iri = selection.items[selection.active]?.iri;
+          const literal =
+            !!useText && selection.active === selection.items.length;
+          const nextActive = literal
             ? values.length
             : iri
               ? values.findIndex((item) => item.iri === iri)
-              : -1,
-        );
-        setItems(values);
-        setError("");
-      },
-      () => setError("Search unavailable. Try again."),
-    );
-  }, [text, open, s.version, s.datasetEpoch, classesOnly, omitted]);
+              : -1;
+          setActive(nextActive);
+          setItems(values);
+          currentSelection.current = { items: values, active: nextActive };
+          settled.current = key;
+          setError((previous) =>
+            previous === "Search unavailable. Try again." ? "" : previous,
+          );
+        },
+        () => {
+          if (latest.current === key)
+            setError("Search unavailable. Try again.");
+        },
+      );
+    }, 120);
+    return () => {
+      clearTimeout(timer);
+      cancel();
+    };
+  }, [key, open]);
   useEffect(() => {
     if (!open) return;
     const owner = input.current!.ownerDocument.defaultView!;
@@ -128,6 +177,7 @@ export function ResourceInput({
         ?.scrollIntoView({ block: "nearest" });
   }, [active]);
   const choose = (iri: string) => {
+    if (disabled || !alive.current) return;
     skipBlur.current = true;
     setText(name(iri));
     setOpen(false);
@@ -135,7 +185,55 @@ export function ResourceInput({
     change(iri);
     input.current?.blur();
   };
+  const withCurrentMatches = async (
+    apply: (values: ResourceMatch[]) => void,
+    chosen?: string,
+  ) => {
+    if (disabled || pending.current === key) return;
+    const ticket = ++intent.current;
+    pending.current = key;
+    const current = () =>
+      alive.current && latest.current === key && ticket === intent.current;
+    const args = {
+      query: text === shown && !textValue ? "" : text,
+      classesOnly,
+      exclude,
+      consumer: consumer + ":commit",
+      searchId: crypto.randomUUID(),
+    };
+    let requested = false;
+    try {
+      let values = currentSelection.current.items;
+      if (settled.current !== key) {
+        requested = true;
+        values = await request<ResourceMatch[]>("resourceSuggestions", args);
+        if (!current()) return;
+        // An explicitly selected semantic match may not be in the lexical pass.
+        if (chosen && !values.some((item) => item.iri === chosen))
+          values =
+            (await request<ResourceMatch[] | undefined>(
+              "resourceSuggestionsSemantic",
+              args,
+            )) ?? values;
+      }
+      if (current()) apply(values);
+    } catch {
+      if (current()) setError("Search unavailable. Try again.");
+    } finally {
+      if (ticket === intent.current) pending.current = undefined;
+      if (requested) void request("cancelSearch", args).catch(() => {});
+    }
+  };
+  const chooseMatch = (iri: string) =>
+    void withCurrentMatches((values) => {
+      if (values.some((item) => item.iri === iri)) choose(iri);
+      else
+        setError("That match is no longer available. Choose a current match.");
+    }, iri);
   const chooseText = () => {
+    if (disabled || !alive.current) return;
+    ++intent.current;
+    pending.current = undefined;
     skipBlur.current = true;
     setOpen(false);
     setError("");
@@ -144,12 +242,6 @@ export function ResourceInput({
   };
   const commit = () => {
     if (text === shown && (!textValue || useText)) return;
-    const normalized = text.trim().toLocaleLowerCase();
-    const exact = items.filter((e) =>
-      [e.label, e.identifier, e.iri].some(
-        (n) => n.toLocaleLowerCase() === normalized,
-      ),
-    );
     // A complete IRI remains a resource even if Enter/Tab beats the search
     // debounce. Plain annotation text still has an explicit literal option.
     if (
@@ -161,27 +253,39 @@ export function ResourceInput({
       choose(expandIri(text, namespace));
       return;
     }
-    if (useText && (textValue || !exact.length)) {
+    if (textValue && useText) {
       chooseText();
       return;
     }
-    if (exact.length === 1) {
-      choose(exact[0].iri);
-      return;
-    }
-    if (
-      !classesOnly &&
-      /^(?:[a-z][a-z0-9+.-]*:|<)|^[\p{L}\p{N}_-]+$/iu.test(text.trim()) &&
-      !/\s/.test(text.trim())
-    ) {
-      choose(expandIri(text, namespace));
-      return;
-    }
-    setError(
-      classesOnly
-        ? "Choose a class from the matches."
-        : "Choose a match or enter a resource IRI.",
-    );
+    void withCurrentMatches((values) => {
+      const normalized = text.trim().toLocaleLowerCase();
+      const exact = values.filter((e) =>
+        [e.label, e.identifier, e.iri].some(
+          (n) => n.toLocaleLowerCase() === normalized,
+        ),
+      );
+      if (useText && (textValue || !exact.length)) {
+        chooseText();
+        return;
+      }
+      if (exact.length === 1) {
+        choose(exact[0].iri);
+        return;
+      }
+      if (
+        !classesOnly &&
+        /^(?:[a-z][a-z0-9+.-]*:|<)|^[\p{L}\p{N}_-]+$/iu.test(text.trim()) &&
+        !/\s/.test(text.trim())
+      ) {
+        choose(expandIri(text, namespace));
+        return;
+      }
+      setError(
+        classesOnly
+          ? "Choose a class from the matches."
+          : "Choose a match or enter a resource IRI.",
+      );
+    });
   };
   return (
     <div className="resource-input">
@@ -211,7 +315,6 @@ export function ResourceInput({
         onChange={(e) => {
           setText(e.target.value);
           setOpen(true);
-          setError("");
         }}
         onBlur={() => {
           focused.current = false;
@@ -240,6 +343,8 @@ export function ResourceInput({
             e.preventDefault();
             e.stopPropagation();
             skipBlur.current = true;
+            ++intent.current;
+            pending.current = undefined;
             setText(shown);
             setError("");
             setOpen(false);
@@ -247,7 +352,8 @@ export function ResourceInput({
           }
           if (e.key === "Enter") {
             e.preventDefault();
-            if (open && active >= 0 && items[active]) choose(items[active].iri);
+            if (open && active >= 0 && items[active])
+              chooseMatch(items[active].iri);
             else if (open && active === items.length && useText) chooseText();
             else commit();
           }
@@ -278,7 +384,7 @@ export function ResourceInput({
                   e.stopPropagation();
                 }}
                 onMouseEnter={() => setActive(i)}
-                onClick={() => choose(item.iri)}
+                onClick={() => chooseMatch(item.iri)}
                 title={item.iri}
               >
                 <span>{item.label}</span>

@@ -16,6 +16,7 @@ import {
   rememberQueryRun,
 } from "./query-history";
 import { QueryComposer } from "./QueryComposer";
+import { useDelayedBusy } from "./use-delayed-busy";
 import { formatQuery, sameQueryContent } from "../domain/query-format";
 import { keyHint } from "./keyboard";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -132,6 +133,7 @@ export function QueryPanel() {
     history = useQueryHistory(),
     view = history.view,
     entry = view?.current;
+  const saving = useDelayedBusy(history.saving, entry?.id ?? "", 700);
   const root = useRef<HTMLElement>(null),
     host = useRef<HTMLDivElement>(null),
     editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -234,11 +236,12 @@ export function QueryPanel() {
       return;
     }
     busy.current = true;
-    beginQueryRun(id);
     setError("");
     try {
       persistEditor();
       await flushQueryHistory();
+      // Cancel targets the worker; expose it only after local saving finishes.
+      beginQueryRun(id);
       const r = await request<QuerySummary>("query", { text, queryKey: id });
       if (epoch !== state?.datasetEpoch) return;
       const record = {
@@ -595,7 +598,13 @@ export function QueryPanel() {
               <div className="query-document">
                 <div className="query-document-heading">
                   <strong>SPARQL</strong>
-                  <span>{history.saving ? "Saving…" : "Saved locally"}</span>
+                  <span>
+                    {history.error
+                      ? "Not saved"
+                      : saving
+                        ? "Saving…"
+                        : "Saved locally"}
+                  </span>
                 </div>
                 {generation && (
                   <details className="query-generation-details" key={entry.id}>

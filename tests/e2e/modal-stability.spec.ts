@@ -242,7 +242,7 @@ for (const advanced of [false, true]) {
       await dialog
         .getByRole("textbox", { name: "Graph stylesheet" })
         .fill("node { invalid-property: 20; }");
-      await expect(dialog.getByRole("alert")).toBeVisible();
+      await expect(dialog.getByRole("status")).not.toBeEmpty();
       await expect(
         dialog.getByRole("button", { name: "Apply", exact: true }),
       ).toBeDisabled();

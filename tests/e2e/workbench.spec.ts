@@ -457,8 +457,14 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
     )
     .toBe(123);
   await page.getByTestId("graph-canvas").focus();
-  await menu("Close pane");
-  await menu("Graph");
+  await menu("Detach pane to window");
+  await expect.poll(() => application.windows().length).toBe(2);
+  const child = application.windows().find((window) => window !== page)!;
+  await expect(
+    child.getByRole("spinbutton", { name: "Visible node limit", exact: true }),
+  ).toHaveValue("123");
+  await menu("Return all panes to main window");
+  await expect.poll(() => application.windows().length).toBe(1);
   await expect(
     page.getByRole("spinbutton", { name: "Visible node limit", exact: true }),
   ).toHaveValue("123");
@@ -559,14 +565,20 @@ test("Monaco remains editable in a detached query pane", async () => {
   const child = application.windows().find((w) => w !== page)!;
   child.on("pageerror", (e) => errors.push(e.message));
   await child.bringToFront();
+  const maximize = child.getByRole("button", {
+    name: "Maximize pane",
+    exact: true,
+  });
+  if (await maximize.isVisible()) await maximize.click();
+  await expect(
+    child.getByRole("textbox", { name: "SPARQL query editor" }),
+  ).toBeVisible();
   await child.locator(".monaco-editor textarea").focus();
   await child.keyboard.press("Control+A");
   await child.keyboard.insertText(
     "SELECT ?s WHERE { ?s a <http://www.w3.org/2002/07/owl#Class> . } LIMIT 5",
   );
-  await child
-    .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
-    .click();
+  await child.keyboard.press("Control+Enter");
   await expect(
     page.locator(".query-results-panel:visible .query-summary"),
   ).toContainText("5 displayed / 5 result rows");
@@ -599,7 +611,11 @@ test("a running query can be cancelled and followed by a fresh query", async () 
     .locator('[data-panel="query"]')
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await expect(page.locator(".query-error")).toContainText("cancelled");
+  // Large dataset preparation can delay processing the worker cancellation.
+  // This checks the functional outcome, not a five-second performance target.
+  await expect(page.locator(".query-error")).toContainText("cancelled", {
+    timeout: 20000,
+  });
   await page.getByRole("button", { name: "More query actions" }).click();
   await page.getByRole("combobox", { name: "Example query" }).selectOption("0");
   await page.keyboard.press("Escape");

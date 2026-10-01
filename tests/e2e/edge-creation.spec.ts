@@ -21,6 +21,7 @@ const request = (method: DomainMethod, args: Record<string, unknown> = {}) =>
     args,
   });
 async function menu(id: string) {
+  const epoch = id === "file.new" ? (await state()).datasetEpoch : undefined;
   await app.evaluate(({ Menu, BrowserWindow }, id) => {
     const win =
       BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -28,6 +29,8 @@ async function menu(id: string) {
       .getMenuItemById(id)!
       .click({} as never, win, win.webContents as never);
   }, id);
+  if (epoch !== undefined)
+    await expect.poll(async () => (await state()).datasetEpoch).not.toBe(epoch);
 }
 const camera = () =>
   bridge.evaluate(
@@ -255,10 +258,11 @@ test("click selects for moving; dragging an unselected node attaches an edge imm
   await expect(preview()).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const connected = await state();
-  expect(connected.tripleCount).toBe(before.tripleCount + 1);
-  expect(connected.entities.find((e) => e.iri === ids.a)?.parents).toContain(
+  // The explicit parent replaces the owl:Thing fallback, preserving the count.
+  expect(connected.tripleCount).toBe(before.tripleCount);
+  expect(connected.entities.find((e) => e.iri === ids.a)?.parents).toEqual([
     ids.b,
-  );
+  ]);
   expect(connected.graph.frozen).toBe(true);
   await page.screenshot({ path: "artifacts/testing/yed-edge-attached.png" });
   await menu("edit.undo");

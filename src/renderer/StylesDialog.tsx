@@ -250,6 +250,11 @@ export function StylesDialog({
       return { rules: [], error: (e as Error).message };
     }
   }, [text]);
+  const [parseMessage, setParseMessage] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setParseMessage(parsed.error), 350);
+    return () => clearTimeout(timer);
+  }, [text, parsed.error]);
   const items =
     page === "Relationships"
       ? (catalog?.predicates ?? [])
@@ -865,13 +870,11 @@ export function StylesDialog({
               )}
             </div>
           </div>
-          {(error || parsed.error || stale) && (
-            <p role="alert">
-              {stale
-                ? "The workspace changed. Close and reopen these settings."
-                : error || parsed.error}
-            </p>
-          )}
+          <p className="appearance-validation" role="status" aria-live="polite">
+            {stale
+              ? "The workspace changed. Close and reopen these settings."
+              : error || parseMessage}
+          </p>
           <footer>
             <button
               onClick={() => {

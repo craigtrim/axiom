@@ -1,4 +1,5 @@
 import { launchExample } from "./example-fixture";
+import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
 import {
   test,
   expect,
@@ -146,6 +147,111 @@ async function closeComposer() {
       .getByRole("button", { name: "Close query composer" })
       .click();
 }
+
+async function previewComposer() {
+  await page
+    .getByRole("button", { name: "Compose query", exact: true })
+    .click();
+  const instructions = composer().getByRole("textbox", {
+    name: "Describe your query",
+  });
+  await instructions.fill("List classes");
+  await composer().locator(".query-context-details summary").click();
+  await expect(composer().locator(".query-context")).toContainText(
+    "List classes",
+  );
+  await expect(
+    composer().getByRole("button", { name: "Generate query", exact: true }),
+  ).toBeEnabled();
+  return instructions;
+}
+
+test("query context stays visible and an immediate Generate waits for the current description", async () => {
+  const instructions = await previewComposer();
+  const preview = composer().locator(".query-context");
+  const previous = await preview.innerText();
+  const summary = await composer()
+    .locator(".query-context-details summary")
+    .innerText();
+  const before = await history();
+  await holdRequests(app, ["queryContext"]);
+  await instructions.fill("List seven triples");
+  await expect(preview).toHaveText(previous);
+  await expect(composer().locator(".query-context-details summary")).toHaveText(
+    summary,
+  );
+  const generate = composer().getByRole("button", {
+    name: "Generate query",
+    exact: true,
+  });
+  await expect(generate).toBeEnabled();
+  await generate.evaluate((b) => {
+    (b as HTMLButtonElement).click();
+    (b as HTMLButtonElement).click();
+  });
+  await waitForHeld(app);
+  expect((await history()).entries).toHaveLength(before.entries.length);
+  await expect(preview).toHaveText(previous);
+  await releaseRequests(app);
+  await expect.poll(text).toContain("LIMIT 7");
+  const after = await history();
+  expect(after.entries).toHaveLength(before.entries.length + 1);
+  expect(after.current.generation?.request.instructions).toBe(
+    "List seven triples",
+  );
+});
+
+for (const cancel of ["edit", "close"] as const) {
+  test(`a ${cancel} cancels a Generate click waiting for ontology context`, async () => {
+    const instructions = await previewComposer();
+    const before = await history();
+    await holdRequests(app, ["queryContext"]);
+    await instructions.fill("List seven triples");
+    await composer()
+      .getByRole("button", { name: "Generate query", exact: true })
+      .click();
+    await waitForHeld(app);
+    if (cancel === "edit") await instructions.fill("List properties instead");
+    else await closeComposer();
+    await releaseRequests(app);
+    if (cancel === "edit")
+      await expect(composer().locator(".query-context")).toContainText(
+        "List properties instead",
+      );
+    else await expect(composer()).toHaveCount(0);
+    expect((await history()).entries).toHaveLength(before.entries.length);
+  });
+}
+
+test("query save status stays quiet for normal saves and reports slow saves and failure", async () => {
+  const status = page.locator(".query-document-heading span");
+  await expect(status).toHaveText("Saved locally");
+  await status.evaluate((el) => {
+    const seen: string[] = [];
+    (window as any).__saveLabels = seen;
+    new MutationObserver(() => seen.push(el.textContent ?? "")).observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  });
+  await enter(query);
+  await expect(status).toHaveText("Saved locally");
+  expect(await page.evaluate(() => (window as any).__saveLabels)).not.toContain(
+    "Saving…",
+  );
+  await holdRequests(app, ["queryHistory:apply"], "queryHistory:apply");
+  await enter(query + "\n# new edit");
+  await waitForHeld(app);
+  await expect(status).toHaveText("Saving…");
+  await releaseRequests(app, { fail: true });
+  await expect(status).toHaveText("Not saved");
+  await expect(page.locator(".query-error")).toContainText(
+    "Could not save query history",
+  );
+  await page.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(status).toHaveText("Saved locally");
+});
 async function run(expected: string) {
   await page.getByRole("button", { name: /^Run(?: |$)/ }).click();
   await expect(

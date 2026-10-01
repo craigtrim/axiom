@@ -1,5 +1,6 @@
 import { countLabel, instanceAction } from "../shared/action-state";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRetainedPreview } from "./use-retained-preview";
 import { INSTANCE_PAGE_SIZE, type InstancePage } from "../shared/instances";
 import { displayName } from "../domain/rdf-model";
 import { PaneToolbar } from "./AdaptivePane";
@@ -9,37 +10,25 @@ export function InstanceReport({ iri }: { iri: string }) {
   const s = useSnapshot()!;
   const [query, setQuery] = useState("");
   const [start, setStart] = useState(0);
-  const [page, setPage] = useState<InstancePage | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const entity = s.entities.find((e) => e.iri === iri);
-  useEffect(() => {
-    let live = true;
-    setLoading(true);
-    setError("");
-    void request<InstancePage>("instances", {
-      iri,
+  const preview = useRetainedPreview(
+    JSON.stringify([iri, query, start, s.version, s.datasetEpoch]),
+    JSON.stringify([iri, s.datasetEpoch]),
+    async () => ({
+      page: await request<InstancePage>("instances", {
+        iri,
+        query,
+        start,
+        datasetEpoch: s.datasetEpoch,
+      }),
       query,
-      start,
-      datasetEpoch: s.datasetEpoch,
-    })
-      .then((data) => {
-        if (live) {
-          setPage(data);
-          setLoading(false);
-        }
-      })
-      .catch((e) => {
-        if (live) {
-          setPage(null);
-          setError(e.message);
-          setLoading(false);
-        }
-      });
-    return () => {
-      live = false;
-    };
-  }, [iri, query, start, s.version, s.datasetEpoch]);
+      version: s.version,
+    }),
+    180,
+  );
+  const page = preview.value?.page,
+    error = preview.error;
+  const loading = !page && !error;
   const label = entity ? displayName(entity) : "Unavailable class";
   return (
     <section
@@ -104,7 +93,7 @@ export function InstanceReport({ iri }: { iri: string }) {
           <>
             {page.total.toLocaleString("en-GB")}{" "}
             {page.total === 1 ? "direct instance" : "direct instances"}
-            {query.trim() &&
+            {preview.value?.query.trim() &&
               " · " + page.filtered.toLocaleString("en-GB") + " matching"}
           </>
         ) : (
@@ -114,8 +103,7 @@ export function InstanceReport({ iri }: { iri: string }) {
       </div>
       {error && <p role="alert">{error}</p>}
       <div className="instance-report-scroll" aria-busy={loading}>
-        {!loading &&
-          page &&
+        {page &&
           (page.rows.length ? (
             <table className="instance-report-table">
               <caption className="sr-only">Direct instances of {label}</caption>
@@ -141,8 +129,12 @@ export function InstanceReport({ iri }: { iri: string }) {
                       <button
                         className="entity-link"
                         onClick={async () => {
-                          await act("select", { iri: row.iri });
-                          command("view.inspector");
+                          const selected = await act("select", {
+                            iri: row.iri,
+                            datasetEpoch: s.datasetEpoch,
+                            version: preview.value!.version,
+                          });
+                          if (selected) command("view.inspector");
                         }}
                       >
                         {row.label}
@@ -179,7 +171,7 @@ export function InstanceReport({ iri }: { iri: string }) {
         aria-label="Instance report pages"
       >
         <button
-          disabled={loading || !page || page.start === 0}
+          disabled={!preview.fresh || !page || page.start === 0}
           onClick={() =>
             setStart(Math.max(0, page!.start - INSTANCE_PAGE_SIZE))
           }
@@ -187,8 +179,7 @@ export function InstanceReport({ iri }: { iri: string }) {
           Previous
         </button>
         <span>
-          {!loading &&
-            page &&
+          {page &&
             (page.filtered
               ? (page.start + 1).toLocaleString("en-GB") +
                 " to " +
@@ -199,7 +190,9 @@ export function InstanceReport({ iri }: { iri: string }) {
         </span>
         <button
           disabled={
-            loading || !page || page.start + page.rows.length >= page.filtered
+            !preview.fresh ||
+            !page ||
+            page.start + page.rows.length >= page.filtered
           }
           onClick={() => setStart(page!.start + INSTANCE_PAGE_SIZE)}
         >

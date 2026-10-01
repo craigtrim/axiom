@@ -4848,6 +4848,13 @@ button.sparsity-link {
 .table-edit-error:empty {
   display: none;
 }
+.appearance-validation {
+  height: 2.6em;
+  flex-shrink: 0;
+  overflow: auto;
+  margin: 0;
+  color: var(--danger);
+}
 .text-parent-chips {
   display: flex;
   flex-wrap: wrap;

@@ -250,7 +250,7 @@ test("fixed sizes update hit testing and stylesheet errors remain editable", asy
   await advanced
     .getByRole("textbox", { name: "Graph stylesheet" })
     .fill("node {size-min:70;size-max:20}");
-  await expect(advanced.getByRole("alert")).toContainText("Minimum");
+  await expect(advanced.getByRole("status")).toContainText("Minimum");
   await expect(
     advanced.getByRole("button", { name: "Apply", exact: true }),
   ).toBeDisabled();

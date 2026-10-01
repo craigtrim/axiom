@@ -5,6 +5,7 @@ import { PaneDetails } from "./AdaptivePane";
 import { useEffect, useRef, useState } from "react";
 import { panel, savePanel, request, useSnapshot } from "./client";
 import { flushQueryHistory } from "./query-history";
+import { useRetainedPreview } from "./use-retained-preview";
 import {
   buildQueryPrompt,
   type QueryContext,
@@ -29,7 +30,6 @@ export function QueryComposer({
     panel("query.includeCurrent", false),
   );
   const [assistants, setAssistants] = useState<AssistantInfo[]>([]);
-  const [context, setContext] = useState<QueryContext>();
   const [status, setStatus] = useState<QueryAssistantStatus>({
     running: false,
   });
@@ -74,43 +74,75 @@ export function QueryComposer({
       clearInterval(timer);
     };
   }, []);
-  useEffect(() => {
-    let active = true;
-    setContext(undefined);
-    const timer = setTimeout(
-      () =>
-        void request<QueryContext>("queryContext", { instructions })
-          .then((c) => active && setContext(c))
-          .catch((e) => active && setError(e.message)),
-      250,
-    );
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [instructions, snapshot.version, snapshot.datasetEpoch]);
+  const contextKey = JSON.stringify([
+    instructions,
+    snapshot.version,
+    snapshot.datasetEpoch,
+  ]);
+  const preview = useRetainedPreview(
+    contextKey,
+    String(snapshot.datasetEpoch),
+    async () => ({
+      context: await request<QueryContext>("queryContext", { instructions }),
+      instructions,
+    }),
+    250,
+  );
+  const context = preview.value?.context;
+  const intent = JSON.stringify([
+    contextKey,
+    provider,
+    includeQuery,
+    text,
+    queryId,
+  ]);
+  const latest = useRef(intent),
+    pending = useRef(false);
+  latest.current = intent;
   const running = !!activity,
     available = assistants.find((a) => a.id === provider);
   const input = context && {
     provider,
-    instructions,
+    instructions: preview.value!.instructions,
     currentQuery: includeQuery ? text : "",
     queryId,
     datasetEpoch: context.datasetEpoch,
     version: context.version,
   };
   const generate = async () => {
-    if (!input || assistantActivities.get("query")) return;
-    setError("");
-    setStatus({ running: true, startedAt: Date.now() });
+    if (
+      !input ||
+      pending.current ||
+      assistantActivities.get("query") ||
+      !instructions.trim() ||
+      !available?.available
+    )
+      return;
+    pending.current = true;
     try {
+      const fresh = await preview.validate();
+      if (!fresh || !live.current || latest.current !== intent) return;
+      await flushQueryHistory();
+      if (
+        !live.current ||
+        latest.current !== intent ||
+        assistantActivities.get("query")
+      )
+        return;
+      const currentInput = {
+        ...input,
+        instructions,
+        datasetEpoch: fresh.context.datasetEpoch,
+        version: fresh.context.version,
+      };
+      setError("");
+      setStatus({ running: true, startedAt: Date.now() });
       const response = await assistantActivities.run(
         "query",
         (provider === "claude" ? "Claude" : "Codex") + " · Generating query…",
         async (checkCancelled) => {
-          await flushQueryHistory();
           checkCancelled();
-          return window.axiom.queryAssistant.run(input);
+          return window.axiom.queryAssistant.run(currentInput);
         },
         () => window.axiom.queryAssistant.cancel(),
       );
@@ -120,6 +152,8 @@ export function QueryComposer({
         setError((e as Error).message);
         setStatus({ running: false });
       }
+    } finally {
+      pending.current = false;
     }
   };
   return (
@@ -202,10 +236,10 @@ export function QueryComposer({
             Generated SPARQL opens as a new query. Your current query is kept.
           </p>
         </PaneDetails>
-        {(error || status.error) && (
+        {(error || preview.error || status.error) && (
           <ErrorNotice
             className="query-error"
-            error={error || status.error || ""}
+            error={error || preview.error || status.error || ""}
           />
         )}
         {status.response?.result.status === "unsupported" && (

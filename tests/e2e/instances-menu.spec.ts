@@ -1,4 +1,5 @@
 import { launchExample } from "./example-fixture";
+import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
 import {
   test,
   expect,
@@ -136,6 +137,56 @@ test("hierarchy report matches 527 instances, pages, filters, and never expands 
   await expect(report().getByRole("status")).toContainText("1 matching");
   await report().locator("tbody tr").first().getByRole("button").click();
   expect(graphKeys(await state())).toEqual(before);
+});
+
+test("instance filtering retains rows, counts and paging through delayed replies and failures", async () => {
+  await hierarchyReport();
+  const table = report().locator("tbody");
+  const first = await table.getByRole("button").first().innerText();
+  const content = await table.innerText();
+  const count = await report().getByRole("status").innerText();
+  const paging = await report()
+    .locator(".instance-report-paging span")
+    .innerText();
+  await holdRequests(app, ["instances"]);
+  const filter = report().getByRole("textbox", { name: "Filter instances" });
+  await filter.fill(first);
+  await waitForHeld(app);
+  await expect(table).toHaveText(content, { useInnerText: true });
+  await expect(report().getByRole("status")).toHaveText(count, {
+    useInnerText: true,
+  });
+  await expect(report().locator(".instance-report-paging span")).toHaveText(
+    paging,
+  );
+  await releaseRequests(app, { fail: true, keepHolding: true });
+  await expect(report().getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await expect(table).toHaveText(content, { useInnerText: true });
+  await filter.fill(first + " ");
+  await waitForHeld(app);
+  await expect(report().getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await releaseRequests(app);
+  await expect(report().locator("tbody tr")).toHaveCount(1);
+  await expect(report().getByRole("status")).toContainText("1 matching");
+  await expect(report().getByRole("alert")).toHaveCount(0);
+});
+
+test("an older instance filter response cannot overwrite the latest query", async () => {
+  await hierarchyReport();
+  const first = await report().locator("tbody button").first().innerText();
+  await holdRequests(app, ["instances"]);
+  const filter = report().getByRole("textbox", { name: "Filter instances" });
+  await filter.fill("no-such-instance");
+  await waitForHeld(app);
+  await filter.fill(first);
+  await waitForHeld(app, 2);
+  await releaseRequests(app, { reverse: true });
+  await expect(report().locator("tbody tr")).toHaveCount(1);
+  await expect(report().locator("tbody button")).toHaveText(first);
 });
 
 test("hierarchy count, graph menu, graph action, and existing class filter open the same report", async () => {
