@@ -1,6 +1,10 @@
 # Text Analysis validation
 
-The current Windows implementation was validated on September 27, 2026 with mutatoc 0.2.1. The performance changes are measured in [Text Analysis performance](text-analysis-performance.md).
+The current Mutatoc 0.3.0 upgrade is recorded in [verification](verification.md#mutatoc-030-upgrade-september-30-2026). Performance measurements are reported separately in [Text Analysis performance](text-analysis-performance.md).
+
+## Historical validation: Mutatoc 0.2.1
+
+The Windows implementation described below was validated on September 27, 2026 with mutatoc 0.2.1. Its model annotations and Python runtime describe that earlier build.
 
 | Check                                      | Result                                                                              |
 | ------------------------------------------ | ----------------------------------------------------------------------------------- |

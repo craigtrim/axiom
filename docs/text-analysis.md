@@ -1,6 +1,6 @@
 # Text Analysis
 
-Open **View > Text Analysis** and type or paste plain text. Matching runs automatically after a 60 ms typing pause. The editor stays responsive while the model runs. Only the newest pending edit is parsed, and results from older edits cannot replace current highlights.
+Open **View > Text Analysis** and type or paste plain text. Matching runs automatically after a 60 ms typing pause. The editor stays responsive while matching runs. Only the newest pending edit is parsed, and results from older edits cannot replace current highlights.
 
 Matches use the currently open ontology, including unsaved changes already applied through Axiom's editors. Saving an RDF file is unnecessary. Editing the ontology triggers a new analysis of the same text. Named graphs contribute their union of asserted statements to matching; the original dataset remains unchanged.
 
@@ -10,11 +10,11 @@ Each canonical ontology entity has a stable background color. Synonyms share tha
 
 Click a highlight or summary entry to open Axiom's existing **Details** view. Ontology matches select the actual entity and show the standard editable statements, source and ancestry navigation. The same tab is reused across matches, including when it is detached or has been renamed. A closed Details view reopens. Text Entities has only **Summary** and **Add entity** tabs.
 
-A summary entry also selects its first occurrence in the text and reopens the editor if needed. Alt+Enter opens Details at the cursor or for an exactly selected match. If several ontology entries share a canonical name, Details lists their identifiers so you can choose the intended entry. Model annotations show their matched text, category and matching method in the same Details view, without an invented ontology link. The normal Back control returns to the previously selected entity.
+A summary entry also selects its first occurrence in the text and reopens the editor if needed. Alt+Enter opens Details at the cursor or for an exactly selected match. If several ontology entries share a canonical name, Details lists their identifiers so you can choose the intended entry. The normal Back control returns to the previously selected entity.
 
 Both text views share one analysis session. Moving a view to another window does not start another parser, and the summary stays available when the text editor closes. Editing the ontology refreshes the normal Details editor and starts a new analysis. Text or ontology changes clear obsolete annotation information.
 
-spaCy named entities also appear, grouped by category such as Person, Place or Organization. Ontology matches take precedence over overlapping model annotations. A blank ontology still shows model annotations through mutatoc's native tokenization interface. The editor retains your text, supports Undo, Redo and Find, and saves its text with the workbench. Up to 100,000 characters can be analyzed at once.
+Highlights come from the open ontology. Mutatoc 0.3.0 no longer supplies spaCy annotations such as Person, Place or Organization; those words are highlighted only when the ontology itself matches them. A blank ontology produces no matches. The editor retains your text, supports Undo, Redo and Find, and saves its text with the workbench. Up to 100,000 characters can be analyzed at once.
 
 ## Adding a selected phrase
 
@@ -32,7 +32,7 @@ No classes are created until **Add class** saves the original class and all its 
 
 The action uses the ontology version that produced the highlights. An ontology change invalidates old details and graph requests. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
 
-Ontology IDs determine navigation, including when the matched text is a synonym. If multiple namespaces share the same canonical identifier, the Details tab lists the corresponding entries and the graph includes them. Language-model annotations have their own details but no inferred ontology links. The graph button becomes available when at least one ontology entry is matched.
+Ontology IDs determine navigation, including when the matched text is a synonym. If multiple namespaces share the same canonical identifier, the Details tab lists the corresponding entries and the graph includes them. The graph button becomes available when at least one ontology entry is matched.
 
 ## Plus spans
 
@@ -54,34 +54,36 @@ These semantics are checked against the original Python implementation, includin
 
 ## Runtime
 
-The view uses mutatoc 0.2.3 through its persistent `--serve` interface. Ontology matching and LingPatLab processing run in C. The supplied spaCy model runs through mutatoc's retained Python worker. Text is processed locally. The first analysis includes model startup; later requests reuse the process and model. No LingPatLab Python package is required.
+The view uses mutatoc 0.3.0 through its persistent `--serve` interface. Tokenization and ontology matching run locally in C. The runtime has no Python or spaCy dependency. Axiom checks the engine version before loading an ontology, and reports incompatible runtime overrides instead of attempting to interpret their results. Later requests reuse the process and loaded ontology.
 
 Dotted synonyms such as `U.S. History to 1865` match the complete phrase. Periods remain part of the source text, and literal tildes remain literal. Exact matches tolerate repeated spaces, tabs and line breaks between words. The original whitespace remains inside the highlight. Long dotted names are no longer restricted by the old ten-token matching limit.
 
 Axiom exports the current dataset to Turtle when the dataset version changes. It loads that Turtle into mutatoc using class-based live matching. Unchanged ontology versions reuse the loaded graph. The built-in Pizza example supplies its vocabulary graph and the labels shown in the entity editor. Its generated order and customer tables are excluded from that vocabulary. Imported ontologies supply their complete RDF, including individual labels and custom annotations.
 
-Source positions come from the original tokens retained in mutatoc's swap history. Axiom accounts for the tokenizer's literal abbreviation and contraction expansions using dictionaries obtained from mutatoc. It converts the positions to JavaScript UTF-16 offsets while retaining original spacing, line breaks and emoji. An unrecognized transformation produces an error and clears the highlights rather than guessing a position.
+Source positions come from the original tokens retained in mutatoc's swap history. Axiom accounts for literal abbreviation and contraction expansions using substitution data extracted from the pinned native tokenizer source. The data records its source revision and checksum. Native token coordinates refer to the transformed stream; Axiom reconstructs JavaScript UTF-16 offsets into the original text, retaining spacing, line breaks and emoji. An unrecognized transformation produces an error and clears the highlights rather than guessing a position.
 
 ## Development and packaging
 
-Extract the complete Windows mutatoc 0.2.3 package, then run:
+Extract the complete Windows mutatoc 0.3.0 package, then run:
 
 ```powershell
-npm run setup:mutatoc -- D:\git\mutatos\mutatoc\dist\mutatoc-win-x64-0.2.3
+npm run setup:mutatoc -- D:\git\mutatos\mutatoc\dist\mutatoc-win-x64-0.3.0
 npm start
 ```
 
 Setup verifies the package's SHA-256 manifest and copies its files into `vendor/mutatoc`, which is excluded from Git. The normal local directory arrangement above is detected automatically. `AXIOM_MUTATOC_HOME` can select a different extracted package directory.
 
-`npm run package` verifies and bundles the complete runtime in `resources/mutatoc`, outside Electron's application archive. That includes Python, the model, worker scripts and their licenses. The installed application needs no system Python installation. A clean build machine must receive the extracted mutatoc package before packaging; the runtime is not downloaded automatically or stored in this repository.
+`npm run package` verifies and bundles the complete native package in `resources/mutatoc`, outside Electron's application archive. Its 25 manifested files include the executable, libraries, headers, documentation and licenses. Setup rejects obsolete packages and retired Python/model runtime directories. A clean build machine must receive the extracted mutatoc package before packaging; the runtime is not downloaded automatically or stored in this repository.
 
-A missing runtime is reported in the view without substituting a different NLP engine. A failed process is discarded, and the next edit starts a fresh one. Closing Axiom closes the C process and its model workers.
+A missing runtime is reported in the view without substituting a different engine. A failed process is discarded, and the next edit starts a fresh one. Closing Axiom closes the C process.
+
+The tested native source revision is `d0d1456262ff1ea393dfb4ceb4f7a2849173aa8a`. To regenerate its source-position substitution data, run `node scripts/sync-mutatoc-tokenizer.mjs <pinned-source-directory>`. Tokenization and matching remain native operations; the extracted tables only map their results to the original text.
 
 ## Verification
 
-The dedicated suite runs 314 tests. It includes a 1,512-case punctuation matrix with independently calculated UTF-16 ranges, plus 168 recorded expectations generated by the original Python Mutato repo and checked through Axiom's complete matching path. Six explicitly identified whitespace cases now report `exact` instead of the original `spans`; their canonical text and source offsets are unchanged. Other tests cover plus synonyms, nested matches, protocol framing, Unicode, process errors, timeouts, queue replacement, ontology changes, stale results, source positions, empty graphs and tokenizer dictionaries. Navigation tests cover exact native identifiers, namespace collisions, multiple-parent paths, cycles, individual types, property ancestry, deep hierarchies and graph limits.
+The dedicated suite runs 317 tests. It includes a 1,512-case punctuation matrix with independently calculated UTF-16 ranges, plus 168 recorded expectations generated by the original Python Mutato repo and checked through Axiom's complete matching path. Six explicitly identified whitespace cases report `exact` instead of the original `spans`; their canonical text and source offsets are unchanged. Other tests cover plus synonyms, nested matches, protocol framing, Unicode, process errors, timeouts, queue replacement, ontology changes, stale results, source positions, empty graphs, incompatible runtime versions and every native substitution entry. Navigation tests cover exact native identifiers, namespace collisions, multiple-parent paths, cycles, individual types, property ancestry, deep hierarchies and graph limits.
 
-Twenty-three desktop journeys exercise typing, clipboard paste, colors, light/dark accessibility, unsaved edits, restart, ontology switching, plus-span distance boundaries, source selection across line breaks, Details accessibility, editing through the shared Details view, ambiguous canonical names, detached Details reuse and new ancestry graphs. They also cover independent docking, resizing, closing, restart, detached-window editing, keyboard and context-menu authoring, multiple suggested and manually chosen parents, recursive parent creation, existing-parent reuse, duplicate detection, cancellation at different depths, atomic undo/redo, immediate highlighting and stale-request rejection.
+Thirty desktop journeys exercise typing, clipboard paste, colors, light/dark accessibility, unsaved edits, restart, ontology switching, plus-span distance boundaries, source selection across line breaks, Details accessibility, editing through the shared Details view, ambiguous canonical names, detached Details reuse and new ancestry graphs. They also cover independent docking, resizing, closing, restart, detached-window editing, keyboard and context-menu authoring, multiple suggested and manually chosen parents, recursive parent creation, existing-parent reuse, duplicate detection, cancellation at different depths, atomic undo/redo, immediate highlighting and stale-request rejection.
 
 ```powershell
 npm run typecheck
@@ -101,4 +103,4 @@ python scripts/generate-text-analysis-reference.py --mutato D:\git\mutatos\mutat
 
 The generator imports that source tree directly and never uses mutatoc to create expected results. See [the fixture provenance](../tests/fixtures/text-analysis/README.md) for the covered contracts.
 
-[Performance measurements](text-analysis-performance.md) describe the 0.2.1 and 0.2.3 optimizations and the reproducible benchmark.
+[Performance measurements](text-analysis-performance.md) describe the native 0.3.0 runtime, earlier optimizations and the reproducible benchmark. Timing measurements are reported separately from functional tests.
