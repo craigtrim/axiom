@@ -153,17 +153,23 @@ function classHierarchyInput(
       throw Error("Provide a class name, description and at least one parent.");
     const draft = textAnalysisDraft(store, item.label, 0);
     if (
-      (allEntities || item.checkAllEntities === true) &&
+      (allEntities ||
+        item.checkAllEntities === true ||
+        item.allowSimilarName === true) &&
       entityNameCollisions(
         store,
         draft.label,
         typeof item.iri === "string" ? item.iri : "",
-      ).collisions.length
+        item.allowSimilarName === true,
+      ).collisions.some(
+        (collision) =>
+          item.allowSimilarName !== true || collision.kind !== "normalized",
+      )
     )
       throw Error(
         `“${draft.label}” collides with an existing entity. Open the existing entry or change the label and IRI.`,
       );
-    if (draft.existing.length)
+    if (draft.existing.length && item.allowSimilarName !== true)
       throw Error(
         `“${draft.label}” already names an existing class. Choose the existing entry or change the name.`,
       );

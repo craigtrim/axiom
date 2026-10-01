@@ -52,6 +52,7 @@ export interface TextAnalysisDraft {
   label: string;
   parents: TextAnalysisParent[];
   existing: { iri: string; label: string; openable?: boolean }[];
+  similar?: import("./find-create").FindCollision[];
   defaultParent: string;
   datasetEpoch: number;
   version: number;
@@ -64,6 +65,8 @@ export interface TextAnalysisClassInput {
   iri?: string;
   statements?: { predicate: string; object: import("../domain/model").Term }[];
   checkAllEntities?: boolean;
+  /** Find warns about normalized names, while exact labels and occupied IRIs still block. */
+  allowSimilarName?: boolean;
 }
 
 /** Native names can identify several IRIs; model annotations have no ontology target. */

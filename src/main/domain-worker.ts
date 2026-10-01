@@ -983,6 +983,17 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           datasetEpoch,
         );
         if (a.checkAllEntities === true) {
+          if (a.allowSimilarName === true) {
+            const collisions = entityNameCollisions(
+              store,
+              draft.label,
+              typeof a.iri === "string" ? a.iri : "",
+              true,
+            ).collisions;
+            draft.similar = collisions.filter((c) => c.kind === "normalized");
+            draft.existing = collisions.filter((c) => c.kind !== "normalized");
+            return draft;
+          }
           for (const collision of entityNameCollisions(
             store,
             draft.label,

@@ -52,12 +52,9 @@ const canonical = (triples: import("../../src/domain/model").Triple[]) =>
 describe("Find creation", () => {
   it.each([
     ["Café Studies", "exact"],
-    ["CAFE\u0301 STUDIES", "exact"],
-    ["Café---Studies", "normalized"],
     ["Public Property", "exact"],
     ["Greek Alpha", "exact"],
     ["Alice Example", "exact"],
-    ["Legacy Course", "normalized"],
   ])("blocks whole-store collision %s (%s)", async (label, kind) => {
     const store = fixture(),
       before = canonical([...store.scan()]);
@@ -65,6 +62,78 @@ describe("Find creation", () => {
     expect(preview.collisions[0].kind).toBe(kind);
     expect(() => createFindEntity(store, draft(label), 7)).toThrow(/exists/);
     expect(canonical([...store.scan()])).toEqual(before);
+  });
+  it.each(["CAFE\u0301 STUDIES", "Café---Studies", "Legacy Course"])(
+    "warns without blocking the normalized name %s",
+    async (label) => {
+      const store = fixture();
+      const preview = await previewFindCreation(store, draft(label), 7);
+      expect(preview.collisions[0]).toMatchObject({
+        kind: "normalized",
+        path: "Foundation",
+      });
+      expect(createFindEntity(store, draft(label), 7)).toBe(preview.iri);
+      expect(store.entities.get(preview.iri)?.label).toBe(
+        label.replace(/\s+/gu, " ").trim(),
+      );
+    },
+  );
+  it("allocates a distinct automatic IRI for a normalized name and keeps preview, commit and undo consistent", async () => {
+    const store = fixture();
+    const original = createFindEntity(store, draft("Reading Comprehension"), 1);
+    const input = draft("reading comprehension");
+    const preview = await previewFindCreation(store, input, 1);
+    expect(preview.iri).toBe(original + "2");
+    expect(preview.collisions).toEqual([
+      expect.objectContaining({ iri: original, kind: "normalized" }),
+    ]);
+    const added = createFindEntity(store, input, 1);
+    expect(added).toBe(preview.iri);
+    expect(store.entities.get(original)?.label).toBe("Reading Comprehension");
+    store.undo();
+    expect(store.exists(original)).toBe(true);
+    expect(store.exists(added)).toBe(false);
+    store.redo();
+    expect(store.entities.get(added)?.label).toBe(input.label);
+  });
+  it("blocks a manually occupied IRI even when its label is only a normalized match", async () => {
+    const store = fixture(),
+      input = { ...draft("café studies"), iri: iri("Existing") };
+    expect(
+      (await previewFindCreation(store, input, 1)).collisions[0].kind,
+    ).toBe("iri");
+    expect(() => createFindEntity(store, input, 1)).toThrow(/exists/);
+  });
+  it("blocks exact alternate RDF labels and canonically equivalent Unicode labels", async () => {
+    const store = fromTriples([
+      ...declaration(iri("Multi"), "Primary"),
+      literal(iri("Multi"), NS.rdfs + "label", "Café Studies"),
+    ]);
+    expect(
+      (await previewFindCreation(store, draft("Cafe\u0301 Studies"), 1))
+        .collisions[0].kind,
+    ).toBe("exact");
+    expect(() =>
+      createFindEntity(store, draft("Cafe\u0301 Studies"), 1),
+    ).toThrow(/exists/);
+  });
+  it("carries the Find warning policy into Add entity without weakening ordinary authoring", async () => {
+    const store = fixture(),
+      preview = await previewFindCreation(store, draft("café studies"), 1);
+    expect(() =>
+      planTextAnalysisHierarchy(store, {
+        ...preview.creation,
+        allowSimilarName: false,
+      }),
+    ).toThrow(/collides/);
+    const plan = planTextAnalysisHierarchy(store, preview.creation);
+    expect(plan.statements.length).toBe(3);
+    expect(createTextAnalysisHierarchy(store, preview.creation)).toBe(
+      preview.iri,
+    );
+    expect(() => createTextAnalysisHierarchy(store, preview.creation)).toThrow(
+      /collides/,
+    );
   });
   it.each([
     "日本語",

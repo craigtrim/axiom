@@ -35,6 +35,7 @@ const classInput = (
   ...(draft.iri !== undefined ? { iri: expandIri(draft.iri, namespace) } : {}),
   ...(draft.statements ? { statements: draft.statements } : {}),
   ...(draft.checkAllEntities ? { checkAllEntities: true } : {}),
+  ...(draft.allowSimilarName ? { allowSimilarName: true } : {}),
   parents: draft.parents.length
     ? draft.parents.map((parent) =>
         "iri" in parent
@@ -213,6 +214,7 @@ function TextClassEditor({
           value.label,
           input.iri,
           value.checkAllEntities,
+          value.allowSimilarName,
           snapshot.version,
         ])
       : null,
@@ -222,6 +224,7 @@ function TextClassEditor({
         label: value.label,
         iri: input.iri,
         checkAllEntities: value.checkAllEntities,
+        allowSimilarName: value.allowSimilarName,
         datasetEpoch,
         version: snapshot.version,
       }),
@@ -536,6 +539,12 @@ function TextClassEditor({
                     </span>
                   ))}
               </div>
+              {preview?.similar?.map((entity) => (
+                <p className="find-collision" role="status" key={entity.iri}>
+                  {entity.label} has the same normalized name, under{" "}
+                  {entity.path}. You can still create a separate class.
+                </p>
+              ))}
               <label>
                 Description
                 <textarea

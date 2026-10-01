@@ -9,14 +9,18 @@ const cache = new WeakMap<
   {
     version: number;
     names: Map<string, Set<string>>;
+    labels: Map<string, Set<string>>;
     total: number;
     entities: Set<string>;
   }
 >();
+const exactLabel = (label: string) =>
+  label.normalize("NFKC").replace(/\s+/gu, " ").trim();
 function namesFor(store: Store) {
   let entry = cache.get(store);
   if (entry?.version === store.version) return entry;
   const names = new Map<string, Set<string>>(),
+    labels = new Map<string, Set<string>>(),
     entities = new Set<string>();
   const add = (iri: string, label: string) => {
     if (iri.startsWith("_:")) return;
@@ -26,6 +30,10 @@ function namesFor(store: Store) {
     const ids = names.get(key) ?? new Set<string>();
     ids.add(iri);
     names.set(key, ids);
+    const exact = exactLabel(label),
+      matches = labels.get(exact) ?? new Set<string>();
+    matches.add(iri);
+    labels.set(exact, matches);
   };
   for (const entity of store.entities.values())
     add(entity.iri, displayName(entity));
@@ -38,7 +46,13 @@ function namesFor(store: Store) {
       entities.has(triple.subject)
     )
       add(triple.subject, triple.object.value);
-  entry = { version: store.version, names, total: entities.size, entities };
+  entry = {
+    version: store.version,
+    names,
+    labels,
+    total: entities.size,
+    entities,
+  };
   cache.set(store, entry);
   return entry;
 }
@@ -46,6 +60,7 @@ export function entityNameCollisions(
   store: Store,
   label: string,
   subject = "",
+  exactLabels = false,
 ) {
   const index = namesFor(store),
     ids = new Set(index.names.get(entityNameKey(label)) ?? []);
@@ -64,9 +79,14 @@ export function entityNameCollisions(
       label: existing,
       path: entityPath(store, iri),
       openable: index.entities.has(iri),
-      kind:
-        existing.normalize("NFKC").trim().toLowerCase() ===
-        label.normalize("NFKC").trim().toLowerCase()
+      kind: exactLabels
+        ? iri === subject
+          ? "iri"
+          : index.labels.get(exactLabel(label))?.has(iri)
+            ? "exact"
+            : "normalized"
+        : existing.normalize("NFKC").trim().toLowerCase() ===
+            label.normalize("NFKC").trim().toLowerCase()
           ? "exact"
           : index.names.get(entityNameKey(label))?.has(iri)
             ? "normalized"

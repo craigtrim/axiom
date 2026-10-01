@@ -1,10 +1,10 @@
 import { NS, SUBCLASS, THING, TYPE, type Triple } from "./model";
 import type { Store } from "./store";
 import {
-  identifier,
   validLabel,
   validResource,
   validateStatement,
+  uniqueLabelIri,
 } from "./rdf-model";
 import { expandIri } from "../shared/terms";
 import { entityNameCollisions } from "./entity-name-index";
@@ -47,7 +47,15 @@ function prepare(store: Store, input: unknown, epoch: number) {
     });
   const iri =
     value.iri === undefined
-      ? store.ontology.namespace + identifier(label)
+      ? uniqueLabelIri(
+          label,
+          store.ontology.namespace,
+          (candidate) =>
+            store.exists(candidate) ||
+            store.bySubject.has(candidate) ||
+            store.byPredicate.has(candidate) ||
+            store.reverse.has(candidate),
+        )
       : typeof value.iri === "string"
         ? expandIri(value.iri, store.ontology.namespace)
         : "";
@@ -138,7 +146,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
         errors.push({ field, message: "Enter a valid RDF value." });
       }
     }
-  const names = entityNameCollisions(store, label, iri);
+  const names = entityNameCollisions(store, label, iri, true);
   let suggested: ReturnType<typeof textAnalysisDraft> | undefined;
   if (label && !errors.some((e) => e.field === "label"))
     suggested = textAnalysisDraft(store, label, epoch);
@@ -156,6 +164,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     parents: writtenParents.map((iri) => ({ iri })),
     statements,
     checkAllEntities: true,
+    allowSimilarName: true,
   };
   const triples: Triple[] = [
     {
@@ -226,9 +235,12 @@ export async function previewFindCreation(
 export function createFindEntity(store: Store, input: unknown, epoch: number) {
   const { creation, preview } = prepare(store, input, epoch);
   if (preview.errors.length) throw Error(preview.errors[0].message);
-  if (preview.collisions.length)
+  const blocking = preview.collisions.find(
+    (collision) => collision.kind !== "normalized",
+  );
+  if (blocking)
     throw Error(
-      `${preview.collisions[0].label} already exists. Open the existing entity or change the label and IRI.`,
+      `${blocking.label} already exists. Open the existing entity or change the label and IRI.`,
     );
   return createTextAnalysisHierarchy(store, creation, true);
 }

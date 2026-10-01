@@ -81,7 +81,9 @@ export function FindCreatePanel({
     (p) => !draft.statements.some((row) => row.predicate === p),
   );
   const iri =
-    draft.iri ?? snapshot.ontology.namespace + entityIdentifier(draft.label);
+    draft.iri ??
+    (check.fresh ? preview?.iri : undefined) ??
+    snapshot.ontology.namespace + entityIdentifier(draft.label);
   useEffect(() => {
     if (check.fresh) setError("");
   }, [preview]);
@@ -100,7 +102,10 @@ export function FindCreatePanel({
     </span>
   );
   const ready = !!preview && !preview.errors.length && !check.error;
-  const valid = ready && !preview.collisions.length && !draft.parentText.trim();
+  const valid =
+    ready &&
+    !preview.collisions.some((c) => c.kind !== "normalized") &&
+    !draft.parentText.trim();
   const handoff = async (parentLabel?: string) => {
     if (!ready || busy || pending.current) return;
     pending.current = true;
@@ -116,6 +121,7 @@ export function FindCreatePanel({
           iri: fresh.iri,
           statements: fresh.creation.statements,
           checkAllEntities: true,
+          allowSimilarName: true,
           findDraft: { ...draft },
         },
         parentLabel,
@@ -133,7 +139,7 @@ export function FindCreatePanel({
       if (
         !fresh ||
         fresh.errors.length ||
-        fresh.collisions.length ||
+        fresh.collisions.some((c) => c.kind !== "normalized") ||
         !current()
       )
         return;
@@ -456,6 +462,8 @@ export function FindCreatePanel({
                     ? " at this subject IRI"
                     : ""}
                 . It sits under {collision.path}.
+                {collision.kind === "normalized" &&
+                  " You can still create a separate class."}
               </p>
               {collision.openable === false ? (
                 <p>

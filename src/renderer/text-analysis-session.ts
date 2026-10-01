@@ -21,6 +21,7 @@ export interface TextEntityClassDraft {
   iri?: string;
   statements?: TextAnalysisClassInput["statements"];
   checkAllEntities?: boolean;
+  allowSimilarName?: boolean;
   findDraft?: FindCreationDraft;
 }
 export interface TextEntityDraft {
