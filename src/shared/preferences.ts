@@ -102,19 +102,11 @@ export function readPreferences(input: unknown): Preferences {
     out["find.recent"] = s["find.recent"]
       .filter((q) => typeof q === "string" && q.length <= 256)
       .slice(0, 10);
-  const prompts = s["research.templates"];
   if (
-    object(prompts) &&
-    Object.keys(prompts).length <= 10 &&
-    Object.values(prompts).every(
-      (v) => typeof v === "string" && v.length <= 20000,
-    )
+    !out["assistant.provider"] &&
+    ["codex", "claude"].includes(String(s["research.provider"]))
   )
-    out["research.templates"] = prompts;
-  if (["codex", "claude"].includes(String(s["research.provider"])))
-    out["research.provider"] = s["research.provider"];
-  if (typeof s["research.web"] === "boolean")
-    out["research.web"] = s["research.web"];
+    out["assistant.provider"] = s["research.provider"];
   for (const [key, camera] of Object.entries(s))
     if (
       /^graph\.camera\.graph:[a-zA-Z0-9-]+$/.test(key) &&

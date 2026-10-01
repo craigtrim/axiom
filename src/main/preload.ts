@@ -84,12 +84,13 @@ const bridge: AxiomBridge = {
     cancel: (id) => invoke("taxonomyAssistant:cancel", id),
     apply: (id, indices) => invoke("taxonomyAssistant:apply", id, indices),
   },
-  research: {
-    assistants: () => invoke("research:assistants"),
-    run: (r) => invoke("research:run", r),
-    cancel: () => invoke("research:cancel"),
-    status: () => invoke("research:status"),
-    open: (url) => invoke("research:open", url),
+  assistants: { list: () => invoke("assistants:list") },
+  external: { open: (url) => invoke("external:open", url) },
+  touchpoints: {
+    search: (input) => invoke("touchpoints:search", input),
+    apply: (token, selections) =>
+      invoke("touchpoints:apply", token, selections),
+    open: (url) => invoke("touchpoints:open", url),
   },
   request: <T>(method: DomainMethod, args?: Record<string, unknown>) =>
     invoke("domain:request", method, args) as Promise<T>,

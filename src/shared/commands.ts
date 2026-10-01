@@ -6,7 +6,7 @@ export const scopes = [
   "query",
   "individuals",
   "inspector",
-  "research",
+  "touchpoints",
 ] as const;
 export type ShortcutScope = (typeof scopes)[number];
 export interface ShortcutBinding {
@@ -93,11 +93,13 @@ export const menuTree: MenuDefinition[] = [
       ...at("hierarchy", "Enter"),
     ]),
     c("entity.showInstances", "Show instances", "Edit"),
-    c("research.open", "Research selected entity...", "Edit"),
+    c("touchpoints.open", "Find Touchpoints for selected entity...", "Edit"),
     null,
     menu("menu.settings", "Settings", "S", [
       c("graph.appearance", "Graph appearance...", "Edit > Settings"),
       c("tabs.settings", "Tab history...", "Edit > Settings"),
+      c("cache.clearWikipedia", "Clear Wikipedia cache", "Edit > Settings"),
+      c("cache.clearModel", "Clear model cache", "Edit > Settings"),
     ]),
     c(
       "keyboard.settings",
@@ -115,7 +117,7 @@ export const menuTree: MenuDefinition[] = [
       "Inspector",
       "Individuals",
       "Query",
-      "Research",
+      "Touchpoints",
       "Source",
       "Details",
     ].map((label, i) =>
@@ -250,23 +252,6 @@ export const menuTree: MenuDefinition[] = [
     c("query.format", "Format SPARQL", "Query", at("query", "Shift+Alt+F")),
     c("query.generate", "Compose query with an agent", "Query"),
   ]),
-  menu("menu.research", "Research", "R", [
-    c("research.run", "Run research", "Research", at("research", "Ctrl+R")),
-    c(
-      "research.cancel",
-      "Cancel research",
-      "Research",
-      at("research", "Ctrl+Shift+R"),
-    ),
-    c("research.refresh", "Refresh assistants", "Research"),
-    null,
-    ...[
-      ["wikipedia", "Wikipedia"],
-      ["dbpedia", "DBpedia"],
-      ["ontologies", "Other ontologies"],
-      ["web", "Web search"],
-    ].map(([id, label]) => c("research.source." + id, label, "Research")),
-  ]),
   menu("menu.window", "Window", "W", [
     c("pane.next", "Next pane", "Window", app("F6")),
     c("pane.previous", "Previous pane", "Window", app("Shift+F6")),
@@ -317,7 +302,7 @@ export const preferredAccessKeys: Record<string, string> = {
   "entity.rename": "M",
   "entity.delete": "D",
   "entity.showGraph": "G",
-  "research.open": "E",
+  "touchpoints.open": "E",
   "keyboard.settings": "K",
   "graph.fit": "F",
   "graph.relayout": "R",

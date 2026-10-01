@@ -23,10 +23,13 @@ import { FilePreviewService } from "./file-preview-service";
 import type { LinkedFile } from "../shared/source";
 import { exportDocument } from "./export-service";
 import { QueryAssistantService } from "./query-assistant-service";
-import { ResearchService } from "./research-service";
+import { WikipediaClient } from "./wikipedia-client";
+import { TouchpointService } from "./touchpoint-service";
+import { ModelCache } from "./model-cache";
+import { axiomCacheRoot } from "./cache-files";
 import { TaxonomyAssistantService } from "./taxonomy-assistant-service";
 import { layoutOptions } from "../shared/layout-options";
-import { THING } from "../domain/model";
+import { THING, type Triple } from "../domain/model";
 import { readPreferences } from "../shared/preferences";
 import { menuTree, commandById, type MenuDefinition } from "../shared/commands";
 import {
@@ -143,6 +146,7 @@ const pending = new Map<
 >();
 const methods = new Set<DomainMethod>([
   "textAnalysisDraft",
+  "textAnalysisCreatePreview",
   "textAnalysisCreate",
   "findCreatePreview",
   "findCreate",
@@ -197,6 +201,7 @@ const methods = new Set<DomainMethod>([
   "load",
   "importRdf",
   "rdfExport",
+  "rdfExportSnapshot",
   "sourceDocument",
   "applySource",
   "linkedFile",
@@ -233,8 +238,7 @@ const methods = new Set<DomainMethod>([
   "taxonomyContext",
   "validateTaxonomySuggestions",
   "applyTaxonomySuggestions",
-  "researchContext",
-  "applySuggestions",
+  "touchpointContext",
 ]);
 const errorLog = new AuditLog(
   path.join(app.getPath("userData"), "error-logs"),
@@ -291,11 +295,37 @@ const textAnalysis = new TextAnalysisService(
     mutatocExecutable(app.getAppPath(), process.resourcesPath, app.isPackaged),
   () => request<TextAnalysisContext>("textAnalysisContext"),
 );
-const research = new ResearchService(
-  path.join(app.getPath("userData"), "research-runs"),
-  (iri) => request("researchContext", { iri }),
+const wikipedia = new WikipediaClient({
+  fetch: (input, init) =>
+    net.fetch(input instanceof URL ? input.href : input, init),
+  version: app.getVersion(),
+  electronVersion: process.versions.electron,
+});
+const modelCache = new ModelCache(axiomCacheRoot(), app.getVersion());
+const touchpoints = new TouchpointService(
+  wikipedia,
+  (iri) => request("touchpointContext", { iri }),
+  (context, statements) =>
+    request("applyTouchpoints", {
+      iri: context.iri,
+      datasetEpoch: context.datasetEpoch,
+      version: context.version,
+      statements,
+    }),
+  async (query, texts) =>
+    (
+      await request<import("../shared/embeddings").SemanticComparison>(
+        "semanticSimilarity",
+        { query, texts },
+      )
+    ).similarities,
 );
-const suggestions = new SuggestionService(app.getPath("userData"), request);
+const suggestions = new SuggestionService(
+  app.getPath("userData"),
+  request,
+  undefined,
+  modelCache,
+);
 const taxonomyAssistant = new TaxonomyAssistantService(
   path.join(app.getPath("userData"), "taxonomy-runs"),
   (input) => request("taxonomyContext", { iri: input.iri, mode: input.mode }),
@@ -315,6 +345,9 @@ const taxonomyAssistant = new TaxonomyAssistantService(
       version: context.version,
       suggestions,
     }),
+  undefined,
+  undefined,
+  modelCache,
 );
 const queryHistory = new QueryHistoryService(
   path.join(app.getPath("userData"), "query-history.json"),
@@ -333,7 +366,7 @@ let queryAssistantJob:
   | {
       cancelled: boolean;
       startedAt: number;
-      provider: import("../shared/research").AssistantId;
+      provider: import("../shared/assistant").AssistantId;
     }
   | undefined;
 const provenance = new ProvenanceService(
@@ -447,7 +480,7 @@ function send(command: string) {
 let editorDraftCount = 0;
 let editorFlush:
   { resolve: () => void; reject: (e: Error) => void } | undefined;
-async function flushEditors(gridOnly = false) {
+async function flushEditors() {
   if (!editorDraftCount) return;
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -468,7 +501,7 @@ async function flushEditors(gridOnly = false) {
         reject(e);
       },
     };
-    send(gridOnly ? "editors.flushGrid" : "editors.flush");
+    send("editors.flushGrid");
   });
 }
 async function saveBeforeWorkspaceChange(capture = true) {
@@ -536,7 +569,7 @@ async function writeWorkspace(
     if (r.canceled || !r.filePath) return false;
     file = r.filePath;
   }
-  if (!automatic) await flushEditors(true);
+  if (!automatic) await flushEditors();
   if (capture) await capturePreferences();
   const document = await request<
     Workspace & {
@@ -692,6 +725,14 @@ async function command(id: string, recentFile?: string, atStartup = false) {
           return;
         }
         switch (id) {
+          case "cache.clearWikipedia":
+            await wikipedia.clear();
+            send("cache.wikipedia.cleared");
+            break;
+          case "cache.clearModel":
+            await modelCache.clear();
+            send("cache.model.cleared");
+            break;
           case "graph.fit":
             send("graph.fit.manual");
             break;
@@ -836,7 +877,7 @@ function refreshMenu() {
   ])
     set(id, !!lastState?.graph.nodes.length);
   set("graph.cancelLayout", !!lastState?.graph.layoutPending);
-  set("research.open", !!lastState?.selected);
+  set("touchpoints.open", !!lastState?.selected);
   set("entity.showGraph", !!lastState?.selected);
   const instances = instanceAction(selected);
   set("entity.showInstances", instances.enabled);
@@ -853,18 +894,6 @@ function refreshMenu() {
         preferences.keyboard,
       ) + (binding?.keys.includes(" ") ? "\t" + binding.keys : "");
   }
-  for (const id of [
-    "research.source.wikipedia",
-    "research.source.dbpedia",
-    "research.source.ontologies",
-    "research.source.web",
-  ])
-    set(id, !!lastState?.selected);
-  set("research.run", !!lastState?.selected && !research.status().running);
-  set(
-    "research.cancel",
-    research.status().running && !research.status().cancelling,
-  );
   set("query.run", !queryRunning);
   set("query.cancel", queryRunning);
   set("query.graph", hasQueryResults && !queryRunning);
@@ -1183,6 +1212,7 @@ app.whenReady().then(async () => {
           "example",
           "importRdf",
           "rdfExport",
+          "rdfExportSnapshot",
           "reportData",
         ].includes(method)
       )
@@ -1441,32 +1471,39 @@ app.whenReady().then(async () => {
     authorised(event);
     return taxonomyAssistant.apply(id, indices);
   });
-  handle("research:assistants", (event) => {
+  handle("assistants:list", (event) => {
     authorised(event);
-    return research.assistants();
+    return queryAssistant.assistants();
   });
-  handle("research:run", (event, input) => {
+  handle("touchpoints:search", (event, input) => {
     authorised(event);
-    const pending = research.run(input);
-    refreshMenu();
-    return pending.finally(() => refreshMenu());
+    return touchpoints.search(input);
   });
-  handle("research:cancel", (event) => {
+  handle("touchpoints:apply", (event, token, selections) => {
     authorised(event);
-    research.cancel();
-    refreshMenu();
+    return touchpoints.apply(token, selections);
   });
-  handle("research:status", (event) => {
+  handle("touchpoints:open", (event, url) => {
     authorised(event);
-    return research.status();
+    if (typeof url !== "string" || url.length > 10000)
+      throw Error("Invalid Wikipedia URL.");
+    const parsed = new URL(url);
+    if (
+      parsed.origin !== "https://en.wikipedia.org" ||
+      !parsed.pathname.startsWith("/wiki/") ||
+      parsed.username ||
+      parsed.password
+    )
+      throw Error("Choose a Wikipedia page.");
+    return shell.openExternal(parsed.href);
   });
-  handle("research:open", (event, url) => {
+  handle("external:open", (event, url) => {
     authorised(event);
     if (typeof url !== "string" || url.length > 10000)
       throw Error("Invalid source URL.");
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password)
-      throw Error("Only HTTPS research links are supported.");
+      throw Error("Only HTTPS links are supported.");
     return shell.openExternal(parsed.href);
   });
   ipcMain.on("keyboard:menu", (event) => {
@@ -1714,7 +1751,6 @@ app.on("before-quit", () => {
   taxonomyAssistant.cancel();
   queryAssistant.cancel();
   provenance.close();
-  research.cancel();
   if (closing) void worker?.terminate();
 });
 
@@ -1751,7 +1787,9 @@ async function importOntology() {
   if (!result.canceled) await importOntologyFile(result.filePaths[0]);
 }
 async function exportOntology() {
-  await flushEditors();
+  // Capture committed statements before the dialog. Editors keep their drafts,
+  // and commits made while choosing a destination belong to a later export.
+  const statements = await request<Triple[]>("rdfExportSnapshot");
   const result = await dialog.showSaveDialog(mainWindow!, {
     title: "Export ontology",
     defaultPath: "ontology.ttl",
@@ -1778,6 +1816,6 @@ async function exportOntology() {
     } as Record<string, string>
   )[path.extname(result.filePath).toLowerCase()];
   if (!format) throw Error("Use a supported RDF filename extension.");
-  const text = (await request("rdfExport", { format })) as string;
+  const text = await request<string>("rdfExport", { format, statements });
   await writeFile(result.filePath, text, "utf8");
 }

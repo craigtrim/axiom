@@ -1,4 +1,4 @@
-import type { AssistantId } from "./research";
+import type { AssistantId } from "./assistant";
 export interface QueryContext {
   datasetEpoch: number;
   version: number;

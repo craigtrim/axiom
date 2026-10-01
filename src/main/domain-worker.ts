@@ -3,6 +3,7 @@ import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
 import {
   textAnalysisDraft,
+  planTextAnalysisHierarchy,
   createTextAnalysisClass,
   createTextAnalysisHierarchy,
 } from "../domain/text-analysis-authoring";
@@ -42,7 +43,7 @@ import { sourceDocument, applySource, linkedFile } from "../domain/source";
 import type { SourceDocument } from "../shared/source";
 import { validateStatement } from "../domain/rdf-model";
 import { queryContext } from "../domain/query-context";
-import { researchContext, applySuggestions } from "../domain/research";
+import { touchpointContext, applyTouchpoints } from "../domain/touchpoints";
 import {
   taxonomyContext,
   validateTaxonomySuggestions,
@@ -436,7 +437,7 @@ const tracked = new Set<DomainMethod>([
   "queryGraph",
   "stylesheet",
   "regenerate",
-  "applySuggestions",
+  "applyTouchpoints",
   "applyIntersection",
   "applySubclassSuggestions",
   "applyTaxonomySuggestions",
@@ -536,7 +537,7 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 queryGraph: "Show query results",
                 stylesheet: "Change graph styles",
                 regenerate: "Regenerate dataset",
-                applySuggestions: "Apply research suggestions",
+                applyTouchpoints: "Add touchpoints",
                 applyTaxonomySuggestions:
                   args.mode === "children"
                     ? "Add child classes"
@@ -957,22 +958,38 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "findCreate": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error("The ontology changed. Review the draft before adding it.");
-      if (method === "findCreatePreview") return previewFindCreation(store, a.creation, datasetEpoch);
+      if (method === "findCreatePreview")
+        return previewFindCreation(store, a.creation, datasetEpoch);
       selected = createFindEntity(store, a.creation, datasetEpoch);
       mutate("Class added from Find. Undo removes the addition.");
       return selected;
     }
     case "textAnalysisDraft":
+    case "textAnalysisCreatePreview":
     case "textAnalysisCreate": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error(
           "The ontology changed. Refresh the selected phrase before adding it.",
         );
+      if (method === "textAnalysisCreatePreview")
+        return writeRdf(
+          planTextAnalysisHierarchy(store, a.creation).statements,
+          "rdfxml",
+        );
       if (method === "textAnalysisDraft") {
-        const draft = textAnalysisDraft(store, string(a, "label", 256), datasetEpoch);
+        const draft = textAnalysisDraft(
+          store,
+          string(a, "label", 256),
+          datasetEpoch,
+        );
         if (a.checkAllEntities === true) {
-          for (const collision of entityNameCollisions(store, draft.label, typeof a.iri === "string" ? a.iri : "").collisions)
-            if (!draft.existing.some(e => e.iri === collision.iri)) draft.existing.push(collision);
+          for (const collision of entityNameCollisions(
+            store,
+            draft.label,
+            typeof a.iri === "string" ? a.iri : "",
+          ).collisions)
+            if (!draft.existing.some((e) => e.iri === collision.iri))
+              draft.existing.push(collision);
         }
         return draft;
       }
@@ -992,8 +1009,10 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "textAnalysisContext":
       return textAnalysisContext(store, datasetEpoch);
+    case "rdfExportSnapshot":
+      return [...store.scan()];
     case "rdfExport":
-      return writeRdf([...store.scan()], a.format as "turtle");
+      return writeRdf(a.statements as Triple[], a.format as "turtle");
     case "reportData": {
       const ids =
         a.scope === "ontology"
@@ -1080,24 +1099,21 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return created;
     }
-    case "researchContext":
-      return researchContext(store, string(a, "iri", 10000), datasetEpoch);
-    case "applySuggestions": {
+    case "touchpointContext":
+      return touchpointContext(store, string(a, "iri", 10000), datasetEpoch);
+    case "applyTouchpoints": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error(
-          "The ontology changed since this research. Run it again before applying suggestions.",
+          "The ontology changed since this search. Search again before applying touchpoints.",
         );
-      const created = applySuggestions(
+      const count = applyTouchpoints(
         store,
         string(a, "iri", 10000),
-        a.suggestions as import("../shared/research").Suggestion[],
+        a.statements as import("../domain/model").Triple[],
       );
-      mutate(
-        "Applied " +
-          created.length +
-          " researched entities. Undo restores the previous ontology.",
-      );
-      return created;
+      if (count)
+        mutate("Added " + count + " touchpoints. Undo removes this batch.");
+      return count;
     }
     case "subclassSuggestions":
       return {
@@ -1862,7 +1878,6 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           "layout",
           "theme",
           "arrangement",
-          "research.templates",
         ].includes(key) ||
         JSON.stringify([a.before, a.after]).length > 300000
       )

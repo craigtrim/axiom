@@ -89,6 +89,7 @@ export interface QuerySummary {
 export type DomainMethod =
   | "semanticSimilarity"
   | "textAnalysisDraft"
+  | "textAnalysisCreatePreview"
   | "textAnalysisCreate"
   | "findCreatePreview"
   | "findCreate"
@@ -104,6 +105,7 @@ export type DomainMethod =
   | "new"
   | "importRdf"
   | "rdfExport"
+  | "rdfExportSnapshot"
   | "sourceDocument"
   | "applySource"
   | "linkedFile"
@@ -179,8 +181,8 @@ export type DomainMethod =
   | "taxonomyContext"
   | "validateTaxonomySuggestions"
   | "applyTaxonomySuggestions"
-  | "researchContext"
-  | "applySuggestions";
+  | "touchpointContext"
+  | "applyTouchpoints";
 export interface Preferences {
   tabSavePolicy?: import("./tab-history").TabSavePolicy;
   tabHistory?: import("./tab-history").TabHistory;
@@ -281,7 +283,7 @@ export interface AxiomBridge {
     ): Promise<import("./query-history").QueryEntrySummary[]>;
   };
   queryAssistant: {
-    assistants(): Promise<import("./research").AssistantInfo[]>;
+    assistants(): Promise<import("./assistant").AssistantInfo[]>;
     run(
       request: import("./query-assistant").QueryAssistantRequest,
     ): Promise<import("./query-assistant").QueryAssistantResponse>;
@@ -300,21 +302,18 @@ export interface AxiomBridge {
     cancel(id: string): Promise<void>;
     apply(id: string, indices: number[]): Promise<string[]>;
   };
-  research: {
-    assistants(): Promise<import("./research").AssistantInfo[]>;
-    run(
-      request: import("./research").ResearchRequest,
-    ): Promise<import("./research").ResearchResponse>;
-    cancel(): Promise<void>;
-    status(): Promise<{
-      running: boolean;
-      response?: import("./research").ResearchResponse;
-      activeEntity?: string;
-      startedAt?: number;
-      provider?: import("./research").AssistantId;
-      cancelling?: boolean;
-      error?: string;
-    }>;
+  assistants: { list(): Promise<import("./assistant").AssistantInfo[]> };
+  external: { open(url: string): Promise<void> };
+  touchpoints: {
+    search(input: {
+      iri: string;
+      query: string;
+      refresh?: boolean;
+    }): Promise<import("./touchpoints").TouchpointResponse>;
+    apply(
+      token: string,
+      selections: import("./touchpoints").TouchpointSelection[],
+    ): Promise<number>;
     open(url: string): Promise<void>;
   };
   request<T = unknown>(
