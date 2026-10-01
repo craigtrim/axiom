@@ -23,10 +23,11 @@ const request = <T = unknown>(
 const stored = async () =>
   JSON.parse(await readFile(path.join(profile, "last-session.json"), "utf8"));
 async function launch() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,

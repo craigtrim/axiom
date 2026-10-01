@@ -43,10 +43,11 @@ test.beforeEach(async () => {
   errors = [];
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/lifecycle-"));
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -94,8 +95,12 @@ for (const fixture of manifest)
         entity.iri,
       );
       const inspector = page.locator('[data-panel="inspector"]');
-      await inspector.getByText("Full identifier (IRI)", { exact: true }).click();
-      await expect(inspector.getByRole("textbox", { name: "Entity IRI", exact: true })).toHaveValue(entity.iri);
+      await inspector
+        .getByText("Full identifier (IRI)", { exact: true })
+        .click();
+      await expect(
+        inspector.getByRole("textbox", { name: "Entity IRI", exact: true }),
+      ).toHaveValue(entity.iri);
       await menu("entity.rename");
       const rename = page.getByRole("textbox", {
         name: "Rename entity",

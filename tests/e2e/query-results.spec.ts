@@ -68,6 +68,7 @@ test.beforeEach(async () => {
       path.resolve("artifacts/testing/query-results-ui-"),
     ),
   } as Record<string, string>;
+  env.AXIOM_CACHE_HOME = path.join(env.AXIOM_USER_DATA, "cache");
   delete env.ELECTRON_RUN_AS_NODE;
   await launch();
   await menu("view.query");

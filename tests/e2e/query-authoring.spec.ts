@@ -77,13 +77,14 @@ test.beforeEach(async () => {
   await mkdir(folder, { recursive: true });
   await writeFile(
     path.join(folder, "codex.js"),
-    `import fs from "node:fs";let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const match=s.match(/REQUEST\\n(.*)\\nONTOLOGY/);const input=JSON.parse(match[1]);const instructions=input.instructions;let r={status:"query",sparql:${JSON.stringify(query)},explanation:"Lists seven asserted triples.",assumptions:[]};if(instructions.includes("unsupported"))r={status:"unsupported",sparql:"",explanation:"Remote SERVICE is unavailable in local queries.",assumptions:[]};if(instructions.includes("invalid"))r.sparql="SELECT ?s WHERE { ?s <http://invented.org/property> ?o }";setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(r)),instructions.includes("cancel")?20000:instructions.includes("slow")?2500:50);});`,
+    `import fs from "node:fs";let s="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const match=s.match(/REQUEST\\n(.*)\\nONTOLOGY/);const input=JSON.parse(match[1]);const instructions=input.instructions;let r={status:"query",sparql:${JSON.stringify(query)},explanation:"Lists seven asserted triples.",assumptions:[]};if(instructions.includes("unsupported"))r={status:"unsupported",sparql:"",explanation:"Remote SERVICE is unavailable in local queries.",assumptions:[]};if(instructions.includes("invalid"))r.sparql="SELECT ?s WHERE { ?s <http://invented.org/property> ?o }";setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(r)),instructions.includes("cancel")?20000:instructions.includes("slow")?2500:50);});`,
   );
   await writeFile(path.join(folder, "package.json"), '{"type":"module"}');
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   const originalPath = env.PATH ?? env.Path ?? "";
   delete env.Path;
   env.PATH = bin + path.delimiter + originalPath;

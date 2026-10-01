@@ -15,10 +15,11 @@ const errors: string[] = [];
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 function environment() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
 }

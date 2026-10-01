@@ -116,7 +116,7 @@ test.beforeEach(async () => {
   await writeFile(
     path.join(folder, "codex.js"),
     String.raw`import fs from "node:fs";
-      let p=""; process.stdin.on("data",d=>p+=d); process.stdin.on("end",()=>{
+      let p=""; if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>p+=d); process.stdin.on("end",()=>{
         const custom=p.startsWith("Propose values"), parents=p.startsWith("Suggest parents for");
         const unavailable=parents?JSON.parse(p.split("\n").find(l=>l.startsWith("Unavailable IDs")).split(": ")[1]):[];
         const result=parents?JSON.stringify({suggestions:p.split("\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l)).filter(r=>["Alpha Gamma","Beta Gamma"].includes(r[1])&&!unavailable.includes(r[0])).map(r=>({value:r[0],reason:"This is a broader subject category."}))}):custom?JSON.stringify({suggestions:[{value:"Foundations of English",reason:"Clear alternative wording."}]}):"Summary: Useful child class.\nSuggestions:\n1. Conversational English\nDescription: English for conversation.\nReason: Fits immediately below the selected class.";
@@ -130,7 +130,11 @@ test.beforeEach(async () => {
       panelState: { "assistant.provider": "codex" },
     }),
   );
-  env = { ...process.env, AXIOM_USER_DATA: profile } as Record<string, string>;
+  env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   const prior = env.PATH ?? env.Path ?? "";
   delete env.Path;
   env.PATH = bin + path.delimiter + prior;
