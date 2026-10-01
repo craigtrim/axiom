@@ -1,8 +1,9 @@
-import type { AssistantId } from "./research";
+import type { AssistantId } from "./assistant";
 export { buildTaxonomyPrompt } from "./taxonomy-language";
 import { buildTaxonomyPrompt, readTaxonomyReply } from "./taxonomy-language";
 import type { Entity } from "../domain/model";
 import { identifier, validLabel } from "../domain/rdf-model";
+import { entityNameKey } from "./entity-names";
 
 export type TaxonomyMode = "children" | "instances";
 export interface TaxonomyTerm {
@@ -22,7 +23,7 @@ export interface TaxonomyContext {
   datasetEpoch: number;
   version: number;
   mode: TaxonomyMode;
-  ontology: { name: string; namespace: string };
+  ontology: { name: string; namespace: string; iri?: string };
   names?: Record<string, string>;
   selected: TaxonomyTerm;
   ancestors: TaxonomyTerm[];
@@ -140,6 +141,7 @@ export interface TaxonomyResult {
   suggestions: TaxonomySuggestion[];
 }
 export interface TaxonomyRequest {
+  bypassCache?: boolean;
   provider?: AssistantId;
   id: string;
   iri: string;
@@ -148,6 +150,7 @@ export interface TaxonomyRequest {
   version: number;
 }
 export interface TaxonomyResponse {
+  cache?: import("./assistant").AssistantCacheInfo;
   provider?: AssistantId;
   id: string;
   context: TaxonomyContext;
@@ -268,5 +271,4 @@ export function parseTaxonomyReply(
   });
 }
 // The same normalization used when minting IRIs also detects spelling collisions.
-export const taxonomyNameKey = (name: string) =>
-  identifier(name).toLocaleLowerCase();
+export const taxonomyNameKey = entityNameKey;

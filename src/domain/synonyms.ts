@@ -1,6 +1,8 @@
 import { Store } from "./store";
 import { NS, type Entity } from "./model";
 import { displayName } from "./rdf-model";
+import { entityRandom } from "./seeded-random";
+import { createHash } from "node:crypto";
 import {
   synonymDefinition,
   synonymKey,
@@ -25,7 +27,7 @@ export function synonymContext(
   store: Store,
   iri: string,
   datasetEpoch: number,
-  random = Math.random,
+  random = entityRandom(iri),
 ): SynonymContext {
   const selected = store.entities.get(iri);
   if (!named(selected))
@@ -35,32 +37,37 @@ export function synonymContext(
     label: displayName(e),
     kind: e.kind,
     description: e.comment,
-    parents: parents(e).map((id) => store.label(id)),
+    parents: [...parents(e)].sort().map((id) => store.label(id)),
     labels: [...store.scan(e.iri)]
       .filter((t) => labelPredicates.has(t.predicate) && t.object.literal)
-      .map((t) => t.object.value),
-    seeAlso: [...store.scan(e.iri, seeAlso)].map((t) => ({
-      value: t.object.value,
-      literal: !!t.object.literal,
-      ...(t.object.literal
-        ? t.object.language
-          ? { language: t.object.language }
-          : {}
-        : { label: store.label(t.object.value) }),
-    })),
-    conditions: [...e.restrictions, ...e.equivalents].map((r) =>
-      JSON.stringify({
-        ...r,
-        property: r.property ? store.label(r.property) : undefined,
-        fillers: r.fillers.map((id) => store.label(id)),
-      }),
-    ),
+      .map((t) => t.object.value)
+      .sort(),
+    seeAlso: [...store.scan(e.iri, seeAlso)]
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+      .map((t) => ({
+        value: t.object.value,
+        literal: !!t.object.literal,
+        ...(t.object.literal
+          ? t.object.language
+            ? { language: t.object.language }
+            : {}
+          : { label: store.label(t.object.value) }),
+      })),
+    conditions: [...e.restrictions, ...e.equivalents]
+      .map((r) =>
+        JSON.stringify({
+          ...r,
+          property: r.property ? store.label(r.property) : undefined,
+          fillers: [...r.fillers].sort().map((id) => store.label(id)),
+        }),
+      )
+      .sort(),
   });
   const walk = (next: (e: Entity) => string[]) => {
     const seen = new Set([iri]),
       queue = [selected];
     for (let i = 0; i < queue.length; i++)
-      for (const id of next(queue[i])) {
+      for (const id of [...next(queue[i])].sort()) {
         const entity = store.entities.get(id);
         if (!seen.has(id) && named(entity)) {
           seen.add(id);
@@ -94,9 +101,10 @@ export function synonymContext(
     const e = store.entities.get(id);
     return !relatives.has(id) && named(e) ? [e] : [];
   });
-  const sampledChildren = sampleSynonymTerms(direct, random),
-    sampledDescendants = sampleSynonymTerms(descendants, random),
-    sampledSiblings = sampleSynonymTerms(siblings, random);
+  const order = (a: Entity, b: Entity) => a.iri.localeCompare(b.iri);
+  const sampledChildren = sampleSynonymTerms(direct.sort(order), random),
+    sampledDescendants = sampleSynonymTerms(descendants.sort(order), random),
+    sampledSiblings = sampleSynonymTerms(siblings.sort(order), random);
   const included = new Set(
     [
       selected,
@@ -112,6 +120,17 @@ export function synonymContext(
     (e) => !included.has(e.iri) && !store.scan(e.iri, seeAlso).next().done,
   );
   return {
+    fingerprint: createHash("sha256")
+      .update(
+        JSON.stringify([
+          store.ontology.namespace,
+          selected.iri,
+          ...[selected, ...ancestors, ...descendants, ...siblings]
+            .sort(order)
+            .map(term),
+        ]),
+      )
+      .digest("hex"),
     version: store.version,
     datasetEpoch,
     selected: term(selected),
@@ -119,7 +138,9 @@ export function synonymContext(
     children: sampledChildren.map(term),
     descendants: sampledDescendants.map(term),
     siblings: sampledSiblings.map(term),
-    additionalSeeAlso: sampleSynonymTerms(annotated, random).map(term),
+    additionalSeeAlso: sampleSynonymTerms(annotated.sort(order), random).map(
+      term,
+    ),
     totals: {
       children: direct.length,
       descendants: descendants.length,

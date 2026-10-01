@@ -226,7 +226,7 @@ async function serviceFixture(
     capture = path.join(root, "prompt.txt");
   await writeFile(
     script,
-    'const fs=require("fs");let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{fs.writeFileSync(' +
+    'const fs=require("fs");let p="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{fs.writeFileSync(' +
       JSON.stringify(capture) +
       ',p);fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],' +
       JSON.stringify(JSON.stringify(raw)) +
@@ -383,7 +383,14 @@ it("accepts empty results and retains malformed responses as failed runs", async
   const invalid = await serviceFixture({
     suggestions: [{ value: "English Basics" }],
   });
-  await expect(invalid.run()).rejects.toThrow(/reason/);
+  await expect(
+    invalid.service.run({
+      iri: base + "BasicEnglish",
+      mode: "synonyms",
+      provider: "codex",
+      bypassCache: true,
+    }),
+  ).rejects.toThrow(/reason/);
   const failed = (await invalid.service.history())[0];
   expect(failed.state).toBe("failed");
   expect(failed.prompt).toContain("Basic English");

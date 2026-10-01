@@ -84,6 +84,7 @@ export function taxonomyContext(
     ontology: {
       name: store.ontology.name,
       namespace: store.ontology.namespace,
+      ...(store.ontology.iri ? { iri: store.ontology.iri } : {}),
     },
     selected: term(selected!),
     ancestors: named(up.seen),

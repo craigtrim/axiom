@@ -210,6 +210,7 @@ export const defaultFilter: TableFilter = {
 };
 
 export interface OntologyInfo {
+  iri?: string;
   name: string;
   namespace: string;
   example: boolean;

@@ -30,7 +30,7 @@ async function fixture(
   const script = path.join(root, "mock.cjs");
   await writeFile(
     script,
-    'const fs=require("fs");let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{fs.writeFileSync(' +
+    'const fs=require("fs");let p="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{fs.writeFileSync(' +
       JSON.stringify(path.join(root, "received-prompt.txt")) +
       ',p);const result=p.startsWith("Suggest parents for")?{suggestions:[{value:JSON.parse(p.split("\\n").find(l=>l.startsWith("[\\\"c")&&JSON.parse(l)[1]==="English"))[0],reason:"A language course belongs under its language."}]}:' +
       JSON.stringify(raw) +

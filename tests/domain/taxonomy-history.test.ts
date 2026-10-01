@@ -21,6 +21,19 @@ const fake = vi.hoisted(() => ({
 vi.mock("../../src/main/local-assistant", () => ({
   discoverAssistants: async () => [],
   LocalAssistantRunner: class {
+    async runWithMetadata() {
+      return {
+        reply: await this.run(),
+        metadata: {
+          cli: { version: "1", path: "fixture" },
+          model: null,
+          startedAt: "2025-01-01T00:00:00Z",
+          completedAt: "2025-01-01T00:00:01Z",
+          durationMs: 1000,
+          providerReport: null,
+        },
+      };
+    }
     async run() {
       fake.calls++;
       if (fake.block)
@@ -88,7 +101,7 @@ it("retains every run independently across nodes, retries and service restart", 
   expect(first.entry.response?.result.suggestions).toHaveLength(2);
   expect(first.entry.prompt).toContain('"Vehicle"');
   expect(first.blocked).toBe("");
-  expect(fake.calls).toBe(3);
+  expect(fake.calls).toBe(2);
 });
 
 it("applies a historical result after restart and records partial additions without replacing its original context", async () => {
@@ -210,7 +223,7 @@ it("protects prior records from reused run IDs and handles interruption without 
   expect(fake.calls).toBe(1);
 });
 
-it("keeps a run's random sample stable across review, partial apply and restart while ignoring edits outside it", async () => {
+it("keeps a run's seeded sample stable across review, partial apply and restart while ignoring edits outside it", async () => {
   for (let i = 0; i < 45; i++) store.createClass("Existing " + i, parent);
   const random = vi.spyOn(Math, "random").mockReturnValue(0);
   try {
@@ -220,9 +233,7 @@ it("keeps a run's random sample stable across review, partial apply and restart 
     expect(first.context.descendants).toHaveLength(20);
     random.mockReturnValue(0.999);
     const second = await current.run(input("sample-two"));
-    expect(second.context.directChildren).not.toEqual(
-      first.context.directChildren,
-    );
+    expect(second.context.directChildren).toEqual(first.context.directChildren);
     expect((await current.read("sample-one")).blocked).toBe("");
     await current.apply("sample-one", [0]);
     const saved = (await current.read("sample-one")).entry;

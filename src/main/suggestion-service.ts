@@ -26,6 +26,9 @@ import {
   parentPromptLimit,
 } from "../shared/parent-suggestions";
 import { entity } from "../domain/model";
+import { displayName } from "../domain/rdf-model";
+import { ModelCache, modelHash, type ModelCacheKey } from "./model-cache";
+import type { AssistantRunResult } from "../shared/assistant";
 
 type Request = <T>(
   method: DomainMethod,
@@ -45,11 +48,14 @@ export class SuggestionService {
     private root: string,
     private request: Request,
     discover = discoverAssistants,
+    private cache = new ModelCache(),
+    runner?: Pick<LocalAssistantRunner, "runWithMetadata" | "cancel">,
   ) {
     this.runner = new LocalAssistantRunner(
       path.join(root, "suggestion-processes"),
       discover,
     );
+    if (runner) this.runner = runner as LocalAssistantRunner;
   }
   private load() {
     return (this.ready ??= (async () => {
@@ -226,7 +232,7 @@ export class SuggestionService {
         id,
         mode: input.mode,
         iri: document.entity.iri,
-        label: document.entity.name,
+        label: displayName(document.entity),
         namespace: s.ontology.namespace,
         document,
         definition,
@@ -275,12 +281,55 @@ export class SuggestionService {
             }),
         ].join("\n\n");
       }
+      const key: ModelCacheKey | undefined =
+        input.mode === "parents" || input.mode === "synonyms"
+          ? {
+              purpose:
+                input.mode === "parents" ? "add-parents" : "find-synonyms",
+              entity: {
+                label: run.label,
+                iri: input.draft
+                  ? "urn:axiom:draft:" +
+                    modelHash(
+                      s.ontology.namespace + "\n" + input.draft.label.trim(),
+                    )
+                  : document.entity.iri,
+              },
+              ontology: {
+                iri: s.ontology.iri ?? null,
+                namespace: s.ontology.namespace,
+              },
+              provider,
+              prompt: "",
+            }
+          : undefined;
+      if (key) {
+        run.prompt +=
+          "\n\nContext identity: " +
+          modelHash(key.ontology.namespace + "\n" + key.entity.iri);
+        key.prompt = run.prompt;
+      }
       await this.put(run);
       if (this.cancelled) throw Error("Suggestions cancelled.");
       {
         if (definition) auditDetail("Suggestion definition", definition);
         auditDetail("Prompt", run.prompt);
-        const raw = await this.runner.run(
+        let completion: AssistantRunResult | undefined =
+          key && !input.bypassCache ? await this.cache.get(key) : undefined;
+        const parse = (raw: unknown) =>
+          run!.parentContext
+            ? parseParentSuggestions(raw, run!.parentContext)
+            : parseSuggestionValues(raw, definition!);
+        if (completion) {
+          try {
+            parse(completion.reply);
+          } catch {
+            completion = undefined;
+          }
+        }
+        const hit = !!completion;
+        if (this.cancelled) throw Error("Suggestions cancelled.");
+        completion ??= await this.runner.runWithMetadata(
           provider,
           run.prompt,
           {
@@ -309,9 +358,7 @@ export class SuggestionService {
           input.mode === "parents" ? parentPromptLimit : 150000,
         );
         auditStep("Validating suggested values");
-        const values = run.parentContext
-          ? parseParentSuggestions(raw, run.parentContext)
-          : parseSuggestionValues(raw, definition!);
+        const values = parse(completion.reply);
         if (input.mode === "parents") run.values = values;
         else if (input.mode === "synonyms") {
           if (values.length > 12)
@@ -338,6 +385,15 @@ export class SuggestionService {
                   t.object.value === v.value,
               ),
           );
+        if (this.cancelled) throw Error("Suggestions cancelled.");
+        if (key) {
+          if (!hit) await this.cache.put(key, completion, () => this.cancelled);
+          run.cache = {
+            hit,
+            completedAt: completion.metadata.completedAt,
+            model: completion.metadata.model,
+          };
+        }
       }
       if (this.cancelled) throw Error("Suggestions cancelled.");
       run.state = "completed";

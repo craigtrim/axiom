@@ -2,6 +2,8 @@ import { auditStep, auditMetadata, auditId } from "./audit-log";
 import { randomUUID } from "node:crypto";
 import { TaxonomyHistory } from "./taxonomy-history";
 import { LocalAssistantRunner, discoverAssistants } from "./local-assistant";
+import { ModelCache, modelHash, type ModelCacheKey } from "./model-cache";
+import { entityRandom } from "../domain/seeded-random";
 import {
   buildTaxonomyPrompt,
   sampleTaxonomyContext,
@@ -17,6 +19,49 @@ import {
   type TaxonomyStatus,
   type TaxonomySuggestion,
 } from "../shared/taxonomy-assistant";
+
+export function canonicalTaxonomyContext(
+  context: TaxonomyContext,
+): TaxonomyContext {
+  const copy = structuredClone(context);
+  const term = (t: TaxonomyContext["selected"]) => {
+    t.parents.sort();
+    t.disjoint.sort();
+    for (const restriction of [...t.restrictions, ...t.equivalents])
+      restriction.fillers.sort();
+    t.restrictions.sort((a, b) =>
+      JSON.stringify(a).localeCompare(JSON.stringify(b)),
+    );
+    t.equivalents.sort((a, b) =>
+      JSON.stringify(a).localeCompare(JSON.stringify(b)),
+    );
+  };
+  [
+    copy.selected,
+    ...copy.ancestors,
+    ...copy.descendants,
+    ...(copy.childTerms ?? []),
+  ].forEach(term);
+  copy.ancestors.sort((a, b) => a.iri.localeCompare(b.iri));
+  copy.descendants.sort((a, b) => a.iri.localeCompare(b.iri));
+  copy.childTerms?.sort((a, b) => a.iri.localeCompare(b.iri));
+  copy.directChildren.sort();
+  copy.roots.sort();
+  copy.ancestorLinks.sort((a, b) =>
+    JSON.stringify(a).localeCompare(JSON.stringify(b)),
+  );
+  copy.descendantLinks.sort((a, b) =>
+    JSON.stringify(a).localeCompare(JSON.stringify(b)),
+  );
+  copy.existingInstances
+    .sort((a, b) => a.iri.localeCompare(b.iri))
+    .forEach((t) => t.types.sort());
+  if (copy.names)
+    copy.names = Object.fromEntries(
+      Object.entries(copy.names).sort(([a], [b]) => a.localeCompare(b)),
+    );
+  return copy;
+}
 
 export class TaxonomyAssistantService {
   private runner: LocalAssistantRunner;
@@ -38,8 +83,11 @@ export class TaxonomyAssistantService {
     ) => Promise<string[]>,
     discover = discoverAssistants,
     timeoutMs = 300000,
+    private cache = new ModelCache(),
+    runner?: Pick<LocalAssistantRunner, "runWithMetadata" | "cancel">,
   ) {
     this.runner = new LocalAssistantRunner(root, discover, timeoutMs);
+    if (runner) this.runner = runner as LocalAssistantRunner;
     this.historyStore = new TaxonomyHistory(root + "/history");
   }
   status() {
@@ -85,8 +133,13 @@ export class TaxonomyAssistantService {
       if (await this.historyStore.get(input.id))
         throw Error("This run ID is already in use.");
       auditStep("Preparing ontology context");
-      const completeContext = await this.context(input);
-      const context = sampleTaxonomyContext(completeContext);
+      const completeContext = canonicalTaxonomyContext(
+        await this.context(input),
+      );
+      const context = sampleTaxonomyContext(
+        completeContext,
+        entityRandom(completeContext.selected.iri),
+      );
       auditMetadata({
         entity: context.selected.label,
         iri: context.selected.iri,
@@ -107,19 +160,60 @@ export class TaxonomyAssistantService {
         state: "running",
         context,
         reviewContext: completeContext,
-        prompt: buildTaxonomyPrompt(context),
+        prompt:
+          buildTaxonomyPrompt(context) +
+          "\n\nContext identity: " +
+          modelHash(context.ontology.namespace + "\n" + context.selected.iri) +
+          "\nContext fingerprint: " +
+          modelHash(
+            JSON.stringify({
+              ...completeContext,
+              version: undefined,
+              datasetEpoch: undefined,
+            }),
+          ),
         applied: [],
       };
       await this.historyStore.put(entry);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
-      const raw = await this.runner.run(provider, entry.prompt, null);
+      const key: ModelCacheKey = {
+        purpose: input.mode === "children" ? "add-children" : "find-instances",
+        entity: { label: context.selected.label, iri: context.selected.iri },
+        ontology: context.ontology,
+        provider,
+        prompt: entry.prompt,
+      };
+      let completion = !input.bypassCache
+        ? await this.cache.get(key)
+        : undefined;
+      if (completion) {
+        try {
+          parseTaxonomyReply(completion.reply, context);
+        } catch {
+          completion = undefined;
+        }
+      }
+      const hit = !!completion;
+      if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
+      completion ??= await this.runner.runWithMetadata(
+        provider,
+        entry.prompt,
+        null,
+      );
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       auditStep("Parsing taxonomy proposal");
-      const result = parseTaxonomyReply(raw, context);
+      const result = parseTaxonomyReply(completion.reply, context);
       auditStep("Validating taxonomy suggestions");
       const issues = await this.validate(context, result.suggestions);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
+      if (!hit) await this.cache.put(key, completion, () => this.cancelled);
+      if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       const response = {
+        cache: {
+          hit,
+          completedAt: completion.metadata.completedAt,
+          model: completion.metadata.model,
+        },
         provider,
         id: input.id,
         context,

@@ -199,6 +199,7 @@ export function storeFromRdf(
     declared && !declared.startsWith("_:") ? declared : source?.baseIRI;
   store.ontology = {
     name,
+    ...(declared && !declared.startsWith("_:") ? { iri: declared } : {}),
     namespace:
       base && /^https?:/.test(base)
         ? base.replace(/[#/]?$/, "#")

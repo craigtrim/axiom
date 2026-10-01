@@ -1,4 +1,4 @@
-import type { AssistantId } from "./research";
+import type { AssistantId } from "./assistant";
 import type { Entity, Triple } from "../domain/model";
 export interface SuggestionDefinition {
   id: string;
@@ -21,6 +21,7 @@ export interface SuggestionValue {
 }
 import type { SynonymContext, SynonymValidation } from "./synonyms";
 export interface SuggestionRun {
+  cache?: import("./assistant").AssistantCacheInfo;
   id: string;
   mode: string;
   namespace: string;
@@ -43,6 +44,7 @@ export interface SuggestionRun {
   session: string;
 }
 export interface SuggestionRequest {
+  bypassCache?: boolean;
   iri: string;
   mode: string;
   provider?: AssistantId;

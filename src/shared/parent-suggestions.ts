@@ -61,12 +61,12 @@ export function parentContext(
         iri: entity.iri,
         label: displayName(entity),
         comment: entity.comment,
-        parents: entity.parents,
+        parents: [...entity.parents].sort(),
       }
     : {
         label: (target as ParentDraft).label.trim(),
         comment: (target as ParentDraft).comment,
-        parents: (target as ParentDraft).parents,
+        parents: [...(target as ParentDraft).parents].sort(),
       };
   const classes = s.entities
     .filter(namedClass)
@@ -99,7 +99,7 @@ export function parentContext(
       iri: e.iri,
       label: displayName(e),
       comment: e.comment,
-      parents: taxonomyParents(e).map((p) => ids.get(p) ?? p),
+      parents: [...taxonomyParents(e)].sort().map((p) => ids.get(p) ?? p),
       eligible: !blocked.has(e.iri) && e.iri !== THING,
     })),
   };
