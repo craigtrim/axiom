@@ -46,7 +46,7 @@ export function Modal({
           ×
         </button>
       </header>
-      {children}
+      <div className="modal-body">{children}</div>
     </dialog>,
     target.current.body,
   );

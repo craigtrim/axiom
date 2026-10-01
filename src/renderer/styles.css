@@ -547,15 +547,46 @@ a {
   min-height: 70px;
 }
 .modal {
+  --modal-top: clamp(12px, 6vh, 48px);
+  --modal-height: calc(100dvh - var(--modal-top) - 12px);
+  position: fixed;
+  inset: var(--modal-top) 0 auto;
+  margin: 0 auto;
   width: min(560px, 90vw);
-  max-height: 85vh;
+  max-width: calc(100vw - 24px);
+  max-height: var(--modal-height);
   padding: 24px;
   color: var(--text);
   border: 1px solid var(--stroke);
   border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-dialog);
+  overflow: hidden;
+}
+.modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+.modal > header {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.modal header h2 {
+  overflow-wrap: anywhere;
+}
+.modal-body {
+  min-height: 0;
+  min-width: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+.modal-body > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.modal footer {
+  flex-wrap: wrap;
 }
 .taxonomy-heading {
   padding: 12px;
@@ -1121,15 +1152,14 @@ a {
 }
 
 .modal:has(.keyboard-settings) {
-  max-height: 92vh;
-  overflow: hidden;
+  max-height: var(--modal-height);
 }
 .modal:has(.keyboard-settings) > header {
   margin-bottom: 12px;
 }
 .keyboard-settings {
-  max-height: calc(92vh - 112px);
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 .keyboard-settings > .keyboard-columns,
 .keyboard-settings > .keyboard-reference,
@@ -1958,18 +1988,35 @@ a {
   background: var(--ground);
 }
 .query-history-dialog {
-  width: min(680px, calc(100vw - 80px));
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.modal:has(.query-history-dialog) {
+  width: min(760px, 94vw);
+}
+.modal:has(.query-history-dialog) .modal-body,
+.modal:has(.quick-find) .modal-body {
+  display: flex;
+  overflow: hidden;
+}
+.query-history-dialog > input,
+.query-history-dialog > p {
+  flex-shrink: 0;
 }
 .query-history-dialog > input {
   box-sizing: border-box;
   width: 100%;
 }
 .query-history-list {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-height: min(460px, 60vh);
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 .query-history-list button {
   display: flex;
@@ -3853,8 +3900,30 @@ a {
   font-size: 16px;
 }
 .quick-find-matches {
+  height: 198px;
+  min-height: 0;
+  flex-shrink: 1;
   max-height: 280px;
   margin-top: 10px;
+  scrollbar-gutter: stable;
+}
+.quick-find {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+.quick-find > input,
+.quick-find > p,
+.quick-find > footer {
+  flex-shrink: 0;
+}
+.quick-find-matches button:disabled,
+.find-result-name:disabled,
+.query-history-list button:disabled {
+  opacity: 1;
+  color: inherit;
+  cursor: default;
 }
 .find-panel {
   display: flex;

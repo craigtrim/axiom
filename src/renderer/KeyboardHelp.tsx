@@ -26,7 +26,12 @@ export function KeyboardHelp({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <div className="keyboard-reference">
+        <div
+          className="keyboard-reference"
+          tabIndex={0}
+          role="region"
+          aria-label="Shortcut reference"
+        >
           <table>
             <thead>
               <tr>
