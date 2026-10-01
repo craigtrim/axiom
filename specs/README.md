@@ -43,6 +43,7 @@ An implementer starting from zero should read in this order. The reason each ste
 9. **[`31-individuals-table.md`](31-individuals-table.md)** — columns, sorting, filtering, virtualisation arithmetic, in-cell editing, and the send-to-graph path. Read after the tree because the two share the selection model.
 10. **[`32-sparql-console.md`](32-sparql-console.md)** — the supported query grammar, tokeniser, parser, evaluator, caps, result reporting and the send-to-graph path. Read last of the Surfaces because it is the only one that depends on the flattened restriction index rather than on the Store's primary structures alone.
 11. **[`text-entity-create/README.md`](text-entity-create/README.md)** - the Add entity view: how a phrase from Text Analysis becomes a class, with its chosen and drafted parents. Read after the Surfaces and [`parent-suggestions.md`](parent-suggestions.md), which owns the assistant call.
+    Read [`find/README.md`](find/README.md) and [`add-children/README.md`](add-children/README.md) after TEC. Find is a restricted creation profile; Add Children reviews proposed additions.
 12. **[`40-design-system.md`](40-design-system.md)** — Design tokens: colour, type, spacing, radii, motion, elevation, and both themes in full. Read before writing any view code; every visual value in the product comes from here and nowhere else.
 13. **[`41-component-library.md`](41-component-library.md)** — the component inventory built from those tokens: buttons, fields, chips, tabs, panels, splitters, menus, dialogs, toasts, meters, tables, with every state. Read immediately after the tokens, since components are the only legal consumers of them.
 14. **[`50-visual-reference.html`](50-visual-reference.html)** — a rendered reference of the design system and component states. Open it alongside steps 12 and 13 rather than reading it in sequence; it is a picture, not a specification.
@@ -70,6 +71,8 @@ An implementer starting from zero should read in this order. The reason each ste
 | [`31-individuals-table.md`](31-individuals-table.md) | Axiom — Individuals Table | `TBL` | Columns, sort, filter, virtualisation, in-cell editing, send-to-graph | 30 min |
 | [`32-sparql-console.md`](32-sparql-console.md) | Axiom — SPARQL Console | `SPQ` | Grammar, tokeniser, parser, evaluator, caps, errors, result reporting, examples | 45 min |
 | [`text-entity-create/README.md`](text-entity-create/README.md) | Text Entity Create | `TEC` | The Add entity view: draft stack, parent selection, validation gates, commit | 30 min |
+| [`find/README.md`](find/README.md) | Find | `FND` | Global search, scope counts, zero-state remedies and inline class creation | 30 min |
+| [`add-children/README.md`](add-children/README.md) | Add Children | `SUG` | Suggestion review, duplicate checks and child creation | 30 min |
 | [`40-design-system.md`](40-design-system.md) | Axiom — Design System | `DS` | Design tokens: colour, type, space, radius, motion, elevation, both themes | 30 min |
 | [`41-component-library.md`](41-component-library.md) | Axiom — Component Library | `CMP` | Every component and every state, built only from tokens | 40 min |
 | [`50-visual-reference.html`](50-visual-reference.html) | Axiom — Visual Reference | `VIS` | Rendered specimen of tokens, components and states | browse |
@@ -96,6 +99,8 @@ Every normative requirement in the suite carries exactly one stable ID of the fo
 | `TBL` | [`31-individuals-table.md`](31-individuals-table.md) | Individuals table |
 | `SPQ` | [`32-sparql-console.md`](32-sparql-console.md) | SPARQL console |
 | `TEC` | [`text-entity-create/README.md`](text-entity-create/README.md) | Add entity: the draft stack, the parents region, the commit gate |
+| `FND` | [`find/README.md`](find/README.md) | Find: scopes, result counts, remedies and inline class creation |
+| `SUG` | [`add-children/README.md`](add-children/README.md) | Add Children: suggestion review and creation |
 | `DS` | [`40-design-system.md`](40-design-system.md) | Design tokens |
 | `CMP` | [`41-component-library.md`](41-component-library.md) | Component library |
 | `VIS` | [`50-visual-reference.html`](50-visual-reference.html) | Visual reference specimen |

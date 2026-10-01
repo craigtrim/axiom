@@ -2662,6 +2662,30 @@ Tokens each component consumes, directly or through a part it contains. `--r-con
 
 ---
 
+## Shared entity editor components
+
+These components serve Find and the full Add entity handoff. Their tokens are defined by DS-133 and the existing catalogue. They inherit button, field, table and focus behaviour from this library.
+
+**CMP-241** A Section panel MUST have a named heading, an accent top rule, a tinted heading ground and the existing card radius. Its content MUST wrap without horizontal scrolling at 375px. A panel has no selection state; validation and loading belong to its contained controls.
+
+**CMP-242** An Ancestry chain MUST present the draft subject distinctly, followed by its parents and recorded ancestors. Cards MUST retain labels and expose identifiers separately. The empty-parent destination MUST state owl:Thing. Traversal MUST stop after twelve levels, handle cycles, bound the number of visited nodes and disclose truncation. Multiple parents MUST remain visible. It is a labelled, noninteractive ordered summary and does not add tab stops.
+
+**CMP-243** A Statement table MUST associate predicate headers with their value controls. Fixed predicates MUST have no chooser or remove action. Extra statements MUST use a labelled predicate chooser and removal button. Label and comment limits are 256 and 10,000 characters. Field errors MUST appear adjacent to the responsible control. Disabling an in-flight editor MUST disable every editable field and row action.
+
+**CMP-244** The Add row action MUST append a stable row without replacing other controls or disturbing their caret. It MUST default to an unused allowed predicate. At the maximum of 100 extra statements, the action is disabled with all existing rows retained. It is a named button operable with Enter and Space.
+
+**CMP-245** Source MUST be a named disclosure button with expanded state and an associated, selectable RDF/XML block. It MUST begin collapsed, retain its open state during edits, escape XML and distinguish literals from resources. Its content MUST reflect the same validated draft that will be committed. Pending or invalid input MUST clear stale serialisation. Source uses the identifier face and obeys reduced motion.
+
+| Component | Token bindings |
+|---|---|
+| Section panel | `--surface`, `--accent`, `--accent-tint`, `--stroke-strong`, `--r-card`, `--fs-label`, `--sp-1`, `--sp-3`, `--sp-4` |
+| Ancestry chain | Section panel tokens; `--text-secondary`, `--fs-subtitle`, `--warn`, `--sp-2` |
+| Statement table | `--w-statement-predicate`, `--w-statement-predicate-narrow`, `--r-panel`, `--stroke`, `--stroke-strong`, `--fs-detail`, `--fs-label`, `--font-mono`, `--fs-code`, `--h-find-control`, spacing and field tokens |
+| Add row action | Button tokens; `--accent`, `--sp-2` |
+| Source disclosure | Button tokens; `--surface-alt`, `--surface-sunken`, `--stroke-strong`, `--r-panel`, `--font-mono`, `--fs-code`, `--lh-code`, `--sp-3` |
+| Find shell | Field and button tokens; `--w-find-rail`, `--w-result-type`, `--h-primary`, `--h-find-control`, body and spacing tokens |
+
+
 ## Appendix A — Native stack mapping (non-normative)
 
 Each component's nearest Windows control, and an honest note on what a native control gives away. Nothing here is binding.

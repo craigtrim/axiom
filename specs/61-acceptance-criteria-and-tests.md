@@ -905,6 +905,21 @@ Every documented error, with its message and its hint `[src: parseQuery()]`.
 | Pinned action at 375px width and 220px height, two columns at 1100px, dark-theme accessibility | `Add entity preserves source context and its footer at 375px and a short pane` |
 | Pizza TBox and drafted parent commit | `Pizza authoring fixture adds Smoked Pizza and its drafted parent together` |
 
+## 19. Find scopes and inline creation
+
+**ACC-27** Find MUST satisfy FND-1 through FND-100, including its repaired TEC conformance and FIX-105 queries. Retrieval algorithm checks remain part of the search functional suite. Timing assertions belong to the separate worker benchmark.
+
+| Check | Automated coverage |
+|---|---|
+| Blank browsing; field-only counts; all type combinations; ordered remedy yields; lexical and semantic agreement | `tests/domain/find-scope-diagnostics.test.ts` |
+| Whole-store collisions; Unicode keys; explicit and occupied IRIs; XML round trip; extra resource predicates; validation; atomic undo; nested handoff | `tests/domain/find-creation.test.ts` |
+| Pizza queries and new-class transaction | `tests/domain/find-pizza.test.ts` |
+| Draft retention, Source caret, parent typeahead, duplicate navigation, saved-class selection, stale context, dataset replacement | `tests/e2e/find-redesign.spec.ts` |
+| Both themes and 375px, 680px, 900px and 1100px widths; axe checks | `tests/e2e/find-redesign.spec.ts` |
+| Existing synonyms, Quick Find, result graphs, detachment and MPNet enrichment | `tests/e2e/find.spec.ts` |
+| Separate 6,000-entity latency measurements, including scope counts | `tests/performance/search-worker.ts` |
+
+
 ## Appendix A — Native stack mapping (non-normative)
 
 Advisory only. A conformant implementation may verify these criteria by any means that actually establishes them.

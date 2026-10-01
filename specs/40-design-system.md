@@ -909,6 +909,26 @@ Each of the following is rejected by this product. The reason matters more than 
 
 ---
 
+## Entity editor tokens
+
+**DS-133** Shared entity editors MUST use the following additions to the token catalogue. The existing `--r-card` remains 8px; it is not a new Find token. Both theme values are authored independently.
+
+| Token | Value | Role |
+|---|---|---|
+| `--accent-tint` | light `#F5F9FD`; dark `#20303E` | Section headings and draft subject cards |
+| `--fs-detail` | 15px | Statement and inspector values |
+| `--fs-label` | 13px | Captions, headings and hints |
+| `--h-find-control` | 30px | Find search, select and button controls |
+| `--h-primary` | 34px | Creation and remedy actions |
+| `--w-find-rail` | 264px | Expanded and collapsed scope column |
+| `--w-statement-predicate` | 210px | Predicate column |
+| `--w-statement-predicate-narrow` | 150px | Predicate column below 900px |
+| `--w-result-type` | 130px | Result type column |
+| `--r-panel` | 6px | Statement and Source containers |
+
+Find body text uses the existing 16px `--fs-subtitle`. At 680px and below, the predicate column takes 29% and the result type column takes 22% to preserve the value column. The scope rail folds above results at 900px with a 180px height cap; Source has a 320px height cap and scrolls vertically. The supported pane width is 375px. At smaller recovered pane sizes, the workspace offers its existing maximize action.
+
+
 ## Appendix A — Native stack mapping (non-normative)
 
 This appendix records how the normative values above land on a Windows 11 native stack. Nothing here is binding.

@@ -24,6 +24,10 @@ Vitest writes the named results to `artifacts/search-functional.json`. The same 
 
 The query matrix alone has 2,048 cases, comprising 2,038 distinct raw strings and 1,398 distinct strings after search normalization. The suite requires at least 1,000 distinct strings at both levels. It also checks that case IDs are unique. Case, whitespace, and punctuation variants therefore cannot satisfy the minimum by themselves.
 
+Issue #19 adds separate coverage for the Find surface. Its 1,927 scope tests cover all 16 entity-type combinations, eight field selections, blank browsing, populated field counts, lexical and controlled semantic yields, pagination and cache invalidation. These are scope combinations, not additional distinct query patterns. Forty-four creation tests cover whole-store duplicates, Unicode identifiers, RDF/XML round trips, validation, explicit IRIs and atomic hierarchy creation. Eight Pizza acceptance cases use the baseline TBox without changing it. The original 2,902 search cases remain intact.
+
+`tests/e2e/find-redesign.spec.ts` exercises remedies, retained drafts, Source caret position, keyboard selection, duplicate navigation, class creation, Add entity handoff, stale contexts and both themes at narrow widths. The worker benchmark has a separate `findWithScope` measurement for the added count work; it does not contribute to the functional case count.
+
 Generate a complete review catalog with:
 
 ```powershell
@@ -87,7 +91,7 @@ The normalization cases cover composed and decomposed accents, compatibility lig
 
 The typo matrix uses query lengths 3, 4, 7, 8, and 12 with zero through three substitutions. Changed characters occur at the start of the word, preventing an accidental prefix match. Additional insertion and deletion cases check the same boundaries. Expected tolerance is zero edits below four characters, one edit at lengths four through seven, and two edits for longer terms.
 
-Empty or punctuation-only Find input returns no results. Blank resource input lists eligible choices. Other negatives cover unknown terms and suffix-only matches outside the typo allowance. A separate ranking case requires a precise lexical hit to precede a fuzzy-only hit even when the latter has stronger semantic evidence.
+Empty or punctuation-only type-ahead input returns no results. Full Find requests browse mode for an empty query and lists the selected entity types; its separate scope suite checks that behavior. Blank resource input lists eligible choices. Other negatives cover unknown terms and suffix-only matches outside the typo allowance. A separate ranking case requires a precise lexical hit to precede a fuzzy-only hit even when the latter has stronger semantic evidence.
 
 ## Scopes, facets, and result membership
 
@@ -143,7 +147,7 @@ Run the lexical worker benchmark independently of unit tests:
 npm run benchmark:search
 ```
 
-This command builds the application and exercises the actual domain worker with 6,000 classes. It records the first query including index construction, then 100 warm queries each for Find and resource suggestions. `artifacts/benchmarks/search-worker.json` includes the CPU, measurement time, p50, p95, and maximum, with worker round-trip time included. The command exits unsuccessfully if either warm p95 reaches 30 ms. It does not impose that bound on cold index construction or every individual request.
+This command builds the application and exercises the actual domain worker with 6,000 classes. It records the first query including index construction, then 100 warm queries each for Find, Find with scope counts and remedy yields, and resource suggestions. `artifacts/benchmarks/search-worker.json` includes the CPU, measurement time, p50, p95, and maximum, with worker round-trip time included. The command exits unsuccessfully if any warm p95 reaches 30 ms. It does not impose that bound on cold index construction or every individual request.
 
 Run the MPNet measurements separately when the local model is installed:
 

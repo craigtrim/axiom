@@ -1056,6 +1056,22 @@ These notes record where the fixture departs from the upstream ontology, so that
 
 **FIX-104** Committing `Smoked Pizza` with the drafted parent `Smoked Food` MUST create both classes in one undoable operation. The child retains `pizza:Pizza` and gains the new parent. The new parent has `pizza:Food` as its parent. Summary MUST name both created classes. Cancelling a nested draft MUST leave the TBox unchanged.
 
+## 19. Find queries and creation drafts
+
+**FIX-105** Find acceptance tests MUST use the Pizza TBox with zero generated orders. The following queries and draft values MUST remain test inputs, without additions to the baseline ontology or golden counts.
+
+| Input and scope | Expected result |
+|---|---|
+| `Margherita`, names | Margherita ranks first |
+| `margherit`, names | Prefix finds Margherita first |
+| `Marghertita`, names | Typo finds Margherita first |
+| `cheese topping`, names | CheeseTopping ranks first |
+| `Mozzarella Topping`, names | MozzarellaTopping ranks first |
+| `universal`, names, classes | Zero results; rdfs:comment has one match; widening fields finds owl:Thing |
+| `Pizza`, no fields | Zero results; the create guard still reports the existing pizza:Pizza |
+| `Astral Flatbread`, parent pizza:Pizza | Create under Pizza, find the saved label, undo the complete addition |
+
+
 ## Appendix A — Native stack mapping (non-normative)
 
 Advisory only. A conformant implementation may satisfy every requirement above by other means.

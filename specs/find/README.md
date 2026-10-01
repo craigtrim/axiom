@@ -27,7 +27,7 @@ This document follows the two namespace convention established by [`text-entity-
 | `[src: ...]` | the prototype, in the five shapes the suite registers | `[src: runSearch()]`, `[src: .remedy]`, `[src: --accent-tint]` |
 | `[cur: ...]` | the current Electron build | not used in this document |
 
-**No `[cur: ...]` citation appears anywhere below.** The current build's Find view was seen only as a screenshot; its source was not read. Every claim this document makes about current behaviour is therefore a claim about the prototype, and any statement about the shipped build is confined to [What this design replaces](#what-this-design-replaces), which is marked non-normative and carries no citation it cannot support.
+Prototype observations retain their `[src: ...]` citations. The Unicode identity rules, corrected copy, shared component registration and post-commit reveal behaviour supersede the prototype as the implementation contract for issue #19. Automated coverage is recorded in ACC-27.
 
 ### House style deviations
 
@@ -227,7 +227,7 @@ This is the part of the surface that another document already owns.
 
 ### Conformance against TEC
 
-**FND-45** Every difference between the Find create panel and `TEC` MUST be one of three kinds, and MUST be recorded as such. **Conforms**: the same rule. **Restricts**: the profile offers less, which FND-40 permits. **Contradicts**: the profile disagrees, which FND-40 forbids, and which is therefore a defect against the named `TEC` requirement.
+**FND-45** Every difference between the prototype Find create panel and `TEC` MUST be one of three kinds, and MUST be recorded as such. **Conforms**: the same rule. **Restricts**: the profile offers less, which FND-40 permits. **Contradicts**: the profile disagrees, which FND-40 forbids, and which is therefore a defect against the named `TEC` requirement.
 
 | # | Subject | `TEC` | Find | Kind |
 |---|---|---|---|---|
@@ -246,7 +246,7 @@ This is the part of the surface that another document already owns.
 | 13 | The prototype is light only; the implementation derives dark independently | TEC-115 | ships both themes, authored independently | Conforms |
 | 14 | No design tokens defined by the view | TEC-1 | two tokens added, `--accent-tint` and `--r-card` | Conforms once both are added to `DS` |
 
-**FND-46** Each row marked **Contradicts** in FND-45 MUST be repaired in favour of the `TEC` requirement, not in favour of the prototype. FND-45 is the authoritative list of what this surface currently gets wrong.
+**FND-46** Each row marked **Contradicts** in FND-45 MUST be repaired in favour of the `TEC` requirement, not in favour of the prototype. FND-45 records the prototype defects. The class-only profile repairs these in favour of TEC, including limits, a searchable parent picker, explicit owl:Thing, atomic commit, stale-context rejection and a Store re-read. Source serialisation is permitted by the revised TEC-116.
 
 ---
 
@@ -278,7 +278,7 @@ The panel presents creation as what it is: asserting statements about a subject.
 
 **FND-57** The identifier MUST be derived from the label by the algorithm in FND-58, MUST follow the label while untouched, and MUST stop following it the moment the user edits it. The panel MUST say which of the two states it is in `[src: subjectIri()]`.
 
-**FND-58** The derivation MUST split the label on every run of characters outside `[A-Za-z0-9]`, capitalise the first letter of each resulting word, concatenate them, and prefix the ontology namespace `[src: iri()]`. This is the same algorithm [`add-children/README.md`](../add-children/README.md) specifies as `SUG-3`, and the two MUST NOT diverge.
+**FND-58** The identifier MUST apply Unicode NFKC, split into runs of Unicode letters, numbers, combining marks and underscores, uppercase the first character of each run, and concatenate the runs. An empty result becomes `Entity`; a result not starting with a Unicode letter gains the prefix `Entity`. The local name is limited to 200 Unicode code points and is prefixed with the ontology namespace. This is the shared authoring identifier rule. FND and SUG MUST use the same derivation. This supersedes the prototype's ASCII-only derivation.
 
 ### The ancestry chain
 
@@ -302,7 +302,7 @@ The panel presents creation as what it is: asserting statements about a subject.
 
 | Object form | Predicates |
 |---|---|
-| resource | `rdf:type`, `rdfs:subClassOf`, `owl:equivalentClass`, `rdfs:isDefinedBy` |
+| resource | `rdf:type`, `rdfs:subClassOf`, `rdfs:subPropertyOf`, `owl:equivalentClass`, `rdfs:isDefinedBy`, `rdfs:domain`, `rdfs:range`, `owl:disjointWith`, `owl:inverseOf`, and properties declared as `owl:ObjectProperty` in the Store |
 | literal, typed as `xsd:string` | every other predicate offered |
 
 **FND-67** A statement with an empty value MUST be omitted from Source rather than serialised empty `[src: sourceXml()]`.
@@ -323,9 +323,9 @@ This is the safety property that the whole feature rests on.
 
 **FND-72** A collision MUST distinguish an exact label collision from a normalised name collision in its copy, and MUST name the colliding entity and its ancestor path `[src: findCollision()]`.
 
-**FND-73** Normalisation MUST lower-case the label, replace every run of characters outside `[a-z0-9]` with a single underscore, and trim leading and trailing underscores `[src: norm()]`. This is the same algorithm `SUG-2` specifies, and the two MUST NOT diverge.
+**FND-73** Normalisation MUST apply Unicode NFKC, lower-case the label, extract runs of Unicode letters, numbers and combining marks, and join those runs with one space. If there are no such runs, it MUST retain the trimmed, lower-cased NFKC label. Distinct non-Latin labels MUST remain distinct. This is the shared authoring identity rule; search tokenisation is separate. FND and SUG MUST use the same normalisation. This supersedes the prototype's ASCII-only key.
 
-**FND-74** A collision MUST offer opening the existing entity instead, and taking that action MUST widen the Scope so that the entity the search missed is now visible `[src: #openExisting]`.
+**FND-74** An entity collision MUST offer opening the existing entity instead, and taking that action MUST widen the Scope and reveal its result page. A subject IRI already used solely as a referenced RDF term MUST block creation and request another IRI; it MUST NOT offer a Find row that does not exist.
 
 **FND-75** The panel MUST state that the check covers the whole Store, so that the user can trust the absence the panel is about to act on `[src: renderZero()]`.
 
@@ -333,9 +333,9 @@ This is the safety property that the whole feature rests on.
 
 ## Commit
 
-**FND-76** Commit MUST write the entity, re-run the current Query, select the created entity and populate the inspector `[src: createEntity()]`.
+**FND-76** Commit MUST re-read the Store, report the saved parents and select the created entity in Find. The query MAY change to the saved label and the Scope MAY widen to every field and type to show that entity. This adjustment MUST be acknowledged, and pagination MUST reveal the selected entity.
 
-**FND-77** After commit the created entity MUST appear as a result of the Query that failed, because the label was seeded from that Query. Where an edit to the label has made that untrue the surface MUST still select the entity rather than returning an empty result.
+**FND-77** Editing the draft label or excluding classes MUST NOT leave the created class hidden after commit. Any query or scope adjustment follows FND-76. A result MUST still satisfy the displayed Query and Scope.
 
 **FND-78** Commit MUST be acknowledged, naming what was created and where it was attached `[src: toast()]`.
 
@@ -349,17 +349,17 @@ This is the safety property that the whole feature rests on.
 
 **FND-81** The section panel, the ancestry chain, the statement table, the add row action and the Source disclosure are **not** Find components. They were taken from the Details view and they will be wanted by the Add entity view, the class inspector and anything else that edits an entity.
 
-**FND-82** Specifying them in this document is provisional. They MUST be moved into [`41-component-library.md`](../41-component-library.md) as the `CMP` entries below, and this document MUST then cite them rather than define them. Until that happens, a second surface adopting the same idiom has nothing to cite and will redraw it, which is the drift this document exists partly to stop.
+**FND-82** These composites MUST conform to CMP-241 through CMP-245 in [`41-component-library.md`](../41-component-library.md). Their shared implementation serves Find and the full Add entity handoff.
 
-| Proposed `CMP` entry | What it covers |
+| `CMP` entry | What it covers |
 |---|---|
-| Section panel | accent top rule, tinted ground, icon and uppercase heading |
-| Ancestry chain | linked cards, subject card, root card, connector |
-| Statement table | predicate and value columns, fixed against changeable predicates, row actions |
-| Add row action | the accent text action that appends a row |
-| Source disclosure | a collapsed serialisation of the surrounding editor's state |
+| Section panel (CMP-241) | accent top rule, tinted heading ground and named heading |
+| Ancestry chain (CMP-242) | linked cards, subject card, root card, connector |
+| Statement table (CMP-243) | predicate and value columns, fixed against changeable predicates, row actions |
+| Add row action (CMP-244) | the accent text action that appends a row |
+| Source disclosure (CMP-245) | a collapsed serialisation of the surrounding editor's state |
 
-**FND-83** `--accent-tint` and `--r-card` MUST be added to [`40-design-system.md`](../40-design-system.md) before any of FND-82's entries are written, since a component library entry may not depend on a token the token document does not carry.
+**FND-83** These composites MUST use the DS token catalogue. `--r-card` is the existing 8px token; `--accent-tint` and the editor metrics are defined by DS-133.
 
 ---
 
@@ -503,8 +503,8 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 | `REMEDY-TYPES` | `Include all entity types` | remedy | `[src: remedies()]` |
 | `REMEDY-RESET` | `Reset every filter` | remedy | `[src: remedies()]` |
 | `REMEDY-YIELD` | `{n} matches` | remedy, singular `1 match` | `[src: renderZero()]` |
-| `EMPTY-SEARCH` | `Nothing in this run matches "{query}" under the current status filter.` | empty result | `[src: renderResults()]` |
-| `EMPTY-FILTER` | `Nothing in this run has that status.` | empty result | `[src: renderResults()]` |
+| `EMPTY-SEARCH` | `The query has no matches in the current scope.` | empty result | `[src: renderResults()]` |
+| `EMPTY-FILTER` | `The current scope excludes the matching entities.` | empty result | `[src: renderResults()]` |
 | `CREATE-HEAD` | `Not in the ontology? Add it.` | create panel | `[src: renderZero()]` |
 | `CREATE-SUB` | `Checked against all {n} entities as you type, not just the fields above.` | create panel | `[src: renderZero()]` |
 | `ANCESTRY` | `Ancestry` | section head | `[src: .section-head]` |
@@ -513,7 +513,7 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 | `CHAIN-ROOT` | `Root level` | root card caption | `[src: renderZero()]` |
 | `CHAIN-ROOT-NAME` | `owl:Thing` | root card | `[src: renderZero()]` |
 | `CHAIN-PROP` | `Properties sit outside the class tree` | root card, property | `[src: renderZero()]` |
-| `ROOT-CAUTION` | `This will sit at the root beside Academic Subject. Set rdfs:subClassOf below to place it under an existing parent.` | ancestry section | `[src: renderZero()]` |
+| `ROOT-CAUTION` | `This will sit under owl:Thing. Set rdfs:subClassOf below to place it under an existing parent.` | ancestry section | `[src: renderZero()]` |
 | `SUBJECT` | `Subject` | subject row | `[src: .subject-row]` |
 | `SUBJECT-FOLLOWS` | `follows rdfs:label` | subject row | `[src: renderZero()]` |
 | `SUBJECT-OVERRIDDEN` | `overridden` | subject row | `[src: renderZero()]` |
@@ -523,8 +523,8 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 | `STMT-COMMENT-PH` | `One sentence saying what this is` | comment value | `[src: renderZero()]` |
 | `ADD-ROW` | `Add row` | statement table | `[src: #addRow]` |
 | `SOURCE` | `Source` | disclosure | `[src: #srcDisc]` |
-| `COLLIDE-EXACT` | `{label} already exists. It sits under {path}. The search missed it because that field was out of scope.` | collision | `[src: renderZero()]` |
-| `COLLIDE-NORM` | `{label} already exists, and its normalised name is the same as yours. It sits under {path}. The search missed it because that field was out of scope.` | collision | `[src: renderZero()]` |
+| `COLLIDE-EXACT` | `{label} already exists. It sits under {path}.` | collision | `[src: renderZero()]` |
+| `COLLIDE-NORM` | `{label} already exists, and its normalised name is the same as yours. It sits under {path}.` | collision | `[src: renderZero()]` |
 | `COLLIDE-OPEN` | `Open {label}` | collision | `[src: #openExisting]` |
 | `OPEN-ACK` | `Opened {label}` | acknowledgement | `[src: toast()]` |
 | `CREATE-ACTION` | `Create {word}` | create panel | `[src: #doCreate]` |
@@ -532,19 +532,19 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 | `CREATE-ACK-PARENT` | `{label} created under {parent}` | acknowledgement | `[src: createEntity()]` |
 | `CREATE-ACK-ROOT` | `{label} created at the root` | acknowledgement | `[src: createEntity()]` |
 
-**FND-100** `EMPTY-SEARCH` and `EMPTY-FILTER` both say `run` and `status filter`, which are the Suggestions surface's vocabulary and not this surface's. They MUST be reworded to name the Query and the Scope. **Status:** specified, not implemented in the reference build.
+**FND-100** `EMPTY-SEARCH` and `EMPTY-FILTER` MUST name the Query and Scope as recorded in the copy catalogue. A collision MUST NOT claim that a particular excluded field caused the miss unless the search has established that cause.
 
 ---
 
 ## Deviations and known gaps
 
-1. **The conformance table.** FND-45 records twelve contradictions against `TEC`. They are defects in the reference build, not decisions, and FND-46 binds their direction of repair.
+1. **The conformance table.** FND-45 records eleven contradictions against `TEC`. They are defects in the reference build, not decisions, and FND-46 binds their direction of repair.
 2. **Screenshots.** None were produced. [`visual-reference.html`](visual-reference.html) carries the visual burden and shows every state live in both themes.
 3. **Em dashes.** See [House style deviations](#house-style-deviations).
 4. **The field total.** Nine search fields is the prototype's own enumerated list `[src: FIELDS]`, not a claim about the shipped build, whose field list scrolls beyond what the screenshot showed.
 5. **Parent selection at scale.** The parent control is a plain select over the whole class list `[src: renderZero()]`. At the shipped build's entity count that needs a typeahead with its own performance contract, which this document does not establish. `TEC`'s combobox is the design to adopt.
 6. **The graph view.** `Open results in new graph` is correctly enabled and disabled, but there is no graph view in the prototype to arrive at, so the handoff itself is unspecified here.
-7. **Fixture data.** The prototype's store is an academic subject ontology, not the fixture in [`62-pizza-ontology-fixture.md`](../62-pizza-ontology-fixture.md). This surface therefore has no entry in [`61-acceptance-criteria-and-tests.md`](../61-acceptance-criteria-and-tests.md) until fixture queries are added.
+7. **Fixture data.** The prototype's store is an academic subject ontology, not the fixture in [`62-pizza-ontology-fixture.md`](../62-pizza-ontology-fixture.md). FIX-105 supplies Pizza queries, and ACC-27 records their acceptance coverage. The baseline ontology is unchanged.
 8. **Match mode.** The prototype offers All words, Any word and Exact phrase `[src: #matchMode]`, and a remedy that switches between them. Neither is adopted: FND-6 gives the user one search that works without a choice of algorithm, following [#17](https://github.com/craigtrim/axiom/issues/17). This is a decision, not a defect, and this document wins over the prototype on it. [`visual-reference.html`](visual-reference.html) still shows the withdrawn remedy.
 9. **Retrieval.** The prototype scans every entity for every keystroke `[src: runSearch()]`. That is correct for 28 entities and wrong for the shipped build. Indexing is out of scope here and belongs to [`11-data-model-and-store.md`](../11-data-model-and-store.md).
 
@@ -552,27 +552,7 @@ Every user facing string, quoted verbatim. Copy is part of this specification.
 
 ## Registration
 
-This document is not yet registered in the suite index. [`README.md`](../README.md) was deliberately not edited.
-
-**Prefix registry**, into the table under `Requirement ID prefix registry`:
-
-```
-| `FND` | [`find/README.md`](find/README.md) | Find: the scope model, the zero state and its remedies, the inline create profile |
-```
-
-**Document map**, into the table under `Document map`:
-
-```
-| [`find/README.md`](find/README.md) | Find | `FND` | Global entity search: scoping and its two count semantics, the honest zero state, and creation as a restricted TEC profile | 30 min |
-```
-
-**Reading order**, as a new step after the Surface documents:
-
-```
-**[`find/README.md`](find/README.md)** - global entity search. Read after `text-entity-create`, because its create panel is a restricted profile of that document and its conformance table is only legible once TEC is known.
-```
-
-> **`SUG` is still unregistered.** [`add-children/README.md`](../add-children/README.md) is on disk but its prefix does not appear in the registry, so that document remains unreachable from the index. Its registration rows are in its own Registration section.
+`FND` and `SUG` are registered in the [suite index](../README.md), with document-map entries and a reading order after TEC.
 
 ---
 
