@@ -91,8 +91,12 @@ test.beforeEach(async () => {
     });
   await expect(page.locator(".docking-workspace")).toBeVisible();
   await openFixture();
-  await menu("view.find");
-  await expect(pane()).toBeVisible();
+  await expect
+    .poll(async () => {
+      if (!(await pane().isVisible())) await menu("view.find");
+      return pane().isVisible();
+    })
+    .toBe(true);
 });
 test.afterEach(async ({}, info) => {
   try {
@@ -475,6 +479,178 @@ test("Add entity handoff keeps the Subject field editable at a referenced IRI co
   await releaseRequests(app);
   await expect(form).toHaveCount(0);
   expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
+});
+
+test("Find creation keeps source, footer and buttons stable while every draft field is checked", async () => {
+  await miss();
+  await create()
+    .getByRole("button", { name: /Add row/ })
+    .click();
+  await create()
+    .getByRole("textbox", { name: "Value 1", exact: true })
+    .fill("Initial annotation");
+  const add = create().getByRole("button", {
+    name: "Create class",
+    exact: true,
+  });
+  const next = create().getByRole("button", {
+    name: "Continue in Add entity",
+    exact: true,
+  });
+  await expect(add).toBeEnabled();
+  await create().getByRole("button", { name: "Source", exact: true }).click();
+  await holdRequests(app, ["findCreatePreview"]);
+  for (const [label, text] of [
+    ["Class label", "Quiet Architecture"],
+    ["Subject IRI", base + "QuietSubject"],
+    ["Class comment", "A complete description"],
+    ["Value 1", "Changed annotation"],
+  ]) {
+    const source = create().getByLabel("RDF/XML source"),
+      before = await source.textContent();
+    const field = create().getByRole("textbox", { name: label, exact: true });
+    await field.fill(text);
+    await waitForHeld(app);
+    await expect(source).toHaveText(before!);
+    await expect(add).toBeEnabled();
+    await expect(next).toBeEnabled();
+    await expect(create()).not.toContainText("Checking draft");
+    await expect(field).toBeFocused();
+    await releaseRequests(app, { keepHolding: true });
+    await expect(source).toContainText(text);
+  }
+  await create().getByRole("button", { name: "Source", exact: true }).click();
+  const footer = create().locator("footer");
+  const label = create().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  await label.press("End");
+  const before = await footer.boundingBox();
+  await label.pressSequentially(" studies");
+  await waitForHeld(app);
+  expect((await footer.boundingBox())!.y).toBeCloseTo(before!.y, 1);
+  await releaseRequests(app, { reverse: true });
+  await expect(add).toBeEnabled();
+  expect((await footer.boundingBox())!.y).toBeCloseTo(before!.y, 1);
+});
+
+test("Find creation retains a collision and field errors until replacement validation settles", async () => {
+  await miss();
+  const label = create().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  await label.fill("Ocean Studies");
+  await expect(create().locator(".find-collision")).toContainText(
+    "already exists",
+  );
+  await holdRequests(app, ["findCreatePreview"]);
+  await label.fill("Ocean  Studies");
+  await waitForHeld(app);
+  await expect(create().locator(".find-collision")).toContainText(
+    "already exists",
+  );
+  await expect(
+    create().getByRole("button", { name: "Create class", exact: true }),
+  ).toBeDisabled();
+  await releaseRequests(app, { keepHolding: true });
+  await label.fill("Unoccupied label");
+  await waitForHeld(app);
+  await expect(create().locator(".find-collision")).toContainText(
+    "already exists",
+  );
+  await releaseRequests(app, { keepHolding: true });
+  await expect(create().locator(".find-collision")).toHaveCount(0);
+  const iri = create().getByRole("textbox", { name: "Subject IRI" });
+  await iri.fill("not an iri");
+  await waitForHeld(app);
+  await releaseRequests(app, { keepHolding: true });
+  await expect(iri).toHaveAttribute("aria-invalid", "true");
+  const error = await create()
+    .locator(".validation-error:visible")
+    .first()
+    .textContent();
+  await iri.fill(base + "Corrected");
+  await waitForHeld(app);
+  await expect(
+    create().locator(".validation-error:visible").first(),
+  ).toHaveText(error!);
+  await releaseRequests(app);
+  await expect(iri).toHaveAttribute("aria-invalid", "false");
+});
+
+for (const outcome of ["valid", "collision", "invalid", "failure"] as const) {
+  test(`Find creation waits for a pending ${outcome} preview before committing`, async () => {
+    await miss();
+    await holdRequests(app, ["findCreatePreview"]);
+    if (outcome === "invalid")
+      await create()
+        .getByRole("textbox", { name: "Subject IRI" })
+        .fill("not an iri");
+    else
+      await create()
+        .getByRole("textbox", { name: "Class label", exact: true })
+        .fill(outcome === "collision" ? "Ocean Studies" : "Verified creation");
+    const add = create().getByRole("button", {
+      name: "Create class",
+      exact: true,
+    });
+    await add.click();
+    await add.click();
+    await waitForHeld(app);
+    expect(await requestCount(app, "findCreate")).toBe(0);
+    await releaseRequests(app, { fail: outcome === "failure" });
+    if (outcome === "valid") {
+      await expect.poll(() => requestCount(app, "findCreate")).toBe(1);
+      await expect
+        .poll(async () =>
+          (await snapshot()).entities.some(
+            (e) => e.label === "Verified creation",
+          ),
+        )
+        .toBe(true);
+    } else {
+      await expect(add).toBeDisabled();
+      expect(await requestCount(app, "findCreate")).toBe(0);
+      await expect(
+        create().getByRole("textbox", { name: "Class label", exact: true }),
+      ).toBeEditable();
+    }
+  });
+}
+
+test("Continue waits for the latest Find draft and cancels its handoff if edited again", async () => {
+  await miss();
+  await holdRequests(app, ["findCreatePreview"]);
+  const comment = create().getByRole("textbox", {
+    name: "Class comment",
+    exact: true,
+  });
+  const next = create().getByRole("button", {
+    name: "Continue in Add entity",
+    exact: true,
+  });
+  const editor = page.getByRole("region", { name: "Add entity", exact: true });
+  await comment.fill("First revision");
+  await next.click();
+  await waitForHeld(app);
+  await expect(editor).toHaveCount(0);
+  await comment.fill("Final revision");
+  await waitForHeld(app, 2);
+  await releaseRequests(app, { reverse: true, keepHolding: true });
+  await expect(
+    create().getByRole("button", { name: "Create class", exact: true }),
+  ).toBeEnabled();
+  await expect(editor).toHaveCount(0);
+  await comment.fill("Handoff revision");
+  await next.click();
+  await waitForHeld(app);
+  await expect(editor).toHaveCount(0);
+  await releaseRequests(app);
+  await expect(
+    editor.getByRole("textbox", { name: "Description", exact: true }),
+  ).toHaveValue("Handoff revision");
 });
 
 test("creation rejects stale versions and epochs before any write", async () => {

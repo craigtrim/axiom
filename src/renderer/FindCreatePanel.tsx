@@ -20,6 +20,7 @@ import {
   StatementTable,
 } from "./EntityEditorParts";
 import { openClassDraft } from "./text-analysis-state";
+import { useRetainedPreview } from "./use-retained-preview";
 
 export function FindCreatePanel({
   storeTotal,
@@ -31,10 +32,6 @@ export function FindCreatePanel({
   const { draft } = useFindState();
   const snapshot = useSnapshot()!;
   const id = useId();
-  const [result, setResult] = useState<{
-    key: string;
-    value: FindCreationPreview;
-  }>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
@@ -50,7 +47,33 @@ export function FindCreatePanel({
     snapshot.datasetEpoch,
     snapshot.version,
   ]);
-  const preview = result?.key === key ? result.value : undefined;
+  const check = useRetainedPreview(
+    key,
+    String(snapshot.datasetEpoch),
+    () =>
+      request<FindCreationPreview>("findCreatePreview", {
+        creation,
+        datasetEpoch: snapshot.datasetEpoch,
+        version: snapshot.version,
+      }),
+    100,
+  );
+  const preview = check.value;
+  const latest = useRef({ key, parentText: draft.parentText }),
+    mounted = useRef(true);
+  latest.current = { key, parentText: draft.parentText };
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const current = (checkParentText = true) =>
+    mounted.current &&
+    latest.current.key === key &&
+    (!checkParentText || latest.current.parentText === draft.parentText) &&
+    state?.datasetEpoch === snapshot.datasetEpoch &&
+    state.version === snapshot.version;
   const predicates = usePredicateOptions(
     draft.statements.map((row) => row.predicate),
   ).filter((p) => !fixedFindPredicates.includes(p));
@@ -60,26 +83,8 @@ export function FindCreatePanel({
   const iri =
     draft.iri ?? snapshot.ontology.namespace + entityIdentifier(draft.label);
   useEffect(() => {
-    let active = true;
-    setError("");
-    const timer = setTimeout(() => {
-      void request<FindCreationPreview>("findCreatePreview", {
-        creation,
-        datasetEpoch: snapshot.datasetEpoch,
-        version: snapshot.version,
-      })
-        .then((value) => {
-          if (active) setResult({ key, value });
-        })
-        .catch((reason) => {
-          if (active) setError(reason.message);
-        });
-    }, 100);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [key]);
+    if (check.fresh) setError("");
+  }, [preview]);
   const fieldErrors = (field: string) =>
     preview?.errors
       .filter((e) => e.field === field)
@@ -94,35 +99,50 @@ export function FindCreatePanel({
       {fieldErrors(field)}
     </span>
   );
-  const ready = !!preview && !preview.errors.length;
+  const ready = !!preview && !preview.errors.length && !check.error;
   const valid = ready && !preview.collisions.length && !draft.parentText.trim();
-  const handoff = (parentLabel?: string) => {
-    if (!ready || busy) return;
-    openClassDraft(
-      {
-        label: draft.label,
-        comment: draft.comment,
-        parents: draft.parents.map((iri) => ({ iri })),
-        manualParents: true,
-        iri: preview.iri,
-        statements: preview.creation.statements,
-        checkAllEntities: true,
-        findDraft: { ...draft },
-      },
-      parentLabel,
-    );
+  const handoff = async (parentLabel?: string) => {
+    if (!ready || busy || pending.current) return;
+    pending.current = true;
+    try {
+      const fresh = await check.validate();
+      if (!fresh || fresh.errors.length || !current(false)) return;
+      openClassDraft(
+        {
+          label: draft.label,
+          comment: draft.comment,
+          parents: draft.parents.map((iri) => ({ iri })),
+          manualParents: true,
+          iri: fresh.iri,
+          statements: fresh.creation.statements,
+          checkAllEntities: true,
+          findDraft: { ...draft },
+        },
+        parentLabel,
+      );
+    } finally {
+      pending.current = false;
+    }
   };
   const submit = async () => {
     if (!valid || pending.current) return;
     pending.current = true;
-    setBusy(true);
-    setError("");
     const datasetEpoch = snapshot.datasetEpoch;
     try {
+      const fresh = await check.validate();
+      if (
+        !fresh ||
+        fresh.errors.length ||
+        fresh.collisions.length ||
+        !current()
+      )
+        return;
+      setBusy(true);
+      setError("");
       const createdIri = await request<string>("findCreate", {
         creation,
         datasetEpoch,
-        version: preview.version,
+        version: fresh.version,
       });
       const next = await request<Snapshot>("state");
       if (
@@ -154,7 +174,7 @@ export function FindCreatePanel({
         setError((reason as Error).message);
     } finally {
       pending.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
   const setRow = (
@@ -319,7 +339,7 @@ export function FindCreatePanel({
                       parentText: "",
                     })
                   }
-                  create={(parentLabel) => handoff(parentLabel)}
+                  create={(parentLabel) => void handoff(parentLabel)}
                 />
                 {fieldError("parents")}
               </td>
@@ -445,11 +465,25 @@ export function FindCreatePanel({
                 <button
                   type="button"
                   onClick={() =>
-                    void reveal(
-                      collision.iri,
-                      collision.label,
-                      `Opened ${collision.label}`,
-                    ).catch((reason) => setError(reason.message))
+                    void check
+                      .validate()
+                      .then((fresh) => {
+                        if (
+                          !current() ||
+                          !fresh?.collisions.some(
+                            (item) =>
+                              item.iri === collision.iri &&
+                              item.openable !== false,
+                          )
+                        )
+                          return;
+                        return reveal(
+                          collision.iri,
+                          collision.label,
+                          `Opened ${collision.label}`,
+                        );
+                      })
+                      .catch((reason) => setError(reason.message))
                   }
                 >
                   Open {collision.label}
@@ -466,7 +500,7 @@ export function FindCreatePanel({
             <button
               type="button"
               disabled={!ready}
-              onClick={() => handoff(draft.parentText.trim() || undefined)}
+              onClick={() => void handoff(draft.parentText.trim() || undefined)}
             >
               Continue in Add entity
             </button>
@@ -475,14 +509,9 @@ export function FindCreatePanel({
             </button>
           </footer>
         </fieldset>
-        {!preview && !error && (
-          <p role="status" className="muted">
-            Checking draft…
-          </p>
-        )}
-        {error && (
+        {(error || check.error) && (
           <p role="alert" className="validation-error">
-            {error}
+            {error || check.error}
           </p>
         )}
       </form>
