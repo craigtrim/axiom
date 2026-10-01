@@ -1,0 +1,431 @@
+{
+  "batchcomplete": true,
+  "continue": {
+    "gsroffset": 20,
+    "continue": "gsroffset||"
+  },
+  "query": {
+    "pages": [
+      {
+        "pageid": 19007,
+        "ns": 0,
+        "title": "Mercury",
+        "index": 1,
+        "pageprops": {
+          "disambiguation": "",
+          "wikibase_item": "Q48397"
+        },
+        "description": "Topics referred to by the same term",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:25:24Z",
+        "lastrevid": 1376049828,
+        "length": 8290,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury"
+      },
+      {
+        "pageid": 19694,
+        "ns": 0,
+        "title": "Mercury (planet)",
+        "index": 4,
+        "pageprops": {
+          "wikibase_item": "Q308"
+        },
+        "description": "First planet from the Sun",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T18:57:20Z",
+        "lastrevid": 1377442586,
+        "length": 160484,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_(planet)",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_(planet)&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_(planet)"
+      },
+      {
+        "pageid": 19812,
+        "ns": 0,
+        "title": "Project Mercury",
+        "index": 8,
+        "pageprops": {
+          "wikibase_item": "Q52162"
+        },
+        "description": "Initial American crewed spaceflight program (1958–1963)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T21:18:18Z",
+        "lastrevid": 1363127065,
+        "length": 116457,
+        "fullurl": "https://en.wikipedia.org/wiki/Project_Mercury",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Project_Mercury&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Project_Mercury"
+      },
+      {
+        "pageid": 37417,
+        "ns": 0,
+        "title": "Mercury (mythology)",
+        "index": 7,
+        "pageprops": {
+          "wikibase_item": "Q1150"
+        },
+        "description": "Roman god of trade, merchants and travel",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T12:10:15Z",
+        "lastrevid": 1377661730,
+        "length": 19056,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_(mythology)",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_(mythology)&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_(mythology)"
+      },
+      {
+        "pageid": 42068,
+        "ns": 0,
+        "title": "Freddie Mercury",
+        "index": 2,
+        "pageprops": {
+          "wikibase_item": "Q15869"
+        },
+        "description": "British rock singer and songwriter (1946–1991)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T01:24:49Z",
+        "lastrevid": 1375669390,
+        "length": 191784,
+        "fullurl": "https://en.wikipedia.org/wiki/Freddie_Mercury",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Freddie_Mercury&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Freddie_Mercury"
+      },
+      {
+        "pageid": 140995,
+        "ns": 0,
+        "title": "Mercury Prize",
+        "index": 6,
+        "pageprops": {
+          "wikibase_item": "Q501876"
+        },
+        "description": "UK music award",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T18:58:08Z",
+        "lastrevid": 1376532162,
+        "length": 80303,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Prize",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Prize&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Prize"
+      },
+      {
+        "pageid": 150245,
+        "ns": 0,
+        "title": "Mercury-in-glass thermometer",
+        "index": 11,
+        "pageprops": {
+          "wikibase_item": "Q1428655"
+        },
+        "description": "Type of thermometer",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:25:39Z",
+        "lastrevid": 1358271399,
+        "length": 23263,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury-in-glass_thermometer",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury-in-glass_thermometer&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury-in-glass_thermometer"
+      },
+      {
+        "pageid": 256339,
+        "ns": 0,
+        "title": "Mercury (automobile)",
+        "index": 9,
+        "pageprops": {
+          "wikibase_item": "Q613883"
+        },
+        "description": "Automobile marque of the Ford Motor Company",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:25:50Z",
+        "lastrevid": 1377480809,
+        "length": 101079,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_(automobile)",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_(automobile)&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_(automobile)"
+      },
+      {
+        "pageid": 325909,
+        "ns": 0,
+        "title": "Mercury Records",
+        "index": 5,
+        "pageprops": {
+          "wikibase_item": "Q165745"
+        },
+        "description": "American record label",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:25:56Z",
+        "lastrevid": 1372340065,
+        "length": 40107,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Records",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Records&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Records"
+      },
+      {
+        "pageid": 344287,
+        "ns": 0,
+        "title": "Mercury poisoning",
+        "index": 14,
+        "pageprops": {
+          "wikibase_item": "Q408089"
+        },
+        "description": "Poisoning caused by mercury chemicals",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:25:58Z",
+        "lastrevid": 1376481722,
+        "length": 85759,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_poisoning",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_poisoning&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_poisoning"
+      },
+      {
+        "pageid": 590718,
+        "ns": 0,
+        "title": "Mercury Cougar",
+        "index": 13,
+        "pageprops": {
+          "wikibase_item": "Q764093"
+        },
+        "description": "Ford Motor Company car model",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T21:18:20Z",
+        "lastrevid": 1374418280,
+        "length": 110065,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Cougar",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Cougar&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Cougar"
+      },
+      {
+        "pageid": 653000,
+        "ns": 0,
+        "title": "Mercury silvering",
+        "index": 19,
+        "pageprops": {
+          "wikibase_item": "Q6818680"
+        },
+        "description": "Metalworking technique",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T18:59:50Z",
+        "lastrevid": 1368386271,
+        "length": 2077,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_silvering",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_silvering&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_silvering"
+      },
+      {
+        "pageid": 881710,
+        "ns": 0,
+        "title": "Mercury Montego",
+        "index": 12,
+        "pageprops": {
+          "wikibase_item": "Q762335"
+        },
+        "description": "Motor vehicle",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:26:41Z",
+        "lastrevid": 1374420394,
+        "length": 25927,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Montego",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Montego&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Montego"
+      },
+      {
+        "pageid": 901721,
+        "ns": 0,
+        "title": "Mercury Capri",
+        "index": 16,
+        "pageprops": {
+          "wikibase_item": "Q887416"
+        },
+        "description": "Motor vehicle",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:26:42Z",
+        "lastrevid": 1375529952,
+        "length": 28091,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Capri",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Capri&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Capri"
+      },
+      {
+        "pageid": 2381423,
+        "ns": 0,
+        "title": "Mercury Marquis",
+        "index": 15,
+        "pageprops": {
+          "wikibase_item": "Q369305"
+        },
+        "description": "Motor vehicle",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T21:18:22Z",
+        "lastrevid": 1374423175,
+        "length": 62463,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Marquis",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Marquis&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Marquis"
+      },
+      {
+        "pageid": 9467313,
+        "ns": 0,
+        "title": "London Mercury",
+        "index": 18,
+        "pageprops": {
+          "wikibase_item": "Q6670580"
+        },
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-27T20:56:15Z",
+        "lastrevid": 1344828779,
+        "length": 4386,
+        "fullurl": "https://en.wikipedia.org/wiki/London_Mercury",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=London_Mercury&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/London_Mercury"
+      },
+      {
+        "pageid": 18617142,
+        "ns": 0,
+        "title": "Mercury (element)",
+        "index": 3,
+        "pageprops": {
+          "wikibase_item": "Q925"
+        },
+        "description": "Chemical element with atomic number 80 (Hg)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T05:20:30Z",
+        "lastrevid": 1375319675,
+        "length": 128874,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_(element)",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_(element)&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_(element)"
+      },
+      {
+        "pageid": 43623248,
+        "ns": 0,
+        "title": "Mercury Marauder",
+        "index": 10,
+        "pageprops": {
+          "wikibase_item": "Q763495"
+        },
+        "description": "Motor vehicle",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T21:18:29Z",
+        "lastrevid": 1348943024,
+        "length": 26586,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_Marauder",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_Marauder&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_Marauder"
+      },
+      {
+        "pageid": 51929083,
+        "ns": 0,
+        "title": "Mercury 8",
+        "index": 20,
+        "pageprops": {
+          "disambiguation": "",
+          "wikibase_item": "Q1921518"
+        },
+        "description": "Topics referred to by the same term",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:31:49Z",
+        "lastrevid": 911574214,
+        "length": 362,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_8",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_8&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_8"
+      },
+      {
+        "pageid": 54375444,
+        "ns": 0,
+        "title": "Mercury (film)",
+        "index": 17,
+        "pageprops": {
+          "wikibase_item": "Q30612742"
+        },
+        "description": "2018 film by Karthik Subbaraj",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:42:09Z",
+        "lastrevid": 1367781008,
+        "length": 38142,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury_(film)",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury_(film)&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury_(film)"
+      }
+    ]
+  }
+}

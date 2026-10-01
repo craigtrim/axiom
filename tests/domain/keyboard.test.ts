@@ -33,7 +33,6 @@ describe("keyboard conventions and settings", () => {
       "V",
       "G",
       "Q",
-      "R",
       "W",
       "H",
     ]);

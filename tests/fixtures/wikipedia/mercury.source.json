@@ -1,0 +1,5 @@
+{
+  "query": "Mercury",
+  "url": "https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=Mercury&gsrlimit=20&prop=pageprops%7Cdescription%7Cinfo&ppprop=wikibase_item%7Cdisambiguation&inprop=url&redirects=1&format=json&formatversion=2",
+  "recordedAt": "2026-09-30T19:37:47.049Z"
+}

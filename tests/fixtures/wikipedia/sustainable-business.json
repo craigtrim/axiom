@@ -1,0 +1,429 @@
+{
+  "batchcomplete": true,
+  "continue": {
+    "gsroffset": 20,
+    "continue": "gsroffset||"
+  },
+  "query": {
+    "pages": [
+      {
+        "pageid": 29501,
+        "ns": 0,
+        "title": "Sustainable development",
+        "index": 9,
+        "pageprops": {
+          "wikibase_item": "Q131201"
+        },
+        "description": "Mode of human development",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:24:06Z",
+        "lastrevid": 1375063029,
+        "length": 53526,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_development",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_development&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_development"
+      },
+      {
+        "pageid": 93759,
+        "ns": 0,
+        "title": "Richard Branson",
+        "index": 7,
+        "pageprops": {
+          "wikibase_item": "Q194419"
+        },
+        "description": "English business magnate (born 1950)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T01:24:49Z",
+        "lastrevid": 1374613941,
+        "length": 125420,
+        "fullurl": "https://en.wikipedia.org/wiki/Richard_Branson",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Richard_Branson&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Richard_Branson"
+      },
+      {
+        "pageid": 195205,
+        "ns": 0,
+        "title": "Sustainable management",
+        "index": 20,
+        "pageprops": {
+          "wikibase_item": "Q7649683"
+        },
+        "description": "Synthesis of concepts of sustainability and management",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T18:58:23Z",
+        "lastrevid": 1361010109,
+        "length": 21129,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_management",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_management&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_management"
+      },
+      {
+        "pageid": 805228,
+        "ns": 0,
+        "title": "Best practice",
+        "index": 8,
+        "pageprops": {
+          "wikibase_item": "Q830382"
+        },
+        "description": "Method or technique that has been generally accepted as superior",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:26:36Z",
+        "lastrevid": 1370312498,
+        "length": 27947,
+        "fullurl": "https://en.wikipedia.org/wiki/Best_practice",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Best_practice&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Best_practice"
+      },
+      {
+        "pageid": 860648,
+        "ns": 0,
+        "title": "Stella McCartney",
+        "index": 11,
+        "pageprops": {
+          "wikibase_item": "Q232812"
+        },
+        "description": "English fashion designer (born 1971)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:26:39Z",
+        "lastrevid": 1365195318,
+        "length": 36236,
+        "fullurl": "https://en.wikipedia.org/wiki/Stella_McCartney",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Stella_McCartney&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Stella_McCartney"
+      },
+      {
+        "pageid": 2237839,
+        "ns": 0,
+        "title": "Sustainable business",
+        "index": 1,
+        "pageprops": {
+          "wikibase_item": "Q295382"
+        },
+        "description": "Minimal negative or positive effect on the environment",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T19:26:35Z",
+        "lastrevid": 1376142331,
+        "length": 69571,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_business",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_business&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_business"
+      },
+      {
+        "pageid": 2903033,
+        "ns": 0,
+        "title": "Green brands",
+        "index": 19,
+        "pageprops": {
+          "wikibase_item": "Q5603455"
+        },
+        "description": "Potentially sustainable brands",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:05:17Z",
+        "lastrevid": 1373389758,
+        "length": 19894,
+        "fullurl": "https://en.wikipedia.org/wiki/Green_brands",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Green_brands&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Green_brands"
+      },
+      {
+        "pageid": 4036973,
+        "ns": 0,
+        "title": "Sustainable tourism",
+        "index": 17,
+        "pageprops": {
+          "wikibase_item": "Q1344240"
+        },
+        "description": "Form of travel and tourism without damage to nature or cultural area",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T18:46:56Z",
+        "lastrevid": 1374048156,
+        "length": 74654,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_tourism",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_tourism&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_tourism"
+      },
+      {
+        "pageid": 13040536,
+        "ns": 0,
+        "title": "Sustainable MBA",
+        "index": 15,
+        "pageprops": {
+          "wikibase_item": "Q7649605"
+        },
+        "description": "Academic degree",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:15:15Z",
+        "lastrevid": 1340823670,
+        "length": 24575,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_MBA",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_MBA&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_MBA"
+      },
+      {
+        "pageid": 13536634,
+        "ns": 0,
+        "title": "Green company",
+        "index": 12,
+        "pageprops": {
+          "wikibase_item": "Q5603499"
+        },
+        "description": "Acts, or claims to act, in a way which minimizes damage to the environment",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:33:01Z",
+        "lastrevid": 1366327531,
+        "length": 17982,
+        "fullurl": "https://en.wikipedia.org/wiki/Green_company",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Green_company&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Green_company"
+      },
+      {
+        "pageid": 14101532,
+        "ns": 0,
+        "title": "Sustainable Business Network",
+        "index": 4,
+        "pageprops": {
+          "wikibase_item": "Q7649572"
+        },
+        "description": "Social enterprise in Auckland, New Zealand",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:33:12Z",
+        "lastrevid": 1354114074,
+        "length": 7823,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainable_Business_Network",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainable_Business_Network&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainable_Business_Network"
+      },
+      {
+        "pageid": 18413531,
+        "ns": 0,
+        "title": "Sustainability",
+        "index": 5,
+        "pageprops": {
+          "wikibase_item": "Q219416"
+        },
+        "description": "Societal goal and normative concept",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:24:41Z",
+        "lastrevid": 1377298246,
+        "length": 101996,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainability",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainability&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainability"
+      },
+      {
+        "pageid": 26574329,
+        "ns": 0,
+        "title": "Green Key International",
+        "index": 6,
+        "pageprops": {
+          "wikibase_item": "Q3846507"
+        },
+        "description": "Eco-certificate for hospitality facilities",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:37:02Z",
+        "lastrevid": 1359452109,
+        "length": 4933,
+        "fullurl": "https://en.wikipedia.org/wiki/Green_Key_International",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Green_Key_International&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Green_Key_International"
+      },
+      {
+        "pageid": 27968274,
+        "ns": 0,
+        "title": "Centriworks",
+        "index": 10,
+        "pageprops": {
+          "wikibase_item": "Q7783152"
+        },
+        "description": "American company",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:27:07Z",
+        "lastrevid": 1375615332,
+        "length": 10452,
+        "fullurl": "https://en.wikipedia.org/wiki/Centriworks",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Centriworks&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Centriworks"
+      },
+      {
+        "pageid": 29657432,
+        "ns": 0,
+        "title": "Sustainability organization",
+        "index": 13,
+        "pageprops": {
+          "wikibase_item": "Q7649559"
+        },
+        "description": "Organization aiming to advance sustainability",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:28:13Z",
+        "lastrevid": 1325482164,
+        "length": 32569,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainability_organization",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainability_organization&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainability_organization"
+      },
+      {
+        "pageid": 30715017,
+        "ns": 0,
+        "title": "Sustainability standards and certification",
+        "index": 14,
+        "pageprops": {
+          "wikibase_item": "Q7649561"
+        },
+        "description": "Voluntary guidelines to show good practices",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:38:03Z",
+        "lastrevid": 1374722448,
+        "length": 32398,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainability_standards_and_certification",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainability_standards_and_certification&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainability_standards_and_certification"
+      },
+      {
+        "pageid": 31552279,
+        "ns": 0,
+        "title": "United States Green Chamber of Commerce",
+        "index": 18,
+        "pageprops": {
+          "wikibase_item": "Q7889917"
+        },
+        "description": "American networking organization",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:29:18Z",
+        "lastrevid": 1375416159,
+        "length": 3617,
+        "fullurl": "https://en.wikipedia.org/wiki/United_States_Green_Chamber_of_Commerce",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=United_States_Green_Chamber_of_Commerce&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/United_States_Green_Chamber_of_Commerce"
+      },
+      {
+        "pageid": 31745558,
+        "ns": 0,
+        "title": "Sustainability studies",
+        "index": 2,
+        "pageprops": {
+          "wikibase_item": "Q7649562"
+        },
+        "description": "Field of research",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-29T19:29:26Z",
+        "lastrevid": 1373906478,
+        "length": 15703,
+        "fullurl": "https://en.wikipedia.org/wiki/Sustainability_studies",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Sustainability_studies&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Sustainability_studies"
+      },
+      {
+        "pageid": 81318440,
+        "ns": 0,
+        "title": "Partnership for Responsible Growth",
+        "index": 16,
+        "pageprops": {
+          "wikibase_item": "Q136649950"
+        },
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-12T02:29:18Z",
+        "lastrevid": 1351247954,
+        "length": 3700,
+        "fullurl": "https://en.wikipedia.org/wiki/Partnership_for_Responsible_Growth",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Partnership_for_Responsible_Growth&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Partnership_for_Responsible_Growth"
+      },
+      {
+        "pageid": 81332764,
+        "ns": 0,
+        "title": "Serge Papin",
+        "index": 3,
+        "pageprops": {
+          "wikibase_item": "Q3479475"
+        },
+        "description": "French business executive and politician (born 1955)",
+        "descriptionsource": "local",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-09-30T16:44:48Z",
+        "lastrevid": 1360069458,
+        "length": 7888,
+        "fullurl": "https://en.wikipedia.org/wiki/Serge_Papin",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Serge_Papin&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Serge_Papin"
+      }
+    ]
+  }
+}

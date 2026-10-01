@@ -12,7 +12,7 @@ function deferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
-it.each(["research", "query", "taxonomy"] as AssistantKind[])(
+it.each(["query", "taxonomy"] as AssistantKind[])(
   "reserves %s synchronously against 100 repeated invocations",
   async (kind) => {
     const store = new AssistantActivityStore(),
@@ -36,33 +36,33 @@ it.each(["research", "query", "taxonomy"] as AssistantKind[])(
 it("rejects stale idle and running polls across launch and completion", async () => {
   const store = new AssistantActivityStore(),
     idle = deferred<AssistantActivity | undefined>();
-  const poll = store.reconcile("research", () => idle.promise);
+  const poll = store.reconcile("taxonomy", () => idle.promise);
   const work = deferred();
   const pending = store.run(
-    "research",
-    "Researching Thing",
+    "taxonomy",
+    "Taxonomying Thing",
     () => work.promise,
     async () => {},
   );
   idle.resolve(undefined);
   await poll;
-  expect(store.get("research")?.label).toBe("Researching Thing");
+  expect(store.get("taxonomy")?.label).toBe("Taxonomying Thing");
   const read = vi.fn(async () => undefined);
-  await store.reconcile("research", read);
+  await store.reconcile("taxonomy", read);
   expect(read).not.toHaveBeenCalled();
   work.resolve();
   await pending;
   const late = deferred<AssistantActivity | undefined>();
-  const latePoll = store.reconcile("research", () => late.promise);
+  const latePoll = store.reconcile("taxonomy", () => late.promise);
   await store.run(
-    "research",
+    "taxonomy",
     "next",
     async () => {},
     async () => {},
   );
   late.resolve({ label: "old", startedAt: 1 });
   await latePoll;
-  expect(store.get("research")).toBeUndefined();
+  expect(store.get("taxonomy")).toBeUndefined();
 });
 it("cancels during preparation without launching, holds the lock until settled, then permits retry", async () => {
   const store = new AssistantActivityStore(),
@@ -116,9 +116,9 @@ it("keeps tasks in different panes independent", async () => {
   const store = new AssistantActivityStore(),
     first = deferred(),
     second = deferred();
-  const research = store.run(
-    "research",
-    "Research",
+  const taxonomy = store.run(
+    "taxonomy",
+    "Taxonomy",
     () => first.promise,
     async () => {},
   );
@@ -129,7 +129,7 @@ it("keeps tasks in different panes independent", async () => {
     async () => {},
   );
   first.resolve();
-  await research;
+  await taxonomy;
   expect(store.get("query")).toBeDefined();
   second.resolve();
   await query;
@@ -141,13 +141,13 @@ it("keeps cancellation failures visible and allows another cancellation attempt"
     .fn()
     .mockRejectedValueOnce(Error("could not cancel"))
     .mockResolvedValue(undefined);
-  const pending = store.run("research", "Research", () => work.promise, cancel);
-  await store.cancel("research");
-  expect(store.get("research")?.error).toBe("could not cancel");
-  expect(store.get("research")?.cancelling).not.toBe(true);
-  await store.cancel("research");
+  const pending = store.run("taxonomy", "Taxonomy", () => work.promise, cancel);
+  await store.cancel("taxonomy");
+  expect(store.get("taxonomy")?.error).toBe("could not cancel");
+  expect(store.get("taxonomy")?.cancelling).not.toBe(true);
+  await store.cancel("taxonomy");
   expect(cancel).toHaveBeenCalledTimes(2);
-  expect(store.get("research")?.cancelling).toBe(true);
+  expect(store.get("taxonomy")?.cancelling).toBe(true);
   work.resolve();
   await pending;
 });

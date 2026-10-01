@@ -16,6 +16,35 @@ const tab = {
   panelState: { "graph.camera.graph:abc": { x: 30, y: 40, zoom: 0.4 } },
 };
 describe("workspace tab history", () => {
+  it("migrates saved Research tabs without restoring retired prompts", () => {
+    const archive = readTabHistory({
+      version: 1,
+      entries: [
+        {
+          ...tab,
+          id: "research",
+          type: "research",
+          name: "Research",
+          config: { instructions: "old prompt" },
+          panelState: { "research.templates": [] },
+        },
+      ],
+      counters: { research: 2 },
+    });
+    expect(archive.entries[0]).toMatchObject({
+      id: "touchpoints",
+      type: "touchpoints",
+      name: "Find Touchpoints",
+      config: {},
+      panelState: {},
+    });
+    const custom = readTabHistory({
+      version: 1,
+      entries: [{ ...tab, type: "research" }],
+      counters: {},
+    });
+    expect(custom.entries[0].name).toBe("English overview");
+  });
   it("defaults to named tabs only and keeps archive state", () => {
     const defaults = readPreferences({ version: 1 });
     expect(defaults.tabSavePolicy).toBe("named");
