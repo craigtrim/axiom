@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { command, request, setState, useSnapshot, state } from "./client";
 import { progressiveSearch } from "./progressive-search";
+import { useDelayedBusy } from "./use-delayed-busy";
 import {
   findSynonymText,
   type FindSynonymResult,
@@ -32,7 +33,6 @@ import {
 function useFindResults(options: FindOptions) {
   const snapshot = useSnapshot()!;
   const consumer = useRef(crypto.randomUUID()).current;
-  const queryKey = JSON.stringify([options, snapshot.datasetEpoch]);
   const key = JSON.stringify([
     options,
     snapshot.datasetEpoch,
@@ -40,8 +40,8 @@ function useFindResults(options: FindOptions) {
   ]);
   const [result, setResult] = useState<{
     key: string;
-    queryKey: string;
     epoch: number;
+    options: FindOptions;
     data?: FindResults;
     error?: string;
   }>();
@@ -50,49 +50,64 @@ function useFindResults(options: FindOptions) {
       request,
       "find",
       { ...options, consumer, searchId: crypto.randomUUID() },
-      (data) =>
-        setResult({ key, queryKey, epoch: snapshot.datasetEpoch, data }),
+      (data) => setResult({ key, epoch: snapshot.datasetEpoch, options, data }),
       (error) =>
-        setResult({
+        setResult((previous) => ({
           key,
-          queryKey,
           epoch: snapshot.datasetEpoch,
+          options:
+            previous?.epoch === snapshot.datasetEpoch
+              ? previous.options
+              : options,
+          data:
+            previous?.epoch === snapshot.datasetEpoch
+              ? previous.data
+              : undefined,
           error: error.message,
-        }),
+        })),
     );
   }, [key]);
+  const busy = result?.key !== key;
+  // Keep a failed search's alert mounted until a successful replacement arrives.
+  const error =
+    result?.epoch === snapshot.datasetEpoch ? result.error : undefined;
+  const announcing = useDelayedBusy(busy, key);
   return {
-    // Keep this query's rows in place while an ontology edit refreshes them.
-    data: result?.queryKey === queryKey ? result.data : undefined,
+    // Retained rows are display-only until the current query/version completes.
+    data: result?.epoch === snapshot.datasetEpoch ? result.data : undefined,
     facets: result?.epoch === snapshot.datasetEpoch ? result.data : undefined,
-    error: result?.key === key ? result.error : undefined,
-    busy: result?.key !== key,
+    error,
+    busy,
+    ready: !busy && !error && !!result?.data,
+    announcing,
+    key,
+    displayedOptions: result?.options ?? options,
   };
 }
 
 export function FindDialog({ close }: { close: () => void }) {
+  const snapshot = useSnapshot()!;
   const [text, setText] = useState(() => findState().options.text);
-  const [selected, setSelected] = useState(0);
+  const [selectedIri, setSelectedIri] = useState("");
+  const [pendingSubmit, setPendingSubmit] = useState<string>();
   const quickOptions = defaultFindOptions;
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const submitted = useRef(false);
   const listId = useId();
-  const { data, busy, error } = useFindResults({
+  const { data, busy, ready, announcing, error, key } = useFindResults({
     ...quickOptions,
     text,
     limit: 6,
   });
   const rows = data?.rows ?? [];
-  const selectedIri = useRef("");
-  useEffect(() => {
-    const index = rows.findIndex((row) => row.iri === selectedIri.current);
-    if (index >= 0) setSelected(index);
-  }, [data]);
+  const selected = Math.max(
+    0,
+    rows.findIndex((row) => row.iri === selectedIri),
+  );
   const highlight = (index: number) => {
-    selectedIri.current = rows[index]?.iri ?? "";
-    setSelected(index);
+    if (ready) setSelectedIri(rows[index]?.iri ?? "");
   };
   useEffect(() => {
     const field = input.current!;
@@ -104,13 +119,24 @@ export function FindDialog({ close }: { close: () => void }) {
       .getElementById(listId + "-" + selected)
       ?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const submit = async (iri = rows[selected]?.iri ?? "") => {
+  const submit = async (chosen?: string) => {
     if (!text.trim() || submitting) return;
+    if (!ready) {
+      if (busy && chosen === undefined) setPendingSubmit(key);
+      return;
+    }
+    const iri = chosen ?? rows[selected]?.iri ?? "";
+    setPendingSubmit(undefined);
     setSubmitting(true);
     setSubmitError("");
     try {
       if (iri) {
-        await request("select", { iri });
+        await request("select", {
+          iri,
+          datasetEpoch: snapshot.datasetEpoch,
+          version: snapshot.version,
+        });
+        if (state?.datasetEpoch !== snapshot.datasetEpoch) return;
         revealInOpenTaxonomy(iri);
       }
       updateFind(
@@ -130,6 +156,11 @@ export function FindDialog({ close }: { close: () => void }) {
       setSubmitting(false);
     }
   };
+  useEffect(() => {
+    if (pendingSubmit !== key) return;
+    if (error) setPendingSubmit(undefined);
+    else if (ready) void submit();
+  }, [pendingSubmit, key, ready, error]);
   return (
     <Modal
       title="Find entities"
@@ -161,8 +192,9 @@ export function FindDialog({ close }: { close: () => void }) {
           value={text}
           onChange={(e) => {
             setText(e.target.value);
-            selectedIri.current = "";
-            setSelected(0);
+            setSelectedIri("");
+            setPendingSubmit(undefined);
+            setSubmitError("");
           }}
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) {
@@ -188,6 +220,7 @@ export function FindDialog({ close }: { close: () => void }) {
           role="listbox"
           aria-label="Matching entities"
           className="palette-results quick-find-matches"
+          aria-busy={busy}
         >
           {rows.map((row, i) => (
             <button
@@ -196,6 +229,7 @@ export function FindDialog({ close }: { close: () => void }) {
               id={listId + "-" + i}
               key={row.iri}
               aria-selected={i === selected}
+              disabled={!ready || submitting}
               tabIndex={-1}
               onMouseMove={() => highlight(i)}
               onMouseDown={(e) => e.preventDefault()}
@@ -208,16 +242,18 @@ export function FindDialog({ close }: { close: () => void }) {
           ))}
         </div>
         <p className="muted" role="status">
-          {busy && text
+          {announcing && text
             ? "Searching..."
-            : data?.total
-              ? data.total.toLocaleString() +
-                (data.total === 1
-                  ? " match. Enter to open results in Find."
-                  : " matches. Enter to open results in Find.")
-              : text
-                ? "No matches. Edit the search or open Find to change its filters."
-                : "Type to search names, aliases and IRIs."}
+            : error
+              ? "Search unavailable. Edit the query to try again."
+              : data?.total
+                ? data.total.toLocaleString() +
+                  (data.total === 1
+                    ? " match. Enter to open results in Find."
+                    : " matches. Enter to open results in Find.")
+                : ready && text
+                  ? "No matches. Edit the search or open Find to change its filters."
+                  : "Type to search names, aliases and IRIs."}
         </p>
         {(error || submitError) && <p role="alert">{error || submitError}</p>}
         <footer>
@@ -227,7 +263,7 @@ export function FindDialog({ close }: { close: () => void }) {
           <button
             className="primary"
             type="submit"
-            disabled={!text.trim() || submitting}
+            disabled={!text.trim() || submitting || !!error}
           >
             Show results
           </button>
@@ -240,7 +276,8 @@ export function FindDialog({ close }: { close: () => void }) {
 export function FindPanel() {
   const { options, selected, recent, created } = useFindState();
   const searchOptions = { ...options, browse: true, diagnostics: true };
-  const { data, facets, busy, error } = useFindResults(searchOptions);
+  const { data, facets, busy, ready, announcing, error, displayedOptions } =
+    useFindResults(searchOptions);
   const [fieldFilter, setFieldFilter] = useState("");
   const fields = facets?.fields ?? [];
   const selectedFieldCount = options.fields.includes("*")
@@ -316,9 +353,15 @@ export function FindPanel() {
     void action().catch((e) => setActionError(e.message));
   };
   const choose = (iri: string) => {
+    if (!ready) return;
     selectFind(iri);
     run(async () => {
-      await request("select", { iri });
+      await request("select", {
+        iri,
+        datasetEpoch: snapshot.datasetEpoch,
+        version: snapshot.version,
+      });
+      if (state?.datasetEpoch !== snapshot.datasetEpoch) return;
       revealInOpenTaxonomy(iri);
     });
   };
@@ -347,7 +390,7 @@ export function FindPanel() {
   const addSynonym = (row: FindRow) => {
     if (
       !synonymText ||
-      busy ||
+      !ready ||
       row.synonym !== "available" ||
       synonymPending.current
     )
@@ -399,7 +442,7 @@ export function FindPanel() {
         aria-label={
           available ? `Add "${synonymText}" as synonym for ${row.name}` : title
         }
-        disabled={busy || !!addingSynonym || !available}
+        disabled={!ready || !!addingSynonym || !available}
         onClick={() => addSynonym(row)}
       >
         {addingSynonym === row.iri
@@ -415,7 +458,7 @@ export function FindPanel() {
     );
   };
   const graph = (fresh: boolean) => {
-    if (!active) return;
+    if (!ready || !active) return;
     run(async () => {
       if (fresh) {
         const id = await request<string>("graphCreate", { iris: [active.iri] });
@@ -428,7 +471,7 @@ export function FindPanel() {
     });
   };
   const graphResults = () => {
-    if (busy || !data?.total || graphPending.current) return;
+    if (!ready || !data?.total || graphPending.current) return;
     graphPending.current = true;
     setOpeningGraph(true);
     run(async () => {
@@ -646,14 +689,16 @@ export function FindPanel() {
         <div className="find-matches">
           <div className="find-results-toolbar">
             <div className="find-summary" role="status">
-              {busy
+              {announcing
                 ? "Searching..."
-                : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
+                : error
+                  ? "Search unavailable"
+                  : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
             </div>
             <button
               type="button"
               onClick={graphResults}
-              disabled={busy || !total || openingGraph}
+              disabled={!ready || !total || openingGraph}
               title="Open all filtered matches, across every page, with shared ancestry back to the roots"
             >
               {openingGraph ? "Opening graph..." : "Open results in new graph"}
@@ -682,7 +727,8 @@ export function FindPanel() {
                       key={row.iri}
                       data-selected={selected === row.iri}
                       aria-selected={selected === row.iri}
-                      tabIndex={0}
+                      tabIndex={ready ? 0 : -1}
+                      aria-disabled={!ready || undefined}
                       onClick={(event) => {
                         if (!(event.target as HTMLElement).closest("button"))
                           choose(row.iri);
@@ -701,6 +747,7 @@ export function FindPanel() {
                         <button
                           type="button"
                           className="find-result-name"
+                          disabled={!ready}
                           aria-pressed={selected === row.iri}
                           onClick={() => choose(row.iri)}
                           onDoubleClick={() => editEntity(row.iri)}
@@ -740,9 +787,9 @@ export function FindPanel() {
                 </tbody>
               </table>
             )}
-            {!busy && data && !rows.length && (
-              <div className="find-zero">
-                <h2>No matches for “{options.text}”</h2>
+            {data && !rows.length && (
+              <fieldset className="find-zero" disabled={!ready}>
+                <h2>No matches for “{displayedOptions.text}”</h2>
                 <p>
                   Searched {selectedFieldCount} of {fields.length} fields across{" "}
                   {options.kinds.length} of {findKinds.length} entity types, in{" "}
@@ -787,7 +834,7 @@ export function FindPanel() {
                   ))}
                 </section>
                 <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
-              </div>
+              </fieldset>
             )}
           </div>
         </div>
@@ -804,14 +851,14 @@ export function FindPanel() {
               : "0 results"}
           </span>
           <button
-            disabled={busy || offset === 0}
+            disabled={!ready || offset === 0}
             onClick={() => updateFind({ offset: 0 })}
             aria-label="First results page"
           >
             «
           </button>
           <button
-            disabled={busy || offset === 0}
+            disabled={!ready || offset === 0}
             onClick={() =>
               updateFind({ offset: Math.max(0, offset - options.limit) })
             }
@@ -824,14 +871,14 @@ export function FindPanel() {
             {Math.ceil(total / options.limit)}
           </span>
           <button
-            disabled={busy || offset + options.limit >= total}
+            disabled={!ready || offset + options.limit >= total}
             onClick={() => updateFind({ offset: offset + options.limit })}
             aria-label="Next results page"
           >
             ›
           </button>
           <button
-            disabled={busy || offset + options.limit >= total}
+            disabled={!ready || offset + options.limit >= total}
             onClick={() =>
               updateFind({
                 offset:
@@ -892,32 +939,38 @@ export function FindPanel() {
             {active && (
               <>
                 <button
-                  disabled={!active}
+                  disabled={!ready || !active}
                   onClick={() => active && editEntity(active.iri)}
                 >
                   Details
                 </button>
                 <button
-                  disabled={!taxonomy}
+                  disabled={!ready || !taxonomy}
                   onClick={() => active && revealInTaxonomy(active.iri)}
                 >
                   Find in taxonomy
                 </button>
                 <button
-                  disabled={!active}
+                  disabled={!ready || !active}
                   onClick={() => active && openSimilar(active.name, active.iri)}
                 >
                   Find similar
                 </button>
                 {synonymButton(active)}
-                <button disabled={!active} onClick={() => graph(true)}>
+                <button
+                  disabled={!ready || !active}
+                  onClick={() => graph(true)}
+                >
                   New graph
                 </button>
-                <button disabled={!active} onClick={() => graph(false)}>
+                <button
+                  disabled={!ready || !active}
+                  onClick={() => graph(false)}
+                >
                   Current graph
                 </button>
                 <button
-                  disabled={!active}
+                  disabled={!ready || !active}
                   onClick={() =>
                     active &&
                     run(async () => {

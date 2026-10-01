@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Dialogs";
+import { useDelayedBusy } from "./use-delayed-busy";
 import type {
   QueryHistoryView,
   QueryEntrySummary,
@@ -19,7 +20,11 @@ export function QueryHistoryDialog({
   }, []);
   const [search, setSearch] = useState(""),
     [items, setItems] = useState<QueryEntrySummary[]>(history.entries),
-    [error, setError] = useState("");
+    [outcome, setOutcome] = useState<{ key: string; error?: string }>();
+  const key = JSON.stringify([search, history.revision]);
+  const busy = outcome?.key !== key;
+  const error = outcome?.error;
+  const announcing = useDelayedBusy(busy, key);
   useEffect(() => {
     let live = true;
     const timer = setTimeout(
@@ -27,9 +32,12 @@ export function QueryHistoryDialog({
         void window.axiom.queryHistory
           .search(search)
           .then((rows) => {
-            if (live) setItems(rows);
+            if (live) {
+              setItems(rows);
+              setOutcome({ key });
+            }
           })
-          .catch((e) => live && setError(e.message)),
+          .catch((e) => live && setOutcome({ key, error: e.message })),
       120,
     );
     return () => {
@@ -48,12 +56,15 @@ export function QueryHistoryDialog({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <p className="muted">
-          {items.length} {items.length === 1 ? "query" : "queries"} · Newest
-          first
+        <p className="muted" role="status">
+          {announcing
+            ? "Searching..."
+            : error
+              ? "Search unavailable"
+              : `${items.length} ${items.length === 1 ? "query" : "queries"} · Newest first`}
         </p>
         {error && <p role="alert">{error}</p>}
-        <div className="query-history-list">
+        <div className="query-history-list" aria-busy={busy}>
           {items
             .slice()
             .reverse()
@@ -63,6 +74,7 @@ export function QueryHistoryDialog({
                 key={item.id}
                 className={item.id === history.activeId ? "is-current" : ""}
                 aria-current={item.id === history.activeId ? "true" : undefined}
+                disabled={busy || !!error}
                 onClick={() => {
                   select(item.id);
                   close();
@@ -84,7 +96,7 @@ export function QueryHistoryDialog({
                 <code>{item.preview || "Empty query"}</code>
               </button>
             ))}
-          {!items.length && <p>No matching queries.</p>}
+          {!busy && !error && !items.length && <p>No matching queries.</p>}
         </div>
         {items.length > 100 && (
           <p>
