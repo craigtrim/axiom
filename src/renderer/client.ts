@@ -1,6 +1,5 @@
 import { rememberAudit } from "./audit-state";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
-import { assistantActivities } from "./assistant-activity";
 import { useSyncExternalStore } from "react";
 import type {
   Snapshot,
@@ -146,7 +145,6 @@ export function savePanel(key: string, value: unknown, record = true) {
       "hierarchy.open",
       "hierarchy.tab",
       "table.filter",
-      "research.templates",
     ].includes(key)
   )
     recordUiChange(key, before, value);
@@ -264,10 +262,7 @@ export function recordUiChange(
   if (before === undefined || JSON.stringify(before) === JSON.stringify(after))
     return;
   const last = pendingUi.at(-1);
-  if (
-    last?.key === key &&
-    ["graph.camera", "table.filter", "research.templates"].includes(key)
-  )
+  if (last?.key === key && ["graph.camera", "table.filter"].includes(key))
     last.after = structuredClone(after);
   else
     pendingUi.push({
@@ -285,7 +280,6 @@ export function recordUiChange(
             layout: "Arrange panes",
             theme: "Change theme",
             arrangement: "Change workbench arrangement",
-            "research.templates": "Edit research prompts",
           } as Record<string, string>
         )[key] ??
         key,
@@ -301,15 +295,3 @@ export async function flushUiHistory() {
   const entries = pendingUi.splice(0);
   for (const entry of entries) await window.axiom.request("uiHistory", entry);
 }
-
-const researchCommands: string[] = [];
-export function queueResearchCommand(action: string) {
-  if (
-    action === "run" &&
-    (assistantActivities.get("research") || researchCommands.includes("run"))
-  )
-    return;
-  researchCommands.push(action);
-  command("research.pending");
-}
-export const takeResearchCommand = () => researchCommands.shift();

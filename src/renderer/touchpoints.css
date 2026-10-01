@@ -1,0 +1,82 @@
+.touchpoints-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.touchpoints-toolbar {
+  flex-wrap: wrap;
+  flex: none;
+}
+.touchpoints-toolbar label {
+  flex: 1;
+  min-width: 140px;
+}
+.touchpoints-toolbar input {
+  width: 100%;
+}
+.touchpoints-summary {
+  padding: 0 var(--sp-3);
+  flex: none;
+  max-height: 35%;
+  overflow: auto;
+}
+.touchpoints-summary p {
+  margin: var(--sp-2) 0;
+}
+.touchpoints-results {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: var(--sp-3);
+}
+.touchpoint-row {
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-card);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.touchpoint-title,
+.touchpoint-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.touchpoint-title label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1 1 160px;
+}
+.touchpoint-title button {
+  margin-left: auto;
+}
+.touchpoint-row p {
+  overflow-wrap: anywhere;
+  margin: var(--sp-2) 0;
+}
+.touchpoint-iri {
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+}
+.touchpoint-options label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.touchpoints-footer {
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.touchpoint-options select {
+  max-width: 100%;
+}
+.touchpoint-title input {
+  flex: none;
+}

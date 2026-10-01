@@ -179,7 +179,9 @@ export function InspectorPanel() {
         >
           Details
         </button>
-        <button onClick={() => command("research.open")}>Research</button>
+        <button onClick={() => command("touchpoints.open")}>
+          Find Touchpoints
+        </button>
       </PaneToolbar>
       <div className="inspector-content">
         <LinkedFileCard key={s.datasetEpoch + e.iri} iri={e.iri} />

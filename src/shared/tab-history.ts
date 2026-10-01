@@ -7,7 +7,7 @@ export const tabTypes: Record<string, string> = {
   individuals: "Individuals",
   query: "Query",
   queryResults: "Query results",
-  research: "Research",
+  touchpoints: "Find Touchpoints",
   taxonomy: "Suggestions",
   sparsity: "Sparsity",
   textanalysis: "Text Analysis",
@@ -52,6 +52,15 @@ export function readTabHistory(value: unknown): TabHistory {
   )
     throw Error("Invalid saved tab history.");
   const entries = value.entries.map((v): SavedTab => {
+    if (object(v) && v.type === "research")
+      v = {
+        ...v,
+        type: "touchpoints",
+        id: v.id === "research" ? "touchpoints" : v.id,
+        name: v.name === "Research" ? "Find Touchpoints" : v.name,
+        config: {},
+        panelState: {},
+      };
     if (
       !object(v) ||
       typeof v.id !== "string" ||

@@ -457,7 +457,7 @@ export function SparsityPanel() {
                     href="https://doi.org/10.1093/sysbio/syac027"
                     onClick={(e) => {
                       e.preventDefault();
-                      void window.axiom.research
+                      void window.axiom.external
                         .open("https://doi.org/10.1093/sysbio/syac027")
                         .catch((error) => setActionError(error.message));
                     }}
@@ -470,7 +470,7 @@ export function SparsityPanel() {
                     href="https://elifesciences.org/articles/03568"
                     onClick={(e) => {
                       e.preventDefault();
-                      void window.axiom.research
+                      void window.axiom.external
                         .open("https://elifesciences.org/articles/03568")
                         .catch((error) => setActionError(error.message));
                     }}

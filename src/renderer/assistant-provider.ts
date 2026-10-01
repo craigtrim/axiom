@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { panel, savePanel, command, onCommand } from "./client";
-import type { AssistantId } from "../shared/research";
+import type { AssistantId } from "../shared/assistant";
 export function useAssistantProvider(): [
   AssistantId,
   (provider: AssistantId) => void,

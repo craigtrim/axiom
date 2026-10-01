@@ -10,7 +10,7 @@ import {
   type QueryContext,
   type QueryAssistantStatus,
 } from "../shared/query-assistant";
-import type { AssistantId, AssistantInfo } from "../shared/research";
+import type { AssistantId, AssistantInfo } from "../shared/assistant";
 export function QueryComposer({
   text,
   queryId,

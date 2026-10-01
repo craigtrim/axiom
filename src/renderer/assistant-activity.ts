@@ -1,4 +1,4 @@
-export type AssistantKind = "research" | "query" | "taxonomy";
+export type AssistantKind = "query" | "taxonomy";
 export interface AssistantActivity {
   label: string;
   startedAt: number;

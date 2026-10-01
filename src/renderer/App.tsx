@@ -53,7 +53,7 @@ import { ProvenancePanel } from "./ProvenancePanel";
 import { DetailsPanel } from "./EntityEditor";
 import { startInlineRename } from "./InlineRename";
 import { StylesDialog } from "./StylesDialog";
-import { ResearchPanel } from "./ResearchPanel";
+import { TouchpointsPanel } from "./TouchpointsPanel";
 import { layoutOptions } from "../shared/layout-options";
 import { commandDefinitions } from "../shared/commands";
 import { shortcutText } from "../shared/shortcuts";
@@ -106,7 +106,6 @@ import {
   report,
   setPreferences,
   queueQuery,
-  queueResearchCommand,
   workbenchDocuments,
   focusedDocument,
   rememberDocument,
@@ -122,7 +121,7 @@ const names: Record<string, string> = {
   details: "Details",
   individuals: "Individuals",
   query: "Query",
-  research: "Research",
+  touchpoints: "Find Touchpoints",
   taxonomy: "Suggestions",
   errorlog: "Error log",
   find: "Find",
@@ -179,7 +178,7 @@ export function defaultLayout(
         type: "tabset" as const,
         id: "inspector-group",
         weight: profile === "wide" ? 18 : 22,
-        children: [tab("inspector"), tab("research")],
+        children: [tab("inspector"), tab("touchpoints")],
       },
     ],
   };
@@ -250,6 +249,18 @@ export function restoreLayout(value: unknown): Model {
         ),
       );
     const v = structuredClone(value) as IJsonModel;
+    const migrate = (node: any) => {
+      if (!node || typeof node !== "object") return;
+      if (node.component === "research") {
+        node.component = "touchpoints";
+        if (node.id === "research") node.id = "touchpoints";
+        if (node.name === "Research") node.name = "Find Touchpoints";
+      }
+      for (const value of Object.values(node))
+        if (Array.isArray(value)) value.forEach(migrate);
+        else if (value && typeof value === "object") migrate(value);
+    };
+    migrate(v);
     v.global = { ...v.global, tabEnableRename: true };
     if (!v.layout || JSON.stringify(v).length > 100000) throw Error();
     const model = Model.fromJson(v),
@@ -623,7 +634,7 @@ export function App() {
           ? (m.getNodeById("graph")?.getParent() ??
             m.getNodeById("hierarchy")?.getParent() ??
             m.getRootRow()!)
-          : id === "research"
+          : id === "touchpoints"
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
             : m.getRootRow()!);
       m.doAction(
@@ -638,7 +649,7 @@ export function App() {
             id === "errorlog" ||
             id === "taxonomy" ||
             id.startsWith("taxonomy:") ||
-            id === "research" ||
+            id === "touchpoints" ||
             id === "provenance" ||
             id === "source" ||
             id === "details"
@@ -910,6 +921,8 @@ export function App() {
   useEffect(() => {
     const initialMenuTimer = setTimeout(updatePaneMenu, 100);
     const off = onCommand((id) => {
+      if (id === "cache.wikipedia.cleared") report("Wikipedia cache cleared.");
+      if (id === "cache.model.cleared") report("Model cache cleared.");
       if (
         id.startsWith("graph.") &&
         ![...documents].some((d) => d.querySelector('[data-panel="graph"]'))
@@ -949,11 +962,7 @@ export function App() {
       }
       if (id === "graph.styles") setStyles("advanced");
       if (id === "graph.appearance") setStyles("visual");
-      if (id === "research.open") show("research");
-      if (/^research\.(run|cancel|refresh|source\.)/.test(id)) {
-        queueResearchCommand(id.slice(9));
-        show("research");
-      }
+      if (id === "touchpoints.open") show("touchpoints");
       if (id === "ui.restore:layout") {
         setModel(restoreLayout(preferences.layout));
         return;
@@ -1315,7 +1324,7 @@ export function App() {
                   hierarchy: <HierarchyPanel />,
                   graph: <GraphPanel graphId={n.getId()} />,
                   inspector: <InspectorPanel />,
-                  research: <ResearchPanel />,
+                  touchpoints: <TouchpointsPanel />,
                   taxonomy: <SuggestionsPanel paneId={n.getId()} />,
                   errorlog: <ErrorLogPanel />,
                   find: <FindPanel />,

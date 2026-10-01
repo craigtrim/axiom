@@ -2,7 +2,6 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { assistantActivities, type AssistantKind } from "./assistant-activity";
 export { assistantActivities } from "./assistant-activity";
 const paneAssistants: Partial<Record<string, AssistantKind>> = {
-  research: "research",
   query: "query",
 };
 export const paneAssistant = (id: string) => paneAssistants[id];
@@ -12,14 +11,12 @@ export function useAssistantActivity(kind?: AssistantKind) {
   );
 }
 const cancelLabels = {
-  research: "Cancel research",
   query: "Cancel generation",
   taxonomy: "Cancel suggestions",
 };
 export function cancelAssistant(kind: AssistantKind) {
   return assistantActivities.cancel(kind, async () => {
-    if (kind === "research") await window.axiom.research.cancel();
-    else if (kind === "query") await window.axiom.queryAssistant.cancel();
+    if (kind === "query") await window.axiom.queryAssistant.cancel();
     else {
       const status = await window.axiom.taxonomyAssistant.status();
       if (status.id) await window.axiom.taxonomyAssistant.cancel(status.id);
@@ -35,20 +32,6 @@ export function useAssistantActivityPolling() {
       if (!live || polling) return;
       polling = true;
       await Promise.allSettled([
-        assistantActivities.reconcile("research", async () => {
-          const s = await window.axiom.research.status();
-          return s.running
-            ? {
-                label:
-                  (s.provider === "claude" ? "Claude" : "Codex") +
-                  " · Researching " +
-                  (s.activeEntity ?? "the requested entity") +
-                  "…",
-                startedAt: s.startedAt ?? Date.now(),
-                cancelling: s.cancelling,
-              }
-            : undefined;
-        }),
         assistantActivities.reconcile("query", async () => {
           const s = await window.axiom.queryAssistant.status();
           return s.running
