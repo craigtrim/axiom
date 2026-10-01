@@ -1179,8 +1179,8 @@ export class Store {
     this.tbox = structuredClone(s.tbox);
     this.rebuildSchema();
   }
-  /** Create a hierarchy as one edit, validating every class before changing RDF. */
-  createClassHierarchy(classes: ClassCreation[]): Map<string, string> {
+  /** Plan the complete transaction without changing RDF or undo history. */
+  planClassHierarchy(classes: ClassCreation[]) {
     if (!classes.length) throw Error("Choose at least one class to add.");
     const ids = new Map<string, string>(),
       reserved = new Set<string>();
@@ -1189,12 +1189,28 @@ export class Store {
       if (!item.id || ids.has(item.id))
         throw Error("Duplicate class reference.");
       if (!item.parents.length) throw Error("Choose an existing superclass.");
-      if (item.iri !== undefined && (!validResource(item.iri, false) || reserved.has(item.iri) || this.exists(item.iri) || this.bySubject.has(item.iri) || this.byPredicate.has(item.iri) || this.reverse.has(item.iri))) throw Error("The subject IRI is invalid or already in use.");
-      const iri = item.iri ?? uniqueLabelIri(
-        item.name,
-        this.ontology.namespace,
-        (candidate) => reserved.has(candidate) || this.exists(candidate),
-      );
+      if (
+        item.iri !== undefined &&
+        (!validResource(item.iri, false) ||
+          reserved.has(item.iri) ||
+          this.exists(item.iri) ||
+          this.bySubject.has(item.iri) ||
+          this.byPredicate.has(item.iri) ||
+          this.reverse.has(item.iri))
+      )
+        throw Error("The subject IRI is invalid or already in use.");
+      const iri =
+        item.iri ??
+        uniqueLabelIri(
+          item.name,
+          this.ontology.namespace,
+          (candidate) =>
+            reserved.has(candidate) ||
+            this.exists(candidate) ||
+            this.bySubject.has(candidate) ||
+            this.byPredicate.has(candidate) ||
+            this.reverse.has(candidate),
+        );
       ids.set(item.id, iri);
       reserved.add(iri);
     }
@@ -1205,7 +1221,8 @@ export class Store {
       const parents = new Set<string>(),
         pendingParents = new Set<string>();
       for (const ref of item.parents) {
-        if ("iri" in ref && ref.iri === iri) throw Error("A class cannot be its own ancestor.");
+        if ("iri" in ref && ref.iri === iri)
+          throw Error("A class cannot be its own ancestor.");
         if ("id" in ref) {
           const parent = ids.get(ref.id);
           if (!parent) throw Error("A new superclass is missing.");
@@ -1236,8 +1253,13 @@ export class Store {
           object: literal(item.comment.trim()),
         });
       for (const statement of item.statements ?? []) {
-        if ([TYPE, LABEL, SUBCLASS, COMMENT].includes(statement.predicate)) throw Error("Edit fixed statements in their own fields.");
-        statements.push({ subject: iri, predicate: statement.predicate, object: { ...statement.object } });
+        if ([TYPE, LABEL, SUBCLASS, COMMENT].includes(statement.predicate))
+          throw Error("Edit fixed statements in their own fields.");
+        statements.push({
+          subject: iri,
+          predicate: statement.predicate,
+          object: { ...statement.object },
+        });
       }
     }
     // Existing classes cannot point to these fresh IRIs. Only new edges can cycle.
@@ -1251,6 +1273,11 @@ export class Store {
     }
     if (dependencies.size) throw Error("A class cannot be its own ancestor.");
     for (const statement of statements) validateStatement(statement);
+    return { ids, statements };
+  }
+  /** Create a hierarchy as one edit, validating every class before changing RDF. */
+  createClassHierarchy(classes: ClassCreation[]): Map<string, string> {
+    const { ids, statements } = this.planClassHierarchy(classes);
     const created = projectEntities(statements);
     const before = this.schemaState();
     this.record(

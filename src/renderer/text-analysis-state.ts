@@ -18,10 +18,17 @@ export const textAnalysisSession = new TextAnalysisSession((input) =>
   window.axiom.textAnalysis.parse(input),
 );
 let initialized = false;
-export function openClassDraft(draft: TextEntityClassDraft, parentLabel?: string) {
+export function openClassDraft(
+  draft: TextEntityClassDraft,
+  parentLabel?: string,
+) {
   if (!state) return;
   initialized = true;
-  textAnalysisSession.update({ text: textAnalysisSession.getSnapshot().input.text, datasetEpoch: state.datasetEpoch, version: state.version });
+  textAnalysisSession.update({
+    text: textAnalysisSession.getSnapshot().input.text,
+    datasetEpoch: state.datasetEpoch,
+    version: state.version,
+  });
   textAnalysisSession.openDraft(draft, parentLabel);
   command("view.textentities");
 }

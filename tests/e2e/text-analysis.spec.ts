@@ -67,6 +67,7 @@ async function menu(id: string) {
 async function launch() {
   const env = {
     ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
     AXIOM_USER_DATA: profile,
     AXIOM_MUTATOC_HOME: home,
   } as Record<string, string>;
@@ -123,7 +124,7 @@ test.beforeEach(async () => {
   await mkdir(mockDir, { recursive: true });
   await writeFile(
     path.join(mockDir, "codex.js"),
-    `const fs=require("fs");let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{
+    `const fs=require("fs");let p="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{
     fs.writeFileSync(require("path").join(process.env.AXIOM_USER_DATA,"parent-prompt.txt"),p);
     const rows=p.split("\\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l));
     const result={suggestions:rows.filter(r=>r[1]==="Computing").map(r=>({value:r[0],reason:"Digital workplace tools belong within computing."}))};
@@ -262,6 +263,10 @@ test("unsaved ontology edits reparse the same text and text survives restart", a
 });
 
 test("switching ontologies clears old matches and a blank workspace retains model annotations", async () => {
+  // Keep the editor above AdaptivePane's recovery width after the Pizza layout loads.
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1800, 1100),
+  );
   await enter("Dog in London");
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
   await menu("file.new");
@@ -1521,37 +1526,43 @@ test("selected text opens Find from the editor context menu and reuses it with d
       .click({ delay: 150 });
     await expect(find).toBeVisible();
     await expect(
-      find.getByRole("searchbox", { name: "Find text" }),
+      find.getByRole("searchbox", { name: "Search the ontology" }),
     ).toHaveValue(text.trim());
   };
   await expect(find).toHaveCount(0);
   await findSelection("  renal trauma  ");
-  await expect(find.locator("tbody tr")).toHaveCount(2);
+  await expect(
+    find.getByRole("combobox", { name: "Results per page" }),
+  ).toHaveValue("10");
+  await find
+    .getByRole("combobox", { name: "Results per page" })
+    .selectOption("25");
+  await expect(find.locator(".find-results tbody tr")).toHaveCount(2);
   await expect(
     find.getByRole("button", { name: "renal trauma", exact: true }),
   ).toBeVisible();
-  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveValue(
-    "words",
+  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveCount(
+    0,
   );
-  await find.getByRole("button", { name: "Clear fields", exact: true }).click();
-  await find
-    .getByRole("combobox", { name: "Match mode" })
-    .selectOption("cosine");
+  await find.getByRole("button", { name: "Clear", exact: true }).click();
   await find
     .getByRole("combobox", { name: "Sort results" })
     .selectOption("name-desc");
   await find.getByRole("checkbox", { name: "Classes", exact: true }).uncheck();
   await findSelection("  Dog  ");
+  await expect(
+    find.getByRole("combobox", { name: "Results per page" }),
+  ).toHaveValue("25");
   await expect(find).toHaveCount(1);
   await expect(
     page.getByRole("tab", { name: "Find", exact: true }),
   ).toHaveCount(1);
-  await expect(find.locator("tbody tr")).toHaveCount(1);
+  await expect(find.locator(".find-results tbody tr")).toHaveCount(1);
   await expect(
     find.getByRole("button", { name: "Dog", exact: true }),
   ).toBeVisible();
-  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveValue(
-    "words",
+  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveCount(
+    0,
   );
   await expect(
     find.getByRole("combobox", { name: "Sort results" }),

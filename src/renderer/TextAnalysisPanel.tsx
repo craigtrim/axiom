@@ -16,7 +16,7 @@ import {
 import { textEntityGroups } from "./text-analysis-session";
 import { entityHue, type TextAnalysisResult } from "../shared/text-analysis";
 import { defaultFindOptions } from "../shared/find";
-import { rememberFind, updateFind } from "./find-state";
+import { findState, rememberFind, updateFind } from "./find-state";
 
 export function TextAnalysisPanel() {
   const { snapshot, input, analysis, result } = useTextAnalysis();
@@ -152,7 +152,11 @@ export function TextAnalysisPanel() {
         if (!selection || instance.getSelections()?.length !== 1) return;
         const text = model.getValueInRange(selection).trim();
         if (!text) return;
-        updateFind({ ...defaultFindOptions, text });
+        updateFind({
+          ...defaultFindOptions,
+          limit: findState().options.limit,
+          text,
+        });
         rememberFind();
         command("view.find");
       },

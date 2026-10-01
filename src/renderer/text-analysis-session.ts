@@ -125,9 +125,26 @@ export class TextAnalysisSession {
   };
   openDraft(draft: TextEntityClassDraft, parentLabel?: string) {
     const frames = [{ value: draft }];
-    if (parentLabel) frames.push({ value: { label: parentLabel, comment: "", parents: [], manualParents: false, checkAllEntities: true } });
-    this.publish({ mode: "add", details: undefined, created: undefined,
-      creation: { phrase: draft.label, datasetEpoch: this.value.input.datasetEpoch, draft: { frames } } });
+    if (parentLabel)
+      frames.push({
+        value: {
+          label: parentLabel,
+          comment: "",
+          parents: [],
+          manualParents: false,
+          checkAllEntities: true,
+        },
+      });
+    this.publish({
+      mode: "add",
+      details: undefined,
+      created: undefined,
+      creation: {
+        phrase: draft.label,
+        datasetEpoch: this.value.input.datasetEpoch,
+        draft: { frames },
+      },
+    });
   }
   setMode(mode: TextAnalysisSessionState["mode"]) {
     if (mode === "add" && !this.value.creation) return;

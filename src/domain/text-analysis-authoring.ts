@@ -2,7 +2,10 @@ import { NS, THING } from "./model";
 import { namedClass } from "./class-expressions";
 import { displayName } from "./rdf-model";
 import type { Store, ClassCreation } from "./store";
-import { entityNameKey as key, entityNameWords as words } from "../shared/entity-names";
+import {
+  entityNameKey as key,
+  entityNameWords as words,
+} from "../shared/entity-names";
 import { entityNameCollisions } from "./entity-name-index";
 import { fixedFindPredicates } from "../shared/find-create";
 import { validResource, validateStatement } from "./rdf-model";
@@ -112,12 +115,16 @@ export function textAnalysisDraft(
   };
 }
 /** Validate the complete nested draft before submitting a single store edit. */
-export function createTextAnalysisHierarchy(
+function classHierarchyInput(
   store: Store,
   input: unknown,
   allEntities = false,
-): string {
-  allEntities ||= !!input && typeof input === "object" && "checkAllEntities" in input && input.checkAllEntities === true;
+): ClassCreation[] {
+  allEntities ||=
+    !!input &&
+    typeof input === "object" &&
+    "checkAllEntities" in input &&
+    input.checkAllEntities === true;
   const queue: { value: unknown; id: string }[] = [{ value: input, id: "0" }];
   const classes: ClassCreation[] = [],
     names = new Set<string>(),
@@ -145,8 +152,17 @@ export function createTextAnalysisHierarchy(
     )
       throw Error("Provide a class name, description and at least one parent.");
     const draft = textAnalysisDraft(store, item.label, 0);
-    if ((allEntities || item.checkAllEntities === true) && entityNameCollisions(store, draft.label, typeof item.iri === "string" ? item.iri : "").collisions.length)
-      throw Error(`“${draft.label}” collides with an existing entity. Open the existing entry or change the label and IRI.`);
+    if (
+      (allEntities || item.checkAllEntities === true) &&
+      entityNameCollisions(
+        store,
+        draft.label,
+        typeof item.iri === "string" ? item.iri : "",
+      ).collisions.length
+    )
+      throw Error(
+        `“${draft.label}” collides with an existing entity. Open the existing entry or change the label and IRI.`,
+      );
     if (draft.existing.length)
       throw Error(
         `“${draft.label}” already names an existing class. Choose the existing entry or change the name.`,
@@ -175,19 +191,53 @@ export function createTextAnalysisHierarchy(
         parents.push({ id: parentId });
       } else throw Error("Choose an existing parent or create a new parent.");
     }
-    if (item.iri !== undefined && !validResource(item.iri, false)) throw Error("Enter a valid subject IRI.");
+    if (item.iri !== undefined && !validResource(item.iri, false))
+      throw Error("Enter a valid subject IRI.");
     const statements: NonNullable<ClassCreation["statements"]> = [];
     if (item.statements !== undefined) {
-      if (!Array.isArray(item.statements) || item.statements.length > 100) throw Error("Add no more than 100 extra statements.");
+      if (!Array.isArray(item.statements) || item.statements.length > 100)
+        throw Error("Add no more than 100 extra statements.");
       for (const statement of item.statements) {
-        validateStatement({ ...statement, subject: typeof item.iri === "string" ? item.iri : "urn:axiom:draft" });
-        if (fixedFindPredicates.includes(statement.predicate)) throw Error("Edit fixed statements in their own fields.");
-        statements.push({ predicate: statement.predicate, object: { ...statement.object } });
+        validateStatement({
+          ...statement,
+          subject: typeof item.iri === "string" ? item.iri : "urn:axiom:draft",
+        });
+        if (fixedFindPredicates.includes(statement.predicate))
+          throw Error("Edit fixed statements in their own fields.");
+        statements.push({
+          predicate: statement.predicate,
+          object: { ...statement.object },
+        });
       }
     }
-    classes.push({ id, name: draft.label, comment: item.comment, parents, iri: item.iri as string | undefined, statements });
+    classes.push({
+      id,
+      name: draft.label,
+      comment: item.comment,
+      parents,
+      iri: item.iri as string | undefined,
+      statements,
+    });
   }
-  return store.createClassHierarchy(classes).get("0")!;
+  return classes;
+}
+export function planTextAnalysisHierarchy(
+  store: Store,
+  input: unknown,
+  allEntities = false,
+) {
+  return store.planClassHierarchy(
+    classHierarchyInput(store, input, allEntities),
+  );
+}
+export function createTextAnalysisHierarchy(
+  store: Store,
+  input: unknown,
+  allEntities = false,
+) {
+  return store
+    .createClassHierarchy(classHierarchyInput(store, input, allEntities))
+    .get("0")!;
 }
 export function createTextAnalysisClass(
   store: Store,

@@ -560,7 +560,7 @@ Summary is the Text Entities panel's other view. It is not specified by this doc
 | `--danger`, `--danger-soft` | error text and the invalid field ground |
 | `--font`, `--mono` | the interface face, and identifiers and analysed text |
 
-**TEC-116** The monospace face is not decoration. It MUST be used for exactly three things and nothing else: the analysed text, an IRI, and the word `Thing` where it names the class rather than the concept `[src: .bar-file]` `[src: .lb-meta]` `[src: .chips-empty code]`.
+**TEC-116** The monospace face MUST be reserved for analysed text, identifiers (including vocabulary terms such as `owl:Thing`), and the Source serialisation block. Labels, descriptions and explanatory copy MUST use the interface face.
 
 ---
 
