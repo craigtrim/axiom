@@ -27,10 +27,11 @@ async function menu(id: string) {
   }, id);
 }
 async function launch(modelDirectory?: string) {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   if (modelDirectory) env.AXIOM_EMBEDDING_MODEL_DIR = modelDirectory;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
@@ -301,9 +302,11 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
   );
   for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
     await query.fill(text);
-    await expect(
-      p.getByRole("columnheader", { name: "Synonym", exact: true }),
-    ).toHaveCount(0);
+    await expect(p.locator(".find-synonym")).toHaveCount(0);
+    if (!text)
+      await expect(
+        p.getByRole("columnheader", { name: "Synonym", exact: true }),
+      ).toHaveCount(1);
   }
   expect((await synonymDocument()).statements).toEqual(before.statements);
   expect((await synonymDocument()).version).toBe(before.version);
@@ -389,16 +392,25 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
 test("Find filters, sorts and pages every match with useful result actions", async () => {
   await find("English");
   const p = pane();
+  await expect(
+    p.getByRole("combobox", { name: "Results per page" }),
+  ).toHaveValue("10");
   await p.getByRole("button", { name: "Names only", exact: true }).click();
-  await expect(p.getByRole("status").first()).toHaveText("127 matches");
+  await expect(p.getByRole("status").first()).toHaveText(
+    /127 matches of [\d,]+ entities/,
+  );
   await types(["Classes"]);
   await p
     .getByRole("combobox", { name: "Results per page" })
     .selectOption("25");
   await p.getByRole("combobox", { name: "Sort results" }).selectOption("name");
-  await expect(p.getByRole("status").first()).toHaveText("125 matches");
+  await expect(p.getByRole("status").first()).toHaveText(
+    /125 matches of [\d,]+ entities/,
+  );
   await expect(p.locator(".find-results tbody tr")).toHaveCount(25);
-  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText(
+    "Basic English",
+  );
   await p.getByRole("button", { name: "Last results page" }).click();
   await expect(p).toContainText("Page 5 of 5");
   await expect(p.locator(".find-results tbody tr")).toHaveCount(25);
@@ -406,7 +418,9 @@ test("Find filters, sorts and pages every match with useful result actions", asy
     p.getByRole("button", { name: "Next results page" }),
   ).toBeDisabled();
   await types(["Instances"]);
-  await expect(p.getByRole("status").first()).toHaveText("1 match");
+  await expect(p.getByRole("status").first()).toHaveText(
+    /1 match of [\d,]+ entities/,
+  );
   await p.getByRole("button", { name: "English learner", exact: true }).click();
   await expect(
     p.getByRole("button", { name: "Find in taxonomy", exact: true }),
@@ -416,7 +430,9 @@ test("Find filters, sorts and pages every match with useful result actions", asy
     p.getByRole("button", { name: "English teaching", exact: true }),
   ).toBeVisible();
   await p.getByRole("button", { name: "Reset filters", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("asic eng");
+  await p
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("asic eng");
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   await expect(
     p.getByRole("button", { name: "Basic English", exact: true }),
@@ -442,7 +458,16 @@ test("Find filters, sorts and pages every match with useful result actions", asy
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");
-  await pane().getByRole("searchbox", { name: "Search the ontology" }).press("Control+f");
+  await pane()
+    .getByRole("combobox", { name: "Results per page" })
+    .selectOption("25");
+  await find("Basic");
+  await expect(
+    pane().getByRole("combobox", { name: "Results per page" }),
+  ).toHaveValue("25");
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .press("Control+f");
   const d = page.getByRole("dialog", { name: "Find entities" }),
     input = d.getByRole("combobox", { name: "Search entities" });
   await expect(input).toBeFocused();
@@ -487,8 +512,12 @@ test("Find refreshes after edits and keeps filters when closed, reopened and res
     });
   }, base + "Basic");
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
-  await expect(pane().getByRole("status").first()).toHaveText("0 matches");
-  await pane().getByRole("searchbox", { name: "Search the ontology" }).fill("Revised");
+  await expect(pane().getByRole("status").first()).toHaveText(
+    /0 matches of [\d,]+ entities/,
+  );
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("Revised");
   await expect(
     pane().getByRole("button", { name: "Revised English", exact: true }),
   ).toBeVisible();
@@ -594,7 +623,9 @@ test("MPNet Find recognizes synonyms without spelling overlap and opens the same
   ).toBeVisible({
     timeout: 30000,
   });
-  await expect(p.locator(".find-results tbody tr").first()).toContainText("Carpet");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText(
+    "Carpet",
+  );
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
   const result = await page.evaluate(() =>
     window.axiom.request<{
@@ -642,7 +673,9 @@ test("automatic Find enriches an unseen query and preserves field and type facet
     .press("Enter");
   const p = pane();
   await expect(p.getByRole("combobox", { name: "Match mode" })).toHaveCount(0);
-  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText(
+    "Basic English",
+  );
   await expect(
     p.getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeVisible();
@@ -659,12 +692,20 @@ test("automatic Find enriches an unseen query and preserves field and type facet
     p.getByRole("checkbox", { name: "rdf:type", exact: true }),
   ).toBeChecked();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
-  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("Basic English");
-  await expect(p.locator(".find-results tbody tr").first()).toContainText("Basic English");
+  await p
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("Basic English");
+  await expect(p.locator(".find-results tbody tr").first()).toContainText(
+    "Basic English",
+  );
   await types(["Instances"]);
-  await p.getByRole("searchbox", { name: "Search the ontology" }).fill("English learner");
+  await p
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("English learner");
   await expect(p.locator(".find-results tbody tr")).toHaveCount(1);
-  await expect(p.locator(".find-results tbody tr")).toContainText("English learner");
+  await expect(p.locator(".find-results tbody tr")).toContainText(
+    "English learner",
+  );
   expect(
     (await p.locator(".find-results-scroll").boundingBox())!.height,
   ).toBeGreaterThan(120);
@@ -689,9 +730,8 @@ test("Find similar starts from a taxonomy node and excludes the source entity", 
     has: page.locator(".tree-name", { hasText: /^Basic English$/ }),
   });
   await row.click({ button: "right" });
-  await page
-    .getByRole("menuitem", { name: "Find similar", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Find", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Similar", exact: true }).click();
   await expect(pane()).toBeVisible();
   await expect(
     pane().getByRole("searchbox", { name: "Search the ontology" }),
@@ -722,17 +762,16 @@ test("graph Find similar uses the selected name and field facets survive restart
   await canvas.press("Shift+F10");
   await page
     .getByRole("menu", { name: "Graph node actions" })
-    .getByRole("menuitem", { name: "Find similar", exact: true })
+    .getByRole("menuitem", { name: "Find", exact: true })
     .click();
+  await page.getByRole("menuitem", { name: "Similar", exact: true }).click();
   await expect(
     pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("Basic English");
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
-  await pane()
-    .getByRole("button", { name: "Clear", exact: true })
-    .click();
+  await pane().getByRole("button", { name: "Clear", exact: true }).click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();
@@ -785,7 +824,9 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
   await pane()
     .getByRole("combobox", { name: "Results per page" })
     .selectOption("25");
-  await expect(pane().getByRole("status").first()).toHaveText("125 matches");
+  await expect(pane().getByRole("status").first()).toHaveText(
+    /125 matches of [\d,]+ entities/,
+  );
   await pane().getByRole("button", { name: "Last results page" }).click();
   await expect(pane()).toContainText("Page 5 of 5");
   await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
@@ -870,16 +911,16 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
 
 test("result graphs follow field filters and instance ancestry without expanding siblings", async () => {
   await find("Basic");
-  await pane()
-    .getByRole("button", { name: "Clear", exact: true })
-    .click();
+  await pane().getByRole("button", { name: "Clear", exact: true }).click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();
   await pane()
     .getByRole("searchbox", { name: "Search the ontology" })
     .fill("A foundation in written and spoken English.");
-  await expect(pane().getByRole("status").first()).toHaveText("1 match");
+  await expect(pane().getByRole("status").first()).toHaveText(
+    /1 match of [\d,]+ entities/,
+  );
   await pane()
     .getByRole("button", { name: "Open results in new graph", exact: true })
     .click();
@@ -893,9 +934,13 @@ test("result graphs follow field filters and instance ancestry without expanding
   await pane()
     .getByRole("button", { name: "Reset filters", exact: true })
     .click();
-  await pane().getByRole("searchbox", { name: "Search the ontology" }).fill("English");
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("English");
   await types(["Instances"]);
-  await expect(pane().getByRole("status").first()).toHaveText("1 match");
+  await expect(pane().getByRole("status").first()).toHaveText(
+    /1 match of [\d,]+ entities/,
+  );
   await pane()
     .getByRole("button", { name: "Open results in new graph", exact: true })
     .click();
@@ -917,7 +962,9 @@ test("result graphs follow field filters and instance ancestry without expanding
   await pane()
     .getByRole("searchbox", { name: "Search the ontology" })
     .fill("no such entity anywhere");
-  await expect(pane().getByRole("status").first()).toHaveText("0 matches");
+  await expect(pane().getByRole("status").first()).toHaveText(
+    /0 matches of [\d,]+ entities/,
+  );
   await expect(
     pane().getByRole("button", {
       name: "Open results in new graph",

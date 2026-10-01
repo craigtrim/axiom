@@ -47,20 +47,30 @@ try {
     string,
     { p50Ms: number; p95Ms: number; maxMs: number }
   > = {};
-  for (const method of ["find", "resourceSuggestions"]) {
+  for (const scenario of ["find", "findWithScope", "resourceSuggestions"]) {
+    const method = scenario === "findWithScope" ? "find" : scenario;
     const times: number[] = [];
     for (let i = 0; i < 100; i++) {
       start = performance.now();
       await request(
         method,
         method === "find"
-          ? { text: "polymer " + (5900 + i) }
+          ? {
+              text: "polymer " + (5900 + i),
+              ...(scenario === "findWithScope"
+                ? { browse: true, diagnostics: true, limit: 10 }
+                : {}),
+            }
           : { query: "polymer " + (5900 + i), classesOnly: true },
       );
       times.push(performance.now() - start);
     }
     times.sort((a, b) => a - b);
-    records[method] = { p50Ms: times[49], p95Ms: times[94], maxMs: times[99] };
+    records[scenario] = {
+      p50Ms: times[49],
+      p95Ms: times[94],
+      maxMs: times[99],
+    };
   }
   const passed = Object.values(records).every(
     (record) => record.p95Ms < warmP95BudgetMs,

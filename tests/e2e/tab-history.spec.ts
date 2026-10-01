@@ -34,10 +34,11 @@ async function menu(id: string) {
   }, id);
 }
 async function launch() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -255,13 +256,18 @@ test("saved Find tabs restore query and facets, and renames survive arrangement 
   await menu("view.find");
   const find = page.getByRole("region", { name: "Find entities results" });
   await find
-    .getByRole("searchbox", { name: "Find text" })
+    .getByRole("combobox", { name: "Results per page" })
+    .selectOption("25");
+  await find
+    .getByRole("searchbox", { name: "Search the ontology" })
     .fill("English Basic");
   await find
-    .getByRole("combobox", { name: "Match mode" })
-    .selectOption("cosine");
+    .getByRole("combobox", { name: "Sort results" })
+    .selectOption("name-desc");
   await find.getByRole("button", { name: "Names only", exact: true }).click();
-  await find.getByRole("slider", { name: "Minimum similarity" }).fill("0.75");
+  await find
+    .getByRole("checkbox", { name: "Instances", exact: true })
+    .uncheck();
   await rename("Find", "English search");
   await menu("arrangement.wide");
   await expect(
@@ -272,15 +278,18 @@ test("saved Find tabs restore query and facets, and renames survive arrangement 
   await history()
     .getByRole("button", { name: /English search.*Closed/ })
     .click();
-  await expect(find.getByRole("searchbox", { name: "Find text" })).toHaveValue(
-    "English Basic",
-  );
   await expect(
-    find.getByRole("slider", { name: "Minimum similarity" }),
-  ).toHaveValue("0.75");
-  await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveValue(
-    "cosine",
-  );
+    find.getByRole("searchbox", { name: "Search the ontology" }),
+  ).toHaveValue("English Basic");
+  await expect(
+    find.getByRole("combobox", { name: "Results per page" }),
+  ).toHaveValue("25");
+  await expect(
+    find.getByRole("checkbox", { name: "Instances", exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    find.getByRole("combobox", { name: "Sort results" }),
+  ).toHaveValue("name-desc");
   await expect(
     find.getByRole("checkbox", { name: "IRI", exact: true }),
   ).not.toBeChecked();
