@@ -27,15 +27,29 @@ const load = async (text = source) =>
   storeFromRdf((await parseRdf(text, "courses.ttl", base)).triples, "Courses");
 
 test("subclass intersections become ordinary parent statements and graph arrows", async () => {
-  const s=await load(), e=s.entities.get(owner)!;
-  expect(e.kind).toBe("Class"); expect(e.parents).toEqual([a,b]); expect(e.classExpressions).toBeUndefined();
-  expect(s.tbox.some(t=>t.predicate===INTERSECTION || t.predicate===EQUIVALENT_CLASS)).toBe(false);
+  const s = await load(),
+    e = s.entities.get(owner)!;
+  expect(e.kind).toBe("Class");
+  expect(e.parents).toEqual([a, b]);
+  expect(e.classExpressions).toBeUndefined();
+  expect(
+    s.tbox.some(
+      (t) => t.predicate === INTERSECTION || t.predicate === EQUIVALENT_CLASS,
+    ),
+  ).toBe(false);
   expect(taxonomyChildren(s.entities.get(a))).toContain(owner);
-  const v=new Viewport(s); v.seed([owner]);
-  expect([...v.nodes.keys()].sort()).toEqual([owner,a,b].sort());
+  const v = new Viewport(s);
+  v.seed([owner]);
+  expect([...v.nodes.keys()].sort()).toEqual([owner, a, b].sort());
   expect(v.edges.size).toBe(2);
-  expect([...v.edges.values()].every(e=>e.predicate===SUBCLASS && !e.intersection)).toBe(true);
-  const l=new Layouts(v,s); l.run(); expect(l.resolved).toBe("hierarchy");
+  expect(
+    [...v.edges.values()].every(
+      (e) => e.predicate === SUBCLASS && !e.intersection,
+    ),
+  ).toBe(true);
+  const l = new Layouts(v, s);
+  l.run();
+  expect(l.resolved).toBe("hierarchy");
   expect(v.nodes.get(a)!.y).toBeLessThan(v.nodes.get(owner)!.y);
 });
 
@@ -127,7 +141,9 @@ test("bad lists and cyclic nested expressions cannot hang, leak list cells or in
 });
 
 test("RDF lists are resolved within their statement graph", async () => {
-  const s = await load(source.replace("rdfs:subClassOf", "owl:equivalentClass")),
+  const s = await load(
+      source.replace("rdfs:subClassOf", "owl:equivalentClass"),
+    ),
     ts = structuredClone(s.tbox);
   const head = ts.find((t) => t.predicate === INTERSECTION)!;
   for (const t of ts) t.graph = "https://example.test/graph";
@@ -148,7 +164,9 @@ test("RDF lists are resolved within their statement graph", async () => {
 });
 
 test("export, workspace reopen, rename and Undo preserve equivalent definitions", async () => {
-  const s = await load(source.replace("rdfs:subClassOf", "owl:equivalentClass")),
+  const s = await load(
+      source.replace("rdfs:subClassOf", "owl:equivalentClass"),
+    ),
     original = s.tbox.map(statementKey).sort();
   const serialized = await writeRdf(s.tbox, "turtle"),
     reimport = await load(serialized);
@@ -243,7 +261,8 @@ test("graph export has branches and preserves the subclass or equivalence captio
       render(d, g, { x: 400, y: 100, zoom: 1 }, dark, owner);
       const svg = d.finish();
       expect(svg).not.toContain(">AND</text>");
-      if (predicate === "owl:equivalentClass") expect(svg).toContain(">" + caption + "</text>");
+      if (predicate === "owl:equivalentClass")
+        expect(svg).toContain(">" + caption + "</text>");
       else expect(svg).not.toContain("subclass of all");
       expect(svg).toContain("3D Design");
       expect(svg).toContain("3D Printing");
