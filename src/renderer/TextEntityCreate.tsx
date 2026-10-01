@@ -4,6 +4,7 @@ import { TextParentPicker, parentIri } from "./TextParentPicker";
 import { revealInTaxonomy } from "./taxonomy-navigation";
 import { THING } from "../domain/model";
 import { entityNameKey as nameKey } from "../shared/entity-names";
+import { selectedEntityName } from "../shared/selected-entity-name";
 import { SourceDisclosure } from "./EntityEditorParts";
 import { useRetainedPreview } from "./use-retained-preview";
 import { expandIri } from "../shared/terms";
@@ -68,7 +69,8 @@ export function TextEntityCreate({
   ): void;
 }) {
   const [value, setValue] = useState<TextEntityDraft>(
-    () => draft ?? { frames: [{ value: newClass(phrase) }] },
+    () =>
+      draft ?? { frames: [{ value: newClass(selectedEntityName(phrase)) }] },
   );
   useEffect(() => {
     changeDraft?.(value);

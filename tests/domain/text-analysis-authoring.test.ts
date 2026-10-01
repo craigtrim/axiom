@@ -8,6 +8,7 @@ import {
 import { buildStore } from "../../src/domain/fixture";
 import { readPreferences } from "../../src/shared/preferences";
 import { NS, THING, SUBCLASS, TYPE } from "../../src/domain/model";
+import { selectedEntityName } from "../../src/shared/selected-entity-name";
 const base = "https://example.org/authoring#";
 const turtle = `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
 @prefix rdfs: <${NS.rdfs}> . @prefix skos: <${NS.skos}> .
@@ -23,6 +24,54 @@ const turtle = `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
 const fixture = async () =>
   storeFromRdf((await parseRdf(turtle, "test.ttl", base)).triples, "test");
 describe("create classes from selected text", () => {
+  it.each([
+    ["Basic ENGLISH COMPOSITION", "Composition"],
+    ["PERSONAL DIMENSIONS OF EDUCATION", "Education"],
+    ["Basic ETHICS & SOCIAL RESPONSIBILITY", "Social Responsibility"],
+    ["INTRO TO HIV PREVENTION", "HIV Prevention"],
+    ["PHD SEMINAR IN GIS", "GIS"],
+    ["CALCULUS II", "Calculus"],
+  ])(
+    "title casing %s preserves parent ranking and duplicate detection",
+    async (phrase, parentName) => {
+      const store = await fixture();
+      const parent = store.createClass(parentName, THING);
+      const seeded = selectedEntityName(phrase);
+      const rawDraft = textAnalysisDraft(store, phrase, 1);
+      const seededDraft = textAnalysisDraft(store, seeded, 1);
+      expect(seededDraft).toEqual({ ...rawDraft, label: seeded });
+      expect(seededDraft.defaultParent).toBe(parent);
+      expect(seededDraft.existing).toEqual([]);
+      const created = createTextAnalysisClass(store, seeded, parent);
+      const rawCollision = textAnalysisDraft(store, phrase, 1);
+      expect(textAnalysisDraft(store, seeded, 1)).toEqual({
+        ...rawCollision,
+        label: seeded,
+      });
+      expect(rawCollision.existing).toEqual([{ iri: created, label: seeded }]);
+      const version = store.version;
+      expect(() => createTextAnalysisClass(store, phrase, parent)).toThrow(
+        /existing class/,
+      );
+      expect(() => createTextAnalysisClass(store, seeded, parent)).toThrow(
+        /existing class/,
+      );
+      expect(store.version).toBe(version);
+    },
+  );
+  it.each(["ADVANCED PLATFORMS", "ADVANCED FRAMEWORKS", "ADVANCED CAFE\u0301"])(
+    "title casing %s preserves alias and Unicode parent matches",
+    async (phrase) => {
+      const store = await fixture();
+      const seeded = selectedEntityName(phrase);
+      const raw = textAnalysisDraft(store, phrase, 1);
+      expect(raw.parents.length).toBeGreaterThan(0);
+      expect(textAnalysisDraft(store, seeded, 1)).toEqual({
+        ...raw,
+        label: seeded,
+      });
+    },
+  );
   it("suggests partial class names and prefers a trailing match at the same length", async () => {
     const store = await fixture();
     const before = JSON.stringify([...store.scan()]);

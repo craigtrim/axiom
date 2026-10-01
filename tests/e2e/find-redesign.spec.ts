@@ -395,6 +395,42 @@ test("full Add entity handoff preserves the entire draft and commits a new paren
   await expect(pane().locator(".find-created")).toContainText("created here");
 });
 
+test("selected-name casing leaves Find handoffs and typed parent names unchanged", async () => {
+  await miss("PHD SEMINAR IN GIS");
+  const label = create().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  await expect(label).toHaveValue("PHD SEMINAR IN GIS");
+  await label.fill("my CUSTOM phd seminar");
+  await create()
+    .getByRole("button", { name: "Continue in Add entity", exact: true })
+    .click();
+  const form = page.getByRole("region", { name: "Add entity", exact: true });
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  await expect(name).toHaveValue("my CUSTOM phd seminar");
+  await expect(form).toContainText("Adding from Find");
+  await form
+    .getByRole("combobox", { name: "Parent classes", exact: true })
+    .fill("a CUSTOM parent");
+  await page.getByRole("option", { name: /Create “a CUSTOM parent”/ }).click();
+  await expect(name).toHaveValue("a CUSTOM parent");
+  await form
+    .getByRole("button", { name: "Use as parent", exact: true })
+    .click();
+  await expect(name).toHaveValue("my CUSTOM phd seminar");
+  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  const state = await snapshot();
+  const child = state.entities.find(
+    (entity) => entity.label === "my CUSTOM phd seminar",
+  )!;
+  const parent = state.entities.find(
+    (entity) => entity.label === "a CUSTOM parent",
+  )!;
+  expect(child.parents).toEqual([parent.iri]);
+});
+
 test("Add entity handoff retains source and errors while edited drafts are checked", async () => {
   await miss();
   await create().getByRole("button", { name: "Source", exact: true }).click();

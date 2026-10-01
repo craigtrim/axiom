@@ -32,6 +32,7 @@ const child = spawn(
     "tests/domain/text-analysis-navigation.test.ts",
     "tests/domain/text-analysis-authoring.test.ts",
     "tests/domain/text-analysis-session.test.ts",
+    "tests/domain/selected-entity-name.test.ts",
     "tests/domain/mutatoc-client.test.ts",
     ...process.argv.slice(2),
   ],

@@ -1106,7 +1106,7 @@ test("a nested alias collision keeps its form and offers the existing class as p
     .click();
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Fresh course");
+  ).toHaveValue("Fresh Course");
   await expect(
     form.getByRole("button", { name: "Remove Dog", exact: true }),
   ).toBeVisible();
@@ -1140,7 +1140,7 @@ test("editing the name and description preserves an assistant run and its comple
   const runs = await page.evaluate(() => window.axiom.suggestions.history());
   expect(runs).toHaveLength(1);
   expect(runs[0].state).toBe("completed");
-  expect(runs[0].prompt).toContain("Digital workplace tools");
+  expect(runs[0].prompt).toContain("Digital Workplace Tools");
 });
 
 test("draft parent suggestions call Codex, expose the prompt and require the user's parent selection", async () => {
@@ -1209,7 +1209,7 @@ test("draft parent suggestions call Codex, expose the prompt and require the use
       async () =>
         (
           await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-        ).entities.find((e) => e.label === "Digital workplace tools")?.parents,
+        ).entities.find((e) => e.label === "Digital Workplace Tools")?.parents,
     )
     .toEqual([base + "Computing"]);
 });
@@ -1486,7 +1486,7 @@ test("parent drafts can be cancelled, and existing names can be reused without d
     .click();
   await form
     .locator(".text-create-context")
-    .getByRole("button", { name: "New topic", exact: true })
+    .getByRole("button", { name: "New Topic", exact: true })
     .click();
   await expect(form).not.toContainText("Unwanted parent");
   await form.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -1758,6 +1758,138 @@ test("stale and duplicate text creation requests cannot mutate the ontology", as
   expect(after.classCount).toBe(before.classCount);
 });
 
+for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
+  test(`selected-name casing through ${route} preserves source and suggested parent`, async () => {
+    const phrase = "PHD SEMINAR IN GIS SYSTEMS";
+    await enter(phrase);
+    await editor().focus();
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("Control+Shift+End");
+    if (route === "toolbar") {
+      await panel()
+        .getByRole("button", { name: "Add selected text", exact: true })
+        .click();
+    } else if (route === "Alt+Enter") {
+      await page.keyboard.press("Alt+Enter");
+    } else {
+      await page.keyboard.press("Shift+F10");
+      await expect(
+        page.getByRole("menuitem", {
+          name: "Add selected text to taxonomy",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page.keyboard.press("End");
+      await page.keyboard.press("Enter");
+    }
+    const form = entitiesPane().getByRole("region", {
+      name: "Add entity",
+      exact: true,
+    });
+    await expect(
+      form.getByRole("textbox", { name: "Name", exact: true }),
+    ).toHaveValue("PhD Seminar in GIS Systems");
+    await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
+    await expect(
+      form.getByRole("button", { name: "Remove Systems", exact: true }),
+    ).toBeVisible();
+  });
+}
+
+for (const [phrase, seeded] of [
+  ["Basic ENGLISH COMPOSITION", "Basic English Composition"],
+  ["PERSONAL DIMENSIONS OF EDUCATION", "Personal Dimensions of Education"],
+  [
+    "Basic ETHICS & SOCIAL RESPONSIBILITY",
+    "Basic Ethics & Social Responsibility",
+  ],
+  ["INTRO TO HIV PREVENTION", "Intro to HIV Prevention"],
+  ["PHD SEMINAR IN GIS", "PhD Seminar in GIS"],
+  ["CALCULUS II", "Calculus II"],
+]) {
+  test(`selected-name casing saves ${seeded} while preserving Context`, async () => {
+    const form = await selectForCreation(phrase);
+    await expect(
+      form.getByRole("textbox", { name: "Name", exact: true }),
+    ).toHaveValue(seeded);
+    await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
+    await form.getByRole("button", { name: "Add class", exact: true }).click();
+    await expect(form).toHaveCount(0);
+    const state = await page.evaluate(() =>
+      window.axiom.request<Snapshot>("state"),
+    );
+    expect(
+      state.entities.filter((entity) => entity.label === seeded),
+    ).toHaveLength(1);
+  });
+}
+
+test("selected-name casing preserves edits through parent creation and pane remounts", async () => {
+  const phrase = "INTRO TO HIV SYSTEMS";
+  const form = await selectForCreation(phrase);
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  await expect(name).toHaveValue("Intro to HIV Systems");
+  await name.fill("my CUSTOM phd child");
+  await createParent(form, "my CUSTOM parent");
+  await form
+    .getByRole("button", { name: "Use as parent", exact: true })
+    .click();
+  await expect(name).toHaveValue("my CUSTOM phd child");
+  await expect(
+    form.getByRole("button", { name: "Remove my CUSTOM parent", exact: true }),
+  ).toBeVisible();
+  await menu("view.textentities");
+  await menu("pane.close");
+  await expect(entitiesPane()).toHaveCount(0);
+  await menu("view.textentities");
+  await expect(name).toHaveValue("my CUSTOM phd child");
+  await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
+  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  const state = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  const child = state.entities.find(
+    (entity) => entity.label === "my CUSTOM phd child",
+  )!;
+  const parent = state.entities.find(
+    (entity) => entity.label === "my CUSTOM parent",
+  )!;
+  expect(child.parents).toContain(parent.iri);
+});
+
+test("selected-name casing retains strict duplicate detection after creation", async () => {
+  const form = await selectForCreation("ADVANCED SYSTEMS");
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Advanced Systems");
+  await expect(
+    form.getByRole("button", { name: "Remove Systems", exact: true }),
+  ).toBeVisible();
+  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  const state = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  expect(
+    state.entities.find((entity) => entity.label === "Advanced Systems")!
+      .parents,
+  ).toEqual([base + "Systems"]);
+  await selectForCreation("ADVANCED SYSTEMS");
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Advanced Systems");
+  await expect(form.locator(".text-create-source mark")).toHaveText(
+    "ADVANCED SYSTEMS",
+  );
+  await expect(form.locator(".text-create-validation")).toContainText(
+    "Advanced Systems already exists",
+  );
+  await expect(
+    form.getByRole("button", { name: "Add class", exact: true }),
+  ).toBeDisabled();
+});
+
 test("selected text opens the add pane from Alt+Enter and the editor context menu", async () => {
   await enter("Electronic Surveillance Systems");
   await editor().focus();
@@ -1819,12 +1951,16 @@ test("selected text opens Find from the editor context menu and reuses it with d
   };
   await expect(find).toHaveCount(0);
   await findSelection("  renal trauma  ");
+  await find.getByRole("button", { name: "More", exact: true }).click();
   await expect(
     find.getByRole("combobox", { name: "Results per page" }),
-  ).toHaveValue("10");
+  ).toHaveValue("50");
   await find
     .getByRole("combobox", { name: "Results per page" })
     .selectOption("25");
+  await find
+    .getByRole("combobox", { name: "Results per page" })
+    .press("Escape");
   await expect(find.locator(".find-results tbody tr")).toHaveCount(2);
   await expect(
     find.getByRole("button", { name: "renal trauma", exact: true }),
@@ -1832,15 +1968,23 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveCount(
     0,
   );
-  await find.getByRole("button", { name: "Clear", exact: true }).click();
   await find
     .getByRole("combobox", { name: "Sort results" })
     .selectOption("name-desc");
+  await find.getByRole("button", { name: /^Options:/ }).click();
+  await find.getByRole("button", { name: "Clear", exact: true }).click();
   await find.getByRole("checkbox", { name: "Classes", exact: true }).uncheck();
+  await find
+    .getByRole("button", { name: "Close Options", exact: true })
+    .click();
   await findSelection("  Dog  ");
+  await find.getByRole("button", { name: "More", exact: true }).click();
   await expect(
     find.getByRole("combobox", { name: "Results per page" }),
   ).toHaveValue("25");
+  await find
+    .getByRole("combobox", { name: "Results per page" })
+    .press("Escape");
   await expect(find).toHaveCount(1);
   await expect(
     page.getByRole("tab", { name: "Find", exact: true }),
@@ -1855,6 +1999,7 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(
     find.getByRole("combobox", { name: "Sort results" }),
   ).toHaveValue("relevance");
+  await find.getByRole("button", { name: /^Options:/ }).click();
   await expect(
     find.getByRole("checkbox", { name: "Classes", exact: true }),
   ).toBeChecked();
@@ -1864,9 +2009,18 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(
     find.getByRole("checkbox", { name: "IRI", exact: true }),
   ).toBeChecked();
-  await expect(
-    find.getByRole("combobox", { name: "Recent searches" }).locator("option"),
-  ).toHaveText(["Recent searches", "Dog", "renal trauma"]);
+  await find
+    .getByRole("button", { name: "Close Options", exact: true })
+    .click();
+  await find
+    .getByRole("button", { name: "Recent searches", exact: true })
+    .click();
+  const recent = find.getByRole("dialog", {
+    name: "Recent searches",
+    exact: true,
+  });
+  await expect(recent.getByRole("button")).toHaveText(["Dog", "renal trauma"]);
+  await recent.press("Escape");
   await menu("view.textanalysis");
   await editor().focus();
   await page.keyboard.press("ArrowRight");
