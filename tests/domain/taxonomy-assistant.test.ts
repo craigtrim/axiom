@@ -260,7 +260,10 @@ it("blocks ancestors, descendants, unrelated existing names, normalized duplicat
     true,
     true,
   ]);
-  expect(taxonomyNameKey("Alpha !! Beta")).toBe(taxonomyNameKey("AlphaBeta"));
+  expect(taxonomyNameKey("Alpha !! Beta")).toBe(taxonomyNameKey("Alpha Beta"));
+  expect(taxonomyNameKey("Alpha !! Beta")).not.toBe(
+    taxonomyNameKey("AlphaBeta"),
+  );
   const version = store.version;
   expect(() =>
     applyTaxonomySuggestions(store, vehicle, "children", [
@@ -306,7 +309,7 @@ it("parses Codex prose without an output schema and applies only locally bound r
   const expected = suggestion("Vehicle", THING);
   await writeFile(
     script,
-    'const fs=require("node:fs");let input="";process.stdin.on("data",d=>input+=d);process.stdin.on("end",()=>{if(!input.includes("Suggest useful additional types"))process.exit(2);if(process.argv.includes("--output-schema"))process.exit(3);fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],"Summary: Proposed direct child.\\nSuggestions:\\n1. Vehicle\\nDescription: A proposed category.\\nReason: Fits immediately below the selected parent.");});',
+    'const fs=require("node:fs");let input="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>input+=d);process.stdin.on("end",()=>{if(!input.includes("Suggest useful additional types"))process.exit(2);if(process.argv.includes("--output-schema"))process.exit(3);fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],"Summary: Proposed direct child.\\nSuggestions:\\n1. Vehicle\\nDescription: A proposed category.\\nReason: Fits immediately below the selected parent.");});',
   );
   const service = new TaxonomyAssistantService(
     path.join(root, "runs"),
@@ -420,7 +423,7 @@ it("defaults taxonomy requests to Claude with a plain-text response", async () =
     store = buildEmptyStore();
   await writeFile(
     script,
-    'process.stdin.resume();process.stdin.on("end",()=>{if(process.argv.includes("--json-schema"))process.exit(4);process.stdout.write(JSON.stringify({result:"Summary: Proposed category.\\nSuggestions:\\n1. Vehicle\\nDescription: A transport category.\\nReason: A useful general category."}));});',
+    'if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.resume();process.stdin.on("end",()=>{if(process.argv.includes("--json-schema"))process.exit(4);process.stdout.write(JSON.stringify({result:"Summary: Proposed category.\\nSuggestions:\\n1. Vehicle\\nDescription: A transport category.\\nReason: A useful general category."}));});',
   );
   const service = new TaxonomyAssistantService(
     path.join(root, "runs"),

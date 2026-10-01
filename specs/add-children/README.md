@@ -97,9 +97,9 @@ Used exactly as defined here, in addition to the suite glossary in [`README.md`]
 | `match` | string | yes | Present only when `status` is `exists`: the existing entity and its location |
 | `overlap` | string | yes | A non-blocking caution that the Suggestion partially overlaps an entity elsewhere |
 
-**SUG-2** `norm` MUST be derived from `label` by lower-casing, replacing each run of characters outside `[a-z0-9]` with a single underscore, and trimming leading and trailing underscores `[src: norm()]`.
+**SUG-2** Normalisation MUST apply Unicode NFKC, lower-case the label, extract runs of Unicode letters, numbers and combining marks, and join those runs with one space. If there are no such runs, it MUST retain the trimmed, lower-cased NFKC label. Distinct non-Latin labels MUST remain distinct. This is the shared authoring identity rule; search tokenisation is separate. This supersedes the prototype's ASCII-only key and is shared with FND-73.
 
-**SUG-3** `iri` MUST be derived from `label` by splitting on runs of characters outside `[A-Za-z0-9]`, capitalising the first letter of each resulting word, concatenating them, and prefixing the ontology's namespace `[src: iri()]`.
+**SUG-3** The identifier MUST apply Unicode NFKC, split into runs of Unicode letters, numbers, combining marks and underscores, uppercase the first character of each run, and concatenate the runs. An empty result becomes `Entity`; a result not starting with a Unicode letter gains the prefix `Entity`. The local name is limited to 200 Unicode code points and is prefixed with the ontology namespace. This is the shared authoring identifier rule. This supersedes the prototype's ASCII-only derivation and is shared with FND-58.
 
 **SUG-4** Two Suggestions within one Run MUST NOT share an `id`. An assistant response containing a collision is malformed and the later record MUST be discarded.
 
@@ -521,27 +521,7 @@ Every user-facing string, quoted verbatim. Copy is part of this specification. A
 
 ## Registration
 
-This document is not yet registered in the suite index. [`README.md`](../README.md) was deliberately not edited. To register it, add the three rows below.
-
-**Prefix registry**, into the table under `Requirement ID prefix registry`:
-
-```
-| `SUG` | [`add-children/README.md`](add-children/README.md) | Assistant suggestions: triage, status and commit |
-```
-
-**Document map**, into the table under `Document map`:
-
-```
-| [`add-children/README.md`](add-children/README.md) | Add Children Suggestions | `SUG` | The suggestions surface: run and target model, status lifecycle, triage, commit | 25 min |
-```
-
-**Reading order**, as a new step after the Surface documents and before the design system:
-
-```
-11. **[`add-children/README.md`](add-children/README.md)** - the suggestions surface: how an assistant's proposed children are triaged and committed. Read after the Surfaces, because it mutates the same hierarchy the tree presents and reuses the tree's selection vocabulary.
-```
-
-Renumber the subsequent reading order steps.
+`SUG` is registered in the [suite index](../README.md) alongside TEC and FND.
 
 ---
 

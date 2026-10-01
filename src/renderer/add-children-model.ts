@@ -8,11 +8,8 @@ import type {
   SuggestionStatus,
 } from "./suggestion-workbench-model";
 export interface ChildSuggestion extends TaxonomySuggestion, SuggestionItem {}
-export const normalizedSuggestionName = (label: string) =>
-  label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+export { entityNameKey as normalizedSuggestionName } from "../shared/entity-names";
+import { entityNameKey as normalizedSuggestionName } from "../shared/entity-names";
 
 export function childSuggestions(
   entry?: TaxonomyHistoryEntry,

@@ -36,11 +36,11 @@ describe("Add Children review model", () => {
       null,
     ];
     expect(childSuggestions(value).map((r) => [r.id, r.index])).toEqual([
-      ["water_vehicle", 0],
-      ["air_vehicle", 2],
+      ["water vehicle", 0],
+      ["air vehicle", 2],
     ]);
   });
-  it("keeps Unicode labels that have no ASCII normalization distinct", () => {
+  it("keeps distinct Unicode labels distinct", () => {
     const value = entry(["航空", "车辆"]);
     value.applied = [];
     value.response!.issues = [];
@@ -97,18 +97,18 @@ describe("Add Children review model", () => {
     const value = entry();
     value.applied = [];
     const rows = childSuggestions(value),
-      hidden = new Set(["water_vehicle"]);
+      hidden = new Set(["water vehicle"]);
     const filtered = visibleSuggestions(rows, "all", "Air", null);
     const selected = selectVisibleSuggestions(hidden, filtered, true);
-    expect([...selected]).toEqual(["water_vehicle", "air_vehicle"]);
+    expect([...selected]).toEqual(["water vehicle", "air vehicle"]);
     expect([...selectVisibleSuggestions(selected, filtered, false)]).toEqual([
-      "water_vehicle",
+      "water vehicle",
     ]);
     expect([...selectVisibleSuggestions(new Set(), rows, true)]).toEqual([
-      "water_vehicle",
-      "air_vehicle",
+      "water vehicle",
+      "air vehicle",
     ]);
-    expect([...hidden]).toEqual(["water_vehicle"]);
+    expect([...hidden]).toEqual(["water vehicle"]);
   });
 });
 
