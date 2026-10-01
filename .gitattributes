@@ -1,1 +1,2 @@
 tests/conformance/w3c/** -text
+tests/fixtures/find-visual/visual-reference.html -text

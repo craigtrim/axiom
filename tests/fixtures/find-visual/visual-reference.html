@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find: visual reference</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1 structure only: display, flex/grid, overflow, wrapping, ratio.
+   This layer is first so every product rule below always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Light tokens. Authored independently of dark. */
+:root, .pal-light {
+  --bg: #ffffff;
+  --sunken: #f4f4f4;
+  --raised: #fafafa;
+  --hover: #efefef;
+  --line: #e2e2e2;
+  --line-2: #c6c6c6;
+  --ink: #1b1b1b;
+  --ink-2: #585858;
+  /* Clears 4.5:1 against the hover ground as well as against the page, which is
+     where secondary text actually lands in a result row. */
+  --ink-3: #6a6a6a;
+  --accent: #0f5fa8;
+  --accent-2: #0b4a84;
+  --on-accent: #ffffff;
+  --tint: #eaf2fb;
+  --ok: #0b6b36;
+  --ok-tint: #e6f4ec;
+  --warn: #7d4a00;
+  --warn-tint: #fcf1df;
+  --bad: #a8201a;
+  --bad-tint: #fbeae9;
+  --focus: #0f5fa8;
+  --shadow: 0 2px 8px rgba(0,0,0,.14), 0 0 1px rgba(0,0,0,.24);
+}
+/* Dark tokens. Not an inversion. Measured against #1e1e1e, not against white. */
+:root[data-theme="dark"], .pal-dark {
+  --bg: #1e1e1e;
+  --sunken: #161616;
+  --raised: #272727;
+  --hover: #323232;
+  --line: #3a3a3a;
+  --line-2: #555555;
+  --ink: #f1f1f1;
+  --ink-2: #c3c3c3;
+  --ink-3: #a0a0a0;
+  --accent: #6cb4f5;
+  --accent-2: #9acbf8;
+  --on-accent: #0a1a28;
+  --tint: #16293a;
+  --ok: #65d18f;
+  --ok-tint: #11301e;
+  --warn: #e3a942;
+  --warn-tint: #33260c;
+  --bad: #ff8d81;
+  --bad-tint: #3a1a17;
+  --focus: #6cb4f5;
+  --shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 1px rgba(0,0,0,.7);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --bg: #1e1e1e; --sunken: #161616; --raised: #272727; --hover: #323232;
+    --line: #3a3a3a; --line-2: #555555;
+    --ink: #f1f1f1; --ink-2: #c3c3c3; --ink-3: #a0a0a0;
+    --accent: #6cb4f5; --accent-2: #9acbf8; --on-accent: #0a1a28; --tint: #16293a;
+    --ok: #65d18f; --ok-tint: #11301e; --warn: #e3a942; --warn-tint: #33260c;
+    --bad: #ff8d81; --bad-tint: #3a1a17; --focus: #6cb4f5;
+    --shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 1px rgba(0,0,0,.7);
+  }
+}
+
+html { color-scheme: light dark; }
+body {
+  margin: 0;
+  background: var(--sunken);
+  color: var(--ink);
+  font: 16px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.pal-light, .pal-dark { background: var(--bg); color: var(--ink); padding: 14px; border: 1px solid var(--line); }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 96px; }
+
+/* Document chrome */
+.doc-top { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 8px; font-weight: 600; letter-spacing: -.01em; }
+h2 { font-size: 21px; line-height: 1.3; margin: 56px 0 4px; font-weight: 600; }
+h2 .num { color: var(--ink-3); font-weight: 400; margin-right: 10px; }
+h3 { font-size: 16px; line-height: 1.4; margin: 28px 0 8px; font-weight: 600; }
+p { margin: 8px 0 12px; max-width: 72ch; }
+.lede { color: var(--ink-2); max-width: 72ch; }
+.muted { color: var(--ink-2); }
+code, .mono { font-family: "Cascadia Mono", Consolas, "Courier New", monospace; font-size: .92em; }
+a { color: var(--accent); }
+
+.toc { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 12px 0 0; font-size: 14px; }
+.toc a { color: var(--ink-2); text-decoration: none; }
+.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+.themebar { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.themebar button {
+  font: inherit; font-size: 13px; padding: 4px 12px; min-height: 28px;
+  border: 1px solid var(--line-2); background: var(--bg); color: var(--ink);
+  border-radius: 4px; cursor: pointer;
+}
+.themebar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* Shared callouts */
+.note {
+  border-left: 3px solid var(--accent); background: var(--tint);
+  padding: 10px 14px; margin: 16px 0; max-width: 78ch; font-size: 15px;
+}
+.note.bad { border-left-color: var(--bad); background: var(--bad-tint); }
+.note strong { font-weight: 600; }
+.ref { font-size: 13px; color: var(--ink-3); font-family: "Cascadia Mono", Consolas, monospace; }
+
+/* Exhibit scaffolding */
+.exhibit { margin: 20px 0 8px; }
+.cap { font-size: 13px; color: var(--ink-2); margin: 8px 0 20px; max-width: 78ch; }
+.cap b { color: var(--ink); font-weight: 600; }
+
+.sbs { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.sbs > * { flex: 0 0 auto; }
+.label-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.label-row .t { font-size: 13px; font-weight: 600; }
+.label-row .d { font-size: 12px; color: var(--ink-3); font-family: "Cascadia Mono", Consolas, monospace; }
+
+.shotfig { margin: 0 0 24px; max-width: 760px; }
+.shotfig img { width: 100%; height: auto; border: 1px solid var(--line-2); background: #fff; display: block; }
+.shotfig figcaption { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
+
+/* ===== The pane itself ===== */
+.frame {
+  container-type: size;
+  container-name: pane;
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  overflow: hidden;
+  resize: both;
+  box-shadow: var(--shadow);
+}
+.pane {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+/* Query row */
+.qrow { display: flex; align-items: center; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
+.qfield { position: relative; flex: 1 1 0; min-width: 0; display: flex; align-items: center; }
+.qfield input {
+  font: inherit; width: 100%; padding: 6px 60px 6px 10px; min-height: 32px;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg); color: var(--ink);
+}
+.qfield input:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; border-color: var(--focus); }
+.infield { position: absolute; right: 4px; display: flex; gap: 2px; }
+
+.ib {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; min-width: 24px; min-height: 24px;
+  border: 1px solid transparent; background: transparent; color: var(--ink-2);
+  border-radius: 4px; cursor: pointer; padding: 0;
+}
+.ib:hover { background: var(--hover); color: var(--ink); }
+.ib:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ib svg { width: 15px; height: 15px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font: inherit; font-size: 13px; padding: 5px 10px; min-height: 32px;
+  border: 1px solid var(--line-2); background: var(--bg); color: var(--ink);
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--hover); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.btn svg { width: 15px; height: 15px; flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn[disabled]:hover { background: var(--bg); }
+
+select.sel {
+  font: inherit; font-size: 13px; min-height: 32px; padding: 4px 6px;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg); color: var(--ink);
+  max-width: 128px; min-width: 0; flex: 0 1 auto;
+}
+select.sel:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* Body: rail plus results */
+.body { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.rail {
+  display: none; border-right: 1px solid var(--line); background: var(--raised);
+  overflow-y: auto; min-height: 0; padding: 8px;
+}
+.rail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.rail-head .s { font-size: 12px; color: var(--ink-2); }
+.rail h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); margin: 12px 0 6px; font-weight: 600; }
+.chk { display: flex; align-items: center; gap: 8px; padding: 3px 2px; font-size: 13px; min-height: 24px; }
+.chk input { margin: 0; flex: none; accent-color: var(--accent); width: 15px; height: 15px; }
+.chk .n { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chk .c { flex: none; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chk .c.hit { color: var(--accent); font-weight: 600; }
+
+.results { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; }
+.rhead {
+  display: none; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--raised);
+}
+.rhead .n { font-size: 13px; color: var(--ink-2); }
+.rbody { overflow-y: auto; min-height: 0; }
+.rfoot {
+  display: none; align-items: center; gap: 4px;
+  padding: 6px 8px; border-top: 1px solid var(--line); background: var(--raised); font-size: 12px; color: var(--ink-2);
+}
+.rfoot .pg { font-variant-numeric: tabular-nums; padding: 0 6px; }
+.ctx { display: none; padding: 6px 8px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+.store { display: none; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 8px; border-top: 1px solid var(--line); background: var(--raised);
+  font-size: 12px; color: var(--ink-3); }
+
+/* Result table */
+table.res { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.res th {
+  text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-2);
+  padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg);
+}
+table.res td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.res tr:hover td { background: var(--hover); }
+table.res tr.sel td { background: var(--tint); box-shadow: inset 2px 0 0 var(--accent); }
+.ename { color: var(--accent); font-weight: 600; display: block; text-decoration: none; }
+.ename:hover { text-decoration: underline; }
+/* The breadcrumb truncates from the left and always keeps the leaf. FND-41.
+   Two elements rather than a direction trick: the head shrinks, the leaf never does. */
+.epath { display: flex; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-3); }
+.epath .ph { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.epath .pl { flex: none; white-space: nowrap; }
+.efold { display: none; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.efold b { color: var(--ink-2); font-weight: 600; }
+.syn { font-size: 13px; color: var(--ink-2); }
+.syn.none { color: var(--ink-3); font-style: normal; }
+.addsyn { font-size: 12px; padding: 2px 8px; min-height: 24px; margin-top: 4px; }
+
+/* Scope entry button face carries both ratios */
+.scope-btn { display: inline-flex; }
+.scope-btn .r { font-variant-numeric: tabular-nums; }
+
+/* Visually hidden, still announced. Not .od-spacer, which hides from assistive
+   technology as well as from sight. */
+.vh {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ===== Container query tiering. Only 600 and 400 appear anywhere below. =====
+   Defaults first, overrides after, because these selectors have equal weight
+   and the later rule wins. The default state is Narrow and shallow. */
+.sort { display: none; }
+th.col-type, td.col-type, th.col-syn, td.col-syn { display: none; }
+col.col-type, col.col-syn { display: none; }
+.efold.fold-type, .efold.fold-syn { display: block; }
+.zero-create { display: block; }
+
+@container pane (min-height: 400px) {
+  .rhead { display: flex; }
+  .rfoot { display: flex; }
+  .ctx { display: block; }
+  .sort { display: inline-flex; }
+  th.col-type, td.col-type { display: table-cell; }
+  col.col-type { display: table-column; }
+  .efold.fold-type { display: none; }
+  /* Enough height for the inline editor, so the collapsed entry is not needed. */
+  .zero-create { display: none; }
+}
+@container pane (min-width: 600px) {
+  .sort { display: inline-flex; }
+  th.col-type, td.col-type, th.col-syn, td.col-syn { display: table-cell; }
+  col.col-type, col.col-syn { display: table-column; }
+  .efold.fold-type, .efold.fold-syn { display: none; }
+}
+@container pane (min-width: 600px) and (min-height: 400px) {
+  .body { grid-template-columns: 224px minmax(0, 1fr); }
+  .rail { display: block; }
+  .scope-btn { display: none; }
+  .store { display: flex; }
+}
+/* The inline editor needs height. Below the height threshold it collapses to the
+   button above, which opens it over the body the way Options does. FND-94. */
+.zero-editor { display: none; }
+@container pane (min-height: 400px) { .zero-editor { display: block; } }
+
+/* ===== Zero state ===== */
+.zero { padding: 16px; }
+.zero h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.zero .why { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; max-width: 60ch; }
+.ladder { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.rem {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; padding: 5px 10px; min-height: 32px;
+  border: 1px solid var(--line-2); background: var(--bg); color: var(--ink);
+  border-radius: 4px; cursor: pointer; text-align: left;
+}
+.rem:hover { background: var(--hover); }
+.rem:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rem .y {
+  font-size: 12px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 10px;
+  background: var(--ok-tint); color: var(--ok); font-weight: 600; white-space: nowrap;
+}
+.rem[disabled] { opacity: .55; cursor: default; }
+.rem[disabled]:hover { background: var(--bg); }
+.rem[disabled] .y { background: var(--sunken); color: var(--ink-3); }
+
+.rule { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+
+/* ===== The inline statement editor, continuing the Details idiom =====
+   Section 3.1 of the spec governs this whole block. The editor is NOT wrapped
+   in a panel: the labeled rule is its boundary. Nothing below is a container
+   except .sect, and that only when a real ancestor chain exists. */
+
+/* Width is room for results, not for larger controls. Every region declares its
+   own cap, so a maximized window changes nothing about the editor. Section 3.2. */
+.ed-wrap { max-width: 720px; }
+.w-label   { max-width: 320px; }
+.w-comment { max-width: 560px; }
+.w-parent  { max-width: 360px; }
+
+.ed-label {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  margin: 4px 0 8px; min-height: 28px;
+}
+.ed-label::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--line); }
+
+/* Collapsed ancestry: a chain of one is not a chain. FND-132.
+   Sized by its content, never stretched to the container. FND-141. */
+.anc-line {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 13px; min-height: 28px; color: var(--ink-2); max-width: 560px;
+}
+.anc-line b { color: var(--ink); font-weight: 600; }
+.anc-line .hint { color: var(--warn); }
+
+.sect { border: 1px solid var(--line); border-top: 3px solid var(--accent); background: var(--tint);
+  border-radius: 0 0 6px 6px; padding: 8px; max-width: 560px; }
+
+.chain { display: grid; gap: 0; }
+.ccard {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line-2); background: var(--bg); border-radius: 8px;
+  padding: 8px 12px; min-height: 44px;
+}
+.ccard.sel { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ccard .glyph { flex: none; width: 14px; height: 14px; }
+.ccard .cc { display: block; font-size: 11px; opacity: .85; }
+.ccard .nn { display: block; font-size: 14px; font-weight: 600; }
+.conn { height: 16px; margin-left: 26px; border-left: 1px solid var(--line-2); width: 1px; }
+.conn::after { content: "\25BE"; display: block; margin-left: -5px; margin-top: 8px; color: var(--line-2); font-size: 11px; line-height: 1; }
+
+.subj { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; min-height: 30px; }
+.subj .k { color: var(--ink-3); flex: none; }
+.subj .v { flex: 0 1 560px; min-width: 0; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px;
+  color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subj .follows { flex: none; font-size: 11px; color: var(--ink-3); }
+
+/* The statement count rides the header row. It never takes a band. FND-125. */
+table.st { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.st th { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.th-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.th-row .n { font-weight: 400; color: var(--ink-3); font-size: 11.5px; white-space: nowrap; }
+table.st td { padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.st .pk { display: flex; align-items: center; gap: 4px; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--ink); }
+table.st .pk svg { width: 12px; height: 12px; color: var(--ink-3); flex: none; }
+table.st input, table.st select {
+  font: inherit; font-size: 13px; width: 100%; padding: 4px 8px; min-height: 30px;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg); color: var(--ink);
+}
+table.st td.fixed-v { font-size: 13px; }
+.rowact { visibility: hidden; }
+table.st tr:hover .rowact, table.st tr:focus-within .rowact { visibility: visible; }
+/* Add row and Source are text, and they share one line. FND-126. */
+.ed-tools { display: flex; align-items: center; gap: 18px; min-height: 32px; flex-wrap: wrap; }
+.addrow { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--accent);
+  font: inherit; font-size: 13px; padding: 4px 2px; min-height: 28px; cursor: pointer; flex: none; }
+.addrow:hover { text-decoration: underline; }
+.addrow:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+details.src { flex: 1 1 auto; min-width: 0; }
+details.src summary { cursor: pointer; font-size: 13px; color: var(--ink-2); padding: 4px 2px; min-height: 28px; display: flex; align-items: center; }
+details.src summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+details.src pre {
+  margin: 4px 0 0; padding: 10px; background: var(--sunken); border: 1px solid var(--line);
+  border-radius: 4px; overflow-x: auto; font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 11.5px; line-height: 1.5; color: var(--ink-2);
+}
+/* One row. The primary action is never stranded on its own line. FND-133. */
+.cfoot { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; min-height: 44px; }
+.cfoot .dest { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfoot .dest b { color: var(--ink); font-weight: 600; }
+.cfoot .acts { flex: none; display: flex; align-items: center; gap: 6px; }
+
+.guard { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 4px; font-size: 13px; margin: 6px 0; }
+.guard svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.guard.block { background: var(--bad-tint); color: var(--bad); border: 1px solid var(--bad); }
+.guard.caution { background: var(--warn-tint); color: var(--warn); border: 1px solid var(--warn); }
+.guard .b { font-weight: 600; }
+.guard a, .guard button.link { color: inherit; font: inherit; background: none; border: 0; padding: 0;
+  text-decoration: underline; cursor: pointer; }
+
+/* Recovery */
+.recov { height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 12px; text-align: center; }
+.recov .id { font-size: 13px; font-weight: 600; }
+
+/* Annotated control map */
+.map { position: relative; }
+.pin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+  font-size: 11px; font-weight: 700; flex: none; font-variant-numeric: tabular-nums;
+}
+.legend { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; max-width: 72ch; }
+.legend li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+.legend .pin { margin-top: 3px; }
+.legend b { font-weight: 600; }
+
+/* Comparison tables */
+table.doc { border-collapse: collapse; width: 100%; max-width: 940px; margin: 12px 0 20px; font-size: 14px; }
+table.doc th, table.doc td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.doc th { font-weight: 600; font-size: 13px; color: var(--ink-2); border-bottom: 1px solid var(--line-2); }
+table.doc code { font-size: 12.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-top">
+  <div class="od-row" style="justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+    <div>
+      <h1>Find: visual reference</h1>
+      <p class="lede">The rendered companion to <code>README.md</code> in this folder. Every state the specification names, drawn once, in both themes, at real sizes.</p>
+    </div>
+    <div class="themebar od-fixed">
+      <span class="muted" style="font-size:13px">Theme</span>
+      <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <div class="note">
+    <strong>This is a picture, not a specification.</strong> Where this file and <code>README.md</code> disagree, the README wins and this file is the defect. Requirement numbers are cited throughout so each exhibit can be traced back.
+  </div>
+  <nav class="toc" aria-label="Exhibits">
+    <a href="#z">0. What revision 1 permitted</a>
+    <a href="#a">A. The trailing cluster</a>
+    <a href="#b">B. Control homes</a>
+    <a href="#c">C. The four presentations</a>
+    <a href="#d">D. The zero result</a>
+    <a href="#e">E. The inline editor</a>
+    <a href="#f">F. The duplicate guard</a>
+    <a href="#g">G. Counts</a>
+    <a href="#h">H. Recovery</a>
+    <a href="#i">I. Both themes</a>
+  </nav>
+</header>
+
+<!-- ============ 0 ============ -->
+<h2 id="z"><span class="num">0</span>What revision 1 permitted</h2>
+<p>An implementation built from revision 1 of the specification. It satisfies every requirement as written. Section 3.1 of the spec exists because of it, and this exhibit is the reason revision 2 was necessary.</p>
+
+<div class="note bad">
+  <strong>The fault is the specification's, not the implementer's.</strong> Revision 1 said what the editor contains and in what order. It said nothing about how many boxes that content may sit inside, or how tall it may be. A specification written that way gets built as a box per noun, and every reading below is a reasonable one.
+</div>
+
+<div class="sbs">
+  <figure class="shotfig" style="max-width:300px">
+    <img src="screenshots/06-implementation-nested-cards.png" width="924" height="2394" alt="The creation editor as built from revision 1: an outer Add it panel containing an Ancestry card containing a statement table card, with Add row and Source each boxed, consuming most of the pane height.">
+    <figcaption><b>Built from revision 1.</b> Five bordered containers deep. Roughly 1,270 of 2,394 pixels to create one class with a name and no parent. <span class="ref">shot: 06</span></figcaption>
+  </figure>
+  <div style="flex:1 1 420px;min-width:380px">
+    <div class="label-row"><span class="t">The same editor under revision 2</span><span class="d">budget 400 px</span></div>
+    <div style="border:1px solid var(--line-2);background:var(--bg);padding:12px 14px;box-shadow:var(--shadow)" id="ed-fixed"></div>
+    <p class="cap" style="margin-top:12px">Same content, same statements, same two actions. One container, used once, and only when there is an ancestor chain worth drawing. Here there is not, so the ancestry is one line. <span class="ref">FND-121 to FND-136</span></p>
+  </div>
+</div>
+
+<h3>Where the 1,270 pixels went</h3>
+<table class="doc">
+  <thead><tr><th>Band</th><th>Cost</th><th>Requirement added</th></tr></thead>
+  <tbody>
+    <tr><td><code>Not in the ontology? Add it.</code>, invented copy in a tinted band</td><td>~60</td><td>FND-136</td></tr>
+    <tr><td><code>Checked against all 6,027 entities as you type</code>, standing rationale</td><td>~50</td><td>FND-127, FND-135</td></tr>
+    <tr><td><code>Ancestry</code> header band above a visible ancestry chain</td><td>~60</td><td>FND-125</td></tr>
+    <tr><td>Two horizontal cards for a chain of one</td><td>~96</td><td>FND-132</td></tr>
+    <tr><td>owl:Thing as a two line colored paragraph, then stated again in the footer</td><td>~56</td><td>FND-71</td></tr>
+    <tr><td><code>3 statements</code> as its own band</td><td>~54</td><td>FND-125</td></tr>
+    <tr><td>Parent row carrying two stacked controls</td><td>~64</td><td>FND-65</td></tr>
+    <tr><td><code>+ Add row</code> and <code>Source</code> each a full width box on its own line</td><td>~70</td><td>FND-126</td></tr>
+    <tr><td>Commit footer across two rows, primary action stranded bottom left</td><td>~70</td><td>FND-133</td></tr>
+    <tr><td>Counts stated three times in four lines</td><td>~70</td><td>FND-128, FND-129</td></tr>
+    <tr><td>Both remedies disabled at zero, ladder rendered anyway</td><td>~56</td><td>FND-134</td></tr>
+    <tr><td>Scope entry rendering the full sentence on its face, three lines tall</td><td>~42</td><td>FND-98</td></tr>
+  </tbody>
+</table>
+<p class="cap">The rest is container padding and borders, which is what five levels of nesting costs even when every level is empty.</p>
+
+<h3>The same build, maximized</h3>
+<p>Revision 2 constrained height. This capture shows the axis it left open. <span class="ref">shot: 07, FND-137 to FND-143</span></p>
+
+<figure class="shotfig" style="max-width:760px">
+  <img src="screenshots/07-implementation-full-screen.png" width="2841" height="2404" alt="The same creation editor in a maximized window. Every control stretches to the full width of the results region: the label field spans most of the window to hold one word, and the ancestry band is mostly empty.">
+  <figcaption><b>Width taken as permission.</b> The <code>rdfs:label</code> field is roughly 57 percent of the window wide to carry fourteen characters. <code>rdfs:subClassOf</code> sits more than a thousand pixels from its own control. The ancestry band is three quarters empty. Below the footer the pane is blank and the pager reads <code>Page 0 of 0</code>, so the surface is oversized and empty at once. <span class="ref">shot: 07</span></figcaption>
+</figure>
+
+<div class="note">
+  <strong>A wider pane is room for results, not for larger controls.</strong> The editor is capped at 720 pixels and every control inside it is capped by the class of content it holds. At full screen the editor is the same editor it is at 440 pixels, and the space beside it stays empty, because a zero result genuinely has nothing to put there. <span class="ref">FND-138, FND-139, FND-143</span>
+</div>
+
+<div class="label-row"><span class="t">Expanded, zero results</span><span class="d">1180 &times; 560</span></div>
+<div class="frame" id="fr-wide" style="width:1180px;height:560px"></div>
+<p class="cap">The rail is a column, the editor holds its measure, and the remaining width is honestly blank. Drag the corner wider: nothing in the editor grows. <span class="ref">FND-137, FND-142</span></p>
+
+<!-- ============ A ============ -->
+<h2 id="a"><span class="num">A</span>The trailing cluster</h2>
+<p>Five controls shared one trailing slot and nothing decided which of them deserved permanent space. <span class="ref">FND-86, FND-89</span></p>
+
+<div class="sbs">
+  <figure class="shotfig" style="max-width:480px">
+    <img src="screenshots/02-trailing-cluster-expanded.png" width="2848" height="2405" alt="The shipped Find pane at full width. Sort and its select sit on the first row beside Clear and Recent searches, Reset filters has wrapped onto a second row, and Open results in new graph occupies a third.">
+    <figcaption><b>Before.</b> Full width and already wrapping onto three rows. <span class="ref">shot: 02</span></figcaption>
+  </figure>
+  <figure class="shotfig" style="max-width:230px">
+    <img src="screenshots/03-narrow-pane-stacked-bands.png" width="917" height="2424" alt="The same pane at reduced width. Three control bands stack before any content and the Entity column header is clipped at the left edge.">
+    <figcaption><b>Worse.</b> Three bands before content, and the <code>Entity</code> header is clipped. <span class="ref">shot: 03, FND-103</span></figcaption>
+  </figure>
+</div>
+
+<h3>After</h3>
+<p class="cap">The query row is now four slots that never wrap. Clear and Recent searches moved inside the field, Reset moved to the rail header where scope lives, match mode and page size moved to More, and the graph action moved to the results header beside the thing it acts on.</p>
+<div class="exhibit"><div class="frame" id="fr-after" style="width:860px;height:560px"></div></div>
+<p class="cap">Every frame on this page is resizable from its lower right corner. Drag one and the presentation re-tiers from its own measured rectangle, which is the mechanism <span class="ref">FND-96</span> requires.</p>
+
+<!-- ============ B ============ -->
+<h2 id="b"><span class="num">B</span>Control homes</h2>
+<p>Each control sits with the thing it acts on. <span class="ref">FND-86</span></p>
+<div class="exhibit map"><div class="frame" id="fr-map" style="width:860px;height:300px"></div></div>
+<ol class="legend">
+  <li><span class="pin">1</span><span><b>Scope entry.</b> Query row, leading. Opens configuration, and states both ratios on its own face so the condition behind a zero result is readable without opening anything. Absent in Expanded, where the rail is a column. <span class="ref">FND-29, FND-98</span></span></li>
+  <li><span class="pin">2</span><span><b>Clear.</b> Inside the field, trailing. Acts on the field's text. Absent when the field is empty, not disabled. <span class="ref">FND-87</span></span></li>
+  <li><span class="pin">3</span><span><b>Recent searches.</b> Inside the field, trailing. Produces text for the field, so it travels with the field. <span class="ref">FND-89</span></span></li>
+  <li><span class="pin">4</span><span><b>Sort.</b> Query row, trailing. Orders the list the field produces. Its visible label drops before the control does. <span class="ref">FND-89</span></span></li>
+  <li><span class="pin">5</span><span><b>More.</b> Holds match mode and page size, both changed rarely. Stays in More at every size. <span class="ref">FND-89, FND-90</span></span></li>
+  <li><span class="pin">6</span><span><b>Reset filters.</b> Scope rail header. It resets scope, not the query, so it belongs with scope. Absent while scope, match mode and sort are all at their defaults. <span class="ref">FND-30</span></span></li>
+  <li><span class="pin">7</span><span><b>The results header action slot.</b> One slot, one action, decided by the result count. With results it carries the graph action. With none it is empty: there is nothing to send to a graph, and the body below already carries creation, so a button here would duplicate it. <span class="ref">FND-91, FND-92</span></span></li>
+</ol>
+
+<!-- ============ C ============ -->
+<h2 id="c"><span class="num">C</span>The four presentations</h2>
+<p>Four presentations, two thresholds, no new names and no new numbers. Switching happens at 600 wide and 400 high, with exits at 616 and 416 so the mode cannot oscillate at a boundary. <span class="ref">FND-95</span></p>
+
+<table class="doc">
+  <thead><tr><th>Presentation</th><th>Rectangle</th><th>Scope</th><th>Withdraws</th></tr></thead>
+  <tbody>
+    <tr><td><b>Expanded</b></td><td><code>&ge;600 &times; &ge;400</code></td><td>Rail as a persistent column</td><td>Nothing</td></tr>
+    <tr><td><b>Narrow</b></td><td><code>&lt;600 &times; &ge;400</code></td><td>Options disclosure</td><td>Synonym column, store summary</td></tr>
+    <tr><td><b>Shallow</b></td><td><code>&ge;600 &times; &lt;400</code></td><td>Options disclosure</td><td>Results header, footer, context line</td></tr>
+    <tr><td><b>Narrow and shallow</b></td><td><code>&lt;600 &times; &lt;400</code></td><td>Options disclosure</td><td>All of the above, plus Sort and the Type column</td></tr>
+  </tbody>
+</table>
+
+<div class="sbs">
+  <div>
+    <div class="label-row"><span class="t">Expanded</span><span class="d">860 &times; 560</span></div>
+    <div class="frame" id="fr-exp" style="width:860px;height:560px"></div>
+  </div>
+  <div>
+    <div class="label-row"><span class="t">Narrow</span><span class="d">440 &times; 560</span></div>
+    <div class="frame" id="fr-nar" style="width:440px;height:560px"></div>
+  </div>
+</div>
+<div class="sbs" style="margin-top:28px">
+  <div>
+    <div class="label-row"><span class="t">Shallow</span><span class="d">860 &times; 320</span></div>
+    <div class="frame" id="fr-sha" style="width:860px;height:320px"></div>
+  </div>
+  <div>
+    <div class="label-row"><span class="t">Narrow and shallow</span><span class="d">440 &times; 300</span></div>
+    <div class="frame" id="fr-ns" style="width:440px;height:300px"></div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Folding, not hiding.</strong> A column that leaves does not take its value with it. Synonym folds into the entity cell in Narrow, and Type joins it in Narrow and shallow. Read the second and fourth frames above: the data is still on screen. <span class="ref">FND-101, FND-102</span>
+</div>
+
+<!-- ============ D ============ -->
+<h2 id="d"><span class="num">D</span>The zero result</h2>
+
+<figure class="shotfig" style="max-width:620px">
+  <img src="screenshots/01-zero-result-scoped.png" width="1935" height="1258" alt="The shipped Find pane reporting zero matches for reading and comprehension while only two of sixteen fields are scoped in. The body reads: No matches. Try fewer words or reset the filters.">
+  <figcaption><b>The defect.</b> <code>No matches. Try fewer words or reset the filters.</code> blames the query. The scope is the cause: two fields of sixteen. Nothing on screen says so. <span class="ref">shot: 01, FND-48</span></figcaption>
+</figure>
+
+<p>The zero state does two jobs in a fixed order: establish whether the entity is genuinely absent, then make creating it trivial. Offering creation before the user has ruled out a scoped miss manufactures duplicates. <span class="ref">FND-49</span></p>
+
+<div class="exhibit"><div class="frame" id="fr-zero" style="width:860px;height:560px"></div></div>
+
+<h3>Remedy states</h3>
+<p class="cap">Each remedy carries its own precomputed yield, so the user never clicks hopefully. A remedy that would still yield nothing stays visible and goes disabled with its zero showing, because the zero is itself the diagnostic. A remedy whose change is already in effect is not rendered at all. <span class="ref">FND-53, FND-54, FND-55</span></p>
+<div class="ladder" style="max-width:860px">
+  <button type="button" class="rem">Search all 16 fields <span class="y">1 match</span></button>
+  <button type="button" class="rem">Match any word instead of all <span class="y">3 matches</span></button>
+  <button type="button" class="rem" disabled>Include every entity type <span class="y">no matches</span></button>
+  <button type="button" class="rem">Reset every filter <span class="y">4 matches</span></button>
+</div>
+<p class="cap"><b>Left to right:</b> enabled with a real yield, enabled with a real yield, visible and disabled at zero, and the full reset. Cheapest correction first.</p>
+
+<h3>When every remedy yields zero</h3>
+<p class="cap">A row of disabled zeroes is not a diagnostic, it is a dead band. The ladder is not rendered at all; one line says the same thing. <span class="ref">FND-134</span></p>
+<div style="max-width:860px;border:1px solid var(--line);padding:14px 16px;background:var(--bg)">
+  <h3 style="margin:0 0 4px;font-size:15px">Nothing matched in 2 of 16 fields.</h3>
+  <p style="margin:0;font-size:13px;color:var(--ink-2)">Widening the scope would not help.</p>
+</div>
+<p class="cap">Compare with <span class="ref">shot: 06</span>, which renders <code>Search all 16 fields &nbsp;0 matches</code> and <code>Reset every filter &nbsp;0 matches</code> side by side, both disabled, in a band 56 pixels tall that tells the user nothing they can act on.</p>
+
+<!-- ============ E ============ -->
+<h2 id="e"><span class="num">E</span>The inline editor</h2>
+
+<div class="sbs">
+  <figure class="shotfig" style="max-width:330px">
+    <img src="screenshots/05-details-statement-table.png" width="1004" height="1245" alt="The Details view for Asian Art, showing an ANCESTRY section with a chain of linked cards above a Predicate and Value statement table, an Add row action, and a collapsed Source disclosure.">
+    <figcaption><b>The idiom.</b> Details already edits entities this way. Creating one is the same act applied to a subject that does not exist yet. <span class="ref">shot: 05, FND-61</span></figcaption>
+  </figure>
+  <figure class="shotfig" style="max-width:380px">
+    <img src="screenshots/04-add-selected-text-to-taxonomy.png" width="947" height="479" alt="A context menu over analyzed text listing Cut, Copy, Find, Paste and Add selected text to taxonomy.">
+    <figcaption><b>The escalation target.</b> <code>Continue in Add entity</code> opens the view this menu item reaches, carrying the whole draft. <span class="ref">shot: 04, FND-83</span></figcaption>
+  </figure>
+</div>
+
+<div class="note bad">
+  <strong>The two paths are additive, not alternatives.</strong> The inline editor handles the common case. <code>Continue in Add entity</code> handles nested parent creation and everything the inline editor does not cover. Deleting the inline editor in favour of the escalation alone removes the common case to serve the rare one. <span class="ref">FND-58, FND-59</span>
+</div>
+
+<div class="sbs">
+  <div>
+    <div class="label-row"><span class="t">Room for the editor</span><span class="d">560 &times; 620</span></div>
+    <div class="frame" id="fr-edit" style="width:560px;height:620px"></div>
+  </div>
+  <div>
+    <div class="label-row"><span class="t">Collapsed</span><span class="d">560 &times; 300</span></div>
+    <div class="frame" id="fr-edit-s" style="width:560px;height:300px"></div>
+  </div>
+</div>
+
+<h3>With a real ancestor chain</h3>
+<p class="cap">The ancestry container, its accent rule and its tinted ground appear only here, where there is a chain to draw. The chain is vertical, matching <span class="ref">shot: 05</span>. One extra statement row and two extra cards is the entire difference from the collapsed form. <span class="ref">FND-62, FND-123, FND-132</span></p>
+<div style="max-width:540px;border:1px solid var(--line-2);background:var(--bg);padding:12px 14px;box-shadow:var(--shadow)" id="ed-chain"></div>
+<p class="cap"><b>One creation affordance at any size.</b> Where there is height the editor is open inline, because the user already said what they wanted by searching for it. Where there is not, it collapses to a button that opens the editor over the body, the way Options does. The two are never both on screen. <span class="ref">FND-60, FND-94</span></p>
+<p class="cap">An individual's parent is written as a second <code>rdf:type</code> statement, not as <code>rdfs:subClassOf</code>. <span class="ref">FND-70</span></p>
+
+<!-- ============ F ============ -->
+<h2 id="f"><span class="num">F</span>The duplicate guard</h2>
+<p>The check reads every entity in the store, including hidden and generated ones, and ignores the active search scope entirely. The user arrived here because a <em>scoped</em> search found nothing; checking for collisions within that same scope would reproduce the error that sent them here. <span class="ref">FND-73, FND-74</span></p>
+
+<div style="max-width:720px">
+  <div class="guard block">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v4.2M8 11.2v.6"/></svg>
+    <span><span class="b">Synaptic Plasticity</span> already exists under Course &rsaquo; Science &rsaquo; Biology &rsaquo; Neuroscience. <button type="button" class="link">Open Synaptic Plasticity</button></span>
+  </div>
+  <p class="cap"><b>Exact label collision.</b> Blocks commit. Names the colliding entity with its path and offers to open it, which widens the scope enough to reveal it and selects it. <span class="ref">FND-75, FND-76</span></p>
+
+  <div class="guard caution">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>
+    <span><span class="b">synaptic plasticity</span> is very close to <span class="b">Synaptic Plasticity</span> under Course &rsaquo; Science &rsaquo; Biology &rsaquo; Neuroscience.</span>
+  </div>
+  <p class="cap"><b>Normalized name collision.</b> Does not block. The two are usually the same thing and occasionally are not, so this is the user's call. <span class="ref">FND-77</span></p>
+
+  <div class="guard caution">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>
+    <span>No parent chosen. This will be created under <span class="b">owl:Thing</span>.</span>
+  </div>
+  <p class="cap"><b>Root level caution.</b> Stated beside the parent row and again in the commit footer, in both places. A user who does not notice they are creating a root level class is the second most common error on this surface. <span class="ref">FND-71</span></p>
+</div>
+
+<!-- ============ G ============ -->
+<h2 id="g"><span class="num">G</span>Counts</h2>
+<p>Two kinds of count with two different meanings. Conflating them is what makes a zero result undiagnosable. <span class="ref">FND-31 through FND-36</span></p>
+
+<table class="doc">
+  <thead><tr><th>Count</th><th>Answers</th><th>Ignores</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Entity type</b><br><span class="muted" style="font-size:13px">Classes 10, Instances 0</span></td>
+      <td>How many entities of this type match <em>now</em>, under the current query and field scope.</td>
+      <td>The entity type scope.</td>
+    </tr>
+    <tr>
+      <td><b>Search field</b><br><span class="muted" style="font-size:13px">rdfs:comment 1</span></td>
+      <td>How many entities this field <em>alone</em> would match, whether or not it is currently scoped in. A yield.</td>
+      <td>The field scope.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note bad">
+  <strong>This changes observed behavior.</strong> The shipped build reports field <em>population</em>, not yield: with nothing matching it shows <code>Names and aliases 6,019</code> and <code>owl:equivalentClass 612</code>, which are counts of entities that have those fields filled in. Neither number answers the question the user has, which is "where is the thing I searched for". <span class="ref">shot: 01, shot: 02, FND-35</span>
+</div>
+
+<p class="cap">In the rail below, the query is <code>synaptic plasticity</code> and two fields are scoped in. Both ticked fields report zero. One unticked field reports one. The rail is now telling the user exactly which box to tick.</p>
+<div class="exhibit"><div class="frame" id="fr-counts" style="width:860px;height:460px"></div></div>
+
+<!-- ============ H ============ -->
+<h2 id="h"><span class="num">H</span>Recovery</h2>
+<p>Below 240 wide, or below 210 high when narrow and 180 otherwise, the pane shows its identity and a way out. Its contents stay mounted but inert, and the query, scope, page and any creation draft survive for the restored pane. <span class="ref">FND-104</span></p>
+<div class="sbs">
+  <div>
+    <div class="label-row"><span class="t">Too narrow</span><span class="d">210 &times; 300</span></div>
+    <div class="frame" style="width:210px;height:300px">
+      <div class="recov">
+        <span class="id">Find</span>
+        <span class="muted" style="font-size:12px">Pane is too small to use.</span>
+        <button type="button" class="btn">Maximize pane</button>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="label-row"><span class="t">Too shallow</span><span class="d">440 &times; 160</span></div>
+    <div class="frame" style="width:440px;height:160px">
+      <div class="recov">
+        <span class="id">Find</span>
+        <button type="button" class="btn">Maximize pane</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ I ============ -->
+<h2 id="i"><span class="num">I</span>Both themes</h2>
+<p>Light and dark are authored as two independent token sets. Dark is measured against its own ground, not derived by inverting light. Body text clears 4.5:1 and icons clear 3:1 in both. <span class="ref">FND-108</span></p>
+<div class="sbs">
+  <div class="pal-light">
+    <div class="label-row" style="padding:0 0 6px"><span class="t">Light</span></div>
+    <div class="frame" id="fr-light" style="width:540px;height:420px"></div>
+  </div>
+  <div class="pal-dark" style="padding:0 0 0 0">
+    <div class="label-row" style="padding:0 0 6px"><span class="t" style="color:var(--ink)">Dark</span></div>
+    <div class="frame" id="fr-dark" style="width:540px;height:420px"></div>
+  </div>
+</div>
+
+<h2>What this file does not show</h2>
+<p>Keyboard behaviour <span class="ref">FND-105</span>, the live region announcing result counts <span class="ref">FND-113</span>, commit transaction semantics <span class="ref">FND-81</span> and the copy catalogue <span class="ref">FND-116</span> are all normative and none of them is visible in a still rendering. Read the README for those.</p>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------- sample store, taken from the captures ---------- */
+var ROWS = [
+  { n: "Developmental Neuroscience", t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neuroscience Research",      t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neurology",                  t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neuroscience",               t: "Class",         p: "Course › Science › Biology",                     s: "Brain Studies, Neurobiological Science" },
+  { n: "Neuropsychology",            t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neurophilosophy",            t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neurobiology",               t: "Defined class", p: "Course › Science › Biology",                     s: null },
+  { n: "Behavioral Neuroscience",    t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neurogenetics",              t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null },
+  { n: "Neuropathology",             t: "Class",         p: "Course › Science › Biology › Neuroscience", s: null }
+];
+
+var TYPES = [
+  { n: "Classes", c: 10 }, { n: "Instances", c: 0 }, { n: "Properties", c: 0 }, { n: "Other entities", c: 0 }
+];
+
+/* Field counts are yields: what that field alone would match. See FND-33. */
+var FIELDS_HIT = [
+  { n: "Names and aliases", c: 10, on: true }, { n: "IRI", c: 10, on: true },
+  { n: "implies", c: 0 }, { n: "notPartOf", c: 0 }, { n: "owl:equivalentClass", c: 0 },
+  { n: "partOf", c: 0 }, { n: "rdf:type", c: 0 }, { n: "rdfs:comment", c: 0 },
+  { n: "rdfs:label", c: 10 }, { n: "rdfs:seeAlso", c: 3 }, { n: "rdfs:subClassOf", c: 10 },
+  { n: "rdfs:subPropertyOf", c: 0 }, { n: "similarTo", c: 0 }, { n: "skos:altLabel", c: 0 },
+  { n: "skos:definition", c: 0 }, { n: "skos:prefLabel", c: 10 }
+];
+
+var FIELDS_ZERO = [
+  { n: "Names and aliases", c: 0, on: true }, { n: "IRI", c: 0, on: true },
+  { n: "implies", c: 0 }, { n: "notPartOf", c: 0 }, { n: "owl:equivalentClass", c: 0 },
+  { n: "partOf", c: 0 }, { n: "rdf:type", c: 0 }, { n: "rdfs:comment", c: 1 },
+  { n: "rdfs:label", c: 0 }, { n: "rdfs:seeAlso", c: 0 }, { n: "rdfs:subClassOf", c: 0 },
+  { n: "rdfs:subPropertyOf", c: 0 }, { n: "similarTo", c: 0 }, { n: "skos:altLabel", c: 0 },
+  { n: "skos:definition", c: 0 }, { n: "skos:prefLabel", c: 0 }
+];
+
+var ZERO_TYPES = [
+  { n: "Classes", c: 0 }, { n: "Instances", c: 0 }, { n: "Properties", c: 0 }, { n: "Other entities", c: 0 }
+];
+
+/* ---------- icons ---------- */
+function ico(d, extra) {
+  return '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + (extra || "") + '</svg>';
+}
+var I = {
+  close:   ico('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  clock:   ico('<circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.3 1.4"/>'),
+  more:    ico('<circle cx="3.5" cy="8" r=".9" fill="currentColor"/><circle cx="8" cy="8" r=".9" fill="currentColor"/><circle cx="12.5" cy="8" r=".9" fill="currentColor"/>'),
+  filter:  ico('<path d="M2.5 3.5h11l-4.2 5v4.2l-2.6 1.3V8.5z"/>'),
+  graph:   ico('<circle cx="4" cy="4" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="7" cy="12.5" r="2"/><path d="M5.7 5.1 10.3 5.4M5.3 5.8 6.3 10.6M10.8 7.7 8.5 11.1"/>'),
+  plus:    ico('<path d="M8 3.5v9M3.5 8h9"/>'),
+  chev:    ico('<path d="M4.5 6.5 8 10l3.5-3.5"/>'),
+  tree:    ico('<rect x="5.5" y="2" width="5" height="3.4" rx=".7"/><rect x="1.5" y="10.6" width="5" height="3.4" rx=".7"/><rect x="9.5" y="10.6" width="5" height="3.4" rx=".7"/><path d="M8 5.4v2.6M4 10.6V8h8v2.6"/>'),
+  first:   ico('<path d="M10.5 4 6.5 8l4 4M4.5 4v8"/>'),
+  prev:    ico('<path d="M10 4 6 8l4 4"/>'),
+  next:    ico('<path d="M6 4l4 4-4 4"/>'),
+  last:    ico('<path d="M5.5 4 9.5 8l-4 4M11.5 4v8"/>')
+};
+
+/* ---------- one template, five frames ---------- */
+function paneHTML(o) {
+  o = o || {};
+  var query   = o.query === undefined ? "NEURODIVERSITY" : o.query;
+  var zero    = !!o.zero;
+  var pins    = !!o.pins;
+  var fields  = zero ? FIELDS_ZERO : FIELDS_HIT;
+  var types   = zero ? ZERO_TYPES : TYPES;
+  var scopedN = 2, fieldTotal = 16, typeOn = 4, typeTotal = 4;
+  var pin = function (n) { return pins ? '<span class="pin" aria-hidden="true">' + n + '</span>' : ""; };
+
+  /* --- query row --- */
+  var q = '';
+  q += '<div class="qrow">';
+  q +=   pin(1);
+  /* Ratios only. The sentence lives in the rail header and the popover, never
+     on the button face, where it becomes a three line control. FND-98. */
+  q +=   '<button type="button" class="btn scope-btn" aria-expanded="false"' +
+         ' aria-label="Search scope: ' + scopedN + ' of ' + fieldTotal + ' fields, ' +
+         typeOn + ' of ' + typeTotal + ' types">' + I.filter +
+         '<span class="r">' + scopedN + '/' + fieldTotal + ' · ' + typeOn + '/' + typeTotal + '</span></button>';
+  q +=   '<div class="qfield">';
+  q +=     '<input type="search" value="' + query + '" placeholder="Search the ontology" aria-label="Search the ontology">';
+  q +=     '<span class="infield">';
+  q +=       (query ? '<button type="button" class="ib" aria-label="Clear">' + I.close + '</button>' + pin(2) : '');
+  q +=       '<button type="button" class="ib" aria-label="Recent searches" aria-expanded="false">' + I.clock + '</button>' + pin(3);
+  q +=     '</span>';
+  q +=   '</div>';
+  q +=   pin(4);
+  q +=   '<select class="sel sort" aria-label="Sort"><option>Best match</option><option>Name A to Z</option>' +
+         '<option>Name Z to A</option><option>Recently changed</option></select>';
+  q +=   '<button type="button" class="ib" aria-label="More" aria-expanded="false">' + I.more + '</button>' + pin(5);
+  q += '</div>';
+
+  /* --- rail --- */
+  var r = '';
+  r += '<aside class="rail">';
+  r +=   '<div class="rail-head"><span class="s">' + scopedN + ' of ' + fieldTotal + ' fields, ' +
+         typeOn + ' of ' + typeTotal + ' types</span>' +
+         (o.dirty === false ? '' : '<button type="button" class="btn" style="font-size:12px;min-height:26px;padding:3px 8px">Reset filters</button>' + pin(6)) +
+         '</div>';
+  r +=   '<h4>Entity types</h4>';
+  types.forEach(function (t, i) {
+    r += '<label class="chk"><input type="checkbox" checked><span class="n">' + t.n +
+         '</span><span class="c' + (t.c ? ' hit' : '') + '">' + t.c + '</span></label>';
+  });
+  r +=   '<h4>Search fields</h4>';
+  fields.forEach(function (f) {
+    r += '<label class="chk"><input type="checkbox"' + (f.on ? ' checked' : '') + '><span class="n">' + f.n +
+         '</span><span class="c' + (f.c ? ' hit' : '') + '">' + f.c + '</span></label>';
+  });
+  r += '</aside>';
+
+  /* --- results header: one slot, and the result count decides it. FND-91 ---
+     With results it carries the graph action. With none it is empty, because the
+     zero body below already carries creation and a second entry would be noise. */
+  var rh = '<div class="rhead"><span class="n">' +
+    (zero ? '0 matches of 6,027 entities' : ROWS.length + ' matches of 6,027 entities') + '</span>' +
+    (zero
+      ? ''
+      : '<span class="od-row od-fixed" style="gap:4px">' + pin(7) + '<button type="button" class="btn">' + I.graph + 'Open results in new graph</button></span>') +
+    '</div>';
+
+  /* --- results body --- */
+  var rb;
+  if (zero) {
+    rb = '<div class="rbody"><div class="zero">' + zeroHTML() + '</div></div>';
+  } else {
+    var t = '<table class="res"><colgroup><col><col class="col-type" style="width:120px"><col class="col-syn" style="width:180px"></colgroup>';
+    t += '<thead><tr><th scope="col">Entity</th><th scope="col" class="col-type">Type</th><th scope="col" class="col-syn">Synonym</th></tr></thead><tbody>';
+    ROWS.forEach(function (row, i) {
+      var cut = row.p.lastIndexOf("›");
+      var head = cut < 0 ? "" : row.p.slice(0, cut + 1);
+      var leaf = cut < 0 ? row.p : row.p.slice(cut + 1).trim();
+      t += '<tr class="' + (i === 0 ? 'sel' : '') + '"' + (i === 0 ? ' aria-current="true"' : '') + '>';
+      t +=   '<td><a href="#e" class="ename">' + row.n + '</a>' +
+             '<span class="epath"><span class="ph">' + head + '</span><span class="pl">' + leaf + '</span></span>' +
+             '<span class="efold fold-type"><b>Type</b> ' + row.t + '</span>' +
+             '<span class="efold fold-syn"><b>Synonym</b> ' + (row.s || "none recorded") + '</span></td>';
+      t +=   '<td class="col-type">' + row.t + '</td>';
+      t +=   '<td class="col-syn"><span class="syn' + (row.s ? '' : ' none') + '">' + (row.s || "none recorded") +
+             '</span><button type="button" class="btn addsyn">' + I.plus + 'Add</button></td>';
+      t += '</tr>';
+    });
+    t += '</tbody></table>';
+    rb = '<div class="rbody">' + t + '</div>';
+  }
+
+  /* --- footer and context --- */
+  var rf = '<div class="rfoot">' +
+    '<span>' + (zero ? '0 results' : '1 to 10 of 10') + '</span>' +
+    '<span class="od-fill"></span>' +
+    '<button type="button" class="ib" aria-label="First page"' + (zero ? ' disabled' : '') + '>' + I.first + '</button>' +
+    '<button type="button" class="ib" aria-label="Previous page"' + (zero ? ' disabled' : '') + '>' + I.prev + '</button>' +
+    '<span class="pg">' + (zero ? 'Page 0 of 0' : 'Page 1 of 1') + '</span>' +
+    '<button type="button" class="ib" aria-label="Next page"' + (zero ? ' disabled' : '') + '>' + I.next + '</button>' +
+    '<button type="button" class="ib" aria-label="Last page"' + (zero ? ' disabled' : '') + '>' + I.last + '</button>' +
+    '</div>';
+
+  var ctx = '<div class="ctx">' + (zero ? 'Select a result to inspect it.' :
+    '<b>Developmental Neuroscience</b> <span class="muted">Class · Course › Science › Biology › Neuroscience</span>') + '</div>';
+
+  var store = '<div class="store"><span>6,005 classes · 0 individuals · 24,444 triples</span><span>Shortcuts</span></div>';
+
+  return '<div class="pane">' + q + '<div class="body">' + r +
+         '<section class="results">' + rh + rb + rf + '</section></div>' + ctx + store + '</div>';
+}
+
+/* ---------- the zero state body ----------
+   Both creation affordances are in the markup and the container query picks one.
+   With height, the editor is open inline. Without it, the editor collapses to a
+   button that opens it over the body. Exactly one is ever on screen. FND-94. */
+function zeroHTML() {
+  var h = '';
+  /* The query is in the field two inches above. Do not echo it, and do not
+     restate the store total that the results header already carries.
+     FND-50, FND-128, FND-129. */
+  h += '<h3>Nothing matched in 2 of 16 fields.</h3>';
+  h += '<p class="why">A miss inside a narrowed scope is not the same as an absence.</p>';
+  h += '<div class="ladder">';
+  h +=   '<button type="button" class="rem">Search all 16 fields <span class="y">1 match</span></button>';
+  h +=   '<button type="button" class="rem">Match any word instead of all <span class="y">3 matches</span></button>';
+  h +=   '<button type="button" class="rem">Reset every filter <span class="y">4 matches</span></button>';
+  h += '</div>';
+  h += '<hr class="rule">';
+  h += '<div class="zero-create">' + shortCreateHTML() + '</div>';
+  h += '<div class="zero-editor">' + editorHTML() + '</div>';
+  return h;
+}
+
+function shortCreateHTML() {
+  return '<div class="od-row" style="gap:8px;flex-wrap:wrap">' +
+    '<button type="button" class="btn primary">' + I.plus + 'Add entity</button>' +
+    '<span class="muted" style="font-size:13px">Carries "synaptic plasticity" across.</span>' +
+    '</div>';
+}
+
+/* ---------- the inline statement editor ---------- */
+/* The editor is flat. Its only container is the ancestry region, and that only
+   when a real ancestor exists. The labeled rule is its boundary, not a panel.
+   Pass a parent name for the chained variant; omit it for the common case.
+   Section 3.1 governs every decision below, and FND-131 is the acceptance test. */
+function editorHTML(parent) {
+  var label = "Synaptic Plasticity";
+  var iri = "https://axiom.test/onto/SynapticPlasticity";
+  var rooted = !parent;
+  var n = rooted ? 4 : 5;
+  var h = '';
+
+  h += '<div class="ed-wrap">';
+  h += '<div class="ed-label">Add to the ontology</div>';
+
+  /* A chain of one is not a chain. FND-132. */
+  if (rooted) {
+    h += '<div class="anc-line"><b>' + label + '</b> under <b>owl:Thing</b> ' +
+         '<span class="hint">Set a parent to change that.</span></div>';
+  } else {
+    h += '<div class="sect"><div class="chain">';
+    h +=   '<div class="ccard sel"><span class="glyph" aria-hidden="true">' +
+           '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/><rect x="6" y="6" width="4" height="4" fill="currentColor" stroke="none"/></svg>' +
+           '</span><span><span class="cc">New class</span><span class="nn">' + label + '</span></span></div>';
+    h +=   '<div class="conn" aria-hidden="true"></div>';
+    h +=   '<div class="ccard"><span class="glyph" aria-hidden="true">' +
+           '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="4.5"/></svg>' +
+           '</span><span class="nn">' + parent + '</span></div>';
+    h +=   '<div class="conn" aria-hidden="true"></div>';
+    h +=   '<div class="ccard"><span class="glyph" aria-hidden="true">' +
+           '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="4.5"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/></svg>' +
+           '</span><span class="nn">Course</span></div>';
+    h += '</div></div>';
+  }
+
+  h += '<div class="subj"><span class="k">Subject</span>' +
+       '<span class="v">' + iri + '</span>' +
+       '<span class="follows">follows rdfs:label</span></div>';
+
+  /* The count rides the header row rather than taking a band. FND-125. */
+  h += '<table class="st"><colgroup><col style="width:140px"><col><col style="width:30px"></colgroup>';
+  h += '<thead><tr><th scope="col">Predicate</th><th scope="col" colspan="2">' +
+       '<span class="th-row"><span>Value</span><span class="n">' + n + ' statements</span></span>' +
+       '</th></tr></thead><tbody>';
+
+  /* Every value control is capped by the class of content it holds, not by the
+     cell it sits in. A name field does not grow because the window did. FND-139. */
+  h += '<tr><td><span class="pk">rdf:type</span></td>' +
+       '<td><select class="w-label" aria-label="rdf:type"><option>owl:Class</option><option>owl:NamedIndividual</option>' +
+       '<option>owl:ObjectProperty</option></select></td><td></td></tr>';
+
+  h += '<tr><td><span class="pk">rdfs:label</span></td>' +
+       '<td><input class="w-label" value="' + label + '" aria-label="rdfs:label"></td><td></td></tr>';
+
+  /* One control, not two stacked. It shows the current parent and accepts a new
+     one in the same box. FND-65. */
+  h += '<tr><td><span class="pk">rdfs:subClassOf</span></td>' +
+       '<td><input class="w-parent" value="' + (rooted ? '' : parent) + '" aria-label="rdfs:subClassOf"' +
+       ' placeholder="owl:Thing (root). Search or type a name."></td>' +
+       '<td>' + (rooted ? '' : '<button type="button" class="ib rowact" aria-label="Remove rdfs:subClassOf">' + I.close + '</button>') + '</td></tr>';
+
+  h += '<tr><td><span class="pk">rdfs:comment</span></td>' +
+       '<td><input class="w-comment" value="" placeholder="One sentence saying what this is" aria-label="rdfs:comment"></td><td></td></tr>';
+
+  if (!rooted) {
+    h += '<tr><td><span class="pk">' + I.chev + 'rdfs:seeAlso</span></td>' +
+         '<td><input class="w-comment" value="Long Term Potentiation" aria-label="rdfs:seeAlso"></td>' +
+         '<td><button type="button" class="ib rowact" aria-label="Remove rdfs:seeAlso">' + I.close + '</button></td></tr>';
+  }
+
+  h += '</tbody></table>';
+
+  /* Text, on one line, neither of them a box. FND-126. */
+  h += '<div class="ed-tools">';
+  h +=   '<button type="button" class="addrow">' + I.plus + 'Add row</button>';
+  h +=   '<details class="src"><summary>Source</summary><pre>' +
+    '&lt;rdf:Description rdf:about="' + iri + '"&gt;\n' +
+    '    &lt;rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/&gt;\n' +
+    '    &lt;rdfs:label&gt;' + label + '&lt;/rdfs:label&gt;\n' +
+    '    &lt;rdfs:subClassOf rdf:resource="' +
+      (rooted ? 'http://www.w3.org/2002/07/owl#Thing' : 'https://axiom.test/onto/Neuroscience') + '"/&gt;\n' +
+    '&lt;/rdf:Description&gt;</pre></details>';
+  h += '</div>';
+
+  /* One row: destination leading, actions trailing, primary last. FND-133. */
+  h += '<div class="cfoot">' +
+       '<span class="dest">Creates <b>' + label + '</b> under <b>' + (rooted ? 'owl:Thing' : parent) + '</b>.</span>' +
+       '<span class="acts">' +
+       '<button type="button" class="btn">Continue in Add entity</button>' +
+       '<button type="button" class="btn primary">Create class</button>' +
+       '</span></div>';
+  h += '</div>';
+  return h;
+}
+
+/* ---------- mount ---------- */
+function mount(id, opts) {
+  var el = document.getElementById(id);
+  if (el) { el.innerHTML = paneHTML(opts); }
+}
+
+mount("fr-after",  {});
+mount("fr-map",    { pins: true });
+mount("fr-exp",    {});
+mount("fr-nar",    {});
+mount("fr-sha",    {});
+mount("fr-ns",     {});
+mount("fr-zero",   { query: "synaptic plasticity", zero: true });
+mount("fr-counts", { query: "synaptic plasticity", zero: true });
+mount("fr-edit",   { query: "synaptic plasticity", zero: true });
+mount("fr-edit-s", { query: "synaptic plasticity", zero: true });
+mount("fr-wide",   { query: "synaptic plasticity", zero: true });
+mount("fr-light",  {});
+mount("fr-dark",   {});
+
+/* The editor on its own, outside a pane, so its height can be read directly
+   against the 400 pixel budget in FND-131. */
+(function () {
+  var a = document.getElementById("ed-fixed");
+  if (a) { a.innerHTML = editorHTML(); }
+  var b = document.getElementById("ed-chain");
+  if (b) { b.innerHTML = editorHTML("Neuroscience"); }
+})();
+
+/* ---------- theme ---------- */
+(function () {
+  var buttons = document.querySelectorAll("[data-theme-set]");
+  Array.prototype.forEach.call(buttons, function (b) {
+    b.addEventListener("click", function () {
+      var v = b.getAttribute("data-theme-set");
+      document.documentElement.setAttribute("data-theme", v);
+      Array.prototype.forEach.call(buttons, function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+    });
+  });
+})();
+
+/* The frames are a specimen, not a working surface. Buttons and links inside them
+   are inert so a click cannot navigate away; disclosures, inputs, selects and
+   checkboxes stay live so the states can be exercised. */
+document.addEventListener("submit", function (e) { e.preventDefault(); });
+Array.prototype.forEach.call(document.querySelectorAll(".frame"), function (f) {
+  f.addEventListener("click", function (e) {
+    var t = e.target.closest("a, button");
+    if (t) { e.preventDefault(); }
+  });
+});
+</script>
+</body>
+</html>
