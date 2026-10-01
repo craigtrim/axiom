@@ -303,6 +303,33 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   ).toContainText("class names and their parent links were sent");
   expect(await table.boundingBox()).toEqual(box);
   await page.keyboard.press("Escape");
+  for (const name of ["Analysis", "Prompt", "Context"]) {
+    const trigger = view().getByRole("button", { name, exact: true });
+    await trigger.click();
+    const popover = page.locator(".ac-popover");
+    await expect(popover).toBeFocused();
+    expect(await table.boundingBox()).toEqual(box);
+    const placement = await popover.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        width: innerWidth,
+        height: innerHeight,
+        overflow: getComputedStyle(el).overflowY,
+      };
+    });
+    expect(placement.left).toBeGreaterThanOrEqual(0);
+    expect(placement.top).toBeGreaterThanOrEqual(0);
+    expect(placement.right).toBeLessThanOrEqual(placement.width);
+    expect(placement.bottom).toBeLessThanOrEqual(placement.height);
+    expect(placement.overflow).toBe("auto");
+    await page.keyboard.press("Escape");
+    await expect(popover).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  }
   await view().getByRole("searchbox").fill("Alpha");
   await view()
     .getByRole("checkbox", { name: "Select all available suggestions" })
