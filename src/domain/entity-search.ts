@@ -25,13 +25,19 @@ const stopWords = new Set("and of the for in to a an on with".split(" "));
 const labelField = "$label",
   aliasField = "$alias",
   iriField = "$iri";
-const publicField = (field: string) => field === labelField || field === aliasField ? "name" : field === iriField ? "iri" : field;
+const publicField = (field: string) =>
+  field === labelField || field === aliasField
+    ? "name"
+    : field === iriField
+      ? "iri"
+      : field;
 function queryText(text: string) {
   const words = [...new Set(normalize(text).split(" ").filter(Boolean))];
-  const content = words.filter(w => !stopWords.has(w));
+  const content = words.filter((w) => !stopWords.has(w));
   return (content.length ? content : words).join(" ");
 }
-const fuzzy = (term: string) => term.length < 4 ? false : term.length <= 7 ? 1 : 2;
+const fuzzy = (term: string) =>
+  term.length < 4 ? false : term.length <= 7 ? 1 : 2;
 export const semanticMinimum = 0.5;
 export const semanticFillLimit = 10;
 const category = (kind: Kind): FindKind =>
@@ -77,16 +83,22 @@ export interface ResourceMatch {
 export class EntitySearchIndex {
   private rows: RecordRow[] = [];
   private fields: FindFacet[];
+  private storeTotal: number;
   private engine: MiniSearch<RecordRow>;
   private indexedFields = new Set<string>();
   private corpora = new Map<string, string[]>();
   private ranked?: { key: string; scores?: SemanticScores; hits: Hit[] };
   private scopeData?: {
-    key: string; scores?: SemanticScores;
+    key: string;
+    scores?: SemanticScores;
     lexical: Map<string, Set<number>>;
     semantic: Map<string, Map<number, number>>;
   };
-  private diagnostic?: { key: string; scores?: SemanticScores; value: Pick<FindResults, "fields" | "kinds" | "remedies" | "emptyCause"> };
+  private diagnostic?: {
+    key: string;
+    scores?: SemanticScores;
+    value: Pick<FindResults, "fields" | "kinds" | "remedies" | "emptyCause">;
+  };
   constructor(private store: Store) {
     const ids = new Map<string, number>();
     const add = (
@@ -186,6 +198,7 @@ export class EntitySearchIndex {
         for (const field of publicFields)
           members.set(field, (members.get(field) ?? 0) + 1);
     }
+    this.storeTotal = this.rows.filter((row) => row.entity).length;
     this.fields = [...members]
       .map(([id, count]) => ({
         id,
@@ -289,12 +302,18 @@ export class EntitySearchIndex {
     const text = normalize(options.text),
       fields = this.selectedFields(options.fields);
     if (!options.text.trim() && options.browse && !resources) {
-      const hits = this.rows.filter(eligible).sort((a,b) => a.name.localeCompare(b.name) || a.iri.localeCompare(b.iri)).map(row => ({ id: row.id, tier: 0, coverage: 0, score: 0 }));
+      const hits = this.rows
+        .filter(eligible)
+        .sort(
+          (a, b) => a.name.localeCompare(b.name) || a.iri.localeCompare(b.iri),
+        )
+        .map((row) => ({ id: row.id, tier: 0, coverage: 0, score: 0 }));
       this.ranked = { key, hits };
       return hits;
     }
     if (!text || !fields.length) return [];
-    const query = queryText(options.text), tokens = query.split(" ");
+    const query = queryText(options.text),
+      tokens = query.split(" ");
     const results = this.engine.search(query, {
       fields,
       fuzzy,
@@ -322,11 +341,23 @@ export class EntitySearchIndex {
                 )
               ? 2
               : 1;
-      const matched = new Set(Object.values(result.match).flat());
-      const field = fields.find(f => matched.has(f));
-      const evidence = field && ![labelField, aliasField, iriField].includes(field) ? {
-        field, value: row.values.get(field)?.find(value => Object.keys(result.match).some(term => normalize(value).includes(term))),
-      } : {};
+      const matched = Object.values(result.match);
+      const field = fields.find((f) =>
+        matched.some((group) => group.includes(f)),
+      );
+      const evidence =
+        field && ![labelField, iriField].includes(field)
+          ? {
+              field: publicField(field),
+              value: row.values
+                .get(field)
+                ?.find((value) =>
+                  Object.keys(result.match).some((term) =>
+                    normalize(value).includes(term),
+                  ),
+                ),
+            }
+          : {};
       hits.set(row.id, {
         id: row.id,
         tier,
@@ -446,9 +477,10 @@ export class EntitySearchIndex {
         return (
           (options.sort === "iri"
             ? x.iri.localeCompare(y.iri)
-            : options.sort === "type" ? x.kind.localeCompare(y.kind) || x.name.localeCompare(y.name)
-            : x.name.localeCompare(y.name) *
-              (options.sort === "name-desc" ? -1 : 1)) ||
+            : options.sort === "type"
+              ? x.kind.localeCompare(y.kind) || x.name.localeCompare(y.name)
+              : x.name.localeCompare(y.name) *
+                (options.sort === "name-desc" ? -1 : 1)) ||
           x.iri.localeCompare(y.iri)
         );
       });
@@ -460,64 +492,135 @@ export class EntitySearchIndex {
   /** One all-field lexical lookup and one score walk serve every facet/remedy. */
   private diagnostics(input: unknown, scores?: SemanticScores) {
     const options = readFindOptions(input);
-    const key = JSON.stringify([options.text, options.fields, options.kinds, options.excludeIri, options.browse]);
-    if (this.diagnostic?.key === key && this.diagnostic.scores === scores) return this.diagnostic.value;
+    const key = JSON.stringify([
+      options.text,
+      options.fields,
+      options.kinds,
+      options.excludeIri,
+      options.browse,
+    ]);
+    if (this.diagnostic?.key === key && this.diagnostic.scores === scores)
+      return this.diagnostic.value;
     const scopeKey = JSON.stringify([options.text, options.excludeIri]);
     let scope = this.scopeData;
     if (!scope || scope.key !== scopeKey || scope.scores !== scores) {
-      const lexical = new Map<string, Set<number>>(), semantic = new Map<string, Map<number, number>>();
+      const lexical =
+        scope?.key === scopeKey
+          ? scope.lexical
+          : new Map<string, Set<number>>();
+      const semantic = new Map<string, Map<number, number>>();
       const query = queryText(options.text);
-      if (query) for (const hit of this.engine.search(query, { fields: [...this.indexedFields], fuzzy })) {
-        const row = this.rows[hit.id];
-        if (!row.entity || row.iri === options.excludeIri) continue;
-        for (const field of new Set(Object.values(hit.match).flat().map(publicField))) {
-          const ids = lexical.get(field) ?? new Set<number>();
-          ids.add(row.id); lexical.set(field, ids);
+      if (query && scope?.key !== scopeKey)
+        for (const hit of this.engine.search(query, {
+          fields: [...this.indexedFields],
+          fuzzy,
+        })) {
+          const row = this.rows[hit.id];
+          if (!row.entity || row.iri === options.excludeIri) continue;
+          for (const group of Object.values(hit.match))
+            for (const internal of group) {
+              const field = publicField(internal);
+              const ids = lexical.get(field) ?? new Set<number>();
+              ids.add(row.id);
+              lexical.set(field, ids);
+            }
         }
-      }
-      if (query && scores) for (const row of this.rows) {
-        if (!row.entity || row.iri === options.excludeIri) continue;
-        for (const [field, values] of row.values) for (const value of values) {
-          const score = scores.get(value);
-          if (score === undefined || !Number.isFinite(score) || score < semanticMinimum) continue;
-          const name = publicField(field), members = semantic.get(name) ?? new Map<number, number>();
-          members.set(row.id, Math.max(members.get(row.id) ?? 0, score)); semantic.set(name, members);
+      if (query && scores)
+        for (const row of this.rows) {
+          if (!row.entity || row.iri === options.excludeIri) continue;
+          for (const [field, values] of row.values)
+            for (const value of values) {
+              const score = scores.get(value);
+              if (
+                score === undefined ||
+                !Number.isFinite(score) ||
+                score < semanticMinimum
+              )
+                continue;
+              const name = publicField(field),
+                members = semantic.get(name) ?? new Map<number, number>();
+              members.set(row.id, Math.max(members.get(row.id) ?? 0, score));
+              semantic.set(name, members);
+            }
         }
-      }
       scope = this.scopeData = { key: scopeKey, scores, lexical, semantic };
     }
-    const allFields = this.fields.map(f => f.id);
-    const selected = options.fields.includes("*") ? allFields : options.fields.filter(f => allFields.includes(f));
+    const allFields = this.fields.map((f) => f.id);
+    const selected = options.fields.includes("*")
+      ? allFields
+      : options.fields.filter((f) => allFields.includes(f));
+    const counts = new Map<string, number>();
     const count = (fields: string[], kinds: FindKind[]) => {
+      const countKey = JSON.stringify([fields, kinds]);
+      const cached = counts.get(countKey);
+      if (cached !== undefined) return cached;
       const allowed = (id: number) => kinds.includes(this.rows[id].category);
-      if (!options.text.trim()) return options.browse ? this.rows.filter(row => row.entity && row.iri !== options.excludeIri && kinds.includes(row.category)).length : 0;
-      const lexical = new Set<number>(), semantic = new Map<number, number>();
+      if (!options.text.trim())
+        return options.browse
+          ? this.rows.filter(
+              (row) =>
+                row.entity &&
+                row.iri !== options.excludeIri &&
+                kinds.includes(row.category),
+            ).length
+          : 0;
+      const lexical = new Set<number>(),
+        semantic = new Map<number, number>();
       for (const field of fields) {
-        for (const id of scope!.lexical.get(field) ?? []) if (allowed(id)) lexical.add(id);
-        for (const [id, score] of scope!.semantic.get(field) ?? []) if (allowed(id)) semantic.set(id, Math.max(semantic.get(id) ?? 0, score));
+        for (const id of scope!.lexical.get(field) ?? [])
+          if (allowed(id)) lexical.add(id);
+        for (const [id, score] of scope!.semantic.get(field) ?? [])
+          if (allowed(id))
+            semantic.set(id, Math.max(semantic.get(id) ?? 0, score));
       }
-      if (lexical.size >= semanticFillLimit || !semantic.size) return lexical.size;
+      if (lexical.size >= semanticFillLimit || !semantic.size) {
+        counts.set(countKey, lexical.size);
+        return lexical.size;
+      }
       let best = 0;
       for (const score of semantic.values()) best = Math.max(best, score);
       let additions = 0;
-      for (const [id, score] of semantic) if (!lexical.has(id) && score >= best - 0.15) additions++;
-      return lexical.size + Math.min(semanticFillLimit - lexical.size, additions);
+      for (const [id, score] of semantic)
+        if (!lexical.has(id) && score >= best - 0.15) additions++;
+      const total =
+        lexical.size + Math.min(semanticFillLimit - lexical.size, additions);
+      counts.set(countKey, total);
+      return total;
     };
-    const fields = options.text.trim() ? this.fields.map(f => ({ ...f, count: count([f.id], options.kinds) })) : this.fields;
-    const kinds = findKinds.map(id => ({ id, label: labels[id], count: count(selected, [id]) }));
+    const fields = options.text.trim()
+      ? this.fields.map((f) => ({ ...f, count: count([f.id], options.kinds) }))
+      : this.fields;
+    const kinds = findKinds.map((id) => ({
+      id,
+      label: labels[id],
+      count: count(selected, [id]),
+    }));
     const remedies: NonNullable<FindResults["remedies"]> = [];
-    if (selected.length < allFields.length) remedies.push({ id: "fields", count: count(allFields, options.kinds) });
-    if (options.kinds.length < findKinds.length) remedies.push({ id: "types", count: count(selected, findKinds) });
+    if (selected.length < allFields.length)
+      remedies.push({ id: "fields", count: count(allFields, options.kinds) });
+    if (options.kinds.length < findKinds.length)
+      remedies.push({ id: "types", count: count(selected, findKinds) });
     remedies.push({ id: "reset", count: count(allFields, findKinds) });
-    const value = { fields, kinds, remedies, emptyCause: (!options.kinds.length || count(selected, findKinds) > 0 ? "filters" : "query") as "filters" | "query" };
+    const value = {
+      fields,
+      kinds,
+      remedies,
+      emptyCause: (!options.kinds.length || count(selected, findKinds) > 0
+        ? "filters"
+        : "query") as "filters" | "query",
+    };
     this.diagnostic = { key, scores, value };
     return value;
   }
   find(input: unknown, scores?: SemanticScores): FindResults {
     const { options, hits, kinds } = this.filtered(input, scores);
-    const revealIndex = options.revealIri ? hits.findIndex(h => this.rows[h.id].iri === options.revealIri) : -1;
+    const revealIndex = options.revealIri
+      ? hits.findIndex((h) => this.rows[h.id].iri === options.revealIri)
+      : -1;
     const offset = Math.min(
-      revealIndex >= 0 ? Math.floor(revealIndex / options.limit) * options.limit : options.offset,
+      revealIndex >= 0
+        ? Math.floor(revealIndex / options.limit) * options.limit
+        : options.offset,
       Math.max(0, Math.ceil(hits.length / options.limit) - 1) * options.limit,
     );
     return {
@@ -525,7 +628,7 @@ export class EntitySearchIndex {
       offset,
       kinds,
       fields: this.fields,
-      storeTotal: this.rows.filter(row => row.entity).length,
+      storeTotal: this.storeTotal,
       ...(options.diagnostics ? this.diagnostics(options, scores) : {}),
       rows: hits.slice(offset, offset + options.limit).map((h) => {
         const {
@@ -544,7 +647,12 @@ export class EntitySearchIndex {
           similarity: h.similarity,
           matchedField: h.field,
           matchedValue: h.value,
-          ...(options.diagnostics ? { path: entityPath(this.store, row.iri), aliases: values.get(aliasField) ?? [] } : {}),
+          ...(options.diagnostics
+            ? {
+                path: entityPath(this.store, row.iri),
+                aliases: values.get(aliasField) ?? [],
+              }
+            : {}),
         };
       }),
     };

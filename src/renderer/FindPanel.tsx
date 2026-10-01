@@ -113,7 +113,14 @@ export function FindDialog({ close }: { close: () => void }) {
         await request("select", { iri });
         revealInOpenTaxonomy(iri);
       }
-      updateFind({ ...quickOptions, text: text.trim() }, iri);
+      updateFind(
+        {
+          ...quickOptions,
+          limit: findState().options.limit,
+          text: text.trim(),
+        },
+        iri,
+      );
       rememberFind();
       submitted.current = true;
       close();
@@ -236,8 +243,14 @@ export function FindPanel() {
   const { data, facets, busy, error } = useFindResults(searchOptions);
   const [fieldFilter, setFieldFilter] = useState("");
   const fields = facets?.fields ?? [];
-  const selectedFieldCount = options.fields.includes("*") ? fields.length : fields.filter(f => options.fields.includes(f.id)).length;
-  const filteredFields = fields.filter(f => (f.label + " " + f.id).toLocaleLowerCase().includes(fieldFilter.toLocaleLowerCase()));
+  const selectedFieldCount = options.fields.includes("*")
+    ? fields.length
+    : fields.filter((f) => options.fields.includes(f.id)).length;
+  const filteredFields = fields.filter((f) =>
+    (f.label + " " + f.id)
+      .toLocaleLowerCase()
+      .includes(fieldFilter.toLocaleLowerCase()),
+  );
   const fieldSelected = (id: string) =>
     options.fields.includes("*") || options.fields.includes(id);
   const toggleField = (id: string, checked: boolean) => {
@@ -265,7 +278,9 @@ export function FindPanel() {
     setMessage("");
     setAddedSynonyms(new Set());
   }, [snapshot.datasetEpoch]);
-  useEffect(() => { setAddedSynonyms(new Set()); }, [options.text]);
+  useEffect(() => {
+    setAddedSynonyms(new Set());
+  }, [options.text]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 4500);
@@ -307,11 +322,25 @@ export function FindPanel() {
       revealInOpenTaxonomy(iri);
     });
   };
-  const reveal = async (iri: string, label: string, acknowledgement: string) => {
+  const reveal = async (
+    iri: string,
+    label: string,
+    acknowledgement: string,
+  ) => {
     const epoch = snapshot.datasetEpoch;
     await request("select", { iri, datasetEpoch: epoch });
     if (state?.datasetEpoch !== epoch) return;
-    updateFind({ text: label, fields: ["*"], kinds: [...findKinds], excludeIri: "", sort: "relevance", revealIri: iri }, iri);
+    updateFind(
+      {
+        text: label,
+        fields: ["*"],
+        kinds: [...findKinds],
+        excludeIri: "",
+        sort: "relevance",
+        revealIri: iri,
+      },
+      iri,
+    );
     setMessage(acknowledgement);
     revealInOpenTaxonomy(iri);
   };
@@ -413,7 +442,9 @@ export function FindPanel() {
         // IPC replies can arrive before the broadcast snapshot. Register the
         // new graph before opening its tab; the new canvas fits itself on mount.
         setState(await request<Snapshot>("state"));
-        setMessage(`Sending ${data.total.toLocaleString()} entities to a new graph view`);
+        setMessage(
+          `Sending ${data.total.toLocaleString()} entities to a new graph view`,
+        );
         command("view." + id);
       } finally {
         graphPending.current = false;
@@ -424,7 +455,13 @@ export function FindPanel() {
   const offset = data?.offset ?? options.offset;
   const total = data?.total ?? 0;
   const storeTotal = data?.storeTotal ?? facets?.storeTotal ?? 0;
-  const resetScope = () => updateFind({ fields: ["*"], kinds: [...findKinds], excludeIri: "", sort: "relevance" });
+  const resetScope = () =>
+    updateFind({
+      fields: ["*"],
+      kinds: [...findKinds],
+      excludeIri: "",
+      sort: "relevance",
+    });
   const taxonomy =
     !!active &&
     [
@@ -489,7 +526,7 @@ export function FindPanel() {
         </div>
         <div className="find-filters">
           <label>
-            Sort
+            <span className="find-sort-label">Sort</span>
             <select
               aria-label="Sort results"
               value={options.sort === "iri" ? "type" : options.sort}
@@ -503,10 +540,7 @@ export function FindPanel() {
               <option value="type">Type</option>
             </select>
           </label>
-          <button
-            type="button"
-            onClick={resetScope}
-          >
+          <button type="button" onClick={resetScope}>
             Reset filters
           </button>
         </div>
@@ -514,7 +548,8 @@ export function FindPanel() {
       <div className="find-workarea">
         <details className="find-facets" open>
           <summary>
-            Search scope: {selectedFieldCount} of {fields.length} fields, {options.kinds.length} of {findKinds.length} types
+            Search scope: {selectedFieldCount} of {fields.length} fields,{" "}
+            {options.kinds.length} of {findKinds.length} types
           </summary>
           <fieldset className="find-type-facets">
             <legend>Entity types</legend>
@@ -575,28 +610,31 @@ export function FindPanel() {
               </button>
             </div>
             <div className="find-field-list">
-              {filteredFields
-                .map((f) => (
-                  <label
-                    key={f.id}
-                    title={
-                      f.id +
-                      " · " +
-                      f.count.toLocaleString() +
-                      (options.text.trim() ? " matches in this field" : " entities with a value")
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={f.label}
-                      checked={fieldSelected(f.id)}
-                      onChange={(e) => toggleField(f.id, e.target.checked)}
-                    />
-                    <span>{f.label}</span>
-                    <small>{f.count.toLocaleString()}</small>
-                  </label>
-                ))}
-              {!filteredFields.length && <p className="muted">No field name contains that text.</p>}
+              {filteredFields.map((f) => (
+                <label
+                  key={f.id}
+                  title={
+                    f.id +
+                    " · " +
+                    f.count.toLocaleString() +
+                    (options.text.trim()
+                      ? " matches in this field"
+                      : " entities with a value")
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={f.label}
+                    checked={fieldSelected(f.id)}
+                    onChange={(e) => toggleField(f.id, e.target.checked)}
+                  />
+                  <span>{f.label}</span>
+                  <small>{f.count.toLocaleString()}</small>
+                </label>
+              ))}
+              {!filteredFields.length && (
+                <p className="muted">No field name contains that text.</p>
+              )}
             </div>
             {!options.fields.length && (
               <p className="find-method">
@@ -627,74 +665,135 @@ export function FindPanel() {
             </p>
           )}
           <div className="find-results-scroll" aria-busy={busy}>
-            {(!data || rows.length > 0) && <table className="find-results" aria-label="Found entities">
-              <thead>
-                <tr>
-                  <th scope="col">Entity</th>
-                  <th scope="col">Type</th>
+            {(!data || rows.length > 0) && (
+              <table className="find-results" aria-label="Found entities">
+                <thead>
+                  <tr>
+                    <th scope="col">Entity</th>
+                    <th scope="col">Type</th>
                     <th scope="col" className="find-synonym-column">
                       Synonym
                     </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.iri} data-selected={selected === row.iri} aria-selected={selected === row.iri} tabIndex={0}
-                    onKeyDown={event => {
-                      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); choose(row.iri); }
-                    }}>
-                    <td>
-                      <button
-                        type="button"
-                        className="find-result-name"
-                        aria-pressed={selected === row.iri}
-                        onClick={() => choose(row.iri)}
-                        onDoubleClick={() => editEntity(row.iri)}
-                      >
-                        {row.name}
-                      </button>
-                      <div className="find-result-path" title={row.iri}>
-                        {row.path ?? "no parent recorded"}
-                      </div>
-                      {row.matchedField && !["name", "iri"].includes(row.matchedField) && (
-                        <p className="find-match-evidence">
-                          <strong>matched in {" "}
-                            {fields.find((f) => f.id === row.matchedField)
-                              ?.label ??
-                              compactIri(
-                                row.matchedField,
-                                snapshot.ontology.namespace,
-                              )}
-                          </strong>
-                          : {row.matchedValue}
-                        </p>
-                      )}
-                    </td>
-                    <td>{kindLabel(row.kind)}</td>
-                    <td><span className="find-row-synonyms">{row.aliases?.join(", ") || "none recorded"}</span>{synonymButton(row, true)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>}
-            {!busy && data && !rows.length && <div className="find-zero">
-              <h2>No matches for “{options.text}”</h2>
-              <p>Searched {selectedFieldCount} of {fields.length} fields across {options.kinds.length} of {findKinds.length} entity types, in {storeTotal.toLocaleString()} entities. A miss inside a narrowed scope is not the same as an absence.</p>
-              <p className="muted">{data.emptyCause === "filters" ? "The current scope excludes the matching entities." : "The query has no matches in the current scope."}</p>
-              <section className="find-remedies" aria-label="Widen the search first">
-                <h3>Widen the search first</h3>
-                {data.remedies?.map(remedy => <button type="button" key={remedy.id} disabled={!remedy.count}
-                  onClick={() => remedy.id === "fields" ? updateFind({ fields: ["*"] }) : remedy.id === "types" ? updateFind({ kinds: [...findKinds] }) : resetScope()}>
-                  <span>{remedy.id === "fields" ? `Search all ${fields.length} fields` : remedy.id === "types" ? "Include all entity types" : "Reset every filter"}</span>
-                  <span className="find-remedy-yield">{remedy.count.toLocaleString()} {remedy.count === 1 ? "match" : "matches"}</span>
-                </button>)}
-              </section>
-              <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
-            </div>}
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.iri}
+                      data-selected={selected === row.iri}
+                      aria-selected={selected === row.iri}
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if (!(event.target as HTMLElement).closest("button"))
+                          choose(row.iri);
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === "Enter" || event.key === " ")
+                        ) {
+                          event.preventDefault();
+                          choose(row.iri);
+                        }
+                      }}
+                    >
+                      <td>
+                        <button
+                          type="button"
+                          className="find-result-name"
+                          aria-pressed={selected === row.iri}
+                          onClick={() => choose(row.iri)}
+                          onDoubleClick={() => editEntity(row.iri)}
+                        >
+                          {row.name}
+                        </button>
+                        <div className="find-result-path" title={row.iri}>
+                          {row.path ?? "no parent recorded"}
+                        </div>
+                        {row.matchedField &&
+                          row.matchedField !== "iri" &&
+                          (row.matchedField !== "name" ||
+                            row.matchedValue !== row.name) && (
+                            <p className="find-match-evidence">
+                              <strong>
+                                matched in{" "}
+                                {fields.find((f) => f.id === row.matchedField)
+                                  ?.label ??
+                                  compactIri(
+                                    row.matchedField,
+                                    snapshot.ontology.namespace,
+                                  )}
+                              </strong>
+                              : {row.matchedValue}
+                            </p>
+                          )}
+                      </td>
+                      <td>{kindLabel(row.kind)}</td>
+                      <td>
+                        <span className="find-row-synonyms">
+                          {row.aliases?.join(", ") || "none recorded"}
+                        </span>
+                        {synonymButton(row, true)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {!busy && data && !rows.length && (
+              <div className="find-zero">
+                <h2>No matches for “{options.text}”</h2>
+                <p>
+                  Searched {selectedFieldCount} of {fields.length} fields across{" "}
+                  {options.kinds.length} of {findKinds.length} entity types, in{" "}
+                  {storeTotal.toLocaleString()} entities. A miss inside a
+                  narrowed scope is not the same as an absence.
+                </p>
+                <p className="muted">
+                  {data.emptyCause === "filters"
+                    ? "The current scope excludes the matching entities."
+                    : "The query has no matches in the current scope."}
+                </p>
+                <section
+                  className="find-remedies"
+                  aria-label="Widen the search first"
+                >
+                  <h3>Widen the search first</h3>
+                  {data.remedies?.map((remedy) => (
+                    <button
+                      type="button"
+                      key={remedy.id}
+                      disabled={!remedy.count}
+                      onClick={() =>
+                        remedy.id === "fields"
+                          ? updateFind({ fields: ["*"] })
+                          : remedy.id === "types"
+                            ? updateFind({ kinds: [...findKinds] })
+                            : resetScope()
+                      }
+                    >
+                      <span>
+                        {remedy.id === "fields"
+                          ? `Search all ${fields.length} fields`
+                          : remedy.id === "types"
+                            ? "Include all entity types"
+                            : "Reset every filter"}
+                      </span>
+                      <span className="find-remedy-yield">
+                        {remedy.count.toLocaleString()}{" "}
+                        {remedy.count === 1 ? "match" : "matches"}
+                      </span>
+                    </button>
+                  ))}
+                </section>
+                <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
+              </div>
+            )}
           </div>
         </div>
       </div>
       <footer className="find-footer">
-        <div className="find-pagination" aria-label="Result pages">
+        <div className="find-pagination" role="group" aria-label="Result pages">
           <span>
             {total
               ? (offset + 1).toLocaleString() +
@@ -749,68 +848,89 @@ export function FindPanel() {
             value={options.limit}
             onChange={(e) => updateFind({ limit: +e.target.value })}
           >
-            {[...new Set([10, 25, 50, options.limit])].sort((a,b) => a-b).map((n) => (
-              <option key={n} value={n}>
-                {n} per page
-              </option>
-            ))}
+            {[...new Set([10, 25, 50, options.limit])]
+              .sort((a, b) => a - b)
+              .map((n) => (
+                <option key={n} value={n}>
+                  {n} per page
+                </option>
+              ))}
           </select>
         </div>
         <section className="find-inspector" aria-label="Selected entity">
-          {!active ? <p className="muted">Select a result to inspect it.</p> : <dl>
-            <dt>Label</dt><dd>{active.name} {created.includes(active.iri) && <span className="find-created">created here</span>}</dd>
-            <dt>Type</dt><dd>{kindLabel(active.kind)}</dd>
-            <dt>IRI</dt><dd><code>{active.iri}</code></dd>
-            <dt>Ancestry</dt><dd>{active.path ?? "no parent recorded"}</dd>
-            <dt>Synonyms</dt><dd>{active.aliases?.join(", ") || "none recorded"}</dd>
-            <dt>Definition</dt><dd>{active.description || "none recorded"}</dd>
-          </dl>}
-        <div className="find-actions" aria-label="Selected result actions">
-          <span className="find-selected">
-            {active?.name}
-          </span>
-          {active && (
-            <>
-              <button
-                disabled={!active}
-                onClick={() => active && editEntity(active.iri)}
-              >
-                Details
-              </button>
-              <button
-                disabled={!taxonomy}
-                onClick={() => active && revealInTaxonomy(active.iri)}
-              >
-                Find in taxonomy
-              </button>
-              <button
-                disabled={!active}
-                onClick={() => active && openSimilar(active.name, active.iri)}
-              >
-                Find similar
-              </button>
-              {synonymButton(active)}
-              <button disabled={!active} onClick={() => graph(true)}>
-                New graph
-              </button>
-              <button disabled={!active} onClick={() => graph(false)}>
-                Current graph
-              </button>
-              <button
-                disabled={!active}
-                onClick={() =>
-                  active &&
-                  run(async () => {
-                    await window.axiom.copy(active.iri);
-                    setMessage("IRI copied.");
-                  })
-                }
-              >
-                Copy IRI
-              </button>
-            </>
+          {!active ? (
+            <p className="muted">Select a result to inspect it.</p>
+          ) : (
+            <dl>
+              <dt>Label</dt>
+              <dd>
+                {active.name}{" "}
+                {created.includes(active.iri) && (
+                  <span className="find-created">created here</span>
+                )}
+              </dd>
+              <dt>Type</dt>
+              <dd>{kindLabel(active.kind)}</dd>
+              <dt>IRI</dt>
+              <dd>
+                <code>{active.iri}</code>
+              </dd>
+              <dt>Ancestry</dt>
+              <dd>{active.path ?? "no parent recorded"}</dd>
+              <dt>Synonyms</dt>
+              <dd>{active.aliases?.join(", ") || "none recorded"}</dd>
+              <dt>Definition</dt>
+              <dd>{active.description || "none recorded"}</dd>
+            </dl>
           )}
-        </div>
+          <div
+            className="find-actions"
+            role="group"
+            aria-label="Selected result actions"
+          >
+            <span className="find-selected">{active?.name}</span>
+            {active && (
+              <>
+                <button
+                  disabled={!active}
+                  onClick={() => active && editEntity(active.iri)}
+                >
+                  Details
+                </button>
+                <button
+                  disabled={!taxonomy}
+                  onClick={() => active && revealInTaxonomy(active.iri)}
+                >
+                  Find in taxonomy
+                </button>
+                <button
+                  disabled={!active}
+                  onClick={() => active && openSimilar(active.name, active.iri)}
+                >
+                  Find similar
+                </button>
+                {synonymButton(active)}
+                <button disabled={!active} onClick={() => graph(true)}>
+                  New graph
+                </button>
+                <button disabled={!active} onClick={() => graph(false)}>
+                  Current graph
+                </button>
+                <button
+                  disabled={!active}
+                  onClick={() =>
+                    active &&
+                    run(async () => {
+                      await window.axiom.copy(active.iri);
+                      setMessage("IRI copied.");
+                    })
+                  }
+                >
+                  Copy IRI
+                </button>
+              </>
+            )}
+          </div>
         </section>
         {message && <span role="status">{message}</span>}
       </footer>

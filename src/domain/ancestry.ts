@@ -22,6 +22,7 @@ export function ancestryTrail(
   entities: ReadonlyMap<string, Entity>,
   iri: string,
   limit = 2048,
+  maxDepth = Number.POSITIVE_INFINITY,
 ) {
   const label = (id: string) => {
     const e = entities.get(id);
@@ -77,6 +78,10 @@ export function ancestryTrail(
     };
     if (item.distance && step.root) roots.push(step);
     else (levels[item.distance] ??= []).push(step);
+    if (item.distance >= maxDepth) {
+      more ||= parents.length > 0;
+      continue;
+    }
     for (const parent of parents) {
       if (visited.has(parent.iri)) continue;
       if (visited.size >= Math.max(1, limit)) {

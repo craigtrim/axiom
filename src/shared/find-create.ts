@@ -1,6 +1,13 @@
 import { NS, SUBCLASS, TYPE } from "../domain/model";
-import type { TextAnalysisDraft, TextAnalysisClassInput } from "./text-analysis";
-export interface FindStatement { id: string; predicate: string; value: string }
+import type {
+  TextAnalysisDraft,
+  TextAnalysisClassInput,
+} from "./text-analysis";
+export interface FindStatement {
+  id: string;
+  predicate: string;
+  value: string;
+}
 export interface FindCreationInput {
   label: string;
   comment: string;
@@ -9,8 +16,11 @@ export interface FindCreationInput {
   statements: FindStatement[];
 }
 export interface FindCollision {
-  iri: string; label: string; path: string;
+  iri: string;
+  label: string;
+  path: string;
   kind: "exact" | "normalized" | "iri";
+  openable?: boolean;
 }
 export interface FindCreationDraft extends FindCreationInput {
   labelEdited: boolean;
@@ -18,8 +28,13 @@ export interface FindCreationDraft extends FindCreationInput {
   parentText: string;
 }
 export const emptyFindDraft = (query = ""): FindCreationDraft => ({
-  label: titleCaseQuery(query), comment: "", parents: [], statements: [],
-  labelEdited: false, sourceOpen: false, parentText: "",
+  label: titleCaseQuery(query),
+  comment: "",
+  parents: [],
+  statements: [],
+  labelEdited: false,
+  sourceOpen: false,
+  parentText: "",
 });
 export interface FindCreationPreview extends TextAnalysisDraft {
   creation: TextAnalysisClassInput;
@@ -30,10 +45,28 @@ export interface FindCreationPreview extends TextAnalysisDraft {
   collisions: FindCollision[];
   errors: { field: string; message: string }[];
 }
-export const fixedFindPredicates = [TYPE, NS.rdfs + "label", SUBCLASS, NS.rdfs + "comment"];
+export const fixedFindPredicates = [
+  TYPE,
+  NS.rdfs + "label",
+  SUBCLASS,
+  NS.rdfs + "comment",
+];
 export const resourcePredicates = new Set([
-  TYPE, SUBCLASS, NS.rdfs + "subPropertyOf", NS.owl + "equivalentClass",
-  NS.rdfs + "isDefinedBy", NS.rdfs + "domain", NS.rdfs + "range",
-  NS.owl + "disjointWith", NS.owl + "inverseOf",
+  TYPE,
+  SUBCLASS,
+  NS.rdfs + "subPropertyOf",
+  NS.owl + "equivalentClass",
+  NS.rdfs + "isDefinedBy",
+  NS.rdfs + "domain",
+  NS.rdfs + "range",
+  NS.owl + "disjointWith",
+  NS.owl + "inverseOf",
 ]);
-export const titleCaseQuery = (text: string) => text.replace(/\s+/gu, " ").trim().replace(/(^|\s)(\p{L})/gu, (_, space, letter) => space + letter.toUpperCase());
+export const titleCaseQuery = (text: string) =>
+  text
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(
+      /(^|\s)(\p{L})/gu,
+      (_, space, letter) => space + letter.toUpperCase(),
+    );

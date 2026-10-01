@@ -74,7 +74,9 @@ export function readFindOptions(input: unknown): FindOptions {
   return {
     ...(v.browse === true ? { browse: true } : {}),
     ...(v.diagnostics === true ? { diagnostics: true } : {}),
-    ...(typeof v.revealIri === "string" && v.revealIri ? { revealIri: v.revealIri.slice(0, 10000) } : {}),
+    ...(typeof v.revealIri === "string" && v.revealIri
+      ? { revealIri: v.revealIri.slice(0, 10000) }
+      : {}),
     text: typeof v.text === "string" ? v.text.slice(0, 256) : "",
     kind: choice(
       "kind",
