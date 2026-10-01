@@ -37,7 +37,7 @@ type Props = {
   drift: string;
   error: string;
   entities: Entity[];
-  generate(): Promise<void>;
+  generate(bypassCache?: boolean): Promise<void>;
   apply(indices: number[]): Promise<number | undefined>;
   selectRun(id: string): void;
   selectTarget(iri: string, id?: string): void;
@@ -49,7 +49,7 @@ export function AddChildrenSuggestions(p: Props) {
     <SuggestionWorkbench
       {...p}
       mode="children"
-      entry={entry}
+      entry={entry && { ...entry, cache: entry.response?.cache }}
       items={childSuggestions(entry)}
       summary={entry?.response?.result.summary ?? ""}
       progress={

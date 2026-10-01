@@ -417,7 +417,7 @@ function SavedSuggestionView({
           ? "The description of " + entity.name + " changed after this run."
           : ""
       : "";
-  const generate = async () => {
+  const generate = async (bypassCache = false) => {
     if (
       generating.current ||
       busy ||
@@ -434,6 +434,7 @@ function SavedSuggestionView({
     setSelected([]);
     try {
       const run = await window.axiom.suggestions.run({
+        bypassCache,
         iri: target.iri,
         mode: target.mode,
         provider,

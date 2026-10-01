@@ -41,7 +41,7 @@ export type SuggestionWorkbenchProps<T extends SuggestionItem> = {
   items: T[];
   entry?: Pick<
     SuggestionRun,
-    "id" | "state" | "provider" | "error" | "auditId"
+    "id" | "state" | "provider" | "error" | "auditId" | "cache"
   >;
   history: SuggestionHistory[];
   runId: string;
@@ -55,7 +55,7 @@ export type SuggestionWorkbenchProps<T extends SuggestionItem> = {
   blocked: string;
   drift: string;
   error: string;
-  generate(): Promise<void>;
+  generate(bypassCache?: boolean): Promise<void>;
   apply(indices: number[]): Promise<number | undefined>;
   selectRun(id: string): void;
   selectTarget(iri: string, id?: string): void;
@@ -462,6 +462,11 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
         >
           New run
         </button>
+        {entry?.state === "completed" && (
+          <button disabled={disabled} onClick={() => void p.generate(true)}>
+            Run again
+          </button>
+        )}
       </div>
       <div className="ac-run ac-band">
         <h2 title={p.targetIri}>
@@ -470,6 +475,13 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
         <p className="ac-peek" title={summary}>
           {summary}
         </p>
+        {entry?.cache?.hit && (
+          <p role="status">
+            Cached result from{" "}
+            {new Date(entry.cache.completedAt).toLocaleString()} ·{" "}
+            {entry.cache.model ?? "Model not reported"}.
+          </p>
+        )}
         <div className="ac-overlays">
           {p.prompt && (
             <button

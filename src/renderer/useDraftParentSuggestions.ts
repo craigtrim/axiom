@@ -49,7 +49,7 @@ export function useDraftParentSuggestions(
       if (id) void window.axiom.suggestions.cancel(id).catch(() => {});
     };
   }, [key]);
-  const generate = async () => {
+  const generate = async (bypassCache = false) => {
     if (active.current || !preview.prompt) return;
     const id = crypto.randomUUID();
     active.current = id;
@@ -59,6 +59,7 @@ export function useDraftParentSuggestions(
     setSentPrompt(preview.prompt);
     try {
       const result = await window.axiom.suggestions.run({
+        bypassCache,
         id,
         iri: "",
         mode: "parents",

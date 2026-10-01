@@ -201,7 +201,7 @@ export function TaxonomyAssistant({
     applying,
   ]);
 
-  async function generate() {
+  async function generate(bypassCache = false) {
     if (
       !target ||
       !targetExists ||
@@ -235,6 +235,7 @@ export function TaxonomyAssistant({
           if (currentTarget.current === origin)
             setPreview(sampleTaxonomyContext(next));
           return window.axiom.taxonomyAssistant.run({
+            bypassCache,
             id,
             provider,
             iri: origin.iri,
@@ -391,7 +392,22 @@ export function TaxonomyAssistant({
                 ? "Find children"
                 : "Find instances"}
           </button>
+          {entry?.state === "completed" && (
+            <button
+              disabled={!!activity || applying || !targetExists}
+              onClick={() => void generate(true)}
+            >
+              Run again
+            </button>
+          )}
         </div>
+        {response?.cache?.hit && (
+          <p role="status">
+            Cached result from{" "}
+            {new Date(response.cache.completedAt).toLocaleString()} ·{" "}
+            {response.cache.model ?? "Model not reported"}.
+          </p>
+        )}
         <label className="taxonomy-history">
           Run history
           <select

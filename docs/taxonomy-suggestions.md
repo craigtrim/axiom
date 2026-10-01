@@ -28,11 +28,11 @@ Existing labels and normalized identifier names are checked locally across the o
 
 ## Find instances
 
-**Find instances** is a separate context-menu action with a separate prompt. Selecting it starts the run immediately. It asks for identifiable real members of the selected class, using general subject knowledge and the same plain-text exchange. It can return an empty result when no useful additions are justified. Accepted individuals receive rdf:type relationships to the selected class. They do not become subclasses.
+Choose **Find > Instances** from a class context menu in Hierarchy. Shift+F10, F, I opens it from the keyboard. Selecting it starts the run immediately with its own prompt. It asks for identifiable real members of the selected class, using general subject knowledge and the same plain-text exchange. It can return an empty result when no useful additions are justified. Accepted individuals receive rdf:type relationships to the selected class. They do not become subclasses. **Show instances** remains a separate action for browsing records already present in the ontology.
 
 The prompt includes up to 50 existing individuals from the selected branch and the total count. All existing names are still checked locally. Proposals use model knowledge without web research; they are not presented as externally verified facts. Review their membership and descriptions before adding them.
 
-Both actions default to Claude and offer Codex in the Assistant selector. This preference is shared with Research and query generation. They reuse the local CLI runner used for SPARQL composition, with isolated temporary directories, plain-text output, cancellation and a five-minute timeout. Axiom does not call a model API directly. The CLI sends the prompt through its own signed-in service.
+Both actions default to Claude and offer Codex in the Assistant selector. This preference is shared with synonym and parent suggestions and query generation. They reuse the local CLI runner used for SPARQL composition, with isolated temporary directories, plain-text output, cancellation and a five-minute timeout. Axiom does not call a model API directly. The CLI sends the prompt through its own signed-in service.
 
 ## Shared view and custom suggestions
 
@@ -72,3 +72,5 @@ npm run test:codex -- taxonomy.spec.ts
 ```
 
 The five cases check missing direct vehicle categories, a complete RGB taxonomy with no additions, named planet instances with duplicate exclusion, the shipped Pizza branch, and Meaty Pizza with no recorded children. They operate the taxonomy context menu and use the real Codex on PATH. Prompt, response and installation details are retained with the Playwright report. These checks establish the observed behavior of those cases; proposed taxonomic placement still requires review.
+
+Successful replies are reused for the same entity, provider and exact prompt. **Run again** explicitly bypasses the cache. See [Model cache](model-cache.md).

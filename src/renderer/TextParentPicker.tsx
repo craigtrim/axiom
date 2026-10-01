@@ -79,7 +79,7 @@ export function TextParentPicker({
         preview?.parents ?? [],
         assistant.entry?.state === "completed" ? assistant.entry.values : [],
         assistant.assistant,
-      ).filter(option => !option.iri || option.iri !== excludeIri),
+      ).filter((option) => !option.iri || option.iri !== excludeIri),
     [
       snapshot.entities,
       value.parents,
@@ -195,44 +195,66 @@ export function TextParentPicker({
             }
           }}
         />
-        {!compact && <div className="text-parent-assistant">
-          <select
-            aria-label="Assistant"
-            value={assistant.provider}
-            disabled={disabled}
-            onChange={(e) =>
-              assistant.setProvider(e.target.value as "claude" | "codex")
-            }
-          >
-            <option value="claude">Claude</option>
-            <option value="codex">Codex</option>
-          </select>
+        {!compact && (
+          <div className="text-parent-assistant">
+            <select
+              aria-label="Assistant"
+              value={assistant.provider}
+              disabled={disabled}
+              onChange={(e) =>
+                assistant.setProvider(e.target.value as "claude" | "codex")
+              }
+            >
+              <option value="claude">Claude</option>
+              <option value="codex">Codex</option>
+            </select>
+            <button
+              type="button"
+              disabled={
+                disabled || !ready || assistant.busy || !assistant.prompt
+              }
+              onClick={() => void assistant.generate()}
+            >
+              {assistant.busy && (
+                <span className="text-parent-spinner" aria-hidden="true" />
+              )}
+              {assistant.busy ? "Thinking…" : "Suggest"}
+            </button>
+            {assistant.entry?.state === "completed" && (
+              <button
+                type="button"
+                disabled={disabled || assistant.busy}
+                onClick={() => void assistant.generate(true)}
+              >
+                Run again
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {!compact && (
+        <p className="text-parent-help" role="status">
+          {assistant.entry?.cache?.hit && (
+            <>
+              Cached result from{" "}
+              {new Date(assistant.entry.cache.completedAt).toLocaleString()} ·{" "}
+              {assistant.entry.cache.model ?? "Model not reported"}.{" "}
+            </>
+          )}
+          {assistant.entry?.state === "completed"
+            ? `${assistant.assistant} suggested ${assistant.entry.values.length} parents. They are in the list above, under its name.`
+            : `Uses your installed ${assistant.assistant} sign-in. Suggestions appear in the same list.`}{" "}
           <button
             type="button"
-            disabled={disabled || !ready || assistant.busy || !assistant.prompt}
-            onClick={() => void assistant.generate()}
+            className="text-parent-prompt-toggle"
+            disabled={disabled || !assistant.prompt}
+            aria-expanded={showPrompt}
+            onClick={() => setShowPrompt(!showPrompt)}
           >
-            {assistant.busy && (
-              <span className="text-parent-spinner" aria-hidden="true" />
-            )}
-            {assistant.busy ? "Thinking…" : "Suggest"}
+            Prompt
           </button>
-        </div>}
-      </div>
-      {!compact && <p className="text-parent-help" role="status">
-        {assistant.entry?.state === "completed"
-          ? `${assistant.assistant} suggested ${assistant.entry.values.length} parents. They are in the list above, under its name.`
-          : `Uses your installed ${assistant.assistant} sign-in. Suggestions appear in the same list.`}{" "}
-        <button
-          type="button"
-          className="text-parent-prompt-toggle"
-          disabled={disabled || !assistant.prompt}
-          aria-expanded={showPrompt}
-          onClick={() => setShowPrompt(!showPrompt)}
-        >
-          Prompt
-        </button>
-      </p>}
+        </p>
+      )}
       {text.trim() && !open && (
         <p className="text-parent-help">
           Choose a parent from the list, or press Escape to clear the search.
