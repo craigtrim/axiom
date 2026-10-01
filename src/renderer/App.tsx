@@ -1421,8 +1421,15 @@ export function App() {
               }
             }
             if (a.type === Actions.RENAME_TAB) {
+              const name = String(a.data.text);
+              if (!name.trim()) return undefined;
+              if (name.trim().length > 120) {
+                // Finish the inline Enter event before opening a new dialog.
+                setTimeout(() => setTabRename({ id: a.data.node, name }), 0);
+                return undefined;
+              }
               try {
-                renameTab(modelRef.current, a.data.node, a.data.text);
+                renameTab(modelRef.current, a.data.node, name);
               } catch (e) {
                 report((e as Error).message, true);
               }

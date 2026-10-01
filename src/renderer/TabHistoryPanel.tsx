@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { tabTypes, tabDate, type SavedTab } from "../shared/tab-history";
 import { useTabHistory, setTabSavePolicy } from "./tab-history";
 import { preferences } from "./client";
@@ -231,12 +231,15 @@ export function RenameTabDialog({
   close: () => void;
 }) {
   const [value, setValue] = useState(name);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
+  const valid = value.trim().length > 0 && value.trim().length <= 120;
   return (
     <Modal title="Rename tab" close={close}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (value.trim()) {
+          if (valid) {
             rename(value);
             close();
           }
@@ -245,19 +248,27 @@ export function RenameTabDialog({
         <label>
           Tab name
           <input
+            ref={input}
             autoFocus
             aria-label="Tab name"
             value={value}
             maxLength={120}
+            aria-invalid={value.trim().length > 120}
+            aria-describedby="tab-name-limit"
             onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => setValue(e.target.value)}
           />
         </label>
+        <p id="tab-name-limit" role="status">
+          {value.trim().length > 120
+            ? `This name has ${value.trim().length} characters. Shorten it to 120 or fewer.`
+            : "Enter a name of 1 to 120 characters."}
+        </p>
         <footer>
           <button type="button" onClick={close}>
             Cancel
           </button>
-          <button className="primary" disabled={!value.trim()}>
+          <button className="primary" disabled={!valid}>
             Rename
           </button>
         </footer>

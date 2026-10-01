@@ -248,6 +248,48 @@ test("unnamed tabs are omitted from history by default and inline renaming makes
   ).toBeVisible();
 });
 
+test("inline rename preserves rejected text, cancels blank input and accepts corrected names", async () => {
+  const tab = page.getByRole("tab", { name: "Graph", exact: true });
+  const inline = page.locator(".flexlayout__tab_button_textbox");
+  const notice = page.locator(".status-bar");
+  const before = await notice.innerText();
+  await tab.dblclick();
+  await inline.fill("   ");
+  await inline.press("Enter");
+  await expect(tab).toBeVisible();
+  await expect(notice).toHaveText(before, { useInnerText: true });
+  await expect(page.getByRole("dialog", { name: "Rename tab" })).toHaveCount(0);
+
+  const rejected = "Detailed graph name ".repeat(9);
+  await tab.dblclick();
+  await inline.fill(rejected);
+  await inline.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Rename tab", exact: true });
+  const field = dialog.getByRole("textbox", { name: "Tab name" });
+  await expect(field).toHaveValue(rejected);
+  await expect(field).toBeFocused();
+  await expect(dialog.getByRole("status")).toContainText("120 or fewer");
+  await expect(
+    dialog.getByRole("button", { name: "Rename", exact: true }),
+  ).toBeDisabled();
+  await field.press("Enter");
+  await expect(field).toHaveValue(rejected);
+  await expect(tab).toBeVisible();
+  await field.fill("Corrected graph name");
+  await field.press("Enter");
+  await expect(dialog).toHaveCount(0);
+  const corrected = page.getByRole("tab", {
+    name: "Corrected graph name",
+    exact: true,
+  });
+  await corrected.dblclick();
+  await inline.fill("x".repeat(120));
+  await inline.press("Enter");
+  await expect(
+    page.getByRole("tab", { name: "x".repeat(120), exact: true }),
+  ).toBeVisible();
+});
+
 test("saved Find tabs restore query and facets, and renames survive arrangement changes", async () => {
   await req("createClass", {
     name: "Basic English",
