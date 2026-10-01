@@ -5,5 +5,6 @@ export default defineConfig({
     testTimeout: 30000,
     pool: "forks",
     maxWorkers: 2,
+    setupFiles: ["tests/domain/cache-test-setup.ts"],
   },
 });

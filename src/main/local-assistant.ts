@@ -10,11 +10,12 @@ import {
   rm,
 } from "node:fs/promises";
 import path from "node:path";
-import {
-  researchSchema,
-  type AssistantId,
-  type AssistantInfo,
-} from "../shared/research";
+import type {
+  AssistantId,
+  AssistantInfo,
+  AssistantRunResult,
+  AssistantCallMetadata,
+} from "../shared/assistant";
 export interface AssistantCommand {
   id: AssistantId;
   file: string;
@@ -73,11 +74,12 @@ export function assistantArguments(
   id: AssistantId,
   dir: string,
   web: boolean,
-  schema: object | null = researchSchema,
+  schema: object | null = null,
 ) {
   if (id === "codex")
     return [
       "exec",
+      "--json",
       "--sandbox",
       "read-only",
       "--skip-git-repo-check",
@@ -125,6 +127,81 @@ export function assistantArguments(
     "12",
   ];
 }
+const cliVersions = new Map<string, Promise<string | null>>();
+function cliVersion(command: AssistantCommand) {
+  const key = JSON.stringify([command.file, ...command.args]);
+  let result = cliVersions.get(key);
+  if (!result) {
+    result = new Promise<string | null>((resolve) => {
+      const child = spawn(command.file, [...command.args, "--version"], {
+        windowsHide: true,
+        shell: false,
+        stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          ...(command.node ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
+        },
+      });
+      let output = "";
+      const timer = setTimeout(() => {
+        child.kill();
+        resolve(null);
+      }, 3000);
+      child.stdout.on("data", (chunk) => {
+        output = (output + chunk.toString()).slice(0, 2000);
+      });
+      child.on("error", () => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        resolve(code === 0 && output.trim() ? output.trim() : null);
+      });
+    });
+    cliVersions.set(key, result);
+  }
+  return result;
+}
+export function assistantOutputMetadata(
+  provider: AssistantId,
+  output: string,
+): Pick<AssistantCallMetadata, "model" | "providerReport"> {
+  const report: Record<string, unknown> = {};
+  const models = new Set<string>();
+  if (provider === "claude") {
+    const envelope = JSON.parse(output);
+    for (const [source, target] of [
+      ["duration_ms", "durationMs"],
+      ["duration_api_ms", "durationApiMs"],
+      ["num_turns", "numTurns"],
+      ["total_cost_usd", "totalCostUsd"],
+      ["usage", "usage"],
+      ["modelUsage", "modelUsage"],
+    ])
+      if (envelope[source] !== undefined) report[target] = envelope[source];
+    if (envelope.modelUsage && typeof envelope.modelUsage === "object")
+      for (const model of Object.keys(envelope.modelUsage)) models.add(model);
+    if (typeof envelope.model === "string") models.add(envelope.model);
+  } else {
+    for (const line of output.split(/\r?\n/)) {
+      try {
+        const event = JSON.parse(line);
+        if (typeof event.model === "string") models.add(event.model);
+        if (typeof event.thread?.model === "string")
+          models.add(event.thread.model);
+        if (event.type === "turn.completed" && event.usage)
+          report.usage = event.usage;
+      } catch {
+        /* Non-event stdout does not identify the model. */
+      }
+    }
+  }
+  return {
+    model: models.size ? [...models].sort().join(", ") : null,
+    providerReport: Object.keys(report).length ? report : null,
+  };
+}
 export class LocalAssistantRunner {
   private active?: { child?: ChildProcess; cancelled: boolean };
   constructor(
@@ -169,6 +246,17 @@ export class LocalAssistantRunner {
     web = false,
     maxPromptLength = 150000,
   ): Promise<unknown> {
+    return (
+      await this.runWithMetadata(provider, prompt, schema, web, maxPromptLength)
+    ).reply;
+  }
+  async runWithMetadata(
+    provider: AssistantId,
+    prompt: string,
+    schema: object | null,
+    web = false,
+    maxPromptLength = 150000,
+  ): Promise<AssistantRunResult> {
     if (this.active) throw Error("An assistant request is already running.");
     const job: { child?: ChildProcess; cancelled: boolean } = {
       cancelled: false,
@@ -184,6 +272,7 @@ export class LocalAssistantRunner {
       const command = (await this.discover()).find((c) => c.id === provider);
       if (!command)
         throw Error("The selected assistant was not found on PATH.");
+      const version = await cliVersion(command);
       await mkdir(this.root, { recursive: true });
       dir = await mkdtemp(path.join(this.root, "job-"));
       if (schema)
@@ -201,6 +290,7 @@ export class LocalAssistantRunner {
         ...assistantArguments(command.id, dir, web, schema),
       ]);
       auditStep("Starting assistant", provider);
+      const started = Date.now();
       const output = await new Promise<string>((resolve, reject) => {
         const child = spawn(
           command.file,
@@ -269,6 +359,7 @@ export class LocalAssistantRunner {
         });
         child.stdin!.end(prompt);
       });
+      const completed = Date.now();
       auditStep("Reading assistant response");
       let raw: unknown;
       if (command.id === "codex") {
@@ -281,13 +372,22 @@ export class LocalAssistantRunner {
         if (envelope.is_error)
           throw Error(
             String(
-              envelope.result ?? "Claude could not complete this research.",
+              envelope.result ?? "Claude could not complete this request.",
             ),
           );
         raw = envelope.structured_output ?? envelope.result ?? "";
       }
       auditDetail("Assistant response", raw);
-      return raw;
+      return {
+        reply: raw,
+        metadata: {
+          ...assistantOutputMetadata(provider, output),
+          cli: { version, path: command.args[0] ?? command.file },
+          startedAt: new Date(started).toISOString(),
+          completedAt: new Date(completed).toISOString(),
+          durationMs: completed - started,
+        },
+      };
     } finally {
       auditDetail("Process stdout", diagnosticStdout);
       auditDetail("Process stderr (last 8,000 characters)", diagnosticStderr);

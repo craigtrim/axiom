@@ -30,7 +30,7 @@ it.each(["claude", "codex"] as const)(
       "Summary: Proposed child.\nSuggestions:\n1. Ethics course\nDescription: A course about ethics.";
     await writeFile(
       script,
-      'const fs=require("node:fs");process.stdin.resume();process.stdin.on("end",()=>{' +
+      'const fs=require("node:fs");if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.resume();process.stdin.on("end",()=>{' +
         'process.stderr.write("fixture warning");' +
         (provider === "claude"
           ? "process.stdout.write(JSON.stringify({result:" +
@@ -82,7 +82,7 @@ it("records nonzero exit codes and stderr even when no response file exists", as
   const script = path.join(root, "fail.cjs");
   await writeFile(
     script,
-    'process.stdin.resume();process.stdin.on("end",()=>{process.stdout.write("partial response");process.stderr.write("authentication failed");process.exitCode=7;});',
+    'if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.resume();process.stdin.on("end",()=>{process.stdout.write("partial response");process.stderr.write("authentication failed");process.exitCode=7;});',
   );
   const runner = new LocalAssistantRunner(path.join(root, "runs"), async () => [
     { id: "codex", file: process.execPath, args: [script] },

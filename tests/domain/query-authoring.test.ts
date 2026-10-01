@@ -134,7 +134,7 @@ it.each(["codex", "claude"] as const)(
     };
     await writeFile(
       script,
-      `const fs=require("fs"); let s=""; process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{if(!s.includes("ONTOLOGY CONTEXT")||!s.includes("SPARQL 1.1 Query"))process.exit(2);const r=${JSON.stringify(proposal)}; if(process.argv.includes("--output-last-message"))fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(r));else process.stdout.write(JSON.stringify({structured_output:r}));});`,
+      `const fs=require("fs"); let s=""; if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{if(!s.includes("ONTOLOGY CONTEXT")||!s.includes("SPARQL 1.1 Query"))process.exit(2);const r=${JSON.stringify(proposal)}; if(process.argv.includes("--output-last-message"))fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(r));else process.stdout.write(JSON.stringify({structured_output:r}));});`,
     );
     try {
       const service = new QueryAssistantService(
