@@ -24,7 +24,7 @@ export function setSourceDraft(next?: SourceDraft) {
   draft = next && next.text !== next.loaded.text ? next : undefined;
   rememberDocumentDraft(
     "source",
-    draft ? { flush: applySourceDraft, discard: () => setSourceDraft() } : null,
+    draft ? { discard: () => setSourceDraft() } : null,
   );
   for (const fn of listeners) fn();
 }

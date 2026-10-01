@@ -43,10 +43,6 @@ export function rememberEdgeDraft(edgeId: string, draft: EdgeDraft) {
   }
   drafts.set(key, structuredClone(draft));
   rememberDocumentDraft(key, {
-    flush: async () => {
-      const pending = drafts.get(key);
-      if (pending) await applyEdgeDraft(edgeId, pending);
-    },
     discard: () => {
       drafts.delete(key);
       notify(key);

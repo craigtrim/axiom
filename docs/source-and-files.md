@@ -6,11 +6,13 @@ Open **View > Source** (Ctrl+7), or choose **View source** in the Inspector. The
 
 The graph, taxonomy, entity editors and Source pane edit the same ontology. Changes applied in another view refresh a clean Source pane. **Apply changes** parses and validates the complete source draft before changing the ontology. A successful apply is one Undo operation; Undo and Redo also refresh the other views.
 
-Workspace Save and ontology Export apply retained source drafts, including a draft whose pane has been closed. Choosing another source format first applies a valid draft, then renders the resulting ontology in the selected format. Closing the pane does not discard its pending text.
+Workspace Save commits complete grid edits and retains unfinished rows and unapplied source drafts in the workspace, including drafts whose panes have been closed. Choosing another source format first applies a valid draft, then renders the resulting ontology in the selected format. Closing the pane does not discard its pending text.
 
-Invalid text stays in the editor with an error and leaves the ontology unchanged. If another view changes the ontology while a source draft is pending, the draft is retained and cannot overwrite that newer version. Copy any edits you want to keep, then choose **Discard draft and reload** to work from the current ontology. Save and Export also stop if a pending draft cannot be applied.
+Invalid text stays in the editor with an error and leaves the ontology unchanged. If another view changes the ontology while a source draft is pending, the draft is retained and cannot overwrite that newer version. Copy any edits you want to keep, then choose **Discard draft and reload** to work from the current ontology.
 
-Typing does not update the ontology on every keystroke. Apply, Save and format switching provide the validation boundary. Layout changes remain workbench state; moving a graph node does not invent an RDF statement.
+**File > Export ontology** captures the committed ontology before opening the file dialog. It includes changes already applied to the ontology even if the workspace has not been saved to disk. Export leaves unfinished rows, pending grid edits and unapplied source text in their editors without applying them or warning about drafts. An automatic edit committed after the export snapshot is captured belongs to the next export. Canceling export also leaves drafts and the ontology untouched.
+
+Typing in Source does not update the ontology on every keystroke. **Apply changes** and source format switching validate ontology source; **Save source** applies a Details source draft. Layout changes remain workbench state; moving a graph node does not invent an RDF statement.
 
 ## Formats
 

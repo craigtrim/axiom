@@ -13,6 +13,7 @@ import {
   getEditorDraft,
   applyEditorDraft,
   editorDraftSnapshot,
+  rememberDocumentDraft,
 } from "../../src/renderer/editor-drafts";
 const iri = "urn:MilitaryEngineering";
 const parent = (value: string): Triple => ({
@@ -257,4 +258,49 @@ it("File Save applies a restored synonym draft with a blank row and finishes onc
     expect.objectContaining({ statements }),
   );
   expect(editorDraftSnapshot()).toEqual([]);
+});
+
+it("File Save keeps unfinished rows and document drafts while applying another complete entity", async () => {
+  const incomplete = draft([parent("urn:Science")], [parent("")]);
+  rememberEditorDraft(incomplete);
+  const complete = {
+    ...draft([note("Before")], [note("After")]),
+    iri: "urn:Other",
+    nextIri: "urn:Other",
+  };
+  rememberEditorDraft(complete);
+  const discard = vi.fn();
+  rememberDocumentDraft("source", { discard });
+  mocks.request.mockResolvedValue({
+    iri: complete.iri,
+    document: document(complete.statements),
+  });
+  mocks.onCommand.mock.calls[0][0]("editors.flushGrid");
+  await vi.waitFor(() =>
+    expect(window.axiom.editors.flushed).toHaveBeenCalledWith(),
+  );
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  expect(mocks.request).toHaveBeenCalledWith(
+    "updateEntity",
+    expect.objectContaining({ iri: complete.iri }),
+  );
+  expect(editorDraftSnapshot()).toEqual([incomplete]);
+  expect(discard).not.toHaveBeenCalled();
+  expect(window.axiom.editors.dirty).toHaveBeenLastCalledWith(2);
+  syncEditorEpoch(++epoch);
+  expect(discard).toHaveBeenCalledTimes(1);
+});
+
+it("a File Save with only unfinished drafts finishes without applying or discarding them", async () => {
+  const pending = draft([parent("urn:Science")], [parent("")]);
+  rememberEditorDraft(pending);
+  const discard = vi.fn();
+  rememberDocumentDraft("entity-source", { discard });
+  mocks.onCommand.mock.calls[0][0]("editors.flushGrid");
+  await vi.waitFor(() =>
+    expect(window.axiom.editors.flushed).toHaveBeenCalledWith(),
+  );
+  expect(mocks.request).not.toHaveBeenCalled();
+  expect(editorDraftSnapshot()).toEqual([pending]);
+  expect(discard).not.toHaveBeenCalled();
 });

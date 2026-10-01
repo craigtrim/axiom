@@ -24,11 +24,6 @@ export function setEntitySourceDraft(
     id,
     drafts.has(id)
       ? {
-          flush: async () => {
-            throw Error(
-              "Save source or discard source edits in Details before saving the workspace.",
-            );
-          },
           discard: () => {
             drafts.delete(id);
             notify();

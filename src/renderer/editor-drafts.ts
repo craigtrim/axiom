@@ -10,13 +10,10 @@ import type { DocumentData, EditorDraft } from "../shared/editor-state";
 export type { DocumentData, EditorDraft } from "../shared/editor-state";
 const drafts = new Map<string, EditorDraft>();
 export const editorDraftSnapshot = () => structuredClone([...drafts.values()]);
-const documentDrafts = new Map<
-  string,
-  { flush(): Promise<unknown>; discard(): void }
->();
+const documentDrafts = new Map<string, { discard(): void }>();
 export function rememberDocumentDraft(
   id: string,
-  draft: { flush(): Promise<unknown>; discard(): void } | null,
+  draft: { discard(): void } | null,
 ) {
   if (draft) documentDrafts.set(id, draft);
   else documentDrafts.delete(id);
@@ -190,32 +187,25 @@ async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
   return result;
 }
 onCommand((id) => {
-  if (id !== "editors.flush" && id !== "editors.flushGrid") return;
+  if (id !== "editors.flushGrid") return;
   void (async () => {
     try {
       // Applying one draft can retarget references in another. Read each
       // remaining draft after the previous identifier change has completed.
-      if (id === "editors.flush") {
-        while (documentDrafts.size)
-          await documentDrafts.values().next().value!.flush();
-        while (drafts.size)
-          await applyEditorDraft(drafts.values().next().value!);
-      } else {
-        // File Save commits complete grid edits; unfinished rows and source
-        // drafts are retained in the workspace for later editing.
-        const complete = () =>
-          [...drafts.values()].find((d) =>
-            editorStatements(d.statements).every((t) =>
-              completeEditorStatement(
-                t,
-                d.loaded.statements,
-                state?.entities.find((e) => e.iri === t.predicate)?.kind,
-              ),
+      // File Save commits complete grid edits; unfinished rows and source
+      // drafts are retained in the workspace for later editing.
+      const complete = () =>
+        [...drafts.values()].find((d) =>
+          editorStatements(d.statements).every((t) =>
+            completeEditorStatement(
+              t,
+              d.loaded.statements,
+              state?.entities.find((e) => e.iri === t.predicate)?.kind,
             ),
-          );
-        for (let draft = complete(); draft; draft = complete())
-          await applyEditorDraft(draft);
-      }
+          ),
+        );
+      for (let draft = complete(); draft; draft = complete())
+        await applyEditorDraft(draft);
       window.axiom.editors.flushed();
     } catch (e) {
       const message = (e as Error).message;
