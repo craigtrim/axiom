@@ -45,6 +45,17 @@ async function openFile(file: string, command = "file.import") {
   await expect
     .poll(async () => (await state()).datasetEpoch)
     .toBeGreaterThan(epoch);
+  // The worker publishes its new epoch before main finishes the import's
+  // session checkpoint. A second import during that interval is ignored.
+  const importedEpoch = (await state()).datasetEpoch;
+  await expect
+    .poll(async () => {
+      const saved = JSON.parse(
+        await readFile(path.join(profile, "last-session.json"), "utf8"),
+      );
+      return saved.workspace.datasetEpoch;
+    })
+    .toBe(importedEpoch);
 }
 async function importText(text: string, name: string) {
   const file = path.join(profile, name);
