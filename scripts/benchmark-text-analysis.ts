@@ -8,7 +8,6 @@ import { MutatocClient, mutatocExecutable } from "../src/main/mutatoc-client";
 import {
   textEntities,
   type MutatocToken,
-  type TokenDictionaries,
 } from "../src/main/text-analysis-spans";
 
 const [input, output = "artifacts/text-analysis-benchmark.json", runtime] =
@@ -62,24 +61,12 @@ try {
       interface: "data",
     }),
   );
-  const dictionaries: TokenDictionaries = {
-    contractions: await client.request({
-      op: "lingpatlab",
-      method: "dictionary",
-      name: "d_enclictics",
-    }),
-    abbreviations: await client.request({
-      op: "lingpatlab",
-      method: "dictionary",
-      name: "d_abbreviations",
-    }),
-  };
   const short =
     "community organizing is here. This is really a form of social justice activism. Combat lifesaver.";
   const paragraph =
     short +
     " Biology and chemistry are fields of science. Alice traveled to London in September. We study computer science and mathematics at the university.";
-  await measure("First parse (includes model startup)", () =>
+  await measure("First parse", () =>
     client.request({ op: "parse", text: short }),
   );
   for (const text of [short, paragraph, Array(10).fill(paragraph).join("\n")]) {
@@ -92,7 +79,7 @@ try {
         }),
       );
       const spans = await measure(`Map spans: ${name}`, () =>
-        textEntities(text, parsed.tokens, dictionaries),
+        textEntities(text, parsed.tokens),
       );
       results.push({
         characters: text.length,

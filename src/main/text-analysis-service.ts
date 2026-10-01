@@ -1,10 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { MutatocClient, MutatocError } from "./mutatoc-client";
-import {
-  textEntities,
-  type MutatocToken,
-  type TokenDictionaries,
-} from "./text-analysis-spans";
+import { textEntities, type MutatocToken } from "./text-analysis-spans";
+import tokenizer from "./data/mutatoc-tokenizer.json";
 import {
   MAX_ANALYSIS_TEXT,
   type TextAnalysisContext,
@@ -20,8 +17,8 @@ export class TextAnalysisService {
   private client?: MutatocClient;
   private loaded = "";
   private emptyOntology = false;
+  private verified = false;
   private concepts: NonNullable<TextAnalysisContext["concepts"]> = {};
-  private dictionaries?: TokenDictionaries;
   private queued?: Job;
   private running = false;
   private closed = false;
@@ -69,8 +66,8 @@ export class TextAnalysisService {
           this.client?.close();
           this.client = undefined;
           this.loaded = "";
+          this.verified = false;
           this.concepts = {};
-          this.dictionaries = undefined;
           job.reject(error instanceof Error ? error : Error(String(error)));
         }
       }
@@ -92,6 +89,14 @@ export class TextAnalysisService {
         context.version !== input.version
       )
         return this.superseded(input);
+      if (!this.verified) {
+        const version = await this.client.request<string>({ op: "version" });
+        if (version !== tokenizer.version)
+          throw Error(
+            `Text Analysis requires Mutatoc ${tokenizer.version}; the configured runtime reports ${version}. Install the matching runtime.`,
+          );
+        this.verified = true;
+      }
       await this.client.request({
         op: "load",
         turtle: context.turtle,
@@ -102,15 +107,6 @@ export class TextAnalysisService {
       this.concepts = context.concepts ?? {};
       this.loaded = key;
       this.emptyOntology = false;
-    }
-    if (!this.dictionaries) {
-      const contractions = await this.client.request<
-        TokenDictionaries["contractions"]
-      >({ op: "lingpatlab", method: "dictionary", name: "d_enclictics" });
-      const abbreviations = await this.client.request<
-        TokenDictionaries["abbreviations"]
-      >({ op: "lingpatlab", method: "dictionary", name: "d_abbreviations" });
-      this.dictionaries = { contractions, abbreviations };
     }
     let parsed: { text: string; tokens: MutatocToken[] } | undefined;
     if (!this.emptyOntology) {
@@ -126,8 +122,7 @@ export class TextAnalysisService {
         this.emptyOntology = true;
       }
     }
-    // A blank ontology has no ontology matches, but the native preprocessing
-    // and trained model still provide their ordinary entity annotations.
+    // A blank ontology returns native tokens without ontology matches.
     parsed ??= {
       text: input.text,
       tokens: await this.client.request<MutatocToken[]>({
@@ -135,7 +130,7 @@ export class TextAnalysisService {
         text: input.text,
       }),
     };
-    const entities = textEntities(input.text, parsed.tokens, this.dictionaries);
+    const entities = textEntities(input.text, parsed.tokens);
     const concepts = Object.fromEntries(
       [
         ...new Set(

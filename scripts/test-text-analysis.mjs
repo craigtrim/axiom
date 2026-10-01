@@ -8,7 +8,7 @@ const candidates = process.env.AXIOM_MUTATOC_HOME
   ? [path.resolve(process.env.AXIOM_MUTATOC_HOME)]
   : [
       path.join(root, "vendor/mutatoc"),
-      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3"),
+      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.0"),
     ];
 const home = candidates.find((folder) =>
   existsSync(path.join(folder, executable)),

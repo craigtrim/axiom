@@ -1,11 +1,12 @@
 import type { TextEntity } from "../shared/text-analysis";
+import substitutions from "./data/mutatoc-tokenizer.json";
 export interface MutatocToken {
   text: string;
   ent?: string;
   ner?: string | null;
   swaps?: { canon: string; type: string; tokens: MutatocToken[] };
 }
-export interface TokenDictionaries {
+export interface TokenizerSubstitutions {
   contractions: Record<string, string[]>;
   abbreviations: Record<string, string>;
 }
@@ -17,10 +18,14 @@ interface Glyph {
 const visible = (ch: string) => !/\s/u.test(ch);
 const quote = (ch: string) => (ch === "'" ? '"' : ch);
 /** Reconstruct only the source provenance of literal tokenizer substitutions.
- * The dictionaries and all linguistic decisions come from the native engine.
+ * The substitution data is pinned to the native tokenizer version. The engine
+ * makes all tokenization and matching decisions; this only maps their history.
  * Offsets are UTF-16 offsets into the untouched editor text, never C x/y values.
  */
-function sourceGlyphs(text: string, dictionaries: TokenDictionaries): Glyph[] {
+function sourceGlyphs(
+  text: string,
+  dictionaries: TokenizerSubstitutions,
+): Glyph[] {
   const result: Glyph[] = [];
   const chunks = text.match(/[^ ]* |[^ ]+$/gu) ?? [];
   let offset = 0;
@@ -45,7 +50,7 @@ function sourceGlyphs(text: string, dictionaries: TokenDictionaries): Glyph[] {
       const abbreviation =
         (word.match(/\./g) ?? []).length < 2 &&
         Object.hasOwn(dictionaries.abbreviations, word)
-          ? dictionaries.abbreviations[word].replace(/~~/g, ".")
+          ? dictionaries.abbreviations[word]
           : undefined;
       if (abbreviation !== undefined)
         glyphs = Array.from(abbreviation, (ch) => ({
@@ -59,35 +64,14 @@ function sourceGlyphs(text: string, dictionaries: TokenDictionaries): Glyph[] {
   }
   return result;
 }
-const entityNames: Record<string, string> = {
-  PERSON: "Person",
-  ORG: "Organization",
-  GPE: "Place",
-  LOC: "Location",
-  NORP: "Group",
-  FAC: "Facility",
-  PRODUCT: "Product",
-  EVENT: "Event",
-  WORK_OF_ART: "Work of art",
-  LAW: "Law",
-  LANGUAGE: "Language",
-  DATE: "Date",
-  TIME: "Time",
-  PERCENT: "Percentage",
-  MONEY: "Money",
-  QUANTITY: "Quantity",
-  ORDINAL: "Ordinal",
-  CARDINAL: "Number",
-};
 export function textEntities(
   text: string,
   tokens: MutatocToken[],
-  dictionaries: TokenDictionaries,
+  dictionaries: TokenizerSubstitutions = substitutions,
 ): TextEntity[] {
   const glyphs = sourceGlyphs(text, dictionaries);
   let position = 0;
   const spans = new Map<MutatocToken, { start: number; end: number }>();
-  const leaves: MutatocToken[] = [];
   const visit = (token: MutatocToken, depth = 0): void => {
     if (depth > 100)
       throw Error("Text Analysis returned excessively nested matches.");
@@ -103,7 +87,6 @@ export function textEntities(
         });
       return;
     }
-    leaves.push(token);
     let start: number | undefined,
       end = 0;
     for (const ch of token.text) {
@@ -135,40 +118,6 @@ export function textEntities(
       source: "ontology",
       method: token.swaps.type,
     });
-  }
-  const ontology = [...entities];
-  let ontologyIndex = 0;
-  let group: TextEntity | undefined;
-  for (const token of leaves) {
-    const span = spans.get(token);
-    if (!span) continue;
-    while (
-      ontologyIndex < ontology.length &&
-      ontology[ontologyIndex].end <= span.start
-    )
-      ontologyIndex++;
-    if (
-      !token.ent ||
-      (ontology[ontologyIndex] &&
-        span.start < ontology[ontologyIndex].end &&
-        span.end > ontology[ontologyIndex].start)
-    ) {
-      group = undefined;
-      continue;
-    }
-    const key = "model:" + token.ent;
-    if (group?.key === key && /^\s*$/u.test(text.slice(group.end, span.start)))
-      group.end = span.end;
-    else {
-      group = {
-        ...span,
-        key,
-        label: entityNames[token.ent] ?? token.ent,
-        source: "model",
-        method: "named entity",
-      };
-      entities.push(group);
-    }
   }
   return entities.sort((a, b) => a.start - b.start || b.end - a.end);
 }

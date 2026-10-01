@@ -26,7 +26,7 @@ export function mutatocExecutable(
           path.join(appPath, "vendor", "mutatoc", executable),
           path.resolve(
             appPath,
-            "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3",
+            "../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.0",
             executable,
           ),
         ];
@@ -38,7 +38,7 @@ export function mutatocExecutable(
   return found;
 }
 
-/** One engine and model for the lifetime of the view's analysis service. */
+/** One native engine for the lifetime of the view's analysis service. */
 export class MutatocClient {
   private child?: ChildProcessWithoutNullStreams;
   private waiting?: {
@@ -58,7 +58,6 @@ export class MutatocClient {
       cwd: path.dirname(this.executable),
       windowsHide: true,
       stdio: "pipe",
-      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     });
     this.child = child;
     this.output = "";
@@ -159,8 +158,7 @@ export class MutatocClient {
     this.output = "";
     if (!child) return;
     child.stdin.end();
-    // Closing stdin lets the C engine dispose of its workers. A killed Windows
-    // engine also closes its job handles, terminating those workers.
+    // Closing stdin lets the engine dispose of its loaded ontology.
     const timer = setTimeout(() => child.kill(), 1500);
     timer.unref();
     child.once("exit", () => clearTimeout(timer));

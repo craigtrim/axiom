@@ -1,13 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  readFile,
-  writeFile,
-  mkdir,
-  copyFile,
-  readdir,
-  rm,
-} from "node:fs/promises";
+import { readFile, writeFile, mkdir, copyFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -17,7 +10,7 @@ const source = candidate
   ? path.resolve(candidate)
   : existsSync(path.join(target, "package-manifest.json"))
     ? target
-    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3");
+    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.0");
 let manifest;
 try {
   manifest = JSON.parse(
@@ -25,29 +18,32 @@ try {
   );
 } catch {
   throw Error(
-    "Install the complete mutatoc 0.2.3 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
+    "Install the complete mutatoc 0.3.0 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
   );
 }
-if (manifest.version !== "0.2.3")
-  throw Error("Axiom requires the tested mutatoc 0.2.3 runtime.");
+if (manifest.version !== "0.3.0")
+  throw Error("Axiom requires the tested mutatoc 0.3.0 runtime.");
 const entries = Object.entries(manifest.files);
 for (const required of [
   "mutatoc.exe",
-  "runtime/python/python.exe",
-  "runtime/spacy_worker.py",
-  "runtime/sparql_worker.py",
+  "include/mutatoc.h",
+  "LICENSE",
   "THIRD_PARTY_NOTICES.md",
 ])
   if (!Object.hasOwn(manifest.files, required))
     throw Error("Incomplete mutatoc package: " + required);
 // Validate the source before replacing the local runtime. Copy only manifested
-// files so unrelated source files and Python caches cannot enter the installer.
+// files so unrelated files cannot enter the installer.
 for (const [relative, record] of entries) {
   if (
     relative.split(/[\\/]/).some((part) => part === "..") ||
     path.isAbsolute(relative)
   )
     throw Error("Invalid package path.");
+  if (relative.split(/[\\/]/)[0].toLowerCase() === "runtime")
+    throw Error(
+      "Mutatoc 0.3.0 must not contain a retired Python/model runtime.",
+    );
   const content = await readFile(path.join(source, relative));
   if (
     content.length !== record.bytes ||
@@ -72,16 +68,9 @@ if (source !== target) {
     JSON.stringify(manifest, null, 2) + "\n",
   );
 }
-// Reject retired dependencies even if an environment was edited after extraction.
-const packages = await readdir(
-  path.join(target, "runtime/python/Lib/site-packages"),
-);
-if (
-  packages.some((name) =>
-    /^(lingpatlab|wordnet_lookup|unicodedata2)([-.]|$)/i.test(name),
-  )
-)
-  throw Error("The runtime contains a retired LingPatLab dependency.");
+// A copied older runtime must never reintroduce Python/model payloads.
+if (existsSync(path.join(target, "runtime")))
+  throw Error("Mutatoc 0.3.0 must not contain a retired Python/model runtime.");
 console.log(
   `mutatoc ${manifest.version}: verified ${entries.length} packaged files in ${target}`,
 );
