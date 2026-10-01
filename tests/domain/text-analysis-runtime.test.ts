@@ -11,9 +11,9 @@ import {
 } from "../../src/main/mutatoc-client";
 import {
   textEntities,
-  type TokenDictionaries,
   type MutatocToken,
 } from "../../src/main/text-analysis-spans";
+import dictionaries from "../../src/main/data/mutatoc-tokenizer.json";
 let executable = "";
 try {
   executable = mutatocExecutable(process.cwd(), "", false);
@@ -150,22 +150,13 @@ it.skipIf(!available)(
   },
 );
 it.skipIf(!available)(
-  "maps real LingPatLab source transformations without shifting later matches",
+  "maps all pinned native tokenizer substitutions without shifting later matches",
   async () => {
     const client = new MutatocClient(executable);
     try {
-      const dictionaries: TokenDictionaries = {
-        contractions: await client.request({
-          op: "lingpatlab",
-          method: "dictionary",
-          name: "d_enclictics",
-        }),
-        abbreviations: await client.request({
-          op: "lingpatlab",
-          method: "dictionary",
-          name: "d_abbreviations",
-        }),
-      };
+      expect(await client.request({ op: "version" })).toBe(
+        dictionaries.version,
+      );
       const texts = [
         "Dog  Cat",
         "Dog\r\nCat",
@@ -198,6 +189,41 @@ it.skipIf(!available)(
           text,
         ).not.toThrow();
       }
+      await client.request({
+        op: "load",
+        turtle,
+        name: "substitutions",
+        class_based: true,
+        interface: "data",
+      });
+      for (const word of [
+        ...Object.keys(dictionaries.contractions),
+        ...Object.keys(dictionaries.abbreviations),
+      ]) {
+        const text = `😀 Dog ${word} Cat`;
+        const parsed = await client.request<{ tokens: MutatocToken[] }>({
+          op: "parse",
+          text,
+        });
+        expect(textEntities(text, parsed.tokens), text).toEqual([
+          {
+            start: text.indexOf("Dog"),
+            end: text.indexOf("Dog") + 3,
+            key: "ontology:dog",
+            label: "dog",
+            source: "ontology",
+            method: "exact",
+          },
+          {
+            start: text.indexOf("Cat"),
+            end: text.indexOf("Cat") + 3,
+            key: "ontology:cat",
+            label: "cat",
+            source: "ontology",
+            method: "exact",
+          },
+        ]);
+      }
     } finally {
       client.close();
     }
@@ -219,7 +245,7 @@ it("reports missing runtime configuration instead of approximating NLP", () => {
 });
 
 it.skipIf(!available)(
-  "uses the same native model for empty ontologies and restores matching on the next ontology version",
+  "returns no matches for empty ontologies and restores matching on the next ontology version",
   async () => {
     let version = 1;
     let content =
@@ -239,9 +265,7 @@ it.skipIf(!available)(
         datasetEpoch: 1,
         version,
       });
-      expect(empty.entities.map((e) => [e.source, e.label])).toEqual([
-        ["model", "Place"],
-      ]);
+      expect(empty.entities).toEqual([]);
       version++;
       content = turtle;
       const populated = await service.parse({
@@ -251,7 +275,6 @@ it.skipIf(!available)(
       });
       expect(populated.entities.map((e) => [e.source, e.label])).toEqual([
         ["ontology", "dog"],
-        ["model", "Place"],
       ]);
     } finally {
       service.close();
@@ -401,7 +424,7 @@ it.skipIf(!available)(
               entity.source !== "ontology" &&
               text.slice(entity.start, entity.end) === "London",
           ),
-        ).toBe(true);
+        ).toBe(false);
         for (const entity of matches)
           expect(result.concepts?.[entity.label]?.length).toBeGreaterThan(0);
       }

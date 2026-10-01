@@ -5,7 +5,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -19,10 +19,10 @@ const home =
   process.env.AXIOM_MUTATOC_HOME ??
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.2.3"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.0"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
-  "Install mutatoc with npm run setup:mutatoc to run real NLP desktop tests.",
+  "Install mutatoc with npm run setup:mutatoc to run native matching desktop tests.",
 );
 const base = "https://example.org/text#";
 const turtle = `@prefix : <${base}> .
@@ -182,7 +182,7 @@ test("typing and pasting highlight original text automatically with accessible c
   await expect(chip("lion")).toBeVisible();
   await expect(chip("dog")).toContainText("2");
   await expect(chip("cat")).toBeVisible();
-  await expect(chip("Place")).toBeVisible();
+  await expect(chip("Place")).toHaveCount(0);
   const colors = await Promise.all(
     [chip("dog"), chip("cat")].map((c) =>
       c.evaluate((e) => getComputedStyle(e).backgroundColor),
@@ -262,7 +262,7 @@ test("unsaved ontology edits reparse the same text and text survives restart", a
     .toBe("Dog and kitty");
 });
 
-test("switching ontologies clears old matches and a blank workspace retains model annotations", async () => {
+test("switching ontologies clears old matches and a blank workspace has no inferred annotations", async () => {
   // Keep the editor above AdaptivePane's recovery width after the Pizza layout loads.
   await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setSize(1800, 1100),
@@ -273,7 +273,8 @@ test("switching ontologies clears old matches and a blank workspace retains mode
   await expect(panel()).toHaveCount(0);
   await menu("view.textanalysis");
   await expect(editor()).toBeVisible();
-  await expect(chip("Place")).toBeVisible({ timeout: 20000 });
+  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(chip("Place")).toHaveCount(0);
   await expect(chip("dog")).toHaveCount(0);
   await menu("file.example");
   await expect(panel()).toHaveCount(0);
@@ -545,27 +546,25 @@ test("clicking a synonym reuses the editable Details tab for successive entities
   await expect(detailsTab()).toHaveCount(1);
 });
 
-test("keyboard matches and model annotations use the same Details view without fabricated ontology links", async () => {
-  await enter("alpha blah beta in London");
+test("keyboard ontology matches reuse Details and unmatched names have no inferred annotations", async () => {
+  await enter("alpha blah beta in London with Dog");
   await expect(chip("pair")).toBeVisible({ timeout: 20000 });
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Alt+Enter");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Pair");
-  await clickHighlight("Place");
-  await expect(details().getByLabel("Matched text")).toHaveText("London");
-  await expect(details()).toContainText("Language model");
-  await expect(details()).toContainText("no linked ontology entry");
+  await expect(chip("Place")).toHaveCount(0);
+  await clickHighlight("dog");
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await menu("view.details");
-  await expect(details().getByLabel("Matched text")).toHaveText("London");
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await expect(detailsTab()).toHaveCount(1);
   await expect(
     details().getByRole("table", { name: "Entity statements" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await details().getByRole("button", { name: /Back/, exact: false }).click();
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Pair");
-  await clickHighlight("Place");
-  await expect(details().getByLabel("Matched text")).toHaveText("London");
+  await clickHighlight("dog");
   await page.evaluate(
     (iri) => window.axiom.request("select", { iri }),
     base + "Dog",
@@ -574,7 +573,8 @@ test("keyboard matches and model annotations use the same Details view without f
   await page.evaluate(() => window.axiom.request("select", { iri: null }));
   await expect(details()).toContainText("Select a node or edge");
   await enter("London");
-  await expect(chip("Place")).toBeVisible();
+  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(chip("Place")).toHaveCount(0);
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
   ).toBeDisabled();
@@ -763,7 +763,7 @@ test("long pasted text retains every match as its beginning and end change", asy
   await enter(text);
   for (const label of ["dog", "lion", "cat"])
     await expect(chip(label).locator("b")).toHaveText("80", { timeout: 20000 });
-  await expect(chip("Place")).toBeVisible();
+  await expect(chip("Place")).toHaveCount(0);
   await enter("canine " + text + " big cat");
   await expect(chip("dog").locator("b")).toHaveText("81");
   await expect(chip("lion").locator("b")).toHaveText("81");
@@ -903,7 +903,13 @@ test("draft parent suggestions call Codex, expose the prompt and require the use
   ).toBeFocused();
   const [run] = await page.evaluate(() => window.axiom.suggestions.history());
   expect(run.provider).toBe("codex");
-  expect(run.prompt).toBe(prompt);
+  expect(run.prompt.startsWith(prompt)).toBe(true);
+  expect(run.prompt.slice(prompt.length)).toMatch(
+    /^\n\nContext identity: [a-f0-9]{32}$/,
+  );
+  expect(await readFile(path.join(profile, "parent-prompt.txt"), "utf8")).toBe(
+    run.prompt,
+  );
   expect(
     (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
       .tripleCount,

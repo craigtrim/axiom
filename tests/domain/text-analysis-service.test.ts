@@ -17,6 +17,7 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
     MutatocClient: class {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
+          if (input.op === "version") return "0.3.0";
           if (input.op === "parse")
             return {
               text: "dog",
@@ -69,19 +70,35 @@ afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
 
 describe("analysis service scheduling and failures", () => {
-  it("loads the full parser contract once and reuses the ontology and dictionaries", async () => {
+  it.each(["0.2.3", "0.4.0"])(
+    "rejects incompatible runtime %s before loading and can recover",
+    async (version) => {
+      const pending = service.parse(input());
+      current().request.mockResolvedValueOnce(version);
+      await expect(pending).rejects.toThrow(
+        `requires Mutatoc 0.3.0; the configured runtime reports ${version}`,
+      );
+      expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
+        "version",
+      ]);
+      expect(current().close).toHaveBeenCalledOnce();
+      expect((await service.parse(input())).entities).toMatchObject([
+        { label: "dog" },
+      ]);
+    },
+  );
+  it("verifies the native version once and reuses the loaded ontology", async () => {
     await service.parse(input());
     await service.parse(input("canine"));
     expect(context).toHaveBeenCalledOnce();
     expect(executable).toHaveBeenCalledOnce();
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
+      "version",
       "load",
-      "lingpatlab",
-      "lingpatlab",
       "parse",
       "parse",
     ]);
-    expect(current().request.mock.calls[0][0]).toEqual({
+    expect(current().request.mock.calls[1][0]).toEqual({
       op: "load",
       turtle: graph().turtle,
       name: "test",
@@ -101,10 +118,8 @@ describe("analysis service scheduling and failures", () => {
         current().request.mock.calls.filter(([call]) => call.op === "load"),
       ).toHaveLength(2);
       expect(
-        current().request.mock.calls.filter(
-          ([call]) => call.op === "lingpatlab",
-        ),
-      ).toHaveLength(2);
+        current().request.mock.calls.filter(([call]) => call.op === "version"),
+      ).toHaveLength(1);
     },
   );
 
@@ -155,9 +170,8 @@ describe("analysis service scheduling and failures", () => {
     expect(native.instances).toHaveLength(2);
     expect(context).toHaveBeenCalledTimes(2);
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
+      "version",
       "load",
-      "lingpatlab",
-      "lingpatlab",
       "parse",
     ]);
   });
@@ -174,7 +188,7 @@ describe("analysis service scheduling and failures", () => {
       new MutatocError("Empty ontology", 4),
     );
     const empty = await service.parse(input("London"));
-    expect(empty.entities).toMatchObject([{ label: "Place", source: "model" }]);
+    expect(empty.entities).toEqual([]);
     current().request.mockClear();
     await service.parse(input("Paris"));
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([

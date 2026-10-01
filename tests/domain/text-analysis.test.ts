@@ -75,11 +75,11 @@ describe("original text highlighting", () => {
       [27, 33, "U.S.A."],
     ]);
   });
-  it("decodes legacy abbreviation dictionary periods without changing literal tildes", () => {
+  it("retains a native abbreviation's literal period", () => {
     expect(
       textEntities("dr.", [match("doctor", leaf("dr"), leaf("."))], {
         contractions: {},
-        abbreviations: { "dr.": "dr~~" },
+        abbreviations: { "dr.": "dr." },
       })[0],
     ).toMatchObject({ start: 0, end: 3 });
   });
@@ -130,7 +130,7 @@ describe("original text highlighting", () => {
         .end,
     ).toBe(5);
   });
-  it("keeps named entities grouped and lets ontology matches take precedence", () => {
+  it("produces only ontology matches even when supplied tokens contain legacy model metadata", () => {
     const text = "Alice Smith saw Dog in New York";
     const entities = textEntities(
       text,
@@ -147,11 +147,7 @@ describe("original text highlighting", () => {
     );
     expect(
       entities.map((e) => [e.source, e.label, text.slice(e.start, e.end)]),
-    ).toEqual([
-      ["model", "Person", "Alice Smith"],
-      ["ontology", "dog", "Dog"],
-      ["model", "Place", "New York"],
-    ]);
+    ).toEqual([["ontology", "dog", "Dog"]]);
   });
   it("rejects an unmappable token instead of highlighting a later duplicate", () => {
     expect(() =>
