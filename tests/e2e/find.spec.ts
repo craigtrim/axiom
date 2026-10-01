@@ -412,6 +412,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
   await find("English");
   const p = pane();
   await expectPageSize("50");
+  await p.getByRole("button", { name: "More", exact: true }).click();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await expect(p.getByRole("status").first()).toHaveText(
     /127 matches of [\d,]+ entities/,
@@ -523,6 +524,7 @@ test("Find refreshes after edits and keeps filters when closed, reopened and res
       ),
     });
   }, base + "Basic");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await expect(pane().getByRole("status").first()).toHaveText(
     /0 matches of [\d,]+ entities/,
@@ -628,6 +630,7 @@ test("MPNet Find recognizes synonyms without spelling overlap and opens the same
     .toBe(true);
   await menu("view.find");
   const p = pane();
+  await p.getByRole("button", { name: "More", exact: true }).click();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await p.getByRole("searchbox", { name: "Search the ontology" }).fill("car");
   await expect(
@@ -691,6 +694,7 @@ test("automatic Find enriches an unseen query and preserves field and type facet
   await expect(
     p.getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeVisible();
+  await p.getByRole("button", { name: "More", exact: true }).click();
   await p.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(p).toContainText("Select at least one field");
   await p.getByRole("checkbox", { name: "rdfs:comment", exact: true }).check();
@@ -699,10 +703,12 @@ test("automatic Find enriches an unseen query and preserves field and type facet
     .fill("written and spoken English");
   await expect(p.locator(".find-results tbody tr")).toHaveCount(1);
   await expect(p.locator(".find-match-evidence")).toContainText("rdfs:comment");
+  await p.getByRole("button", { name: "More", exact: true }).click();
   await p.getByRole("button", { name: "All fields", exact: true }).click();
   await expect(
     p.getByRole("checkbox", { name: "rdf:type", exact: true }),
   ).toBeChecked();
+  await p.getByRole("button", { name: "More", exact: true }).click();
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await p
     .getByRole("searchbox", { name: "Search the ontology" })
@@ -783,6 +789,7 @@ test("graph Find similar uses the selected name and field facets survive restart
   await expect(
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Clear", exact: true }).click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
@@ -831,6 +838,7 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
     await window.axiom.request("layout", { mode: "grid" });
   }, base + "Basic");
   await find("English");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await types(["Classes"]);
   await setPageSize("25");
@@ -921,6 +929,7 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
 
 test("result graphs follow field filters and instance ancestry without expanding siblings", async () => {
   await find("Basic");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Clear", exact: true }).click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })

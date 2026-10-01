@@ -1971,8 +1971,10 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await find
     .getByRole("combobox", { name: "Sort results" })
     .selectOption("name-desc");
-  await find.getByRole("button", { name: /^Options:/ }).click();
+  await find.getByRole("button", { name: "More", exact: true }).click();
   await find.getByRole("button", { name: "Clear", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await find.getByRole("button", { name: /^Options:/ }).click();
   await find.getByRole("checkbox", { name: "Classes", exact: true }).uncheck();
   await find
     .getByRole("button", { name: "Close Options", exact: true })

@@ -2,6 +2,7 @@ import { useId, type ReactNode } from "react";
 import { THING, type Entity } from "../domain/model";
 import type { Snapshot } from "../shared/protocol";
 import { ancestryTrail } from "../domain/ancestry";
+import { FindGlyph } from "./FindGlyph";
 
 export function SectionPanel({
   title,
@@ -31,16 +32,22 @@ export function StatementTable({
 }) {
   return (
     <div className="entity-statements-wrap">
-      <p className="entity-statement-count">
-        {count} {count === 1 ? "statement" : "statements"}
-      </p>
-      <table className="entity-statements" aria-label="Class statements">
+      <table className="entity-statements st" aria-label="Class statements">
+        <colgroup>
+          <col style={{ width: 140 }} />
+          <col />
+          <col style={{ width: 30 }} />
+        </colgroup>
         <thead>
           <tr>
             <th scope="col">Predicate</th>
-            <th scope="col">Value</th>
-            <th scope="col">
-              <span className="sr-only">Actions</span>
+            <th scope="col" colSpan={2}>
+              <span className="th-row">
+                <span>Value</span>
+                <span className="n entity-statement-count">
+                  {count} {count === 1 ? "statement" : "statements"}
+                </span>
+              </span>
             </th>
           </tr>
         </thead>
@@ -59,11 +66,12 @@ export function AddStatementAction({
   return (
     <button
       type="button"
-      className="entity-add-row"
+      className="entity-add-row addrow"
       disabled={disabled}
       onClick={add}
     >
-      + Add row
+      <FindGlyph name="plus" />
+      Add row
     </button>
   );
 }
@@ -72,11 +80,13 @@ export function SourceDisclosure({
   change,
   source,
   disabled = false,
+  plain = false,
 }: {
   open: boolean;
   change(open: boolean): void;
   source: string;
   disabled?: boolean;
+  plain?: boolean;
 }) {
   const id = useId();
   return (
@@ -88,7 +98,7 @@ export function SourceDisclosure({
         disabled={disabled}
         onClick={() => change(!open)}
       >
-        <span aria-hidden="true">{open ? "▾" : "▸"}</span> Source
+        {!plain && <span aria-hidden="true">{open ? "▾" : "▸"}</span>} Source
       </button>
       {open && (
         <pre id={id} aria-label="RDF/XML source" tabIndex={0}>
@@ -122,27 +132,66 @@ export function AncestryChain({
     restrictions: [],
   } as unknown as Entity);
   const trail = ancestryTrail(entities, iri, 512, 11);
+  if (!parents.length || (parents.length === 1 && parents[0] === THING))
+    return (
+      <div className="anc-line" aria-label="Draft ancestry">
+        <b>{label || "Untitled"}</b> under <b>owl:Thing</b>{" "}
+        <span className="hint">Set a parent to change that.</span>
+      </div>
+    );
   return (
-    <SectionPanel title="Ancestry">
-      <ol className="entity-ancestry-chain" aria-label="Draft ancestry">
+    <section className="sect" aria-label="Draft ancestry">
+      <ol className="entity-ancestry-chain chain">
         {trail.stages.slice(0, 12).map((stage, index) => (
           <li key={index}>
+            {index > 0 && <div className="conn" aria-hidden="true" />}
             {stage.map((step) => (
               <div
-                className="entity-ancestry-card"
+                className={`entity-ancestry-card ccard${index === 0 ? " sel" : ""}`}
                 data-subject={index === 0}
                 key={step.iri}
               >
-                <span>
-                  {index === 0
-                    ? "New class"
-                    : step.root || step.iri === THING
-                      ? "Root level"
-                      : "Parent"}
+                <span className="glyph" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  >
+                    {index === 0 ? (
+                      <>
+                        <rect x="3.5" y="3.5" width="9" height="9" rx="1" />
+                        <rect
+                          x="6"
+                          y="6"
+                          width="4"
+                          height="4"
+                          fill="currentColor"
+                          stroke="none"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <circle cx="8" cy="8" r="4.5" />
+                        {(step.root || step.iri === THING) && (
+                          <circle
+                            cx="8"
+                            cy="8"
+                            r="2"
+                            fill="currentColor"
+                            stroke="none"
+                          />
+                        )}
+                      </>
+                    )}
+                  </svg>
                 </span>
-                <strong title={step.iri}>
-                  {step.iri === THING ? "owl:Thing" : step.label}
-                </strong>
+                <span>
+                  {index === 0 && <span className="cc">New class</span>}
+                  <strong className="nn" title={step.iri}>
+                    {step.iri === THING ? "owl:Thing" : step.label}
+                  </strong>
+                </span>
               </div>
             ))}
           </li>
@@ -153,12 +202,6 @@ export function AncestryChain({
           More ancestors exist. The preview shows up to 12 levels.
         </p>
       )}
-      {!parents.length && (
-        <p className="entity-root-caution">
-          This will sit under owl:Thing. Set rdfs:subClassOf below to place it
-          under an existing parent.
-        </p>
-      )}
-    </SectionPanel>
+    </section>
   );
 }

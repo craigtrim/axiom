@@ -368,7 +368,7 @@ test("the empty-result editor stays mounted across pending searches and preserve
   const query = pane.getByRole("searchbox", { name: "Search the ontology" });
   await query.fill("unlisted architecture");
   const editor = pane.getByRole("region", {
-    name: "Not in the ontology? Add it.",
+    name: "Add to the ontology",
   });
   const label = editor.getByRole("textbox", {
     name: "Class label",
@@ -387,8 +387,8 @@ test("the empty-result editor stays mounted across pending searches and preserve
   expect(await node!.evaluate((el) => el.isConnected)).toBe(true);
   await expect(label).toHaveValue("A preserved draft");
   await expect(create).toBeDisabled();
-  await expect(pane.locator(".find-zero h2")).toHaveText(
-    'No matches for "unlisted architecture" in 2 of 4 fields.',
+  await expect(pane.locator(".find-zero h3")).toHaveText(
+    "Nothing matched in 2 of 4 fields.",
   );
   await release(d);
   await expect(create).toBeEnabled();

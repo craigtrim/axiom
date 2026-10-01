@@ -23,6 +23,8 @@ import { FindCreatePanel } from "./FindCreatePanel";
 import { usePaneLayout } from "./AdaptivePane";
 import { FindPopover } from "./FindPopover";
 import "./find-editor.css";
+import "./find-reference.css";
+import { FindGlyph } from "./FindGlyph";
 import {
   defaultFindOptions,
   findKinds,
@@ -344,7 +346,7 @@ export function FindPanel() {
       host.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0;
     const update = () => {
       const next = { header: true, pager: true, inspector: true };
-      if (layout.narrow && layout.shallow)
+      if (layout.shallow && (layout.narrow || !rows.length))
         Object.assign(next, { header: false, pager: false, inspector: false });
       else if (layout.shallow) {
         // Reserve three real rows, then withdraw supporting regions in priority order.
@@ -715,13 +717,19 @@ export function FindPanel() {
     options.fields.includes("*") ||
     (fields.length > 0 && selectedFieldCount === fields.length);
   const allTypes = options.kinds.length === findKinds.length;
-  const defaultScope =
-    options.fields.length === defaultFindOptions.fields.length &&
-    defaultFindOptions.fields.every((f) => options.fields.includes(f)) &&
-    allTypes &&
-    options.sort === "relevance" &&
-    !options.excludeIri;
   const scopeSummary = `${selectedFieldCount} of ${fields.length} fields, ${options.kinds.length} of ${findKinds.length} types`;
+  const remedies =
+    data?.remedies?.filter((remedy) =>
+      remedy.id === "fields"
+        ? !allFields
+        : remedy.id === "types"
+          ? !allTypes
+          : !allFields ||
+            !allTypes ||
+            !!options.excludeIri ||
+            options.sort !== "relevance",
+    ) ?? [];
+  const canWiden = remedies.some((remedy) => remedy.count > 0);
   const resetEveryFilter = () =>
     updateFind({
       fields: ["*"],
@@ -759,7 +767,7 @@ export function FindPanel() {
           type="button"
           ref={scopeTrigger}
           hidden={!layout.compact}
-          className="find-scope-trigger"
+          className="find-scope-trigger btn scope-btn"
           aria-label={`Options: ${scopeSummary}`}
           aria-expanded={scopeOpen}
           aria-controls={scopeId}
@@ -777,10 +785,9 @@ export function FindPanel() {
             }
           }}
         >
-          <span>Options</span>
-          <span className="find-scope-ratios">
-            {selectedFieldCount} of {fields.length} fields,{" "}
-            {options.kinds.length} of {findKinds.length} types
+          <FindGlyph name="filter" />
+          <span className="find-scope-ratios r">
+            {`${selectedFieldCount}/${fields.length} · ${options.kinds.length}/${findKinds.length}`}
           </span>
         </button>
         <div className="find-query">
@@ -789,7 +796,7 @@ export function FindPanel() {
             aria-label="Search the ontology"
             type="search"
             maxLength={256}
-            placeholder="Search names, IRIs and annotations"
+            placeholder="Search the ontology"
             value={options.text}
             onChange={(event) => {
               pendingPageFocus.current = undefined;
@@ -816,6 +823,7 @@ export function FindPanel() {
           <div className="find-input-actions">
             {options.text && (
               <button
+                className="ib"
                 type="button"
                 aria-label="Clear query"
                 title="Clear query"
@@ -824,13 +832,14 @@ export function FindPanel() {
                   queryInput.current?.focus();
                 }}
               >
-                ×
+                <FindGlyph name="close" />
               </button>
             )}
             <FindPopover
               label="Recent searches"
               triggerRef={recentTrigger}
-              face={<span aria-hidden="true">◷</span>}
+              className="ib"
+              face={<FindGlyph name="clock" />}
             >
               {recent.length ? (
                 recent.map((text) => (
@@ -849,10 +858,8 @@ export function FindPanel() {
           </div>
         </div>
         <label className="find-sort" hidden={layout.narrow && layout.shallow}>
-          <span className="find-sort-label" hidden={layout.compact}>
-            Sort
-          </span>
           <select
+            className="sel sort"
             aria-label="Sort results"
             value={options.sort === "iri" ? "type" : options.sort}
             onChange={(event) =>
@@ -865,7 +872,11 @@ export function FindPanel() {
             <option value="type">Type</option>
           </select>
         </label>
-        <FindPopover label="More">
+        <FindPopover
+          label="More"
+          className="ib"
+          face={<FindGlyph name="more" />}
+        >
           <label>
             Results per page
             <select
@@ -880,6 +891,31 @@ export function FindPanel() {
               ))}
             </select>
           </label>
+          <div
+            className="find-facet-tools"
+            role="group"
+            aria-label="Search field tools"
+          >
+            <input
+              type="search"
+              aria-label="Filter search fields"
+              placeholder="Filter fields"
+              value={fieldFilter}
+              onChange={(event) => setFieldFilter(event.target.value)}
+            />
+            <button type="button" onClick={() => updateFind({ fields: ["*"] })}>
+              All fields
+            </button>
+            <button
+              type="button"
+              onClick={() => updateFind({ fields: ["name"] })}
+            >
+              Names only
+            </button>
+            <button type="button" onClick={() => updateFind({ fields: [] })}>
+              Clear
+            </button>
+          </div>
           {active && (
             <div role="group" aria-label="Selected result actions">
               <strong>{active.name}</strong>
@@ -959,21 +995,18 @@ export function FindPanel() {
           }}
         >
           <header className="find-scope-heading">
-            <strong>Search scope</strong>
-            {!defaultScope && (
-              <button type="button" onClick={resetScope}>
-                Reset filters
-              </button>
-            )}
+            <span className="s">{scopeSummary}</span>
+            <button type="button" className="btn" onClick={resetScope}>
+              Reset filters
+            </button>
             {scopeOpen && (
               <button type="button" onClick={closeScope}>
                 Close Options
               </button>
             )}
           </header>
-          <p className="find-scope-summary">{scopeSummary}</p>
-          <fieldset className="find-type-facets">
-            <legend>Entity types</legend>
+          <div className="find-type-facets">
+            <h4>Entity types</h4>
             {findKinds.map((id) => {
               const facet = facets?.kinds.find((f) => f.id === id);
               const label =
@@ -985,7 +1018,7 @@ export function FindPanel() {
                   other: "Other entities",
                 }[id];
               return (
-                <label key={id}>
+                <label className="chk" key={id}>
                   <input
                     type="checkbox"
                     aria-label={label}
@@ -998,41 +1031,20 @@ export function FindPanel() {
                       })
                     }
                   />
-                  {label}
-                  <span>{facet?.count ?? 0}</span>
+                  <span className="n">{label}</span>
+                  <span className={`c${facet?.count ? " hit" : ""}`}>
+                    {facet?.count ?? 0}
+                  </span>
                 </label>
               );
             })}
-          </fieldset>
-          <fieldset className="find-field-facets">
-            <legend>Search fields</legend>
-            <div className="find-facet-tools">
-              <input
-                type="search"
-                aria-label="Filter search fields"
-                placeholder="Filter fields"
-                value={fieldFilter}
-                onChange={(event) => setFieldFilter(event.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => updateFind({ fields: ["*"] })}
-              >
-                All fields
-              </button>
-              <button
-                type="button"
-                onClick={() => updateFind({ fields: ["name"] })}
-              >
-                Names only
-              </button>
-              <button type="button" onClick={() => updateFind({ fields: [] })}>
-                Clear
-              </button>
-            </div>
+          </div>
+          <div className="find-field-facets">
+            <h4>Search fields</h4>
             <div className="find-field-list">
               {filteredFields.map((field) => (
                 <label
+                  className="chk"
                   key={field.id}
                   title={`${field.id} · ${field.count.toLocaleString()} ${options.text.trim() ? "matches in this field" : "entities with a value"}`}
                 >
@@ -1044,8 +1056,10 @@ export function FindPanel() {
                       toggleField(field.id, event.target.checked)
                     }
                   />
-                  <span>{field.label}</span>
-                  <small>{field.count.toLocaleString()}</small>
+                  <span className="n">{field.label}</span>
+                  <small className={`c${field.count ? " hit" : ""}`}>
+                    {field.count.toLocaleString()}
+                  </small>
                 </label>
               ))}
               {!filteredFields.length && (
@@ -1057,7 +1071,7 @@ export function FindPanel() {
                 Select at least one field to search.
               </p>
             )}
-          </fieldset>
+          </div>
         </section>
         <div
           className="find-matches"
@@ -1079,13 +1093,14 @@ export function FindPanel() {
             </div>
             {total > 0 && (
               <button
+                className="btn"
                 type="button"
                 onClick={graphResults}
                 disabled={!ready || openingGraph}
                 aria-label="Open results in new graph"
                 title="Open all filtered matches, across every page, with shared ancestry back to the roots"
               >
-                <span aria-hidden="true">↗</span>
+                <FindGlyph name="graph" />
                 <span className="find-graph-label" hidden={layout.compact}>
                   {openingGraph
                     ? "Opening graph..."
@@ -1218,77 +1233,78 @@ export function FindPanel() {
             {data && !rows.length && (
               <fieldset className="find-zero" disabled={!ready}>
                 <div hidden={createOverlay}>
-                  <h2>
+                  <h3>
                     {allFields && allTypes
-                      ? `No matches for "${displayedOptions.text}" anywhere in the ontology.`
-                      : `No matches for "${displayedOptions.text}" in ${selectedFieldCount} of ${fields.length} fields.`}
-                  </h2>
-                  <p>
-                    {scopeSummary} · {storeTotal.toLocaleString()} entities
+                      ? "Nothing matched anywhere in the ontology."
+                      : `Nothing matched in ${selectedFieldCount} of ${fields.length} fields.`}
+                  </h3>
+                  <p className="why">
+                    {canWiden
+                      ? "A miss inside a narrowed scope is not the same as an absence."
+                      : "Widening the scope would not help."}
                   </p>
                   <div
                     className="find-remedies"
+                    hidden={!canWiden}
                     role="group"
                     aria-label="Search remedies"
                   >
-                    {data.remedies
-                      ?.filter((remedy) =>
-                        remedy.id === "fields"
-                          ? !allFields
-                          : remedy.id === "types"
-                            ? !allTypes
-                            : !allFields ||
-                              !allTypes ||
-                              !!options.excludeIri ||
-                              options.sort !== "relevance",
-                      )
-                      .map((remedy) => (
-                        <button
-                          type="button"
-                          key={remedy.id}
-                          disabled={!remedy.count}
-                          onClick={() =>
-                            remedy.id === "fields"
-                              ? updateFind({ fields: ["*"] })
-                              : remedy.id === "types"
-                                ? updateFind({ kinds: [...findKinds] })
-                                : resetEveryFilter()
-                          }
-                        >
-                          <span>
-                            {remedy.id === "fields"
-                              ? `Search all ${fields.length} fields`
-                              : remedy.id === "types"
-                                ? "Include all entity types"
-                                : "Reset every filter"}
-                          </span>
-                          <span className="find-remedy-yield">
-                            {remedy.count.toLocaleString()}{" "}
-                            {remedy.count === 1 ? "match" : "matches"}
-                          </span>
-                        </button>
-                      ))}
+                    {remedies.map((remedy) => (
+                      <button
+                        className="find-remedy"
+                        type="button"
+                        key={remedy.id}
+                        disabled={!remedy.count}
+                        onClick={() =>
+                          remedy.id === "fields"
+                            ? updateFind({ fields: ["*"] })
+                            : remedy.id === "types"
+                              ? updateFind({ kinds: [...findKinds] })
+                              : resetEveryFilter()
+                        }
+                      >
+                        <span>
+                          {remedy.id === "fields"
+                            ? `Search all ${fields.length} fields`
+                            : remedy.id === "types"
+                              ? "Include every entity type"
+                              : "Reset every filter"}
+                        </span>
+                        <span className="find-remedy-yield y">
+                          {`${remedy.count.toLocaleString()} ${remedy.count === 1 ? "match" : "matches"}`}
+                        </span>
+                      </button>
+                    ))}
                   </div>
+                  <hr className="rule" />
                 </div>
-                <button
-                  ref={createTrigger}
-                  type="button"
+                <div
+                  className="find-create-entry"
                   hidden={!layout.shallow || createOpen}
-                  aria-expanded={createOpen}
-                  aria-controls={createId}
-                  onClick={() => {
-                    setCreateOpen(true);
-                    requestAnimationFrame(() =>
-                      root.current
-                        ?.querySelector<HTMLInputElement>(
-                          '[aria-label="Class label"]',
-                        )
-                        ?.focus(),
-                    );
-                  }}
                 >
-                  Not in the ontology? Add it.
-                </button>
+                  <button
+                    className="btn primary"
+                    ref={createTrigger}
+                    type="button"
+                    hidden={!layout.shallow || createOpen}
+                    aria-expanded={createOpen}
+                    aria-controls={createId}
+                    onClick={() => {
+                      setCreateOpen(true);
+                      requestAnimationFrame(() =>
+                        root.current
+                          ?.querySelector<HTMLInputElement>(
+                            '[aria-label="Class label"]',
+                          )
+                          ?.focus(),
+                      );
+                    }}
+                  >
+                    <FindGlyph name="plus" />
+                    Add entity
+                  </button>
+                  <span>{`Carries "${displayedOptions.text.trim()}" across.`}</span>
+                </div>
                 <div
                   id={createId}
                   className="find-create-host"
@@ -1314,92 +1330,65 @@ export function FindPanel() {
                       Back to results
                     </button>
                   )}
-                  <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
+                  <FindCreatePanel reveal={reveal} />
                 </div>
               </fieldset>
             )}
           </div>
           <footer
-            className="find-footer"
-            data-withdrawn={!chrome.pager && !chrome.inspector}
+            className="find-pagination"
+            role="group"
+            aria-label="Result pages"
+            data-withdrawn={!chrome.pager}
+            inert={!chrome.pager || undefined}
+            aria-hidden={!chrome.pager || undefined}
           >
-            <div
-              className="find-pagination"
-              role="group"
-              aria-label="Result pages"
-              data-withdrawn={!chrome.pager}
-              inert={!chrome.pager || undefined}
-              aria-hidden={!chrome.pager || undefined}
+            <span>
+              {total
+                ? `${(offset + 1).toLocaleString()} to ${Math.min(total, offset + options.limit).toLocaleString()} of ${total.toLocaleString()}`
+                : "0 results"}
+            </span>
+            <span className="find-page-spacer" />
+            <button
+              className="ib"
+              disabled={!ready || offset === 0}
+              onClick={() => changePage(0)}
+              aria-label="First results page"
             >
-              <span hidden={layout.narrow}>
-                {total
-                  ? `${(offset + 1).toLocaleString()} to ${Math.min(total, offset + options.limit).toLocaleString()} of ${total.toLocaleString()}`
-                  : "0 results"}
-              </span>
-              <button
-                hidden={layout.narrow}
-                disabled={!ready || offset === 0}
-                onClick={() => changePage(0)}
-                aria-label="First results page"
-              >
-                «
-              </button>
-              <button
-                disabled={!ready || offset === 0}
-                onClick={() => changePage(Math.max(0, offset - options.limit))}
-                aria-label="Previous results page"
-              >
-                ‹
-              </button>
-              <span>
-                Page {total ? Math.floor(offset / options.limit) + 1 : 0} of{" "}
-                {Math.ceil(total / options.limit)}
-              </span>
-              <button
-                disabled={!ready || offset + options.limit >= total}
-                onClick={() => changePage(offset + options.limit)}
-                aria-label="Next results page"
-              >
-                ›
-              </button>
-              <button
-                hidden={layout.narrow}
-                disabled={!ready || offset + options.limit >= total}
-                onClick={() =>
-                  changePage(
-                    Math.max(0, Math.ceil(total / options.limit) - 1) *
-                      options.limit,
-                  )
-                }
-                aria-label="Last results page"
-              >
-                »
-              </button>
-            </div>
-            <section
-              className="find-inspector"
-              aria-label="Selected entity"
-              data-withdrawn={!chrome.inspector}
-              inert={!chrome.inspector || undefined}
-              aria-hidden={!chrome.inspector || undefined}
+              <FindGlyph name="first" />
+            </button>
+            <button
+              className="ib"
+              disabled={!ready || offset === 0}
+              onClick={() => changePage(Math.max(0, offset - options.limit))}
+              aria-label="Previous results page"
             >
-              {active ? (
-                <p
-                  title={`${active.name} · ${kindLabel(active.kind)} · ${active.iri} · ${active.path ?? "no parent recorded"} · ${active.aliases?.join(", ") || "none recorded"} · ${active.description || "none recorded"}`}
-                >
-                  <strong>{active.name}</strong>
-                  {created.includes(active.iri) && (
-                    <span className="find-created"> created here</span>
-                  )}{" "}
-                  · {kindLabel(active.kind)} · {active.iri} ·{" "}
-                  {active.path ?? "no parent recorded"} ·{" "}
-                  {active.aliases?.join(", ") || "none recorded"} ·{" "}
-                  {active.description || "none recorded"}
-                </p>
-              ) : (
-                <p className="muted">Select a result to inspect it.</p>
-              )}
-            </section>
+              <FindGlyph name="prev" />
+            </button>
+            <span className="pg">
+              {`Page ${total ? Math.floor(offset / options.limit) + 1 : 0} of ${Math.ceil(total / options.limit)}`}
+            </span>
+            <button
+              className="ib"
+              disabled={!ready || offset + options.limit >= total}
+              onClick={() => changePage(offset + options.limit)}
+              aria-label="Next results page"
+            >
+              <FindGlyph name="next" />
+            </button>
+            <button
+              className="ib"
+              disabled={!ready || offset + options.limit >= total}
+              onClick={() =>
+                changePage(
+                  Math.max(0, Math.ceil(total / options.limit) - 1) *
+                    options.limit,
+                )
+              }
+              aria-label="Last results page"
+            >
+              <FindGlyph name="last" />
+            </button>
           </footer>
           {message && (
             <span className="find-message" role="status">
@@ -1407,6 +1396,38 @@ export function FindPanel() {
             </span>
           )}
         </div>
+      </div>
+      <section
+        className="find-inspector"
+        aria-label="Selected entity"
+        data-withdrawn={!chrome.inspector}
+        inert={!chrome.inspector || undefined}
+        aria-hidden={!chrome.inspector || undefined}
+      >
+        {active ? (
+          <p
+            title={`${active.name} · ${kindLabel(active.kind)} · ${active.iri} · ${active.path ?? "no parent recorded"} · ${active.aliases?.join(", ") || "none recorded"} · ${active.description || "none recorded"}`}
+          >
+            <strong>{active.name}</strong>
+            {created.includes(active.iri) && (
+              <span className="find-created"> created here</span>
+            )}{" "}
+            · {kindLabel(active.kind)} · {active.iri} ·{" "}
+            {active.path ?? "no parent recorded"} ·{" "}
+            {active.aliases?.join(", ") || "none recorded"} ·{" "}
+            {active.description || "none recorded"}
+          </p>
+        ) : (
+          "Select a result to inspect it."
+        )}
+      </section>
+      <div className="find-store" hidden={layout.compact}>
+        <span>
+          {`${snapshot.classCount.toLocaleString()} classes · ${snapshot.individualCount.toLocaleString()} individuals · ${snapshot.tripleCount.toLocaleString()} triples`}
+        </span>
+        <button type="button" onClick={() => command("help.shortcuts")}>
+          Shortcuts
+        </button>
       </div>
     </section>
   );

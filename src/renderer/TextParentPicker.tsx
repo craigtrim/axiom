@@ -31,6 +31,8 @@ export function TextParentPicker({
   create,
   compact = false,
   excludeIri = "",
+  selectedText = "",
+  placeholder = "Search classes, or type a new name…",
 }: {
   snapshot: Snapshot;
   value: TextEntityClassDraft;
@@ -43,6 +45,8 @@ export function TextParentPicker({
   create(label: string): void;
   compact?: boolean;
   excludeIri?: string;
+  selectedText?: string;
+  placeholder?: string;
 }) {
   const id = useId(),
     input = useRef<HTMLInputElement>(null);
@@ -162,9 +166,9 @@ export function TextParentPicker({
           aria-activedescendant={
             open && options[active] ? id + "-" + active : undefined
           }
-          placeholder="Search classes, or type a new name…"
+          placeholder={placeholder}
           maxLength={256}
-          value={text}
+          value={text || (!open ? selectedText : "")}
           disabled={disabled}
           onChange={(e) => {
             setText(e.target.value);

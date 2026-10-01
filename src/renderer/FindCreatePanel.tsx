@@ -15,18 +15,16 @@ import { PredicateSelect, usePredicateOptions } from "./PredicateSelect";
 import {
   AddStatementAction,
   AncestryChain,
-  SectionPanel,
   SourceDisclosure,
   StatementTable,
 } from "./EntityEditorParts";
 import { openClassDraft } from "./text-analysis-state";
 import { useRetainedPreview } from "./use-retained-preview";
+import { FindGlyph } from "./FindGlyph";
 
 export function FindCreatePanel({
-  storeTotal,
   reveal,
 }: {
-  storeTotal: number;
   reveal(iri: string, label: string, message: string): Promise<void>;
 }) {
   const { draft } = useFindState();
@@ -192,13 +190,17 @@ export function FindCreatePanel({
         i === index ? { ...row, ...change } : row,
       ),
     });
+  const parentLabels = draft.parents.map((iri) => {
+    const parent = snapshot.entities.find((entity) => entity.iri === iri);
+    return (
+      parent?.label ||
+      parent?.name ||
+      compactIri(iri, snapshot.ontology.namespace)
+    );
+  });
   return (
-    <SectionPanel title="Not in the ontology? Add it." className="find-create">
-      <p className="find-create-sub">
-        Checked against all{" "}
-        {(preview?.storeTotal ?? storeTotal).toLocaleString()} entities as you
-        type, not just the fields above.
-      </p>
+    <section aria-label="Add to the ontology" className="find-create ed-wrap">
+      <div className="ed-label">Add to the ontology</div>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -212,9 +214,12 @@ export function FindCreatePanel({
             label={draft.label}
             parents={draft.parents}
           />
-          <div className="entity-subject">
-            <label htmlFor={id + "-subject"}>Subject</label>
+          <div className="entity-subject subj">
+            <label className="k" htmlFor={id + "-subject"}>
+              Subject
+            </label>
             <input
+              className="v"
               id={id + "-subject"}
               aria-label="Subject IRI"
               maxLength={10000}
@@ -223,7 +228,7 @@ export function FindCreatePanel({
               aria-describedby={id + "-iri"}
               onChange={(event) => updateFindDraft({ iri: event.target.value })}
             />
-            <span>
+            <span className="follows">
               {draft.iri === undefined ? "follows rdfs:label" : "overridden"}
             </span>
             {draft.iri !== undefined && (
@@ -238,11 +243,9 @@ export function FindCreatePanel({
           </div>
           <StatementTable
             count={
-              preview?.statementCount ??
-              2 +
-                Math.max(1, draft.parents.length) +
-                Number(!!draft.comment.trim()) +
-                draft.statements.filter((row) => row.value.trim()).length
+              4 +
+              Math.max(0, draft.parents.length - 1) +
+              draft.statements.length
             }
           >
             <tr>
@@ -250,7 +253,14 @@ export function FindCreatePanel({
                 <code>rdf:type</code>
               </th>
               <td>
-                <code>owl:Class</code>
+                <select
+                  className="w-label"
+                  aria-label="rdf:type"
+                  value={NS.owl + "Class"}
+                  onChange={() => {}}
+                >
+                  <option value={NS.owl + "Class"}>owl:Class</option>
+                </select>
               </td>
               <td />
             </tr>
@@ -263,6 +273,7 @@ export function FindCreatePanel({
               <td>
                 <input
                   id={id + "-label"}
+                  className="w-label"
                   aria-label="Class label"
                   maxLength={256}
                   value={draft.label}
@@ -296,34 +307,35 @@ export function FindCreatePanel({
                 <code>rdfs:subClassOf</code>
               </th>
               <td>
-                <div className="text-parent-chips">
-                  {draft.parents.map((iri) => {
-                    const parent = snapshot.entities.find((e) => e.iri === iri);
-                    const label =
-                      parent?.label ||
-                      parent?.name ||
-                      compactIri(iri, snapshot.ontology.namespace);
-                    return (
-                      <span className="text-parent-chip" key={iri}>
-                        <span title={iri}>{label}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remove parent ${label}`}
-                          onClick={() =>
-                            updateFindDraft({
-                              parents: draft.parents.filter((p) => p !== iri),
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                  {!draft.parents.length && (
-                    <span className="muted">owl:Thing (root)</span>
-                  )}
-                </div>
+                {draft.parents.length > 1 && (
+                  <div className="text-parent-chips">
+                    {draft.parents.map((iri) => {
+                      const parent = snapshot.entities.find(
+                        (e) => e.iri === iri,
+                      );
+                      const label =
+                        parent?.label ||
+                        parent?.name ||
+                        compactIri(iri, snapshot.ontology.namespace);
+                      return (
+                        <span className="text-parent-chip" key={iri}>
+                          <span title={iri}>{label}</span>
+                          <button
+                            type="button"
+                            aria-label={`Remove parent ${label}`}
+                            onClick={() =>
+                              updateFindDraft({
+                                parents: draft.parents.filter((p) => p !== iri),
+                              })
+                            }
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <TextParentPicker
                   snapshot={snapshot}
                   value={{
@@ -336,6 +348,8 @@ export function FindCreatePanel({
                   disabled={busy}
                   ready={ready}
                   compact
+                  selectedText={parentLabels.join(", ")}
+                  placeholder="owl:Thing (root). Search or type a name."
                   excludeIri={preview?.iri ?? iri}
                   text={draft.parentText}
                   setText={(parentText) => updateFindDraft({ parentText })}
@@ -349,7 +363,18 @@ export function FindCreatePanel({
                 />
                 {fieldError("parents")}
               </td>
-              <td />
+              <td>
+                {draft.parents.length === 1 && (
+                  <button
+                    type="button"
+                    className="ib rowact"
+                    aria-label={`Remove parent ${parentLabels[0]}`}
+                    onClick={() => updateFindDraft({ parents: [] })}
+                  >
+                    <FindGlyph name="close" />
+                  </button>
+                )}
+              </td>
             </tr>
             <tr>
               <th scope="row">
@@ -358,10 +383,10 @@ export function FindCreatePanel({
                 </label>
               </th>
               <td>
-                <textarea
+                <input
                   id={id + "-comment"}
+                  className="w-comment"
                   aria-label="Class comment"
-                  rows={2}
                   maxLength={10000}
                   value={draft.comment}
                   placeholder="One sentence saying what this is"
@@ -386,16 +411,20 @@ export function FindCreatePanel({
             {draft.statements.map((row, index) => (
               <tr key={row.id}>
                 <th scope="row">
-                  <PredicateSelect
-                    value={row.predicate}
-                    options={predicates}
-                    namespace={snapshot.ontology.namespace}
-                    label={`Predicate ${index + 1}`}
-                    change={(predicate) => setRow(index, { predicate })}
-                  />
+                  <span className="pk predicate-picker">
+                    <FindGlyph name="chev" />
+                    <PredicateSelect
+                      value={row.predicate}
+                      options={predicates}
+                      namespace={snapshot.ontology.namespace}
+                      label={`Predicate ${index + 1}`}
+                      change={(predicate) => setRow(index, { predicate })}
+                    />
+                  </span>
                 </th>
                 <td>
                   <input
+                    className="w-comment"
                     aria-label={`Value ${index + 1}`}
                     value={row.value}
                     maxLength={10000}
@@ -410,6 +439,7 @@ export function FindCreatePanel({
                 <td>
                   <button
                     type="button"
+                    className="ib rowact"
                     aria-label={`Remove statement ${index + 1}`}
                     onClick={() =>
                       updateFindDraft({
@@ -419,39 +449,42 @@ export function FindCreatePanel({
                       })
                     }
                   >
-                    ×
+                    <FindGlyph name="close" />
                   </button>
                 </td>
               </tr>
             ))}
           </StatementTable>
           {fieldError("statements")}
-          <AddStatementAction
-            disabled={draft.statements.length >= 100 || !unusedPredicate}
-            add={() =>
-              unusedPredicate &&
-              updateFindDraft({
-                statements: [
-                  ...draft.statements,
-                  {
-                    id: crypto.randomUUID(),
-                    predicate: unusedPredicate,
-                    value: "",
-                  },
-                ],
-              })
-            }
-          />
-          {!unusedPredicate && (
-            <p className="muted">
-              All available predicates are already in use.
-            </p>
-          )}
-          <SourceDisclosure
-            open={draft.sourceOpen}
-            change={(sourceOpen) => updateFindDraft({ sourceOpen })}
-            source={preview?.source ?? ""}
-          />
+          <div className="ed-tools">
+            <AddStatementAction
+              disabled={draft.statements.length >= 100 || !unusedPredicate}
+              add={() =>
+                unusedPredicate &&
+                updateFindDraft({
+                  statements: [
+                    ...draft.statements,
+                    {
+                      id: crypto.randomUUID(),
+                      predicate: unusedPredicate,
+                      value: "",
+                    },
+                  ],
+                })
+              }
+            />
+            {!unusedPredicate && (
+              <p className="muted">
+                All available predicates are already in use.
+              </p>
+            )}
+            <SourceDisclosure
+              plain
+              open={draft.sourceOpen}
+              change={(sourceOpen) => updateFindDraft({ sourceOpen })}
+              source={preview?.source ?? ""}
+            />
+          </div>
           {preview?.collisions.map((collision) => (
             <div className="find-collision" role="status" key={collision.iri}>
               <p>
@@ -499,22 +532,34 @@ export function FindCreatePanel({
               )}
             </div>
           ))}
-          <footer className="find-create-actions">
-            <span>
-              {!draft.parents.length
-                ? "Adding under owl:Thing."
-                : "Class and statements are saved together."}
-            </span>
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={() => void handoff(draft.parentText.trim() || undefined)}
+          <footer className="find-create-actions cfoot">
+            <span
+              className="dest"
+              title={`Creates ${draft.label} under ${parentLabels.join(", ") || "owl:Thing"}.`}
             >
-              Continue in Add entity
-            </button>
-            <button className="primary" type="submit" disabled={!valid || busy}>
-              {busy ? "Adding…" : "Create class"}
-            </button>
+              Creates <b>{draft.label}</b>
+              {" under "}
+              <b>{parentLabels.join(", ") || "owl:Thing"}</b>.
+            </span>
+            <span className="acts">
+              <button
+                className="btn"
+                type="button"
+                disabled={!ready}
+                onClick={() =>
+                  void handoff(draft.parentText.trim() || undefined)
+                }
+              >
+                Continue in Add entity
+              </button>
+              <button
+                className="btn primary"
+                type="submit"
+                disabled={!valid || busy}
+              >
+                {busy ? "Adding…" : "Create class"}
+              </button>
+            </span>
           </footer>
         </fieldset>
         {(error || check.error) && (
@@ -523,6 +568,6 @@ export function FindCreatePanel({
           </p>
         )}
       </form>
-    </SectionPanel>
+    </section>
   );
 }

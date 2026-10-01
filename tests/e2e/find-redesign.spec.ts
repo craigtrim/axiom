@@ -23,7 +23,7 @@ const pane = () => page.getByRole("region", { name: "Find entities results" });
 const query = () =>
   pane().getByRole("searchbox", { name: "Search the ontology" });
 const create = () =>
-  pane().getByRole("region", { name: "Not in the ontology? Add it." });
+  pane().getByRole("region", { name: "Add to the ontology" });
 const snapshot = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 async function menu(id: string) {
@@ -126,7 +126,9 @@ test("blank query browses with permanent columns, denominator and explicit inspe
     /\d+ matches of \d+ entities/,
   );
   await expect(pane()).toContainText("Select a result to inspect it.");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Clear", exact: true }).click();
   await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
   await query().fill("Foundation");
@@ -134,6 +136,7 @@ test("blank query browses with permanent columns, denominator and explicit inspe
     pane().getByRole("table", { name: "Found entities" }),
   ).toHaveCount(0);
   await expect(pane()).toContainText("Page 0 of 0");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   const row = pane().locator(".find-results tbody tr").first();
   await row.focus();
@@ -168,6 +171,7 @@ test("unchecked field counts predict remedies and draft survives widening and na
     "matched in rdfs:comment",
   );
   await expect(pane().locator(".find-result-path")).toHaveText("Foundation");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await expect(
     create().getByRole("textbox", { name: "Class label", exact: true }),
@@ -178,6 +182,7 @@ test("unchecked field counts predict remedies and draft survives widening and na
   await expect(
     create().getByRole("button", { name: "Source", exact: true }),
   ).toHaveAttribute("aria-expanded", "true");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane()
     .getByRole("searchbox", { name: "Filter search fields" })
     .fill("zzzz");
@@ -185,12 +190,13 @@ test("unchecked field counts predict remedies and draft survives widening and na
   await expect(query()).toHaveValue("Saffron manuscripts");
 });
 
-test("zero remedies stay visible and disabled, query follows label until edited, source and caret persist", async () => {
+test("zero-yield remedies collapse, query follows label until edited, source and caret persist", async () => {
   await miss();
   await expect(
-    pane().getByRole("button", { name: /Reset every filter 0 matches/ }),
-  ).toBeDisabled();
-  await expect(pane()).toContainText(/No matches for .* in 2 of \d+ fields\./);
+    pane().getByRole("group", { name: "Search remedies" }),
+  ).toBeHidden();
+  await expect(pane()).toContainText("Widening the scope would not help.");
+  await expect(pane()).toContainText(/Nothing matched in 2 of \d+ fields\./);
   await query().fill("unlisted architecture");
   await expect(
     create().getByRole("textbox", { name: "Class label", exact: true }),
@@ -308,7 +314,7 @@ test("pending parent text blocks commit and Escape restores explicit root creati
   ).toBeDisabled();
   await parent.press("Escape");
   await expect(parent).toHaveValue("");
-  await expect(create()).toContainText("Adding under owl:Thing.");
+  await expect(create()).toContainText("Set a parent to change that.");
   await create()
     .getByRole("button", { name: "Create class", exact: true })
     .click();
@@ -320,6 +326,67 @@ test("pending parent text blocks commit and Escape restores explicit root creati
         )?.parents,
     )
     .toEqual([THING]);
+});
+
+test("flat editor follows parent selection, label edits and statement removal", async () => {
+  await miss("New course");
+  const ancestry = create().getByLabel("Draft ancestry");
+  const count = create().locator(".entity-statement-count");
+  const parent = create().getByRole("combobox", { name: "Parent classes" });
+  await expect(ancestry).toContainText("New Course under owl:Thing");
+  await expect(ancestry.locator(".entity-ancestry-card")).toHaveCount(0);
+  await expect(count).toHaveText("4 statements");
+  await parent.fill("Foundation");
+  await page.getByRole("option", { name: /Foundation/ }).click();
+  await expect(parent).toHaveValue("Foundation");
+  await expect(ancestry.locator(".entity-ancestry-card .nn")).toHaveText([
+    "New Course",
+    "Foundation",
+  ]);
+  await create()
+    .getByRole("textbox", { name: "Class label", exact: true })
+    .fill("Revised Course");
+  await expect(
+    ancestry.locator(".entity-ancestry-card .nn").first(),
+  ).toHaveText("Revised Course");
+  await expect(create().locator(".dest")).toHaveText(
+    "Creates Revised Course under Foundation.",
+  );
+  await create().getByRole("button", { name: "Add row", exact: true }).click();
+  await create()
+    .getByRole("textbox", { name: "Value 1", exact: true })
+    .fill("Retained annotation");
+  await expect(count).toHaveText("5 statements");
+  await create().getByRole("button", { name: "Source", exact: true }).click();
+  await expect(create().getByLabel("RDF/XML source")).toContainText(
+    "Retained annotation",
+  );
+  await create().getByRole("textbox", { name: "Value 1", exact: true }).focus();
+  const remove = create().getByRole("button", {
+    name: "Remove statement 1",
+    exact: true,
+  });
+  await remove.focus();
+  await remove.press("Enter");
+  await expect(count).toHaveText("4 statements");
+  await expect(create().getByLabel("RDF/XML source")).not.toContainText(
+    "Retained annotation",
+  );
+  await parent.focus();
+  await parent.press("Escape");
+  const removeParent = create().getByRole("button", {
+    name: "Remove parent Foundation",
+    exact: true,
+  });
+  await removeParent.focus();
+  await removeParent.press("Enter");
+  await expect(parent).toHaveValue("");
+  await expect(ancestry.locator(".entity-ancestry-card")).toHaveCount(0);
+  await expect(ancestry).toContainText("Revised Course under owl:Thing");
+  await expect(create().getByLabel("RDF/XML source")).toContainText(THING);
+  await expect(
+    create().getByRole("button", { name: "Create class", exact: true }),
+  ).toBeEnabled();
 });
 
 test("full Add entity handoff preserves the entire draft and commits a new parent with one undo", async () => {

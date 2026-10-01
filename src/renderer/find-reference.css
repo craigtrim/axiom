@@ -1,0 +1,1348 @@
+.adaptive-pane[data-pane-id="find"] {
+  container-name: pane;
+  overflow: hidden;
+  background: #ffffff;
+}
+[data-theme="dark"] .adaptive-pane[data-pane-id="find"] {
+  background: #1e1e1e;
+}
+.find-panel {
+  .find-controls {
+    max-height: none;
+    overflow: visible;
+  }
+  .addrow {
+    white-space: normal;
+    text-align: center;
+    border-radius: 0;
+  }
+  --surface: var(--bg);
+  --surface-alt: var(--raised);
+  --surface-sunken: var(--sunken);
+  --stroke: var(--line);
+  --stroke-strong: var(--line-2);
+  --text: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-on-accent: var(--on-accent);
+  --accent-hover: var(--accent-2);
+  --layer-hover: var(--hover);
+  --item-hover: var(--hover);
+  --item-hover-text: var(--ink);
+  font:
+    14px/1.4 "Segoe UI Variable Text",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+  background: transparent;
+  color-scheme: light dark;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  [hidden] {
+    display: none !important;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: normal;
+  }
+  button {
+    margin: 0;
+  }
+  button:disabled {
+    opacity: 1;
+  }
+  input::placeholder {
+    color: revert;
+  }
+  input[type="checkbox"] {
+    vertical-align: baseline;
+  }
+  h3 {
+    line-height: 1.4;
+  }
+  code {
+    font:
+      12px "Cascadia Mono",
+      Consolas,
+      monospace;
+  }
+  p {
+    margin: 8px 0 12px;
+  }
+}
+/* Measured from the authoritative visual-reference.html, SHA-256
+ * c2a08e67a186ef3fd606b153faf59778962a96e6c56f0d1f7eee8100c9105716.
+ * The scoped specimen rules below preserve its dimensions and glyph layout.
+ */
+.find-panel {
+  --bg: #ffffff;
+  --sunken: #f4f4f4;
+  --raised: #fafafa;
+  --hover: #efefef;
+  --line: #e2e2e2;
+  --line-2: #c6c6c6;
+  --ink: #1b1b1b;
+  --ink-2: #585858;
+  /* Clears 4.5:1 against the hover ground as well as against the page, which is
+     where secondary text actually lands in a result row. */
+  --ink-3: #6a6a6a;
+  --accent: #0f5fa8;
+  --accent-2: #0b4a84;
+  --on-accent: #ffffff;
+  --tint: #eaf2fb;
+  --ok: #0b6b36;
+  --ok-tint: #e6f4ec;
+  --warn: #7d4a00;
+  --warn-tint: #fcf1df;
+  --bad: #a8201a;
+  --bad-tint: #fbeae9;
+  --focus: #0f5fa8;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.24);
+}
+[data-theme="dark"] .find-panel {
+  --bg: #1e1e1e;
+  --sunken: #161616;
+  --raised: #272727;
+  --hover: #323232;
+  --line: #3a3a3a;
+  --line-2: #555555;
+  --ink: #f1f1f1;
+  --ink-2: #c3c3c3;
+  --ink-3: #a0a0a0;
+  --accent: #6cb4f5;
+  --accent-2: #9acbf8;
+  --on-accent: #0a1a28;
+  --tint: #16293a;
+  --ok: #65d18f;
+  --ok-tint: #11301e;
+  --warn: #e3a942;
+  --warn-tint: #33260c;
+  --bad: #ff8d81;
+  --bad-tint: #3a1a17;
+  --focus: #6cb4f5;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.7);
+}
+
+.find-panel {
+  /* Query row */
+  .find-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .find-query {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+  }
+  .find-query input {
+    font: inherit;
+    width: 100%;
+    padding: 6px 60px 6px 10px;
+    min-height: 32px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .find-query input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -1px;
+    border-color: var(--focus);
+  }
+  .find-input-actions {
+    position: absolute;
+    right: 4px;
+    display: flex;
+    gap: 2px;
+  }
+
+  .ib {
+    font: 13.3333px Arial;
+    white-space: normal;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    min-width: 24px;
+    min-height: 24px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-2);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .ib:hover {
+    background: var(--hover);
+    color: var(--ink);
+  }
+  .ib:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .ib svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 10px;
+    min-height: 32px;
+    border: 1px solid var(--line-2);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    background: var(--hover);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .btn svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn.primary:hover {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+  }
+  .btn[disabled] {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn[disabled]:hover {
+    background: var(--bg);
+  }
+
+  select.sel {
+    font: inherit;
+    font-size: 13px;
+    min-height: 32px;
+    padding: 4px 6px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--ink);
+    max-width: 128px;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  select.sel:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  /* Body: rail plus results */
+  .find-workarea {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    min-width: 0;
+  }
+  .find-facets {
+    display: none;
+    border-right: 1px solid var(--line);
+    background: var(--raised);
+    overflow-y: auto;
+    min-height: 0;
+    padding: 8px;
+  }
+  /* Preserve focus until the resize observer opens the compact scope overlay. */
+  .find-facets:focus-within {
+    display: block;
+  }
+  .find-scope-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .find-scope-heading .s {
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .find-facets h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+    margin: 12px 0 6px;
+    font-weight: 600;
+  }
+  .chk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 2px;
+    font-size: 13px;
+    min-height: 24px;
+  }
+  .chk input {
+    margin: 0;
+    flex: none;
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+  }
+  .chk .n {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chk .c {
+    flex: none;
+    font-size: 12px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .chk .c.hit {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .find-matches {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 0;
+    min-width: 0;
+  }
+  .find-results-toolbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    background: var(--raised);
+  }
+  .find-results-toolbar .n {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .find-results-scroll {
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .find-pagination {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid var(--line);
+    background: var(--raised);
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .find-pagination .pg {
+    font-variant-numeric: tabular-nums;
+    padding: 0 6px;
+  }
+  .find-inspector {
+    display: none;
+    padding: 6px 8px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .find-store {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    border-top: 1px solid var(--line);
+    background: var(--raised);
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+
+  /* Result table */
+  table.find-results {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.find-results th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+  table.find-results td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.find-results tr:hover td {
+    background: var(--hover);
+  }
+  table.find-results tr.sel td {
+    background: var(--tint);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .ename {
+    color: var(--accent);
+    font-weight: 600;
+    display: block;
+    text-decoration: none;
+  }
+  .ename:hover {
+    text-decoration: underline;
+  }
+  /* The breadcrumb truncates from the left and always keeps the leaf. FND-41.
+   Two elements rather than a direction trick: the head shrinks, the leaf never does. */
+  .epath {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .epath .ph {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .epath .pl {
+    flex: none;
+    white-space: nowrap;
+  }
+  .efold {
+    display: none;
+    font-size: 12px;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+  .efold b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .syn {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .syn.none {
+    color: var(--ink-3);
+    font-style: normal;
+  }
+  .addsyn {
+    font-size: 12px;
+    padding: 2px 8px;
+    min-height: 24px;
+    margin-top: 4px;
+  }
+
+  /* Scope entry button face carries both ratios */
+  .scope-btn {
+    display: inline-flex;
+  }
+  .scope-btn .r {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visually hidden, still announced. Not .od-spacer, which hides from assistive
+   technology as well as from sight. */
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ===== Container query tiering. Only 600 and 400 appear anywhere below. =====
+   Defaults first, overrides after, because these selectors have equal weight
+   and the later rule wins. The default state is Narrow and shallow. */
+  .sort {
+    display: none;
+  }
+  th.col-type,
+  td.col-type,
+  th.col-syn,
+  td.col-syn {
+    display: none;
+  }
+  col.col-type,
+  col.col-syn {
+    display: none;
+  }
+  .efold.fold-type,
+  .efold.fold-syn {
+    display: block;
+  }
+  .zero-create {
+    display: block;
+  }
+
+  @container pane (min-height: 400px) {
+    .find-results-toolbar {
+      display: flex;
+    }
+    .find-pagination {
+      display: flex;
+    }
+    .find-inspector {
+      display: block;
+    }
+    .sort {
+      display: inline-flex;
+    }
+    th.col-type,
+    td.col-type {
+      display: table-cell;
+    }
+    col.col-type {
+      display: table-column;
+    }
+    .efold.fold-type {
+      display: none;
+    }
+    /* Enough height for the inline editor, so the collapsed entry is not needed. */
+    .zero-create {
+      display: none;
+    }
+  }
+  @container pane (min-width: 600px) {
+    .sort {
+      display: inline-flex;
+    }
+    th.col-type,
+    td.col-type,
+    th.col-syn,
+    td.col-syn {
+      display: table-cell;
+    }
+    col.col-type,
+    col.col-syn {
+      display: table-column;
+    }
+    .efold.fold-type,
+    .efold.fold-syn {
+      display: none;
+    }
+  }
+  @container pane (min-width: 600px) and (min-height: 400px) {
+    .find-workarea {
+      grid-template-columns: 224px minmax(0, 1fr);
+    }
+    .find-facets {
+      display: block;
+    }
+    .scope-btn {
+      display: none;
+    }
+    .find-store {
+      display: flex;
+    }
+  }
+  /* The inline editor needs height. Below the height threshold it collapses to the
+   button above, which opens it over the body the way Options does. FND-94. */
+  .zero-editor {
+    display: none;
+  }
+  @container pane (min-height: 400px) {
+    .zero-editor {
+      display: block;
+    }
+  }
+
+  /* ===== Zero state ===== */
+  .find-zero {
+    padding: 16px;
+  }
+  .find-zero h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .find-zero .why {
+    font-size: 13px;
+    color: var(--ink-2);
+    margin: 0 0 12px;
+    max-width: 60ch;
+  }
+  .find-remedies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .find-remedy {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 10px;
+    min-height: 32px;
+    border: 1px solid var(--line-2);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .find-remedy:hover {
+    background: var(--hover);
+  }
+  .find-remedy:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .find-remedy .y {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: var(--ok-tint);
+    color: var(--ok);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .find-remedy[disabled] {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .find-remedy[disabled]:hover {
+    background: var(--bg);
+  }
+  .find-remedy[disabled] .y {
+    background: var(--sunken);
+    color: var(--ink-3);
+  }
+
+  .rule {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 16px 0;
+  }
+
+  /* ===== The inline statement editor, continuing the Details idiom =====
+   Section 3.1 of the spec governs this whole block. The editor is NOT wrapped
+   in a panel: the labeled rule is its boundary. Nothing below is a container
+   except .sect, and that only when a real ancestor chain exists. */
+
+  /* Width is room for results, not for larger controls. Every region declares its
+   own cap, so a maximized window changes nothing about the editor. Section 3.2. */
+  .ed-wrap {
+    max-width: 720px;
+  }
+  .w-label {
+    max-width: 320px;
+  }
+  .w-comment {
+    max-width: 560px;
+  }
+  .w-parent {
+    max-width: 360px;
+  }
+
+  .ed-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin: 4px 0 8px;
+    min-height: 28px;
+  }
+  .ed-label::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* Collapsed ancestry: a chain of one is not a chain. FND-132.
+   Sized by its content, never stretched to the container. FND-141. */
+  .anc-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    min-height: 28px;
+    color: var(--ink-2);
+    max-width: 560px;
+  }
+  .anc-line b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .anc-line .hint {
+    color: var(--warn);
+  }
+
+  .sect {
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    background: var(--tint);
+    border-radius: 0 0 6px 6px;
+    padding: 8px;
+    max-width: 560px;
+  }
+
+  .chain {
+    display: grid;
+    gap: 0;
+  }
+  .ccard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line-2);
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-height: 44px;
+  }
+  .ccard.sel {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .ccard .glyph {
+    flex: none;
+    width: 14px;
+    height: 14px;
+  }
+  .ccard .cc {
+    display: block;
+    font-size: 11px;
+    opacity: 0.85;
+  }
+  .ccard .nn {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .conn {
+    height: 16px;
+    margin-left: 26px;
+    border-left: 1px solid var(--line-2);
+    width: 1px;
+  }
+  .conn::after {
+    content: "\25BE";
+    display: block;
+    margin-left: -5px;
+    margin-top: 8px;
+    color: var(--line-2);
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .subj {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    min-height: 30px;
+  }
+  .subj .k {
+    color: var(--ink-3);
+    flex: none;
+  }
+  .subj .v {
+    flex: 0 1 560px;
+    min-width: 0;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 12px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .subj .follows {
+    flex: none;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  /* The statement count rides the header row. It never takes a band. FND-125. */
+  table.st {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.st th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .th-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .th-row .n {
+    font-weight: 400;
+    color: var(--ink-3);
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  table.st td {
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.st .pk {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  table.st .pk svg {
+    width: 12px;
+    height: 12px;
+    color: var(--ink-3);
+    flex: none;
+  }
+  table.st input,
+  table.st select {
+    font: inherit;
+    font-size: 13px;
+    width: 100%;
+    padding: 4px 8px;
+    min-height: 30px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  table.st td.fixed-v {
+    font-size: 13px;
+  }
+  .rowact {
+    visibility: hidden;
+  }
+  table.st tr:hover .rowact,
+  table.st tr:focus-within .rowact {
+    visibility: visible;
+  }
+  /* Add row and Source are text, and they share one line. FND-126. */
+  .ed-tools {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-height: 32px;
+    flex-wrap: wrap;
+  }
+  .addrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 0;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    padding: 4px 2px;
+    min-height: 28px;
+    cursor: pointer;
+    flex: none;
+  }
+  .addrow:hover {
+    text-decoration: underline;
+  }
+  .addrow:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  details.src {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  details.src summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink-2);
+    padding: 4px 2px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+  }
+  details.src summary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  details.src pre {
+    margin: 4px 0 0;
+    padding: 10px;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  /* One row. The primary action is never stranded on its own line. FND-133. */
+  .cfoot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    border-top: 1px solid var(--line);
+    margin-top: 6px;
+    padding-top: 8px;
+    min-height: 44px;
+  }
+  .cfoot .dest {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cfoot .dest b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .cfoot .acts {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .guard {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 6px 0;
+  }
+  .guard svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    margin-top: 2px;
+  }
+  .guard.block {
+    background: var(--bad-tint);
+    color: var(--bad);
+    border: 1px solid var(--bad);
+  }
+  .guard.caution {
+    background: var(--warn-tint);
+    color: var(--warn);
+    border: 1px solid var(--warn);
+  }
+  .guard .b {
+    font-weight: 600;
+  }
+  .guard a,
+  .guard button.link {
+    color: inherit;
+    font: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+/* Functional Axiom wrappers have no extra visual bands around the specimen. */
+.find-panel {
+  .find-sort {
+    display: contents;
+  }
+  .find-sort select {
+    width: 128px;
+  }
+  .find-input-actions {
+    align-items: center;
+  }
+  .find-controls input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .find-query {
+    border: 0;
+    background: none;
+  }
+  .find-summary {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .find-scope-heading .btn {
+    font-size: 12px;
+    min-height: 26px;
+    padding: 3px 8px;
+  }
+  .find-type-facets,
+  .find-field-facets {
+    display: contents;
+  }
+  .find-field-list {
+    display: contents;
+  }
+  .find-scope-heading {
+    flex-wrap: nowrap;
+  }
+  /* Withdraw measured chrome in React, after preserving its focused control.
+     A container query can hide it before the resize observer captures focus. */
+  .find-results-toolbar,
+  .find-pagination {
+    display: flex;
+  }
+  .find-inspector {
+    display: block;
+  }
+  .find-pagination {
+    justify-content: normal;
+    flex-wrap: wrap;
+  }
+  .find-page-spacer {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .find-inspector p {
+    margin: 0;
+    font: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+  }
+  .find-store button {
+    text-align: left;
+    border: 0;
+    padding: 0;
+    min-height: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+  }
+  .find-zero {
+    border: 0;
+    margin: 0;
+    min-width: 0;
+  }
+  .find-create-fields {
+    display: block;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .find-create {
+    margin: 0;
+  }
+  .entity-subject {
+    flex-wrap: nowrap;
+  }
+  .entity-subject input.v {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    min-height: 0;
+  }
+  .entity-subject input.v:focus-visible {
+    outline: 2px solid var(--focus);
+  }
+  .entity-statements-wrap {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .entity-statements th,
+  .entity-statements td {
+    border-top: 0;
+  }
+  .entity-statements th:first-child,
+  .entity-statements th:last-child {
+    width: auto;
+  }
+  .entity-statement-count {
+    padding: 0;
+    margin: 0;
+  }
+  .entity-statements tbody th {
+    vertical-align: middle;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .entity-statements tbody th code {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .entity-statements input,
+  .entity-statements select {
+    min-width: 0;
+  }
+  .entity-statements .w-label {
+    max-width: 320px;
+  }
+  .entity-statements .w-comment {
+    max-width: 560px;
+  }
+  .text-parent-entry {
+    display: block;
+    max-width: 360px;
+  }
+  .text-parent-entry input {
+    width: 100%;
+  }
+  .entity-statements .predicate-picker select {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    min-height: 0;
+    font: inherit;
+    font-weight: 400;
+    background: transparent;
+  }
+  .entity-add-row {
+    width: auto;
+    margin: 0;
+    text-align: center;
+  }
+  .entity-source {
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+    overflow: visible;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .entity-source > button {
+    width: auto;
+    display: flex;
+    align-items: center;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font-size: 13px;
+    padding: 4px 2px;
+    min-height: 28px;
+  }
+  .entity-source pre {
+    margin: 4px 0 0;
+    padding: 10px;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow-x: auto;
+    font:
+      11.5px/1.5 "Cascadia Mono",
+      Consolas,
+      monospace;
+    color: var(--ink-2);
+  }
+  .find-create-actions > span {
+    color: inherit;
+  }
+  .find-create-actions > .acts {
+    flex: none;
+  }
+  .find-create-actions .primary {
+    min-height: 32px;
+  }
+  .entity-ancestry-chain {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .entity-ancestry-chain > li {
+    display: grid;
+    gap: 0;
+    max-width: none;
+  }
+  .entity-ancestry-chain > li + li::before {
+    content: none;
+  }
+  .entity-ancestry-card span {
+    color: inherit;
+    font: inherit;
+  }
+  .entity-ancestry-card .cc {
+    font-size: 11px;
+  }
+  .entity-ancestry-card .nn {
+    font-size: 14px;
+  }
+  .entity-ancestry-card[data-subject="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .find-create-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .find-create-entry > span {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  [data-withdrawn="true"] {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .find-results-scroll {
+    overflow-anchor: none;
+  }
+  .find-result-name {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    white-space: normal;
+    max-width: 100%;
+  }
+  .find-result-path {
+    display: block;
+    direction: rtl;
+    text-align: left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+  .find-result-path,
+  .find-row-synonyms,
+  .find-folded-type {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .find-results .find-type-column {
+    width: 120px;
+  }
+  .find-results .find-synonym-column {
+    width: 180px;
+  }
+  .find-results tbody tr[data-selected="true"] {
+    background: var(--tint);
+    box-shadow: inset 2px 0 var(--accent);
+  }
+  .find-popover {
+    position: fixed;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--ink);
+    overflow: auto;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+  }
+  .find-popover:popover-open,
+  .find-popover > label,
+  .find-popover > [role="group"] {
+    display: grid;
+    gap: 8px;
+  }
+  .find-popover button {
+    text-align: left;
+    white-space: normal;
+  }
+  .find-selected-details {
+    margin: 0;
+  }
+  .find-selected-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .find-selected-details dt {
+    margin-top: 8px;
+    color: var(--ink-2);
+  }
+  .find-created {
+    color: var(--ok);
+  }
+}
+.find-panel[data-options-open="true"] .find-workarea,
+.find-panel[data-create-open="true"] .find-workarea {
+  position: relative;
+}
+.find-panel[data-options-open="true"] .find-facets {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+.find-panel[data-options-open="true"] .find-matches {
+  visibility: hidden;
+}
+.find-panel[data-create-open="true"] .find-create-host {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  z-index: 2;
+  overflow: auto;
+  padding: 8px;
+}
+.find-panel .find-create-close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
