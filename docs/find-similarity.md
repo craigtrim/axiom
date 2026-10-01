@@ -2,6 +2,10 @@
 
 Use Edit > Find (Ctrl+F) for type-ahead, or View > Find for the full search pane. Names, aliases and IRIs appear immediately. When the local MPNet model is installed, search adds meaning-based results after typing pauses. There is no match-mode selector. Details resource inputs use the same search index and ranking.
 
+Find keeps completed results visible while a new search runs. Those retained results cannot be selected, added as synonyms or sent to a graph until the current search completes. Pressing Enter in quick Find waits for that query's fresh result; changing the query cancels the pending selection. An empty result replaces the previous list after completion, and changing ontologies discards results from the previous dataset. Search failures remain visible until a successful search replaces them. The busy announcement appears only when a request lasts at least 300 milliseconds.
+
+The quick Find dialog holds its top position and search-field width as results change. This placement also applies to the application's other modal dialogs, including in detached windows. Long content scrolls within the available window height. The full Find view retains its empty-result editor while a replacement search is pending, preserving the draft and disabling its actions until the new result arrives.
+
 ## Scope and results
 
 Select Classes, Instances, Properties or Other entities independently. Field checkboxes include Names and aliases, IRI, and predicates with values on searchable entities. These include custom properties, descriptions and resource relationships. Field labels use recognized namespace prefixes. Filter fields by label or IRI, choose All fields, or return to Names only. Clearing all types returns no results. Clearing all fields returns no results for a nonempty query; an empty query browses the selected entity types.

@@ -911,10 +911,10 @@ Validation: 2,737 tests passed across 80 unit/integration files. The 56 affected
 
 The worker benchmark used 6,000 entities on an AMD Ryzen Threadripper 3960X and included request/reply overhead. Results below are milliseconds over 100 queries per surface:
 
-| Surface | p50 | p95 | Maximum |
-| --- | ---: | ---: | ---: |
-| Find | 8.60 | 12.45 | 33.18 |
-| Resource suggestions | 6.52 | 10.38 | 12.97 |
+| Surface              |  p50 |   p95 | Maximum |
+| -------------------- | ---: | ----: | ------: |
+| Find                 | 8.60 | 12.45 |   33.18 |
+| Resource suggestions | 6.52 | 10.38 |   12.97 |
 
 The first query, including index construction, took 313.72 ms. Warm p95 meets the 30 ms target; the measurements do not establish a hard maximum of 30 ms. The former 100,000-class timing assertion covered the old all-words matcher. The new timing gate uses issue #17's 6,000-class OR/fuzzy workload. A separate 100,000-class regression retains correct numeric ranking and bounded suggestions; it does not claim the former latency bound.
 
@@ -960,11 +960,11 @@ All 33 Find scenarios passed against the final packaged executable. They cover d
 
 Performance remains a separate check. An isolated 6,000-entity worker benchmark on the AMD Ryzen Threadripper 3960X included worker round-trip time and 100 warm queries per surface:
 
-| Surface | p50 (ms) | p95 (ms) | Maximum (ms) |
-| --- | ---: | ---: | ---: |
-| Find | 9.67 | 14.23 | 35.17 |
-| Find with scope counts and remedy yields | 22.16 | 28.96 | 41.48 |
-| Resource suggestions | 7.77 | 12.67 | 19.39 |
+| Surface                                  | p50 (ms) | p95 (ms) | Maximum (ms) |
+| ---------------------------------------- | -------: | -------: | -----------: |
+| Find                                     |     9.67 |    14.23 |        35.17 |
+| Find with scope counts and remedy yields |    22.16 |    28.96 |        41.48 |
+| Resource suggestions                     |     7.77 |    12.67 |        19.39 |
 
 All three warm p95 measurements met the 30 ms budget. Cold index construction and the first query took 332.28 ms. These samples do not establish a 30 ms maximum. Scope diagnostics reuse lexical results and the all-fields semantic corpus; field checkboxes do not each initiate an MPNet call. The MPNet inference benchmark was not repeated for this change.
 
@@ -1051,3 +1051,31 @@ The unsigned Windows package completed at 01:04:09 UTC on October 1. All 48 bund
 The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 208,643,448 bytes with SHA-256 `a377723670fca2d2d1e77efe6372ffd1d3efc477b0a6e208bd1399e7bc473423`. Existing application changes are included. This build does not replace the user's installed copy until its installer is run.
 
 Records are under `artifacts/mutatoc-030/`: `source.json`, `unit.json`, `desktop.json`, `desktop-followup.json`, `packaged.json`, `native-functional.log`, `native-performance.log`, `benchmark-comparison.json` and `build.json`. The package receipt includes executable, installer and archive hashes, every verified runtime file, and validation results. Usage: [Text Analysis](text-analysis.md).
+
+## Issue 24: shared modal stability, September 30, 2026
+
+Every active shared modal now uses a viewport-relative top anchor and a bounded, scrollable body. The header stays reachable, scrollbar space is reserved, and Query history fits within its dialog. Quick Find reserves space for its suggestions. The eleven active modal families have functional coverage; the two unused suggestion-dialog components inherit the shell without being reactivated. Suggestion workbench popovers retain their separate trigger-relative placement.
+
+Both Find surfaces retain completed results while a replacement query runs. Retained rows cannot select an entity, create a synonym, open a graph or change pages. Enter in quick Find waits for the current query, and a later edit cancels that queued selection. Semantic updates preserve selection by IRI or clamp it to a remaining row. Ontology switches discard incompatible results; selection requests also carry the dataset epoch and revision. Empty-result editors stay mounted during pending searches, preserving drafts while their actions are disabled. Failed-search alerts stay mounted until recovery. Find and Query history share a 300 ms delayed busy announcement.
+
+The repeated baseline probe used 600 asserted classes, `ethics & social care`, 80 ms between characters, a 1280 by 900 viewport and device pixel ratio 1.5, with MPNet explicitly unavailable. Measurements are separate from the functional unit tests.
+
+| Measurement                                               |    Before | Rebuilt package |
+| --------------------------------------------------------- | --------: | --------------: |
+| Find dialog/input vertical movement                       |     99 px |            0 px |
+| Command palette input movement                            | 149.57 px |            0 px |
+| Shortcut reference input movement                         | 170.50 px |            0 px |
+| Shortcut customization input movement                     |  42.94 px |            0 px |
+| Query history input movement                              | 209.58 px |            0 px |
+| Quick Find empty frames during matching query replacement |        21 |               0 |
+| Full Find empty frames during matching query replacement  |        25 |               0 |
+
+Neither Find surface showed `Searching...` during that fast lexical-search probe. At 450 px window height, the dialog and input stayed fixed, the input width stayed at 495.33 px, and the outer scrollbar never appeared. Query history no longer overflowed horizontally. These observations do not measure screen-reader speech or fractional text rasterization.
+
+All **2,023 functional search tests across eight files passed**. The rebuilt executable passed **100 distinct desktop cases**, including **35 new stability cases**. Coverage includes normal, short, narrow and zoomed windows; detached ownership; filtering; caret and focus; delayed replies; repeated failures; late responses; semantic reordering and selection loss; pending Enter; ontology replacement; preserved empty-result drafts; stale-action guards; native dialog cancellation; export formats and multi-page reports; and keyboard accessibility. The existing Find, Find redesign, keyboard, query authoring, graph appearance, tab history and suggestion workbench journeys are included. All three workbench popovers retain their table geometry, bounded scrolling, dismissal and focus return.
+
+The initial packaged run passed 90 of 99 cases. Existing fixtures needed corrections for current behavior: opening a workspace saves the current file first; query history retains earlier example entries; restarting a retention test must restore the session; agent discovery must use the mock CLI; keyboard focus needs a selected inspector entity; and detached layout tests must establish their window size before asserting visibility. Follow-up runs resolved all nine failures and added the export-format case. A development run also had one Electron startup/teardown timeout; its corresponding packaged case passed. The application source and build inputs did not change after packaging. Three corrected test files are recorded separately in `verification-inputs.json`. The full application desktop suite was not run.
+
+TypeScript, changed-file formatting and whitespace checks passed. All 48 packaged JavaScript, CSS and HTML files match the build, and all 25 Mutatoc runtime files match their manifest. The engine reports 0.3.0. The unsigned installer completed at `2026-10-01T02:15:32.719Z`, is 208,644,084 bytes, and has SHA-256 `28cd9249f1c43c9ff4dff60c3ca3077b0044f90a5725f4d5fb66280142a8ee19`.
+
+The installer is `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`; the runnable application is `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`. Evidence is under `artifacts/issue-24/`: `unit.json`, `stability.json`, `packaged.json`, the three packaged follow-up reports, `after-900.json`, `after-short-window.json`, `after-modal-audit.json`, `source.json`, `verification-inputs.json` and `build.json`. The related inline-editor and nonmodal-list issues #27, #28 and #32 remain separate; this change fixes the empty-result editor's remounting but does not claim to resolve its separate draft-preview behavior.
