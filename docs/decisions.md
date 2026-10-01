@@ -68,7 +68,7 @@ Automatic workbench arrangement depends on the available viewport width and aspe
 
 Application menus, direct shortcuts, the palette and the keyboard editor share one command registry. Electron displays the configured accelerator while the renderer resolves application and pane scopes, including two-stroke chords. Default text-editing shortcuts remain local to the focused control to avoid asynchronous selection races. Detached panes use the owning workbench's bridge and keyboard settings.
 
-The editor saves versioned personal overrides after conflict validation. Keyboard preferences are excluded from workspace exports and preserved when opening a workspace. Context menus and dialogs have local access letters and suspend application menus while active. F10 explicitly opens an Electron application-menu popup; Alt uses the menu bar. [Windows keyboard conventions](../specs/electron/windows-keyboard-conventions.md) records the Microsoft and Electron evidence, choices and full default command catalog.
+The editor saves versioned personal overrides after conflict validation. Keyboard preferences are excluded from workspace exports and preserved when opening a workspace. Context menus and dialogs have local access letters and suspend application menus while active. F10 explicitly opens an Electron application-menu popup; Alt uses the menu bar.
 
 ## Inline authoring, RDF and export
 
@@ -81,8 +81,6 @@ Entity documents expose all asserted statements and retain drafts when their tab
 Export is a single preview dialog with diagram and report modes. Raster scale, lossy quality, transparency and PDF page settings appear where relevant. Vector and structured formats have no misleading raster controls. PDF rendering uses an isolated hidden Electron window; reports contain the selected scope's assertions rather than only a screenshot.
 
 Filesystem collection runs in a separate worker with native Windows and ExifTool helpers. It retains raw evidence and queryable fields, including unavailable-source diagnostics. PROV describes files, directory membership, the actual collection activity and metadata observations. Owners, author fields and source timestamps remain evidence rather than invented historical attribution. Existing USN journal records are filtered to observed file IDs; unavailable journals and read limits remain visible. The current output directory is excluded from traversal to avoid collecting files while this operation writes them.
-
-The [research artifact](../specs/electron/authoring-export-provenance-research.md) records Microsoft precedents, implementation choices, metadata coverage and tradeoffs.
 
 The entity inspector exposes the identifier name, display label, comment and applicable relationships. It shares retained drafts with the full details tab, preserves assertion metadata and checks for conflicts before applying. Identifier edits retarget resource references and manual edge routes. Single-click graph label editing uses the rectangles of rendered labels, including stylesheet sizing and collision suppression; node shapes retain selection and dragging.
 

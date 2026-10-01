@@ -70,7 +70,7 @@ Edit the selected entity in the right-hand inspector: a default name such as New
 
 View > Source opens the ontology as editable Turtle, RDF/XML (including .owl files), JSON-LD, N-Triples, N-Quads or TriG. Source, graph, taxonomy and entity editors share the same ontology and Undo history. Apply changes, workspace Save and format switching validate pending source edits; invalid or conflicting drafts stay available for correction. The inspector provides Open file, Show in folder and optional image thumbnails for filesystem entities and their metadata observations. See [Source editing and linked files](docs/source-and-files.md) for synchronization, format and cache behavior.
 
-File > Create provenance from folder collects Windows and embedded metadata in the background. Choose a root, review collection options, and collect. The result includes raw evidence, RDF and coverage diagnostics. Open the result as an ontology, then use the normal graph, editor, query and report features. Reparse targets are not traversed; offline content is optional. Source limitations and denied access are preserved rather than replaced with guessed history. See [authoring, export and provenance research](specs/electron/authoring-export-provenance-research.md).
+File > Create provenance from folder collects Windows and embedded metadata in the background. Choose a root, review collection options, and collect. The result includes raw evidence, RDF and coverage diagnostics. Open the result as an ontology, then use the normal graph, editor, query and report features. Reparse targets are not traversed; offline content is optional. Source limitations and denied access are preserved rather than replaced with guessed history.
 
 ## Verification
 
@@ -83,7 +83,7 @@ npm run benchmark:desktop
 
 The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/sparql-testing.md) for coverage, boundaries and commands.
 
-The [verification record](docs/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/decisions.md) explain the Electron architecture and carried-forward specification resolutions. The original requirements and rewrite research remain in [specs/](specs/README.md).
+The [verification record](docs/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/decisions.md) explain the Electron architecture and carried-forward specification resolutions. Requirements are tracked as [GitHub issues](https://github.com/craigtrim/axiom/issues).
 
 ### Session restoration
 
@@ -95,7 +95,7 @@ Session writes are atomic and retain the preceding valid copy for recovery. If n
 
 Every application menu command has an Alt access path. Open **Edit > Keyboard shortcuts...** with **Alt+E, K** or **Ctrl+Shift+K** to remap command shortcuts and menu letters. The editor supports alternate bindings, pane scopes, two-stroke chords, conflict checks, resets and JSON import/export. Your keyboard settings persist across restarts and remain separate from ontology workspaces.
 
-Use **Ctrl+1** through **Ctrl+7** to open panes, **F6 / Shift+F6** to move between panes, and **Ctrl+Tab / Ctrl+Shift+Tab** to switch tabs in a group. **F1** opens the current shortcut reference. **F10** opens the application menu. The [Microsoft keyboard-conventions research](specs/electron/windows-keyboard-conventions.md) explains the defaults, implementation and customization boundaries.
+Use **Ctrl+1** through **Ctrl+7** to open panes, **F6 / Shift+F6** to move between panes, and **Ctrl+Tab / Ctrl+Shift+Tab** to switch tabs in a group. **F1** opens the current shortcut reference. **F10** opens the application menu.
 
 ### SPARQL authoring
 

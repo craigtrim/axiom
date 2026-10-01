@@ -72,8 +72,6 @@ The graph retains its configurable 100 to 3,000 node cap, with 1,000 as the init
 
 Export checks generate actual PNG, JPEG, WebP, SVG, PDF, TIFF and BMP files and validate their encodings. Clipboard export is exercised. Reports produce multi-page PDF, HTML, Markdown, CSV and JSON. Tests cover named graphs, language tags and complete structured statements, plus Markdown escaping. The entity editor, export dialog and provenance pane were visually reviewed. PDF validity and pagination were checked programmatically; every possible page geometry and content length was not visually certified.
 
-The [Microsoft UX research](../specs/electron/authoring-export-provenance-research.md) explains the Visio and Class Designer precedents, Axiom-specific decisions and tradeoffs.
-
 ## Published ontology corpus
 
 Twenty-nine source ontologies are retained with URLs, retrieval metadata and SHA-256 hashes in [the corpus manifest](../tests/fixtures/ontologies/manifest.json). They include RDF, RDFS, OWL, PROV, SKOS, SHACL, DCAT, Schema.org, FOAF, GoodRelations and other established vocabularies. Source files include Turtle and RDF/XML, including .owl documents.
@@ -1012,7 +1010,7 @@ The local, unsigned Windows package completed at 21:25:21 UTC. Its 48 bundled Ja
 
 The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 273,264,168 bytes with SHA-256 `f6de21ef5b4c7377cd9048836282bfd669e072bc0d00ffdabdfc176d6a139063`. No release was uploaded.
 
-Records: `artifacts/issue-18-keyboard-unit.json`, `artifacts/issue-18-desktop.json`, `artifacts/issue-18-desktop-followup.json`, `artifacts/issue-18-detached-followup.json`, `artifacts/issue-18-final-menu.json`, `artifacts/issue-18-packaged.json`, `artifacts/issue-18-package-check.json`, `artifacts/issue-18-source.json` and `artifacts/issue-18-build.json`. Usage: [menu organization](menu-ux.md), [Sparsity analysis](sparsity-analysis.md), [taxonomy suggestions](taxonomy-suggestions.md) and [context-menu keyboard conventions](../specs/electron/windows-keyboard-conventions.md#entity-context-menus).
+Records: `artifacts/issue-18-keyboard-unit.json`, `artifacts/issue-18-desktop.json`, `artifacts/issue-18-desktop-followup.json`, `artifacts/issue-18-detached-followup.json`, `artifacts/issue-18-final-menu.json`, `artifacts/issue-18-packaged.json`, `artifacts/issue-18-package-check.json`, `artifacts/issue-18-source.json` and `artifacts/issue-18-build.json`. Usage: [menu organization](menu-ux.md), [Sparsity analysis](sparsity-analysis.md) and [taxonomy suggestions](taxonomy-suggestions.md).
 
 ## 2026-09-30: Ontology export preserves editor drafts (#21)
 
