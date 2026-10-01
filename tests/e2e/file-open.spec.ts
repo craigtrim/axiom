@@ -19,10 +19,11 @@ const history = async (): Promise<string[]> =>
     ),
   );
 async function launch() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,

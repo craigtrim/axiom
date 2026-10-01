@@ -85,10 +85,11 @@ test.beforeEach(async () => {
       padding +
       "\n:FirstChild a owl:Class; rdfs:subClassOf :A000. :LastChild a owl:Class; rdfs:subClassOf :Z999.",
   );
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,

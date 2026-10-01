@@ -118,10 +118,11 @@ test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   profile = await mkdtemp(path.resolve("artifacts/testing/details-"));
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -300,10 +301,11 @@ test("saved entity tabs restore as one Details pane and keep explicit close stat
   session.workbench = prefs;
   await writeFile(sessionFile, JSON.stringify(session));
   const reopen = async () => {
-    const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-      string,
-      string
-    >;
+    const env = {
+      ...process.env,
+      AXIOM_CACHE_HOME: path.join(profile, "cache"),
+      AXIOM_USER_DATA: profile,
+    } as Record<string, string>;
     delete env.ELECTRON_RUN_AS_NODE;
     app = await electron.launch({
       executablePath: process.env.AXIOM_TEST_EXE,
