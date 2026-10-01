@@ -14,9 +14,11 @@ The rendered HTML takes precedence over issue 34's older prose. In particular it
 
 The test launches the actual Electron application, imports a real small ontology, detaches Find, and edits its real controls. Only the reference's search counts, facet catalogue, suggested IRI and store totals are presentation fixtures. Domain behavior, persistence, validation, handoffs and undo are exercised separately by the functional suites.
 
-The reference is rendered independently from the unchanged HTML. Only exhibit scaffolding and the explicitly excluded word-match remedy are removed. The parent variant comes directly from its `ed-chain` specimen. The app and reference have matching viewport dimensions, fonts, theme, native 1× device scale, grayscale text, and a fixed SwiftShader renderer. Captures use CSS pixel dimensions without a scale transition or resampling. The reference window is shown without taking keyboard focus so packaged Electron keeps it rendering.
+The reference is rendered independently from the unchanged HTML. Only exhibit scaffolding and the explicitly excluded word-match remedy are removed. The parent variant comes directly from its `ed-chain` specimen. The app and reference have matching viewport dimensions, fonts, theme, native 1× device scale, grayscale text, sRGB output and a fixed SwiftShader renderer. Captures use CSS pixel dimensions without a scale transition or resampling. Each pane must produce two consecutive identical captures before comparison. The reference window is shown without taking keyboard focus so packaged Electron keeps it rendering.
 
 The comparison uses `threshold: 0` and `maxDiffPixels: 0`, then compares decoded bitmaps directly. This extra check includes antialiased edge pixels that Playwright's default image comparator can otherwise ignore. Both the fresh reference against its baseline and Axiom against the fresh reference must have **zero differing raw pixels**. Neither images nor their SVGs are masked or replaced.
+
+**Open verification issue:** one complete packaged run passed every raw-pixel check, but repeat runs have intermittently differed in six edge pixels of the More icon. Matching SVG attributes, computed paint properties and screen transforms are recorded in the geometry artifacts. Changing raster backends, repainting, or keeping Find in the original window has not eliminated the variation. A successful single run does not establish repeatable 100% bitmap equality. Keep this acceptance gate strict while the discrepancy is investigated.
 
 Eleven cases per theme cover wide, narrow and extra-wide root views and their scrolled footers; shallow creation; and wide/narrow selected-parent chains at both scroll positions. Baseline images are generated **only from the reference**, never from Axiom. Every run verifies the HTML hash and verifies the checked-in baseline against a fresh reference render before comparing the application.
 
@@ -35,6 +37,6 @@ node node_modules/@playwright/test/cli.js test tests/e2e/find-visual.spec.ts
 Remove-Item Env:AXIOM_UPDATE_REFERENCE
 ```
 
-Do not use Playwright's `--update-snapshots` to bless application output. Expected and actual captures, plus measured geometry, are written to `artifacts/issue-34`. Failed comparisons also produce Playwright's diff image.
+Do not use Playwright's `--update-snapshots` to bless application output. Expected and actual captures, plus measured geometry and SVG transforms, are written to `artifacts/issue-34`. Each test also attaches its original reference/application PNGs and raw difference counts to the Playwright report so subsequent repetitions cannot overwrite its evidence. Unstable captures retain the last two images. Failed image comparisons also produce Playwright's diff image.
 
 Run desktop suites sequentially: simultaneous Electron suites can interfere with Windows keyboard focus. Unit tests can run independently.

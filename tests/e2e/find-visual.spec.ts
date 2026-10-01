@@ -21,8 +21,32 @@ const referenceHash =
   "c2a08e67a186ef3fd606b153faf59778962a96e6c56f0d1f7eee8100c9105716";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
-async function capture(root: Locator) {
-  return root.screenshot({ animations: "disabled", scale: "css" });
+async function capture(root: Locator, label: string) {
+  let previous = await root.screenshot({
+    animations: "disabled",
+    scale: "css",
+  });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await root.screenshot({
+      animations: "disabled",
+      scale: "css",
+    });
+    if (previous.equals(current)) return current;
+    if (attempt === 4) {
+      await test.info().attach(`${label}-unstable-previous`, {
+        body: previous,
+        contentType: "image/png",
+      });
+      await test.info().attach(`${label}-unstable-current`, {
+        body: current,
+        contentType: "image/png",
+      });
+    }
+    previous = current;
+  }
+  throw new Error(
+    "The pane did not produce two consecutive identical captures.",
+  );
 }
 async function menu(id: string) {
   const win = await app.browserWindow(page);
@@ -101,6 +125,7 @@ test.beforeEach(async ({}, info) => {
       "--disable-lcd-text",
       "--use-angle=swiftshader",
       "--enable-unsafe-swiftshader",
+      "--force-color-profile=srgb",
     ],
     env,
   });
@@ -330,7 +355,7 @@ for (const theme of ["light", "dark"] as const) {
           (el, bottom) => (el.scrollTop = bottom ? el.scrollHeight : 0),
           name.endsWith("bottom"),
         );
-      const expected = await capture(expectedPane);
+      const expected = await capture(expectedPane, "reference");
       const expectedPath = info.snapshotPath(`${theme}-${name}.png`);
       if (process.env.AXIOM_UPDATE_REFERENCE === "1") {
         await mkdir(path.dirname(expectedPath), { recursive: true });
@@ -338,13 +363,22 @@ for (const theme of ["light", "dark"] as const) {
       }
       // A missing reference baseline is an error, never a request to bless Axiom.
       const baseline = await readFile(expectedPath);
-      const actual = await capture(pane());
+      const actual = await capture(pane(), "application");
+      await info.attach("reference", {
+        body: expected,
+        contentType: "image/png",
+      });
+      await info.attach("application", {
+        body: actual,
+        contentType: "image/png",
+      });
       await mkdir("artifacts/issue-34", { recursive: true });
       await writeFile(`artifacts/issue-34/actual-${theme}-${name}.png`, actual);
       await writeFile(
         `artifacts/issue-34/expected-${theme}-${name}.png`,
         expected,
       );
+      const moreIconMetrics: unknown[] = [];
       for (const [label, target, root] of [
         ["actual", page, '[data-panel="find"]'],
         ["expected", specimen, ".pane"],
@@ -368,6 +402,23 @@ for (const theme of ["light", "dark"] as const) {
               padding: s.padding,
               border: s.border,
               display: s.display,
+              moreIcon: !!node.closest('button[aria-label="More"]'),
+              svg:
+                "getScreenCTM" in node
+                  ? {
+                      matrix: (() => {
+                        const m = (node as SVGGraphicsElement).getScreenCTM()!;
+                        return [m.a, m.b, m.c, m.d, m.e, m.f];
+                      })(),
+                      attributes: Object.fromEntries(
+                        [...node.attributes].map((a) => [a.name, a.value]),
+                      ),
+                      fill: s.fill,
+                      stroke: s.stroke,
+                      strokeWidth: s.strokeWidth,
+                      shapeRendering: s.shapeRendering,
+                    }
+                  : undefined,
             };
           }),
         );
@@ -375,7 +426,9 @@ for (const theme of ["light", "dark"] as const) {
           `artifacts/issue-34/${label}-${theme}-${name}.json`,
           JSON.stringify(metrics, null, 2),
         );
+        moreIconMetrics.push(metrics.filter((node) => node.moreIcon));
       }
+      expect(moreIconMetrics[0]).toEqual(moreIconMetrics[1]);
       expect(expected).toMatchSnapshot(`${theme}-${name}.png`, {
         threshold: 0,
         maxDiffPixels: 0,
@@ -415,6 +468,10 @@ for (const theme of ["light", "dark"] as const) {
           baseline.toString("base64"),
         ],
       );
+      await info.attach("raw-pixel-differences", {
+        body: JSON.stringify(differences, null, 2),
+        contentType: "application/json",
+      });
       expect(differences).toEqual({ reference: 0, application: 0 });
     });
   }
