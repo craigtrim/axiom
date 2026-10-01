@@ -11,6 +11,12 @@ import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import AxeBuilder from "@axe-core/playwright";
+import {
+  holdRequests,
+  waitForHeld,
+  releaseRequests,
+  requestCount,
+} from "./held-requests";
 import type { Snapshot } from "../../src/shared/protocol";
 const home =
   (process.env.AXIOM_TEST_EXE
@@ -861,6 +867,172 @@ async function chooseParent(
   ).toBeVisible();
 }
 
+test("name collisions preserve editing, focus, caret and quiet validation", async () => {
+  const form = await selectForCreation("Advanced Systems");
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  const add = form.getByRole("button", { name: "Add class", exact: true });
+  await expect(add).toBeEnabled();
+  await name.fill("Systems");
+  await expect(form.locator(".text-create-validation")).toContainText(
+    "Systems already exists",
+  );
+  await expect(name).toBeFocused();
+  await expect(name).toBeEditable();
+  await expect(add).toBeDisabled();
+  await name.press("End");
+  await name.pressSequentially(" engineering");
+  await expect(add).toBeEnabled();
+  await expect(name).toHaveValue("Systems engineering");
+  await expect(name).toBeFocused();
+  expect(
+    await name.evaluate((el) => (el as HTMLInputElement).selectionStart),
+  ).toBe(19);
+  const description = form.getByRole("textbox", {
+    name: "Description",
+    exact: true,
+  });
+  const before = await description.boundingBox();
+  await holdRequests(app, ["textAnalysisDraft"]);
+  await name.pressSequentially(" seminar");
+  await waitForHeld(app);
+  await expect(add).toBeEnabled();
+  await expect(form).not.toContainText("Checking name");
+  expect((await description.boundingBox())!.y).toBe(before!.y);
+  await releaseRequests(app, { reverse: true });
+  await expect(name).toHaveValue("Systems engineering seminar");
+  await expect(add).toBeEnabled();
+});
+
+for (const [label, collision] of [
+  ["Systems", true],
+  ["Quantum Systems", false],
+] as const) {
+  test(`a pending Add class click waits for ${collision ? "a collision and refuses it" : "fresh validation and commits once"}`, async () => {
+    const form = await selectForCreation("Fresh course");
+    const add = form.getByRole("button", { name: "Add class", exact: true });
+    await expect(add).toBeEnabled();
+    await holdRequests(app, ["textAnalysisDraft"]);
+    await form.getByRole("textbox", { name: "Name", exact: true }).fill(label);
+    await add.click();
+    await add.click();
+    await waitForHeld(app);
+    expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
+    await expect(add).toBeEnabled();
+    await releaseRequests(app);
+    if (collision) {
+      await expect(add).toBeDisabled();
+      await expect(form).toContainText("already exists");
+      expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
+    } else {
+      await expect(form).toHaveCount(0);
+      expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
+      const created = (
+        await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+      ).entities.find((entity) => entity.label === label)!;
+      expect(created.parents).toEqual([base + "Systems"]);
+    }
+  });
+}
+
+test("editing after a pending commit cancels that intent and stale replies cannot create either draft", async () => {
+  const form = await selectForCreation("Fresh course");
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  const add = form.getByRole("button", { name: "Add class", exact: true });
+  await expect(add).toBeEnabled();
+  await holdRequests(app, ["textAnalysisDraft"]);
+  await name.fill("First course");
+  await add.click();
+  await waitForHeld(app);
+  await name.fill("Second course");
+  await waitForHeld(app, 2);
+  await releaseRequests(app, { reverse: true });
+  await expect(name).toHaveValue("Second course");
+  await expect(add).toBeEnabled();
+  expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
+  await add.click();
+  await expect(form).toHaveCount(0);
+  expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
+});
+
+test("name-check failures remain visible through edits until a successful response", async () => {
+  const form = await selectForCreation("Fresh course");
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  await expect(
+    form.getByRole("button", { name: "Add class", exact: true }),
+  ).toBeEnabled();
+  await holdRequests(app, ["textAnalysisDraft"]);
+  await name.fill("Failing course");
+  await waitForHeld(app);
+  await releaseRequests(app, { fail: true, keepHolding: true });
+  await expect(form.getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await name.fill("Recovered course");
+  await waitForHeld(app);
+  await expect(form.getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await releaseRequests(app);
+  await expect(form.getByRole("alert")).toHaveCount(0);
+  await expect(
+    form.getByRole("button", { name: "Add class", exact: true }),
+  ).toBeEnabled();
+});
+
+test("a nested alias collision keeps its form and offers the existing class as parent", async () => {
+  const form = await selectForCreation("Fresh course");
+  await createParent(form, "canine");
+  await expect(form.locator(".text-create-validation")).toContainText(
+    "Dog already exists",
+  );
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toBeEditable();
+  await expect(
+    form.getByRole("button", { name: "Use as parent", exact: true }),
+  ).toBeDisabled();
+  await form
+    .getByRole("button", { name: "Use Dog as parent", exact: true })
+    .click();
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Fresh course");
+  await expect(
+    form.getByRole("button", { name: "Remove Dog", exact: true }),
+  ).toBeVisible();
+});
+
+test("editing the name and description preserves an assistant run and its completed suggestions", async () => {
+  const form = await selectForCreation("Digital workplace tools");
+  await form
+    .getByRole("combobox", { name: "Assistant", exact: true })
+    .selectOption("codex");
+  await form.getByRole("button", { name: "Suggest", exact: true }).click();
+  await expect(
+    form.getByRole("button", { name: "Thinking…", exact: true }),
+  ).toBeVisible();
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Revised while the assistant works.");
+  await name.fill("Digital workplace practice");
+  await expect(
+    form.getByRole("button", { name: "Run again", exact: true }),
+  ).toBeVisible();
+  await expect(name).toBeFocused();
+  await name.pressSequentially(" course");
+  await form
+    .getByRole("combobox", { name: "Parent classes", exact: true })
+    .focus();
+  await expect(
+    page.getByRole("listbox", { name: "Parent classes" }),
+  ).toContainText("Suggested by Codex");
+  const runs = await page.evaluate(() => window.axiom.suggestions.history());
+  expect(runs).toHaveLength(1);
+  expect(runs[0].state).toBe("completed");
+  expect(runs[0].prompt).toContain("Digital workplace tools");
+});
+
 test("draft parent suggestions call Codex, expose the prompt and require the user's parent selection", async () => {
   const form = await selectForCreation("Digital workplace tools");
   await form
@@ -980,10 +1152,10 @@ test("a selected phrase becomes a class under Systems and immediately gains its 
   await expect(form).toContainText("already exists in this ontology");
   await expect(
     form.getByRole("button", { name: "Add class", exact: true }),
-  ).toHaveCount(0);
+  ).toBeDisabled();
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveCount(0);
+  ).toBeEditable();
   await form
     .getByRole("button", {
       name: /^Open Electronic Surveillance Systems in Taxonomy$/,

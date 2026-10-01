@@ -48,7 +48,7 @@ export function useDraftParentSuggestions(
       active.current = undefined;
       if (id) void window.axiom.suggestions.cancel(id).catch(() => {});
     };
-  }, [key]);
+  }, [draft.datasetEpoch, provider]);
   const generate = async (bypassCache = false) => {
     if (active.current || !preview.prompt) return;
     const id = crypto.randomUUID();

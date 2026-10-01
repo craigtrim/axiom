@@ -5,6 +5,7 @@ import { revealInTaxonomy } from "./taxonomy-navigation";
 import { THING } from "../domain/model";
 import { entityNameKey as nameKey } from "../shared/entity-names";
 import { SourceDisclosure } from "./EntityEditorParts";
+import { useRetainedPreview } from "./use-retained-preview";
 import { expandIri } from "../shared/terms";
 import { markFindCreated, updateFind } from "./find-state";
 import { findKinds } from "../shared/find";
@@ -42,65 +43,6 @@ const classInput = (
       )
     : [{ iri: THING }],
 });
-
-function FindHandoffSource({
-  value,
-  snapshot,
-  change,
-  validated,
-}: {
-  value: TextEntityClassDraft;
-  snapshot: Snapshot;
-  change(value: TextEntityClassDraft): void;
-  validated(result: { key: string; error?: string }): void;
-}) {
-  const [result, setResult] = useState<{
-    key: string;
-    source: string;
-    error?: string;
-  }>();
-  const input = classInput(value, snapshot.ontology.namespace);
-  const key = JSON.stringify([input, snapshot.datasetEpoch, snapshot.version]);
-  useEffect(() => {
-    let active = true;
-    void request<string>("textAnalysisCreatePreview", {
-      creation: input,
-      datasetEpoch: snapshot.datasetEpoch,
-      version: snapshot.version,
-    })
-      .then((source) => {
-        if (active) {
-          setResult({ key, source });
-          validated({ key });
-        }
-      })
-      .catch((reason) => {
-        if (active) {
-          setResult({ key, source: "", error: reason.message });
-          validated({ key, error: reason.message });
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [key]);
-  return (
-    <>
-      <SourceDisclosure
-        open={value.findDraft!.sourceOpen}
-        change={(sourceOpen) =>
-          change({ ...value, findDraft: { ...value.findDraft!, sourceOpen } })
-        }
-        source={result?.key === key ? result.source : ""}
-      />
-      {result?.key === key && result.error && (
-        <p role="alert" className="validation-error">
-          {result.error}
-        </p>
-      )}
-    </>
-  );
-}
 
 export function TextEntityCreate({
   phrase,
@@ -238,70 +180,87 @@ function TextClassEditor({
   const snapshot = useSnapshot()!;
   const id = useId();
   const nested = ancestors.length > 0;
-  const [preview, setPreview] = useState<TextAnalysisDraft>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const [plan, setPlan] = useState<{ key: string; error?: string }>();
+  const input = classInput(value, snapshot.ontology.namespace);
   const planKey = JSON.stringify([
-    classInput(value, snapshot.ontology.namespace),
+    input,
     snapshot.datasetEpoch,
     snapshot.version,
   ]);
   const parentConfirmed = !search.trim();
+  const intentKey = JSON.stringify([
+    { ...input, parents: value.manualParents ? input.parents : null },
+    value.manualParents,
+    search,
+    snapshot.datasetEpoch,
+    snapshot.version,
+  ]);
   const pending = useRef(false),
-    latest = useRef({ value, change });
-  latest.current = { value, change };
+    latest = useRef({ value, change, intentKey });
+  latest.current = { value, change, intentKey };
+  const mounted = useRef(true);
   useEffect(() => {
-    let current = true;
-    setPreview(undefined);
-    setError("");
-    if (!value.label.trim()) return;
-    const timer = setTimeout(() => {
-      void request<TextAnalysisDraft>("textAnalysisDraft", {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const nameCheck = useRetainedPreview(
+    value.label.trim()
+      ? JSON.stringify([
+          value.label,
+          input.iri,
+          value.checkAllEntities,
+          snapshot.version,
+        ])
+      : null,
+    String(datasetEpoch),
+    () =>
+      request<TextAnalysisDraft>("textAnalysisDraft", {
         label: value.label,
-        iri:
-          value.iri === undefined
-            ? undefined
-            : expandIri(value.iri, snapshot.ontology.namespace),
+        iri: input.iri,
         checkAllEntities: value.checkAllEntities,
         datasetEpoch,
         version: snapshot.version,
-      })
-        .then((next) => {
-          if (!current) return;
-          setPreview(next);
-          const { value: draft, change: update } = latest.current;
-          if (!draft.manualParents)
-            update({
-              ...draft,
-              parents:
-                next.defaultParent === THING
-                  ? []
-                  : [{ iri: next.defaultParent }],
-            });
-        })
-        .catch((error) => {
-          if (current)
-            setError(error instanceof Error ? error.message : String(error));
-        });
-    }, 120);
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
-  }, [value.label, value.iri, datasetEpoch, snapshot.version]);
+      }),
+  );
+  const sourceCheck = useRetainedPreview(
+    value.findDraft ? planKey : null,
+    String(datasetEpoch),
+    () =>
+      request<string>("textAnalysisCreatePreview", {
+        creation: input,
+        datasetEpoch,
+        version: snapshot.version,
+      }),
+  );
+  const preview = nameCheck.value;
+  useEffect(() => {
+    if (!preview || !nameCheck.fresh) return;
+    setError("");
+    const { value: draft, change: update } = latest.current;
+    if (!draft.manualParents)
+      update({
+        ...draft,
+        parents:
+          preview.defaultParent === THING
+            ? []
+            : [{ iri: preview.defaultParent }],
+      });
+  }, [preview]);
   const ancestor = ancestors.some(
     (label) => nameKey(label) === nameKey(value.label),
   );
   const valid =
     !!value.label.trim() &&
     preview &&
-    preview.label === value.label.replace(/\s+/gu, " ").trim() &&
-    preview.version === snapshot.version &&
     preview.datasetEpoch === snapshot.datasetEpoch &&
     !preview.existing.length &&
-    (!value.findDraft || (plan?.key === planKey && !plan.error)) &&
+    !nameCheck.error &&
+    (!value.findDraft ||
+      (sourceCheck.value !== undefined && !sourceCheck.error)) &&
     !ancestor;
   const selected = (iri: string) =>
     value.parents.some((parent) => "iri" in parent && parent.iri === iri);
@@ -321,35 +280,86 @@ function TextClassEditor({
     );
   };
   const openExisting = async (iri: string) => {
-    if (!preview) return;
+    const checked = await nameCheck.validate();
+    if (
+      !checked?.existing.some(
+        (entity) => entity.iri === iri && entity.openable !== false,
+      ) ||
+      !mounted.current ||
+      latest.current.intentKey !== intentKey
+    )
+      return;
     if (nested) {
+      if (
+        !snapshot.entities.some(
+          (entity) =>
+            entity.iri === iri && ["Class", "Defined"].includes(entity.kind),
+        )
+      )
+        return;
       finishParent({ iri });
       return;
     }
     try {
-      await request("select", { iri, datasetEpoch, version: preview.version });
-      setState(await request<Snapshot>("state"));
+      await request("select", { iri, datasetEpoch, version: checked.version });
+      const next = await request<Snapshot>("state");
+      if (
+        !mounted.current ||
+        next.datasetEpoch !== datasetEpoch ||
+        state?.datasetEpoch !== datasetEpoch
+      )
+        return;
+      setState(next);
       close();
       revealInTaxonomy(iri);
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     }
   };
-  const submit = () => {
+  const submit = async () => {
     if (!valid || !parentConfirmed || pending.current) return;
-    if (nested) {
-      finishParent({ create: { ...value, label: preview.label } });
-      return;
-    }
     pending.current = true;
-    setBusy(true);
-    setError("");
-    void request<string>("textAnalysisCreate", {
-      creation: classInput(value, snapshot.ontology.namespace),
-      datasetEpoch,
-      version: preview.version,
-    })
-      .then(async (iri) => {
+    try {
+      const checked = await nameCheck.validate();
+      const stillCurrent = () =>
+        mounted.current &&
+        latest.current.intentKey === intentKey &&
+        state?.datasetEpoch === datasetEpoch &&
+        state.version === snapshot.version;
+      if (!checked || checked.existing.length || !stillCurrent()) return;
+      const checkedDraft = {
+        ...value,
+        label: checked.label,
+        parents: value.manualParents
+          ? value.parents
+          : checked.defaultParent === THING
+            ? []
+            : [{ iri: checked.defaultParent }],
+      };
+      const creation = classInput(checkedDraft, snapshot.ontology.namespace);
+      if (value.findDraft) {
+        if (JSON.stringify(creation) === JSON.stringify(input)) {
+          if ((await sourceCheck.validate()) === undefined) return;
+        } else {
+          await request<string>("textAnalysisCreatePreview", {
+            creation,
+            datasetEpoch,
+            version: checked.version,
+          });
+        }
+      }
+      if (!stillCurrent()) return;
+      if (nested) {
+        finishParent({ create: checkedDraft });
+        return;
+      }
+      setBusy(true);
+      setError("");
+      await request<string>("textAnalysisCreate", {
+        creation,
+        datasetEpoch,
+        version: checked.version,
+      }).then(async (iri) => {
         const next = await request<Snapshot>("state");
         if (
           next.datasetEpoch !== datasetEpoch ||
@@ -394,22 +404,16 @@ function TextClassEditor({
           );
         }
         added(iri, root.label || root.name, root.parents, created);
-      })
-      .catch((error) =>
-        setError(error instanceof Error ? error.message : String(error)),
-      )
-      .finally(() => {
-        pending.current = false;
-        setBusy(false);
       });
+    } catch (error) {
+      if (mounted.current)
+        setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      pending.current = false;
+      if (mounted.current) setBusy(false);
+    }
   };
-  const currentPreview =
-    preview?.label === value.label.replace(/\s+/gu, " ").trim() &&
-    preview.version === snapshot.version &&
-    preview.datasetEpoch === snapshot.datasetEpoch
-      ? preview
-      : undefined;
-  const collisions = currentPreview?.existing ?? [];
+  const collisions = preview?.existing ?? [];
   const nameError = !value.label.trim() ? "A class needs a name." : "";
   return (
     <section
@@ -448,175 +452,192 @@ function TextClassEditor({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          submit();
+          void submit();
         }}
       >
         <div className="text-create-scroll">
-          {collisions.length ? (
-            <div className="text-existing-entities">
-              {collisions.map((entity) => (
-                <div key={entity.iri}>
+          <div className="text-create-columns">
+            <div className="text-create-identity">
+              <h3>Class</h3>
+              {value.findDraft && (
+                <div className="find-handoff-details">
                   <p>
-                    <strong>{entity.label}</strong> already exists in this
-                    ontology. Adding it again would create a duplicate.
+                    Your Find draft is preserved. Parents created here are saved
+                    with this class.
                   </p>
-                  <code>
-                    {parentIri(entity.iri, snapshot.ontology.namespace)}
-                  </code>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void openExisting(entity.iri)}
-                  >
-                    {nested
-                      ? `Use ${entity.label} as parent`
-                      : `Open ${entity.label} in Taxonomy`}
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-create-columns">
-              <div className="text-create-identity">
-                <h3>Class</h3>
-                {value.findDraft && (
-                  <div className="find-handoff-details">
-                    <p>
-                      Your Find draft is preserved. Parents created here are
-                      saved with this class.
-                    </p>
-                    <label>
-                      Subject
-                      <input
-                        aria-label="Subject IRI"
-                        value={value.iri ?? ""}
-                        disabled={busy}
-                        onChange={(event) =>
-                          change({ ...value, iri: event.target.value })
-                        }
-                      />
-                    </label>
-                    {value.findDraft.statements.map((row) => (
-                      <p key={row.id}>
-                        <code>{row.predicate}</code>:{" "}
-                        {row.value || "empty value"}
-                      </p>
-                    ))}
-                    <FindHandoffSource
-                      value={value}
-                      snapshot={snapshot}
-                      change={change}
-                      validated={setPlan}
+                  <label>
+                    Subject
+                    <input
+                      aria-label="Subject IRI"
+                      value={value.iri ?? ""}
+                      disabled={busy}
+                      aria-invalid={!!collisions.length}
+                      aria-describedby={id + "-name-error"}
+                      onChange={(event) =>
+                        change({ ...value, iri: event.target.value })
+                      }
                     />
-                  </div>
-                )}
-                <label className="text-create-name">
-                  Name
-                  <input
-                    aria-label="Name"
-                    autoFocus
-                    maxLength={256}
-                    value={value.label}
-                    disabled={busy}
-                    aria-invalid={!!nameError}
-                    aria-describedby={id + "-name-error"}
-                    onChange={(event) =>
-                      change({ ...value, label: event.target.value })
-                    }
-                  />
-                </label>
-                <p
-                  id={id + "-name-error"}
-                  role="status"
-                  className={nameError ? "validation-error" : "muted"}
-                >
-                  {nameError ||
-                    (!currentPreview && !error ? "Checking name…" : "")}
-                </p>
-                <label>
-                  Description
-                  <textarea
-                    aria-label="Description"
-                    maxLength={10000}
-                    rows={3}
-                    placeholder="Optional"
-                    value={value.comment}
-                    disabled={busy}
-                    onChange={(event) =>
-                      change({ ...value, comment: event.target.value })
-                    }
-                  />
-                </label>
-              </div>
-              <div className="text-create-parents">
-                <h3>Parents</h3>
-                <div className="text-parent-chips">
-                  {!value.parents.length && (
-                    <span className="text-parents-empty">
-                      <span aria-hidden="true">ⓘ</span> No parent chosen. Will
-                      be added under <code>Thing</code>
-                    </span>
-                  )}
-                  {value.parents.map((parent, index) => (
-                    <span
-                      className="text-parent-chip"
-                      data-new={"create" in parent || undefined}
-                      key={"iri" in parent ? parent.iri : index}
-                    >
-                      {"create" in parent ? (
-                        <button
-                          type="button"
-                          className="text-parent-chip-edit"
-                          disabled={busy}
-                          onClick={() => editParent(index)}
-                        >
-                          {parentName(parent)}
-                        </button>
-                      ) : (
-                        <span title={parent.iri}>{parentName(parent)}</span>
-                      )}
-                      {"create" in parent && <small>new</small>}
-                      <button
-                        type="button"
-                        className="text-parent-chip-remove"
-                        disabled={busy}
-                        onClick={() =>
-                          setParents(
-                            value.parents.filter((_, at) => at !== index),
-                          )
-                        }
-                      >
-                        <span aria-hidden="true">×</span>
-                        <span className="sr-only">
-                          Remove {parentName(parent)}
-                        </span>
-                      </button>
-                    </span>
+                  </label>
+                  {value.findDraft.statements.map((row) => (
+                    <p key={row.id}>
+                      <code>{row.predicate}</code>: {row.value || "empty value"}
+                    </p>
                   ))}
                 </div>
-                <TextParentPicker
-                  snapshot={snapshot}
-                  value={value}
-                  preview={currentPreview}
+              )}
+              <label className="text-create-name">
+                Name
+                <input
+                  aria-label="Name"
+                  autoFocus
+                  maxLength={256}
+                  value={value.label}
                   disabled={busy}
-                  ready={!!valid}
-                  text={search}
-                  setText={setSearch}
-                  add={addParent}
-                  create={createParent}
+                  aria-invalid={!!nameError || !!collisions.length}
+                  aria-describedby={id + "-name-error"}
+                  onChange={(event) =>
+                    change({ ...value, label: event.target.value })
+                  }
                 />
+              </label>
+              <div
+                id={id + "-name-error"}
+                role="status"
+                aria-live="polite"
+                className="text-create-validation"
+              >
+                {nameError ||
+                  collisions.map((entity) => (
+                    <span key={entity.iri}>
+                      {entity.label} already exists in this ontology (
+                      {parentIri(entity.iri, snapshot.ontology.namespace)}).{" "}
+                      {entity.openable !== false &&
+                      (!nested ||
+                        snapshot.entities.some(
+                          (item) =>
+                            item.iri === entity.iri &&
+                            ["Class", "Defined"].includes(item.kind),
+                        )) ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          aria-label={
+                            nested
+                              ? `Use ${entity.label} as parent`
+                              : `Open ${entity.label} in Taxonomy`
+                          }
+                          onClick={() => void openExisting(entity.iri)}
+                        >
+                          {nested ? "Use as parent" : "Open in Taxonomy"}
+                        </button>
+                      ) : (
+                        "Choose another name or Subject IRI."
+                      )}
+                    </span>
+                  ))}
               </div>
+              <label>
+                Description
+                <textarea
+                  aria-label="Description"
+                  maxLength={10000}
+                  rows={3}
+                  placeholder="Optional"
+                  value={value.comment}
+                  disabled={busy}
+                  onChange={(event) =>
+                    change({ ...value, comment: event.target.value })
+                  }
+                />
+              </label>
+              {value.findDraft && (
+                <>
+                  <SourceDisclosure
+                    open={value.findDraft.sourceOpen}
+                    change={(sourceOpen) =>
+                      change({
+                        ...value,
+                        findDraft: { ...value.findDraft!, sourceOpen },
+                      })
+                    }
+                    source={sourceCheck.value ?? ""}
+                  />
+                  {sourceCheck.error && (
+                    <p role="alert" className="validation-error">
+                      {sourceCheck.error}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
-          )}
+            <div className="text-create-parents">
+              <h3>Parents</h3>
+              <div className="text-parent-chips">
+                {!value.parents.length && (
+                  <span className="text-parents-empty">
+                    <span aria-hidden="true">ⓘ</span> No parent chosen. Will be
+                    added under <code>Thing</code>
+                  </span>
+                )}
+                {value.parents.map((parent, index) => (
+                  <span
+                    className="text-parent-chip"
+                    data-new={"create" in parent || undefined}
+                    key={"iri" in parent ? parent.iri : index}
+                  >
+                    {"create" in parent ? (
+                      <button
+                        type="button"
+                        className="text-parent-chip-edit"
+                        disabled={busy}
+                        onClick={() => editParent(index)}
+                      >
+                        {parentName(parent)}
+                      </button>
+                    ) : (
+                      <span title={parent.iri}>{parentName(parent)}</span>
+                    )}
+                    {"create" in parent && <small>new</small>}
+                    <button
+                      type="button"
+                      className="text-parent-chip-remove"
+                      disabled={busy}
+                      onClick={() =>
+                        setParents(
+                          value.parents.filter((_, at) => at !== index),
+                        )
+                      }
+                    >
+                      <span aria-hidden="true">×</span>
+                      <span className="sr-only">
+                        Remove {parentName(parent)}
+                      </span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <TextParentPicker
+                snapshot={snapshot}
+                value={value}
+                preview={preview}
+                disabled={busy}
+                ready={!!valid}
+                text={search}
+                setText={setSearch}
+                add={addParent}
+                create={createParent}
+              />
+            </div>
+          </div>
           {ancestor && (
             <p role="alert" className="validation-error">
               A class cannot be its own ancestor. Choose a different parent
               name.
             </p>
           )}
-          {error && (
+          {(error || nameCheck.error) && (
             <p role="alert" className="validation-error">
-              {error}
+              {error || nameCheck.error}
             </p>
           )}
         </div>
@@ -636,15 +657,14 @@ function TextClassEditor({
             <button type="button" disabled={busy} onClick={cancel}>
               {nested ? "Discard parent" : "Cancel"}
             </button>
-            {!collisions.length && (
-              <button
-                className="primary"
-                type="submit"
-                disabled={!valid || !parentConfirmed || busy}
-              >
-                {busy ? "Adding…" : nested ? "Use as parent" : "Add class"}
-              </button>
-            )}
+            <button
+              className="primary"
+              type="submit"
+              disabled={!valid || !parentConfirmed || busy}
+              aria-describedby={id + "-name-error"}
+            >
+              {busy ? "Adding…" : nested ? "Use as parent" : "Add class"}
+            </button>
           </div>
         </footer>
       </form>

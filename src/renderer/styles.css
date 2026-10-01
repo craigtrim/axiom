@@ -4818,6 +4818,20 @@ button.sparsity-link {
   margin: var(--sp-1) 0 var(--sp-3);
   font-size: var(--fs-caption);
 }
+.text-create-validation {
+  min-height: 1.5em;
+  margin: var(--sp-1) 0 var(--sp-3);
+  font-size: var(--fs-caption);
+  color: var(--danger);
+}
+.text-create-validation > span {
+  display: block;
+}
+.text-create-validation button {
+  font: inherit;
+  min-height: 0;
+  padding: 0 var(--sp-1);
+}
 .text-parent-chips {
   display: flex;
   flex-wrap: wrap;

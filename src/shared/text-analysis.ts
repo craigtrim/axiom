@@ -51,7 +51,7 @@ export interface TextAnalysisParent {
 export interface TextAnalysisDraft {
   label: string;
   parents: TextAnalysisParent[];
-  existing: { iri: string; label: string }[];
+  existing: { iri: string; label: string; openable?: boolean }[];
   defaultParent: string;
   datasetEpoch: number;
   version: number;

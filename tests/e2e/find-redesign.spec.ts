@@ -10,6 +10,12 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { NS, THING } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
+import {
+  holdRequests,
+  waitForHeld,
+  releaseRequests,
+  requestCount,
+} from "./held-requests";
 const base = "https://example.test/find-design#";
 let app: ElectronApplication, page: Page, profile: string;
 const errors: string[] = [];
@@ -384,6 +390,91 @@ test("full Add entity handoff preserves the entire draft and commits a new paren
   await expect(
     pane().getByRole("region", { name: "Selected entity" }),
   ).toContainText("created here");
+});
+
+test("Add entity handoff retains source and errors while edited drafts are checked", async () => {
+  await miss();
+  await create().getByRole("button", { name: "Source", exact: true }).click();
+  await create()
+    .getByRole("button", { name: "Continue in Add entity", exact: true })
+    .click();
+  const form = page.getByRole("region", { name: "Add entity", exact: true });
+  const name = form.getByRole("textbox", { name: "Name", exact: true });
+  const add = form.getByRole("button", { name: "Add class", exact: true });
+  const source = form.getByLabel("RDF/XML source");
+  await expect(add).toBeEnabled();
+  const previous = await source.textContent();
+  const namePosition = () =>
+    name.evaluate((el) => {
+      const scroll = el.closest(".text-create-scroll")!;
+      return (
+        el.getBoundingClientRect().top -
+        scroll.getBoundingClientRect().top +
+        scroll.scrollTop
+      );
+    });
+  const before = await namePosition();
+  await holdRequests(app, ["textAnalysisCreatePreview"]);
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Changed description");
+  await waitForHeld(app);
+  await expect(source).toHaveText(previous!);
+  await expect(add).toBeEnabled();
+  expect(await namePosition()).toBeCloseTo(before, 1);
+  await releaseRequests(app, { fail: true, keepHolding: true });
+  await expect(form.getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await name.fill("Revised Architecture");
+  await waitForHeld(app);
+  await expect(source).toHaveText(previous!);
+  await expect(form.getByRole("alert")).toContainText(
+    "Controlled preview failure",
+  );
+  await releaseRequests(app);
+  await expect(form.getByRole("alert")).toHaveCount(0);
+  await expect(source).toContainText("Revised Architecture");
+  expect(await namePosition()).toBeCloseTo(before, 1);
+  await expect(add).toBeEnabled();
+});
+
+test("Add entity handoff keeps the Subject field editable at a referenced IRI collision", async () => {
+  await miss();
+  await create()
+    .getByRole("button", { name: "Continue in Add entity", exact: true })
+    .click();
+  const form = page.getByRole("region", { name: "Add entity", exact: true });
+  const subject = form.getByRole("textbox", {
+    name: "Subject IRI",
+    exact: true,
+  });
+  const add = form.getByRole("button", { name: "Add class", exact: true });
+  await expect(add).toBeEnabled();
+  await subject.fill(NS.rdfs + "label");
+  await expect(form.locator(".text-create-validation")).toContainText(
+    "already exists",
+  );
+  await expect(subject).toBeEditable();
+  await expect(subject).toBeFocused();
+  await expect(add).toBeDisabled();
+  await expect(
+    form.getByRole("button", { name: /Open .* in Taxonomy/ }),
+  ).toHaveCount(0);
+  await subject.press("End");
+  await subject.pressSequentially("Course");
+  await expect(add).toBeEnabled();
+  await expect(subject).toHaveValue(NS.rdfs + "labelCourse");
+  await holdRequests(app, ["textAnalysisCreatePreview"]);
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Save only after source validation");
+  await add.click();
+  await waitForHeld(app);
+  expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
+  await releaseRequests(app);
+  await expect(form).toHaveCount(0);
+  expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
 });
 
 test("creation rejects stale versions and epochs before any write", async () => {

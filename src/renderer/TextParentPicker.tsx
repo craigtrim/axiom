@@ -66,8 +66,18 @@ export function TextParentPicker({
     },
     () => {
       setActive(-1);
-      setOpen(true);
-      input.current?.focus();
+      // A completed suggestion must not steal focus from a name being edited.
+      if (
+        input.current &&
+        (input.current.ownerDocument.activeElement ===
+          input.current.ownerDocument.body ||
+          input.current.ownerDocument.activeElement?.closest(
+            ".text-create-parents, .text-parent-entry",
+          ))
+      ) {
+        setOpen(true);
+        input.current.focus();
+      }
     },
   );
   const options = useMemo(
