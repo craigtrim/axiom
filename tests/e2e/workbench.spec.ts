@@ -35,6 +35,7 @@ test.beforeEach(async () => {
   const userData = await mkdtemp(path.resolve("artifacts/testing/profile-"));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    AXIOM_CACHE_HOME: path.join(userData, "cache"),
     AXIOM_USER_DATA: userData,
   };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -76,16 +77,7 @@ test("native menus, fixture, table and query", async () => {
     await application.evaluate(({ Menu }) =>
       Menu.getApplicationMenu()!.items.map((i) => i.label.replaceAll("&", "")),
     ),
-  ).toEqual([
-    "File",
-    "Edit",
-    "View",
-    "Graph",
-    "Query",
-    "Research",
-    "Window",
-    "Help",
-  ]);
+  ).toEqual(["File", "Edit", "View", "Graph", "Query", "Window", "Help"]);
   await expect(page.locator(".status-counts")).toContainText("87,379 triples");
   await expect(page.locator(".individual-cell").first()).toContainText(
     "Pizza_000001",
@@ -389,10 +381,11 @@ test("pane layout and filters survive a restart", async () => {
     });
   });
   await application.close();
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   application = await electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,

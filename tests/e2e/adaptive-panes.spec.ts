@@ -71,10 +71,11 @@ test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/adaptive-"));
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -102,179 +103,6 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await app.close();
   expect(errors).toEqual([]);
-});
-
-test("Research retains prompt, operation, attribution and selection across pane shapes and docking", async () => {
-  await app.evaluate(({ ipcMain }) => {
-    const state: any = { running: false };
-    (globalThis as any).adaptiveResearch = state;
-    ipcMain.removeHandler("research:assistants");
-    ipcMain.handle("research:assistants", () => [
-      { id: "codex", name: "Codex", available: true, message: "Ready" },
-    ]);
-    ipcMain.removeHandler("research:status");
-    ipcMain.handle("research:status", () => ({
-      running: state.running,
-      response: state.response,
-      activeEntity: state.activeEntity,
-    }));
-    ipcMain.removeHandler("research:run");
-    ipcMain.handle(
-      "research:run",
-      (_event, input) =>
-        new Promise((resolve, reject) => {
-          state.running = true;
-          state.activeEntity = "Thing";
-          state.input = input;
-          state.finish = () => {
-            state.running = false;
-            state.response = {
-              provider: "codex",
-              completedAt: new Date().toISOString(),
-              context: {
-                entity: { name: "Thing", iri: input.iri },
-                datasetEpoch: input.datasetEpoch,
-                version: input.version,
-              },
-              result: {
-                summary:
-                  "A retained research result with its original entity context.",
-                sources: [],
-                suggestions: [
-                  {
-                    kind: "synonym",
-                    name: "Sample term",
-                    description: "An illustrative label for this test.",
-                    sourceUrl: "",
-                  },
-                ],
-              },
-            };
-            resolve(state.response);
-          };
-          state.cancel = () => {
-            state.running = false;
-            reject(Error("Research cancelled."));
-          };
-        }),
-    );
-    ipcMain.removeHandler("research:cancel");
-    ipcMain.handle("research:cancel", () => state.cancel?.());
-  });
-  await main.evaluate((iri) => window.axiom.request("select", { iri }), thing);
-  const child = await detach("research");
-  const root = child.locator(".adaptive-pane"),
-    pane = child.locator(".research-panel");
-  const instructions = pane.getByRole("textbox", {
-    name: "Research instructions",
-  });
-  for (const [width, height, mode] of [
-    [360, 740, "narrow"],
-    [1100, 300, "shallow"],
-    [1100, 740, "expanded"],
-  ] as const) {
-    await resize(child, width, height, mode);
-    await expect(
-      pane.getByRole("button", { name: "Options", exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      pane.getByRole("button", { name: "Results", exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      pane.getByRole("combobox", { name: "Research assistant" }),
-    ).toBeVisible();
-    await expect(
-      pane.getByRole("combobox", { name: "Research prompt template" }),
-    ).toBeVisible();
-    await expect(instructions).toBeVisible();
-    await expect(
-      pane.getByRole("checkbox", { name: "Allow web research" }),
-    ).toBeVisible();
-    await fits(
-      root,
-      pane.getByRole("button", { name: "Run research", exact: true }),
-    );
-    await expect(pane).not.toContainText("Ready to research");
-    await child.screenshot({
-      path: "artifacts/testing/research-form-" + mode + ".png",
-    });
-  }
-  await instructions.fill("Retain this exact prompt.");
-  await pane.getByRole("checkbox", { name: "Allow web research" }).uncheck();
-  await instructions.evaluate((el) => {
-    (globalThis as any).adaptiveInput = el;
-  });
-  await pane.getByRole("button", { name: "Run research", exact: true }).click();
-  await expect(
-    root.getByRole("button", { name: "Cancel research" }),
-  ).toBeVisible();
-  await resize(child, 360, 740, "narrow");
-  await fits(root, root.getByRole("button", { name: "Cancel research" }));
-  await main.evaluate(async () => {
-    const iri = await window.axiom.request<string>("createClass", {
-      name: "Other",
-      parent: "http://www.w3.org/2002/07/owl#Thing",
-    });
-    await window.axiom.request("select", { iri });
-  });
-  await expect(root.locator(".assistant-activity")).toContainText(
-    "Researching Thing",
-  );
-  await resize(child, 1100, 300, "shallow");
-  await fits(root, root.getByRole("button", { name: "Cancel research" }));
-  await app.evaluate(() => (globalThis as any).adaptiveResearch.finish());
-  await expect(pane.locator(".research-result-title")).toHaveText(
-    "Results for Thing",
-  );
-  await expect(instructions).toHaveValue("Retain this exact prompt.");
-  expect(
-    await instructions.evaluate(
-      (el) => el === (globalThis as any).adaptiveInput,
-    ),
-  ).toBe(true);
-  await expect(
-    pane.getByRole("checkbox", { name: "Allow web research" }),
-  ).not.toBeChecked();
-  // The mutation during the run must keep the returned suggestions visibly stale.
-  await expect(
-    pane.getByRole("checkbox", { name: "Accept Sample term" }),
-  ).toBeDisabled();
-  await expect(pane.locator(".research-status")).toContainText(
-    "ontology changed",
-  );
-  await child.screenshot({
-    path: "artifacts/testing/adaptive-research-shallow.png",
-  });
-  await pane.getByRole("button", { name: "Run research", exact: true }).click();
-  await app.evaluate(() => (globalThis as any).adaptiveResearch.finish());
-  await expect(
-    pane.getByRole("checkbox", { name: "Accept Sample term" }),
-  ).toBeEnabled();
-  await pane.getByRole("checkbox", { name: "Accept Sample term" }).check();
-  await resize(child, 360, 300, "constrained");
-  await fits(
-    root,
-    pane.getByRole("button", {
-      name: "Apply selected suggestions (1)",
-      exact: true,
-    }),
-  );
-  await expect(
-    pane.getByRole("checkbox", { name: "Accept Sample term" }),
-  ).toBeChecked();
-  await pane.getByRole("button", { name: "More research actions" }).click();
-  await expect(
-    child.getByRole("dialog", { name: "Research actions options" }),
-  ).toBeVisible();
-  await child.keyboard.press("Escape");
-  await expect(
-    pane.getByRole("button", { name: "More research actions" }),
-  ).toBeFocused();
-  await menu("pane.reattach");
-  await expect.poll(() => app.windows().length).toBe(1);
-  await expect(
-    main.getByRole("checkbox", { name: "Accept Sample term" }),
-  ).toBeChecked();
 });
 
 test("Inspector preserves an unapplied draft and keeps Apply visible in a shallow pane", async () => {
@@ -602,7 +430,7 @@ test("Compact edge actions, overflow and recovery remain keyboard accessible", a
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
   await main.evaluate(() => window.axiom.request("selectEdge", { key: null }));
-  for (const id of ["research", "source"]) {
+  for (const id of ["touchpoints", "source"]) {
     child = await detach(id);
     await resize(child, 360, 740, "narrow");
     const scan = await new AxeBuilder({ page: child })

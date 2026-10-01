@@ -72,10 +72,11 @@ test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/ux-"));
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -316,31 +317,18 @@ test("equivalent intersection branches support editing a member and Undo", async
     path: "artifacts/testing/ux-intersection-branches.png",
   });
 });
-test("Claude is the shared default and switching Research updates query generation", async () => {
-  await menu("research.open");
-  const research = page.locator('[data-panel="research"]');
-  const provider = research.getByRole("combobox", {
-    name: "Research assistant",
-    exact: true,
-  });
+test("Claude is the shared default and switching Suggestions updates query generation", async () => {
+  await menu("view.taxonomy");
+  const provider = page
+    .locator('[data-panel="taxonomy"]')
+    .getByRole("combobox", { name: "Taxonomy assistant", exact: true });
   await expect(provider).toHaveValue("claude");
   await provider.selectOption("codex");
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate(
-          async () =>
-            (await window.axiom.preferences.load()).panelState?.[
-              "assistant.provider"
-            ],
-        ),
-    )
-    .toBe("codex");
   await menu("query.generate");
   const composer = page.getByRole("region", { name: "Compose a SPARQL query" });
   await expect(composer.getByRole("combobox").first()).toHaveValue("codex");
   await composer.getByRole("combobox").first().selectOption("claude");
-  await menu("research.open");
+  await menu("view.taxonomy");
   await expect(provider).toHaveValue("claude");
 });
 
@@ -441,7 +429,7 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
       items.map((el) =>
         el.getAttribute("role") === "separator"
           ? "---"
-          : el.textContent!.trim(),
+          : el.textContent!.replace(/›$/, "").trim(),
       ),
     );
   expect(labels).toEqual([
@@ -450,11 +438,12 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
     "Rename",
     "Details",
     "Find in taxonomy",
-    "---",
     "New instance",
     "Show instances (0)",
-    "Suggest Sub Classes",
-    "Research...",
+    "---",
+    "Analyze",
+    "Find",
+    "Suggest",
     "---",
     "Pin in graph",
     "Copy IRI",
@@ -483,17 +472,18 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
     .toBe(false);
   await request("seed", { iris: [target] });
   m = await nodeMenu(target);
-  await m
-    .getByRole("menuitem", { name: "Suggest Sub Classes", exact: true })
+  await m.getByRole("menuitem", { name: "Find", exact: true }).click();
+  const find = page.getByRole("menu", { name: "Find", exact: true });
+  for (const name of ["Similar", "Synonyms", "Touchpoints"])
+    await expect(
+      find.getByRole("menuitem", { name, exact: true }),
+    ).toBeEnabled();
+  await find
+    .getByRole("menuitem", { name: "Touchpoints", exact: true })
     .click();
-  const d = page.getByRole("dialog", {
-    name: /Find existing parent classes for/,
-  });
-  await expect(d.getByRole("checkbox")).toHaveCount(2);
-  await d.getByRole("button", { name: "Cancel", exact: true }).click();
-  expect(
-    (await state()).entities.find((e) => e.iri === target)!.parents,
-  ).not.toContain(a);
+  await expect(
+    page.getByRole("region", { name: "Find Touchpoints", exact: true }),
+  ).toBeVisible();
 });
 
 test("subclass review rejects stale results and excludes applied parents", async () => {

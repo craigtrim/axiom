@@ -18,6 +18,12 @@ let app: ElectronApplication,
   visited = new Set<string>();
 // The appearance workflows live in their own desktop suite.
 const coverage: Record<string, string[]> = {
+  "Touchpoints and cache controls (tests/e2e/touchpoints.spec.ts)": [
+    "touchpoints.open",
+    "view.touchpoints",
+    "cache.clearWikipedia",
+    "cache.clearModel",
+  ],
   "Live text analysis (tests/e2e/text-analysis.spec.ts)": [
     "view.textanalysis",
     "view.textentities",
@@ -107,10 +113,11 @@ test.beforeEach(async () => {
   const userData = await mkdtemp(
     path.resolve("artifacts/testing/menu-profile-"),
   );
-  const env = { ...process.env, AXIOM_USER_DATA: userData } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(userData, "cache"),
+    AXIOM_USER_DATA: userData,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -1138,131 +1145,6 @@ journey(
     );
   },
 );
-journey(
-  "Research reviews contextual results, opens sources and applies one undoable batch",
-  [
-    "research.open",
-    "view.research",
-    "research.run",
-    "research.cancel",
-    "research.refresh",
-    "research.source.wikipedia",
-    "research.source.dbpedia",
-    "research.source.ontologies",
-    "research.source.web",
-  ],
-  async () => {
-    await menu("file.new");
-    await expect.poll(async () => (await state()).classCount).toBe(1);
-    await createClass("Person");
-    await app.evaluate(({ ipcMain, shell }) => {
-      ipcMain.removeHandler("research:assistants");
-      ipcMain.handle("research:assistants", () => [
-        { id: "codex", name: "Codex", available: true },
-        { id: "claude", name: "Claude", available: true },
-      ]);
-      (globalThis as any).researchInputs = [];
-      (globalThis as any).openedSources = [];
-      shell.openExternal = async (url: string) => {
-        (globalThis as any).openedSources.push(url);
-      };
-      ipcMain.removeHandler("research:run");
-      ipcMain.handle("research:run", (_event, input) => {
-        (globalThis as any).researchInputs.push(input);
-        return {
-          provider: input.provider,
-          completedAt: new Date().toISOString(),
-          context: {
-            datasetEpoch: input.datasetEpoch,
-            version: input.version,
-            entity: { iri: input.iri, name: "Person" },
-          },
-          result: {
-            summary: "A person in this ontology is a kind of Thing.",
-            sources: [
-              {
-                title: "Wikipedia Person",
-                url: "https://en.wikipedia.org/wiki/Person",
-              },
-            ],
-            suggestions: [
-              {
-                kind: "synonym",
-                name: "Human being",
-                description: "An alternative label.",
-                sourceUrl: "",
-              },
-              {
-                kind: "subclass",
-                name: "Employee",
-                description: "An employed person.",
-                sourceUrl: "",
-              },
-              {
-                kind: "individual",
-                name: "Alice",
-                description: "Illustrative instance.",
-                sourceUrl: "",
-              },
-            ],
-          },
-        };
-      });
-    });
-    await menu("research.open");
-    const pane = page.getByRole("region", { name: "Ontology research" });
-    await expect(pane).toBeVisible();
-    await menu("view.research");
-    await menu("research.refresh");
-    await pane
-      .getByRole("combobox", { name: "Research prompt template" })
-      .selectOption("subclasses");
-    await pane
-      .getByRole("textbox", { name: "Research instructions" })
-      .fill("Suggest subclasses suited to this ontology.");
-    await pane
-      .locator("#research-options")
-      .getByText("Preview prompt and ontology context", { exact: true })
-      .click();
-    await expect(pane.locator(".research-context")).toContainText("Thing");
-    await expect(pane.locator(".research-context")).toContainText("Person");
-    for (const id of ["wikipedia", "dbpedia", "ontologies", "web"])
-      await menu("research.source." + id);
-    await expect
-      .poll(() => app.evaluate(() => (globalThis as any).openedSources.length))
-      .toBe(4);
-    await menu("research.run");
-    await expect(pane.locator(".research-summary")).toContainText(
-      "kind of Thing",
-    );
-    expect((await state()).classCount).toBe(2);
-    await pane.getByRole("checkbox", { name: "Accept Employee" }).check();
-    await pane.getByRole("checkbox", { name: "Accept Human being" }).check();
-    await pane.getByRole("checkbox", { name: "Accept Alice" }).check();
-    await pane
-      .getByRole("button", {
-        name: "Apply selected suggestions (3)",
-        exact: true,
-      })
-      .click();
-    await expect.poll(async () => (await state()).classCount).toBe(3);
-    expect((await state()).individualCount).toBe(1);
-    await page.getByTestId("graph-canvas").focus();
-    await menu("edit.undo");
-    await expect.poll(async () => (await state()).classCount).toBe(2);
-    expect((await state()).individualCount).toBe(0);
-    await menu("edit.redo");
-    await expect.poll(async () => (await state()).classCount).toBe(3);
-    expect((await state()).individualCount).toBe(1);
-    const inputs = await app.evaluate(() => (globalThis as any).researchInputs);
-    await expect.poll(() => enabled("research.cancel")).toBe(false);
-    // This journey covers the completed-run state; assistant-activity.spec.ts exercises active cancellation.
-    visited.add("research.cancel");
-    expect(inputs[0].instructions).toContain("suited to this ontology");
-    expect(inputs[0].iri).toBe("http://example.org/ontology#Person");
-    await page.screenshot({ path: "artifacts/testing/research-pane.png" });
-  },
-);
 test("taxonomy double-click expands only the branch and every node exposes a keyboard context menu", async () => {
   const root = page.getByRole("treeitem").first(),
     before = (await state()).graph.nodes.map((n) => n.iri);
@@ -1279,7 +1161,7 @@ test("taxonomy double-click expands only the branch and every node exposes a key
   await root.click({ button: "right" });
   await expect(page.getByRole("menu")).toBeVisible();
   await expect(
-    page.getByRole("menuitem", { name: "Research..." }),
+    page.getByRole("menuitem", { name: "Find", exact: true }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
   await page
@@ -1388,61 +1270,6 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
   await expect(canvas).toBeVisible();
   expect((await state()).classCount).toBe(95);
 });
-test("stale and invalid research batches cannot partially change the ontology", async () => {
-  await menu("file.new");
-  await expect.poll(async () => (await state()).classCount).toBe(1);
-  await createClass("Person");
-  const initial = await state(),
-    iri = initial.selected!;
-  await request("createClass", { name: "Company", parent: THING });
-  const error = await page.evaluate(
-    async (a) => {
-      try {
-        await window.axiom.request("applySuggestions", a);
-        return "";
-      } catch (e) {
-        return (e as Error).message;
-      }
-    },
-    {
-      iri,
-      datasetEpoch: initial.datasetEpoch,
-      version: initial.version,
-      suggestions: [
-        { kind: "synonym", name: "Human", description: "", sourceUrl: "" },
-      ],
-    },
-  );
-  expect(error).toContain("changed since this research");
-  const now = await state();
-  const invalid = await page.evaluate(
-    async (a) => {
-      try {
-        await window.axiom.request("applySuggestions", a);
-        return "";
-      } catch (e) {
-        return (e as Error).message;
-      }
-    },
-    {
-      iri,
-      datasetEpoch: now.datasetEpoch,
-      version: now.version,
-      suggestions: [
-        { kind: "synonym", name: "Human", description: "", sourceUrl: "" },
-        { kind: "subclass", name: "Company", description: "", sourceUrl: "" },
-      ],
-    },
-  );
-  expect(invalid).toContain("already exists");
-  expect((await state()).version).toBe(now.version);
-  const inspector = (await request("inspector", { iri })) as {
-    values: { predicate: string }[];
-  };
-  expect(inspector.values.some((v) => v.predicate.endsWith("altLabel"))).toBe(
-    false,
-  );
-});
 test("a styled 3000-node graph stays bounded and the renderer answers during ELK work", async () => {
   await request("layout", { mode: "grid" });
   await request("budget", { value: 3000 });
@@ -1538,7 +1365,7 @@ journey(
       .toBe(true);
     await menu("view.inspector");
     await menu("pane.nextTab");
-    await expect(page.locator('[data-panel="research"]')).toBeVisible();
+    await expect(page.locator('[data-panel="touchpoints"]')).toBeVisible();
     await menu("pane.previousTab");
     await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
     await menu("view.graph");

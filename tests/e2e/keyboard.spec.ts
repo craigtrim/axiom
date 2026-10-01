@@ -12,10 +12,11 @@ import { emptyKeyboardSettings } from "../../src/shared/shortcuts";
 import type { Snapshot } from "../../src/shared/protocol";
 let app: ElectronApplication, page: Page, profile: string, errors: string[];
 async function launch() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -324,7 +325,7 @@ test("keyboard help and palette show current shortcuts and pane navigation works
     )
     .toBe("inspector");
   await page.keyboard.press("Control+Tab");
-  await expect(page.locator('[data-panel="research"]')).toBeVisible();
+  await expect(page.locator('[data-panel="touchpoints"]')).toBeVisible();
   await page.keyboard.press("Control+Shift+Tab");
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await page.keyboard.press("F6");
