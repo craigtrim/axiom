@@ -74,7 +74,7 @@ For now, a complete bounded context is passed with the request. The agent does n
 
 ## Process and output contract
 
-Axiom owns the process lifecycle in Electron's main process. The renderer requests discovery, generation, cancellation or status through the application bridge. It cannot supply an arbitrary executable path or shell command. The shared runner is also used by entity research, avoiding separate implementations of discovery and cancellation.
+Axiom owns the process lifecycle in Electron's main process. The renderer requests discovery, generation, cancellation or status through the application bridge. It cannot supply an arbitrary executable path or shell command. The shared runner is also used by taxonomy, parent and synonym suggestions, avoiding separate implementations of discovery and cancellation.
 
 Discovery checks PATH for supported native executables and the Codex npm entry point. The executable is launched with an argument array and no shell. Each run receives a temporary working directory, an output schema and the prompt over standard input. Relative working directories are resolved to absolute paths so the process and its output files refer to the same location.
 

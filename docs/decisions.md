@@ -52,15 +52,15 @@ The local package is unsigned. No signing identity is included in this repositor
 
 The original performance and accessibility requirements remain reference targets. The verification record reports gaps explicitly; measured draw submission time is not interchangeable with displayed frame interval or minimum-hardware certification.
 
-## Graph styles, layout workers and research
+## Graph styles, layout workers and touchpoints
 
-The September 13 checklist adds a sixth, dockable Research pane and a validated CSS subset for the graph. The renderer and export paths share the same style rules. Taxonomy branch expansion is separate from explicit graph navigation.
+Find Touchpoints searches English Wikipedia and applies reviewed resource relationships. It replaces the former assistant research pane. The renderer and export paths share the same graph style rules. Taxonomy branch expansion is separate from explicit graph navigation.
 
-ELK layered, stress and tree layouts run in a disposable worker, with cancellation and a 30-second deadline. Circular layout joins the existing in-process algorithms. All algorithms receive only the admitted graph and retain its configured ceiling. Pins remain fixed when worker results are applied. [Graph editing and contextual research](graph-and-research.md) records the algorithm sources and usage.
+ELK layered, stress and tree layouts run in a disposable worker, with cancellation and a 30-second deadline. Circular layout joins the existing in-process algorithms. All algorithms receive only the admitted graph and retain its configured ceiling. Pins remain fixed when worker results are applied. [Graph editing and touchpoints](graph-editing.md) records the algorithm sources and usage.
 
 A unified session history records data commands and graph frames, with renderer-owned state restored through typed events. It groups a drag into one operation, keeps native text and Monaco editing local to their editors, and resets on workspace replacement. An estimated memory budget bounds retained history.
 
-Codex and Claude adapters discover installed commands, pass prompts over stdin and parse structured results. They run as cancellable child processes from temporary application directories. The renderer can request ontology context, run research and open validated HTTPS sources through explicit bridge methods. Model suggestions enter the Store only after review and complete batch validation. A Store version and dataset epoch prevent stale suggestions from being applied to changed data.
+Codex and Claude adapters discover installed commands, pass prompts over stdin and parse structured results. They run as cancellable child processes from temporary application directories. The renderer can request ontology context, run suggestions and open validated HTTPS sources through explicit bridge methods. Model suggestions enter the Store only after review and complete batch validation. A Store version and dataset epoch prevent stale suggestions from being applied to changed data.
 
 Automatic workbench arrangement depends on the available viewport width and aspect ratio. Manual pane changes switch to a custom arrangement, preserving user placement during subsequent resizes.
 
@@ -94,7 +94,7 @@ SPARQL execution uses Comunica over an N3 RDF/JS dataset in a separate, cancella
 
 The pinned engine needs narrow compatibility rules for GRAPH variable scope, REDUCED term identity, literal inspection and URI encoding. These rules are isolated in query-graphs.ts and query-compat.ts and covered by conformance cases. They must be reviewed when upgrading Comunica. Results are capped after query evaluation, so a display cap never limits the input to COUNT or other aggregates. The query panel accepts SELECT, ASK, CONSTRUCT and DESCRIBE; the isolated backend also receives local SPARQL Update conformance tests. Remote retrieval and inferred entailment are not enabled. See [SPARQL testing](sparql-testing.md) for the scope inventory.
 
-A shared local subprocess runner serves entity research and query generation. Query composition uses bounded ontology context, structured output, runtime extraction and local parser/identifier checks. Generated SPARQL becomes a new query document in the main editor, retaining its source. Run remains explicit. The CLI path uses existing sign-in and contains no direct model API integration.
+A shared local subprocess runner serves taxonomy, parent and synonym suggestions and query generation. Query composition uses bounded ontology context, structured output, runtime extraction and local parser/identifier checks. Generated SPARQL becomes a new query document in the main editor, retaining its source. Run remains explicit. The CLI path uses existing sign-in and contains no direct model API integration.
 
 The [SPARQL authoring research](sparql-agent-integration.md) documents the alternatives and source assessment. Public endpoint-specific skills are reference material, not automatically installed instructions.
 

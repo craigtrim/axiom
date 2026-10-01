@@ -1,30 +1,12 @@
 # Adaptive layouts for docked views
 
-Research and implementation record, 15 September 2026. The shared layouts are implemented in the desktop application. The source review below records the problem before implementation.
+The shared layouts adapt workbench views to their available pane dimensions.
 
 ## Delivered behavior
 
-Each view adapts to the space inside its pane. Research has a full working layout, a narrow layout for a side pane, and a shallow layout for a bottom pane. Primary actions remain outside the content scroller. Supporting explanations and occasional settings use named disclosures, Options and More.
+Each view adapts to the space inside its pane. Primary actions remain outside the content scroller. Supporting explanations and occasional settings use named disclosures, Options and More.
 
 All ten dockable component types use the shared pane measurement, with layouts suited to each view's content. Graph retains its existing presentation and interaction model at every size. Its canvas resizes without entering the form recovery presentation.
-
-The [interactive Research mockup](adaptive-pane-preview.html) demonstrates the proposed layouts with sample content. Change its width and height independently, open Options, edit the instructions, and run the demonstration. Settings and results survive layout changes within the page session. It makes no assistant requests or ontology changes.
-
-## Source review before implementation
-
-The expanded Research pane gives its form enough room. In the shallow pane, the heading, explanation, assistant controls and template consume the visible height before the user reaches the instructions or Run research. A narrow pane has a different constraint: controls and explanatory text compete for width.
-
-The supplied images were resized in transit. Their pixel dimensions cannot establish application breakpoints or Windows scaling. The implementation thresholds below use measured CSS pixels and include a recovery presentation for smaller panes.
-
-| Location | Original behavior | Design consequence |
-| --- | --- | --- |
-| [ResearchPanel.tsx](../src/renderer/ResearchPanel.tsx) | One form followed by Run, source shortcuts and results. | The primary task can sit below a large amount of setup content. |
-| [styles.css](../src/renderer/styles.css) | Research is a scrolling block. Shared panel toolbars wrap. | Reducing height can leave little space for work, even when width is plentiful. |
-| [App.tsx](../src/renderer/App.tsx) | FlexLayout hosts ten component types, supports popouts and allows tabsets as small as 180 by 120 pixels. | Layouts must work wherever panes move. Extreme sizes need a recovery action. |
-| [QueryPanel.tsx](../src/renderer/QueryPanel.tsx) | A ResizeObserver switches to compact behavior below 860 pixels of pane width. | There is an existing local adaptation pattern, but no shared height policy. |
-| [GraphPanel.tsx](../src/renderer/GraphPanel.tsx) | Canvas size is observed independently of ontology data. | Preserve this separation when adding adaptation elsewhere. |
-
-This inventory records the working tree before the adaptive layout changes, including the taxonomy work already in progress.
 
 ## Evidence and its limits
 
@@ -48,7 +30,7 @@ Unfamiliar icons need text to communicate their meaning. Retain visible verbs su
 
 WCAG 2.2 provides a useful accessibility baseline: ordinary vertically scrolling content should reflow at a width equivalent to 320 CSS pixels. Content whose meaning requires two dimensions, including diagrams and data tables, has an exception. The 256-pixel height provision applies to horizontally scrolling content; it is not a general minimum height for docked panes. Graph's surrounding controls still need accessible operation. [W3C: Reflow](https://www.w3.org/TR/WCAG22/#reflow).
 
-Pointer targets generally need at least 24 by 24 CSS pixels, subject to the criterion's exceptions. The mockup uses 32-pixel buttons. A smaller pane should first reduce spacing and secondary content. [W3C: Target size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html).
+Pointer targets generally need at least 24 by 24 CSS pixels, subject to the criterion's exceptions. The application uses labeled buttons. A smaller pane should first reduce spacing and secondary content. [W3C: Target size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html).
 
 Keyboard order must remain meaningful. Fixed action regions must avoid covering focused controls in scrolling content. Disclosures need keyboard activation and exposed expanded state. These requirements constrain how sections move or disappear during a resize. [W3C: Focus order](https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html), [Focus not obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html), [Disclosure pattern](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).
 
@@ -65,9 +47,9 @@ Use the pane's content width and height below the docking tabs. A right-hand pan
 | Shallow | Width at least 600; height below 400 | Horizontal task header with compact context. Remaining height goes to results or the editor. Options temporarily replaces that body. |
 | Narrow and shallow | Both dimensions below those thresholds | Narrow structure with shallow content priority. One working section at a time. |
 
-These are application defaults derived from the content and tested layouts. They are not thresholds prescribed by the cited UX guidance. A narrow pane leaves that mode at 616 pixels; a shallow pane leaves at 416 pixels. This 16-pixel interval prevents repeated switching near a boundary. Research gains simultaneous configuration and results at 960 pixels, where both columns can remain usable. Query already needs 860 pixels for its composer arrangement; preserve that requirement until testing supports a change. Consistency means shared priorities and behavior, with explicit space requirements for each view.
+These are application defaults derived from the content and tested layouts. They are not thresholds prescribed by the cited UX guidance. A narrow pane leaves that mode at 616 pixels; a shallow pane leaves at 416 pixels. This 16-pixel interval prevents repeated switching near a boundary. Query already needs 860 pixels for its composer arrangement; preserve that requirement until testing supports a change. Consistency means shared priorities and behavior, with explicit space requirements for each view.
 
-Below 240 pixels wide, or below 210 pixels high when narrow and 180 pixels high otherwise, form panes show their identity and a Maximize pane action. Their contents remain mounted but inert. The action enlarges the docked tabset or the detached window, and restores focus to the retained work. This recovery state cannot support normal editing. Graph continues displaying its canvas at these sizes. The earlier mockup uses a different 280-pixel width threshold.
+Below 240 pixels wide, or below 210 pixels high when narrow and 180 pixels high otherwise, form panes show their identity and a Maximize pane action. Their contents remain mounted but inert. The action enlarges the docked tabset or the detached window, and restores focus to the retained work. This recovery state cannot support normal editing. Graph continues displaying its canvas at these sizes.
 
 ### Rules every applicable view shares
 
@@ -76,40 +58,13 @@ Below 240 pixels wide, or below 210 pixels high when narrow and 180 pixels high 
 3. Keep names, ordering and icons consistent. Compact copy can remove redundant view names from buttons when meaning remains clear.
 4. Put explanatory help, detailed metadata and occasional setup behind named disclosures. Preserve readable labels and the working content.
 5. Keep errors, unsaved changes and invalid or outdated results visible. Explain why an action is unavailable.
-6. Expose changed settings in the summary. Research should show the assistant, web permission and a Custom prompt indicator when applicable.
+6. Expose changed settings in the summary. Touchpoints shows its query and the fetch date of the displayed results.
 7. Make content access reversible. Closing Options returns to the same result and scroll position. Preserve entity selection, drafts, selections and active operations across resizes.
 8. Keep the shell's maximize, restore and popout functions available.
 
-## Research layouts
+## Touchpoints layout
 
-### Expanded
-
-Retain the full form that already works in a large pane. Move Run and operation status into the task header. At ample width, show configuration on the left and results on the right. This keeps exact instructions available during review without requiring a scroll past them to reach results.
-
-The form includes assistant selection, prompt template, editable instructions and web permission. Prompt preview remains explicit. Refresh and Restore default prompt are occasional commands. Applying suggestions remains a separate operation after review.
-
-### Narrow side pane
-
-Show the selected entity, Run and More actions above the configuration summary. Keep the assistant selector, prompt template, instructions and web setting visible in the scrolling body from the first visit. Research has no Options/Results toggle. Findings, sources and suggestions follow the form when a response exists.
-
-Shortened result excerpts provide access to full text. Preserve uncertainty and source attribution when reviewing suggestions. Run, running status, Cancel and Apply remain outside the body scroller.
-
-### Shallow bottom pane
-
-Use the width for a horizontal header and a compact two-column form. The assistant, template and web setting sit beside the instructions. The form remains visible immediately, and results follow it in the same scrolling body. Preview can open a readable dialog in the containing window.
-
-### Research state and actions
-
-| State | Always evident | Body priority |
-| --- | --- | --- |
-| Nothing selected | Select an entity; Run unavailable | Visible form and selection guidance |
-| Ready | Entity, assistant, web setting and Run | Visible form followed by any previous results |
-| Running | Running status and Cancel | Retained prior content with clear attribution |
-| Complete | Result entity and completion state | Findings, sources and suggestions |
-| Suggestions selected | Selection count and Apply selected | Selected suggestions and their details |
-| Outdated result or error | Reason and recovery action | Preserved content with invalid application disabled |
-
-If the user selects another entity during a run, keep the request and its eventual result attached to the original entity. Make that attribution visible. A resize must never trigger Run or Apply, change web permission, restore a prompt, or accept suggestions.
+The search field, Search and Refresh controls remain above the results scroller. Candidate rows wrap descriptions and IRIs. Selected rows expose their relationship and target controls, and the footer retains the selection count and Apply action. Resizing does not trigger a search or apply statements.
 
 ## Coverage across the current views
 
@@ -117,7 +72,7 @@ The ten dockable component types in App.tsx are covered below. Nested tools inhe
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
-| Research | Full setup and results | Visible setup with results below | Horizontal actions; compact setup and results | Exact prompt, attribution and review before Apply |
+| Touchpoints | Search and ranked candidates | Wrapped rows and relationship controls | Compact actions above results | Query, candidate attribution and explicit Apply |
 | Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
 | Details | Predicate and Value table | Searchable resource cells and scoped Source | Header actions above the statement table | Language, datatype, graph identifiers and source drafts |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
@@ -142,23 +97,23 @@ CSS container queries style descendants according to container dimensions. Queri
 
 Use CSS for spacing and column changes. Use the existing ResizeObserver approach when React must choose the visible working section. Share one measurement policy; avoid separately inferred JavaScript and CSS breakpoints that disagree. Measure the pane in its owner document, including popout windows.
 
-Do not key or remount an editor by presentation mode. Keep drafts and operation ownership outside replaceable layout fragments. Research mixes local UI state with polled service status, so preservation across moves and popouts needs explicit verification. Monaco models and grid state must retain their existing owners.
+Do not key or remount an editor by presentation mode. Keep drafts and operation ownership outside replaceable layout fragments. Touchpoints requests remain attached to the captured entity, with stale responses ignored after selection changes. Monaco models and grid state must retain their existing owners.
 
-Ignore zero-size readings from inactive tabs. Keep mode changes stable around boundaries, with a small tested hysteresis interval if needed. Preserve explicit disclosure choices across resizes. Research setup remains visible in every working layout. If a focused section would become hidden, keep it open or move focus to its named disclosure control with the work preserved.
+Ignore zero-size readings from inactive tabs. Keep mode changes stable around boundaries, with a small tested hysteresis interval if needed. Preserve explicit disclosure choices across resizes. Touchpoints keeps its search controls visible in every working layout. If a focused section would become hidden, keep it open or move focus to its named disclosure control with the work preserved.
 
 Prefer a content scroller bounded by actual header/footer rows over layers that cover content. Avoid several nested scroll areas for ordinary fields. Exceptionally small panes should surface the maximize recovery action without changing the task.
 
-Inspector submits its existing form through an associated Apply button in the fixed footer. Research retains its exact prompt and review selections, with the original request entity shown during a run. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; taxonomy assistance remains a modal with its existing review footer.
+Inspector submits its existing form through an associated Apply button in the fixed footer. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; taxonomy assistance remains a modal with its existing review footer.
 
 ## Validation criteria
 
-Use the same tasks in an expanded pane, a narrow pane and a shallow pane. Test actual Electron docking, resizing, maximizing, restoring and popouts. Browser checks of the mockup establish only that the proposal is inspectable.
+Use the same tasks in an expanded pane, a narrow pane and a shallow pane. Test actual Electron docking, resizing, maximizing, restoring and popouts.
 
 Suggested content rectangles are 1100 by 660, 360 by 680, 1100 by 260 and 360 by 260 CSS pixels. Include extreme tabset sizes, accounting for docking chrome. Test both sides of each breakpoint, rapid splitter movement, application zoom, Windows scaling and a popout moved between monitors.
 
 Acceptance checks:
 
-- With Research ready, Run is visible without scrolling at supported working sizes. Cancel stays visible during an operation. Selected suggestions have a reachable Apply action.
+- With Touchpoints ready, Search and Refresh remain visible without scrolling. Selected candidates have a reachable Apply action.
 - Editing the exact prompt, opening a suggestion, resizing and returning preserves inputs and result identity.
 - Resizing with focus in a field leaves a visible, meaningful focus location. Options, overflow and preview work by keyboard, with correct focus return.
 - Errors, dirty drafts and stale-result explanations remain evident. Invalid operations stay disabled.
@@ -166,26 +121,10 @@ Acceptance checks:
 - Grids retain all accessible values, virtualization and selected rows. Query and Source retain text, cursor and undo history.
 - Graph retains camera, coordinates, pins and budget. Resizing causes no unintended relayout or replacement presentation.
 
-Observe representative users running research, changing a prompt, editing an entity and returning to results. Compare whether they locate actions and recover secondary details in each shape. Adjust priorities and breakpoints using those observations. No user-performance measurements or mixed-monitor Windows scaling checks have been collected. Automated tests do not establish complete accessibility conformance.
+Observe representative users finding touchpoints, editing a query, editing an entity and returning to results. Compare whether they locate actions and recover secondary details in each shape. Adjust priorities and breakpoints using those observations. No user-performance measurements or mixed-monitor Windows scaling checks have been collected. Automated tests do not establish complete accessibility conformance.
 
 ## Desktop verification
 
-[adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks prompt and suggestion retention, original request attribution, stale application prevention, Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
+[adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
 
 Desktop screenshots are written under artifacts/testing with the adaptive view prefixes. The broader desktop suite continues to check entity editing, native menus, query execution, docking and workspace ownership. See the [verification record](verification.md) for the final run results.
-
-## Mockup scope
-
-The interactive Research mockup remains an earlier design artifact with sample content and simulated operations. Its Options/Results toggle was removed from production on 16 September 2026; Research now displays its setup immediately. It is independent of the production implementation. Its simplified state machine omits real assistant failures, cross-window persistence and ontology conflict handling.
-
-## Mockup verification
-
-The standalone mockup was checked on 15 September 2026 using the locally installed Chromium headless browser with Playwright.
-
-- Nine initial pane sizes kept Run or the minimum-size recovery action inside the pane, with no horizontal overflow in the pane body.
-- Edited instructions, web permission and selected suggestions survived layout changes. Prompt preview, simulated Apply and cancellation after resizing worked.
-- Automated axe checks reported no violations for the selected WCAG A/AA rule tags in five presentations. These checks do not establish complete accessibility conformance.
-- Results and Options were also checked at widths of 280, 320, 600 and 1100 pixels with constrained heights. The 280 by 180 result presentation left only 23 pixels for content. This informed the production recovery thresholds, which reserve more height for narrow working panes.
-- The expanded, narrow and shallow screenshots were visually reviewed. The shallow results use adjacent summary and suggestion areas.
-
-Evidence: [browser check report](../artifacts/testing/adaptive-pane-preview-check.json), [expanded screenshot](../artifacts/testing/adaptive-pane-expanded.png), [narrow screenshot](../artifacts/testing/adaptive-pane-narrow.png), [shallow screenshot](../artifacts/testing/adaptive-pane-shallow.png). These files are local artifacts and may be absent from a fresh checkout.

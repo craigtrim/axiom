@@ -1,6 +1,5 @@
-# Graph editing and contextual research
+# Graph editing and touchpoints
 
-Implemented from `things-i-need`: items 1 through 7 and 9. Item 8 is excluded. Item 10 is ignored at Craig's request.
 
 ## Graph styles
 
@@ -68,9 +67,9 @@ Summarized OWL axioms and generated sample relationships can be selected and rer
 
 ## Taxonomy interactions
 
-Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and research as applicable to the entity. Disabled actions retain their place in the menu.
+Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and finding touchpoints as applicable to the entity. Disabled actions retain their place in the menu.
 
-**Add children** uses the selected local assistant on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. **Find instances** uses a distinct prompt for named individuals. Both actions open a review dialog and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
+**Suggest > Add Children** uses the selected local assistant on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. Hierarchy's **Find > Instances** uses a distinct prompt for named individuals. Both actions open the Suggestions view for review and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
 
 ## Layout choices
 
@@ -98,27 +97,15 @@ The hard visible-node limit remains an exact, configurable integer from 100 to 1
 
 ## Undo and Redo
 
-Ctrl+Z and Ctrl+Y cover ontology edits, research batches, graph expansion and collapse, removal, pins, node drags, clear, layouts, freeze, node limits, eviction policy and styles. Camera gestures, taxonomy expansion, table filters, theme, prompt edits and manual pane arrangements also enter the workbench history. A node drag is one operation; nearby wheel events form one camera gesture.
+Ctrl+Z and Ctrl+Y cover ontology edits, touchpoint batches, graph expansion and collapse, removal, pins, node drags, clear, layouts, freeze, node limits, eviction policy and styles. Camera gestures, taxonomy expansion, table filters, theme, prompt edits and manual pane arrangements also enter the workbench history. A node drag is one operation; nearby wheel events form one camera gesture.
 
 Text fields and Monaco retain their own editing history while focused. Click the graph or use the toolbar Undo button to operate on the workbench history. Automatic fitting does not insert a separate operation after graph expansion.
 
 History is session-local and resets when opening a different workspace. It retains up to 100 operations, with a 32 MB estimated budget that evicts older entries while retaining at least the newest operation. Saves, clipboard writes, external browser navigation and completed assistant requests are external effects; Undo changes the workbench and reviewed ontology edits.
 
-## Contextual research
+## Find Touchpoints
 
-Use **Edit > Research selected entity**, the graph or inspector Research button, a taxonomy context menu, or **View > Research**. The Research pane docks, resizes and detaches like the other panes. Its assistant, template, instructions and web setting appear immediately in every working pane layout. There is no Options button; results remain alongside or below the form.
-
-Claude is the default for Research, query generation, Add children and Find instances. Switching the Assistant selector updates the shared choice across these integrations. Codex remains available. Axiom detects Claude and Codex on PATH, including the standard Codex npm installation. Refresh assistants after changing an installation. Each provider uses its existing CLI sign-in. Axiom does not install a provider or collect account credentials.
-
-Choose a template for contextual research, synonyms, subclasses, instances or a custom question. Edit its instructions; edits are saved locally. The preview shows the actual prompt and ontology context before transmission. Context includes ontology identity, entity details, parents, children, restrictions, relationships and sample instances, with explicit limits and total counts.
-
-**Run research** sends that context to the chosen provider. Web research can be switched on or off. Separate Wikipedia, DBpedia, ontology and general web buttons open contextual searches in the default browser. Results show the assistant's explanation, source links and suggestions. Select suggestions individually and apply the selected batch. Synonyms become SKOS alternative-label annotations, subclasses are created beneath the researched class, and instances become named individuals of that class. Synonyms appear in the Inspector. The Pizza example's Individuals pane has a selector for its generated orders or named ontology individuals.
-
-Axiom validates the full batch before changing data. It rejects a batch if the ontology changed after the research context was captured. One Undo restores the ontology before an accepted batch.
-
-The adapters follow the documented [Codex noninteractive workflow](https://developers.openai.com/codex/noninteractive/) and [Claude programmatic workflow](https://code.claude.com/docs/en/headless). Requests use stdin, structured output and fixed argument arrays. Codex uses a read-only sandbox with shell tools and delegation disabled. Claude exposes only web research tools when requested, with other tools, external MCP configuration and hooks disabled. Each job runs in a temporary application directory, supports cancellation and has a five-minute timeout.
-
-Installed CLI discovery and help interfaces were checked on this machine. Automated tests run controlled subprocesses through both adapters and exercise suggestion review in Electron. They do not send a paid request to either live model service; account authentication, service availability and model response quality remain dependent on the installed provider.
+Use **Find > Touchpoints** in a node menu, the Inspector or graph toolbar, or **View > Touchpoints**. Search English Wikipedia, review candidate resources and apply the chosen relationships as one undoable batch. See [Find Touchpoints](touchpoints.md) for search, predicates and cache controls.
 
 ## Widescreen arrangement
 

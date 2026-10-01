@@ -34,7 +34,7 @@ Microsoft's keyboard-accessibility guidance explicitly calls for coherent focus 
 
 ## Access paths and direct shortcuts
 
-The top-level letters are File F, Edit E, View V, Graph G, Query Q, Research R, Window W and Help H. Commands inside those menus receive distinct letters. Submenus introduce another step, so a layout command can be reached through Graph, Layout and its own letter.
+The top-level letters are File F, Edit E, View V, Graph G, Query Q, Window W and Help H. Commands inside those menus receive distinct letters. Submenus introduce another step, so a layout command can be reached through Graph, Layout and its own letter.
 
 Axiom displays the letters through Electron's menu-label convention. Electron documents that an ampersand before a character marks the access letter on Windows and Linux; a doubled ampersand displays a literal ampersand. Windows resource documentation describes the corresponding mnemonic convention for native controls.[^6][^7]
 
@@ -65,12 +65,11 @@ These defaults are Axiom's chosen command map. Familiar editing and file combina
 | Shortcut editor | Ctrl+Shift+K | Application |
 | Keyboard reference | F1 | Application |
 | Hierarchy, graph, inspector | Ctrl+1, Ctrl+2, Ctrl+3 | Application |
-| Individuals, query, research | Ctrl+4, Ctrl+5, Ctrl+6 | Application |
+| Individuals, query, touchpoints | Ctrl+4, Ctrl+5, Ctrl+6 | Application |
 | Next / previous pane | F6 / Shift+F6 | Application |
 | Next / previous tab in a group | Ctrl+Tab / Ctrl+Shift+Tab | Application |
 | Close pane | Ctrl+W; Ctrl+F4 | Application |
 | Run / cancel query | Ctrl+Enter / Ctrl+Shift+Enter | Application |
-| Run / cancel research | Ctrl+R / Ctrl+Shift+R | Research pane |
 | Fit, relayout, pin | F, L, P | Graph, outside text fields |
 | Expand / collapse node | Enter / Shift+Enter | Graph |
 | Freeze / resume graph | Space | Graph |
@@ -190,7 +189,7 @@ The executable and final test counts are recorded in [verification](../../docs/v
 | Edit > Rename entity | F2 | Alt+E, M |
 | Edit > Delete class... | Delete (hierarchy) | Alt+E, D |
 | Edit > Show selected entity in graph | Ctrl+G / Enter (hierarchy) | Alt+E, G |
-| Edit > Research selected entity... | Unassigned | Alt+E, E |
+| Edit > Find Touchpoints for selected entity | Unassigned | Alt+E, E |
 | Edit > Keyboard shortcuts... | Ctrl+Shift+K | Alt+E, K |
 | View > Command palette... | Ctrl+Shift+P | Alt+V, C |
 | View > Hierarchy | Ctrl+1 | Alt+V, H |
@@ -198,7 +197,7 @@ The executable and final test counts are recorded in [verification](../../docs/v
 | View > Inspector | Ctrl+3 | Alt+V, I |
 | View > Individuals | Ctrl+4 | Alt+V, N |
 | View > Query | Ctrl+5 | Alt+V, Q |
-| View > Research | Ctrl+6 | Alt+V, R |
+| View > Touchpoints | Ctrl+6 | Alt+V, R |
 | View > Reset pane layout | Unassigned | Alt+V, E |
 | View > Workbench arrangement > Automatic | Unassigned | Alt+V, W, A |
 | View > Workbench arrangement > Standard | Unassigned | Alt+V, W, S |
@@ -238,13 +237,6 @@ The executable and final test counts are recorded in [verification](../../docs/v
 | Query > Run query | Ctrl+Enter | Alt+Q, R |
 | Query > Cancel query | Ctrl+Shift+Enter | Alt+Q, C |
 | Query > Send results to graph | Unassigned | Alt+Q, S |
-| Research > Run research | Ctrl+R (research) | Alt+R, R |
-| Research > Cancel research | Ctrl+Shift+R (research) | Alt+R, C |
-| Research > Refresh assistants | Unassigned | Alt+R, E |
-| Research > Wikipedia | Unassigned | Alt+R, W |
-| Research > DBpedia | Unassigned | Alt+R, D |
-| Research > Other ontologies | Unassigned | Alt+R, O |
-| Research > Web search | Unassigned | Alt+R, B |
 | Window > Next pane | F6 | Alt+W, N |
 | Window > Previous pane | Shift+F6 | Alt+W, P |
 | Window > Next tab | Ctrl+Tab | Alt+W, E |
@@ -263,6 +255,25 @@ The executable and final test counts are recorded in [verification](../../docs/v
 | Window > Close pane | Ctrl+W / Ctrl+F4 | Alt+W, C |
 | Help > Keyboard shortcuts | F1 | Alt+H, K |
 | Help > About Axiom | Unassigned | Alt+H, A |
+
+## Entity context menus
+
+Shift+F10 opens the selected entity's context menu. Once it is open, Hierarchy and Graph use the same submenu access keys:
+
+| Action | Keys inside the context menu | Availability |
+| --- | --- | --- |
+| Analyze > Sparsity | A, S | Named classes in Hierarchy and Graph |
+| Find > Similar | F, S | Hierarchy and Graph |
+| Find > Synonyms | F, Y | Named entities in Hierarchy and Graph |
+| Find > Touchpoints | F, T | Named entities in Hierarchy and Graph |
+| Find > Instances | F, I | Classes in Hierarchy |
+| Suggest > Add Children | G, C | Classes in Hierarchy and Graph |
+| Suggest > Add Parents | G, P | Classes in Hierarchy and Graph |
+| Suggest > Define New | G, N | Hierarchy and Graph |
+
+Synonyms and Touchpoints remain visible but disabled for blank nodes. Add Children and Add Parents remain disabled for other entity types. Show instances retains O and opens existing records; discovery through Find > Instances remains available when there are no records. Hierarchy's Add neighbours to graph uses E, and Graph's Find in taxonomy uses X. Graph Rename retains N without conflicting with Find.
+
+Access keys must be unique among the visible items at each menu level. Reusing a letter in a child submenu is allowed. Right opens the focused submenu. Left or Escape closes it and restores focus to its own trigger, including after pointer switching between submenus. Closing the root menu restores focus to its invoking control. These rules also apply in detached windows.
 
 ## Sources
 
