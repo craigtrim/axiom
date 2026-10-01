@@ -2,6 +2,7 @@ import { launchExample } from "./example-fixture";
 import {
   test,
   expect,
+  _electron,
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
@@ -10,12 +11,15 @@ import path from "node:path";
 let app: ElectronApplication, page: Page, bridgePage: Page;
 const errors: string[] = [];
 let launchEnv: Record<string, string>;
-async function launch() {
-  app = await launchExample({
+async function launch(restoring = false) {
+  const options = {
     executablePath: process.env.AXIOM_TEST_EXE,
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env: launchEnv,
-  });
+  };
+  app = restoring
+    ? await _electron.launch(options)
+    : await launchExample(options);
   page = await app.firstWindow();
   // Keep physical desktop input out of optional background validation runs.
   if (process.env.AXIOM_TEST_BACKGROUND === "1")
@@ -85,9 +89,12 @@ test.beforeEach(async () => {
     AXIOM_CACHE_HOME: path.join(profile, "cache"),
     AXIOM_USER_DATA: profile,
   } as Record<string, string>;
-  const originalPath = env.PATH ?? env.Path ?? "";
   delete env.Path;
-  env.PATH = bin + path.delimiter + originalPath;
+  // Discovery must find only the fixture CLI, regardless of installed agents.
+  env.PATH =
+    bin +
+    path.delimiter +
+    path.join(process.env.SystemRoot ?? "C:/Windows", "System32");
   delete env.ELECTRON_RUN_AS_NODE;
   launchEnv = env;
   await launch();
@@ -284,6 +291,7 @@ test("shows generation context and flags later ontology changes", async () => {
   );
 });
 test("New query and examples preserve forward history, and the chooser searches full query text", async () => {
+  const initialCount = (await history()).entries.length;
   const first = "SELECT ?n WHERE { VALUES ?n { 1 } }";
   const second = "# second draft\nSELECT ?rareTerm WHERE {}";
   await enter(first);
@@ -297,7 +305,7 @@ test("New query and examples preserve forward history, and the chooser searches 
   await page.getByRole("button", { name: "New query", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText("3 / 3");
+  ).toHaveText(`${initialCount + 2} / ${initialCount + 2}`);
   await page
     .getByRole("button", { name: "Previous query", exact: true })
     .click();
@@ -307,7 +315,7 @@ test("New query and examples preserve forward history, and the chooser searches 
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText("4 / 4");
+  ).toHaveText(`${initialCount + 3} / ${initialCount + 3}`);
   await page.getByRole("button", { name: "Browse query history" }).click();
   const dialog = page.getByRole("dialog", {
     name: "Query history",
@@ -324,7 +332,7 @@ test("New query and examples preserve forward history, and the chooser searches 
   await expect.poll(text).toBe(second);
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText("2 / 4");
+  ).toHaveText(`${initialCount + 1} / ${initialCount + 3}`);
   await page.getByRole("button", { name: "Browse query history" }).click();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
@@ -373,6 +381,7 @@ test("paging can reopen the correct results tab and identifies edits made after 
   ).toContainText("second-result");
 });
 test("drafts survive an immediate close and restart without executing queries", async () => {
+  const initialCount = (await history()).entries.length;
   await enter(query);
   await page.getByRole("button", { name: "New query", exact: true }).click();
   await expect.poll(text).toBe("");
@@ -381,12 +390,12 @@ test("drafts survive an immediate close and restart without executing queries", 
     "# unfinished draft\nSELECT ?preserved WHERE {",
   );
   await app.close();
-  await launch();
+  await launch(true);
   await expect(page.locator(".monaco-editor")).toBeVisible();
   await expect.poll(text).toBe("# unfinished draft\nSELECT ?preserved WHERE {");
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText("2 / 2");
+  ).toHaveText(`${initialCount + 1} / ${initialCount + 1}`);
   await page
     .getByRole("button", { name: "Previous query", exact: true })
     .click();
@@ -396,20 +405,23 @@ test("drafts survive an immediate close and restart without executing queries", 
   ).toHaveCount(0);
 });
 test("compact and maximized panes keep one editor and accessible history controls", async () => {
+  const initialCount = (await history()).entries.length;
   await page.locator(".monaco-editor textarea").focus();
   const waiting = app.waitForEvent("window");
   await menu("pane.detach");
   const mainPage = page;
   page = await waiting;
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.bringToFront();
-  await expect(page.locator(".monaco-editor")).toBeVisible();
+  await expect(page.locator(".query-panel")).toBeAttached();
   await (
     await app.browserWindow(page)
   ).evaluate((child) => {
+    if (process.env.AXIOM_TEST_BACKGROUND === "1") child.setFocusable(false);
+    child.unmaximize();
     child.setMinimumSize(320, 300);
     child.setContentSize(520, 660);
   });
+  await expect(page.locator(".monaco-editor")).toBeVisible();
   await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(860);
   await expect(page.locator(".query-panel")).toHaveClass(/is-compact/);
   await compose("List seven triples");
@@ -449,7 +461,7 @@ test("compact and maximized panes keep one editor and accessible history control
     .click();
   await expect(
     page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText("1 / 2");
+  ).toHaveText(`${initialCount} / ${initialCount + 1}`);
   await menu("pane.reattach");
   page = mainPage;
   await expect.poll(() => app.windows().length).toBe(1);

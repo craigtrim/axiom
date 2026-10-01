@@ -5,7 +5,13 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  writeFile,
+  copyFile,
+} from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 let app: ElectronApplication, page: Page;
@@ -154,7 +160,10 @@ test("weighted sizing and relationship styles apply, undo, export, and reopen co
   expect((await state()).graph.nodes.map((n) => [n.iri, n.radius])).toEqual(
     radii,
   );
-  const svg = path.resolve("artifacts/testing/graph-appearance.svg");
+  const output = await mkdtemp(
+    path.resolve("artifacts/testing/appearance-export-"),
+  );
+  const svg = path.join(output, "graph-appearance.svg");
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
   }, svg);
@@ -172,7 +181,7 @@ test("weighted sizing and relationship styles apply, undo, export, and reopen co
       }
     })
     .toContain("#aa3377");
-  const file = path.resolve("artifacts/testing/graph-appearance.axiom");
+  const file = path.join(output, "graph-appearance.axiom");
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
   }, file);
@@ -186,13 +195,17 @@ test("weighted sizing and relationship styles apply, undo, export, and reopen co
       }
     })
     .toBe(css);
+  // Opening a workspace saves the current workspace first. Preserve the
+  // exported snapshot before making the deliberate stylesheet change.
+  const saved = path.join(output, "saved-appearance.axiom");
+  await copyFile(file, saved);
   await request("stylesheet", { text: "" });
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
       filePaths: [file],
     });
-  }, file);
+  }, saved);
   await menu("file.open");
   await expect.poll(async () => (await state()).graph.stylesheet).toBe(css);
   expect((await state()).graph.nodes.map((n) => [n.iri, n.radius])).toEqual(

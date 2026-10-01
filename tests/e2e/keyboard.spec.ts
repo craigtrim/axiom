@@ -313,6 +313,14 @@ test("remapped shortcuts work inside detached panes and dialogs stay with their 
   await menu("pane.reattach");
 });
 test("keyboard help and palette show current shortcuts and pane navigation works", async () => {
+  // An empty inspector has no editable control to receive keyboard focus.
+  await page.evaluate(async () => {
+    const snapshot = await window.axiom.request<Snapshot>("state");
+    await window.axiom.request("select", { iri: snapshot.graph.nodes[0].iri });
+  });
+  await expect(
+    page.locator('[data-panel="inspector"] button').first(),
+  ).toBeVisible();
   await page.keyboard.press("Control+3");
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await expect
