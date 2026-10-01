@@ -69,10 +69,11 @@ test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/instances-"));
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -253,7 +254,7 @@ test("named instances, empty classes and workspace changes use direct membership
 test("menus expose groups, checked pin state, disabled items and meaningful keyboard navigation", async () => {
   const iri = NS.pizza + "Giardiniera";
   const context = await graphMenu(iri);
-  await expect(context.getByRole("separator")).toHaveCount(3);
+  await expect(context.getByRole("separator")).toHaveCount(2);
   const pin = context.getByRole("menuitemcheckbox", { name: "Pin in graph" });
   await expect(pin).not.toBeChecked();
   await pin.click();
@@ -296,7 +297,7 @@ test("property menus omit class operations and normalize separators; Move pane h
     "Show instances",
     "New subclass",
     "New instance",
-    "Add children",
+    "Analyze",
     "Find instances",
     "Delete class...",
   ])
@@ -318,6 +319,13 @@ test("property menus omit class operations and normalize separators; Move pane h
       );
     }),
   ).toBe(true);
+  await m.getByRole("menuitem", { name: "Find", exact: true }).click();
+  await expect(
+    page
+      .getByRole("menu", { name: "Find", exact: true })
+      .getByRole("menuitem", { name: "Instances", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   const structure = await app.evaluate(({ Menu }) =>
     Menu.getApplicationMenu()!
@@ -369,14 +377,19 @@ test("report opens from a detached hierarchy and keeps its actions visible in a 
   const reportWaiting = app.waitForEvent("window");
   await menu("pane.detach");
   const reportChild = await reportWaiting;
+  await expect(reportChild.locator(".adaptive-pane")).toBeVisible();
   await (
     await app.browserWindow(reportChild)
   ).evaluate((win) => {
     win.setMinimumSize(160, 100);
-    win.setContentSize(850, 320);
+    win.setContentSize(850, 420);
     if (process.env.AXIOM_TEST_BACKGROUND === "1") win.setFocusable(false);
   });
   const p = reportChild.getByRole("region", { name: "Instances report" });
+  await expect(reportChild.locator(".adaptive-pane")).toHaveAttribute(
+    "data-pane-layout",
+    "shallow",
+  );
   await expect(p.getByRole("status")).toContainText("527 direct instances");
   const next = p.getByRole("button", { name: "Next", exact: true });
   const bounds = (await p.boundingBox())!,
@@ -486,9 +499,11 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   await expect(
     page.getByRole("menuitem", { name: "New instance", exact: true }),
   ).toBeEnabled();
+  await page.getByRole("menuitem", { name: "Find", exact: true }).click();
   await expect(
-    page.getByRole("menuitem", { name: "Find instances", exact: true }),
+    page.getByRole("menuitem", { name: "Instances", exact: true }),
   ).toBeEnabled();
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await menu("view.inspector");
   const inspector = page.locator('[data-panel="inspector"]');
@@ -612,10 +627,12 @@ test("palette and class pickers show the same counts as the report", async () =>
 test("known-empty graph operations are disabled consistently with the native menu", async () => {
   await menu("file.new");
   const context = await graphMenu(THING);
-  for (const name of ["Expand", "Collapse"])
-    await expect(
-      context.getByRole("menuitem", { name, exact: true }),
-    ).toBeDisabled();
+  await expect(
+    context.getByRole("menuitem", { name: "Expand", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    context.getByRole("menuitem", { name: "Collapse", exact: true }),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   for (const name of ["Expand", "Collapse"])
     await expect(

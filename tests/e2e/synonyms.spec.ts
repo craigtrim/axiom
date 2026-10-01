@@ -88,8 +88,18 @@ async function suggest(name: string, action: string) {
   await expect(
     page.getByRole("menuitem", { name: "Suggest Sub Classes", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("menuitem", { name: "Suggest", exact: true }).click();
-  await page.getByRole("menuitem", { name: action, exact: true }).click();
+  await page
+    .getByRole("menuitem", {
+      name: action === "Find Synonyms" ? "Find" : "Suggest",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name: action === "Find Synonyms" ? "Synonyms" : action,
+      exact: true,
+    })
+    .click();
   await expect(view()).toBeVisible();
   await expect(
     view().getByRole("combobox", { name: "Suggestion type", exact: true }),
@@ -122,7 +132,7 @@ test.beforeEach(async () => {
   await writeFile(path.join(folder, "package.json"), '{"type":"module"}');
   await writeFile(
     path.join(folder, "codex.js"),
-    'import fs from "node:fs";let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{const values=p.startsWith("Suggest synonyms for "+JSON.stringify("American History To 1877"))?["American History to 1877","American History To 1877","US History to 1877","us history TO 1877","American History Before 1877","American History To 1877."]:p.startsWith("Suggest synonyms for "+JSON.stringify("Systems Administration"))?["System Admin","Systems Admin","System Administration"]:["English Basics","Basic Engl.","Advanced English","English","BASIC ENG","Introductory English"];const result=p.startsWith("Suggest parents for")?{suggestions:p.split("\\n").filter(l=>l.startsWith("[\\\"c")).map(l=>JSON.parse(l)).filter(r=>["Alpha Gamma","Beta Gamma","Sociology"].includes(r[1])).map(r=>({value:r[0],reason:"The class belongs within this broader subject."}))}:{suggestions:values.map(value=>({value,reason:"A proposed wording variant."}))};setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(result)),1800);});',
+    'import fs from "node:fs";let p="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{const values=p.startsWith("Suggest synonyms for "+JSON.stringify("American History To 1877"))?["American History to 1877","American History To 1877","US History to 1877","us history TO 1877","American History Before 1877","American History To 1877."]:p.startsWith("Suggest synonyms for "+JSON.stringify("Systems Administration"))?["System Admin","Systems Admin","System Administration"]:["English Basics","Basic Engl.","Advanced English","English","BASIC ENG","Introductory English"];const result=p.startsWith("Suggest parents for")?{suggestions:p.split("\\n").filter(l=>l.startsWith("[\\\"c")).map(l=>JSON.parse(l)).filter(r=>["Alpha Gamma","Beta Gamma","Sociology"].includes(r[1])).map(r=>({value:r[0],reason:"The class belongs within this broader subject."}))}:{suggestions:values.map(value=>({value,reason:"A proposed wording variant."}))};setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(result)),1800);});',
   );
   await writeFile(
     path.join(profile, "workbench.json"),
@@ -131,7 +141,11 @@ test.beforeEach(async () => {
       panelState: { "assistant.provider": "codex" },
     }),
   );
-  env = { ...process.env, AXIOM_USER_DATA: profile } as Record<string, string>;
+  env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   const prior = env.PATH ?? env.Path ?? "";
   delete env.Path;
   env.PATH = bin + path.delimiter + prior;
@@ -154,6 +168,38 @@ test.afterEach(async ({}, info) => {
     await app.close();
   }
   expect(errors).toEqual([]);
+});
+
+test("cached synonym review survives restart and Run again explicitly bypasses it", async () => {
+  await suggest("Basic English", "Find Synonyms");
+  await expect(
+    view().getByRole("button", { name: "Run again", exact: true }),
+  ).toBeVisible();
+  const first = await page.evaluate(
+    async () => (await window.axiom.suggestions.history())[0],
+  );
+  expect(first.cache?.hit).toBe(false);
+  await view().getByRole("button", { name: "New run", exact: true }).click();
+  await expect(view()).toContainText("Cached result");
+  const second = await page.evaluate(
+    async () => (await window.axiom.suggestions.history())[0],
+  );
+  expect(second.id).not.toBe(first.id);
+  expect(second.cache?.hit).toBe(true);
+  await menu("file.save");
+  await app.close();
+  await launch();
+  await suggest("Basic English", "Find Synonyms");
+  await expect(view()).toContainText("Cached result");
+  await view().getByRole("button", { name: "Run again", exact: true }).click();
+  await expect(view().locator(".assistant-activity")).toBeVisible();
+  await expect(view().locator(".assistant-activity")).toHaveCount(0);
+  const third = await page.evaluate(
+    async () => (await window.axiom.suggestions.history())[0],
+  );
+  expect(third.cache?.hit).toBe(false);
+  expect(third.id).not.toBe(second.id);
+  await expect(view()).not.toContainText("Cached result");
 });
 
 test("finds synonyms from hierarchy context, reviews literal edits, leaves synonym decisions to the user and supports undo", async () => {
@@ -658,11 +704,9 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
   await canvas.press("Shift+F10");
   await page
     .getByRole("menu", { name: "Graph node actions" })
-    .getByRole("menuitem", { name: "Suggest", exact: true })
+    .getByRole("menuitem", { name: "Find", exact: true })
     .click();
-  await page
-    .getByRole("menuitem", { name: "Find Synonyms", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Synonyms", exact: true }).click();
   await expect(
     view().getByRole("combobox", { name: "Suggestion type", exact: true }),
   ).toHaveValue("synonyms");
@@ -673,8 +717,7 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
     }),
   ).toBeVisible();
   await view().getByRole("button", { name: "New run", exact: true }).click();
-  await expect(view().locator(".assistant-activity")).toBeVisible();
-  await expect(view().locator(".assistant-activity")).toHaveCount(0);
+  await expect(view()).toContainText("Cached result");
   expect(
     await page.evaluate(
       async () =>

@@ -41,14 +41,29 @@ async function open(mode = "children", keyboard = false, label = "Vehicle") {
     await row.focus();
     await page.keyboard.press("Shift+F10");
   } else await row.click({ button: "right" });
-  if (mode === "children")
-    await page.getByRole("menuitem", { name: "Suggest", exact: true }).click();
-  await page
-    .getByRole("menuitem", {
-      name: mode === "children" ? "Add Children" : "Find instances",
-      exact: true,
-    })
-    .click();
+  if (keyboard) {
+    await page.keyboard.press(mode === "children" ? "g" : "f");
+    await expect(
+      page.getByRole("menu", {
+        name: mode === "children" ? "Suggest" : "Find",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.keyboard.press(mode === "children" ? "c" : "i");
+  } else {
+    await page
+      .getByRole("menuitem", {
+        name: mode === "children" ? "Suggest" : "Find",
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("menuitem", {
+        name: mode === "children" ? "Add Children" : "Instances",
+        exact: true,
+      })
+      .click();
+  }
   const view = bridge.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(view).toBeVisible();
   await expect(view.getByRole("heading", { level: 2 })).toContainText(label);
@@ -75,7 +90,7 @@ test.beforeEach(async () => {
   await writeFile(path.join(folder, "package.json"), '{"type":"module"}');
   await writeFile(
     path.join(folder, "codex.js"),
-    `import fs from "node:fs";let prompt="";process.stdin.on("data",d=>prompt+=d);process.stdin.on("end",()=>{
+    `import fs from "node:fs";let prompt="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>prompt+=d);process.stdin.on("end",()=>{
     fs.writeFileSync(${JSON.stringify(path.join(profile, "prompt.txt"))},prompt);
     fs.appendFileSync(${JSON.stringify(path.join(profile, "calls.txt"))},"run\\n");
     const behavior=JSON.parse(fs.readFileSync(${JSON.stringify(behavior)},"utf8"));
@@ -95,10 +110,11 @@ test.beforeEach(async () => {
       panelState: { "assistant.provider": "codex" },
     }),
   );
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   const prior = env.PATH ?? env.Path ?? "";
   delete env.Path;
   env.PATH = bin + path.delimiter + prior;
@@ -214,7 +230,7 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   expect((await state()).classCount).toBe(before.classCount + 2);
 });
 test("finds instances through a separate prompt and applies rdf:type without subclass assertions", async () => {
-  const dialog = await ready("instances");
+  const dialog = await ready("instances", true);
   expect(await readFile(path.join(profile, "prompt.txt"), "utf8")).toContain(
     "Suggest real, named examples",
   );
@@ -1022,14 +1038,12 @@ test("row details and a single commit retain the review while a new run resets i
   await air.click();
   await expect(water).toHaveAttribute("aria-expanded", "true");
   await expect(air).toHaveAttribute("aria-expanded", "true");
-  const row = view
-    .locator("tbody")
-    .filter({
-      has: page.getByRole("button", {
-        name: "Details for Water vehicle",
-        exact: true,
-      }),
-    });
+  const row = view.locator("tbody").filter({
+    has: page.getByRole("button", {
+      name: "Details for Water vehicle",
+      exact: true,
+    }),
+  });
   await view.getByRole("searchbox").fill("vehicle");
   await row
     .getByRole("button", { name: "Add this child", exact: true })

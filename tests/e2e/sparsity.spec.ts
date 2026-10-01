@@ -53,10 +53,11 @@ async function menu(id: string) {
   }, id);
 }
 async function launch() {
-  const env = { ...process.env, AXIOM_USER_DATA: profile } as Record<
-    string,
-    string
-  >;
+  const env = {
+    ...process.env,
+    AXIOM_CACHE_HOME: path.join(profile, "cache"),
+    AXIOM_USER_DATA: profile,
+  } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -94,9 +95,8 @@ async function open(name = "Root") {
     if (await expand.count()) await expand.click();
   }
   await treeRow(name).click({ button: "right" });
-  await page
-    .getByRole("menuitem", { name: "Analyze sparsity", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Analyze", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sparsity", exact: true }).click();
   await expect(
     pane().getByRole("heading", {
       name: name === "Thing" ? "Whole taxonomy" : name,

@@ -1,6 +1,6 @@
 # Menu organization for Axiom
 
-Design review and implementation record, updated 17 September 2026. The source audit and proposals below record the design rationale. The delivered behavior includes the approved grouping and the subsequently requested instance-report shortcuts.
+Design review and implementation record, updated 30 September 2026. The source audit and original proposals below record the design rationale. The delivered behavior includes the approved Analyze, Find and Suggest grouping and instance-report shortcuts.
 
 ## Delivered behavior
 
@@ -8,11 +8,15 @@ File > Open contains Workspace... (Ctrl+O), Recent and Examples. Examples contai
 
 Hierarchy and graph context menus now use separators for logical groups. Common commands remain directly accessible. Pin in graph shows a checkmark; class-only commands are omitted for other entity types; Delete class remains last. Graph canvas menus contain the two creation actions. Window now has a Move pane submenu with Left, Right, Top and Bottom. Menu entries retain explicit access keys, disabled items are focusable without being executable, Escape restores focus, and Tab moves outside the popup.
 
+Entity menus in Hierarchy and Graph place **Analyze**, **Find** and **Suggest** together. Analyze contains **Sparsity** and appears for classes only. Find contains **Similar**, **Synonyms** and **Touchpoints**; Hierarchy classes also offer **Instances**. Suggest contains **Add Children**, **Add Parents** and **Define New**. Research has been replaced by Touchpoints. Blank nodes retain disabled Synonyms and Touchpoints actions. Sparsity is also disabled for anonymous classes because the report analyzes named-class branches.
+
+With the context menu open, **A**, **F** and **G** open Analyze, Find and Suggest on either surface. Inside Find, **S**, **Y**, **T** and **I** select Similar, Synonyms, Touchpoints and Instances respectively. Sparsity uses **S** inside Analyze; Suggest uses **C**, **P** and **N**. Hierarchy's Add neighbours to graph uses **E**. Graph's Find in taxonomy uses **X**, while Rename retains **N**. Left or Escape closes a submenu and returns focus to its trigger, including after switching submenus with the pointer.
+
 Show instances opens the same read-only Individuals report from a hierarchy context menu, graph context menu, graph selection bar, hierarchy count, Inspector usage count or Edit menu. Selecting a class in the existing Individuals filters uses that report too. Each page contains at most 100 records, with filtering and Previous/Next controls. It combines generated and named records using the same direct-membership lookup as the hierarchy count. Showing a report never seeds, expands or replaces the graph. Clicking a report row opens its Inspector details.
 
 The report identifies its class and direct-instance count. If its last instance is removed while the report is open, it displays an empty state. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
 
-Dragging from an unselected node draws an edge; dragging an already selected node moves it. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-and-research.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
+Dragging from an unselected node draws an edge; dragging an already selected node moves it. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-editing.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
 
 ## Counts and action availability
 
@@ -22,11 +26,11 @@ Counts update after edits and Undo. Instance buttons and popup items explain the
 
 Apply the rule to browsing existing data. Creation and discovery commands such as New instance, Add children and Find instances remain available for an empty class. Hierarchy branch actions show the immediate child count and disable empty branches. Graph Expand is disabled when there are no neighbours; Collapse is disabled when there are no shown connections. These states agree across graph controls, context menus, the application menu and the command palette. Collection sizes must describe the actual scope of the action; do not use a descendant count for a direct-instance report.
 
-## Recommendation
+## Original recommendation
 
 Add separators between meaningful groups in the entity and graph context menus. Keep their frequently needed commands directly accessible. Introduce a submenu when its name predicts a coherent set of choices and the extra step has a clear benefit. The existing context menus do not need cascades merely because they have several groups.
 
-For a first revision, keep all four context-menu types flat. Use a Move pane submenu in the application Window menu, which currently repeats four directional commands. Keep the existing Theme, Workbench arrangement, Layout and Pan and zoom submenus. This is an Axiom design judgment; no usage study establishes the relative frequency of its commands yet.
+The first revision kept all four context-menu types flat and used a Move pane submenu in the application Window menu. Issue #18 subsequently approved the Analyze, Find and Suggest submenus for the entity menus. Theme, Workbench arrangement, Layout and Pan and zoom retain their existing submenus. No usage study establishes the relative frequency of these commands.
 
 ## Microsoft guidance and its scope
 
@@ -47,7 +51,7 @@ Counts below exclude separators and include disabled entries. They describe the 
 | Surface | Current implementation | Proposed organization |
 | --- | --- | --- |
 | Hierarchy entity menu | Up to 13 flat commands. Branch navigation, graph actions, creation, deletion and assistant actions share one uninterrupted list. Delete class sits before Details and Copy IRI. | Group navigation, editing/creation, assistant actions, copying and deletion. Use a Show in graph submenu for Current graph and New graph. |
-| Graph node menu | Ten entries including Dismiss. Pin / unpin does not expose the current state. | Group editing, research, graph display and copying. Use checked Pin in graph. Dismiss can be removed after verifying outside-click and keyboard dismissal. |
+| Graph node menu | Ten entries including Dismiss. Pin / unpin does not expose the current state. | Group editing, external links, graph display and copying. Use checked Pin in graph. Dismiss can be removed after verifying outside-click and keyboard dismissal. |
 | Graph edge menu | Five flat actions: editing, reconnection, route reset and removal. | Keep editing/reconnection together; separate route display and removal. A two-item Reconnect submenu adds little value. |
 | Empty graph canvas | Two creation commands plus Dismiss. | Two direct creation commands are sufficient. No separator or submenu is needed between them. |
 | Application menu bar | Separators and several submenus already exist. Window contains 16 command entries, including four Move pane directions. | Preserve useful existing submenus. Group the four directions under Move pane. |
@@ -72,16 +76,16 @@ Rename
 New subclass
 New instance
 --------------------------
-Research...
-Add children
-Find instances
+Analyze > Sparsity
+Find > Similar / Synonyms / Touchpoints / Instances
+Suggest > Add Children / Add Parents / Define New
 --------------------------
 Copy IRI
 --------------------------
 Delete class...
 ```
 
-Show in graph is prominent because moving an entity into the graph is central to this workbench. The four editing and creation actions stay together. The three assistant actions share a boundary without requiring an extra click. Copy IRI remains a single direct command. Delete class has its own final group to make accidental selection less likely.
+Show in graph is prominent because moving an entity into the graph is central to this workbench. The four editing and creation actions stay together. Analyze, Find and Suggest form an adjacent group. Find > Instances discovers new members of a class, while Show instances opens the existing records. Copy IRI remains a single direct command. Delete class has its own final group to make accidental selection less likely.
 
 The additional separators make this menu taller. Check it at high display scaling and in small detached windows; grouping is not a substitute for keeping the entire command list reachable.
 
@@ -93,11 +97,12 @@ Hide
 Rename
 Details
 Find in taxonomy
---------------------------
 New instance
 Show instances (count)
-Suggest Sub Classes
-Research...
+--------------------------
+Analyze > Sparsity
+Find > Similar / Synonyms / Touchpoints
+Suggest > Add Children / Add Parents / Define New
 --------------------------
 Pin in graph
 Copy IRI
@@ -105,7 +110,7 @@ Copy IRI
 
 Hide removes the node from the current view and preserves ontology data. Expand and Collapse share one position in the menu. Expansion state is saved per graph. Find in taxonomy reveals the row while keyboard focus stays on Graph. Show instances opens the existing report and is disabled at zero.
 
-Suggest Sub Classes uses a local label index to find shorter existing parent names within the selected class name. Users review the matches before Axiom makes the selected class a subclass of those parents. It makes no assistant or network request.
+Add Parents uses the selected assistant to propose existing parents from the ontology catalog. Users review the matches before Axiom adds parent relationships. Touchpoints independently searches Wikipedia for external resources.
 
 ### Graph edge
 
@@ -142,13 +147,13 @@ Return all panes to main window
 Close pane
 ```
 
-The directional submenu reduces four repeated top-level entries to one predictable category. It is a better initial use of nesting than putting New subclass and New instance behind New, or Research/Add children/Find instances behind a broad label such as More. The latter choices deserve reconsideration only if observation shows the direct menus are hard to scan.
+The directional submenu reduces four repeated top-level entries to one predictable category. It is a better initial use of nesting than putting New subclass and New instance behind New, or Touchpoints/Add children/Find instances behind a broad label such as More. The latter choices deserve reconsideration only if observation shows the direct menus are hard to scan.
 
 ## Consistency rules
 
 - Use the same labels and grouping rationale wherever the same action appears. Context-specific commands can differ between Hierarchy and Graph.
 - Bind access keys to action identities rather than array positions. EntityMenu now assigns explicit letters to actions. Preserve established mnemonics where possible and check collisions within each menu level.
-- Show pin state using a stable checked option. Do not add a checkmark to one-shot commands such as Research.
+- Show pin state using a stable checked option. Do not add a checkmark to one-shot commands such as finding touchpoints.
 - Omit operations that cannot apply to the object type, such as New subclass for a property. Keep expected operations disabled when temporarily unavailable, such as assistant suggestions during a run. Normalize separators after filtering so none appear first, last or consecutively.
 - Use submenus with predictable names. Reserve the arrow for opening the submenu; the parent must not also run an unrelated action. Prefer a single submenu level for Axiom's context menus. That depth limit is a product choice, not a Microsoft requirement.
 - Keep command order stable within an object type. Do not reorder according to recent clicks without evidence that the benefit outweighs relearning.

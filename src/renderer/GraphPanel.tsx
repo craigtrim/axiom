@@ -1,4 +1,5 @@
 import { openSimilar } from "./find-state";
+import { openSparsity } from "./sparsity-view";
 import { openTaxonomy } from "./taxonomy-view";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
@@ -1545,7 +1546,9 @@ function GraphContent() {
             >
               Find in taxonomy
             </button>
-            <button onClick={() => command("research.open")}>Research</button>
+            <button onClick={() => command("touchpoints.open")}>
+              Find Touchpoints
+            </button>
             {instances.visible && (
               <button
                 disabled={!instances.enabled}
@@ -1724,7 +1727,7 @@ function GraphContent() {
             },
             {
               label: "Find in taxonomy",
-              key: "F",
+              key: "X",
               enabled: !!snapshot?.entities.some(
                 (e) =>
                   e.iri === context.iri &&
@@ -1738,18 +1741,6 @@ function GraphContent() {
                   revealInTaxonomy(iri);
                   canvasRef.current?.focus();
                 });
-              },
-            },
-            null,
-            {
-              label: "Find similar",
-              key: "M",
-              run: () => {
-                const iri = context.iri;
-                const name =
-                  graph?.nodes.find((n) => n.iri === iri)?.label ?? iri;
-                setContext(null);
-                openSimilar(name, iri);
               },
             },
             {
@@ -1768,6 +1759,61 @@ function GraphContent() {
               ),
               key: "O",
               run: () => showInstances(context.iri),
+            },
+            null,
+            {
+              label: "Analyze",
+              key: "A",
+              visible: !!snapshot?.entities.some(
+                (e) =>
+                  e.iri === context.iri &&
+                  ["Class", "Defined"].includes(e.kind),
+              ),
+              run: () => {},
+              children: [
+                {
+                  label: "Sparsity",
+                  key: "S",
+                  enabled: !context.iri.startsWith("_:"),
+                  run: () => openSparsity(context.iri),
+                },
+              ],
+            },
+            {
+              label: "Find",
+              key: "F",
+              run: () => {},
+              children: [
+                {
+                  label: "Similar",
+                  key: "S",
+                  run: () => {
+                    const iri = context.iri;
+                    const name =
+                      graph?.nodes.find((n) => n.iri === iri)?.label ?? iri;
+                    setContext(null);
+                    openSimilar(name, iri);
+                  },
+                },
+                {
+                  label: "Synonyms",
+                  key: "Y",
+                  enabled: !context.iri.startsWith("_:"),
+                  run: () => openTaxonomy(context.iri, "synonyms"),
+                },
+                {
+                  label: "Touchpoints",
+                  key: "T",
+                  enabled: !context.iri.startsWith("_:"),
+                  run: () => {
+                    const iri = context.iri;
+                    setContext(null);
+                    void request("select", { iri }).then(() =>
+                      command("touchpoints.open"),
+                    );
+                  },
+                },
+              ],
             },
             {
               label: "Suggest",
@@ -1795,22 +1841,11 @@ function GraphContent() {
                   run: () => openTaxonomy(context.iri, "parents"),
                 },
                 {
-                  label: "Find Synonyms",
-                  key: "S",
-                  enabled: !context.iri.startsWith("_:"),
-                  run: () => openTaxonomy(context.iri, "synonyms"),
-                },
-                {
                   label: "Define New",
                   key: "N",
                   run: () => openTaxonomy(context.iri, "define"),
                 },
               ],
-            },
-            {
-              label: "Research...",
-              key: "S",
-              run: () => command("research.open"),
             },
             null,
             {

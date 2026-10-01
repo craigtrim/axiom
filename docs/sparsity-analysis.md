@@ -1,6 +1,6 @@
 # Taxonomy sparsity analysis
 
-Right-click a class in Hierarchy and choose **Analyze sparsity**. The Sparsity pane compares the children of every parent within that branch. **View > Sparsity** reopens the pane. The scope stays fixed while selecting other entities; **Analyze selected** changes it. **Whole taxonomy**, or analyzing owl:Thing, includes all top-level branches, including roots without an explicit subclass assertion to owl:Thing.
+Right-click a class in Hierarchy or Graph and choose **Analyze > Sparsity**. Shift+F10 opens the same context menu; then A, S opens the analysis. The Sparsity pane compares the children of every parent within that branch. **View > Sparsity** reopens the pane. The scope stays fixed while selecting other entities; **Analyze selected** changes it. **Whole taxonomy**, or analyzing owl:Thing, includes all top-level branches, including roots without an explicit subclass assertion to owl:Thing.
 
 Findings are ranked by a score from 0 to 100. Select a finding to see its direct child count beside its siblings, then navigate to Hierarchy or Details. The pane supports text filtering, a minimum score, leaf inclusion, and paging in groups of 40. Scope and controls are retained with workspace settings. Data is recomputed after RDF changes and Undo. Analysis runs in the local domain worker and makes no RDF edits or assistant requests.
 

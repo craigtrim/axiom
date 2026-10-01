@@ -72,7 +72,7 @@ export function EntityMenu({
     },
     {
       label: "Add neighbours to graph",
-      key: "A",
+      key: "E",
       run: async () => {
         await request("seed", { iris: [iri], replace: false });
         command("view.graph");
@@ -113,16 +113,49 @@ export function EntityMenu({
     },
     null,
     {
-      label: "Find similar",
-      key: "M",
-      enabled: !!entity || !!node,
-      run: () => openSimilar(entity?.name || node?.label || iri, iri),
+      label: "Analyze",
+      key: "A",
+      visible: isClass,
+      run: () => {},
+      children: [
+        {
+          label: "Sparsity",
+          key: "S",
+          enabled: !iri.startsWith("_:"),
+          run: () => openSparsity(iri),
+        },
+      ],
     },
     {
-      label: "Analyze sparsity",
-      key: "Y",
-      visible: isClass,
-      run: () => openSparsity(iri),
+      label: "Find",
+      key: "F",
+      run: () => {},
+      children: [
+        {
+          label: "Similar",
+          key: "S",
+          enabled: !!entity || !!node,
+          run: () => openSimilar(entity?.name || node?.label || iri, iri),
+        },
+        {
+          label: "Synonyms",
+          key: "Y",
+          enabled: !iri.startsWith("_:"),
+          run: () => openTaxonomy(iri, "synonyms"),
+        },
+        {
+          label: "Touchpoints",
+          key: "T",
+          enabled: !iri.startsWith("_:"),
+          run: () => command("touchpoints.open"),
+        },
+        {
+          label: "Instances",
+          key: "I",
+          visible: !!taxonomy && isClass,
+          run: () => taxonomy?.("instances"),
+        },
+      ],
     },
     {
       label: "Suggest",
@@ -143,24 +176,11 @@ export function EntityMenu({
           run: () => openTaxonomy(iri, "parents"),
         },
         {
-          label: "Find Synonyms",
-          key: "S",
-          enabled: !iri.startsWith("_:"),
-          run: () => openTaxonomy(iri, "synonyms"),
-        },
-        {
           label: "Define New",
           key: "N",
           run: () => openTaxonomy(iri, "define"),
         },
       ],
-    },
-    { label: "Research...", key: "E", run: () => command("research.open") },
-    {
-      label: "Find instances",
-      key: "F",
-      visible: !!taxonomy && isClass,
-      run: () => taxonomy?.("instances"),
     },
     null,
     { label: "Copy IRI", key: "C", run: () => window.axiom.copy(iri) },

@@ -42,6 +42,8 @@ export function ContextMenu({
   owner,
   dismiss,
   parentRect,
+  trigger,
+  onTabOut,
 }: {
   actions: (ContextAction | null)[];
   document: Document;
@@ -52,6 +54,8 @@ export function ContextMenu({
   owner?: string;
   dismiss?: () => void;
   parentRect?: DOMRect;
+  trigger?: HTMLButtonElement;
+  onTabOut?: (backwards: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -59,16 +63,25 @@ export function ContextMenu({
   );
   const id = useId(),
     ownerId = owner ?? id;
+  const [focusedKey, setFocusedKey] = useState<string>();
   const [submenu, setSubmenu] = useState<{
     action: ContextAction;
     rect: DOMRect;
+    trigger: HTMLButtonElement;
   } | null>(null);
   const openSubmenu = (a: ContextAction) => {
     if (!a.children || a.enabled === false) return;
     const button = [
       ...ref.current!.querySelectorAll<HTMLButtonElement>("button"),
     ].find((b) => b.dataset.menuKey === a.key);
-    if (button) setSubmenu({ action: a, rect: button.getBoundingClientRect() });
+    if (button) {
+      button.focus({ preventScroll: true });
+      setSubmenu({
+        action: a,
+        rect: button.getBoundingClientRect(),
+        trigger: button,
+      });
+    }
   };
   const restore = useRef<HTMLElement | null>(null);
   const items = actions
@@ -83,7 +96,7 @@ export function ContextMenu({
     const m = ref.current!,
       win = doc.defaultView!,
       resume = suspendMenus(doc);
-    restore.current = doc.activeElement as HTMLElement | null;
+    restore.current = trigger ?? (doc.activeElement as HTMLElement | null);
     const position = () => {
       const r = m.getBoundingClientRect();
       m.style.left =
@@ -125,7 +138,7 @@ export function ContextMenu({
       if (restore.current?.isConnected)
         restore.current.focus({ preventScroll: true });
     };
-  }, []);
+  }, [trigger]);
   const invoke = (a: ContextAction) => {
     if (a.enabled === false) return;
     if (a.children) {
@@ -134,6 +147,34 @@ export function ContextMenu({
     }
     (dismiss ?? close)();
     void a.run();
+  };
+  const tabOut = (backwards: boolean) => {
+    if (onTabOut) {
+      onTabOut(backwards);
+      return;
+    }
+    const candidates = [
+      ...doc.querySelectorAll<HTMLElement>(
+        "a[href],button,input,select,textarea,[tabindex]",
+      ),
+    ].filter(
+      (el) =>
+        el.tabIndex >= 0 &&
+        !el.closest(".entity-context-menu") &&
+        !el.matches(":disabled,[aria-disabled=true]") &&
+        !el.closest("[inert]") &&
+        el.getClientRects().length,
+    );
+    const at = candidates.indexOf(restore.current!);
+    restore.current =
+      candidates[
+        at < 0
+          ? backwards
+            ? candidates.length - 1
+            : 0
+          : (at + (backwards ? -1 : 1) + candidates.length) % candidates.length
+      ] ?? null;
+    close();
   };
   return createPortal(
     <>
@@ -179,29 +220,7 @@ export function ContextMenu({
           }
           if (e.key === "Tab") {
             e.preventDefault();
-            const candidates = [
-              ...doc.querySelectorAll<HTMLElement>(
-                "a[href],button,input,select,textarea,[tabindex]",
-              ),
-            ].filter(
-              (el) =>
-                el.tabIndex >= 0 &&
-                !ref.current!.contains(el) &&
-                !el.matches(":disabled,[aria-disabled=true]") &&
-                !el.closest("[inert]") &&
-                el.getClientRects().length,
-            );
-            const at = candidates.indexOf(restore.current!);
-            restore.current =
-              candidates[
-                at < 0
-                  ? e.shiftKey
-                    ? candidates.length - 1
-                    : 0
-                  : (at + (e.shiftKey ? -1 : 1) + candidates.length) %
-                    candidates.length
-              ] ?? null;
-            close();
+            tabOut(e.shiftKey);
           }
           if (
             !e.ctrlKey &&
@@ -239,7 +258,10 @@ export function ContextMenu({
               aria-disabled={a.enabled === false || undefined}
               aria-keyshortcuts={"Alt+" + a.key}
               title={a.title}
-              tabIndex={-1}
+              tabIndex={
+                focusedKey === a.key || (!focusedKey && i === 0) ? 0 : -1
+              }
+              onFocus={() => setFocusedKey(a.key)}
               onPointerMove={(e) => {
                 clearTimeout(hoverTimer.current);
                 if (doc.activeElement !== e.currentTarget)
@@ -273,6 +295,8 @@ export function ContextMenu({
           x={submenu.rect.right - 2}
           y={submenu.rect.top}
           parentRect={submenu.rect}
+          trigger={submenu.trigger}
+          onTabOut={tabOut}
           owner={ownerId}
           dismiss={dismiss ?? close}
           close={() => setSubmenu(null)}
