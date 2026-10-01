@@ -4,6 +4,7 @@ import {
   _electron,
   type ElectronApplication,
   type Page,
+  type Locator,
 } from "@playwright/test";
 import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -20,6 +21,9 @@ const referenceHash =
   "c2a08e67a186ef3fd606b153faf59778962a96e6c56f0d1f7eee8100c9105716";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
+async function capture(root: Locator) {
+  return root.screenshot({ animations: "disabled", scale: "css" });
+}
 async function menu(id: string) {
   const win = await app.browserWindow(page);
   const target = await win.evaluate((win) => win.id);
@@ -86,16 +90,17 @@ test.beforeEach(async ({}, info) => {
     AXIOM_EMBEDDING_MODEL_DIR: path.join(profile, "missing-model"),
   } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
-  // Use the same software rasterizer, grayscale text and 2x rendering in both
-  // windows. This removes Windows LCD and 1x curve-rounding differences while
-  // retaining a zero-tolerance comparison at the reference's CSS dimensions.
+  // Keep both windows at native 1x scale: CSS-size screenshots then need no
+  // scale transition. Use the same SwiftShader renderer and grayscale text.
+  // Raw bitmap assertions below include every antialiased pixel.
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
     args: [
       ...(process.env.AXIOM_TEST_EXE ? [] : ["."]),
-      "--force-device-scale-factor=2",
+      "--force-device-scale-factor=1",
       "--disable-lcd-text",
-      "--disable-gpu",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
     ],
     env,
   });
@@ -224,8 +229,17 @@ test.beforeEach(async ({}, info) => {
   );
   const opened = app.waitForEvent("window");
   await app.evaluate(async ({ BrowserWindow }, reference) => {
-    const win = new BrowserWindow({ width: 1600, height: 1000, show: false });
+    const win = new BrowserWindow({
+      width: 1600,
+      height: 1000,
+      show: false,
+      focusable: false,
+      // Keep the reference rendering without taking keyboard focus. Packaged
+      // Electron can suspend frames in a window that has never been shown.
+      webPreferences: { backgroundThrottling: false },
+    });
     await win.loadFile(reference);
+    win.showInactive();
   }, reference);
   specimen = await opened;
   await specimen.locator("#fr-zero .pane").waitFor();
@@ -316,21 +330,15 @@ for (const theme of ["light", "dark"] as const) {
           (el, bottom) => (el.scrollTop = bottom ? el.scrollHeight : 0),
           name.endsWith("bottom"),
         );
-      const expected = await expectedPane.screenshot({
-        animations: "disabled",
-        scale: "css",
-      });
+      const expected = await capture(expectedPane);
       const expectedPath = info.snapshotPath(`${theme}-${name}.png`);
       if (process.env.AXIOM_UPDATE_REFERENCE === "1") {
         await mkdir(path.dirname(expectedPath), { recursive: true });
         await writeFile(expectedPath, expected);
       }
       // A missing reference baseline is an error, never a request to bless Axiom.
-      expect(await readFile(expectedPath)).toEqual(expected);
-      const actual = await pane().screenshot({
-        animations: "disabled",
-        scale: "css",
-      });
+      const baseline = await readFile(expectedPath);
+      const actual = await capture(pane());
       await mkdir("artifacts/issue-34", { recursive: true });
       await writeFile(`artifacts/issue-34/actual-${theme}-${name}.png`, actual);
       await writeFile(
@@ -368,10 +376,46 @@ for (const theme of ["light", "dark"] as const) {
           JSON.stringify(metrics, null, 2),
         );
       }
+      expect(expected).toMatchSnapshot(`${theme}-${name}.png`, {
+        threshold: 0,
+        maxDiffPixels: 0,
+      });
       expect(actual).toMatchSnapshot(`${theme}-${name}.png`, {
         threshold: 0,
         maxDiffPixels: 0,
       });
+      // Playwright's comparator can disregard antialiased edge pixels even at
+      // threshold zero. Require full bitmap equality as well.
+      const differences = await app.evaluate(
+        ({ nativeImage }, images) => {
+          const [reference, actual, baseline] = images.map((data) =>
+            nativeImage.createFromBuffer(Buffer.from(data, "base64")),
+          );
+          const compare = (image: typeof reference) => {
+            const size = image.getSize(),
+              expectedSize = reference.getSize();
+            if (
+              size.width !== expectedSize.width ||
+              size.height !== expectedSize.height
+            )
+              return -1;
+            const a = reference.toBitmap(),
+              b = image.toBitmap();
+            let different = 0;
+            for (let offset = 0; offset < a.length; offset += 4)
+              if (a.readUInt32LE(offset) !== b.readUInt32LE(offset))
+                different++;
+            return different;
+          };
+          return { reference: compare(baseline), application: compare(actual) };
+        },
+        [
+          expected.toString("base64"),
+          actual.toString("base64"),
+          baseline.toString("base64"),
+        ],
+      );
+      expect(differences).toEqual({ reference: 0, application: 0 });
     });
   }
 }
