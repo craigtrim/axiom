@@ -44,6 +44,82 @@ async function ready(session: TextAnalysisSession, args = input()) {
   return analysis.result;
 }
 describe("shared Text Analysis session", () => {
+  it("retains the exact result throughout typing and releases actions only with fresh analysis", async () => {
+    const { session } = setup();
+    const settled = await ready(session);
+    const publications: unknown[] = [];
+    session.subscribe(() => publications.push(session.getSnapshot().analysis));
+    session.update(input("Dog and Cat"));
+    expect(publications).toEqual([
+      { status: "pending", result: settled },
+      { status: "pending", result: settled },
+    ]);
+    const action = vi.fn();
+    const waiting = session.whenReady().then(action);
+    await vi.advanceTimersByTimeAsync(59);
+    expect(action).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await waiting;
+    expect(action).toHaveBeenCalledExactlyOnceWith(
+      result(input("Dog and Cat")),
+    );
+    session.dispose();
+  });
+  it.each([
+    ["another edit", input("Cat")],
+    ["empty text", input("")],
+    ["oversized text", input("x".repeat(100001))],
+    ["ontology switch", input("Dog", 1, 2)],
+    ["ontology mutation", input("Dog", 2)],
+  ])("cancels a queued graph action after %s", async (_, next) => {
+    const { session } = setup();
+    await ready(session);
+    session.update(input("Dog again"));
+    const action = session.whenReady();
+    session.update(next);
+    expect(await action).toBeUndefined();
+    session.dispose();
+  });
+  it.each([
+    input("Dog", 2),
+    input("Dog", 1, 2),
+    input(""),
+    input("x".repeat(100001)),
+  ])(
+    "does not retain results across invalid input or ontology changes %#",
+    async (next) => {
+      const { session } = setup();
+      await ready(session);
+      session.update(next);
+      expect(session.getSnapshot().analysis).not.toHaveProperty("result");
+      session.dispose();
+    },
+  );
+  it("resolves waiting actions on disposal without publishing late results", async () => {
+    const { session } = setup();
+    await ready(session);
+    session.update(input("Dog again"));
+    const action = session.whenReady();
+    session.dispose();
+    expect(await action).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(60);
+    expect(session.getSnapshot().analysis.status).toBe("pending");
+  });
+  it("releases waiting actions without data on parser failure and recovers on correction", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    parse.mockRejectedValueOnce(Error("native worker failed"));
+    session.update(input("Dog again"));
+    const action = session.whenReady();
+    await vi.advanceTimersByTimeAsync(60);
+    expect(await action).toBeUndefined();
+    expect(session.getSnapshot().analysis).toEqual({
+      status: "error",
+      message: "native worker failed",
+    });
+    expect(await ready(session, input("Cat"))).toMatchObject({ text: "Cat" });
+    session.dispose();
+  });
   it("runs one analysis for both views and retains it when subscribers close and reopen", async () => {
     const { parse, session } = setup();
     const editor = vi.fn(),

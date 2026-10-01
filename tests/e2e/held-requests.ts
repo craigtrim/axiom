@@ -4,35 +4,43 @@ import { expect, type ElectronApplication } from "@playwright/test";
 export async function holdRequests(
   app: ElectronApplication,
   methods: string[],
+  channel = "domain:request",
 ) {
-  await app.evaluate(({ ipcMain }, methods) => {
-    const original = (ipcMain as any)._invokeHandlers.get("domain:request");
-    const control = { methods, held: [] as any[], calls: [] as any[] };
-    (globalThis as any).__heldRequests = control;
-    ipcMain.removeHandler("domain:request");
-    ipcMain.handle("domain:request", (event, method, args) => {
-      control.calls.push({ method, args });
-      if (!control.methods.includes(method))
-        return original(event, method, args);
-      const response = Promise.resolve()
-        .then(() => original(event, method, args))
-        .then(
-          (value) => ({ value }),
-          (error) => ({ error }),
+  await app.evaluate(
+    ({ ipcMain }, { methods, channel }) => {
+      const original = (ipcMain as any)._invokeHandlers.get(channel);
+      const control = { methods, held: [] as any[], calls: [] as any[] };
+      (globalThis as any).__heldRequests = control;
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, (event, ...payload) => {
+        const [method, args] =
+          channel === "domain:request" ? payload : [channel, payload[0]];
+        control.calls.push({ method, args });
+        if (!control.methods.includes(method))
+          return original(event, ...payload);
+        const response = Promise.resolve()
+          .then(() => original(event, ...payload))
+          .then(
+            (value) => ({ value }),
+            (error) => ({ error }),
+          );
+        return new Promise((resolve, reject) =>
+          control.held.push({
+            method,
+            args,
+            resolve: () =>
+              void response.then((result) =>
+                "error" in result
+                  ? reject(result.error)
+                  : resolve(result.value),
+              ),
+            reject: () => reject(Error("Controlled preview failure")),
+          }),
         );
-      return new Promise((resolve, reject) =>
-        control.held.push({
-          method,
-          args,
-          resolve: () =>
-            void response.then((result) =>
-              "error" in result ? reject(result.error) : resolve(result.value),
-            ),
-          reject: () => reject(Error("Controlled preview failure")),
-        }),
-      );
-    });
-  }, methods);
+      });
+    },
+    { methods, channel },
+  );
 }
 export async function waitForHeld(app: ElectronApplication, count = 1) {
   await expect

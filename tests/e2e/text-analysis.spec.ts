@@ -306,6 +306,116 @@ async function highlighted(label: string) {
     .replace(/\u00a0/g, " ");
 }
 
+test("background analysis retains moved highlights, status and legend until one replacement", async () => {
+  await enter("canine");
+  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  const status = panel().locator(".text-analysis-status");
+  await expect(status).toHaveText("1 match");
+  await expect(status).toHaveAttribute("title", /Analysis took .* ms/);
+  await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+  await editor().focus();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.insertText("earlier ");
+  await waitForHeld(app);
+  await expect.poll(() => highlighted("dog")).toBe("canine");
+  await expect(status).toHaveText("1 match");
+  await expect(
+    panel().getByRole("button", { name: "View in Graph", exact: true }),
+  ).toBeEnabled();
+  await expect(chip("dog")).toBeVisible();
+  await expect(
+    page.getByText("Analyzing text...", { exact: true }),
+  ).toHaveCount(0);
+  await editor().focus();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText(" and Cat");
+  await expect(chip("cat")).toHaveCount(0);
+  await expect.poll(() => highlighted("dog")).toBe("canine");
+  // A click on the moved range must inspect Dog despite its old offsets.
+  await panel()
+    .locator('.view-lines [class*="text-entity-"]')
+    .filter({ hasText: "canine" })
+    .click();
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
+  await releaseRequests(app);
+  await menu("view.textanalysis");
+  await expect(chip("cat")).toBeVisible();
+  await expect(status).toHaveText("2 matches");
+});
+
+test("View in Graph waits for current text instead of using retained matches", async () => {
+  await enter("canine");
+  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  const before = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+  await enter("Cat");
+  await waitForHeld(app);
+  const button = panel().getByRole("button", {
+    name: "View in Graph",
+    exact: true,
+  });
+  await expect(button).toBeEnabled();
+  await button.evaluate((b) => {
+    (b as HTMLButtonElement).click();
+    (b as HTMLButtonElement).click();
+  });
+  expect(
+    Object.keys(
+      (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+        .graphs!,
+    ),
+  ).toHaveLength(Object.keys(before.graphs!).length);
+  await releaseRequests(app);
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+          .activeGraphId,
+    )
+    .not.toBe(before.activeGraphId);
+  const after = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  expect(Object.keys(after.graphs!)).toHaveLength(
+    Object.keys(before.graphs!).length + 1,
+  );
+  expect(after.graph.nodes.map((node) => node.iri)).toContain(base + "Cat");
+  expect(after.graph.nodes.map((node) => node.iri)).not.toContain(base + "Dog");
+});
+
+test("editing again cancels a queued graph action and deleted highlights cannot select old concepts", async () => {
+  await enter("canine");
+  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  const before = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+  await enter("Cat");
+  await waitForHeld(app);
+  await chip("dog").click();
+  expect(
+    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+      .selected,
+  ).toBe(before.selected);
+  await panel()
+    .getByRole("button", { name: "View in Graph", exact: true })
+    .click();
+  await enter("Lion");
+  await releaseRequests(app);
+  await expect(chip("lion")).toBeVisible();
+  await expect(
+    panel().getByRole("button", { name: "View in Graph", exact: true }),
+  ).toBeEnabled();
+  expect(
+    Object.keys(
+      (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+        .graphs!,
+    ),
+  ).toHaveLength(Object.keys(before.graphs!).length);
+});
+
 test("a seeAlso synonym added beside an empty Details row matches immediately, case-insensitively and after restart", async () => {
   await page.evaluate(async () => {
     const source = await window.axiom.request<
@@ -1349,7 +1459,7 @@ test("parent drafts can be cancelled, and existing names can be reused without d
     .fill("Systems");
   await expect(
     form.getByRole("button", { name: "Use as parent", exact: true }),
-  ).toHaveCount(0);
+  ).toBeDisabled();
   await form
     .getByRole("button", { name: "Use Systems as parent", exact: true })
     .click();

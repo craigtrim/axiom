@@ -11,6 +11,7 @@ import {
 } from "./client";
 import { textEntityConcepts } from "../shared/text-analysis";
 import { TextAnalysisSession } from "./text-analysis-session";
+import { analysisResult } from "./live-analysis";
 import type { TextEntityClassDraft } from "./text-analysis-session";
 import type { TextEntity, TextAnalysisResult } from "../shared/text-analysis";
 
@@ -63,10 +64,7 @@ export function useTextAnalysis() {
   const current =
     value.input.datasetEpoch === snapshot.datasetEpoch &&
     value.input.version === snapshot.version;
-  const result =
-    current && value.analysis.status === "ready"
-      ? value.analysis.result
-      : undefined;
+  const result = current ? analysisResult(value.analysis) : undefined;
   return { ...value, result, snapshot };
 }
 export function updateAnalysisText(text: string) {
@@ -80,7 +78,7 @@ export function updateAnalysisText(text: string) {
 }
 interface TextEditorBridge {
   focus(): void;
-  select(entity: TextEntity): void;
+  select(entity: TextEntity): boolean;
 }
 let editor: TextEditorBridge | undefined;
 let reveal: { entity: TextEntity; result: TextAnalysisResult } | undefined;
@@ -97,12 +95,11 @@ export function attachTextEditor(bridge: TextEditorBridge) {
   };
 }
 function currentMatch(entity: TextEntity) {
-  const analysis = textAnalysisSession.getSnapshot().analysis;
-  return analysis.status === "ready" &&
-    analysis.result.entities.includes(entity) &&
-    analysis.result.datasetEpoch === state?.datasetEpoch &&
-    analysis.result.version === state.version
-    ? analysis.result
+  const result = analysisResult(textAnalysisSession.getSnapshot().analysis);
+  return result?.entities.includes(entity) &&
+    result.datasetEpoch === state?.datasetEpoch &&
+    result.version === state.version
+    ? result
     : undefined;
 }
 let inspectionTicket = 0;
@@ -135,13 +132,19 @@ export async function inspectTextEntity(entity: TextEntity, iri?: string) {
       report(error instanceof Error ? error.message : String(error), true);
   }
 }
-export function selectTextEntity(entity: TextEntity) {
+export async function selectTextEntity(entity: TextEntity) {
   const result = currentMatch(entity);
   if (!result) return;
   if (editor) {
     command("textanalysis.reveal");
-    editor.select(entity);
+    if (!editor.select(entity)) return;
   } else {
+    if (textAnalysisSession.getSnapshot().analysis.status === "pending") {
+      const fresh = await textAnalysisSession.whenReady();
+      const match = fresh?.entities.find((item) => item.key === entity.key);
+      if (match) void selectTextEntity(match);
+      return;
+    }
     reveal = { entity, result };
     command("textanalysis.reveal");
   }

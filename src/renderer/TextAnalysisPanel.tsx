@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
 import "monaco-editor/editor/contrib/clipboard/browser/clipboard.js";
@@ -14,9 +14,27 @@ import {
   inspectTextEntity,
 } from "./text-analysis-state";
 import { textEntityGroups } from "./text-analysis-session";
-import { entityHue, type TextAnalysisResult } from "../shared/text-analysis";
+import {
+  entityHue,
+  type TextAnalysisResult,
+  type TextEntity,
+} from "../shared/text-analysis";
 import { defaultFindOptions } from "../shared/find";
 import { findState, rememberFind, updateFind } from "./find-state";
+
+function matchedOntologyIris(result?: TextAnalysisResult) {
+  return [
+    ...new Set(
+      (result?.entities ?? [])
+        .filter((entity) => entity.source === "ontology")
+        .flatMap((entity) =>
+          result?.concepts && Object.hasOwn(result.concepts, entity.label)
+            ? result.concepts[entity.label].map((concept) => concept.iri)
+            : [],
+        ),
+    ),
+  ];
+}
 
 export function TextAnalysisPanel() {
   const { snapshot, input, analysis, result } = useTextAnalysis();
@@ -34,7 +52,7 @@ export function TextAnalysisPanel() {
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(
     null,
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!host.current) return;
     const owner = host.current.ownerDocument;
     const model = monaco.editor.createModel(
@@ -61,38 +79,76 @@ export function TextAnalysisPanel() {
     });
     editor.current = instance;
     decorations.current = instance.createDecorationsCollection();
+    const trackedRange = (entity: TextEntity) => {
+      const displayed = interaction.current?.result;
+      const index = displayed?.entities.indexOf(entity) ?? -1;
+      const range = index < 0 ? null : decorations.current?.getRange(index);
+      // Decorations track insertions, but an edited/deleted word must not open
+      // the concept that used to occupy its old offsets.
+      return range &&
+        !range.isEmpty() &&
+        model.getValueInRange(range) ===
+          displayed!.text.slice(entity.start, entity.end)
+        ? range
+        : undefined;
+    };
+    const selectedMatch = (selection: monaco.Selection) =>
+      interaction.current?.result.entities.some((entity) =>
+        trackedRange(entity)?.equalsRange(selection),
+      );
     const detach = attachTextEditor({
       focus: () => instance.focus(),
       select: (entity) => {
-        const start = model.getPositionAt(entity.start),
-          end = model.getPositionAt(entity.end);
-        const range = new monaco.Range(
-          start.lineNumber,
-          start.column,
-          end.lineNumber,
-          end.column,
-        );
+        let range = trackedRange(entity);
+        const analysis = textAnalysisSession.getSnapshot().analysis;
+        // A legend can reopen an editor before its decoration effect runs.
+        if (
+          !range &&
+          analysis.status === "ready" &&
+          analysis.result.text === model.getValue() &&
+          analysis.result.entities.includes(entity)
+        ) {
+          const start = model.getPositionAt(entity.start),
+            end = model.getPositionAt(entity.end);
+          range = new monaco.Range(
+            start.lineNumber,
+            start.column,
+            end.lineNumber,
+            end.column,
+          );
+        }
+        if (!range) return false;
         instance.setSelection(range);
         instance.revealRangeInCenterIfOutsideViewport(range);
+        return true;
       },
     });
     const change = instance.onDidChangeModelContent(() => {
-      decorations.current?.clear();
-      interaction.current = null;
       updateAnalysisText(instance.getValue());
     });
     const showDetails = (offset: number, key?: string) => {
       const current = interaction.current;
       if (!current) return;
-      const candidates = current.result.entities.filter(
-        (entity) => !key || entity.key === key,
-      );
+      const candidates = current.result.entities
+        .filter((entity) => !key || entity.key === key)
+        .flatMap((entity) => {
+          const range = trackedRange(entity);
+          return range
+            ? [
+                {
+                  entity,
+                  start: model.getOffsetAt(range.getStartPosition()),
+                  end: model.getOffsetAt(range.getEndPosition()),
+                },
+              ]
+            : [];
+        });
       const entity =
         candidates.find(
           (entity) => offset >= entity.start && offset < entity.end,
         ) ?? candidates.find((entity) => offset === entity.end);
       if (entity) {
-        void inspectTextEntity(entity);
+        void inspectTextEntity(entity.entity);
       }
     };
     let down: { x: number; y: number } | undefined;
@@ -113,14 +169,7 @@ export function TextAnalysisPanel() {
         return;
       const selection = instance.getSelection();
       if (selection && !selection.isEmpty()) {
-        const start = model.getOffsetAt(selection.getStartPosition());
-        const end = model.getOffsetAt(selection.getEndPosition());
-        if (
-          !interaction.current?.result.entities.some(
-            (entity) => entity.start === start && entity.end === end,
-          )
-        )
-          return;
+        if (!selectedMatch(selection)) return;
       }
       if (event.target.type === monaco.editor.MouseTargetType.CONTENT_TEXT)
         showDetails(model.getOffsetAt(event.target.position));
@@ -166,14 +215,8 @@ export function TextAnalysisPanel() {
       if (id === "textanalysis.details") {
         const selection = instance.getSelection();
         if (selection && !selection.isEmpty()) {
-          const start = model.getOffsetAt(selection.getStartPosition()),
-            end = model.getOffsetAt(selection.getEndPosition());
-          if (
-            interaction.current?.result.entities.some(
-              (entity) => entity.start === start && entity.end === end,
-            )
-          )
-            showDetails(start);
+          const start = model.getOffsetAt(selection.getStartPosition());
+          if (selectedMatch(selection)) showDetails(start);
           else addSelection.current();
         } else {
           const position = instance.getPosition();
@@ -208,6 +251,7 @@ export function TextAnalysisPanel() {
       model.dispose();
       editor.current = null;
       decorations.current = null;
+      interaction.current = null;
     };
   }, []);
   useEffect(() => {
@@ -233,18 +277,7 @@ export function TextAnalysisPanel() {
   };
   const entities = result?.entities ?? [];
   const legend = useMemo(() => textEntityGroups(result), [result]);
-  interaction.current = result ? { result } : null;
-  const matchedIris = [
-    ...new Set(
-      entities
-        .filter((entity) => entity.source === "ontology")
-        .flatMap((entity) =>
-          result?.concepts && Object.hasOwn(result.concepts, entity.label)
-            ? result.concepts[entity.label].map((concept) => concept.iri)
-            : [],
-        ),
-    ),
-  ];
+  const matchedIris = matchedOntologyIris(result);
   const openGraph = async () => {
     if (!result || !matchedIris.length || graphPending.current) return;
     graphPending.current = true;
@@ -252,14 +285,24 @@ export function TextAnalysisPanel() {
     setGraphError("");
     textAnalysisSession.summary();
     try {
+      const fresh = await textAnalysisSession.whenReady();
+      if (
+        !fresh ||
+        !editor.current ||
+        fresh.datasetEpoch !== state?.datasetEpoch ||
+        fresh.version !== state.version
+      )
+        return;
+      const iris = matchedOntologyIris(fresh);
+      if (!iris.length) return;
       const id = await request<string>("graphCreate", {
-        textAnalysis: matchedIris,
-        datasetEpoch: result.datasetEpoch,
-        version: result.version,
+        textAnalysis: iris,
+        datasetEpoch: fresh.datasetEpoch,
+        version: fresh.version,
       });
-      if (state?.datasetEpoch !== result.datasetEpoch) return;
+      if (!editor.current || state?.datasetEpoch !== fresh.datasetEpoch) return;
       setState(await request<Snapshot>("state"));
-      if (state?.datasetEpoch === result.datasetEpoch) command("view." + id);
+      if (state?.datasetEpoch === fresh.datasetEpoch) command("view." + id);
     } catch (error) {
       setGraphError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -267,12 +310,14 @@ export function TextAnalysisPanel() {
       setOpeningGraph(false);
     }
   };
-  useEffect(() => {
+  useLayoutEffect(() => {
     const model = editor.current?.getModel();
-    if (!model || !result) {
+    if (!model || !result || model.getValue() !== result.text) {
       decorations.current?.clear();
+      interaction.current = null;
       return;
     }
+    interaction.current = { result };
     const classes = new Map(
       legend.map(({ entity }, i) => [entity.key, "text-entity-" + i]),
     );
@@ -310,8 +355,8 @@ export function TextAnalysisPanel() {
     : analysis.status === "error"
       ? "Analysis unavailable"
       : !result
-        ? "Analyzing text..."
-        : `${entities.length} ${entities.length === 1 ? "match" : "matches"} · ${result.milliseconds} ms`;
+        ? ""
+        : `${entities.length} ${entities.length === 1 ? "match" : "matches"}`;
   return (
     <section
       className="panel text-analysis-panel"
@@ -349,7 +394,12 @@ export function TextAnalysisPanel() {
         <button onClick={() => command("view.textentities")}>
           View Entities
         </button>
-        <span role="status" aria-live="polite" className="text-analysis-status">
+        <span
+          role="status"
+          aria-live="polite"
+          className="text-analysis-status"
+          title={result ? `Analysis took ${result.milliseconds} ms` : undefined}
+        >
           {status}
         </span>
       </div>

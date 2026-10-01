@@ -145,7 +145,7 @@ export function TextEntitiesPanel() {
                     : input.text.trim() && result
                       ? "No entities found."
                       : input.text.trim()
-                        ? "Analyzing text..."
+                        ? ""
                         : "Entity colors appear here as you type in Text Analysis."}
                 </span>
               )}

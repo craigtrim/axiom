@@ -1,4 +1,9 @@
-import { LiveAnalysis, type LiveAnalysisState } from "./live-analysis";
+import {
+  LiveAnalysis,
+  analysisResult,
+  pendingAnalysis,
+  type LiveAnalysisState,
+} from "./live-analysis";
 import { selectionContext } from "./text-parent-options";
 import type {
   TextAnalysisInput,
@@ -48,6 +53,7 @@ export class TextAnalysisSession {
   };
   private listeners = new Set<() => void>();
   private live: LiveAnalysis;
+  private disposed = false;
   constructor(
     parse: (input: TextAnalysisInput) => Promise<TextAnalysisResult>,
     delay = 60,
@@ -70,6 +76,7 @@ export class TextAnalysisSession {
     for (const listener of this.listeners) listener();
   }
   update(input: TextAnalysisInput) {
+    if (this.disposed) return;
     const old = this.value.input;
     if (
       old.text === input.text &&
@@ -81,7 +88,7 @@ export class TextAnalysisSession {
       old.text !== input.text || old.datasetEpoch !== input.datasetEpoch;
     this.publish({
       input,
-      analysis: { status: input.text.trim() ? "pending" : "idle" },
+      analysis: pendingAnalysis(this.value.analysis, input),
       details: undefined,
       mode: replace ? "summary" : this.value.mode,
       ...(replace ? { creation: undefined, created: undefined } : {}),
@@ -89,14 +96,10 @@ export class TextAnalysisSession {
     this.live.update(input);
   }
   showDetails(entity: TextEntity) {
-    const analysis = this.value.analysis;
-    if (
-      analysis.status !== "ready" ||
-      !analysis.result.entities.includes(entity)
-    )
-      return false;
+    const result = analysisResult(this.value.analysis);
+    if (!result?.entities.includes(entity)) return false;
     this.publish({
-      details: { entity, result: analysis.result },
+      details: { entity, result },
     });
     return true;
   }
@@ -175,8 +178,35 @@ export class TextAnalysisSession {
     });
     this.update(input);
   }
+  /** An action may use retained UI, but must consume analysis of this exact input. */
+  whenReady(): Promise<TextAnalysisResult | undefined> {
+    const input = this.value.input;
+    return new Promise((resolve) => {
+      let unsubscribe = () => {};
+      const check = () => {
+        if (
+          !this.disposed &&
+          this.value.input === input &&
+          this.value.analysis.status === "pending"
+        )
+          return;
+        unsubscribe();
+        resolve(
+          !this.disposed &&
+            this.value.input === input &&
+            this.value.analysis.status === "ready"
+            ? this.value.analysis.result
+            : undefined,
+        );
+      };
+      unsubscribe = this.subscribe(check);
+      check();
+    });
+  }
   dispose() {
+    this.disposed = true;
     this.live.dispose();
+    for (const listener of this.listeners) listener();
     this.listeners.clear();
   }
 }
