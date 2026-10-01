@@ -23,10 +23,10 @@ const listeners = new Set<() => void>();
 export function findState() {
   if (current) return current;
   const options = readFindOptions({
-    limit: 10,
     ...panel<object>("find.view", {}),
   });
   if (options.sort === "iri") options.sort = "type";
+  if (![25, 50, 100, 200].includes(options.limit)) options.limit = 50;
   return (current = {
     options,
     selected: "",

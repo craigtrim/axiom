@@ -174,7 +174,9 @@ describe("functional search: input validation and saved option migration", () =>
     { value: 1, expected: 1 },
     { value: 5.9, expected: 5 },
     { value: 100, expected: 100 },
-    { value: 1000, expected: 100 },
+    { value: 200, expected: 200 },
+    { value: 201, expected: 200 },
+    { value: 1000, expected: 200 },
   ])("OPTION-LIMIT $value -> $expected", ({ value, expected }) => {
     expect(readFindOptions({ limit: value }).limit).toBe(expected);
     expect(index.find({ text: "record", limit: value }).rows).toHaveLength(

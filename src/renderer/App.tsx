@@ -694,7 +694,9 @@ export function App() {
               ? ".monaco-editor textarea"
               : id === "graph" || id.startsWith("graph:")
                 ? "canvas"
-                : 'input:not(:disabled),button:not(:disabled),[tabindex="0"]',
+                : id === "find"
+                  ? ".find-query input"
+                  : 'input:not(:disabled),button:not(:disabled),[tabindex="0"]',
           );
         if (target && target.getBoundingClientRect().width > 0) target.focus();
         return !!target && target.getBoundingClientRect().width > 0;

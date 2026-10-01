@@ -92,6 +92,15 @@ describe("Find entity results", () => {
     expect(first.total).toBe(15025);
     expect(first.rows).toHaveLength(100);
     expect(first.rows[0].name).toBe("Course 00000");
+    const largePage = index.find({
+      text: "Course",
+      limit: 200,
+      offset: 200,
+      sort: "name",
+    });
+    expect(largePage.rows).toHaveLength(200);
+    expect(largePage.rows[0].name).toBe("Course 00200");
+    expect(largePage.rows.at(-1)?.name).toBe("Course 00399");
     const last = index.find({
       text: "Course",
       limit: 100,
@@ -146,7 +155,7 @@ describe("Find entity results", () => {
     });
     expect(options.text).toHaveLength(256);
     expect(options.kind).toBe("all");
-    expect(options.limit).toBe(100);
+    expect(options.limit).toBe(200);
     expect(options.offset).toBe(0);
     const p = readPreferences({
       version: 1,

@@ -113,7 +113,10 @@ test.afterEach(async ({}, info) => {
 
 test("blank query browses with permanent columns, denominator and explicit inspector fields", async () => {
   await expect(query()).toHaveValue("");
-  await expect(pane().locator(".find-results tbody tr")).toHaveCount(10);
+  await pane().getByRole("button", { name: "More", exact: true }).click();
+  await pane().getByLabel("Results per page").selectOption("25");
+  await pane().getByLabel("Results per page").press("Escape");
+  await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
   await expect(pane().getByRole("columnheader")).toHaveText([
     "Entity",
     "Type",
@@ -125,7 +128,7 @@ test("blank query browses with permanent columns, denominator and explicit inspe
   await expect(pane()).toContainText("Select a result to inspect it.");
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await pane().getByRole("button", { name: "Clear", exact: true }).click();
-  await expect(pane().locator(".find-results tbody tr")).toHaveCount(10);
+  await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
   await query().fill("Foundation");
   await expect(
     pane().getByRole("table", { name: "Found entities" }),
@@ -187,9 +190,7 @@ test("zero remedies stay visible and disabled, query follows label until edited,
   await expect(
     pane().getByRole("button", { name: /Reset every filter 0 matches/ }),
   ).toBeDisabled();
-  await expect(pane()).toContainText(
-    "A miss inside a narrowed scope is not the same as an absence.",
-  );
+  await expect(pane()).toContainText(/No matches for .* in 2 of \d+ fields\./);
   await query().fill("unlisted architecture");
   await expect(
     create().getByRole("textbox", { name: "Class label", exact: true }),
@@ -391,9 +392,7 @@ test("full Add entity handoff preserves the entire draft and commits a new paren
   await expect(
     pane().locator('.find-results tr[data-selected="true"]'),
   ).toContainText("Zygomorphic Architecture");
-  await expect(
-    pane().getByRole("region", { name: "Selected entity" }),
-  ).toContainText("created here");
+  await expect(pane().locator(".find-created")).toContainText("created here");
 });
 
 test("Add entity handoff retains source and errors while edited drafts are checked", async () => {

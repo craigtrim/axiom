@@ -70,6 +70,27 @@ async function find(text: string) {
   await expect(d).toHaveCount(0);
   await expect(pane()).toBeVisible();
 }
+async function openMore() {
+  const trigger = pane().getByRole("button", { name: "More", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+    await trigger.click();
+}
+async function resultAction(name: string) {
+  await openMore();
+  await pane().getByRole("button", { name, exact: true }).click();
+}
+async function setPageSize(value: string) {
+  await openMore();
+  const input = pane().getByLabel("Results per page");
+  await input.selectOption(value);
+  await input.press("Escape");
+}
+async function expectPageSize(value: string) {
+  await openMore();
+  const input = pane().getByLabel("Results per page");
+  await expect(input).toHaveValue(value);
+  await input.press("Escape");
+}
 async function types(selected: string[]) {
   for (const label of ["Classes", "Instances", "Properties", "Other entities"])
     await pane()
@@ -168,7 +189,7 @@ test("Find adds its search text as a synonym without clearing results and refres
     exact: true,
   });
   await name.click();
-  await p.getByRole("button", { name: "Details", exact: true }).click();
+  await resultAction("Details");
   const details = page.locator('[data-panel="details"]');
   const values = details
     .locator('tr[data-predicate="' + NS.rdfs + 'seeAlso"]')
@@ -312,14 +333,14 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
   expect((await synonymDocument()).version).toBe(before.version);
   await query.fill("Developmental Psycho");
   await name.click();
-  const add = p.locator(".find-actions").getByRole("button", {
+  const add = row.getByRole("button", {
     name: 'Add "Developmental Psycho" as synonym for Developmental Psychology',
     exact: true,
   });
   await add.focus();
   await add.press("Enter");
   await expect(
-    p.locator(".find-actions").getByRole("button", {
+    row.getByRole("button", {
       name: 'Added "Developmental Psycho" as rdfs:seeAlso',
       exact: true,
     }),
@@ -370,11 +391,11 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
   await expect(pane()).toContainText(
     "A foundation in written and spoken English.",
   );
-  await pane().getByRole("button", { name: "Copy IRI", exact: true }).click();
+  await resultAction("Copy IRI");
   expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
     base + "Basic",
   );
-  await pane().getByRole("button", { name: "Details", exact: true }).click();
+  await resultAction("Details");
   await expect(page.locator('[data-panel="details"]')).toContainText(
     "Basic English",
   );
@@ -382,9 +403,7 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
   await expect(
     pane().getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("prep lang");
-  await pane()
-    .getByRole("button", { name: "Find in taxonomy", exact: true })
-    .click();
+  await resultAction("Find in taxonomy");
   await expect(page.locator('.tree-row[aria-selected="true"]')).toContainText(
     "Basic English",
   );
@@ -392,17 +411,13 @@ test("quick Find focuses type-ahead and sends results to a pane without changing
 test("Find filters, sorts and pages every match with useful result actions", async () => {
   await find("English");
   const p = pane();
-  await expect(
-    p.getByRole("combobox", { name: "Results per page" }),
-  ).toHaveValue("10");
+  await expectPageSize("50");
   await p.getByRole("button", { name: "Names only", exact: true }).click();
   await expect(p.getByRole("status").first()).toHaveText(
     /127 matches of [\d,]+ entities/,
   );
   await types(["Classes"]);
-  await p
-    .getByRole("combobox", { name: "Results per page" })
-    .selectOption("25");
+  await setPageSize("25");
   await p.getByRole("combobox", { name: "Sort results" }).selectOption("name");
   await expect(p.getByRole("status").first()).toHaveText(
     /125 matches of [\d,]+ entities/,
@@ -422,6 +437,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
     /1 match of [\d,]+ entities/,
   );
   await p.getByRole("button", { name: "English learner", exact: true }).click();
+  await openMore();
   await expect(
     p.getByRole("button", { name: "Find in taxonomy", exact: true }),
   ).toBeDisabled();
@@ -448,7 +464,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
       ["serious", "critical"].includes(v.impact ?? ""),
     ),
   ).toEqual([]);
-  await p.getByRole("button", { name: "New graph", exact: true }).click();
+  await resultAction("New graph");
   await expect
     .poll(async () => Object.keys((await state()).graphs ?? {}).length)
     .toBe(2);
@@ -458,13 +474,9 @@ test("Find filters, sorts and pages every match with useful result actions", asy
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");
-  await pane()
-    .getByRole("combobox", { name: "Results per page" })
-    .selectOption("25");
+  await setPageSize("25");
   await find("Basic");
-  await expect(
-    pane().getByRole("combobox", { name: "Results per page" }),
-  ).toHaveValue("25");
+  await expectPageSize("25");
   await pane()
     .getByRole("searchbox", { name: "Search the ontology" })
     .press("Control+f");
@@ -821,9 +833,7 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
   await find("English");
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await types(["Classes"]);
-  await pane()
-    .getByRole("combobox", { name: "Results per page" })
-    .selectOption("25");
+  await setPageSize("25");
   await expect(pane().getByRole("status").first()).toHaveText(
     /125 matches of [\d,]+ entities/,
   );
@@ -970,7 +980,7 @@ test("result graphs follow field filters and instance ancestry without expanding
       name: "Open results in new graph",
       exact: true,
     }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
 });
 
 async function visibleTaxonomySelection(iri: string, target = page) {
@@ -1031,9 +1041,7 @@ test("Find in taxonomy reveals the same selection again after the user scrolls a
   await tree.evaluate((el) => {
     el.scrollTop = 0;
   });
-  await pane()
-    .getByRole("button", { name: "Find in taxonomy", exact: true })
-    .click();
+  await resultAction("Find in taxonomy");
   await visibleTaxonomySelection(base + "Course122");
   expect((await state()).selected).toBe(before);
   await tree.evaluate((el) => {

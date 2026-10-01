@@ -1,4 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { command, request, setState, useSnapshot, state } from "./client";
 import { progressiveSearch } from "./progressive-search";
 import { useDelayedBusy } from "./use-delayed-busy";
@@ -13,6 +20,8 @@ import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
 import { FindCreatePanel } from "./FindCreatePanel";
+import { usePaneLayout } from "./AdaptivePane";
+import { FindPopover } from "./FindPopover";
 import "./find-editor.css";
 import {
   defaultFindOptions,
@@ -274,6 +283,18 @@ export function FindDialog({ close }: { close: () => void }) {
 }
 
 export function FindPanel() {
+  const layout = usePaneLayout();
+  const queryInput = useRef<HTMLInputElement>(null);
+  const scopeTrigger = useRef<HTMLButtonElement>(null);
+  const recentTrigger = useRef<HTMLButtonElement>(null);
+  const createTrigger = useRef<HTMLButtonElement>(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const scopeId = useId(),
+    createId = useId();
+  const pendingPageFocus = useRef<string | undefined>(undefined);
+  const scopeVisible = !layout.compact || scopeOpen;
+  const createOverlay = layout.shallow && createOpen;
   const { options, selected, recent, created } = useFindState();
   const searchOptions = { ...options, browse: true, diagnostics: true };
   const { data, facets, busy, ready, announcing, error, displayedOptions } =
@@ -310,6 +331,191 @@ export function FindPanel() {
   const graphPending = useRef(false);
   const rows = data?.rows ?? [];
   const active = rows.find((row) => row.iri === selected);
+  const [chrome, setChrome] = useState({
+    header: true,
+    pager: true,
+    inspector: true,
+  });
+  useLayoutEffect(() => {
+    const host = root.current;
+    if (!host) return;
+    const win = host.ownerDocument.defaultView!;
+    const measure = (selector: string) =>
+      host.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0;
+    const update = () => {
+      const next = { header: true, pager: true, inspector: true };
+      if (layout.narrow && layout.shallow)
+        Object.assign(next, { header: false, pager: false, inspector: false });
+      else if (layout.shallow) {
+        // Reserve three real rows, then withdraw supporting regions in priority order.
+        // These are measured content requirements, not additional presentation thresholds.
+        const available =
+          layout.height -
+          measure(".find-controls") -
+          measure(".find-results thead") -
+          3 * measure(".find-results tbody tr");
+        const sizes = {
+          header: measure(".find-results-toolbar"),
+          pager: measure(".find-pagination"),
+          inspector: measure(".find-inspector"),
+        };
+        let needed = sizes.header + sizes.pager + sizes.inspector + 8;
+        for (const name of ["header", "pager", "inspector"] as const) {
+          if (needed <= available) break;
+          next[name] = false;
+          needed -= sizes[name];
+        }
+      }
+      setChrome((old) =>
+        old.header === next.header &&
+        old.pager === next.pager &&
+        old.inspector === next.inspector
+          ? old
+          : next,
+      );
+    };
+    const observer = new win.ResizeObserver(update);
+    for (const selector of [
+      ".find-controls",
+      ".find-results-toolbar",
+      ".find-pagination",
+      ".find-inspector",
+      ".find-results tbody tr",
+    ]) {
+      const element = host.querySelector(selector);
+      if (element) observer.observe(element);
+    }
+    update();
+    return () => observer.disconnect();
+  }, [layout.width, layout.height, layout.mode, data]);
+  const focusRow = (index: number) => {
+    if (!ready || !rows[index]) {
+      root.current?.querySelector<HTMLElement>(".find-results-scroll")?.focus();
+      return;
+    }
+    selectFind(rows[index].iri);
+    const row = root.current?.querySelectorAll<HTMLElement>(
+      ".find-results tbody tr",
+    )[index];
+    row?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "nearest" });
+  };
+  const changePage = (next: number, keyboard = false) => {
+    if (!ready) return;
+    pendingPageFocus.current = keyboard
+      ? JSON.stringify([
+          { ...options, offset: next, revealIri: undefined },
+          snapshot.datasetEpoch,
+          snapshot.version,
+        ])
+      : undefined;
+    updateFind({ offset: next });
+  };
+  useEffect(() => {
+    const current = JSON.stringify([
+      options,
+      snapshot.datasetEpoch,
+      snapshot.version,
+    ]);
+    if (pendingPageFocus.current !== current)
+      pendingPageFocus.current = undefined;
+    if (ready && pendingPageFocus.current === current) {
+      pendingPageFocus.current = undefined;
+      focusRow(0);
+    }
+  }, [ready, data, options, snapshot.datasetEpoch, snapshot.version]);
+  const closeScope = () => {
+    setScopeOpen(false);
+    if (layout.compact) scopeTrigger.current?.focus();
+    else queryInput.current?.focus();
+  };
+  const closeCreate = () => {
+    setCreateOpen(false);
+    root.current?.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (layout.shallow) createTrigger.current?.focus();
+      else queryInput.current?.focus();
+    });
+  };
+  // Capture focus before a presentation withdraws or relocates its DOM node.
+  const focusBeforeLayout = root.current?.ownerDocument
+    .activeElement as HTMLElement | null;
+  useLayoutEffect(() => {
+    const focused = focusBeforeLayout;
+    if (layout.recovery) return;
+    if (
+      layout.compact &&
+      root.current?.querySelector(".find-facets")?.contains(focused ?? null)
+    ) {
+      setScopeOpen(true);
+      root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+        focused?.focus(),
+      );
+      return;
+    }
+    if (
+      layout.shallow &&
+      root.current?.querySelector(".find-create")?.contains(focused ?? null)
+    ) {
+      setCreateOpen(true);
+      root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+        focused?.focus(),
+      );
+      return;
+    }
+    if (
+      focused &&
+      root.current?.contains(focused) &&
+      (!focused.checkVisibility({ visibilityProperty: true }) ||
+        focused.closest("[inert]"))
+    )
+      queryInput.current?.focus();
+  }, [
+    layout.mode,
+    layout.recovery,
+    chrome.header,
+    chrome.pager,
+    chrome.inspector,
+  ]);
+  const rowKeys = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    index: number,
+  ) => {
+    if (event.target !== event.currentTarget || !ready) return;
+    const key = event.key;
+    if (
+      ![
+        "ArrowUp",
+        "ArrowDown",
+        "Home",
+        "End",
+        "PageUp",
+        "PageDown",
+        "Enter",
+        " ",
+      ].includes(key)
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (key === "ArrowUp" && index === 0) queryInput.current?.focus();
+    else if (key === "ArrowUp") focusRow(index - 1);
+    else if (key === "ArrowDown")
+      focusRow(Math.min(rows.length - 1, index + 1));
+    else if (key === "Home") focusRow(0);
+    else if (key === "End") focusRow(rows.length - 1);
+    else if (key === "PageUp" && options.offset > 0)
+      changePage(Math.max(0, options.offset - options.limit), true);
+    else if (
+      key === "PageDown" &&
+      data &&
+      options.offset + options.limit < data.total
+    )
+      changePage(options.offset + options.limit, true);
+    else if (key === "Enter") {
+      selectFind(rows[index].iri);
+      editEntity(rows[index].iri);
+    } else if (key === " ") selectFind(rows[index].iri);
+  };
   useEffect(() => {
     setActionError("");
     setMessage("");
@@ -500,6 +706,24 @@ export function FindPanel() {
   const storeTotal = data?.storeTotal ?? facets?.storeTotal ?? 0;
   const resetScope = () =>
     updateFind({
+      fields: [...defaultFindOptions.fields],
+      kinds: [...findKinds],
+      excludeIri: "",
+      sort: "relevance",
+    });
+  const allFields =
+    options.fields.includes("*") ||
+    (fields.length > 0 && selectedFieldCount === fields.length);
+  const allTypes = options.kinds.length === findKinds.length;
+  const defaultScope =
+    options.fields.length === defaultFindOptions.fields.length &&
+    defaultFindOptions.fields.every((f) => options.fields.includes(f)) &&
+    allTypes &&
+    options.sort === "relevance" &&
+    !options.excludeIri;
+  const scopeSummary = `${selectedFieldCount} of ${fields.length} fields, ${options.kinds.length} of ${findKinds.length} types`;
+  const resetEveryFilter = () =>
+    updateFind({
       fields: ["*"],
       kinds: [...findKinds],
       excludeIri: "",
@@ -520,80 +744,234 @@ export function FindPanel() {
       className="panel find-panel"
       data-panel="find"
       aria-label="Find entities results"
+      data-layout={layout.mode}
+      data-options-open={layout.compact && scopeOpen}
+      data-create-open={createOverlay}
     >
       <form
         className="find-controls"
-        onSubmit={(e) => {
-          e.preventDefault();
+        onSubmit={(event) => {
+          event.preventDefault();
           rememberFind();
         }}
       >
+        <button
+          type="button"
+          ref={scopeTrigger}
+          hidden={!layout.compact}
+          className="find-scope-trigger"
+          aria-label={`Options: ${scopeSummary}`}
+          aria-expanded={scopeOpen}
+          aria-controls={scopeId}
+          onClick={() => {
+            if (scopeOpen) closeScope();
+            else {
+              setScopeOpen(true);
+              requestAnimationFrame(() =>
+                root.current
+                  ?.querySelector<HTMLElement>(
+                    ".find-facets button, .find-facets input",
+                  )
+                  ?.focus(),
+              );
+            }
+          }}
+        >
+          <span>Options</span>
+          <span className="find-scope-ratios">
+            {selectedFieldCount} of {fields.length} fields,{" "}
+            {options.kinds.length} of {findKinds.length} types
+          </span>
+        </button>
         <div className="find-query">
           <input
+            ref={queryInput}
             aria-label="Search the ontology"
             type="search"
             maxLength={256}
             placeholder="Search names, IRIs and annotations"
             value={options.text}
-            onChange={(e) =>
-              updateFind({ text: e.target.value, excludeIri: "" })
-            }
+            onChange={(event) => {
+              pendingPageFocus.current = undefined;
+              updateFind({ text: event.target.value, excludeIri: "" });
+            }}
             onBlur={rememberFind}
-          />
-          <button
-            type="button"
-            onClick={() => updateFind({ text: "", excludeIri: "" })}
-            aria-label="Clear query"
-            disabled={!options.text}
-          >
-            Clear
-          </button>
-          {recent.length > 0 && (
-            <select
-              aria-label="Recent searches"
-              value=""
-              onChange={(e) =>
-                updateFind({ text: e.target.value, excludeIri: "" })
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                if (options.text) updateFind({ text: "", excludeIri: "" });
+                else focusRow(0);
+              } else if (event.key === "ArrowDown") {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.altKey) {
+                  rememberFind();
+                  recentTrigger.current?.click();
+                } else focusRow(0);
               }
+            }}
+          />
+          <div className="find-input-actions">
+            {options.text && (
+              <button
+                type="button"
+                aria-label="Clear query"
+                title="Clear query"
+                onClick={() => {
+                  updateFind({ text: "", excludeIri: "" });
+                  queryInput.current?.focus();
+                }}
+              >
+                ×
+              </button>
+            )}
+            <FindPopover
+              label="Recent searches"
+              triggerRef={recentTrigger}
+              face={<span aria-hidden="true">◷</span>}
             >
-              <option value="" disabled>
-                Recent searches
-              </option>
-              {recent.map((q) => (
-                <option key={q} value={q}>
-                  {q}
+              {recent.length ? (
+                recent.map((text) => (
+                  <button
+                    type="button"
+                    key={text}
+                    onClick={() => updateFind({ text, excludeIri: "" })}
+                  >
+                    {text}
+                  </button>
+                ))
+              ) : (
+                <p>No recent searches.</p>
+              )}
+            </FindPopover>
+          </div>
+        </div>
+        <label className="find-sort" hidden={layout.narrow && layout.shallow}>
+          <span className="find-sort-label" hidden={layout.compact}>
+            Sort
+          </span>
+          <select
+            aria-label="Sort results"
+            value={options.sort === "iri" ? "type" : options.sort}
+            onChange={(event) =>
+              updateFind({ sort: event.target.value as FindOptions["sort"] })
+            }
+          >
+            <option value="relevance">Best match</option>
+            <option value="name">Name A to Z</option>
+            <option value="name-desc">Name Z to A</option>
+            <option value="type">Type</option>
+          </select>
+        </label>
+        <FindPopover label="More">
+          <label>
+            Results per page
+            <select
+              aria-label="Results per page"
+              value={options.limit}
+              onChange={(event) => updateFind({ limit: +event.target.value })}
+            >
+              {[25, 50, 100, 200].map((limit) => (
+                <option key={limit} value={limit}>
+                  {limit}
                 </option>
               ))}
             </select>
-          )}
-        </div>
-        <div className="find-filters">
-          <label>
-            <span className="find-sort-label">Sort</span>
-            <select
-              aria-label="Sort results"
-              value={options.sort === "iri" ? "type" : options.sort}
-              onChange={(e) =>
-                updateFind({ sort: e.target.value as FindOptions["sort"] })
-              }
-            >
-              <option value="relevance">Best match</option>
-              <option value="name">Name A to Z</option>
-              <option value="name-desc">Name Z to A</option>
-              <option value="type">Type</option>
-            </select>
           </label>
-          <button type="button" onClick={resetScope}>
-            Reset filters
-          </button>
-        </div>
+          {active && (
+            <div role="group" aria-label="Selected result actions">
+              <strong>{active.name}</strong>
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={() => editEntity(active.iri)}
+              >
+                Details
+              </button>
+              <button
+                type="button"
+                disabled={!ready || !taxonomy}
+                onClick={() => revealInTaxonomy(active.iri)}
+              >
+                Find in taxonomy
+              </button>
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={() => openSimilar(active.name, active.iri)}
+              >
+                Find similar
+              </button>
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={() => graph(true)}
+              >
+                New graph
+              </button>
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={() => graph(false)}
+              >
+                Current graph
+              </button>
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={() =>
+                  run(async () => {
+                    await window.axiom.copy(active.iri);
+                    setMessage("IRI copied.");
+                  })
+                }
+              >
+                Copy IRI
+              </button>
+              <dl className="find-selected-details">
+                <dt>IRI</dt>
+                <dd>{active.iri}</dd>
+                <dt>Ancestry</dt>
+                <dd>{active.path ?? "no parent recorded"}</dd>
+                <dt>Synonyms</dt>
+                <dd>{active.aliases?.join(", ") || "none recorded"}</dd>
+                <dt>Definition</dt>
+                <dd>{active.description || "none recorded"}</dd>
+              </dl>
+            </div>
+          )}
+        </FindPopover>
       </form>
       <div className="find-workarea">
-        <details className="find-facets" open>
-          <summary>
-            Search scope: {selectedFieldCount} of {fields.length} fields,{" "}
-            {options.kinds.length} of {findKinds.length} types
-          </summary>
+        <section
+          id={scopeId}
+          className="find-facets"
+          aria-label="Search scope"
+          hidden={!scopeVisible}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && scopeOpen) {
+              event.preventDefault();
+              event.stopPropagation();
+              closeScope();
+            }
+          }}
+        >
+          <header className="find-scope-heading">
+            <strong>Search scope</strong>
+            {!defaultScope && (
+              <button type="button" onClick={resetScope}>
+                Reset filters
+              </button>
+            )}
+            {scopeOpen && (
+              <button type="button" onClick={closeScope}>
+                Close Options
+              </button>
+            )}
+          </header>
+          <p className="find-scope-summary">{scopeSummary}</p>
           <fieldset className="find-type-facets">
             <legend>Entity types</legend>
             {findKinds.map((id) => {
@@ -612,9 +990,9 @@ export function FindPanel() {
                     type="checkbox"
                     aria-label={label}
                     checked={options.kinds.includes(id)}
-                    onChange={(e) =>
+                    onChange={(event) =>
                       updateFind({
-                        kinds: e.target.checked
+                        kinds: event.target.checked
                           ? [...options.kinds, id]
                           : options.kinds.filter((k) => k !== id),
                       })
@@ -634,7 +1012,7 @@ export function FindPanel() {
                 aria-label="Filter search fields"
                 placeholder="Filter fields"
                 value={fieldFilter}
-                onChange={(e) => setFieldFilter(e.target.value)}
+                onChange={(event) => setFieldFilter(event.target.value)}
               />
               <button
                 type="button"
@@ -653,26 +1031,21 @@ export function FindPanel() {
               </button>
             </div>
             <div className="find-field-list">
-              {filteredFields.map((f) => (
+              {filteredFields.map((field) => (
                 <label
-                  key={f.id}
-                  title={
-                    f.id +
-                    " · " +
-                    f.count.toLocaleString() +
-                    (options.text.trim()
-                      ? " matches in this field"
-                      : " entities with a value")
-                  }
+                  key={field.id}
+                  title={`${field.id} · ${field.count.toLocaleString()} ${options.text.trim() ? "matches in this field" : "entities with a value"}`}
                 >
                   <input
                     type="checkbox"
-                    aria-label={f.label}
-                    checked={fieldSelected(f.id)}
-                    onChange={(e) => toggleField(f.id, e.target.checked)}
+                    aria-label={field.label}
+                    checked={fieldSelected(field.id)}
+                    onChange={(event) =>
+                      toggleField(field.id, event.target.checked)
+                    }
                   />
-                  <span>{f.label}</span>
-                  <small>{f.count.toLocaleString()}</small>
+                  <span>{field.label}</span>
+                  <small>{field.count.toLocaleString()}</small>
                 </label>
               ))}
               {!filteredFields.length && (
@@ -685,9 +1058,18 @@ export function FindPanel() {
               </p>
             )}
           </fieldset>
-        </details>
-        <div className="find-matches">
-          <div className="find-results-toolbar">
+        </section>
+        <div
+          className="find-matches"
+          inert={(layout.compact && scopeOpen) || undefined}
+          aria-hidden={(layout.compact && scopeOpen) || undefined}
+        >
+          <header
+            className="find-results-toolbar"
+            data-withdrawn={!chrome.header}
+            inert={!chrome.header || undefined}
+            aria-hidden={!chrome.header || undefined}
+          >
             <div className="find-summary" role="status">
               {announcing
                 ? "Searching..."
@@ -695,67 +1077,90 @@ export function FindPanel() {
                   ? "Search unavailable"
                   : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
             </div>
-            <button
-              type="button"
-              onClick={graphResults}
-              disabled={!ready || !total || openingGraph}
-              title="Open all filtered matches, across every page, with shared ancestry back to the roots"
-            >
-              {openingGraph ? "Opening graph..." : "Open results in new graph"}
-            </button>
-          </div>
+            {total > 0 && (
+              <button
+                type="button"
+                onClick={graphResults}
+                disabled={!ready || openingGraph}
+                aria-label="Open results in new graph"
+                title="Open all filtered matches, across every page, with shared ancestry back to the roots"
+              >
+                <span aria-hidden="true">↗</span>
+                <span className="find-graph-label" hidden={layout.compact}>
+                  {openingGraph
+                    ? "Opening graph..."
+                    : "Open results in new graph"}
+                </span>
+              </button>
+            )}
+          </header>
           {(error || actionError) && (
             <p className="validation-error" role="alert">
               {error || actionError}
             </p>
           )}
-          <div className="find-results-scroll" aria-busy={busy}>
+          <div
+            className="find-results-scroll"
+            aria-busy={busy}
+            tabIndex={-1}
+            aria-label="Find results"
+          >
             {(!data || rows.length > 0) && (
               <table className="find-results" aria-label="Found entities">
                 <thead>
                   <tr>
                     <th scope="col">Entity</th>
-                    <th scope="col">Type</th>
-                    <th scope="col" className="find-synonym-column">
+                    <th
+                      scope="col"
+                      className="find-type-column"
+                      hidden={layout.narrow && layout.shallow}
+                    >
+                      Type
+                    </th>
+                    <th
+                      scope="col"
+                      className="find-synonym-column"
+                      hidden={layout.narrow}
+                    >
                       Synonym
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.map((row, index) => (
                     <tr
                       key={row.iri}
                       data-selected={selected === row.iri}
                       aria-selected={selected === row.iri}
-                      tabIndex={ready ? 0 : -1}
+                      tabIndex={
+                        ready && (active ? selected === row.iri : index === 0)
+                          ? 0
+                          : -1
+                      }
                       aria-disabled={!ready || undefined}
                       onClick={(event) => {
                         if (!(event.target as HTMLElement).closest("button"))
                           choose(row.iri);
                       }}
-                      onKeyDown={(event) => {
-                        if (
-                          event.target === event.currentTarget &&
-                          (event.key === "Enter" || event.key === " ")
-                        ) {
-                          event.preventDefault();
-                          choose(row.iri);
-                        }
-                      }}
+                      onKeyDown={(event) => rowKeys(event, index)}
                     >
                       <td>
                         <button
                           type="button"
                           className="find-result-name"
                           disabled={!ready}
+                          tabIndex={-1}
                           aria-pressed={selected === row.iri}
                           onClick={() => choose(row.iri)}
                           onDoubleClick={() => editEntity(row.iri)}
                         >
                           {row.name}
                         </button>
-                        <div className="find-result-path" title={row.iri}>
-                          {row.path ?? "no parent recorded"}
+                        <div
+                          className="find-result-path"
+                          title={row.path ?? "no parent recorded"}
+                        >
+                          <bdi>{row.path ?? "no parent recorded"}</bdi>
                         </div>
                         {row.matchedField &&
                           row.matchedField !== "iri" &&
@@ -764,8 +1169,9 @@ export function FindPanel() {
                             <p className="find-match-evidence">
                               <strong>
                                 matched in{" "}
-                                {fields.find((f) => f.id === row.matchedField)
-                                  ?.label ??
+                                {fields.find(
+                                  (field) => field.id === row.matchedField,
+                                )?.label ??
                                   compactIri(
                                     row.matchedField,
                                     snapshot.ontology.namespace,
@@ -774,14 +1180,36 @@ export function FindPanel() {
                               : {row.matchedValue}
                             </p>
                           )}
-                      </td>
-                      <td>{kindLabel(row.kind)}</td>
-                      <td>
-                        <span className="find-row-synonyms">
-                          {row.aliases?.join(", ") || "none recorded"}
+                        <span
+                          className="find-folded-type"
+                          hidden={!(layout.narrow && layout.shallow)}
+                        >
+                          {kindLabel(row.kind)}
                         </span>
-                        {synonymButton(row, true)}
+                        {layout.narrow && (
+                          <div className="find-folded-synonyms">
+                            <span className="find-row-synonyms">
+                              <span className="sr-only">Synonyms: </span>
+                              {row.aliases?.join(", ") || "none recorded"}
+                            </span>
+                            {synonymButton(row, true)}
+                          </div>
+                        )}
                       </td>
+                      <td
+                        className="find-type-column"
+                        hidden={layout.narrow && layout.shallow}
+                      >
+                        {kindLabel(row.kind)}
+                      </td>
+                      {!layout.narrow && (
+                        <td className="find-synonym-column">
+                          <span className="find-row-synonyms">
+                            {row.aliases?.join(", ") || "none recorded"}
+                          </span>
+                          {synonymButton(row, true)}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -789,204 +1217,197 @@ export function FindPanel() {
             )}
             {data && !rows.length && (
               <fieldset className="find-zero" disabled={!ready}>
-                <h2>No matches for “{displayedOptions.text}”</h2>
-                <p>
-                  Searched {selectedFieldCount} of {fields.length} fields across{" "}
-                  {options.kinds.length} of {findKinds.length} entity types, in{" "}
-                  {storeTotal.toLocaleString()} entities. A miss inside a
-                  narrowed scope is not the same as an absence.
-                </p>
-                <p className="muted">
-                  {data.emptyCause === "filters"
-                    ? "The current scope excludes the matching entities."
-                    : "The query has no matches in the current scope."}
-                </p>
-                <section
-                  className="find-remedies"
-                  aria-label="Widen the search first"
+                <div hidden={createOverlay}>
+                  <h2>
+                    {allFields && allTypes
+                      ? `No matches for "${displayedOptions.text}" anywhere in the ontology.`
+                      : `No matches for "${displayedOptions.text}" in ${selectedFieldCount} of ${fields.length} fields.`}
+                  </h2>
+                  <p>
+                    {scopeSummary} · {storeTotal.toLocaleString()} entities
+                  </p>
+                  <div
+                    className="find-remedies"
+                    role="group"
+                    aria-label="Search remedies"
+                  >
+                    {data.remedies
+                      ?.filter((remedy) =>
+                        remedy.id === "fields"
+                          ? !allFields
+                          : remedy.id === "types"
+                            ? !allTypes
+                            : !allFields ||
+                              !allTypes ||
+                              !!options.excludeIri ||
+                              options.sort !== "relevance",
+                      )
+                      .map((remedy) => (
+                        <button
+                          type="button"
+                          key={remedy.id}
+                          disabled={!remedy.count}
+                          onClick={() =>
+                            remedy.id === "fields"
+                              ? updateFind({ fields: ["*"] })
+                              : remedy.id === "types"
+                                ? updateFind({ kinds: [...findKinds] })
+                                : resetEveryFilter()
+                          }
+                        >
+                          <span>
+                            {remedy.id === "fields"
+                              ? `Search all ${fields.length} fields`
+                              : remedy.id === "types"
+                                ? "Include all entity types"
+                                : "Reset every filter"}
+                          </span>
+                          <span className="find-remedy-yield">
+                            {remedy.count.toLocaleString()}{" "}
+                            {remedy.count === 1 ? "match" : "matches"}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+                <button
+                  ref={createTrigger}
+                  type="button"
+                  hidden={!layout.shallow || createOpen}
+                  aria-expanded={createOpen}
+                  aria-controls={createId}
+                  onClick={() => {
+                    setCreateOpen(true);
+                    requestAnimationFrame(() =>
+                      root.current
+                        ?.querySelector<HTMLInputElement>(
+                          '[aria-label="Class label"]',
+                        )
+                        ?.focus(),
+                    );
+                  }}
                 >
-                  <h3>Widen the search first</h3>
-                  {data.remedies?.map((remedy) => (
+                  Not in the ontology? Add it.
+                </button>
+                <div
+                  id={createId}
+                  className="find-create-host"
+                  hidden={layout.shallow && !createOpen}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Escape" &&
+                      createOpen &&
+                      !event.defaultPrevented
+                    ) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      closeCreate();
+                    }
+                  }}
+                >
+                  {createOpen && (
                     <button
                       type="button"
-                      key={remedy.id}
-                      disabled={!remedy.count}
-                      onClick={() =>
-                        remedy.id === "fields"
-                          ? updateFind({ fields: ["*"] })
-                          : remedy.id === "types"
-                            ? updateFind({ kinds: [...findKinds] })
-                            : resetScope()
-                      }
+                      className="find-create-close"
+                      onClick={closeCreate}
                     >
-                      <span>
-                        {remedy.id === "fields"
-                          ? `Search all ${fields.length} fields`
-                          : remedy.id === "types"
-                            ? "Include all entity types"
-                            : "Reset every filter"}
-                      </span>
-                      <span className="find-remedy-yield">
-                        {remedy.count.toLocaleString()}{" "}
-                        {remedy.count === 1 ? "match" : "matches"}
-                      </span>
+                      Back to results
                     </button>
-                  ))}
-                </section>
-                <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
+                  )}
+                  <FindCreatePanel storeTotal={storeTotal} reveal={reveal} />
+                </div>
               </fieldset>
             )}
           </div>
+          <footer
+            className="find-footer"
+            data-withdrawn={!chrome.pager && !chrome.inspector}
+          >
+            <div
+              className="find-pagination"
+              role="group"
+              aria-label="Result pages"
+              data-withdrawn={!chrome.pager}
+              inert={!chrome.pager || undefined}
+              aria-hidden={!chrome.pager || undefined}
+            >
+              <span hidden={layout.narrow}>
+                {total
+                  ? `${(offset + 1).toLocaleString()} to ${Math.min(total, offset + options.limit).toLocaleString()} of ${total.toLocaleString()}`
+                  : "0 results"}
+              </span>
+              <button
+                hidden={layout.narrow}
+                disabled={!ready || offset === 0}
+                onClick={() => changePage(0)}
+                aria-label="First results page"
+              >
+                «
+              </button>
+              <button
+                disabled={!ready || offset === 0}
+                onClick={() => changePage(Math.max(0, offset - options.limit))}
+                aria-label="Previous results page"
+              >
+                ‹
+              </button>
+              <span>
+                Page {total ? Math.floor(offset / options.limit) + 1 : 0} of{" "}
+                {Math.ceil(total / options.limit)}
+              </span>
+              <button
+                disabled={!ready || offset + options.limit >= total}
+                onClick={() => changePage(offset + options.limit)}
+                aria-label="Next results page"
+              >
+                ›
+              </button>
+              <button
+                hidden={layout.narrow}
+                disabled={!ready || offset + options.limit >= total}
+                onClick={() =>
+                  changePage(
+                    Math.max(0, Math.ceil(total / options.limit) - 1) *
+                      options.limit,
+                  )
+                }
+                aria-label="Last results page"
+              >
+                »
+              </button>
+            </div>
+            <section
+              className="find-inspector"
+              aria-label="Selected entity"
+              data-withdrawn={!chrome.inspector}
+              inert={!chrome.inspector || undefined}
+              aria-hidden={!chrome.inspector || undefined}
+            >
+              {active ? (
+                <p
+                  title={`${active.name} · ${kindLabel(active.kind)} · ${active.iri} · ${active.path ?? "no parent recorded"} · ${active.aliases?.join(", ") || "none recorded"} · ${active.description || "none recorded"}`}
+                >
+                  <strong>{active.name}</strong>
+                  {created.includes(active.iri) && (
+                    <span className="find-created"> created here</span>
+                  )}{" "}
+                  · {kindLabel(active.kind)} · {active.iri} ·{" "}
+                  {active.path ?? "no parent recorded"} ·{" "}
+                  {active.aliases?.join(", ") || "none recorded"} ·{" "}
+                  {active.description || "none recorded"}
+                </p>
+              ) : (
+                <p className="muted">Select a result to inspect it.</p>
+              )}
+            </section>
+          </footer>
+          {message && (
+            <span className="find-message" role="status">
+              {message}
+            </span>
+          )}
         </div>
       </div>
-      <footer className="find-footer">
-        <div className="find-pagination" role="group" aria-label="Result pages">
-          <span>
-            {total
-              ? (offset + 1).toLocaleString() +
-                " to " +
-                Math.min(total, offset + options.limit).toLocaleString() +
-                " of " +
-                total.toLocaleString()
-              : "0 results"}
-          </span>
-          <button
-            disabled={!ready || offset === 0}
-            onClick={() => updateFind({ offset: 0 })}
-            aria-label="First results page"
-          >
-            «
-          </button>
-          <button
-            disabled={!ready || offset === 0}
-            onClick={() =>
-              updateFind({ offset: Math.max(0, offset - options.limit) })
-            }
-            aria-label="Previous results page"
-          >
-            ‹
-          </button>
-          <span>
-            Page {total ? Math.floor(offset / options.limit) + 1 : 0} of{" "}
-            {Math.ceil(total / options.limit)}
-          </span>
-          <button
-            disabled={!ready || offset + options.limit >= total}
-            onClick={() => updateFind({ offset: offset + options.limit })}
-            aria-label="Next results page"
-          >
-            ›
-          </button>
-          <button
-            disabled={!ready || offset + options.limit >= total}
-            onClick={() =>
-              updateFind({
-                offset:
-                  Math.max(0, Math.ceil(total / options.limit) - 1) *
-                  options.limit,
-              })
-            }
-            aria-label="Last results page"
-          >
-            »
-          </button>
-          <select
-            aria-label="Results per page"
-            value={options.limit}
-            onChange={(e) => updateFind({ limit: +e.target.value })}
-          >
-            {[...new Set([10, 25, 50, options.limit])]
-              .sort((a, b) => a - b)
-              .map((n) => (
-                <option key={n} value={n}>
-                  {n} per page
-                </option>
-              ))}
-          </select>
-        </div>
-        <section className="find-inspector" aria-label="Selected entity">
-          {!active ? (
-            <p className="muted">Select a result to inspect it.</p>
-          ) : (
-            <dl>
-              <dt>Label</dt>
-              <dd>
-                {active.name}{" "}
-                {created.includes(active.iri) && (
-                  <span className="find-created">created here</span>
-                )}
-              </dd>
-              <dt>Type</dt>
-              <dd>{kindLabel(active.kind)}</dd>
-              <dt>IRI</dt>
-              <dd>
-                <code>{active.iri}</code>
-              </dd>
-              <dt>Ancestry</dt>
-              <dd>{active.path ?? "no parent recorded"}</dd>
-              <dt>Synonyms</dt>
-              <dd>{active.aliases?.join(", ") || "none recorded"}</dd>
-              <dt>Definition</dt>
-              <dd>{active.description || "none recorded"}</dd>
-            </dl>
-          )}
-          <div
-            className="find-actions"
-            role="group"
-            aria-label="Selected result actions"
-          >
-            <span className="find-selected">{active?.name}</span>
-            {active && (
-              <>
-                <button
-                  disabled={!ready || !active}
-                  onClick={() => active && editEntity(active.iri)}
-                >
-                  Details
-                </button>
-                <button
-                  disabled={!ready || !taxonomy}
-                  onClick={() => active && revealInTaxonomy(active.iri)}
-                >
-                  Find in taxonomy
-                </button>
-                <button
-                  disabled={!ready || !active}
-                  onClick={() => active && openSimilar(active.name, active.iri)}
-                >
-                  Find similar
-                </button>
-                {synonymButton(active)}
-                <button
-                  disabled={!ready || !active}
-                  onClick={() => graph(true)}
-                >
-                  New graph
-                </button>
-                <button
-                  disabled={!ready || !active}
-                  onClick={() => graph(false)}
-                >
-                  Current graph
-                </button>
-                <button
-                  disabled={!ready || !active}
-                  onClick={() =>
-                    active &&
-                    run(async () => {
-                      await window.axiom.copy(active.iri);
-                      setMessage("IRI copied.");
-                    })
-                  }
-                >
-                  Copy IRI
-                </button>
-              </>
-            )}
-          </div>
-        </section>
-        {message && <span role="status">{message}</span>}
-      </footer>
     </section>
   );
 }

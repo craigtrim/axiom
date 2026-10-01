@@ -6,7 +6,7 @@ The shared layouts adapt workbench views to their available pane dimensions.
 
 Each view adapts to the space inside its pane. Primary actions remain outside the content scroller. Supporting explanations and occasional settings use named disclosures, Options and More.
 
-All ten dockable component types use the shared pane measurement, with layouts suited to each view's content. Graph retains its existing presentation and interaction model at every size. Its canvas resizes without entering the form recovery presentation.
+All seventeen dockable component types use the shared pane measurement, with layouts suited to each view's content. Graph retains its existing presentation and interaction model at every size. Its canvas resizes without entering the form recovery presentation.
 
 ## Evidence and its limits
 
@@ -68,13 +68,14 @@ The search field, Search and Refresh controls remain above the results scroller.
 
 ## Coverage across the current views
 
-The ten dockable component types in App.tsx are covered below. Nested tools inherit the same rules, even when they are not independently dockable.
+App.tsx declares seventeen dockable component types. The per-view policies below cover eleven of them; Taxonomy assistance, Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
 | Touchpoints | Search and ranked candidates | Wrapped rows and relationship controls | Compact actions above results | Query, candidate attribution and explicit Apply |
 | Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
 | Details | Predicate and Value table | Searchable resource cells and scoped Source | Header actions above the statement table | Language, datatype, graph identifiers and source drafts |
+| Find | Persistent scope rail; one query row; Entity, Type and Synonym columns | Options shows scope ratios; synonyms fold into Entity; condensed pager and one inspector line | Options replaces the body; rows take priority over header, pager and inspector | Query, scope, sort, page, selected result, scroll and creation draft |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
 | Individuals | Grid and filters | Compact filters; column access and deliberate horizontal scrolling | Compact actions/filters; maximum row area | Sort, filters, selection, values and virtualization |
 | Query | Editor with composer alongside when space permits | Editor or composer in active body | Compact history/actions above editor | Text, undo, cursor, document identity and Run |
@@ -88,6 +89,16 @@ For grids, a smaller width should not silently remove data columns or replace th
 Linked file previews preserve images, document pages and other visual content. Their metadata can use disclosures. Taxonomy assistance retains its modal review flow and footer actions. Export and style settings also remain dialogs. These tools are not independently dockable layouts.
 
 Graph is an explicit exception to content abbreviation. Its existing toolbar and canvas retain their behavior. Every pane shape keeps the visual workspace, camera and node budget.
+
+### Find
+
+Find reads the shared pane rectangle and hysteresis for both layout and keyboard behavior, including in detached windows. It adds no container breakpoints. In Narrow and shallow, Type joins Synonym inside the Entity cell; Sort withdraws, leaving the scope entry, field and More above the rows. Recovery retains the mounted controls and editor as inert content until Maximize pane restores the work.
+
+Clear and Recent searches sit inside the field. Clear is absent for an empty query. More always contains Results per page (25, 50, 100 or 200; default 50), plus actions and full metadata for a selected result. The scope header owns Reset filters, which appears only when scope or sort differs from the defaults. Reset restores name/IRI fields, all entity types and Best match without changing the query. An explicit Search all fields remedy searches every field instead. The scope summary remains visible beside Options whenever the rail is not a column.
+
+The results header owns Open results in new graph and leaves that slot empty with no results. Narrow presentation uses its icon with the full accessible name. Creation appears only in the zero state. In shallow panes one button opens the retained editor over the body; that button and editor never appear together. Options and the editor preserve explicit disclosure state across resizing. Escape closes a disclosure and restores its trigger.
+
+From the query, Down enters the results, Escape clears the query (then enters results on the next press), and Alt+Down opens Recent searches. Rows use Up/Down, Home/End and Page Up/Page Down; Up from the first row returns to the query. Space selects without navigation; Enter opens Details. Page changes initiated from rows focus the first current result once it arrives. Ctrl+F retains the workbench's compact Find modal.
 
 ## Implementation
 
@@ -126,5 +137,7 @@ Observe representative users finding touchpoints, editing a query, editing an en
 ## Desktop verification
 
 [adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
+
+Find's additional desktop cases are in tests/e2e/find-adaptive.spec.ts. They exercise all four presentations, minimum usable sizes, hysteresis, recovery, detached-window measurement, retained scope/editor focus, keyboard selection and paging, and normalized-name warnings through both creation paths. Light and dark themes are checked separately with enlarged text, reduced motion, automated accessibility rules, 4.5:1 text contrast and 3:1 control/focus contrast. The existing Find and background-search suites cover ranking, graph results, synonyms, persistence, held replies and immediate lexical feedback.
 
 Desktop screenshots are written under artifacts/testing with the adaptive view prefixes. The broader desktop suite continues to check entity editing, native menus, query execution, docking and workspace ownership. See the [verification record](verification.md) for the final run results.

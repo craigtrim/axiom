@@ -388,7 +388,7 @@ test("the empty-result editor stays mounted across pending searches and preserve
   await expect(label).toHaveValue("A preserved draft");
   await expect(create).toBeDisabled();
   await expect(pane.locator(".find-zero h2")).toHaveText(
-    "No matches for “unlisted architecture”",
+    'No matches for "unlisted architecture" in 2 of 4 fields.',
   );
   await release(d);
   await expect(create).toBeEnabled();

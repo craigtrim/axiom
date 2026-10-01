@@ -119,7 +119,7 @@ export function readFindOptions(input: unknown): FindOptions {
         : 0,
     limit:
       typeof v.limit === "number" && Number.isFinite(v.limit)
-        ? Math.max(1, Math.min(100, Math.floor(v.limit)))
+        ? Math.max(1, Math.min(200, Math.floor(v.limit)))
         : 50,
   };
 }
