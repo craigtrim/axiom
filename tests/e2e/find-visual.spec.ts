@@ -18,7 +18,7 @@ const reference = path.resolve(
   "tests/fixtures/find-visual/visual-reference.html",
 );
 const referenceHash =
-  "c2a08e67a186ef3fd606b153faf59778962a96e6c56f0d1f7eee8100c9105716";
+  "5c4e9b6bb03200bbc4aab4e16c61431a887d21d000ae7ec4c65c77260222c541";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
 async function capture(root: Locator, label: string) {
@@ -295,7 +295,7 @@ for (const theme of ["light", "dark"] as const) {
           .fill("Neuroscience");
         await page.getByRole("option", { name: /Neuroscience/ }).click();
         await pane()
-          .getByRole("button", { name: "Add row", exact: true })
+          .getByRole("button", { name: "+ Add row", exact: true })
           .click();
         await pane()
           .getByRole("combobox", { name: "Predicate 1", exact: true })
@@ -355,6 +355,44 @@ for (const theme of ["light", "dark"] as const) {
           (el, bottom) => (el.scrollTop = bottom ? el.scrollHeight : 0),
           name.endsWith("bottom"),
         );
+      // #36 changes the context band only. Keep this evidence separate from
+      // the full-pane pixel comparison, which also covers the statement editor.
+      const contextGeometry = (root: Locator, selectors: string[]) =>
+        root.evaluate((el, selectors) => {
+          const origin = el.getBoundingClientRect();
+          return selectors.map((selector) => {
+            const node = el.querySelector<HTMLElement>(selector)!;
+            if (!node.checkVisibility({ visibilityProperty: true }))
+              return null;
+            const r = node.getBoundingClientRect();
+            return {
+              x: r.x - origin.x,
+              y: r.y - origin.y,
+              width: r.width,
+              height: r.height,
+            };
+          });
+        }, selectors);
+      await expect(pane().locator(".find-inspector")).toHaveCount(0);
+      await expect(expectedPane.locator(".ctx")).toHaveCount(0);
+      const context = {
+        expected: await contextGeometry(expectedPane, [
+          ".rbody",
+          ".rfoot",
+          ".store",
+        ]),
+        actual: await contextGeometry(pane(), [
+          ".find-results-scroll",
+          ".find-pagination",
+          ".find-store",
+        ]),
+      };
+      expect(context.actual).toEqual(context.expected);
+      await mkdir("artifacts/issue-36", { recursive: true });
+      await writeFile(
+        `artifacts/issue-36/context-${theme}-${name}.json`,
+        JSON.stringify(context, null, 2),
+      );
       const expected = await capture(expectedPane, "reference");
       const expectedPath = info.snapshotPath(`${theme}-${name}.png`);
       if (process.env.AXIOM_UPDATE_REFERENCE === "1") {

@@ -958,8 +958,7 @@ function paneHTML(o) {
     '<button type="button" class="ib" aria-label="Last page"' + (zero ? ' disabled' : '') + '>' + I.last + '</button>' +
     '</div>';
 
-  var ctx = '<div class="ctx">' + (zero ? 'Select a result to inspect it.' :
-    '<b>Developmental Neuroscience</b> <span class="muted">Class · Course › Science › Biology › Neuroscience</span>') + '</div>';
+  var ctx = zero ? '' : '<div class="ctx"><b>Developmental Neuroscience</b> <span class="muted">Class · Course › Science › Biology › Neuroscience</span></div>';
 
   var store = '<div class="store"><span>6,005 classes · 0 individuals · 24,444 triples</span><span>Shortcuts</span></div>';
 
