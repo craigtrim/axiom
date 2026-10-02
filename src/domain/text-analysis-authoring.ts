@@ -201,8 +201,8 @@ function classHierarchyInput(
       throw Error("Enter a valid subject IRI.");
     const statements: NonNullable<ClassCreation["statements"]> = [];
     if (item.statements !== undefined) {
-      if (!Array.isArray(item.statements) || item.statements.length > 100)
-        throw Error("Add no more than 100 extra statements.");
+      if (!Array.isArray(item.statements))
+        throw Error("Provide a list of additional statements.");
       for (const statement of item.statements) {
         validateStatement({
           ...statement,

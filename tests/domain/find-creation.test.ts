@@ -50,6 +50,44 @@ const canonical = (triples: import("../../src/domain/model").Triple[]) =>
     )
     .sort();
 describe("Find creation", () => {
+  it.each([101, 1001])(
+    "saves %i values in insertion order through Find and the shared authoring path",
+    async (count) => {
+      const store = fixture();
+      const input = {
+        ...draft("Many Values"),
+        statements: Array.from({ length: count }, (_, i) => ({
+          id: String(i),
+          predicate: "rdfs:seeAlso",
+          value: `Value ${count - i}:PE,PE`,
+        })),
+      };
+      const preview = await previewFindCreation(store, input, 1);
+      expect(preview.errors).toEqual([]);
+      const parsed = await parseRdf(preview.source, "group.rdf", base);
+      const values = input.statements.map((s) => s.value);
+      expect(
+        parsed.triples
+          .filter((t) => t.predicate === NS.rdfs + "seeAlso")
+          .map((t) => t.object.value),
+      ).toEqual(values);
+      const subject = createFindEntity(store, input, 1);
+      expect(
+        store
+          .entityStatements(subject)
+          .filter((t) => t.predicate === NS.rdfs + "seeAlso")
+          .map((t) => t.object.value),
+      ).toEqual(values);
+      store.undo();
+      expect(store.entities.has(subject)).toBe(false);
+      store.redo();
+      expect(
+        store
+          .entityStatements(subject)
+          .filter((t) => t.predicate === NS.rdfs + "seeAlso"),
+      ).toHaveLength(count);
+    },
+  );
   it.each([
     ["Café Studies", "exact"],
     ["Public Property", "exact"],
@@ -251,12 +289,6 @@ describe("Find creation", () => {
     { statements: [{ predicate: "not valid", value: "foo" }] },
     { statements: [{ predicate: "owl:equivalentClass", value: "bad value" }] },
     { statements: [{ predicate: "skos:altLabel", value: "x".repeat(10001) }] },
-    {
-      statements: Array.from({ length: 101 }, () => ({
-        predicate: "skos:altLabel",
-        value: "A",
-      })),
-    },
   ])(
     "invalid input is previewed and rejected atomically: %j",
     async (change) => {

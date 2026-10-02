@@ -100,10 +100,10 @@ function prepare(store: Store, input: unknown, epoch: number) {
     ? parents.filter((p) => parents.length === 1 || p !== THING)
     : [THING];
   const statements: NonNullable<TextAnalysisClassInput["statements"]> = [];
-  if (!Array.isArray(value.statements) || value.statements.length > 100)
+  if (!Array.isArray(value.statements))
     errors.push({
       field: "statements",
-      message: "Add no more than 100 extra statements.",
+      message: "Provide a list of additional statements.",
     });
   else
     for (const [i, row] of value.statements.entries()) {
