@@ -12,3 +12,6 @@ things-i-need
 archive/*.zip
 
 vendor/mutatoc/
+
+# Removed on purpose; GitHub issues hold requirements.
+specs/
