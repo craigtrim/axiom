@@ -23,7 +23,7 @@ async function resourceField(d: Desktop, predicate = "subClassOf") {
   return field;
 }
 
-test("statement matches and the active resource survive a pending search", async ({
+test("statement matches survive a pending search and an edit clears the active resource", async ({
   desktop: d,
 }) => {
   const field = await resourceField(d);
@@ -31,13 +31,50 @@ test("statement matches and the active resource survive a pending search", async
   const matches = d.page.getByRole("listbox");
   await expect(matches.getByRole("option")).toHaveCount(2);
   await field.press("ArrowDown");
-  const selected = await matches
-    .getByRole("option", { selected: true })
-    .getAttribute("title");
+  await expect(matches.getByRole("option", { selected: true })).toHaveCount(1);
   await holdRequests(d.app, ["resourceSuggestions"]);
   await field.fill("Beta ");
   await waitForHeld(d.app);
   await expect(matches.getByRole("option")).toHaveCount(2);
+  // craigtrim/axiom#35: an edit drops the highlight, so Enter commits the typed text.
+  await expect(matches.getByRole("option", { selected: true })).toHaveCount(0);
+  await releaseRequests(d.app);
+  await expect(matches.getByRole("option")).toHaveCount(2);
+  await expect(matches.getByRole("option", { selected: true })).toHaveCount(0);
+  await field.press("Enter");
+  await expect(field).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the active resource survives a background refresh", async ({
+  desktop: d,
+}) => {
+  const field = await resourceField(d);
+  await field.fill("Bet");
+  const matches = d.page.getByRole("listbox");
+  await expect(matches.getByRole("option")).toHaveCount(2);
+  await field.press("ArrowDown");
+  await field.press("ArrowDown");
+  const selected = await matches
+    .getByRole("option", { selected: true })
+    .getAttribute("title");
+  await holdRequests(d.app, ["resourceSuggestions"]);
+  // Another view renames Gamma, so the open search reruns without a keystroke.
+  await d.page.evaluate(async (iri) => {
+    const doc = await window.axiom.request<any>("entityDocument", { iri });
+    await window.axiom.request("updateEntity", {
+      iri,
+      nextIri: iri,
+      statements: doc.statements.map((t: any) =>
+        t.predicate.endsWith("#label")
+          ? { ...t, object: { ...t.object, value: "Gamma renamed" } }
+          : t,
+      ),
+      version: doc.version,
+      datasetEpoch: doc.datasetEpoch,
+      preserveSelection: true,
+    });
+  }, base + "Gamma");
+  await waitForHeld(d.app);
   await expect(matches.getByRole("option", { selected: true })).toHaveAttribute(
     "title",
     selected!,
@@ -48,7 +85,14 @@ test("statement matches and the active resource survive a pending search", async
     selected!,
   );
   await field.press("Enter");
-  await expect(field).toHaveAttribute("aria-expanded", "false");
+  await expect
+    .poll(
+      async () =>
+        (await d.request<Snapshot>("state")).entities.find(
+          (e) => e.iri === base + "Alpha",
+        )?.parents,
+    )
+    .toEqual([selected]);
 });
 
 test("a retained option cannot commit after a new search stops matching it", async ({
@@ -57,9 +101,10 @@ test("a retained option cannot commit after a new search stops matching it", asy
   const field = await resourceField(d);
   await field.fill("Bet");
   await expect(d.page.getByRole("listbox").getByRole("option")).toHaveCount(2);
-  await field.press("ArrowDown");
   await holdRequests(d.app, ["resourceSuggestions"]);
   await field.fill("Gamma");
+  // Picked from the retained list after the edit, before Gamma's matches arrive.
+  await field.press("ArrowDown");
   await field.press("Enter");
   await waitForHeld(d.app);
   await expect(field).toHaveValue("Gamma");

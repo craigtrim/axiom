@@ -55,8 +55,11 @@ export function ResourceInput({
     skipBlur = useRef(false),
     focused = useRef(false),
     consumer = useRef(crypto.randomUUID()).current;
-  const currentSelection = useRef({ items, active });
-  currentSelection.current = { items, active };
+  // craigtrim/axiom#35: the typed text is the first option, ahead of every match.
+  const textOption = !!useText && text.trim() !== "",
+    offset = textOption ? 1 : 0;
+  const currentSelection = useRef({ items, active, offset });
+  currentSelection.current = { items, active, offset };
   const omitted = JSON.stringify(exclude);
   const scope = JSON.stringify([
     s.datasetEpoch,
@@ -115,17 +118,17 @@ export function ResourceInput({
         (values) => {
           if (latest.current !== key) return;
           const selection = currentSelection.current;
-          const iri = selection.items[selection.active]?.iri;
-          const literal =
-            !!useText && selection.active === selection.items.length;
-          const nextActive = literal
-            ? values.length
-            : iri
-              ? values.findIndex((item) => item.iri === iri)
-              : -1;
+          const iri = selection.items[selection.active - selection.offset]?.iri;
+          const literal = selection.offset === 1 && selection.active === 0;
+          const index = iri ? values.findIndex((item) => item.iri === iri) : -1;
+          const nextActive = literal ? 0 : index >= 0 ? index + offset : -1;
           setActive(nextActive);
           setItems(values);
-          currentSelection.current = { items: values, active: nextActive };
+          currentSelection.current = {
+            items: values,
+            active: nextActive,
+            offset,
+          };
           settled.current = key;
           setError((previous) =>
             previous === "Search unavailable. Try again." ? "" : previous,
@@ -309,11 +312,15 @@ export function ResourceInput({
         onFocus={(e) => {
           focused.current = true;
           skipBlur.current = false;
+          // A highlight from an earlier visit could now name another row.
+          setActive(-1);
           setOpen(true);
           e.currentTarget.select();
         }}
         onChange={(e) => {
           setText(e.target.value);
+          // A keystroke drops any highlight, so Enter keeps the typed text.
+          setActive(-1);
           setOpen(true);
         }}
         onBlur={() => {
@@ -328,11 +335,11 @@ export function ResourceInput({
             e.preventDefault();
             setOpen(true);
             setActive((i) =>
-              items.length + (useText ? 1 : 0)
+              items.length + offset
                 ? Math.max(
                     0,
                     Math.min(
-                      items.length - 1 + (useText ? 1 : 0),
+                      items.length - 1 + offset,
                       i + (e.key === "ArrowDown" ? 1 : -1),
                     ),
                   )
@@ -346,15 +353,16 @@ export function ResourceInput({
             ++intent.current;
             pending.current = undefined;
             setText(shown);
+            setActive(-1);
             setError("");
             setOpen(false);
             input.current?.blur();
           }
           if (e.key === "Enter") {
             e.preventDefault();
-            if (open && active >= 0 && items[active])
-              chooseMatch(items[active].iri);
-            else if (open && active === items.length && useText) chooseText();
+            if (open && textOption && active === 0) chooseText();
+            else if (open && active >= offset && items[active - offset])
+              chooseMatch(items[active - offset].iri);
             else commit();
           }
         }}
@@ -373,17 +381,31 @@ export function ResourceInput({
             className="resource-matches"
             style={position}
           >
+            {/* Hover only shades a row; Enter acts on the keyboard highlight. */}
+            {textOption && (
+              <div
+                id={id + "-0"}
+                role="option"
+                aria-selected={active === 0}
+                className="resource-text-option"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={chooseText}
+                title={text}
+              >
+                <span>“{text}”</span>
+                <small>Store a text value</small>
+              </div>
+            )}
             {items.map((item, i) => (
               <div
-                id={id + "-" + i}
+                id={id + "-" + (i + offset)}
                 key={item.iri}
                 role="option"
-                aria-selected={active === i}
+                aria-selected={active === i + offset}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                onMouseEnter={() => setActive(i)}
                 onClick={() => chooseMatch(item.iri)}
                 title={item.iri}
               >
@@ -393,20 +415,7 @@ export function ResourceInput({
                 </small>
               </div>
             ))}
-            {useText && (
-              <div
-                id={id + "-" + items.length}
-                role="option"
-                aria-selected={active === items.length}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActive(items.length)}
-                onClick={chooseText}
-              >
-                <span>Use text “{text}”</span>
-                <small>Store a text value</small>
-              </div>
-            )}
-            {!items.length && !useText && (
+            {!items.length && !textOption && (
               <div className="muted">Type a name or IRI to find matches.</div>
             )}
           </div>,
