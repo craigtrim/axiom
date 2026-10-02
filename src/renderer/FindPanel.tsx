@@ -361,12 +361,15 @@ export function FindPanel() {
           pager: measure(".find-pagination"),
           inspector: measure(".find-inspector"),
         };
-        let needed = sizes.header + sizes.pager + sizes.inspector + 8;
-        for (const name of ["header", "pager", "inspector"] as const) {
+        // Selection must not withdraw a header or pager and shift the results.
+        // Fit those first, then show the inspector only in the remaining space.
+        let needed = sizes.header + sizes.pager + 8;
+        for (const name of ["header", "pager"] as const) {
           if (needed <= available) break;
           next[name] = false;
           needed -= sizes[name];
         }
+        next.inspector = needed + sizes.inspector <= available;
       }
       setChrome((old) =>
         old.header === next.header &&
@@ -389,7 +392,7 @@ export function FindPanel() {
     }
     update();
     return () => observer.disconnect();
-  }, [layout.width, layout.height, layout.mode, data]);
+  }, [layout.width, layout.height, layout.mode, data, !!active]);
   const focusRow = (index: number) => {
     if (!ready || !rows[index]) {
       root.current?.querySelector<HTMLElement>(".find-results-scroll")?.focus();
@@ -1397,14 +1400,14 @@ export function FindPanel() {
           )}
         </div>
       </div>
-      <section
-        className="find-inspector"
-        aria-label="Selected entity"
-        data-withdrawn={!chrome.inspector}
-        inert={!chrome.inspector || undefined}
-        aria-hidden={!chrome.inspector || undefined}
-      >
-        {active ? (
+      {active && (
+        <section
+          className="find-inspector"
+          aria-label="Selected entity"
+          data-withdrawn={!chrome.inspector}
+          inert={!chrome.inspector || undefined}
+          aria-hidden={!chrome.inspector || undefined}
+        >
           <p
             title={`${active.name} · ${kindLabel(active.kind)} · ${active.iri} · ${active.path ?? "no parent recorded"} · ${active.aliases?.join(", ") || "none recorded"} · ${active.description || "none recorded"}`}
           >
@@ -1417,10 +1420,8 @@ export function FindPanel() {
             {active.aliases?.join(", ") || "none recorded"} ·{" "}
             {active.description || "none recorded"}
           </p>
-        ) : (
-          "Select a result to inspect it."
-        )}
-      </section>
+        </section>
+      )}
       <div className="find-store" hidden={layout.compact}>
         <span>
           {`${snapshot.classCount.toLocaleString()} classes · ${snapshot.individualCount.toLocaleString()} individuals · ${snapshot.tripleCount.toLocaleString()} triples`}

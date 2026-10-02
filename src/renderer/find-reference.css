@@ -1249,6 +1249,9 @@
   .find-results-scroll {
     overflow-anchor: none;
   }
+  .find-results-scroll:has(.find-results) {
+    scrollbar-gutter: stable;
+  }
   .find-result-name {
     border: 0;
     padding: 0;

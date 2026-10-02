@@ -125,7 +125,7 @@ test("blank query browses with permanent columns, denominator and explicit inspe
   await expect(pane().locator(".find-summary")).toHaveText(
     /\d+ matches of \d+ entities/,
   );
-  await expect(pane()).toContainText("Select a result to inspect it.");
+  await expect(pane().locator(".find-inspector")).toHaveCount(0);
   await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Names only", exact: true }).click();
   await pane().getByRole("button", { name: "More", exact: true }).click();
@@ -143,8 +143,11 @@ test("blank query browses with permanent columns, denominator and explicit inspe
   await row.press("Space");
   await expect(row).toHaveAttribute("data-selected", "true");
   const inspector = pane().getByRole("region", { name: "Selected entity" });
+  await expect(inspector).toBeVisible();
   await expect(inspector).toContainText("no parent recorded");
   await expect(inspector).toContainText("none recorded");
+  await query().fill("No matching entity");
+  await expect(pane().locator(".find-inspector")).toHaveCount(0);
 });
 
 test("unchecked field counts predict remedies and draft survives widening and narrowing", async () => {
