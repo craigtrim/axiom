@@ -2,6 +2,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+// craigtrim/axiom#40: the one runtime version Text Analysis accepts.
+export const MUTATOC_VERSION = "0.4.0";
+
 export class MutatocError extends Error {
   constructor(
     message: string,
@@ -26,7 +29,7 @@ export function mutatocExecutable(
           path.join(appPath, "vendor", "mutatoc", executable),
           path.resolve(
             appPath,
-            "../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.1",
+            `../mutatos/mutatoc/dist/mutatoc-win-x64-${MUTATOC_VERSION}`,
             executable,
           ),
         ];

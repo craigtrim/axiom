@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
-import { MutatocClient, MutatocError } from "./mutatoc-client";
+// craigtrim/axiom#40: the runtime version lives with the client, not tokenizer data.
+import { MUTATOC_VERSION, MutatocClient, MutatocError } from "./mutatoc-client";
 import { textEntities, type MutatocToken } from "./text-analysis-spans";
-import tokenizer from "./data/mutatoc-tokenizer.json";
 import {
   MAX_ANALYSIS_TEXT,
   type TextAnalysisContext,
@@ -91,9 +91,9 @@ export class TextAnalysisService {
         return this.superseded(input);
       if (!this.verified) {
         const version = await this.client.request<string>({ op: "version" });
-        if (version !== tokenizer.version)
+        if (version !== MUTATOC_VERSION)
           throw Error(
-            `Text Analysis requires Mutatoc ${tokenizer.version}; the configured runtime reports ${version}. Install the matching runtime.`,
+            `Text Analysis requires Mutatoc ${MUTATOC_VERSION}; the configured runtime reports ${version}. Install the matching runtime.`,
           );
         this.verified = true;
       }
