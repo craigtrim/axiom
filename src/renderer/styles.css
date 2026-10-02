@@ -3321,9 +3321,7 @@ a {
   flex: 1;
   min-width: 0;
 }
-.statement-grid .statement-reference {
-  color: var(--accent);
-}
+/* craigtrim/axiom#37: a value cell ends at its remove control, with no reference button. */
 .statement-grid .statement-remove {
   color: var(--text-secondary);
   opacity: 0;

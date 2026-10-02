@@ -5,7 +5,7 @@ import {
   usePredicateOptions,
   rememberPredicate,
 } from "./PredicateSelect";
-import { useSnapshot, savePanel } from "./client";
+import { useSnapshot } from "./client";
 import { displayName, LABEL, COMMENT } from "../domain/rdf-model";
 import {
   NS,
@@ -14,7 +14,6 @@ import {
   type Triple,
   type OntologyInfo,
 } from "../domain/model";
-import { editEntity } from "./authoring";
 import { ResourceInput } from "./ResourceInput";
 import { compactIri, entityNamespace } from "../shared/terms";
 import { groupStatements } from "./statement-groups";
@@ -119,10 +118,6 @@ export function StatementGrid({
       );
     });
     replace(next);
-  };
-  const open = (iri: string) => {
-    savePanel("details.source.open", true, false);
-    editEntity(iri);
   };
   const expression = (iri: string) => {
     const e = entities.get(iri);
@@ -346,17 +341,7 @@ export function StatementGrid({
                         }
                       />
                     )}
-                    {!locked && !t.object.literal && (
-                      <button
-                        className="statement-reference"
-                        aria-label={"Open details for value " + number}
-                        title="Details and source"
-                        disabled={!t.object.value}
-                        onClick={() => open(t.object.value)}
-                      >
-                        ⋯
-                      </button>
-                    )}
+                    {/* craigtrim/axiom#37: no per-value open button; Ancestry and Source cover navigation. */}
                   </div>
                 );
               }}

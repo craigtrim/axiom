@@ -398,8 +398,8 @@ test("predicate dropdown lists only real predicates and remembers the last choic
 });
 test("automatic saves do not take selection back from a resource opened in Details", async () => {
   await comment().fill("Keep this edit while navigating");
-  await row(NS.rdfs + "subClassOf")
-    .getByRole("button", { name: /Open details/ })
+  await details()
+    .getByRole("button", { name: "View Beta details", exact: true })
     .click();
   await expect(label()).toHaveValue("Beta");
   await expect.poll(async () => (await state()).selected).toBe(base + "Beta");
@@ -576,17 +576,32 @@ test("indexed parent choices edit ordinary subclass statements and support Escap
   );
 });
 
-test("one ellipsis opens only the referenced entity and its scoped source", async () => {
+// craigtrim/axiom#37: resource rows have no per-value open button.
+test("resource rows have no open button and Ancestry opens the parent's scoped source", async () => {
   await expect(
-    details().getByRole("button", { name: /Statement options/ }),
+    details().getByRole("button", { name: /Statement options|Open details/ }),
   ).toHaveCount(0);
-  const action = row(NS.rdfs + "subClassOf").getByRole("button", {
-    name: /Open details/,
-  });
-  await expect(action).toHaveText("⋯");
-  await action.click();
+  await expect(details().locator("tbody button", { hasText: "⋯" })).toHaveCount(
+    0,
+  );
+  for (const predicate of [NS.rdfs + "subClassOf", NS.rdfs + "seeAlso"]) {
+    await expect(
+      row(predicate).getByRole("combobox", { name: /Value/ }),
+    ).toBeVisible();
+    await expect(
+      row(predicate).locator(".statement-value-field button"),
+    ).toHaveCount(0);
+  }
+  await details()
+    .getByRole("button", { name: "View Beta details", exact: true })
+    .click();
   await expect(label()).toHaveValue("Beta");
-  await expect(source()).toBeVisible();
+  expect(
+    await details()
+      .locator(".entity-source")
+      .evaluate((el) => (el as HTMLDetailsElement).open),
+  ).toBe(false);
+  await openSource();
   await expect.poll(sourceText).toMatch(/:Beta/);
   await expect.poll(sourceText).not.toMatch(/:Alpha|:Combined|:Gamma/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -594,7 +609,7 @@ test("one ellipsis opens only the referenced entity and its scoped source", asyn
   await expect(label()).toHaveValue("Alpha");
 });
 
-test("equivalence keeps its stronger meaning and anonymous Details has an editable local snippet", async () => {
+test("equivalence keeps its stronger meaning and its expression is editable in the owning Source", async () => {
   await importText(
     ttl +
       "\n<" +
@@ -619,23 +634,21 @@ test("equivalence keeps its stronger meaning and anonymous Details has an editab
   await menu("view.details");
   const equivalent = row(NS.owl + "equivalentClass");
   await expect(equivalent).toContainText("All of: Beta, Gamma");
-  await equivalent.getByRole("button", { name: /Open details/ }).click();
-  await expect(source()).toBeVisible();
+  await expect(equivalent.locator(".statement-value-field button")).toHaveCount(
+    0,
+  );
+  await openSource();
   await expect
     .poll(sourceText)
     .toMatch(/owl:intersectionOf\s*\(:Beta :Gamma\)/);
-  await expect.poll(sourceText).not.toMatch(/:Alpha|:Combined|:Defined/);
-  await expect(
-    details().getByRole("button", { name: "View source", exact: true }),
-  ).toHaveCount(0);
+  await expect.poll(sourceText).not.toMatch(/:Alpha|:Combined/);
   await setSource(
     (await sourceText()).replace("(:Beta :Gamma)", "(:Beta :Alpha)"),
   );
   await details()
     .getByRole("button", { name: "Save source", exact: true })
     .click();
-  await expect(details()).toContainText("Alpha");
-  await details().getByRole("button", { name: "Back", exact: true }).click();
+  await expect(label()).toHaveValue("Defined");
   await expect(row(NS.owl + "equivalentClass")).toContainText(
     "All of: Beta, Alpha",
   );

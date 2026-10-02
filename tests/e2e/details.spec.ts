@@ -559,13 +559,10 @@ test("Details identifies intersection branches and edits members against the ori
 
 const backButton = (p = page) =>
   details(p).getByRole("button", { name: "Back", exact: true });
-const openValue = (iri: string, p = page) =>
-  details(p)
-    .locator("tr")
-    .filter({ has: p.locator('input[title="' + iri + '"]') })
-    .getByRole("button", { name: /^Open details for value / });
+// craigtrim/axiom#37: statement rows no longer open their values, so these steps select entities.
+const openEntity = (iri: string) => request("select", { iri });
 
-test("Details Back retraces resource links and preserves text editing and drafts", async () => {
+test("Details Back retraces selections and preserves text editing and drafts", async () => {
   const ids = await prepareEdges();
   await request("select", { iri: ids.a });
   await menu("view.details");
@@ -573,7 +570,7 @@ test("Details Back retraces resource links and preserves text editing and drafts
   await details()
     .getByRole("textbox", { name: "Entity comment", exact: true })
     .fill("Alpha draft");
-  await openValue(ids.b).click();
+  await openEntity(ids.b);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   await expect(backButton()).toHaveAttribute(
     "title",
@@ -589,7 +586,7 @@ test("Details Back retraces resource links and preserves text editing and drafts
   await expect(label).toHaveValue("Bet");
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   await label.fill("Beta");
-  await openValue(ids.c).click();
+  await openEntity(ids.c);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.c);
   await backButton().click();
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
@@ -601,7 +598,7 @@ test("Details Back retraces resource links and preserves text editing and drafts
   await expect(backButton()).toBeDisabled();
   await page.keyboard.press("Backspace");
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.a);
-  await openValue(ids.b).click();
+  await openEntity(ids.b);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   // A native predicate select owns its keys instead of navigating Details.
   await details()
