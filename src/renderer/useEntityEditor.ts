@@ -15,6 +15,7 @@ import {
   rememberEditorDraft,
   discardEditorDraft,
   applyEditorDraft,
+  isEditorSaving,
 } from "./editor-drafts";
 
 // Both entity views edit the same retained draft. Register changes synchronously
@@ -46,7 +47,9 @@ export function useEntityEditor(iri: string, automatic = false) {
     const pending = getEditorDraft(iri, s.datasetEpoch);
     if (
       pending &&
-      (pending.loaded.version === state?.version || editorDraftChanged(pending))
+      (pending.loaded.version === state?.version ||
+        editorDraftChanged(pending) ||
+        isEditorSaving(iri, s.datasetEpoch))
     ) {
       accept(pending);
       return;
@@ -60,7 +63,8 @@ export function useEntityEditor(iri: string, automatic = false) {
         return;
       const retained = getEditorDraft(iri, s.datasetEpoch);
       const next =
-        retained && editorDraftChanged(retained)
+        retained &&
+        (editorDraftChanged(retained) || isEditorSaving(iri, s.datasetEpoch))
           ? retained
           : normalize({
               iri,
@@ -156,7 +160,11 @@ export function useEntityEditor(iri: string, automatic = false) {
       )
     )
       return;
-    if (!editorDraftChanged(pending)) return;
+    if (
+      !editorDraftChanged(pending) &&
+      !isEditorSaving(pending.iri, pending.loaded.datasetEpoch)
+    )
+      return;
     setSaving(true);
     setError("");
     try {

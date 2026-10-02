@@ -9,6 +9,7 @@ import type { Triple } from "../domain/model";
 import type { DocumentData, EditorDraft } from "../shared/editor-state";
 export type { DocumentData, EditorDraft } from "../shared/editor-state";
 const drafts = new Map<string, EditorDraft>();
+const saving = new Map<string, Promise<string>>();
 export const editorDraftSnapshot = () => structuredClone([...drafts.values()]);
 const documentDrafts = new Map<string, { discard(): void }>();
 export function rememberDocumentDraft(
@@ -21,6 +22,8 @@ export function rememberDocumentDraft(
 }
 let epoch: number | undefined;
 const key = (iri: string, e: number) => e + ":" + iri;
+export const isEditorSaving = (iri: string, e: number) =>
+  saving.has(key(iri, e));
 function notify() {
   window.axiom.editors.dirty(drafts.size + documentDrafts.size);
   window.dispatchEvent(new Event("axiom-editor-drafts"));
@@ -39,6 +42,7 @@ export const getEditorDraft = (iri: string, e: number) =>
 export function rememberEditorDraft(d: EditorDraft) {
   const k = key(d.iri, d.loaded.datasetEpoch);
   if (
+    !isEditorSaving(d.iri, d.loaded.datasetEpoch) &&
     d.nextIri === d.iri &&
     JSON.stringify(d.statements) === JSON.stringify(d.loaded.statements)
   )
@@ -87,7 +91,6 @@ export function entityRetargeted(oldIri: string, iri: string, epoch: number) {
   );
   notify();
 }
-const saving = new Map<string, Promise<string>>();
 export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   const k = key(d.iri, d.loaded.datasetEpoch);
   const previous = saving.get(k);
@@ -104,7 +107,12 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   saving.set(k, operation);
   void operation
     .finally(() => {
-      if (saving.get(k) === operation) saving.delete(k);
+      if (saving.get(k) !== operation) return;
+      saving.delete(k);
+      // A reversal must survive until the pending save settles. If that save
+      // failed, the reversal may already match the unchanged document.
+      const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
+      if (latest && !editorDraftChanged(latest)) rememberEditorDraft(latest);
     })
     .catch(() => undefined);
   return operation;

@@ -14,6 +14,7 @@ import {
   applyEditorDraft,
   editorDraftSnapshot,
   rememberDocumentDraft,
+  isEditorSaving,
 } from "../../src/renderer/editor-drafts";
 const iri = "urn:MilitaryEngineering";
 const parent = (value: string): Triple => ({
@@ -63,6 +64,96 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("retained editor drafts during asynchronous saves", () => {
+  it.each([
+    ["addition", [note("Only")], [note("Only"), note("Pending")]],
+    ["deletion", [note("Only"), note("Pending")], [note("Only")]],
+    ["edit", [note("Before")], [note("After")]],
+  ] as const)(
+    "saves a reversed %s after its pending save completes",
+    async (_name, base, values) => {
+      const d = draft([...base], [...values]);
+      rememberEditorDraft(d);
+      const reply = deferred<{ iri: string; document: DocumentData }>();
+      const saved = { ...document(d.statements), version: 2 };
+      mocks.request.mockReturnValueOnce(reply.promise).mockResolvedValue({
+        iri,
+        document: { ...document([...base]), version: 3 },
+      });
+      const first = applyEditorDraft(d, true);
+      await Promise.resolve();
+      expect(isEditorSaving(iri, epoch)).toBe(true);
+      const reversal = draft([...base], [...base]);
+      rememberEditorDraft(reversal);
+      expect(getEditorDraft(iri, epoch)).toEqual(reversal);
+      const second = applyEditorDraft(reversal, true);
+      reply.resolve({ iri, document: saved });
+      await Promise.all([first, second]);
+      expect(mocks.request).toHaveBeenCalledTimes(2);
+      expect(mocks.request).toHaveBeenLastCalledWith(
+        "updateEntity",
+        expect.objectContaining({
+          statements: base,
+          original: values,
+          version: 2,
+        }),
+      );
+      expect(editorDraftSnapshot()).toEqual([]);
+      expect(isEditorSaving(iri, epoch)).toBe(false);
+    },
+  );
+  it("keeps a concurrently added parent when reverting an in-flight edit", async () => {
+    const base = [parent("urn:Science"), note("Before")];
+    const d = draft(base, [parent("urn:Science"), note("After")]);
+    rememberEditorDraft(d);
+    const reply = deferred<{ iri: string; document: DocumentData }>();
+    const saved = document([...d.statements, parent("urn:Engineering")]);
+    const expected = [
+      parent("urn:Science"),
+      parent("urn:Engineering"),
+      note("Before"),
+    ];
+    mocks.request
+      .mockReturnValueOnce(reply.promise)
+      .mockResolvedValue({ iri, document: document(expected) });
+    const first = applyEditorDraft(d, true);
+    await Promise.resolve();
+    const reversal = draft(base, base);
+    rememberEditorDraft(reversal);
+    const second = applyEditorDraft(reversal, true);
+    reply.resolve({ iri, document: saved });
+    await Promise.all([first, second]);
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      "updateEntity",
+      expect.objectContaining({
+        original: saved.statements,
+        statements: expected,
+      }),
+    );
+    expect(editorDraftSnapshot()).toEqual([]);
+  });
+  it.each([false, true])(
+    "clears an unchanged reversal after the first save fails (queued: %s)",
+    async (queued) => {
+      const base = [note("Before")];
+      const d = draft(base, [note("After")]);
+      rememberEditorDraft(d);
+      const reply = deferred<{ iri: string; document: DocumentData }>();
+      mocks.request.mockReturnValue(reply.promise);
+      const first = applyEditorDraft(d, true);
+      const failed = expect(first).rejects.toThrow("Save failed");
+      await Promise.resolve();
+      const reversal = draft(base, base);
+      rememberEditorDraft(reversal);
+      const second = queued ? applyEditorDraft(reversal, true) : undefined;
+      reply.reject(Error("Save failed"));
+      await failed;
+      if (second) await second;
+      expect(mocks.request).toHaveBeenCalledTimes(1);
+      expect(editorDraftSnapshot()).toEqual([]);
+      expect(isEditorSaving(iri, epoch)).toBe(false);
+      expect(window.axiom.editors.dirty).toHaveBeenLastCalledWith(0);
+    },
+  );
   it("sends the original statements to the worker for an atomic merge", async () => {
     const d = draft(
       [parent("urn:Science")],
