@@ -10,7 +10,7 @@ Start typing a name or IRI in a resource cell. Search matches label words, alter
 
 The domain worker maintains an inverted token index for the current dataset revision. Queries use the smallest matching postings list, return at most 24 choices, and do not scan the ontology for each keystroke. Broad searches have a candidate bound; another word narrows the search. The control waits 80 ms after typing and ignores outdated replies. Dataset changes and Undo invalidate the index.
 
-Each editable resource row has one ellipsis button that opens the referenced entity in the same Details tab and expands its Source. Back returns to the previous entity or edge. The former statement-options dialog has been removed. A remove button appears when an editable row is hovered or focused. Language, datatype, and statement graph metadata remain in the RDF and can be edited in Source.
+Resource rows have no per-value open button (#37). Ancestry cards open a class's ancestors, and the hierarchy, Find and the graph open any other entity. Back returns to the previous entity or edge. The former statement-options dialog has been removed. A remove button appears when an editable row is hovered or focused. Language, datatype, and statement graph metadata remain in the RDF and can be edited in Source.
 
 ## Parent classes
 
@@ -18,7 +18,7 @@ Add parent inserts a searchable class row. Add another parent to assign another 
 
 C being a subclass of both A and B is logically equivalent to C being a subclass of their intersection. It does not establish that C is equivalent to that intersection. Equivalence also asserts that every instance common to A and B belongs to C. This follows the intersection and class-axiom definitions in [OWL 2 Direct Semantics](https://www.w3.org/TR/owl2-direct-semantics/).
 
-Local label suggestions default to Add parents. An equivalent intersection definition requires explicitly choosing Equivalent to their intersection. Existing equivalence, union, nested, annotated, and malformed expressions retain their meaning and remain accessible through their own Details and Source.
+Local label suggestions default to Add parents. An equivalent intersection definition requires explicitly choosing Equivalent to their intersection. Existing equivalence, union, nested, annotated, and malformed expressions retain their meaning. Their triples appear in the owning entity's Source, where they can be edited.
 
 ## Source snippets
 

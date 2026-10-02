@@ -20,13 +20,13 @@ Viewing, arranging, and exporting the graph preserves the asserted RDF. Fit, ima
 
 ## Details parent rows
 
-Simple anonymous subclass intersections are normalized to ordinary rdfs:subClassOf statements when the schema is rebuilt. Details presents one searchable row per named parent. Equivalence and union retain their distinct meanings. The row ellipsis opens the referenced entity and its scoped Source. See [Details editing](details-editing.md).
+Simple anonymous subclass intersections are normalized to ordinary rdfs:subClassOf statements when the schema is rebuilt. Details presents one searchable row per named parent. Equivalence and union retain their distinct meanings. Ancestry cards open the named parents (#37). See [Details editing](details-editing.md).
 
 ## Local subclass suggestions
 
 **Suggest Sub Classes** searches for shorter existing parent names within the selected class name. Alpha Beta Gamma can suggest Alpha Gamma and Beta Gamma. The operation creates ordinary `Alpha_Beta_Gamma rdfs:subClassOf Alpha_Gamma, Beta_Gamma` statements after review.
 
-The local matcher can omit words in the middle while preserving their order. It makes no model or network request and creates no intersection or equivalence axioms. Existing intersection definitions remain available through Details and Source.
+The local matcher can omit words in the middle while preserving their order. It makes no model or network request and creates no intersection or equivalence axioms. Existing intersection definitions remain visible in Details and editable in the owning entity's Source.
 
 ## Parsing limits and verification
 
