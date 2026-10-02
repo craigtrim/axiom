@@ -6,6 +6,7 @@ import { expect, it } from "vitest";
 import path from "node:path";
 import { TextAnalysisService } from "../../src/main/text-analysis-service";
 import {
+  MUTATOC_VERSION,
   mutatocExecutable,
   MutatocClient,
 } from "../../src/main/mutatoc-client";
@@ -13,7 +14,6 @@ import {
   textEntities,
   type MutatocToken,
 } from "../../src/main/text-analysis-spans";
-import dictionaries from "../../src/main/data/mutatoc-tokenizer.json";
 let executable = "";
 try {
   executable = mutatocExecutable(process.cwd(), "", false);
@@ -149,80 +149,67 @@ it.skipIf(!available)(
     }
   },
 );
+// craigtrim/axiom#40: Mutatoc 0.3.1 rewrote these words when they ended the
+// input, and Axiom's old position replay cleared every highlight on 0.4.0.
+const formerSubstitutions = [
+  ..."can't could've everyone's he'd he'll he's here's how've i'll i'm it's let's she'd she's should've that's the're there's they'd they'll they're they've wander'd we'd we'll we're what're what's where's who's why're won't would've y'all you'd you're you've".split(
+    " ",
+  ),
+  ..."abbr. abr. acad. adj. adm. aka. approx. appt. apt. assoc. ave. bibliog. biol. blvd. bot. cap. chap. chem. co. colloq. com. conf. cont. cp. cr. crit. cyn. def. dept. diff. dr. e.g. ea. est. etc. gen. impt. ln. min. misc. mr. mrs. nec. no. rd. re. sim. st. tel. temp. vet. vs.".split(
+    " ",
+  ),
+];
 it.skipIf(!available)(
-  "maps all pinned native tokenizer substitutions without shifting later matches",
+  "keeps exact highlights around spacing, quotes and every word the 0.3.1 tokenizer rewrote",
   async () => {
     const client = new MutatocClient(executable);
     try {
-      expect(await client.request({ op: "version" })).toBe(
-        dictionaries.version,
-      );
+      expect(await client.request({ op: "version" })).toBe(MUTATOC_VERSION);
+      await client.request({
+        op: "load",
+        turtle,
+        name: "offsets",
+        class_based: true,
+        interface: "data",
+      });
       const texts = [
         "Dog  Cat",
         "Dog\r\nCat",
         "😀 Dog café Cat",
-        "Dog's cat",
         "'Dog' cat",
         '"Dog" cat',
-        "can't",
-        "can't ",
-        "Dog apt.",
-        "Dog approx.",
-        "Dog dr.",
-        "U.S.A. Dog",
+        "‘Dog’ cat",
         "Dog... Cat",
         "Dog\tCat",
-        "Dog  ",
-        "  Dog",
+        "  Dog Cat  ",
         "Dog — Cat",
         "Dog\n\nCat",
-        ...Object.keys(dictionaries.contractions).map((w) => "Dog " + w),
-        ...Object.keys(dictionaries.abbreviations).map((w) => "Dog " + w),
+        "😀😀 Dog\u00a0\u2003Cat",
+        ...formerSubstitutions.flatMap((word) => [
+          `😀 Dog ${word} Cat`,
+          `😀 Dog and Cat ${word}`,
+          `😀 Dog and Cat\n${word}`,
+        ]),
       ];
       for (const text of texts) {
-        const tokens = await client.request<MutatocToken[]>({
-          op: "tokenize",
-          text,
-        });
-        expect(
-          () => textEntities(text, tokens, dictionaries),
-          text,
-        ).not.toThrow();
-      }
-      await client.request({
-        op: "load",
-        turtle,
-        name: "substitutions",
-        class_based: true,
-        interface: "data",
-      });
-      for (const word of [
-        ...Object.keys(dictionaries.contractions),
-        ...Object.keys(dictionaries.abbreviations),
-      ]) {
-        const text = `😀 Dog ${word} Cat`;
         const parsed = await client.request<{ tokens: MutatocToken[] }>({
           op: "parse",
           text,
         });
-        expect(textEntities(text, parsed.tokens), text).toEqual([
-          {
-            start: text.indexOf("Dog"),
-            end: text.indexOf("Dog") + 3,
-            key: "ontology:dog",
-            label: "dog",
-            source: "ontology",
-            method: "exact",
-          },
-          {
-            start: text.indexOf("Cat"),
-            end: text.indexOf("Cat") + 3,
-            key: "ontology:cat",
-            label: "cat",
-            source: "ontology",
-            method: "exact",
-          },
-        ]);
+        expect(
+          textEntities(text, parsed.tokens).map(({ start, end, label }) => [
+            start,
+            end,
+            label,
+          ]),
+          text,
+        ).toEqual(
+          [...text.matchAll(/Dog|Cat|cat/g)].map((m) => [
+            m.index!,
+            m.index! + 3,
+            m[0].toLowerCase(),
+          ]),
+        );
       }
     } finally {
       client.close();

@@ -15,15 +15,19 @@ import type {
   TextAnalysisResult,
 } from "../../src/shared/text-analysis";
 import { readPreferences } from "../../src/shared/preferences";
-const dictionaries = {
-  contractions: { "can't": ["can", "not"] },
-  abbreviations: { "apt.": "apartment" },
-};
-const leaf = (text: string, ent = ""): MutatocToken => ({ text, ent });
-const match = (canon: string, ...tokens: MutatocToken[]): MutatocToken => ({
-  text: tokens.map((t) => t.text).join(""),
-  swaps: { canon, type: "exact", tokens },
+// craigtrim/axiom#40: tokens carry Mutatoc 0.4.0 code point x/y offsets.
+const leaf = (text: string, x: number, y: number): MutatocToken => ({
+  text,
+  x,
+  y,
 });
+const match = (
+  canon: string,
+  text: string,
+  x: number,
+  y: number,
+  ...tokens: MutatocToken[]
+): MutatocToken => ({ text, x, y, swaps: { canon, type: "exact", tokens } });
 const input = (text: string, version = 1): TextAnalysisInput => ({
   text,
   datasetEpoch: 1,
@@ -35,128 +39,109 @@ const result = (i: TextAnalysisInput): TextAnalysisResult => ({
   canonical: i.text,
   milliseconds: 1,
 });
+const ranges = (text: string, tokens: MutatocToken[]) =>
+  textEntities(text, tokens).map((e) => [
+    e.start,
+    e.end,
+    text.slice(e.start, e.end),
+  ]);
 afterEach(() => vi.useRealTimers());
 
 describe("original text highlighting", () => {
-  it("maps literal periods and tildes without substituting source characters", () => {
+  it("maps literal periods and tildes from native code point offsets", () => {
     const text = "😀 U.S. History to 1865 ~~ U.S.A.";
-    const tokens = [
-      leaf("😀 "),
-      match(
-        "course",
-        leaf("U"),
-        leaf("."),
-        leaf("S"),
-        leaf(". "),
-        leaf("History "),
-        leaf("to "),
-        leaf("1865"),
-      ),
-      leaf(" ~"),
-      leaf("~ "),
-      match(
-        "country",
-        leaf("U"),
-        leaf("."),
-        leaf("S"),
-        leaf("."),
-        leaf("A"),
-        leaf("."),
-      ),
-    ];
     expect(
-      textEntities(text, tokens, dictionaries).map((e) => [
-        e.start,
-        e.end,
-        text.slice(e.start, e.end),
+      ranges(text, [
+        leaf("😀 ", 0, 1),
+        match("course", "U.S. History to 1865", 2, 22),
+        leaf(" ~", 22, 24),
+        leaf("~ ", 24, 25),
+        match("country", "U.S.A.", 26, 32),
       ]),
     ).toEqual([
       [3, 23, "U.S. History to 1865"],
       [27, 33, "U.S.A."],
     ]);
   });
-  it("retains a native abbreviation's literal period", () => {
+  it("converts code points to UTF-16 through emoji, repeated spaces, tabs and line breaks", () => {
+    const text = "😀😀  Dog\n\tCat Dog";
     expect(
-      textEntities("dr.", [match("doctor", leaf("dr"), leaf("."))], {
-        contractions: {},
-        abbreviations: { "dr.": "dr." },
-      })[0],
-    ).toMatchObject({ start: 0, end: 3 });
-  });
-  it("keeps UTF-16 positions through emoji, repeated spaces, tabs and line breaks", () => {
-    const text = "😀  Dog\n\tCat Dog";
-    const tokens = [
-      leaf("😀 "),
-      match("dog", leaf("Dog")),
-      leaf(" \t "),
-      match("cat", leaf("Cat ")),
-      match("dog", leaf("Dog")),
-    ];
-    const entities = textEntities(text, tokens, dictionaries);
-    expect(
-      entities.map((e) => [e.start, e.end, text.slice(e.start, e.end)]),
+      ranges(text, [
+        leaf("😀", 0, 1),
+        leaf("😀 ", 1, 2),
+        match("dog", "Dog", 4, 7),
+        match("cat", "Cat", 9, 12),
+        match("dog", "Dog", 13, 16),
+      ]),
     ).toEqual([
-      [4, 7, "Dog"],
-      [9, 12, "Cat"],
-      [13, 16, "Dog"],
+      [6, 9, "Dog"],
+      [11, 14, "Cat"],
+      [15, 18, "Dog"],
     ]);
   });
-  it("uses nested swap leaves rather than canonical text for multiword matches", () => {
+  it("uses a nested match's own range rather than its children or canonical text", () => {
     const text = "the big\ncat";
-    const tokens = [
-      leaf("the "),
-      match("lion", match("big", leaf("big ")), leaf("cat")),
-    ];
-    const [entity] = textEntities(text, tokens, dictionaries);
-    expect(text.slice(entity.start, entity.end)).toBe("big\ncat");
-    expect(entity.label).toBe("lion");
+    expect(
+      ranges(text, [
+        leaf("the ", 0, 3),
+        match(
+          "lion",
+          "big\ncat",
+          4,
+          11,
+          match("big", "big", 4, 7),
+          leaf("\n", 7, 7),
+          leaf("cat", 8, 11),
+        ),
+      ]),
+    ).toEqual([[4, 11, "big\ncat"]]);
   });
-  it("maps expanded final abbreviations and contractions to their complete source", () => {
+  it("keeps every highlight when the text ends in an abbreviation or contraction", () => {
     expect(
-      textEntities(
-        "apt.",
-        [match("apartment", leaf("apartment"))],
-        dictionaries,
-      )[0],
-    ).toMatchObject({ start: 0, end: 4 });
-    const [entity] = textEntities(
-      "can't",
-      [match("cannot", leaf("can "), leaf("not"))],
-      dictionaries,
-    );
-    expect(entity).toMatchObject({ start: 0, end: 5 });
+      ranges("Dog in the dept.", [
+        match("dog", "Dog", 0, 3),
+        leaf("in ", 4, 6),
+        leaf("the ", 7, 10),
+        leaf("dept", 11, 15),
+        leaf(".", 15, 16),
+      ]),
+    ).toEqual([[0, 3, "Dog"]]);
     expect(
-      textEntities("can't ", [match("cannot", leaf("can't "))], dictionaries)[0]
-        .end,
-    ).toBe(5);
+      ranges("Dog, I can't", [
+        match("dog", "Dog", 0, 3),
+        leaf(", ", 3, 4),
+        leaf("I ", 5, 6),
+        leaf("can't", 7, 12),
+      ]),
+    ).toEqual([[0, 3, "Dog"]]);
+    expect(
+      ranges("dr.", [match("doctor", "dr.", 0, 3, leaf("dr", 0, 2))]),
+    ).toEqual([[0, 3, "dr."]]);
   });
-  it("produces only ontology matches even when supplied tokens contain legacy model metadata", () => {
-    const text = "Alice Smith saw Dog in New York";
-    const entities = textEntities(
-      text,
-      [
-        leaf("Alice ", "PERSON"),
-        leaf("Smith ", "PERSON"),
-        leaf("saw "),
-        match("dog", leaf("Dog ", "PERSON")),
-        leaf("in "),
-        leaf("New ", "GPE"),
-        leaf("York", "GPE"),
-      ],
-      dictionaries,
-    );
+  it("highlights a curly apostrophe exactly as typed", () => {
     expect(
-      entities.map((e) => [e.source, e.label, text.slice(e.start, e.end)]),
+      ranges("Driver’s Ed", [match("drivers_ed", "Driver’s Ed", 0, 11)]),
+    ).toEqual([[0, 11, "Driver’s Ed"]]);
+  });
+  it("produces only ontology matches even when unmatched tokens carry labels", () => {
+    const text = "Alice saw Dog";
+    expect(
+      textEntities(text, [
+        { text: "Alice ", x: 0, y: 5, ner: "PERSON" },
+        leaf("saw ", 6, 9),
+        match("dog", "Dog", 10, 13),
+      ]).map((e) => [e.source, e.label, text.slice(e.start, e.end)]),
     ).toEqual([["ontology", "dog", "Dog"]]);
   });
-  it("rejects an unmappable token instead of highlighting a later duplicate", () => {
-    expect(() =>
-      textEntities(
-        "Dog cat Dog",
-        [leaf("cat "), match("dog", leaf("Dog"))],
-        dictionaries,
-      ),
-    ).toThrow(/mapped/);
+  it("rejects a match whose range does not slice its own text", () => {
+    for (const token of [
+      match("dog", "Dog", 4, 7),
+      match("dog", "Dog", 8, 12),
+      match("dog", "Dog", 3, 3),
+      match("dog", "Dog", 0.5, 3),
+      { ...match("dog", "Dog", 0, 3), x: undefined as unknown as number },
+    ])
+      expect(() => textEntities("Dog cat Dog", [token])).toThrow(/mapped/);
   });
   it("persists analysis text without allowing oversized saved values", () => {
     expect(
