@@ -3359,8 +3359,15 @@ a {
   padding: 6px 8px;
   cursor: pointer;
 }
+/* craigtrim/axiom#35: hover shades a row without moving the Enter target. */
+.resource-matches [role="option"]:hover {
+  background: var(--layer-hover);
+}
+.resource-matches .resource-text-option span {
+  color: var(--accent);
+}
 .resource-matches [role="option"][aria-selected="true"] {
-  background: var(--selection, #e1f0fa);
+  background: var(--selection, var(--item-hover));
 }
 .resource-matches span,
 .resource-matches small {
