@@ -23,9 +23,10 @@ const home =
     ? path.join(path.dirname(process.env.AXIOM_TEST_EXE), "resources/mutatoc")
     : undefined) ??
   process.env.AXIOM_MUTATOC_HOME ??
+  // craigtrim/axiom#40: highlights come from Mutatoc 0.4.0 source offsets.
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.3.1"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.4.0"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run native matching desktop tests.",
@@ -566,6 +567,37 @@ test("punctuated synonyms highlight whole phrases and navigate to their ontology
   }
   await enter("PE/PE");
   await expect(entitiesPane()).toContainText("No entities found.");
+});
+
+test("text ending in an abbreviation or contraction keeps its highlights and curly apostrophes match", async () => {
+  await page.evaluate(async (base) => {
+    const source = await window.axiom.request<
+      import("../../src/shared/source").SourceDocument
+    >("sourceDocument", { format: "turtle" });
+    await window.axiom.request("applySource", {
+      ...source,
+      text:
+        source.text +
+        `\n<${base}DriversEd> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Driver's Ed" .`,
+    });
+  }, base);
+  for (const text of [
+    "😀 Dog and a big cat in the dept.",
+    "😀 Dog and a big cat, I can't",
+  ]) {
+    await enter(text);
+    await expect(chip("lion")).toBeVisible({ timeout: 30000 });
+    await expect.poll(() => highlighted("dog")).toBe("Dog");
+    await expect.poll(() => highlighted("lion")).toBe("big cat");
+  }
+  await enter("Driver’s Ed starts after the dept.");
+  await expect(chip("driversed")).toBeVisible({ timeout: 30000 });
+  await expect.poll(() => highlighted("driversed")).toBe("Driver’s Ed");
+  await chip("driversed").click();
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    base + "DriversEd",
+  );
 });
 
 test("plus spans highlight intervening words and stop at the reference distance boundary", async () => {

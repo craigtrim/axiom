@@ -1,6 +1,6 @@
 # Text Analysis validation
 
-The current Mutatoc 0.3.1 upgrade is recorded in [verification](verification.md#mutatoc-031-upgrade-october-1-2026). Performance measurements from earlier versions are reported separately in [Text Analysis performance](text-analysis-performance.md).
+The current Mutatoc 0.4.0 upgrade is recorded in [verification](verification.md#mutatoc-040-upgrade-october-2-2026). The 0.3.1 upgrade it replaced is recorded in [verification](verification.md#mutatoc-031-upgrade-october-1-2026). Performance measurements from earlier versions are reported separately in [Text Analysis performance](text-analysis-performance.md).
 
 ## Historical validation: Mutatoc 0.2.1
 

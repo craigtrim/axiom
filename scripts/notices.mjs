@@ -1,12 +1,11 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 const lock = JSON.parse(await readFile("package-lock.json", "utf8"));
+// craigtrim/axiom#40: Axiom no longer copies Mutatoc tokenizer data; the
+// runtime's own licenses accompany it under resources/mutatoc.
 const notices = [
   "THIRD-PARTY SOFTWARE NOTICES",
-  "This file covers bundled JavaScript dependencies and Mutatoc tokenizer substitution data. Electron, Chromium and Node.js notices also accompany the executable.",
-  "\n" + "=".repeat(72),
-  "Mutatoc 0.3.1 tokenizer substitution data (MIT)",
-  await readFile("licenses/mutatoc-LICENSE.txt", "utf8"),
+  "This file covers bundled JavaScript dependencies. Electron, Chromium and Node.js notices also accompany the executable, and Mutatoc's licenses accompany its runtime under resources/mutatoc.",
 ];
 const supplemental = new Map([
   ["@rubensworks/saxes@6.0.1", "licenses/rubensworks-saxes-LICENSE.txt"],
