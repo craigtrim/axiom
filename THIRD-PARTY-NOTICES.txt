@@ -5,7 +5,7 @@ This file covers bundled JavaScript dependencies and Mutatoc tokenizer substitut
 
 ========================================================================
 
-Mutatoc 0.3.0 tokenizer substitution data (MIT)
+Mutatoc 0.3.1 tokenizer substitution data (MIT)
 
 MIT License
 

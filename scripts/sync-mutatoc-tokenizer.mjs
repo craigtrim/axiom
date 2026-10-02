@@ -8,7 +8,7 @@ if (!source) throw Error("Supply the pinned Mutatoc source directory.");
 const header = await readFile(path.join(source, "src/tokenize_data.h"), "utf8");
 const api = await readFile(path.join(source, "include/mutatoc.h"), "utf8");
 const version = api.match(/#define MUTATOC_VERSION "([^"]+)"/)?.[1];
-if (version !== "0.3.0") throw Error("Expected Mutatoc 0.3.0 tokenizer data.");
+if (version !== "0.3.1") throw Error("Expected Mutatoc 0.3.1 tokenizer data.");
 const literal = '"(?:[^"\\\\]|\\\\.)*"';
 function rows(name, count) {
   const body = header.match(
@@ -31,7 +31,7 @@ function rows(name, count) {
 const data = {
   version,
   source:
-    "https://github.com/craigtrim/mutatoc/blob/d0d1456262ff1ea393dfb4ceb4f7a2849173aa8a/src/tokenize_data.h",
+    "https://github.com/craigtrim/mutatoc/blob/d173f21ec823d33dc8ebb3df66aec2b5b4197466/src/tokenize_data.h",
   sourceSha256: createHash("sha256").update(header).digest("hex"),
   contractions: Object.fromEntries(
     rows("contractions", 3).map(([word, ...words]) => [

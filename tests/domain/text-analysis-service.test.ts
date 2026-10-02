@@ -17,7 +17,7 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
     MutatocClient: class {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
-          if (input.op === "version") return "0.3.0";
+          if (input.op === "version") return "0.3.1";
           if (input.op === "parse")
             return {
               text: "dog",
@@ -70,13 +70,13 @@ afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
 
 describe("analysis service scheduling and failures", () => {
-  it.each(["0.2.3", "0.4.0"])(
+  it.each(["0.2.3", "0.3.0", "0.4.0"])(
     "rejects incompatible runtime %s before loading and can recover",
     async (version) => {
       const pending = service.parse(input());
       current().request.mockResolvedValueOnce(version);
       await expect(pending).rejects.toThrow(
-        `requires Mutatoc 0.3.0; the configured runtime reports ${version}`,
+        `requires Mutatoc 0.3.1; the configured runtime reports ${version}`,
       );
       expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
         "version",
