@@ -312,6 +312,8 @@ export function ResourceInput({
         onFocus={(e) => {
           focused.current = true;
           skipBlur.current = false;
+          // A highlight from an earlier visit could now name another row.
+          setActive(-1);
           setOpen(true);
           e.currentTarget.select();
         }}
@@ -351,6 +353,7 @@ export function ResourceInput({
             ++intent.current;
             pending.current = undefined;
             setText(shown);
+            setActive(-1);
             setError("");
             setOpen(false);
             input.current?.blur();

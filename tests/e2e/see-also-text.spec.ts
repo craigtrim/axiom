@@ -123,6 +123,37 @@ test("typing after an arrow-key highlight keeps the typed seeAlso text", async (
   expect(await seeAlsoObjects(d)).toHaveLength(2);
 });
 
+test("a cancelled text highlight does not pass to a match when the field reopens", async ({
+  desktop: d,
+}) => {
+  const field = await newSeeAlso(d);
+  await field.click();
+  await type(d, "Text");
+  const matches = d.page.getByRole("listbox");
+  await expect(
+    matches.getByRole("option", { name: /^Text Analysis/ }),
+  ).toBeVisible();
+  await d.page.keyboard.press("ArrowDown");
+  await expect(matches.getByRole("option").first()).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  // Escape empties the field, which removes the text option from the list.
+  await d.page.keyboard.press("Escape");
+  await expect(field).toHaveValue("");
+  await field.focus();
+  await expect(
+    matches.getByRole("option", { name: /^Text Analysis/ }),
+  ).toBeVisible();
+  await expect(matches.getByRole("option", { selected: true })).toHaveCount(0);
+  await expect(field).not.toHaveAttribute("aria-activedescendant");
+  await d.page.keyboard.press("Enter");
+  await expect(field).toHaveValue("");
+  expect(await seeAlsoObjects(d)).toEqual([
+    { literal: false, value: base + "TextAnalysis" },
+  ]);
+});
+
 for (const theme of ["light", "dark"] as const)
   test(`the typed text option leads the match list in ${theme}`, async ({
     desktop: d,
@@ -175,9 +206,7 @@ for (const theme of ["light", "dark"] as const)
         getComputedStyle(option.querySelector("span")!).color,
       );
       const ground = luminance(getComputedStyle(option).backgroundColor);
-      return (
-        (Math.max(text, ground) + 0.05) / (Math.min(text, ground) + 0.05)
-      );
+      return (Math.max(text, ground) + 0.05) / (Math.min(text, ground) + 0.05);
     });
     expect(contrast).toBeGreaterThanOrEqual(4.5);
     await d.page.keyboard.press("Enter");
