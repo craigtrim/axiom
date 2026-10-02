@@ -1,0 +1,111 @@
+/* Shared by Details and the Find statement editor. No nested scroll region. */
+table tr.statement-group-row > td,
+.find-panel table.st tr.statement-group-row > td {
+  padding: 1px 6px;
+  vertical-align: top;
+}
+.statement-group-predicate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  min-width: 0;
+}
+.statement-group-predicate > select,
+.statement-group-predicate > .predicate-picker {
+  flex: 1;
+  min-width: 0;
+}
+.statement-value-count {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.statement-value-stack.grouped {
+  padding-left: 10px;
+  border-left: 2px solid var(--stroke-strong);
+}
+.statement-value-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+}
+.statement-value-field {
+  flex: 1;
+  min-width: 0;
+}
+.statement-value-field > input,
+.statement-value-field .resource-input input {
+  height: 30px;
+  min-height: 30px;
+}
+.statement-value-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 28px;
+}
+table .statement-value-stack button.statement-text-action {
+  flex: none;
+  width: auto;
+  min-height: 26px;
+  border: 0;
+  padding: 2px;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  white-space: nowrap;
+}
+table .statement-value-stack button.statement-value-expand {
+  margin-left: auto;
+}
+table .statement-value-stack .statement-value-remove {
+  flex: none;
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+}
+.statement-value-stack button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.find-panel .entity-ancestry-peers {
+  position: relative;
+}
+.find-panel .entity-ancestry-peers::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  top: 16px;
+  bottom: 22px;
+  border-left: 1px solid var(--stroke-strong);
+}
+.find-panel .entity-ancestry-peers > .ccard {
+  position: relative;
+  margin-left: 34px;
+}
+.find-panel .entity-ancestry-peers > .ccard::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  width: 8px;
+  top: 50%;
+  border-top: 1px solid var(--stroke-strong);
+}
+@media (hover: hover) and (pointer: fine) {
+  .statement-value-action {
+    opacity: 0;
+  }
+  .statement-value-line:hover .statement-value-action,
+  .statement-value-line:focus-within .statement-value-action {
+    opacity: 1;
+  }
+  .statement-text-action:hover {
+    text-decoration: underline;
+  }
+}

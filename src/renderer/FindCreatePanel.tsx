@@ -21,6 +21,8 @@ import {
 import { openClassDraft } from "./text-analysis-state";
 import { useRetainedPreview } from "./use-retained-preview";
 import { FindGlyph } from "./FindGlyph";
+import { groupStatements } from "./statement-groups";
+import { StatementGroupRow } from "./StatementGroupRow";
 
 export function FindCreatePanel({
   reveal,
@@ -33,11 +35,22 @@ export function FindCreatePanel({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const [activeParent, setActiveParent] = useState(() =>
+    Math.max(0, draft.parents.indexOf("")),
+  );
+  const parentValues = draft.parents.length ? draft.parents : [""];
+  const selectedParents = draft.parents.filter(Boolean);
+  const statementGroups = groupStatements(
+    draft.statements.map((row, index) => ({
+      predicate: row.predicate,
+      value: { id: row.id, text: row.value, index },
+    })),
+  );
   const creation: FindCreationInput = {
     label: draft.label,
     iri: draft.iri,
     comment: draft.comment,
-    parents: draft.parents,
+    parents: selectedParents,
     statements: draft.statements,
   };
   const key = JSON.stringify([
@@ -114,7 +127,7 @@ export function FindCreatePanel({
         {
           label: draft.label,
           comment: draft.comment,
-          parents: draft.parents.map((iri) => ({ iri })),
+          parents: selectedParents.map((iri) => ({ iri })),
           manualParents: true,
           iri: fresh.iri,
           statements: fresh.creation.statements,
@@ -212,7 +225,7 @@ export function FindCreatePanel({
           <AncestryChain
             snapshot={snapshot}
             label={draft.label}
-            parents={draft.parents}
+            parents={selectedParents}
           />
           <div className="entity-subject subj">
             <label className="k" htmlFor={id + "-subject"}>
@@ -262,7 +275,6 @@ export function FindCreatePanel({
                   <option value={NS.owl + "Class"}>owl:Class</option>
                 </select>
               </td>
-              <td />
             </tr>
             <tr>
               <th scope="row">
@@ -300,82 +312,62 @@ export function FindCreatePanel({
                     : fieldErrors("label")}
                 </span>
               </td>
-              <td />
             </tr>
-            <tr>
-              <th scope="row">
-                <code>rdfs:subClassOf</code>
-              </th>
-              <td>
-                {draft.parents.length > 1 && (
-                  <div className="text-parent-chips">
-                    {draft.parents.map((iri) => {
-                      const parent = snapshot.entities.find(
-                        (e) => e.iri === iri,
-                      );
-                      const label =
-                        parent?.label ||
-                        parent?.name ||
-                        compactIri(iri, snapshot.ontology.namespace);
-                      return (
-                        <span className="text-parent-chip" key={iri}>
-                          <span title={iri}>{label}</span>
-                          <button
-                            type="button"
-                            aria-label={`Remove parent ${label}`}
-                            onClick={() =>
-                              updateFindDraft({
-                                parents: draft.parents.filter((p) => p !== iri),
-                              })
-                            }
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <TextParentPicker
-                  snapshot={snapshot}
-                  value={{
-                    label: draft.label,
-                    comment: draft.comment,
-                    parents: draft.parents.map((iri) => ({ iri })),
-                    manualParents: true,
-                  }}
-                  preview={preview}
-                  disabled={busy}
-                  ready={ready}
-                  compact
-                  selectedText={parentLabels.join(", ")}
-                  placeholder="owl:Thing (root). Search or type a name."
-                  excludeIri={preview?.iri ?? iri}
-                  text={draft.parentText}
-                  setText={(parentText) => updateFindDraft({ parentText })}
-                  add={(iri) =>
-                    updateFindDraft({
-                      parents: [...new Set([...draft.parents, iri])],
-                      parentText: "",
-                    })
-                  }
-                  create={(parentLabel) => void handoff(parentLabel)}
-                />
-                {fieldError("parents")}
-              </td>
-              <td>
-                {draft.parents.length === 1 && (
-                  <button
-                    type="button"
-                    className="ib rowact"
-                    aria-label={`Remove parent ${parentLabels[0]}`}
-                    onClick={() => updateFindDraft({ parents: [] })}
-                  >
-                    <FindGlyph name="close" />
-                  </button>
-                )}
-              </td>
-            </tr>
+            <StatementGroupRow
+              group={{
+                predicate: NS.rdfs + "subClassOf",
+                values: parentValues as [string, ...string[]],
+              }}
+              name="rdfs:subClassOf"
+              predicate={<code>rdfs:subClassOf</code>}
+              valueKey={(value, index) => value || "parent-" + index}
+              add={() => {
+                setActiveParent(parentValues.length);
+                updateFindDraft({ parents: [...parentValues, ""] });
+              }}
+              remove={(_, index) => {
+                updateFindDraft({
+                  parents: parentValues.filter((_, i) => i !== index),
+                  parentText: "",
+                });
+              }}
+              removable={(value) => !!value || parentValues.length > 1}
+              renderValue={(parent, index) => (
+                <>
+                  <TextParentPicker
+                    snapshot={snapshot}
+                    value={{
+                      label: draft.label,
+                      comment: draft.comment,
+                      parents: selectedParents.map((iri) => ({ iri })),
+                      manualParents: true,
+                    }}
+                    preview={preview}
+                    disabled={busy}
+                    ready={ready}
+                    compact
+                    selectedText={parentLabels[index] ?? ""}
+                    placeholder="owl:Thing (root). Search or type a name."
+                    excludeIri={preview?.iri ?? iri}
+                    text={activeParent === index ? draft.parentText : ""}
+                    setText={(parentText) => {
+                      setActiveParent(index);
+                      updateFindDraft({ parentText });
+                    }}
+                    add={(iri) => {
+                      updateFindDraft({
+                        parents: parentValues.map((p, i) =>
+                          i === index ? iri : p,
+                        ),
+                        parentText: "",
+                      });
+                    }}
+                    create={(parentLabel) => void handoff(parentLabel)}
+                  />
+                  {index === 0 && fieldError("parents")}
+                </>
+              )}
+            />
             <tr>
               <th scope="row">
                 <label htmlFor={id + "-comment"}>
@@ -406,59 +398,81 @@ export function FindCreatePanel({
                   {fieldErrors("comment")}
                 </span>
               </td>
-              <td />
             </tr>
-            {draft.statements.map((row, index) => (
-              <tr key={row.id}>
-                <th scope="row">
+            {statementGroups.map((group) => (
+              <StatementGroupRow
+                key={group.predicate}
+                group={group}
+                name={compactIri(group.predicate, snapshot.ontology.namespace)}
+                valueKey={(value) => value.id}
+                add={() => {
+                  const last = group.values.at(-1)!.index;
+                  updateFindDraft({
+                    statements: [
+                      ...draft.statements.slice(0, last + 1),
+                      {
+                        id: crypto.randomUUID(),
+                        predicate: group.predicate,
+                        value: "",
+                      },
+                      ...draft.statements.slice(last + 1),
+                    ],
+                  });
+                }}
+                remove={(value) =>
+                  updateFindDraft({
+                    statements: draft.statements.filter(
+                      (row) => row.id !== value.id,
+                    ),
+                  })
+                }
+                predicate={
                   <span className="pk predicate-picker">
                     <FindGlyph name="chev" />
                     <PredicateSelect
-                      value={row.predicate}
-                      options={predicates}
+                      value={group.predicate}
+                      options={predicates.filter(
+                        (p) =>
+                          p === group.predicate ||
+                          !statementGroups.some((g) => g.predicate === p),
+                      )}
                       namespace={snapshot.ontology.namespace}
-                      label={`Predicate ${index + 1}`}
-                      change={(predicate) => setRow(index, { predicate })}
+                      label={`Predicate ${group.values[0].index + 1}`}
+                      change={(predicate) =>
+                        updateFindDraft({
+                          statements: draft.statements.map((row) =>
+                            row.predicate === group.predicate
+                              ? { ...row, predicate }
+                              : row,
+                          ),
+                        })
+                      }
                     />
                   </span>
-                </th>
-                <td>
-                  <input
-                    className="w-comment"
-                    aria-label={`Value ${index + 1}`}
-                    value={row.value}
-                    maxLength={10000}
-                    onChange={(event) =>
-                      setRow(index, { value: event.target.value })
-                    }
-                    aria-invalid={!!fieldErrors(`statement-${index}`)}
-                    aria-describedby={`${id}-statement-${index}`}
-                  />
-                  {fieldError(`statement-${index}`)}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="ib rowact"
-                    aria-label={`Remove statement ${index + 1}`}
-                    onClick={() =>
-                      updateFindDraft({
-                        statements: draft.statements.filter(
-                          (item) => item.id !== row.id,
-                        ),
-                      })
-                    }
-                  >
-                    <FindGlyph name="close" />
-                  </button>
-                </td>
-              </tr>
+                }
+                renderValue={({ text, index }) => (
+                  <>
+                    <input
+                      className="w-comment"
+                      aria-label={`Value ${index + 1}`}
+                      value={text}
+                      maxLength={10000}
+                      onChange={(event) =>
+                        setRow(index, { value: event.target.value })
+                      }
+                      aria-invalid={!!fieldErrors(`statement-${index}`)}
+                      aria-describedby={`${id}-statement-${index}`}
+                    />
+                    {fieldError(`statement-${index}`)}
+                  </>
+                )}
+              />
             ))}
           </StatementTable>
           {fieldError("statements")}
           <div className="ed-tools">
             <AddStatementAction
-              disabled={draft.statements.length >= 100 || !unusedPredicate}
+              disabled={!unusedPredicate}
               add={() =>
                 unusedPredicate &&
                 updateFindDraft({
@@ -535,11 +549,11 @@ export function FindCreatePanel({
           <footer className="find-create-actions cfoot">
             <span
               className="dest"
-              title={`Creates ${draft.label} under ${parentLabels.join(", ") || "owl:Thing"}.`}
+              title={`Creates ${draft.label} under ${parentLabels.filter(Boolean).join(", ") || "owl:Thing"}.`}
             >
               Creates <b>{draft.label}</b>
               {" under "}
-              <b>{parentLabels.join(", ") || "owl:Thing"}</b>.
+              <b>{parentLabels.filter(Boolean).join(", ") || "owl:Thing"}</b>.
             </span>
             <span className="acts">
               <button

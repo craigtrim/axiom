@@ -2,7 +2,6 @@ import { useId, type ReactNode } from "react";
 import { THING, type Entity } from "../domain/model";
 import type { Snapshot } from "../shared/protocol";
 import { ancestryTrail } from "../domain/ancestry";
-import { FindGlyph } from "./FindGlyph";
 
 export function SectionPanel({
   title,
@@ -36,12 +35,11 @@ export function StatementTable({
         <colgroup>
           <col style={{ width: 140 }} />
           <col />
-          <col style={{ width: 30 }} />
         </colgroup>
         <thead>
           <tr>
             <th scope="col">Predicate</th>
-            <th scope="col" colSpan={2}>
+            <th scope="col">
               <span className="th-row">
                 <span>Value</span>
                 <span className="n entity-statement-count">
@@ -70,8 +68,7 @@ export function AddStatementAction({
       disabled={disabled}
       onClick={add}
     >
-      <FindGlyph name="plus" />
-      Add row
+      + Add row
     </button>
   );
 }
@@ -143,7 +140,10 @@ export function AncestryChain({
     <section className="sect" aria-label="Draft ancestry">
       <ol className="entity-ancestry-chain chain">
         {trail.stages.slice(0, 12).map((stage, index) => (
-          <li key={index}>
+          <li
+            key={index}
+            className={stage.length > 1 ? "entity-ancestry-peers" : undefined}
+          >
             {index > 0 && <div className="conn" aria-hidden="true" />}
             {stage.map((step) => (
               <div

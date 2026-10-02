@@ -98,23 +98,9 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
             const key = stage.map((step) => step.iri).join(" ");
             const grouped = stage.length > 1;
             const visible = groups.has(key) ? stage : stage.slice(0, 4);
-            const rootGroup = stage.every((step) => step.root);
             return (
               <li className="ancestry-stage" key={key} data-grouped={grouped}>
-                <div
-                  className={grouped ? "ancestry-group" : undefined}
-                  data-root={rootGroup}
-                >
-                  {grouped && (
-                    <small className="ancestry-group-label">
-                      {rootGroup
-                        ? "Roots"
-                        : entity.kind === "Individual" &&
-                            stage === result.stages[1]
-                          ? "Classes"
-                          : "Ancestors"}
-                    </small>
-                  )}
+                <div className={grouped ? "ancestry-peers" : undefined}>
                   {visible.map((step) => {
                     const selected = step.iri === iri;
                     const content = (

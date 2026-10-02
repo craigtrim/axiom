@@ -352,7 +352,9 @@ test("flat editor follows parent selection, label edits and statement removal", 
   await expect(create().locator(".dest")).toHaveText(
     "Creates Revised Course under Foundation.",
   );
-  await create().getByRole("button", { name: "Add row", exact: true }).click();
+  await create()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
   await create()
     .getByRole("textbox", { name: "Value 1", exact: true })
     .fill("Retained annotation");
@@ -362,10 +364,15 @@ test("flat editor follows parent selection, label edits and statement removal", 
     "Retained annotation",
   );
   await create().getByRole("textbox", { name: "Value 1", exact: true }).focus();
-  const remove = create().getByRole("button", {
-    name: "Remove statement 1",
-    exact: true,
-  });
+  const remove = create()
+    .locator("tr")
+    .filter({
+      has: page.getByRole("textbox", { name: "Value 1", exact: true }),
+    })
+    .getByRole("button", {
+      name: /^Remove this .* value$/,
+      exact: true,
+    });
   await remove.focus();
   await remove.press("Enter");
   await expect(count).toHaveText("4 statements");
@@ -375,7 +382,7 @@ test("flat editor follows parent selection, label edits and statement removal", 
   await parent.focus();
   await parent.press("Escape");
   const removeParent = create().getByRole("button", {
-    name: "Remove parent Foundation",
+    name: "Remove this rdfs:subClassOf value",
     exact: true,
   });
   await removeParent.focus();

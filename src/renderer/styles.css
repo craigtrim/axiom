@@ -3664,6 +3664,43 @@ a {
   background: var(--surface);
   padding: 8px 4px 4px;
 }
+.ancestry-peers {
+  display: grid;
+  gap: 6px;
+  position: relative;
+}
+.ancestry-peers::before {
+  content: "";
+  position: absolute;
+  top: 31px;
+  bottom: 31px;
+  right: -10px;
+  border-right: 1px solid var(--trail-line);
+}
+.ancestry-peers > .ancestry-crumb::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  right: -11px;
+  top: 50%;
+  border-top: 1px solid var(--trail-line);
+}
+.ancestry[data-orientation="vertical"] .ancestry-peers {
+  margin-left: 30px;
+}
+.ancestry[data-orientation="vertical"] .ancestry-peers::before {
+  left: -10px;
+  right: auto;
+  top: -12px;
+  bottom: 19px;
+}
+.ancestry[data-orientation="vertical"]
+  .ancestry-peers
+  > .ancestry-crumb::after {
+  left: -11px;
+  right: auto;
+  width: 10px;
+}
 .ancestry-group-label {
   display: block;
   margin: 0 10px 3px;

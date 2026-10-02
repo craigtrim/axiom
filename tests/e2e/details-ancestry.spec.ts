@@ -164,7 +164,7 @@ test("shows Basic English once in a right-to-left trail with English and Languag
     "Language",
     "Course",
   ]);
-  await expect(stages.nth(2).locator(".ancestry-group")).toHaveCount(1);
+  await expect(stages.nth(2).locator(".ancestry-peers")).toHaveCount(1);
   await expect(stages.nth(2).getByRole("button")).toHaveCount(2);
   const positions = await Promise.all(
     (await stages.all()).map((stage) => stage.boundingBox()),
@@ -224,6 +224,7 @@ test("turns vertical in a tall detached pane and remains usable after resizing",
     await app.browserWindow(child)
   ).evaluate((w) => {
     if (process.env.AXIOM_TEST_BACKGROUND === "1") w.setFocusable(false);
+    w.unmaximize();
     w.setMinimumSize(160, 100);
     w.setContentSize(460, 900);
   });
@@ -318,12 +319,16 @@ test("adding a parent in Details replaces the Thing fallback and Undo restores i
       exact: true,
     });
   await expect(root("Thing")).toBeVisible();
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
-  const last = details().locator("tbody tr").last();
-  await last
-    .getByRole("combobox", { name: /Predicate/ })
-    .selectOption(SUBCLASS);
-  await last.getByRole("combobox", { name: /Value/ }).fill("Course");
+  const parentGroup = details().locator(
+    `tbody tr[data-predicate="${SUBCLASS}"]`,
+  );
+  await parentGroup
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  await parentGroup
+    .getByRole("combobox", { name: /Value/ })
+    .last()
+    .fill("Course");
   await page
     .getByRole("listbox")
     .getByRole("option", { name: /^Course/ })
@@ -356,15 +361,23 @@ test("adding a parent in Details replaces the Thing fallback and Undo restores i
 });
 
 test("adds a row in place and refreshes the consolidated ancestry after editing a parent", async () => {
-  const add = details().getByRole("button", { name: "Add row", exact: true });
+  const add = details().getByRole("button", { name: "+ Add row", exact: true });
   await add.click();
   const last = details().locator("tbody tr").last();
   const predicate = last.getByRole("combobox", { name: /Predicate/ });
   await expect(predicate).toBeFocused();
   await add.click();
   await expect(details().locator('tbody tr[data-predicate=""]')).toHaveCount(1);
-  await predicate.selectOption(NS.rdfs + "subClassOf");
-  const value = last.getByRole("combobox", { name: /Value/ });
+  await last
+    .getByRole("button", { name: "Remove this value", exact: true })
+    .click();
+  const parentGroup = details().locator(
+    `tbody tr[data-predicate="${SUBCLASS}"]`,
+  );
+  await parentGroup
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  const value = parentGroup.getByRole("combobox", { name: /Value/ }).last();
   await value.fill("Course");
   await page
     .getByRole("listbox")
@@ -379,7 +392,10 @@ test("adds a row in place and refreshes the consolidated ancestry after editing 
     }),
   ).toHaveCount(1);
   await expect(details().locator('[role="status"]')).toContainText("Saved");
-  await last.getByRole("button", { name: /Remove statement/ }).click();
+  await parentGroup
+    .getByRole("button", { name: /^Remove this .* value$/ })
+    .last()
+    .click();
   await expect(current).not.toHaveAttribute("title", /is a subclass of Course/);
   await add.click();
   await last

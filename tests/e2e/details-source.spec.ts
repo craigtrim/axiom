@@ -68,9 +68,7 @@ const label = () =>
 const comment = () =>
   details().getByRole("textbox", { name: "Entity comment", exact: true });
 const row = (predicate: string) =>
-  details()
-    .locator("tbody tr")
-    .filter({ has: page.locator('select[title="' + predicate + '"]') });
+  details().locator('tbody tr[data-predicate="' + predicate + '"]');
 async function menu(id: string) {
   await app.evaluate(({ Menu, BrowserWindow }, id) => {
     const win =
@@ -182,13 +180,15 @@ test("two-column grid uses predicates, commits cell edits, preserves language an
     .getByRole("button", { name: "Save source", exact: true })
     .click();
   await expect.poll(sourceText).toMatch(/"Alpha updated"@fr/);
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
-  const last = details().locator("tbody tr").last();
-  await last
-    .getByRole("combobox", { name: /Predicate/ })
-    .selectOption(NS.rdfs + "seeAlso");
-  await last.getByRole("combobox", { name: /Value/ }).fill(base + "Gamma");
-  await last.getByRole("combobox", { name: /Value/ }).press("Tab");
+  const aliases = row(NS.rdfs + "seeAlso");
+  await aliases
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  await aliases
+    .getByRole("combobox", { name: /Value/ })
+    .last()
+    .fill(base + "Gamma");
+  await aliases.getByRole("combobox", { name: /Value/ }).last().press("Tab");
   // A duplicate statement is canonicalized, not added twice.
   await expect(details().locator("tbody tr")).toHaveCount(5);
   await menu("pane.move.right");
@@ -298,7 +298,6 @@ test("predicate dropdown orders entity predicates before workspace counts and un
       );
   const leading = [
     NS.rdfs + "label",
-    NS.rdfs + "comment",
     NS.rdfs + "subClassOf",
     NS.rdfs + "seeAlso",
     base + "frequent",
@@ -333,7 +332,7 @@ test("predicate dropdown orders entity predicates before workspace counts and un
       ],
     });
   }, base);
-  await expect.poll(async () => (await optionValues())[4]).toBe(base + "bTie");
+  await expect.poll(async () => (await optionValues())[3]).toBe(base + "bTie");
 });
 
 test("predicate dropdown lists only real predicates and remembers the last choice across entities", async () => {
@@ -363,7 +362,9 @@ test("predicate dropdown lists only real predicates and remembers the last choic
     .toBe(true);
   await select(base + "Beta");
   await expect(label()).toHaveValue("Beta");
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  await details()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
   const blank = details().locator('tr[data-predicate=""] select');
   await expect(blank.locator("option").first()).toHaveText("Choose predicate");
   await expect(blank.locator("option").nth(1)).toHaveAttribute(
@@ -466,7 +467,7 @@ test("class declaration is fixed; recognized prefixes and instance types stay di
   await expect(first).toContainText("owl:Class");
   await expect(first.locator("input, textarea, select")).toHaveCount(0);
   await expect(
-    first.getByRole("button", { name: /Remove statement/ }),
+    first.getByRole("button", { name: /^Remove this .* value$/ }),
   ).toHaveCount(0);
   await expect(first.getByRole("button")).toHaveCount(0);
   await importText(
@@ -497,21 +498,26 @@ test("class declaration is fixed; recognized prefixes and instance types stay di
   ).toHaveText("dcterms:created");
   await select(base + "one");
   const type = row(NS.rdf + "type");
-  await expect(type.getByRole("combobox", { name: /Predicate/ })).toBeEnabled();
+  await expect(type.getByRole("combobox", { name: /Predicate/ })).toHaveCount(
+    0,
+  );
   await expect(type.getByRole("combobox", { name: /Value/ })).toBeEnabled();
 });
 
 test("indexed parent choices edit ordinary subclass statements and support Escape and Undo", async () => {
   await select(base + "Combined");
   const parents = () => row(NS.rdfs + "subClassOf");
-  await expect(parents()).toHaveCount(2);
+  await expect(parents()).toHaveCount(1);
+  await expect(parents().getByRole("combobox", { name: /Value/ })).toHaveCount(
+    2,
+  );
   await expect(
-    parents().nth(0).getByRole("combobox", { name: /Value/ }),
+    parents().getByRole("combobox", { name: /Value/ }).nth(0),
   ).toHaveValue("Beta");
   await expect(
-    parents().nth(1).getByRole("combobox", { name: /Value/ }),
+    parents().getByRole("combobox", { name: /Value/ }).nth(1),
   ).toHaveValue("Gamma");
-  const input = parents().nth(0).getByRole("combobox", { name: /Value/ });
+  const input = parents().getByRole("combobox", { name: /Value/ }).nth(0);
   await input.fill("alp");
   await expect(
     page.getByRole("listbox").getByRole("option", { name: /Alpha/ }),
@@ -525,7 +531,7 @@ test("indexed parent choices edit ordinary subclass statements and support Escap
   await input.press("ArrowDown");
   await input.press("Enter");
   await expect(
-    parents().nth(0).getByRole("combobox", { name: /Value/ }),
+    parents().getByRole("combobox", { name: /Value/ }).nth(0),
   ).toHaveValue("Alpha");
   let doc = await page.evaluate(
     (iri) => window.axiom.request<any>("entityDocument", { iri }),
@@ -544,27 +550,30 @@ test("indexed parent choices edit ordinary subclass statements and support Escap
   await details().locator(".panel-toolbar strong").first().click();
   await menu("edit.undo");
   await expect(
-    parents().nth(0).getByRole("combobox", { name: /Value/ }),
+    parents().getByRole("combobox", { name: /Value/ }).nth(0),
   ).toHaveValue("Beta");
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
-  await details()
-    .locator("tbody tr")
-    .last()
-    .getByRole("combobox", { name: /Predicate/ })
-    .selectOption(NS.rdfs + "subClassOf");
-  const added = parents().last().getByRole("combobox", { name: /Value/ });
+  await parents()
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  const added = parents().getByRole("combobox", { name: /Value/ }).last();
   await added.fill("alph");
   await page
     .getByRole("listbox")
     .getByRole("option", { name: /Alpha/ })
     .click();
-  await expect(parents()).toHaveCount(3);
+  await expect(parents()).toHaveCount(1);
+  await expect(parents().getByRole("combobox", { name: /Value/ })).toHaveCount(
+    3,
+  );
   await expect.poll(sourceText).toMatch(/:Alpha/);
   await parents()
+    .getByRole("button", { name: /^Remove this .* value$/ })
     .last()
-    .getByRole("button", { name: /Remove statement/ })
     .click();
-  await expect(parents()).toHaveCount(2);
+  await expect(parents()).toHaveCount(1);
+  await expect(parents().getByRole("combobox", { name: /Value/ })).toHaveCount(
+    2,
+  );
 });
 
 test("one ellipsis opens only the referenced entity and its scoped source", async () => {
@@ -717,16 +726,13 @@ test("Engineering type-ahead repairs literal parent rows and stays available for
   await menu("view.details");
   await expect(label()).toHaveValue("Military Engineering");
   const parentRows = () => row(NS.rdfs + "subClassOf");
-  const broken = parentRows().last().getByRole("combobox", { name: /Value/ });
+  const broken = parentRows().getByRole("combobox", { name: /Value/ }).last();
   await expect(broken).toHaveValue("Engineering");
   // A pre-existing literal must not make a new parent row a text field.
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
-  await details()
-    .locator("tbody tr")
-    .last()
-    .getByRole("combobox", { name: /Predicate/ })
-    .selectOption(NS.rdfs + "subClassOf");
-  const added = parentRows().last().getByRole("combobox", { name: /Value/ });
+  await parentRows()
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  const added = parentRows().getByRole("combobox", { name: /Value/ }).last();
   await added.fill("Enginee");
   await expect(
     page.getByRole("listbox").getByRole("option", { name: /^Engineering/ }),
@@ -741,9 +747,7 @@ test("Engineering type-ahead repairs literal parent rows and stays available for
         )?.parents,
     )
     .toContain(base + "Engineering");
-  const literalParent = parentRows()
-    .filter({ has: page.locator('input[title="Engineering"]') })
-    .getByRole("combobox", { name: /Value/ });
+  const literalParent = parentRows().locator('input[title="Engineering"]');
   await literalParent.click();
   await expect(
     page.getByRole("listbox").getByRole("option", { name: /^Engineering/ }),
@@ -762,20 +766,30 @@ test("Engineering type-ahead repairs literal parent rows and stays available for
       }, base + "MilitaryEngineering"),
     )
     .toBe(0);
-  await expect(parentRows()).toHaveCount(2);
+  await expect(parentRows()).toHaveCount(1);
+  await expect(
+    parentRows().getByRole("combobox", { name: /Value/ }),
+  ).toHaveCount(2);
   await expect(details().getByRole("alert")).toHaveCount(0);
 });
 test("changing a populated text row to subClassOf restores suggestions without inventing an IRI", async () => {
   await importText(engineeringFixture);
   await select(base + "MilitaryEngineering");
   await menu("view.details");
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  await details()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
   const added = details().locator("tbody tr").last();
+  await added
+    .getByRole("combobox", { name: /Predicate/ })
+    .selectOption(NS.skos + "altLabel");
   await added.getByRole("textbox", { name: /Value/ }).fill("Enginee");
   await added
     .getByRole("combobox", { name: /Predicate/ })
     .selectOption(NS.rdfs + "subClassOf");
-  const value = added.getByRole("combobox", { name: /Value/ });
+  const value = row(NS.rdfs + "subClassOf")
+    .getByRole("combobox", { name: /Value/ })
+    .last();
   await expect(value).toHaveValue("Enginee");
   await value.click();
   await expect(

@@ -238,7 +238,7 @@ test("Details follows selection behind another tab and in a detached pane withou
   await clickNode(ids.a);
   await expect(identifier(child)).toHaveAttribute("data-entity-iri", ids.a);
   await expect(page.getByTestId("graph-canvas")).toBeFocused();
-  await child.getByRole("button", { name: "Add row", exact: true }).focus();
+  await child.getByRole("button", { name: "+ Add row", exact: true }).focus();
   await menu("view.details");
   await expect.poll(() => app.windows().length).toBe(2);
   await expect(page.locator('[data-panel="details"]')).toHaveCount(0);
