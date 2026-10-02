@@ -37,6 +37,173 @@ const frames = [
   ["prefix: ", "; suffix"],
 ];
 
+// Mutatoc 0.3.1 indexes the tokenized form of punctuated synonyms. These
+// expectations describe whole original-text ranges, independently of native
+// canonical output, including competition from shorter vocabulary entries.
+const punctuatedSynonyms = [
+  "Well/Health/Physical Education",
+  "PE:PE",
+  "Calc (Honors)",
+  "Math Lab [Remedial]",
+  "Computer-Aided Manufacturing",
+];
+const punctuatedOntology = (predicate: string) =>
+  prefixes +
+  '\n:Health a owl:Class; rdfs:label "Health" .\n' +
+  ':Calc a owl:Class; rdfs:label "Calc" .\n' +
+  ':Lab a owl:Class; rdfs:label "Lab" .\n' +
+  ':Manufacturing a owl:Class; rdfs:label "Manufacturing" .\n' +
+  punctuatedSynonyms
+    .map(
+      (phrase, index) =>
+        `:Course${index} a owl:Class; ${predicate} ${JSON.stringify(phrase)} .`,
+    )
+    .join("\n");
+
+it.skipIf(!executable)(
+  "maps 135 punctuated synonym variants to one complete exact match",
+  async () => {
+    let context: Awaited<ReturnType<typeof textAnalysisContext>>;
+    let version = 0;
+    let checked = 0;
+    const service = new TextAnalysisService(
+      () => executable,
+      async () => context,
+    );
+    try {
+      for (const predicate of ["rdfs:label", "rdfs:seeAlso", "skos:altLabel"]) {
+        const parsed = await parseRdf(
+          punctuatedOntology(predicate),
+          "punctuated-synonyms.ttl",
+          "https://example.org/punctuation#",
+        );
+        context = {
+          ...(await textAnalysisContext(
+            storeFromRdf(parsed.triples, "punctuated-synonyms"),
+            1,
+          )),
+          version: ++version,
+        };
+        for (const [index, phrase] of punctuatedSynonyms.entries()) {
+          const spaced = phrase
+            .replace(/[/:()[\]-]/g, " $& ")
+            .replace(/\s+/g, " ")
+            .trim();
+          for (const layout of [
+            phrase,
+            spaced,
+            spaced.replace(/ /g, "\t\r\n"),
+          ]) {
+            for (const surface of [
+              layout,
+              layout.toLowerCase(),
+              layout.toUpperCase(),
+            ]) {
+              const before = "😀 prefix: ";
+              const text = `${before}${surface}; suffix`;
+              const result = await service.parse({
+                text,
+                datasetEpoch: 1,
+                version,
+              });
+              expect(
+                result.entities,
+                `${predicate}: ${JSON.stringify(text)}`,
+              ).toEqual([
+                {
+                  start: before.length,
+                  end: before.length + surface.length,
+                  key: `ontology:course${index}`,
+                  label: `course${index}`,
+                  source: "ontology",
+                  method: "exact",
+                },
+              ]);
+              expect(
+                text.slice(result.entities[0].start, result.entities[0].end),
+              ).toBe(surface);
+              expect(
+                result.concepts?.[`course${index}`]?.map(
+                  (concept) => concept.iri,
+                ),
+              ).toEqual([`https://example.org/punctuation#Course${index}`]);
+              checked++;
+            }
+          }
+        }
+      }
+      expect(checked).toBe(135);
+    } finally {
+      service.close();
+    }
+  },
+  60_000,
+);
+
+it.skipIf(!executable)(
+  "keeps repeated punctuated matches distinct and rejects changed punctuation or words",
+  async () => {
+    const parsed = await parseRdf(
+      punctuatedOntology("rdfs:seeAlso"),
+      "punctuated-synonyms.ttl",
+      "https://example.org/punctuation#",
+    );
+    const context = await textAnalysisContext(
+      storeFromRdf(parsed.triples, "punctuated-synonyms"),
+      1,
+    );
+    const service = new TextAnalysisService(
+      () => executable,
+      async () => context,
+    );
+    const parse = (text: string) =>
+      service.parse({ text, datasetEpoch: 1, version: context.version });
+    try {
+      for (const [index, phrase] of punctuatedSynonyms.entries()) {
+        const text = `😀 ${phrase}\r\n${phrase}`;
+        const result = await parse(text);
+        expect(
+          result.entities.map(({ start, end, label, method }) => ({
+            start,
+            end,
+            label,
+            method,
+          })),
+        ).toEqual([
+          {
+            start: 3,
+            end: 3 + phrase.length,
+            label: `course${index}`,
+            method: "exact",
+          },
+          {
+            start: 5 + phrase.length,
+            end: 5 + 2 * phrase.length,
+            label: `course${index}`,
+            method: "exact",
+          },
+        ]);
+      }
+      for (const text of [
+        "Well/Health/Education",
+        "PE/PE",
+        "Calc (Advanced)",
+        "Math Lab [Optional]",
+        "Computer-Aided Accounting",
+      ]) {
+        expect(
+          (await parse(text)).entities.filter((entity) =>
+            /^course\d$/.test(entity.label),
+          ),
+          text,
+        ).toEqual([]);
+      }
+    } finally {
+      service.close();
+    }
+  },
+);
+
 it.skipIf(!executable)(
   "maps 1,512 real punctuation matches to complete original UTF-16 ranges",
   async () => {

@@ -516,6 +516,58 @@ test("dotted course synonyms highlight the full phrase and open the correct Deta
   await expect(chip("history")).toBeVisible();
 });
 
+test("punctuated synonyms highlight whole phrases and navigate to their ontology entities", async () => {
+  const phrases = [
+    "Well/Health/Physical Education",
+    "PE:PE",
+    "Calc (Honors)",
+    "Math Lab [Remedial]",
+    "Computer-Aided Manufacturing",
+  ];
+  await page.evaluate(
+    async ({ base, phrases }) => {
+      const source = await window.axiom.request<
+        import("../../src/shared/source").SourceDocument
+      >("sourceDocument", { format: "turtle" });
+      await window.axiom.request("applySource", {
+        ...source,
+        text:
+          source.text +
+          "\n" +
+          phrases
+            .map(
+              (phrase, index) =>
+                `<${base}Punctuated${index}> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Punctuated course ${index}"; <http://www.w3.org/2000/01/rdf-schema#seeAlso> ${JSON.stringify(phrase)} .`,
+            )
+            .join("\n"),
+      });
+    },
+    { base, phrases },
+  );
+  for (const [index, phrase] of phrases.entries()) {
+    const canonical = `punctuated${index}`;
+    const spaced = phrase
+      .replace(/[/:()[\]-]/g, " $& ")
+      .replace(/\s+/g, " ")
+      .trim();
+    for (const surface of [phrase, spaced]) {
+      await enter(`😀 ${surface} ~~`);
+      await expect(chip(canonical)).toBeVisible({ timeout: 30000 });
+      await expect.poll(() => highlighted(canonical)).toBe(surface);
+      await expect(entitiesPane().locator(".text-analysis-chip")).toHaveCount(
+        1,
+      );
+    }
+    await chip(canonical).click();
+    await expect(details()).toHaveAttribute(
+      "data-entity-iri",
+      base + `Punctuated${index}`,
+    );
+  }
+  await enter("PE/PE");
+  await expect(entitiesPane()).toContainText("No entities found.");
+});
+
 test("plus spans highlight intervening words and stop at the reference distance boundary", async () => {
   for (const text of [
     "alpha blah blah beta",
