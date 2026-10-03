@@ -985,23 +985,27 @@ export function QualityPanel() {
       {vocabulary()}
     </div>
   );
+  // Partial findings from a canceled scan keep their filters reachable; only a
+  // complete report has a coverage view and an export.
   const tools = () => (
     <div className="tools">
-      <div className="seg" role="group" aria-label={t("view.label")}>
-        <button
-          aria-pressed={view === "findings"}
-          onClick={() => setView("findings")}
-        >
-          {t("view.findings")}
-        </button>
-        <button
-          aria-pressed={view === "coverage"}
-          onClick={() => setView("coverage")}
-        >
-          {t("view.coverage")}
-        </button>
-      </div>
-      {view === "findings" && (
+      {report && (
+        <div className="seg" role="group" aria-label={t("view.label")}>
+          <button
+            aria-pressed={view === "findings"}
+            onClick={() => setView("findings")}
+          >
+            {t("view.findings")}
+          </button>
+          <button
+            aria-pressed={view === "coverage"}
+            onClick={() => setView("coverage")}
+          >
+            {t("view.coverage")}
+          </button>
+        </div>
+      )}
+      {resultView === "findings" && (
         <>
           {severities.map((s) => (
             <button
@@ -1052,7 +1056,7 @@ export function QualityPanel() {
         </>
       )}
       <span className="fill"></span>
-      {view === "findings" && (
+      {resultView === "findings" && (
         <>
           <select
             className="sel at-tall"
@@ -1073,25 +1077,33 @@ export function QualityPanel() {
           />
         </>
       )}
-      <button
-        ref={exportButton}
-        className="btn"
-        aria-label={t("export.label")}
-        aria-describedby={exportNote}
-        title={t("export.note", { total: all.length })}
-        popoverTarget={exportId}
-      >
-        <Download />
-        <span className="at-full">{t("export")}</span>
-      </button>
-      <span id={exportNote} className="sr">
-        {t("export.note", { total: all.length })}
-      </span>
-      <Menu id={exportId} label={t("export.label")} anchor={exportButton}>
-        <button onClick={() => exportReport("json")}>{t("export.json")}</button>
-        <button onClick={() => exportReport("csv")}>{t("export.csv")}</button>
-        <p>{t("export.note", { total: all.length })}</p>
-      </Menu>
+      {report && (
+        <>
+          <button
+            ref={exportButton}
+            className="btn"
+            aria-label={t("export.label")}
+            aria-describedby={exportNote}
+            title={t("export.note", { total: all.length })}
+            popoverTarget={exportId}
+          >
+            <Download />
+            <span className="at-full">{t("export")}</span>
+          </button>
+          <span id={exportNote} className="sr">
+            {t("export.note", { total: all.length })}
+          </span>
+          <Menu id={exportId} label={t("export.label")} anchor={exportButton}>
+            <button onClick={() => exportReport("json")}>
+              {t("export.json")}
+            </button>
+            <button onClick={() => exportReport("csv")}>
+              {t("export.csv")}
+            </button>
+            <p>{t("export.note", { total: all.length })}</p>
+          </Menu>
+        </>
+      )}
       <button
         ref={moreButton}
         className="ib"
@@ -2099,7 +2111,7 @@ export function QualityPanel() {
         <>
           {commandBar()}
           {settingsOpen && !busy && settings()}
-          {report && mode === "results" && tools()}
+          {shown && mode === "results" && tools()}
           <div className="body">
             {error && (
               <div className="guard" role="alert">

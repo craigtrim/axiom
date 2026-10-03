@@ -532,6 +532,10 @@ test("a canceled report pages its findings from any view and goes stale like a c
   );
   await openFile();
   await scan();
+  // A filter that matches nothing, carried into the canceled report.
+  await pane()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("no such entity");
   await pane().getByRole("button", { name: "Coverage", exact: true }).click();
   await pane().getByRole("button", { name: "Rerun" }).click();
   await expect
@@ -547,6 +551,11 @@ test("a canceled report pages its findings from any view and goes stale like a c
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
   );
+  await expect(pane()).toContainText("No findings match the current filter.");
+  await expect(
+    pane().getByRole("button", { name: "Export findings" }),
+  ).toHaveCount(0);
+  await pane().getByRole("searchbox", { name: "Filter findings" }).fill("");
   await band("Missing explicit primary label").click();
   await expect(pane().locator(".foot")).toContainText("1 to 40 of");
   await pane().getByRole("button", { name: "Next page" }).click();
