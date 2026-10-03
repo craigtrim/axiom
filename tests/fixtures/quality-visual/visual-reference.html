@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ontology Quality: visual reference for specs/quality/README.md</title>
+<style>
+/* ============================================================================
+   Ontology Quality visual reference.
+   A picture, not a specification. Where this file and README.md disagree,
+   README.md wins and this file is the defect.
+
+   Self contained. No dependencies, no build step, no network.
+   Tokens are addressable per panel so light and dark sit side by side and
+   each is audited on its own rather than inferred from the other.
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Light tokens, carried unchanged from quality.html. */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --sunken: #f4f4f4;
+  --raised: #fafafa;
+  --hover: #efefef;
+  --line: #e2e2e2;
+  --line-2: #c6c6c6;
+  --ink: #1b1b1b;
+  --ink-2: #585858;
+  --ink-3: #6a6a6a;
+  --accent: #0f5fa8;
+  --accent-2: #0b4a84;
+  --on-accent: #ffffff;
+  --tint: #eaf2fb;
+  --ok: #0b6b36;
+  --ok-tint: #e6f4ec;
+  --warn: #7d4a00;
+  --warn-tint: #fcf1df;
+  --warn-line: #d9a441;
+  --bad: #a8201a;
+  --bad-tint: #fbeae9;
+  --bad-line: #d4766f;
+  --focus: #0f5fa8;
+  --shadow: 0 2px 8px rgba(0,0,0,.14), 0 0 1px rgba(0,0,0,.24);
+}
+/* Dark tokens. Measured against #1e1e1e, not derived by inverting light. */
+[data-theme="dark"] {
+  --bg: #1e1e1e; --sunken: #161616; --raised: #272727; --hover: #323232;
+  --line: #3a3a3a; --line-2: #555555;
+  --ink: #f1f1f1; --ink-2: #c3c3c3; --ink-3: #a0a0a0;
+  --accent: #6cb4f5; --accent-2: #9acbf8; --on-accent: #0a1a28; --tint: #16293a;
+  --ok: #65d18f; --ok-tint: #11301e;
+  --warn: #e3a942; --warn-tint: #33260c; --warn-line: #6b5116;
+  --bad: #ff8d81; --bad-tint: #3a1a17; --bad-line: #7a3630;
+  --focus: #6cb4f5;
+  --shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 1px rgba(0,0,0,.7);
+}
+
+/* ---------------------------------------------------- the reference page */
+body {
+  margin: 0; padding: 0 0 72px;
+  font: 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  background: #f0f0f0; color: #1b1b1b;
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+header.doc { background: #1b1b1b; color: #f1f1f1; padding: 24px 0 20px; margin-bottom: 20px; }
+header.doc h1 { margin: 0 0 6px; font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
+header.doc p { margin: 0; font-size: 13px; color: #c3c3c3; max-width: 760px; }
+.banner {
+  margin: 14px 0 0; padding: 9px 12px; border-left: 3px solid #e3a942;
+  background: #2a2a2a; color: #f1f1f1; font-size: 13px; max-width: 760px;
+}
+.banner b { color: #e3a942; }
+
+nav.idx { margin: 0 0 24px; padding: 12px 14px; background: #fff; border: 1px solid #d8d8d8; }
+nav.idx h2 { margin: 0 0 8px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #6a6a6a; }
+nav.idx ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; font-size: 13px; }
+nav.idx li { margin-bottom: 3px; break-inside: avoid; }
+nav.idx a { color: #0f5fa8; }
+
+section.ex { margin: 0 0 34px; }
+section.ex > h2 {
+  margin: 0 0 4px; font-size: 16px; font-weight: 600;
+  padding-bottom: 5px; border-bottom: 2px solid #1b1b1b;
+}
+section.ex > .lede { margin: 0 0 12px; font-size: 13px; color: #454545; max-width: 860px; }
+.cites { margin: 0 0 12px; font-size: 12px; color: #6a6a6a; }
+.cites code { background: #fff; border: 1px solid #d8d8d8; padding: 0 4px; border-radius: 2px;
+  font: 11.5px/1.5 Consolas, "Cascadia Mono", monospace; color: #0b4a84; }
+
+.row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+figure { margin: 0; }
+figcaption { margin-top: 6px; font-size: 12px; color: #454545; max-width: 560px; }
+figcaption b { color: #1b1b1b; }
+.themetag { display: inline-block; font: 10px/1.6 Consolas, monospace; text-transform: uppercase;
+  letter-spacing: .08em; padding: 0 5px; border: 1px solid #c6c6c6; background: #fff;
+  color: #585858; margin-bottom: 5px; }
+
+/* The pane specimen. container-type lets the real container queries fire, and
+   resize lets the reader drag a specimen across a threshold. */
+.pane {
+  container-type: size; container-name: pane;
+  background: var(--bg); color: var(--ink);
+  border: 1px solid #b4b4b4; overflow: hidden;
+  display: flex; flex-direction: column;
+  font: 13px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+.pane.sizer { resize: both; overflow: auto; }
+.pane.w720 { width: 720px; }
+.pane.w420 { width: 420px; }
+.pane.w560 { width: 560px; }
+.pane.h150 { height: 150px; }
+.pane.h260 { height: 260px; }
+.pane.h380 { height: 380px; }
+.pane.h460 { height: 460px; }
+
+/* ----------------------------------------------------------- pane regions */
+.bar { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 40px;
+  border-bottom: 1px solid var(--line); background: var(--raised); flex: none; }
+.bar .title { font-weight: 600; flex: none; }
+.bar .sum { color: var(--ink-3); font-size: 12px; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+.bar .state { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; flex: none; }
+.bar.alert-warn { background: var(--warn-tint); border-bottom-color: var(--warn-line); }
+.bar.alert-warn .state { color: var(--warn); }
+.bar.alert-bad { background: var(--bad-tint); border-bottom-color: var(--bad-line); }
+.bar.alert-bad .state { color: var(--bad); }
+
+.prog { flex: 1 1 140px; max-width: 220px; height: 5px; border-radius: 3px;
+  background: var(--line); overflow: hidden; }
+.prog > i { display: block; height: 100%; background: var(--accent); }
+
+.btn { display: inline-flex; align-items: center; gap: 5px; flex: none;
+  min-height: 26px; padding: 0 9px; font: inherit; font-size: 12.5px;
+  border: 1px solid var(--line-2); border-radius: 3px;
+  background: var(--bg); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+.ib { display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 26px; height: 26px; border: 1px solid transparent; border-radius: 3px;
+  background: none; color: var(--ink-2); cursor: pointer; }
+.ib:disabled { opacity: .35; }
+svg { width: 14px; height: 14px; flex: none; }
+
+.settings { padding: 6px 10px 8px; display: grid; gap: 5px;
+  border-bottom: 1px solid var(--line); background: var(--sunken); flex: none; }
+.srow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; }
+.srow > .k { flex: none; width: 92px; font-size: 12px; color: var(--ink-3); }
+.srow .hint { font-size: 12px; color: var(--ink-3); }
+.sel { min-height: 26px; max-width: 190px; padding: 0 6px; font: inherit; font-size: 12.5px;
+  border: 1px solid var(--line-2); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.chip { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 8px;
+  font: inherit; font-size: 12px; border: 1px solid var(--line-2); border-radius: 12px;
+  background: var(--bg); color: var(--ink-2); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--accent); color: var(--ink); }
+.chip .n { font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.tagf { display: inline-block; padding: 1px 6px; font-size: 11.5px; border-radius: 2px;
+  background: var(--hover); color: var(--ink-2); }
+
+.tools { display: flex; align-items: center; gap: 6px; padding: 0 10px; min-height: 36px;
+  border-bottom: 1px solid var(--line); background: var(--bg); flex: none; }
+.seg { display: inline-flex; flex: none; border: 1px solid var(--line-2); border-radius: 3px;
+  overflow: hidden; }
+.seg > button { min-height: 24px; padding: 0 9px; font: inherit; font-size: 12.5px; border: 0;
+  background: var(--bg); color: var(--ink-2); cursor: pointer; }
+.seg > button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent);
+  font-weight: 600; }
+.txt { min-height: 26px; max-width: 200px; padding: 0 7px; font: inherit; font-size: 12.5px;
+  border: 1px solid var(--line-2); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.fill { flex: 1 1 auto; min-width: 0; }
+
+.body { flex: 1 1 auto; overflow: auto; min-height: 0; }
+
+/* severity */
+.sev { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 12px;
+  font-weight: 600; }
+.sev.violation { color: var(--bad); }
+.sev.warning   { color: var(--warn); }
+.sev.info      { color: var(--ink-2); }
+
+/* rule bands and findings */
+.rule { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  padding: 0 10px; border: 0; border-bottom: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.rule .tw { color: var(--ink-3); transition: transform .15s ease-out; }
+.rule[aria-expanded="true"] .tw { transform: rotate(90deg); }
+.rule .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.rule .id { flex: none; font: 11px/1.5 Consolas, monospace; color: var(--ink-3); }
+.rule .ct { flex: none; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums;
+  color: var(--ink-2); }
+
+.flist { border-bottom: 1px solid var(--line); }
+.frow { display: flex; align-items: center; gap: 6px; min-height: 30px; margin-left: 10px;
+  padding-right: 8px; border-left: 2px solid var(--line-2); }
+.frow.open { background: var(--tint); }
+.frow.suppressed .lbl { color: var(--ink-3); text-decoration: line-through; }
+.fname { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 8px;
+  padding: 0 8px; border: 0; background: none; color: var(--ink); font: inherit;
+  text-align: left; cursor: pointer; }
+.fname .lbl { flex: none; }
+.fname .kind { flex: none; font-size: 11.5px; color: var(--ink-3); }
+.fname .iri { flex: 1 1 auto; min-width: 0; font: 11px/1.6 Consolas, monospace;
+  color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fname .fold { display: none; font-size: 11px; color: var(--ink-3); }
+.fact { flex: none; display: flex; gap: 2px; }
+
+.fdet { margin-left: 10px; padding: 8px 10px 10px 10px; border-left: 2px solid var(--accent);
+  background: var(--sunken); max-width: 720px; display: grid; gap: 4px; }
+.fdet .kv { display: flex; gap: 8px; align-items: baseline; }
+.fdet .kv > .k { flex: none; width: 86px; font-size: 11.5px; color: var(--ink-3); }
+.fdet .kv > .v { flex: 1 1 auto; min-width: 0; font-size: 12.5px; }
+.fdet pre { margin: 0; padding: 6px 8px; max-width: 560px; overflow-x: auto;
+  font: 11.5px/1.5 Consolas, monospace; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 3px; }
+.fdet pre.preview { background: var(--ok-tint); border-color: var(--ok); color: var(--ok); }
+.fdet .iri-v { font: 11.5px/1.5 Consolas, monospace; display: block; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+
+/* coverage */
+.cov { padding: 10px; display: grid; gap: 12px; max-width: 760px; }
+table.ct { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.ct th, table.ct td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--line);
+  vertical-align: top; }
+table.ct th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-3); font-weight: 600; }
+table.ct td.n, table.ct th.n { text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap; }
+table.ct .sub { display: block; font-size: 11.5px; color: var(--ink-3); }
+.na { color: var(--ink-3); font-style: italic; }
+
+/* states */
+.state-body { padding: 16px 12px; display: grid; gap: 6px; max-width: 620px; }
+.state-body h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.state-body p { margin: 0; font-size: 12.5px; color: var(--ink-2); }
+
+.limits { padding: 4px 10px; min-height: 28px; display: flex; align-items: center;
+  border-top: 1px solid var(--line); background: var(--sunken); font-size: 11.5px;
+  color: var(--ink-3); flex: none; }
+.foot { display: flex; align-items: center; gap: 6px; padding: 0 10px; min-height: 32px;
+  border-top: 1px solid var(--line); background: var(--raised); font-size: 12px;
+  color: var(--ink-2); flex: none; }
+.foot .pg { font-variant-numeric: tabular-nums; padding: 0 4px; }
+.foot .store { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* the label addition workflow */
+.lrow { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-left: 10px;
+  padding-right: 8px; border-left: 2px solid var(--line-2); }
+.lrow input[type=checkbox] { flex: none; margin: 0 0 0 8px; }
+.lrow .ent { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 12.5px; }
+.lrow .cand { flex: none; width: 190px; }
+.lrow .pred { flex: none; width: 128px; }
+.lrow .lang { flex: none; width: 58px; }
+.lrow input.cand, .lrow select { min-height: 24px; padding: 0 6px; font: inherit;
+  font-size: 12px; border: 1px solid var(--line-2); border-radius: 3px;
+  background: var(--bg); color: var(--ink); }
+.guard { padding: 8px 10px; margin: 8px 10px 10px; max-width: 560px;
+  border-left: 3px solid var(--bad); background: var(--bad-tint); font-size: 12.5px;
+  color: var(--ink); }
+.guard b { color: var(--bad); }
+
+/* recovery */
+.recov { height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px;
+  padding: 12px; text-align: center; }
+.recov .id { font-size: 13px; font-weight: 600; }
+.recov p { margin: 0; font-size: 12px; color: var(--ink-3); }
+
+/* ------------------------------------------- the real presentation ladder */
+/* Only 600 and 400 appear, plus the 240 recovery threshold.
+   Thresholds come from docs/adaptive-pane-ux.md. Nothing here is invented. */
+.at-tall, .at-wide, .at-full { display: none; }
+.pane .limits { display: none; }
+.fname .kind, .fname .iri { display: none; }
+.fname .fold { display: block; }
+.recov { display: none; }   /* default off, BEFORE the query that turns it on */
+
+@container pane (min-height: 400px) {
+  .pane .limits { display: flex; }
+  .at-tall { display: inline-flex; }
+  .srow.at-tall { display: flex; }
+}
+@container pane (min-width: 600px) {
+  .at-wide { display: inline-flex; }
+  .fname .kind, .fname .iri { display: inline; }
+  .fname .fold { display: none; }
+}
+@container pane (min-width: 600px) and (min-height: 400px) {
+  .at-full { display: inline; }
+  .foot .at-full { display: block; }
+}
+@container pane (max-width: 239px), pane (max-height: 119px) {
+  .bar, .settings, .body, .tools, .limits, .foot { display: none; }
+  .recov { display: grid; }
+}
+@container pane (max-width: 599px) {
+  .fdet { padding-left: 30px; }
+  .fdet .kv { display: grid; gap: 1px; }
+  .fdet .kv > .k { width: auto; }
+}
+
+/* ---------------------------------------------------------- doc furniture */
+table.spec { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff;
+  border: 1px solid #d8d8d8; margin: 0 0 12px; }
+table.spec th, table.spec td { padding: 6px 9px; text-align: left; border-bottom: 1px solid #e6e6e6;
+  vertical-align: top; }
+table.spec th { background: #f6f6f6; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; color: #585858; }
+table.spec code { font: 11.5px/1.5 Consolas, monospace; color: #0b4a84; }
+table.spec tr:last-child td { border-bottom: 0; }
+.bad-cell { color: #a8201a; font-weight: 600; }
+.ok-cell { color: #0b6b36; font-weight: 600; }
+.hint-p { font-size: 12.5px; color: #454545; background: #fff; border: 1px solid #d8d8d8;
+  border-left: 3px solid #0f5fa8; padding: 9px 12px; margin: 0 0 12px; max-width: 860px; }
+footer.doc { margin-top: 36px; padding: 18px 0; border-top: 1px solid #d0d0d0;
+  font-size: 12.5px; color: #585858; }
+</style>
+</head>
+<body data-theme="light">
+
+<header class="doc">
+  <div class="wrap">
+    <h1>Ontology Quality: visual reference</h1>
+    <p>Companion specimen for <code>specs/quality/README.md</code>, which owns the
+       <code>QLY</code> requirement prefix. Every figure names the requirements it demonstrates.</p>
+    <div class="banner">
+      <b>This is a picture, not a specification.</b> Where this file and
+      <code>README.md</code> disagree, <code>README.md</code> wins and this file is the defect.
+      No screenshot of this surface exists, because the pane has never run in the Axiom
+      application. These figures carry that load instead.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="idx">
+  <h2>Exhibits</h2>
+  <ol>
+    <li><a href="#a">The eight scan states</a></li>
+    <li><a href="#b">The vocabulary census</a></li>
+    <li><a href="#c">Findings grouped by rule</a></li>
+    <li><a href="#d">The finding detail</a></li>
+    <li><a href="#e">Coverage with denominators</a></li>
+    <li><a href="#f">Exceptions</a></li>
+    <li><a href="#g">Reviewed label additions</a></li>
+    <li><a href="#h">The four presentations, live</a></li>
+    <li><a href="#i">Severity without colour</a></li>
+    <li><a href="#j">Dark theme, audited independently</a></li>
+    <li><a href="#k">What the prototype gets wrong</a></li>
+  </ol>
+</nav>
+
+<!-- ===================================================== A. scan states -->
+<section class="ex" id="a">
+  <h2>A. The eight scan states</h2>
+  <p class="lede">The single easiest thing to get wrong in this pane is letting a scan that
+     was canceled, failed, stale, or run with no checks enabled read as a clean bill of
+     health. Each of the eight states therefore has its own presentation, and four of them
+     say in words that they are not a clean result.</p>
+  <p class="cites">Demonstrates <code>QLY-80</code> through <code>QLY-85</code>,
+     <code>QLY-19</code>, <code>QLY-88</code>.</p>
+
+  <div class="row">
+
+    <figure>
+      <span class="themetag">1 · idle, never run</span>
+      <div class="pane w420 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">No scan has been run.</span></div>
+        <div class="settings">
+          <div class="srow"><span class="k">Scope</span>
+            <select class="sel"><option>Whole ontology</option></select>
+            <span class="fill"></span>
+            <button class="btn primary"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3.2 12.5 8l-8 4.8z"/></svg>Run scan</button>
+          </div>
+          <div class="srow at-tall"><span class="k">Checks</span>
+            <button class="chip" aria-pressed="true">Completeness</button>
+            <button class="chip" aria-pressed="true">Naming</button>
+          </div>
+        </div>
+        <div class="body"><div class="state-body">
+          <h3>Ready to scan</h3>
+          <p>Choose a scope and the checks above, then run the scan. Scanning reads the
+             ontology and changes nothing.</p>
+        </div></div>
+        <div class="foot"></div>
+      </div>
+      <figcaption>The settings block is expanded. Entering from
+        <b>Tools &gt; Check ontology</b> lands here. <code>QLY-24</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">2 · running</span>
+      <div class="pane w420 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="state"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3.2 12.5 8l-8 4.8z"/></svg>Scanning</span>
+          <span class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="43"><i style="width:43%"></i></span>
+          <span class="sum">2,524 of 5,868 entities</span>
+          <button class="btn">Cancel</button></div>
+        <div class="body"><div class="state-body">
+          <h3>Scanning</h3>
+          <p>Results appear when the scan completes. Canceling keeps whatever was found
+             and says so.</p>
+        </div></div>
+        <div class="foot"></div>
+      </div>
+      <figcaption>Progress against a denominator, never a bare spinner.
+        <code>QLY-83</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">3 · completed, findings present</span>
+      <div class="pane w420 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812 · 5,868 scanned · 3:02 PM</span>
+          <button class="btn">Change</button></div>
+        <div class="body">
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="ct">1,284</span>
+          </button>
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Warning</span>
+            <span class="nm">Missing description</span>
+            <span class="ct">3,907</span>
+          </button>
+        </div>
+        <div class="foot"><span>No rule is expanded · 6,844 findings · 0 suppressed</span></div>
+      </div>
+      <figcaption>Settings collapsed to one summary line, reachable again through
+        <b>Change</b>. <code>QLY-19</code>. Footer says no rule is expanded rather than
+        claiming a range. <code>QLY-106</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">4 · completed, zero findings</span>
+      <div class="pane w420 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812 · 5,868 scanned · 3:02 PM</span>
+          <button class="btn">Change</button></div>
+        <div class="body"><div class="state-body">
+          <h3>No findings</h3>
+          <p>5,868 entities were scanned and all 13 enabled checks passed.</p>
+          <p>This is a completed scan, not a canceled one.</p>
+        </div></div>
+        <div class="foot"><span>0 findings · 0 suppressed</span></div>
+      </div>
+      <figcaption>Names the count of checks that passed, and says explicitly that it is
+        not a cancellation. <code>QLY-81</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">5 · zero findings, no checks enabled</span>
+      <div class="pane w420 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 0 checks · revision 4812 · 5,868 scanned · 3:04 PM</span>
+          <button class="btn">Change</button></div>
+        <div class="body"><div class="state-body">
+          <h3>No checks are enabled</h3>
+          <p>Every check group is switched off, so the scan had nothing to test.
+             This is not a clean result. Turn a group back on under Change.</p>
+        </div></div>
+        <div class="foot"><span>0 findings · 0 suppressed</span></div>
+      </div>
+      <figcaption><b>The state most likely to be built wrong.</b> A zero with no checks
+        enabled is not a pass, and the copy refuses to let it read as one.
+        <code>QLY-82</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">6a · stale, the store changed</span>
+      <div class="pane w420 h150">
+        <div class="bar alert-warn">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Out of date</span>
+          <span class="sum">The ontology changed after this scan. Findings are from revision 4812; the store is now at 4813.</span>
+          <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.6v2.8h-2.8"/></svg>Rerun scan</button>
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="ct">1,284</span>
+          </button>
+        </div>
+      </div>
+      <figcaption>Two different revisions on the two sides of the comparison. Findings stay
+        readable until the rerun completes. <code>QLY-88</code>, <code>QLY-90</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">6b · stale, the settings changed</span>
+      <div class="pane w420 h150">
+        <div class="bar alert-warn">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Out of date</span>
+          <span class="sum">The scan settings changed. These findings came from 13 checks over Whole ontology.</span>
+          <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.6v2.8h-2.8"/></svg>Rerun scan</button>
+        </div>
+        <div class="body"><div class="state-body"><p>Findings remain listed below.</p></div></div>
+      </div>
+      <figcaption>The same band, a different fact. This one must not claim the ontology
+        changed, because it did not. <code>QLY-88</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">7 · canceled</span>
+      <div class="pane w420 h150">
+        <div class="bar alert-warn">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Canceled</span>
+          <span class="sum">Stopped after 2,524 of 5,868 entities.</span>
+          <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.6v2.8h-2.8"/></svg>Rerun scan</button>
+        </div>
+        <div class="body"><div class="state-body">
+          <p>This report is incomplete and cannot be exported as complete.</p>
+        </div></div>
+      </div>
+      <figcaption>Canceling leaves no complete report. <code>QLY-78</code>,
+        <code>QLY-139</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">8 · failed</span>
+      <div class="pane w420 h150">
+        <div class="bar alert-bad">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Scan failed</span>
+          <span class="sum">A subClassOf cycle was reached and the walk could not terminate. Partial results are not shown.</span>
+          <button class="btn">Run scan</button>
+        </div>
+        <div class="body"><div class="state-body">
+          <h3>The scan did not finish</h3>
+          <p>No findings are shown, because a partial rule pass cannot be distinguished
+             from a clean one.</p>
+        </div></div>
+      </div>
+      <figcaption>Distinguished from a completed scan with zero findings, which is the
+        requirement that keeps a crash from reading as a pass. <code>QLY-79</code>,
+        <code>QLY-84</code></figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ================================================ B. vocabulary census -->
+<section class="ex" id="b">
+  <h2>B. The vocabulary census</h2>
+  <p class="lede">A check that tests <i>how a vocabulary is used</i> is withdrawn when that
+     vocabulary is absent from the loaded ontology. It is not listed, not counted, not given
+     a group chip, and not reported as passing. A check that tests for something
+     <i>missing</i> is never gated, because the thing it looks for is absent by definition.</p>
+  <p class="cites">Demonstrates <code>QLY-66</code> through <code>QLY-74</code>,
+     <code>QLY-40</code>, <code>QLY-44</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">settings, SKOS absent</span>
+      <div class="pane w720 h260">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">No scan has been run.</span></div>
+        <div class="settings">
+          <div class="srow"><span class="k">Scope</span>
+            <select class="sel"><option>Whole ontology</option></select>
+            <span class="fill"></span>
+            <button class="btn primary"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3.2 12.5 8l-8 4.8z"/></svg>Run scan</button>
+          </div>
+          <div class="srow at-tall"><span class="k">Entity kinds</span>
+            <button class="chip" aria-pressed="true">Classes <span class="n">5,868</span></button>
+            <button class="chip" aria-pressed="true">Individuals <span class="n">0</span></button>
+            <button class="chip" aria-pressed="true">Object properties <span class="n">12</span></button>
+            <button class="chip" aria-pressed="true">Data properties <span class="n">4</span></button>
+          </div>
+          <div class="srow at-tall"><span class="k">Checks</span>
+            <button class="chip" aria-pressed="true">Completeness</button>
+            <button class="chip" aria-pressed="true">Naming</button>
+            <button class="chip" aria-pressed="true">Structure</button>
+            <button class="chip" aria-pressed="true">Publication metadata</button>
+            <button class="chip" aria-pressed="true">Text Analysis</button>
+            <span class="hint">13 checks.</span>
+          </div>
+          <div class="srow at-tall"><span class="k">Vocabulary</span>
+            <span class="tagf" title="rdfs:label, rdfs:comment, rdfs:subClassOf, rdfs:seeAlso">RDFS</span>
+            <span class="tagf" title="owl:Class, owl:Ontology">OWL</span>
+            <span class="hint">Not used here: SKOS, owl:deprecated, Dublin Core, IAO.
+              2 checks are withdrawn.</span>
+          </div>
+        </div>
+        <div class="body"><div class="state-body">
+          <h3>Ready to scan</h3>
+          <p>Choose a scope and the checks above, then run the scan. Scanning reads the
+             ontology and changes nothing.</p>
+        </div></div>
+      </div>
+      <figcaption>
+        Five check groups, not six: <b>Retired entities</b> is absent because
+        <code>owl:deprecated</code> does not occur in this ontology. <b>SKOS concepts</b> is
+        absent from the entity kinds for the same reason. The withdrawal is stated in words
+        with its count, because silence there reads as a pass.
+        <code>QLY-48</code>, <code>QLY-70</code>
+      </figcaption>
+    </figure>
+  </div>
+
+  <p class="hint-p">The two sides of the gate, side by side. The left column is withdrawn by
+     the census; the right column is never gated, because a rule that fires on absence
+     cannot require the absent thing to be present. Gating the license rule on Dublin Core
+     would guarantee it never fires on the ontologies that most need it.
+     <code>QLY-67</code>, <code>QLY-69</code></p>
+
+  <table class="spec">
+    <thead><tr><th>Rule</th><th>Tests</th><th>Census</th><th>Disposition</th></tr></thead>
+    <tbody>
+      <tr><td><code>naming.skos.preflabel.cardinality</code></td>
+          <td>How SKOS labels are used</td>
+          <td><code>skos</code> absent</td>
+          <td class="bad-cell">Withdrawn. Not listed, not counted, no coverage row.</td></tr>
+      <tr><td><code>retired.reference</code></td>
+          <td>How retirement is annotated</td>
+          <td><code>owl:deprecated</code> absent</td>
+          <td class="bad-cell">Withdrawn, taking its group with it.</td></tr>
+      <tr><td><code>completeness.label.missing</code></td>
+          <td>Whether a label is <i>absent</i></td>
+          <td>not gated</td>
+          <td class="ok-cell">Runs. 1,284 findings.</td></tr>
+      <tr><td><code>meta.license.missing</code></td>
+          <td>Whether a license is <i>absent</i></td>
+          <td>not gated</td>
+          <td class="ok-cell">Runs, although Dublin Core is absent. That absence is the finding.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===================================================== C. findings list -->
+<section class="ex" id="c">
+  <h2>C. Findings grouped by rule</h2>
+  <p class="lede">Thousands of findings cannot be a flat list. Each rule gets a band carrying
+     its own severity, identifier and count. The page window runs over the findings actually
+     listed, so a collapsed rule contributes nothing to the pager.</p>
+  <p class="cites">Demonstrates <code>QLY-94</code>, <code>QLY-96</code>,
+     <code>QLY-97</code>, <code>QLY-103</code> through <code>QLY-109</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">expanded, one rule open, page 1 of 33</span>
+      <div class="pane w720 h460">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812 · 5,868 scanned · 3:02 PM</span>
+          <button class="btn">Change</button>
+          <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.6v2.8h-2.8"/></svg>Rerun</button></div>
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Result view">
+            <button aria-pressed="true">Findings</button>
+            <button aria-pressed="false">Coverage</button>
+          </div>
+          <button class="chip" aria-pressed="true"><span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg></span>Violation <span class="n">1,284</span></button>
+          <button class="chip" aria-pressed="true"><span class="sev warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg></span>Warning <span class="n">3,945</span></button>
+          <button class="chip" aria-pressed="true"><span class="sev info"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.6"/></svg></span>Information <span class="n">1,576</span></button>
+          <button class="chip" aria-pressed="false">Suppressed <span class="n">1</span></button>
+          <span class="fill"></span>
+          <select class="sel at-tall" aria-label="Group findings by">
+            <option>Group by rule</option><option>Group by entity</option></select>
+          <input class="txt at-wide" type="search" placeholder="Filter by name or IRI" aria-label="Filter findings">
+          <button class="btn" aria-label="Export findings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v7.5M5.2 7l2.8 2.8L10.8 7M3 12.5h10"/></svg><span class="at-full">Export</span></button>
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="true">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="id">completeness.label.missing</span>
+            <span class="ct">1,284</span>
+          </button>
+          <div class="flist">
+            <div class="frow">
+              <button class="fname"><span class="lbl">Industrial Safety</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Industrial_Safety</span>
+                <span class="fold">Class · Industrial_Safety</span></button>
+              <span class="fact">
+                <button class="ib" aria-label="Open Industrial Safety in Details"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9"/></svg></button>
+                <button class="ib" aria-label="Record exception for Industrial Safety"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10"/><circle cx="8" cy="8" r="6"/></svg></button>
+              </span>
+            </div>
+            <div class="frow">
+              <button class="fname"><span class="lbl">Welding Technology</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Welding_Technology</span>
+                <span class="fold">Class · Welding_Technology</span></button>
+              <span class="fact">
+                <button class="ib" aria-label="Open Welding Technology in Details"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9"/></svg></button>
+                <button class="ib" aria-label="Record exception for Welding Technology"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10"/><circle cx="8" cy="8" r="6"/></svg></button>
+              </span>
+            </div>
+            <div class="frow suppressed">
+              <button class="fname"><span class="lbl">Machine Tool Practicum</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Machine_Tool_Practicum</span>
+                <span class="fold">Class · Machine_Tool_Practicum</span></button>
+              <span class="fact">
+                <button class="ib" aria-label="Remove exception for Machine Tool Practicum"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10M8 3v10"/></svg></button>
+              </span>
+            </div>
+          </div>
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev info"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.6"/></svg>Information</span>
+            <span class="nm">Hierarchy cycle</span>
+            <span class="id">structure.cycle</span>
+            <span class="ct">0</span>
+          </button>
+        </div>
+        <div class="limits"><span>This scan checks what is asserted. It does not run OWL
+          reasoning, judge whether a definition is correct, follow remote links, or load
+          unresolved imports. Checks for a vocabulary the ontology does not use are
+          withdrawn, never reported as passing.</span></div>
+        <div class="foot">
+          <span>1 to 40 of 1,284 listed · 6,844 findings · 1 suppressed</span>
+          <span class="fill"></span>
+          <button class="ib" aria-label="First page" disabled>&#124;&#8592;</button>
+          <button class="ib" aria-label="Previous page" disabled>&#8592;</button>
+          <span class="pg">Page 1 of 33</span>
+          <button class="ib" aria-label="Next page">&#8594;</button>
+          <button class="ib" aria-label="Last page">&#8594;&#124;</button>
+          <span class="store at-full">5,868 classes · 0 individuals · 24,444 triples</span>
+        </div>
+      </div>
+      <figcaption>
+        <b>Hierarchy cycle</b> keeps its band at a count of zero, because a rule that passed
+        is information the reader wants. A rule emptied by a <i>filter</i> is withdrawn
+        instead, because that zero belongs to the filter. <code>QLY-97</code><br>
+        The suppressed row is shown here only to picture its treatment; by default it is
+        hidden and counted separately. <code>QLY-100</code>, <code>QLY-101</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================== D. finding detail -->
+<section class="ex" id="d">
+  <h2>D. The finding detail</h2>
+  <p class="lede">Nine fields in a fixed order. The one that earns its place is
+     <b>Reading</b>: it names what the application currently displays, which is why a
+     missing label is invisible in ordinary browsing and why the rule must read statements
+     rather than the display fallback.</p>
+  <p class="cites">Demonstrates <code>QLY-110</code> through <code>QLY-114</code>,
+     <code>QLY-158</code>, <code>QLY-161</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">open detail · the Industrial Safety case</span>
+      <div class="pane w720 h460">
+        <div class="body">
+          <button class="rule" aria-expanded="true">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="id">completeness.label.missing</span>
+            <span class="ct">1,284</span>
+          </button>
+          <div class="flist">
+            <div class="frow open">
+              <button class="fname" aria-expanded="true"><span class="lbl">Industrial Safety</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Industrial_Safety</span>
+                <span class="fold">Class · Industrial_Safety</span></button>
+              <span class="fact">
+                <button class="ib" aria-label="Open Industrial Safety in Details"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9"/></svg></button>
+                <button class="ib" aria-label="Record exception for Industrial Safety"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10"/><circle cx="8" cy="8" r="6"/></svg></button>
+              </span>
+            </div>
+            <div class="fdet">
+              <div class="kv"><span class="k">Rule</span><span class="v"><b>Missing explicit label</b> · Violation · <span style="font-family:Consolas,monospace;font-size:11.5px">completeness.label.missing</span></span></div>
+              <div class="kv"><span class="k">Basis</span><span class="v">RDFS. A named class asserting no rdfs:label has no asserted name.</span></div>
+              <div class="kv"><span class="k">Entity</span><span class="v">Class · <span class="iri-v">http://devry.edu/courses#Industrial_Safety</span></span></div>
+              <div class="kv"><span class="k">Evidence</span><span class="v"><pre>:Industrial_Safety a owl:Class ;
+    rdfs:subClassOf :Shop_Class .</pre></span></div>
+              <div class="kv"><span class="k">Reading</span><span class="v">Axiom displays <b>Industrial Safety</b>, derived from the IRI fragment <code style="font-family:Consolas,monospace;font-size:11.5px">Industrial_Safety</code>. No naming annotation is asserted.</span></div>
+              <div class="kv"><span class="k">Consequence</span><span class="v">Axiom derives a display name from the IRI, so the gap is invisible in ordinary browsing.</span></div>
+              <div class="kv"><span class="k">Correction</span><span class="v">Add rdfs:label carrying the name you want shown.</span></div>
+              <div class="kv"><span class="k">Would add</span><span class="v"><pre class="preview">:Industrial_Safety rdfs:label "Industrial Safety"@en .</pre></span></div>
+              <div class="kv"><span class="k">Also under</span><span class="v"><span class="tagf">Excluded from the Text Analysis vocabulary</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        One leading edge rule ties the detail to its row. No card, no second background, no
+        bordered container inside a bordered container. <code>QLY-14</code>,
+        <code>QLY-114</code>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">the case that must not produce two findings</span>
+      <div class="pane w560 h380">
+        <div class="body">
+          <div class="flist">
+            <div class="frow open">
+              <button class="fname" aria-expanded="true"><span class="lbl">Welding Technology</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Welding_Technology</span>
+                <span class="fold">Class · Welding_Technology</span></button>
+            </div>
+            <div class="fdet">
+              <div class="kv"><span class="k">Rule</span><span class="v"><b>Missing explicit label</b> · Violation</span></div>
+              <div class="kv"><span class="k">Evidence</span><span class="v"><pre>:Welding_Technology a owl:Class ;
+    rdfs:subClassOf :Shop_Class ;
+    rdfs:seeAlso "WELD TECH" .</pre></span></div>
+              <div class="kv"><span class="k">Reading</span><span class="v">No primary label, but <code style="font-family:Consolas,monospace;font-size:11.5px">rdfs:seeAlso</code> carries a supported synonym, so this entity <b>is still eligible</b> for Text Analysis.</span></div>
+              <div class="kv"><span class="k">Also under</span><span class="v"><span class="na">Nothing. It does not appear under the exclusion rule.</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>An entity with a supported alias but no primary label gets a completeness finding
+        and no exclusion finding.</b> Conflating the two is the error the originating issue
+        was written to correct, and the count of excluded entities is not the count of
+        entities lacking a label. <code>QLY-161</code>, <code>QLY-162</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================================================= E. coverage -->
+<section class="ex" id="e">
+  <h2>E. Coverage with denominators</h2>
+  <p class="lede">A percentage with an unstated denominator is a false claim, and
+     <i>98% complete</i> is the exact shape of that claim. Every row carries its applicable
+     count in the same row as its percentage, and <b>not applicable</b> is presented as a
+     different fact from zero missing.</p>
+  <p class="cites">Demonstrates <code>QLY-117</code> through <code>QLY-125</code>,
+     <code>QLY-36</code>, <code>QLY-38</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">coverage view</span>
+      <div class="pane w720 h460">
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Result view">
+            <button aria-pressed="false">Findings</button>
+            <button aria-pressed="true">Coverage</button>
+          </div>
+          <span class="fill"></span>
+          <button class="btn" aria-label="Export findings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v7.5M5.2 7l2.8 2.8L10.8 7M3 12.5h10"/></svg><span class="at-full">Export</span></button>
+        </div>
+        <div class="body"><div class="cov">
+          <table class="ct">
+            <thead><tr><th>Check</th><th class="n">Applicable</th><th class="n">Present</th>
+              <th class="n">Missing</th><th class="n">Suppressed</th></tr></thead>
+            <tbody>
+              <tr><td>Explicit label<span class="sub">rdfs:label on a named class</span></td>
+                <td class="n">5,868</td><td class="n">4,584 <span class="na">(78%)</span></td>
+                <td class="n">1,284</td><td class="n">1</td></tr>
+              <tr><td>Description<span class="sub">rdfs:comment</span></td>
+                <td class="n">5,868</td><td class="n">1,961 <span class="na">(33%)</span></td>
+                <td class="n">3,907</td><td class="n">0</td></tr>
+              <tr><td>Explicit parent<span class="sub">rdfs:subClassOf asserted locally</span></td>
+                <td class="n">5,868</td><td class="n">5,854 <span class="na">(100%)</span></td>
+                <td class="n">14</td><td class="n">0</td></tr>
+              <tr><td>Text Analysis eligibility<span class="sub">Any naming annotation the current matcher consumes</span></td>
+                <td class="n">5,868</td><td class="n">5,838 <span class="na">(99%)</span></td>
+                <td class="n">30</td><td class="n">0</td></tr>
+              <tr><td>Individual type assertion<span class="sub">rdf:type on a named individual. This ontology asserts no individuals</span></td>
+                <td class="n na">0</td><td class="n na" colspan="3">not applicable</td></tr>
+              <tr><td>Property domain and range<span class="sub">Object and data properties only; annotation properties are exempt</span></td>
+                <td class="n">16</td><td class="n">9 <span class="na">(56%)</span></td>
+                <td class="n">7</td><td class="n">0</td></tr>
+              <tr><td>Ontology metadata<span class="sub">License and version identifier, counted per ontology</span></td>
+                <td class="n">1</td><td class="n">0 <span class="na">(0%)</span></td>
+                <td class="n">2</td><td class="n">0</td></tr>
+            </tbody>
+          </table>
+          <p style="margin:0;font-size:12px;color:var(--ink-3)">Every percentage carries its
+            denominator. Not applicable means no entity in scope could be checked, which is a
+            different fact from zero missing. Checks for a vocabulary this ontology does not
+            use are withdrawn from the table entirely, rather than listed as passing.</p>
+          <p style="margin:0;font-size:12px;color:var(--ink-3)">Entity denominators exclude
+            built in vocabulary, reference only external resources, anonymous expressions and
+            ontology records. Ontology metadata carries its own denominator of 1.</p>
+        </div></div>
+      </div>
+      <figcaption>
+        Two distinctions the table has to keep apart. <b>Individual type assertion</b> is
+        <i>not applicable</i>: the vocabulary is present, the check exists, and the
+        denominator is zero. <b>SKOS label integrity</b> is <i>absent from the table
+        entirely</i>, because its vocabulary is not in use. Rendering the second as the first
+        would tell the reader a check ran. <code>QLY-122</code>, <code>QLY-123</code><br>
+        The exclusions note is the one that makes the 5,868 denominator auditable.
+        <code>QLY-38</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ===================================================== F. exceptions -->
+<section class="ex" id="f">
+  <h2>F. Exceptions</h2>
+  <p class="lede">An exception is a review decision, not an assertion about the world, so it
+     is stored in workbench preferences outside the ontology RDF. Its key includes a
+     fingerprint of the finding's evidence and policy, which is what forces a re-review when
+     either changes.</p>
+  <p class="cites">Demonstrates <code>QLY-126</code> through <code>QLY-133</code>.</p>
+
+  <table class="spec">
+    <thead><tr><th>Step</th><th>Behaviour</th><th>Requirement</th></tr></thead>
+    <tbody>
+      <tr><td>1. Record</td>
+          <td>The reviewer supplies a reason. A reason is required, not optional.</td>
+          <td><code>QLY-126</code></td></tr>
+      <tr><td>2. Store</td>
+          <td>Written to workbench preferences, outside the ontology RDF.</td>
+          <td><code>QLY-127</code></td></tr>
+      <tr><td>3. Key</td>
+          <td>ontology identity · exact entity · rule · <b>fingerprint of the evidence and
+              policy</b></td>
+          <td><code>QLY-128</code></td></tr>
+      <tr><td>4. Effect</td>
+          <td>The finding leaves its severity count and enters the suppressed count. The two
+              are never added together.</td>
+          <td><code>QLY-132</code>, <code>QLY-119</code></td></tr>
+      <tr><td>5. Invalidate</td>
+          <td>Changed evidence or changed policy forces the finding to be reviewed again. The
+              old decision does not carry over to different data.</td>
+          <td><code>QLY-129</code></td></tr>
+      <tr><td>6. Remove</td>
+          <td>Through <b>Show suppressed findings</b> or through <b>Recorded exceptions</b>.</td>
+          <td><code>QLY-130</code></td></tr>
+      <tr><td>7. Persist</td>
+          <td>Survives application restarts and source reloads.</td>
+          <td><code>QLY-131</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">suppressed, shown on request</span>
+      <div class="pane w720 h150">
+        <div class="tools">
+          <button class="chip" aria-pressed="true">Suppressed <span class="n">1</span></button>
+          <span class="fill"></span>
+        </div>
+        <div class="body"><div class="flist">
+          <div class="frow suppressed">
+            <button class="fname"><span class="lbl">Machine Tool Practicum</span>
+              <span class="kind">Class</span>
+              <span class="iri">http://devry.edu/courses#Machine_Tool_Practicum</span>
+              <span class="fold">Class · Machine_Tool_Practicum</span></button>
+            <span class="fact">
+              <button class="ib" aria-label="Remove exception for Machine Tool Practicum"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10M8 3v10"/></svg></button>
+            </span>
+          </div>
+          <div class="fdet">
+            <div class="kv"><span class="k">Exception</span><span class="v">Intentional. This
+              class is a scheduling placeholder and is never displayed.</span></div>
+            <div class="kv"><span class="k">Recorded</span><span class="v">3 October 2026, keyed
+              to the evidence fingerprint. Changing the entity's statements will return this
+              finding for review.</span></div>
+          </div>
+        </div></div>
+      </div>
+      <figcaption>The reason travels with the suppression, and the surface says what will
+        bring the finding back. <code>QLY-126</code>, <code>QLY-129</code></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ========================================== G. reviewed label additions -->
+<section class="ex" id="g">
+  <h2>G. Reviewed label additions</h2>
+  <p class="lede">This is the one write path in scope, and it is the workflow
+     <code>quality.html</code> is missing entirely. The prototype renders
+     <b>Would add</b> as a read only preview on the belief that repair was future scope;
+     <code>docs/ontology-quality.md</code> describes it as built and names its tests. The
+     prototype is the defect.</p>
+  <p class="cites">Demonstrates <code>QLY-141</code> through <code>QLY-157</code>. The
+     divergence is <code>QLY-12</code> and Appendix B.1 row 1.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">step 1 · review the candidates</span>
+      <div class="pane w720 h380">
+        <div class="bar"><span class="title">Review missing labels</span>
+          <span class="sum">1,284 candidates · revision 4812 · identifier derived</span>
+          <button class="btn primary">Preview selected additions</button></div>
+        <div class="body">
+          <div class="flist">
+            <div class="lrow">
+              <input type="checkbox" checked aria-label="Include Industrial Safety">
+              <span class="ent">Industrial_Safety</span>
+              <input class="cand" type="text" value="Industrial Safety" aria-label="Label for Industrial Safety">
+              <select class="pred" aria-label="Predicate"><option>rdfs:label</option></select>
+              <select class="lang" aria-label="Language"><option>en</option></select>
+            </div>
+            <div class="lrow">
+              <input type="checkbox" checked aria-label="Include Shop Class">
+              <span class="ent">Shop_Class</span>
+              <input class="cand" type="text" value="Shop Class" aria-label="Label for Shop Class">
+              <select class="pred" aria-label="Predicate"><option>rdfs:label</option></select>
+              <select class="lang" aria-label="Language"><option>en</option></select>
+            </div>
+            <div class="lrow">
+              <input type="checkbox" aria-label="Include Machine Tool">
+              <span class="ent">Machine_Tool</span>
+              <input class="cand" type="text" value="Machine Tool" aria-label="Label for Machine Tool">
+              <select class="pred" aria-label="Predicate"><option>rdfs:label</option></select>
+              <select class="lang" aria-label="Language"><option>en</option></select>
+            </div>
+            <div class="lrow">
+              <input type="checkbox" disabled aria-label="Fluid Power is not eligible">
+              <span class="ent" style="opacity:.6">Fluid_Power</span>
+              <span class="ent na">Conflicting existing label. Edit this label in Details instead.</span>
+            </div>
+          </div>
+        </div>
+        <div class="foot"><span>2 of 1,284 selected</span></div>
+      </div>
+      <figcaption>
+        The candidates are identifier derived and the label, predicate and language are each
+        editable. <code>QLY-144</code>, <code>QLY-145</code><br>
+        The last row is <b>ineligible</b>: an entity with a conflicting existing label is
+        directed to Details rather than overwritten here. <code>QLY-143</code>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">step 2 · the preview is the artifact that is applied</span>
+      <div class="pane w560 h380">
+        <div class="bar"><span class="title">Preview</span>
+          <span class="sum">2 additions · one undoable edit</span>
+          <button class="btn primary">Add 2 labels</button></div>
+        <div class="body"><div class="fdet" style="margin:10px;border-left-color:var(--ok)">
+          <div class="kv"><span class="k">Would add</span><span class="v"><pre class="preview">:Industrial_Safety rdfs:label "Industrial Safety"@en .
+:Shop_Class        rdfs:label "Shop Class"@en .</pre></span></div>
+          <div class="kv"><span class="k">Graph</span><span class="v">Both entities are described
+            in a single source graph and receive their label in that graph.</span></div>
+          <div class="kv"><span class="k">Guard</span><span class="v">dataset
+            <code style="font-family:Consolas,monospace;font-size:11.5px">courses.owl</code> ·
+            revision <b>4812</b> · preview token
+            <code style="font-family:Consolas,monospace;font-size:11.5px">pv-7f21</code></span></div>
+          <div class="kv"><span class="k">Retained</span><span class="v">Existing annotations are
+            kept. Established and placeholder identifiers are preserved, and this path does not
+            run the normal placeholder renaming behaviour.</span></div>
+        </div></div>
+      </div>
+      <figcaption>
+        The preview shows the exact statements including datatype and graph, and is itself
+        what gets applied, so the surface and the serialization cannot disagree.
+        <code>QLY-146</code>, <code>QLY-147</code>, <code>QLY-150</code> to
+        <code>QLY-153</code>. There is no statement cap. <code>QLY-149</code>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">step 3 · the guard rejects before mutating</span>
+      <div class="pane w560 h260">
+        <div class="bar alert-bad">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Not applied</span>
+          <span class="sum">No statements were written.</span></div>
+        <div class="body">
+          <div class="guard"><b>Intervening edits.</b> The ontology changed since this
+            preview was built. Build it again.</div>
+          <div class="state-body" style="padding-top:0">
+            <p>The other four rejections carry the same shape:</p>
+            <p><b>Replaced previews</b> · a newer preview superseded the token.<br>
+               <b>Invalid batches</b> · this batch does not validate against the current store.<br>
+               <b>Duplicate selections</b> · an entity appears more than once in the batch.<br>
+               <b>Repeated application</b> · the token has already been consumed.</p>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        All five are rejected <b>before</b> any mutation, and the rejection names which
+        condition fired so the reviewer has a next action. <code>QLY-154</code> to
+        <code>QLY-156</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================== H. presentations -->
+<section class="ex" id="h">
+  <h2>H. The four presentations, live</h2>
+  <p class="lede">Every pane below is resizable from its bottom right corner. Drag one across
+     600 wide or 400 tall and it re-tiers off <b>its own rectangle</b>, not the window. The
+     thresholds come from <code>docs/adaptive-pane-ux.md</code>; no number here was invented.</p>
+  <p class="cites">Demonstrates <code>QLY-168</code> through <code>QLY-175</code>. Try it:
+     narrow the first pane and watch the kind and IRI fold into the name cell rather than
+     disappear.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">drag me · starts Expanded</span>
+      <div class="pane sizer w720 h460">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812</span>
+          <button class="btn">Change</button></div>
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Result view">
+            <button aria-pressed="true">Findings</button><button aria-pressed="false">Coverage</button>
+          </div>
+          <button class="chip" aria-pressed="true">Violation <span class="n">1,284</span></button>
+          <button class="chip" aria-pressed="true">Warning <span class="n">3,945</span></button>
+          <span class="fill"></span>
+          <select class="sel at-tall" aria-label="Group findings by"><option>Group by rule</option></select>
+          <input class="txt at-wide" type="search" placeholder="Filter by name or IRI" aria-label="Filter findings">
+          <button class="btn" aria-label="Export findings">&#8681;<span class="at-full">Export</span></button>
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="true">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation">Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="id">completeness.label.missing</span>
+            <span class="ct">1,284</span>
+          </button>
+          <div class="flist">
+            <div class="frow"><button class="fname"><span class="lbl">Industrial Safety</span>
+              <span class="kind">Class</span>
+              <span class="iri">http://devry.edu/courses#Industrial_Safety</span>
+              <span class="fold">Class · Industrial_Safety</span></button></div>
+            <div class="frow"><button class="fname"><span class="lbl">Welding Technology</span>
+              <span class="kind">Class</span>
+              <span class="iri">http://devry.edu/courses#Welding_Technology</span>
+              <span class="fold">Class · Welding_Technology</span></button></div>
+          </div>
+        </div>
+        <div class="limits"><span>This scan checks what is asserted. It does not run OWL
+          reasoning, judge whether a definition is correct, follow remote links, or load
+          unresolved imports.</span></div>
+        <div class="foot"><span>1 to 40 of 1,284 listed</span><span class="fill"></span>
+          <span class="pg">Page 1 of 33</span>
+          <span class="store at-full">5,868 classes · 24,444 triples</span></div>
+      </div>
+      <figcaption>
+        <b>Expanded.</b> Above 600 wide and 400 tall. Everything in the specification.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">drag me · starts Narrow</span>
+      <div class="pane sizer w420 h460">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">13 checks · rev 4812</span>
+          <button class="btn">Change</button></div>
+        <div class="tools">
+          <button class="chip" aria-pressed="true">Violation <span class="n">1,284</span></button>
+          <button class="chip" aria-pressed="true">Warning <span class="n">3,945</span></button>
+          <span class="fill"></span>
+          <select class="sel at-tall" aria-label="Group findings by"><option>Group by rule</option></select>
+          <input class="txt at-wide" type="search" placeholder="Filter" aria-label="Filter findings">
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="true">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation">Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="ct">1,284</span>
+          </button>
+          <div class="flist">
+            <div class="frow"><button class="fname"><span class="lbl">Industrial Safety</span>
+              <span class="kind">Class</span>
+              <span class="iri">http://devry.edu/courses#Industrial_Safety</span>
+              <span class="fold">Class · Industrial_Safety</span></button></div>
+            <div class="frow"><button class="fname"><span class="lbl">Welding Technology</span>
+              <span class="kind">Class</span>
+              <span class="iri">http://devry.edu/courses#Welding_Technology</span>
+              <span class="fold">Class · Welding_Technology</span></button></div>
+          </div>
+        </div>
+        <div class="limits"><span>Checks what is asserted. No reasoning, no remote links, no
+          unresolved imports.</span></div>
+        <div class="foot"><span>1 to 40 of 1,284</span><span class="fill"></span>
+          <span class="pg">1 of 33</span></div>
+      </div>
+      <figcaption>
+        <b>Narrow.</b> Under 600 wide. The kind and IRI <i>fold</i> into the name cell as
+        <code>Class · Industrial_Safety</code> rather than vanishing, so the reader can watch
+        the value move. The store line withdraws. <code>QLY-173</code>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">drag me · starts Shallow</span>
+      <div class="pane sizer w720 h150">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812</span>
+          <button class="btn">Change</button></div>
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Result view">
+            <button aria-pressed="true">Findings</button><button aria-pressed="false">Coverage</button>
+          </div>
+          <button class="chip" aria-pressed="true">Violation <span class="n">1,284</span></button>
+          <span class="fill"></span>
+          <select class="sel at-tall" aria-label="Group findings by"><option>Group by rule</option></select>
+          <input class="txt at-wide" type="search" placeholder="Filter by name or IRI" aria-label="Filter findings">
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation">Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="id">completeness.label.missing</span>
+            <span class="ct">1,284</span>
+          </button>
+        </div>
+        <div class="foot"><span>No rule is expanded</span></div>
+      </div>
+      <figcaption>
+        <b>Shallow.</b> Under 400 tall. The limits line, the advanced settings rows and the
+        group by control withdraw. Height is scarce; the findings list keeps it.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">drag me · starts Narrow and shallow</span>
+      <div class="pane sizer w420 h150">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">13 checks</span></div>
+        <div class="tools">
+          <button class="chip" aria-pressed="true">Violation <span class="n">1,284</span></button>
+          <button class="chip" aria-pressed="true">Warning <span class="n">3,945</span></button>
+          <span class="fill"></span>
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="false">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation">Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="ct">1,284</span>
+          </button>
+        </div>
+        <div class="foot"><span>No rule is expanded</span></div>
+      </div>
+      <figcaption>
+        <b>Narrow and shallow.</b> Command bar, severity filter, findings list, footer.
+        Nothing else. The severity filter survives because it is the only control that makes
+        a long list navigable at this size. <code>QLY-174</code>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">recovery · below 240 wide</span>
+      <div class="pane w420 h150" style="width:200px">
+        <div class="bar"><span class="title">Ontology Quality</span></div>
+        <div class="body"></div>
+        <div class="foot"></div>
+        <div class="recov"><span class="id">Quality</span>
+          <p>6,844 findings</p><p>Widen the pane to work with it.</p></div>
+      </div>
+      <figcaption>
+        <b>Recovery.</b> The pane keeps its name and its last result rather than presenting a
+        crushed copy of a layout that cannot fit. Present in every scan state, so the pane
+        never renders blank. <code>QLY-169</code>, <code>QLY-175</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================ I. severity without colour -->
+<section class="ex" id="i">
+  <h2>I. Severity without colour</h2>
+  <p class="lede">Three distinct glyph <i>shapes</i>, each paired with its word. Severity
+     survives greyscale, colour blindness and a monochrome print.</p>
+  <p class="cites">Demonstrates <code>QLY-56</code>, <code>QLY-179</code>,
+     <code>QLY-51</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="themetag">in colour</span>
+      <div class="pane w420 h150" style="height:auto">
+        <div class="body" style="padding:12px;display:grid;gap:8px">
+          <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+          <span class="sev warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Warning</span>
+          <span class="sev info"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.6"/></svg>Information</span>
+        </div>
+      </div>
+      <figcaption>Octagon, triangle, circle. Shape first, colour second, word always.</figcaption>
+    </figure>
+
+    <figure>
+      <span class="themetag">greyscale, colour removed</span>
+      <div class="pane w420 h150" style="height:auto;filter:grayscale(1)">
+        <div class="body" style="padding:12px;display:grid;gap:8px">
+          <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+          <span class="sev warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Warning</span>
+          <span class="sev info"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.6"/></svg>Information</span>
+        </div>
+      </div>
+      <figcaption>Still legible with colour removed entirely. This is the test
+        <code>QLY-179</code> exists to pass.</figcaption>
+    </figure>
+  </div>
+
+  <p class="hint-p"><b>One sentence carries more weight than the glyphs.</b>
+     <code>QLY-51</code> requires the surface to state that <i>a configured project violation
+     is not automatically an RDF or OWL standards violation</i>. Without it, the word
+     <b>Violation</b> reads as a claim about correctness that a review tool is not entitled
+     to make.</p>
+</section>
+
+<!-- ======================================================= J. dark theme -->
+<section class="ex" id="j">
+  <h2>J. Dark theme, audited independently</h2>
+  <p class="lede">Dark is authored as its own token block measured against
+     <code>#1e1e1e</code>, not derived by inverting light. The status colours in particular
+     are different hues, not the same hues flipped.</p>
+  <p class="cites">Demonstrates <code>QLY-177</code>, <code>QLY-178</code>,
+     <code>QLY-27</code>.</p>
+
+  <div class="row">
+    <figure data-theme="dark">
+      <span class="themetag" style="background:#272727;border-color:#555;color:#c3c3c3">dark · findings and detail</span>
+      <div class="pane w720 h460">
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812 · 5,868 scanned</span>
+          <button class="btn">Change</button></div>
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Result view">
+            <button aria-pressed="true">Findings</button><button aria-pressed="false">Coverage</button>
+          </div>
+          <button class="chip" aria-pressed="true"><span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg></span>Violation <span class="n">1,284</span></button>
+          <button class="chip" aria-pressed="true"><span class="sev warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg></span>Warning <span class="n">3,945</span></button>
+          <span class="fill"></span>
+          <input class="txt at-wide" type="search" placeholder="Filter by name or IRI" aria-label="Filter findings">
+        </div>
+        <div class="body">
+          <button class="rule" aria-expanded="true">
+            <span class="tw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>
+            <span class="sev violation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/></svg>Violation</span>
+            <span class="nm">Missing explicit label</span>
+            <span class="id">completeness.label.missing</span>
+            <span class="ct">1,284</span>
+          </button>
+          <div class="flist">
+            <div class="frow open">
+              <button class="fname" aria-expanded="true"><span class="lbl">Industrial Safety</span>
+                <span class="kind">Class</span>
+                <span class="iri">http://devry.edu/courses#Industrial_Safety</span>
+                <span class="fold">Class · Industrial_Safety</span></button>
+            </div>
+            <div class="fdet">
+              <div class="kv"><span class="k">Basis</span><span class="v">RDFS. A named class asserting no rdfs:label has no asserted name.</span></div>
+              <div class="kv"><span class="k">Evidence</span><span class="v"><pre>:Industrial_Safety a owl:Class ;
+    rdfs:subClassOf :Shop_Class .</pre></span></div>
+              <div class="kv"><span class="k">Would add</span><span class="v"><pre class="preview">:Industrial_Safety rdfs:label "Industrial Safety"@en .</pre></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="limits"><span>This scan checks what is asserted. Checks for a vocabulary
+          the ontology does not use are withdrawn, never reported as passing.</span></div>
+        <div class="foot"><span>1 to 40 of 1,284 listed · 6,844 findings</span>
+          <span class="fill"></span><span class="pg">Page 1 of 33</span></div>
+      </div>
+      <figcaption style="color:#454545">The green correction preview on
+        <code>#11301e</code> and the red violation on <code>#1e1e1e</code> are both chosen
+        for dark, not inherited from light.</figcaption>
+    </figure>
+
+    <figure data-theme="dark">
+      <span class="themetag" style="background:#272727;border-color:#555;color:#c3c3c3">dark · the three alert bands</span>
+      <div class="pane w560 h260">
+        <div class="bar alert-warn">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/></svg>Out of date</span>
+          <span class="sum">Findings are from revision 4812; the store is now at 4813.</span>
+          <button class="btn">Rerun scan</button></div>
+        <div class="bar alert-bad">
+          <span class="state"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Scan failed</span>
+          <span class="sum">Partial results are not shown.</span></div>
+        <div class="bar"><span class="title">Ontology Quality</span>
+          <span class="sum">Whole ontology · 13 checks · revision 4812</span></div>
+        <div class="body"><div class="state-body">
+          <h3>No checks are enabled</h3>
+          <p>Every check group is switched off, so the scan had nothing to test. This is not
+             a clean result.</p>
+        </div></div>
+      </div>
+      <figcaption style="color:#454545">Warning, failure and normal are distinguished by
+        ground, border and glyph together, so none of the three depends on hue alone.
+        <code>QLY-91</code></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================= K. prototype defects -->
+<section class="ex" id="k">
+  <h2>K. What the prototype gets wrong</h2>
+  <p class="lede"><code>quality.html</code> diverges from this specification in thirteen
+     places. The prototype is the defect in every one. The full table with requirement
+     references is Appendix B.1 of <code>README.md</code>; the four that change behaviour
+     rather than coverage are below.</p>
+
+  <table class="spec">
+    <thead><tr><th>#</th><th>Divergence</th><th>Requirement</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td>1</td>
+          <td>The correction preview is read only. No candidate selection, no predicate or
+              language editing, no preview token, no apply, no undo. The whole workflow of
+              exhibit G is absent, on the belief that repair was future scope.</td>
+          <td><code>QLY-12</code>, <code>QLY-141</code> to <code>QLY-157</code></td>
+          <td class="bad-cell">Blocking. A regression against built behaviour.</td></tr>
+      <tr><td>2</td>
+          <td>Severity is a fixed property of each rule and cannot be reassigned or disabled
+              per rule.</td>
+          <td><code>QLY-54</code>, <code>QLY-55</code></td>
+          <td class="bad-cell">High</td></tr>
+      <tr><td>3</td>
+          <td>Exceptions are an in memory reason string: no ontology identity, no evidence and
+              policy fingerprint, no re-review on change, no <b>Recorded exceptions</b> view,
+              no persistence.</td>
+          <td><code>QLY-126</code> to <code>QLY-133</code></td>
+          <td class="bad-cell">High</td></tr>
+      <tr><td>4</td>
+          <td>A seventh group named <b>SKOS integrity</b> exists. The documented six groups
+              contain no SKOS group; the rule belongs in naming.</td>
+          <td><code>QLY-10</code>, <code>QLY-46</code></td>
+          <td>Medium</td></tr>
+    </tbody>
+  </table>
+
+  <p class="hint-p"><b>Two of these are my errors, not the implementer's.</b> Row 1 exists
+     because the prototype was built from issue 42 before
+     <code>docs/ontology-quality.md</code> was read, and the issue calls repair future scope
+     while the doc describes it as built and names its tests. Row 4 exists for the same
+     reason: the issue names nine check groups and the doc names six, and the six do not
+     include SKOS.</p>
+</section>
+
+<footer class="doc">
+  <div class="wrap" style="padding:0">
+    <p><b>Ontology Quality visual reference.</b> Companion to
+       <code>specs/quality/README.md</code>, which owns the <code>QLY</code> prefix and wins
+       every disagreement with this file.</p>
+    <p>Self contained: no dependencies, no build step, no network requests. Tokens are
+       carried unchanged from <code>quality.html</code>, which carries them from
+       <code>index.html</code> and <code>find.html</code>. Light and dark are independent
+       blocks, each audited on its own.</p>
+    <p>No em dashes and no en dashes appear in this file, per a standing instruction.
+       Separators are the middot, the colon and the period.</p>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
