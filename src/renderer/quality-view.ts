@@ -40,3 +40,21 @@ export async function cancelQuality() {
   if (status)
     publish(await request<QualityStatus>("qualityCancel", { id: status.id }));
 }
+// Tools > Check ontology... opens the settings block; View > Ontology Quality
+// keeps whatever the pane last showed (craigtrim/axiom#44).
+let settingsRequests = 0;
+const settingsListeners = new Set<() => void>();
+export function requestQualitySettings() {
+  settingsRequests++;
+  for (const fn of settingsListeners) fn();
+}
+export const useQualitySettingsRequests = () =>
+  useSyncExternalStore(
+    (fn) => {
+      settingsListeners.add(fn);
+      return () => {
+        settingsListeners.delete(fn);
+      };
+    },
+    () => settingsRequests,
+  );

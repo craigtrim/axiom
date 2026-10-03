@@ -72,6 +72,8 @@ export const request = <T = unknown>(
     "resourceSuggestions",
     "resourceSuggestionsSemantic",
     "analyzeSparsity",
+    // Read-only census for the Ontology Quality settings (craigtrim/axiom#44).
+    "qualityCensus",
     "qualityStart",
     "qualityStatus",
     "qualityCancel",

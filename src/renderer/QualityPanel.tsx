@@ -1,65 +1,318 @@
-import { useEffect, useMemo, useState } from "react";
+// Ontology Quality pane, rebuilt to Craig's visual reference: craigtrim/axiom#44.
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import "./quality.css";
-import { humanise, kindLabel } from "../domain/model";
+import { NS, kindLabel, humanise, shorten, type Kind } from "../domain/model";
 import { identifierParts } from "../domain/rdf-model";
 import {
   defaultQualityOptions,
+  qualityAdmitted,
+  qualityDefaultSeverity,
+  qualityEnabledChecks,
+  qualityGroupLabel,
   qualityGroups,
   qualityKinds,
   qualityRules,
   qualitySuppression,
-  readQualityOptions,
+  qualityVocabularies,
+  qualityWithdrawn,
   readQualityExceptions,
-  type QualityOptions,
+  readQualityOptions,
+  type QualityCensusResult,
   type QualityException,
+  type QualityFinding,
+  type QualityGroup,
+  type QualityOptions,
   type QualityPreview,
-  type QualityRepair,
+  type QualityReport,
+  type QualitySeverity,
 } from "../shared/ontology-quality";
-import { request, useSnapshot, panel, savePanel } from "./client";
+import {
+  panel,
+  report as notify,
+  request,
+  savePanel,
+  useSnapshot,
+} from "./client";
 import { editEntity } from "./authoring";
-import { startQuality, cancelQuality, useQualityStatus } from "./quality-view";
+import {
+  cancelQuality,
+  startQuality,
+  useQualitySettingsRequests,
+  useQualityStatus,
+} from "./quality-view";
+import { registerPaneRecovery } from "./AdaptivePane";
+import { qly, ruleCopy, t, tn, type QlyKey } from "./quality-copy";
+import {
+  Chevron,
+  Download,
+  Failed,
+  OpenDetails,
+  Play,
+  Rerun,
+  SeverityGlyph,
+  Suppress,
+  Triangle,
+  Unsuppress,
+  severityClass,
+} from "./quality-glyphs";
+import { turtleEvidence, turtleLines, turtleTerm } from "./quality-turtle";
+import { FindGlyph } from "./FindGlyph";
 
+const PAGE = 40;
+const severities: QualitySeverity[] = ["Violation", "Warning", "Information"];
+const ruleOf = (id: string) => qualityRules.find((r) => r.id === id)!;
+const kindPlural: Partial<Record<Kind, string>> = {
+  Class: "Classes",
+  Defined: "Defined classes",
+  Individual: "Individuals",
+  ObjectProperty: "Object properties",
+  DataProperty: "Data properties",
+  AnnotationProperty: "Annotation properties",
+  Resource: "Other resources",
+  Datatype: "Datatypes",
+};
+const coreKinds: Kind[] = [
+  "Class",
+  "Individual",
+  "ObjectProperty",
+  "DataProperty",
+];
+const kindName = (kind: string) =>
+  kind === "Ontology" ? "Ontology" : kindLabel(kind as Kind);
+const aliasPredicates = [
+  NS.skos + "altLabel",
+  NS.skos + "hiddenLabel",
+  NS.rdfs + "seeAlso",
+];
 const toggle = <T,>(values: T[], value: T) =>
   values.includes(value)
     ? values.filter((v) => v !== value)
     : [...values, value];
+/** Catalogue strings whose placeholders carry markup, such as a bold name. */
+function rich(key: QlyKey, values: Record<string, ReactNode>) {
+  return qly[key]
+    .split(/(\{\w+\})/)
+    .map((part, i) =>
+      /^\{\w+\}$/.test(part) ? (
+        <Fragment key={i}>{values[part.slice(1, -1)]}</Fragment>
+      ) : (
+        part
+      ),
+    );
+}
+const time = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+const day = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+function scopeText(
+  options: QualityOptions,
+  label: (iri: string) => string,
+): string {
+  return options.scope === "namespace"
+    ? t("scope.namespaceValue", { value: options.namespace })
+    : options.scope === "branch"
+      ? t("scope.branchValue", { value: label(options.root) })
+      : t("scope.ontology");
+}
+/** Error messages from the worker carry the rejected condition. */
+function rejection(message: string) {
+  const m = /quality-reject:(\w+):([^:]*):/.exec(message);
+  return m ? { code: m[1], entity: m[2] } : undefined;
+}
+
+// Recovery keeps the pane's name and its last result (craigtrim/axiom#44).
+function QualityRecovery({ maximize }: { maximize: ReactNode }) {
+  const job = useQualityStatus();
+  const last = !job
+    ? t("idle.summary")
+    : job.state === "running"
+      ? t("running.progress", { scanned: job.scanned, total: job.total })
+      : job.state === "canceled"
+        ? t("canceled.state")
+        : job.state === "failed"
+          ? t("failed.state")
+          : job.report?.findings.length
+            ? t("foot.totals", {
+                total: job.report.findings.length,
+                suppressed: 0,
+              }).split(" · ")[0]
+            : t("clean.headline");
+  return (
+    <>
+      <span className="id">{t("recovery.name")}</span>
+      <p>{last}</p>
+      <p>{t("recovery.widen")}</p>
+      {maximize}
+    </>
+  );
+}
+registerPaneRecovery("quality", { height: 120, Body: QualityRecovery });
+
+/** A native popover placed under its trigger; the pane's CSS zoom is respected. */
+function Menu({
+  id,
+  label,
+  anchor,
+  children,
+}: {
+  id: string;
+  label: string;
+  anchor: RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const place = () => {
+    const menu = ref.current,
+      trigger = anchor.current;
+    if (!menu || !trigger) return;
+    const win = trigger.ownerDocument.defaultView!;
+    const scale = Number(
+      trigger.closest<HTMLElement>(".adaptive-pane")?.dataset.paneZoom ?? 1,
+    );
+    const box = trigger.getBoundingClientRect();
+    const w = Math.min(280, win.innerWidth / scale - 16);
+    Object.assign(menu.style, {
+      width: w + "px",
+      left:
+        Math.max(
+          8,
+          Math.min(box.right / scale - w, win.innerWidth / scale - w - 8),
+        ) + "px",
+      top: box.bottom / scale + 4 + "px",
+      maxHeight:
+        Math.max(120, win.innerHeight / scale - box.bottom / scale - 16) + "px",
+      overflow: "auto",
+    });
+  };
+  return (
+    <div
+      ref={ref}
+      id={id}
+      popover="auto"
+      className="quality-menu"
+      role="dialog"
+      aria-label={label}
+      onToggle={(event) => {
+        if (event.newState === "open") {
+          place();
+          ref.current
+            ?.querySelector<HTMLElement>("select, button:not(:disabled)")
+            ?.focus();
+        }
+      }}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest("button"))
+          ref.current?.hidePopover();
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface Band {
+  key: string;
+  title: string;
+  id?: string;
+  severity?: QualitySeverity;
+  count: number;
+  items: QualityFinding[];
+}
+interface Repair {
+  iri: string;
+  label: string;
+  predicate: string;
+  language: string;
+  selected: boolean;
+  blocked?: "conflicting" | "blank";
+}
+type Mode =
+  "results" | "rules" | "exceptions" | "review" | "preview" | "rejected";
+
 export function QualityPanel() {
   const snapshot = useSnapshot()!,
     job = useQualityStatus(),
-    report = job?.report;
+    settingsRequests = useQualitySettingsRequests();
   const [options, setOptions] = useState(() =>
     readQualityOptions(panel("quality.options", defaultQualityOptions())),
   );
   const [exceptions, setExceptions] = useState(() =>
     readQualityExceptions(panel("quality.exceptions", [])),
   );
-  const [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [starting, setStarting] = useState(false);
-  const [text, setText] = useState(""),
-    [severity, setSeverity] = useState(""),
-    [group, setGroup] = useState(""),
-    [rule, setRule] = useState(""),
-    [kind, setKind] = useState(""),
-    [namespace, setNamespace] = useState("");
-  const [grouping, setGrouping] = useState("rule"),
-    [showSuppressed, setShowSuppressed] = useState(false),
-    [page, setPage] = useState(0),
-    [chosen, setChosen] = useState("");
-  const [reason, setReason] = useState(""),
-    [repairs, setRepairs] =
-      useState<(QualityRepair & { selected: boolean })[]>(),
-    [repairPage, setRepairPage] = useState(0),
-    [preview, setPreview] = useState<QualityPreview>();
+  const [settingsOpen, setSettingsOpen] = useState(!job?.report);
+  const [census, setCensus] = useState<QualityCensusResult>();
+  const [view, setView] = useState<"findings" | "coverage">("findings");
+  const [sevOn, setSevOn] = useState<QualitySeverity[]>(severities);
+  const [showSuppressed, setShowSuppressed] = useState(false);
+  const [grouping, setGrouping] = useState<"rule" | "entity">("rule");
+  const [text, setText] = useState("");
+  const [more, setMore] = useState({
+    group: "",
+    rule: "",
+    kind: "",
+    namespace: "",
+  });
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [open, setOpen] = useState("");
+  const [recording, setRecording] = useState("");
+  const [reason, setReason] = useState("");
+  const [page, setPage] = useState(0);
+  const [mode, setMode] = useState<Mode>("results");
+  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [preview, setPreview] = useState<QualityPreview>();
+  const [rejected, setRejected] = useState<{ code: string; entity: string }>();
+  const [error, setError] = useState("");
+  const [announce, setAnnounce] = useState("");
+  const [starting, setStarting] = useState(false);
+  const root = useRef<HTMLElement>(null);
+  const moreButton = useRef<HTMLButtonElement>(null),
+    exportButton = useRef<HTMLButtonElement>(null);
+  const moreId = useId(),
+    exportId = useId(),
+    exportNote = useId();
+
+  const report = job?.state === "complete" ? job.report : undefined;
+  const partial = job?.state === "canceled" ? job.partial : undefined;
+  const shown: QualityReport | undefined = report ?? partial;
   const busy = starting || job?.state === "running";
-  const stale =
+  const staleStore =
     !!report &&
     (report.datasetEpoch !== snapshot.datasetEpoch ||
       report.version !== snapshot.version);
-  const changedSettings =
+  const staleSettings =
     !!report &&
+    !staleStore &&
     JSON.stringify(report.options) !==
       JSON.stringify(readQualityOptions(options));
+  const stale = staleStore || staleSettings;
+  const labels = useMemo(
+    () =>
+      new Map(
+        snapshot.entities.map((e) => [e.iri, e.label ?? humanise(e.name)]),
+      ),
+    [snapshot.entities],
+  );
+  const label = (iri: string) =>
+    labels.get(iri) ?? humanise(identifierParts(iri).name);
+  const base = snapshot.ontology.namespace;
+
   const change = (values: Partial<QualityOptions>) => {
     const next = { ...options, ...values };
     setOptions(next);
@@ -74,85 +327,205 @@ export function QualityPanel() {
     try {
       await work();
     } catch (e) {
-      setError((e as Error).message);
+      setError((e as Error).message.replace(/^.*Error: /, ""));
     }
   };
+
+  // Tools > Check ontology... opens the settings block.
+  const firstRequest = useRef(settingsRequests);
   useEffect(() => {
-    setPreview(undefined);
-    setRepairs(undefined);
-    setChosen("");
-  }, [job?.id, snapshot.datasetEpoch]);
+    if (settingsRequests === firstRequest.current) return;
+    setSettingsOpen(true);
+    setMode((m) => (m === "rules" ? m : "results"));
+  }, [settingsRequests]);
+  // A finished scan collapses the settings into the summary line.
+  useEffect(() => {
+    if (job?.state === "complete") setSettingsOpen(false);
+    setOpen("");
+    setRecording("");
+    setPage(0);
+    if (job?.state !== "running") setStarting(false);
+    if (mode === "review" || mode === "preview" || mode === "rejected")
+      setMode("results");
+  }, [job?.id, job?.state]);
+  useEffect(() => {
+    const total = job?.report?.findings.length ?? 0;
+    if (job?.state === "complete")
+      setAnnounce(
+        t("announce.complete", {
+          total,
+          checks: job.report!.enabledChecks,
+        }),
+      );
+    else if (job?.state === "canceled") setAnnounce(t("announce.canceled"));
+    else if (job?.state === "failed") setAnnounce(t("announce.failed"));
+  }, [job?.id, job?.state]);
+  useEffect(() => {
+    if (stale) setAnnounce(t("announce.stale"));
+  }, [stale]);
   useEffect(() => {
     setPage(0);
+  }, [text, sevOn, showSuppressed, more, grouping]);
+  // The census the settings block shows follows the scope and the store.
+  useEffect(() => {
+    let live = true;
+    const timer = setTimeout(() => {
+      void request<QualityCensusResult>("qualityCensus", {
+        options: {
+          scope: options.scope,
+          namespace: options.namespace,
+          root: options.root,
+        },
+      })
+        .then((r) => live && setCensus(r))
+        .catch(() => live && setCensus(undefined));
+    }, 60);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [
-    job?.id,
-    text,
-    severity,
-    group,
-    rule,
-    kind,
-    namespace,
-    grouping,
-    showSuppressed,
+    options.scope,
+    options.namespace,
+    options.root,
+    snapshot.datasetEpoch,
+    snapshot.version,
   ]);
-  const rows = useMemo(
-    () =>
-      (report?.findings ?? [])
-        .filter(
-          (f) =>
-            (!severity || f.severity === severity) &&
-            (!group || f.group === group) &&
-            (!rule || f.rule === rule) &&
-            (!kind || f.kind === kind) &&
-            (!namespace || f.namespace === namespace) &&
-            (showSuppressed || !qualitySuppression(report!, f, exceptions)) &&
-            (!text ||
-              [f.label, f.iri, f.message, f.rule, ...f.related]
-                .join(" ")
-                .toLowerCase()
-                .includes(text.toLowerCase())),
-        )
-        .sort((a, b) =>
-          grouping === "entity"
-            ? a.iri.localeCompare(b.iri) || a.rule.localeCompare(b.rule)
-            : a.rule.localeCompare(b.rule) || a.iri.localeCompare(b.iri),
-        ),
-    [
-      report,
-      exceptions,
-      text,
-      severity,
-      group,
-      rule,
-      kind,
-      namespace,
-      grouping,
-      showSuppressed,
-    ],
-  );
-  const active = rows.find((f) => f.id === chosen) ?? rows[0];
-  const pages = Math.max(1, Math.ceil(rows.length / 40)),
-    currentPage = Math.min(page, pages - 1);
-  const suppressed =
-    report?.findings.filter((f) => qualitySuppression(report, f, exceptions))
-      .length ?? 0;
-  const entityIds = useMemo(
-    () => new Set(snapshot.entities.map((e) => e.iri)),
-    [snapshot.entities],
-  );
-  const missing =
-    report?.findings.filter(
-      (f) =>
-        f.rule === "label.missing" &&
-        !qualitySuppression(report, f, exceptions) &&
-        entityIds.has(f.iri),
-    ) ?? [];
-  const navigate = (iri: string) =>
-    action(async () => {
-      if (!report || stale)
-        throw Error(
-          "Run the scan again before navigating in a changed ontology.",
+
+  const run = () =>
+    void action(async () => {
+      setStarting(true);
+      setSettingsOpen(false);
+      setMode("results");
+      try {
+        await startQuality(readQualityOptions(options));
+      } catch (e) {
+        setStarting(false);
+        throw e;
+      }
+    });
+
+  // ---------------------------------------------------------------- findings
+  const suppressed = (f: QualityFinding) =>
+    !!shown && !!qualitySuppression(shown, f, exceptions);
+  const all = shown?.findings ?? [];
+  const suppressedCount = all.filter(suppressed).length;
+  const counts = Object.fromEntries(
+    severities.map((s) => [
+      s,
+      all.filter((f) => f.severity === s && !suppressed(f)).length,
+    ]),
+  ) as Record<QualitySeverity, number>;
+  const query = text.trim().toLowerCase();
+  const narrowing = !!(query || more.kind || more.namespace);
+  const passes = (f: QualityFinding) =>
+    sevOn.includes(f.severity) &&
+    (showSuppressed || !suppressed(f)) &&
+    (!more.group || f.group === more.group) &&
+    (!more.rule || f.rule === more.rule) &&
+    (!more.kind || f.kind === more.kind) &&
+    (!more.namespace || f.namespace === more.namespace) &&
+    (!query ||
+      [f.label, f.iri, f.rule, ruleOf(f.rule).title]
+        .join(" ")
+        .toLowerCase()
+        .includes(query));
+  const bands: Band[] = useMemo(() => {
+    if (!shown) return [];
+    const listed = shown.findings.filter(passes);
+    if (grouping === "entity") {
+      const byEntity = new Map<string, QualityFinding[]>();
+      for (const f of listed)
+        byEntity.set(f.iri, [...(byEntity.get(f.iri) ?? []), f]);
+      return [...byEntity]
+        .map(([iri, items]) => ({
+          key: "e:" + iri,
+          title: items[0].label || label(iri),
+          id: iri,
+          count: new Set(items.map((f) => f.rule)).size,
+          items: items.sort(
+            (a, b) =>
+              severities.indexOf(a.severity) - severities.indexOf(b.severity) ||
+              ruleOf(a.rule).title.localeCompare(ruleOf(b.rule).title),
+          ),
+        }))
+        .sort(
+          (a, b) =>
+            a.title.localeCompare(b.title) || a.key.localeCompare(b.key),
         );
+    }
+    const checked = shown.coverage.filter((c) => c.checked).map((c) => c.rule);
+    return checked
+      .map((id): Band | undefined => {
+        const severity = shown.options.rules[id] as QualitySeverity;
+        const items = listed
+          .filter((f) => f.rule === id)
+          .sort(
+            (a, b) =>
+              a.label.localeCompare(b.label) || a.iri.localeCompare(b.iri),
+          );
+        const total = shown.findings.filter((f) => f.rule === id).length;
+        const r = ruleOf(id);
+        const visible =
+          items.length > 0 ||
+          (total === 0 &&
+            !narrowing &&
+            sevOn.includes(severity) &&
+            (!more.group || r.group === more.group) &&
+            (!more.rule || id === more.rule));
+        return visible
+          ? {
+              key: "r:" + id,
+              title: r.title,
+              id,
+              severity,
+              count: items.length,
+              items,
+            }
+          : undefined;
+      })
+      .filter((b): b is Band => !!b)
+      .sort(
+        (a, b) =>
+          severities.indexOf(a.severity!) - severities.indexOf(b.severity!) ||
+          b.count - a.count ||
+          a.title.localeCompare(b.title),
+      );
+  }, [shown, exceptions, grouping, sevOn, showSuppressed, more, query, labels]);
+  const listed = bands
+    .filter((b) => expanded.includes(b.key))
+    .reduce((n, b) => n + b.items.length, 0);
+  const pages = Math.max(1, Math.ceil(listed / PAGE)),
+    current = Math.min(page, pages - 1),
+    first = current * PAGE;
+
+  // ---------------------------------------------------------------- settings
+  const knownCensus = census?.census ?? {};
+  const withdrawn = census ? qualityWithdrawn(knownCensus) : [];
+  // The hint counts checks these settings would run but the census withdrew.
+  const withdrawnEnabled = withdrawn.filter(
+    (id) =>
+      options.rules[id] !== "Off" && options.groups.includes(ruleOf(id).group),
+  ).length;
+  const enabledChecks = qualityEnabledChecks(options, knownCensus).length;
+  const offeredGroups = qualityGroups.filter((g) =>
+    qualityRules.some(
+      (r) =>
+        r.group === g &&
+        options.rules[r.id] !== "Off" &&
+        !withdrawn.includes(r.id),
+    ),
+  );
+  const offeredKinds = qualityKinds.filter(
+    (k) =>
+      (coreKinds.includes(k) || (census?.kinds[k] ?? 0) > 0) &&
+      !(k === "Resource" && !(census?.kinds[k] ?? 0)),
+  );
+
+  // ---------------------------------------------------------------- actions
+  const navigate = (iri: string) =>
+    void action(async () => {
+      if (!report || staleStore) throw Error(t("stale.navigate"));
       await request("select", {
         iri,
         datasetEpoch: report.datasetEpoch,
@@ -160,236 +533,1031 @@ export function QualityPanel() {
       });
       editEntity(iri);
     });
-  const repairPages = Math.max(1, Math.ceil((repairs?.length ?? 0) / 30));
-  return (
-    <section
-      className="panel quality-panel"
-      data-panel="quality"
-      aria-label="Ontology Quality"
-    >
-      <div className="panel-toolbar quality-toolbar">
-        <button
+  const exportReport = (format: "json" | "csv") =>
+    void action(async () => {
+      const file = await window.axiom.qualityExport({
+        id: job!.id,
+        format,
+        exceptions,
+        ...(staleStore ? { staleAt: snapshot.version } : {}),
+      });
+      if (file) notify(t("export.done", { file }));
+    });
+  const record = (f: QualityFinding) => {
+    if (!shown || !reason.trim()) return;
+    saveExceptions([
+      ...exceptions,
+      {
+        ontology: shown.ontology,
+        iri: f.iri,
+        rule: f.rule,
+        signature: f.signature,
+        reason: reason.trim(),
+        recorded: new Date().toISOString(),
+      },
+    ]);
+    setReason("");
+    setRecording("");
+  };
+  const unsuppress = (f: QualityFinding) => {
+    const e = shown && qualitySuppression(shown, f, exceptions);
+    if (e) saveExceptions(exceptions.filter((x) => x !== e));
+  };
+  const canReview = !!report && !staleStore && !busy;
+  const entityIds = useMemo(
+    () => new Set(snapshot.entities.map((e) => e.iri)),
+    [snapshot.entities],
+  );
+  const beginReview = () => {
+    if (!report || !canReview) return;
+    const predicates = qualityAdmitted(
+      report.options.labelPredicates,
+      report.census,
+    );
+    const language = report.options.languages[0] ?? "";
+    const eligible = new Set<string>();
+    const rows: Repair[] = [];
+    for (const f of report.findings)
+      if (
+        f.rule === "label.missing" &&
+        !suppressed(f) &&
+        entityIds.has(f.iri) &&
+        !eligible.has(f.iri)
+      ) {
+        eligible.add(f.iri);
+        rows.push({
+          iri: f.iri,
+          label: humanise(identifierParts(f.iri).name),
+          predicate: predicates[0] ?? report.options.labelPredicates[0],
+          language,
+          selected: false,
+        });
+      }
+    const blocked = new Map<string, Repair["blocked"]>();
+    for (const f of report.findings)
+      if (!eligible.has(f.iri) && entityIds.has(f.iri))
+        if (f.rule === "label.empty") blocked.set(f.iri, "blank");
+        else if (
+          ["label.multiple", "skos.multiple", "skos.disjoint"].includes(
+            f.rule,
+          ) &&
+          !blocked.has(f.iri)
+        )
+          blocked.set(f.iri, "conflicting");
+    for (const [iri, why] of blocked)
+      rows.push({
+        iri,
+        label: "",
+        predicate: "",
+        language: "",
+        selected: false,
+        blocked: why,
+      });
+    setRepairs(rows);
+    setPreview(undefined);
+    setRejected(undefined);
+    setMode("review");
+  };
+  const buildPreview = () =>
+    void action(async () => {
+      try {
+        setPreview(
+          await request<QualityPreview>("qualityPreview", {
+            id: job!.id,
+            rows: repairs
+              .filter((r) => r.selected && !r.blocked)
+              .map(({ iri, label, predicate, language }) => ({
+                iri,
+                label,
+                predicate,
+                language,
+              })),
+          }),
+        );
+        setMode("preview");
+      } catch (e) {
+        const r = rejection((e as Error).message);
+        if (!r) throw e;
+        setRejected(r);
+        setMode("rejected");
+      }
+    });
+  const apply = () =>
+    void action(async () => {
+      if (!preview) return;
+      try {
+        const n = await request<number>("qualityApply", {
+          datasetEpoch: preview.datasetEpoch,
+          version: preview.version,
+          token: preview.token,
+        });
+        setPreview(undefined);
+        setRepairs([]);
+        setMode("results");
+        notify(t("labels.applied", { n }));
+      } catch (e) {
+        const r = rejection((e as Error).message);
+        if (!r) throw e;
+        setRejected(r);
+        setMode("rejected");
+      }
+    });
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    if (open) {
+      const id = open;
+      setOpen("");
+      setRecording("");
+      root.current
+        ?.querySelector<HTMLElement>(`[data-finding="${CSS.escape(id)}"]`)
+        ?.focus();
+      event.stopPropagation();
+    } else if (mode === "review" || mode === "preview" || mode === "rejected") {
+      setMode(mode === "review" ? "results" : "review");
+      event.stopPropagation();
+    } else if (mode !== "results") {
+      setMode("results");
+      event.stopPropagation();
+    } else if (settingsOpen && report) {
+      setSettingsOpen(false);
+      event.stopPropagation();
+    }
+  };
+
+  // ---------------------------------------------------------------- regions
+  const severityWord = (s: QualitySeverity) => (
+    <span className={"sev " + severityClass(s)}>
+      <SeverityGlyph severity={s} />
+      {s}
+    </span>
+  );
+  const commandBar = () => {
+    if (job?.state === "running")
+      return (
+        <div className="bar">
+          <span className="title">{t("title")}</span>
+          <span className="state">
+            <Play />
+            {t("running.state")}
+          </span>
+          <span
+            className="prog"
+            role="progressbar"
+            aria-label={t("running.state")}
+            aria-valuemin={0}
+            aria-valuemax={Math.max(1, job.total)}
+            aria-valuenow={job.scanned}
+          >
+            <i
+              style={{
+                width:
+                  Math.round((job.scanned / Math.max(1, job.total)) * 100) +
+                  "%",
+              }}
+            />
+          </span>
+          <span className="sum">
+            {t("running.progress", { scanned: job.scanned, total: job.total })}
+          </span>
+          <button className="btn" onClick={() => void action(cancelQuality)}>
+            {t("cancel")}
+          </button>
+        </div>
+      );
+    if (job?.state === "failed")
+      return (
+        <div className="bar alert-bad">
+          <span className="state">
+            <Failed />
+            {t("failed.state")}
+          </span>
+          <span className="sum">
+            {(job.error?.replace(/^.*Error: /, "") || t("failed.fallback")) +
+              " " +
+              t("failed.partial")}
+          </span>
+          {!settingsOpen && (
+            <button className="btn" disabled={busy} onClick={run}>
+              {t("run")}
+            </button>
+          )}
+        </div>
+      );
+    if (job?.state === "canceled")
+      return (
+        <div className="bar alert-warn">
+          <span className="state">
+            <Triangle />
+            {t("canceled.state")}
+          </span>
+          <span className="sum">
+            {t("canceled.summary", { scanned: job.scanned, total: job.total })}
+          </span>
+          <button className="btn" disabled={busy} onClick={run}>
+            <Rerun />
+            {t("rerun")}
+          </button>
+        </div>
+      );
+    if (report && stale)
+      return (
+        <div className="bar alert-warn">
+          <span className="state">
+            <Triangle />
+            {t("stale.state")}
+          </span>
+          <span className="sum">
+            {staleStore
+              ? t("stale.store", {
+                  ran: String(report.version),
+                  current: String(snapshot.version),
+                })
+              : t("stale.settings", {
+                  checks: report.enabledChecks,
+                  scope: scopeText(report.options, label),
+                })}
+          </span>
+          <button className="btn" disabled={busy} onClick={run}>
+            <Rerun />
+            {t("rerun")}
+          </button>
+        </div>
+      );
+    if (report)
+      return (
+        <div className="bar">
+          <span className="title">{t("title")}</span>
+          <span className="sum">
+            {t("summary", {
+              scope: scopeText(report.options, label),
+              checks: report.enabledChecks,
+              revision: String(report.version),
+              scanned: report.scanned,
+              time: time(report.createdAt),
+            })}
+          </span>
+          <button
+            className="btn"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          >
+            {t("change")}
+          </button>
+          <button className="btn at-wide" disabled={busy} onClick={run}>
+            <Rerun />
+            {t("rerun.short")}
+          </button>
+        </div>
+      );
+    return (
+      <div className="bar">
+        <span className="title">{t("title")}</span>
+        <span className="sum">{t("idle.summary")}</span>
+      </div>
+    );
+  };
+  const vocabulary = () => {
+    const present = qualityVocabularies.filter((v) => knownCensus[v]);
+    const absent = qualityVocabularies.filter((v) => !knownCensus[v]);
+    return (
+      <div className="srow at-tall">
+        <span className="k">{t("vocab.label")}</span>
+        {present.map((v) => (
+          <span
+            key={v}
+            className="tagf"
+            title={knownCensus[v]!.slice(0, 12).map(shorten).join(", ")}
+          >
+            {v}
+          </span>
+        ))}
+        <span className="hint">
+          {absent.length
+            ? withdrawnEnabled
+              ? tn("vocab.absent", withdrawnEnabled, {
+                  list: absent.join(", "),
+                })
+              : t("vocab.absent.none", { list: absent.join(", ") })
+            : t("vocab.allPresent")}
+        </span>
+      </div>
+    );
+  };
+  const settings = () => (
+    <div className="settings">
+      <div className="srow">
+        <span className="k">{t("scope.label")}</span>
+        <select
+          className="sel"
+          aria-label={t("scope.label")}
+          value={options.scope}
           disabled={busy}
-          onClick={() =>
-            void action(async () => {
-              setStarting(true);
-              setMessage("");
-              try {
-                await startQuality(options);
-              } finally {
-                setStarting(false);
-              }
-            })
+          onChange={(e) =>
+            change({ scope: e.target.value as QualityOptions["scope"] })
           }
         >
-          Run scan
-        </button>
+          <option value="ontology">{t("scope.ontology")}</option>
+          <option value="namespace">{t("scope.namespace")}</option>
+          <option value="branch">{t("scope.branch")}</option>
+        </select>
+        {options.scope === "namespace" && (
+          <input
+            className="txt"
+            aria-label={t("scope.namespace")}
+            value={options.namespace}
+            placeholder={base}
+            disabled={busy}
+            onChange={(e) => change({ namespace: e.target.value })}
+          />
+        )}
+        {options.scope === "branch" && (
+          <select
+            className="sel"
+            aria-label={t("scope.root")}
+            value={options.root}
+            disabled={busy}
+            onChange={(e) => change({ root: e.target.value })}
+          >
+            <option value="">{t("scope.chooseRoot")}</option>
+            {snapshot.entities
+              .filter(
+                (e) =>
+                  ["Class", "Defined"].includes(e.kind) &&
+                  !e.iri.startsWith("_:"),
+              )
+              .map((e) => (
+                <option key={e.iri} value={e.iri} title={e.iri}>
+                  {e.label ?? humanise(e.name)}
+                </option>
+              ))}
+          </select>
+        )}
+        {census?.scopeError && (
+          <span className="hint">
+            {t(
+              options.scope === "namespace"
+                ? "scope.needsNamespace"
+                : "scope.needsRoot",
+            )}
+          </span>
+        )}
+        <span className="fill"></span>
         <button
-          disabled={!busy || starting}
-          onClick={() => void action(cancelQuality)}
+          className="btn primary"
+          disabled={busy || !!census?.scopeError}
+          onClick={run}
         >
-          Cancel scan
-        </button>
-        <button
-          disabled={!report || busy}
-          onClick={() =>
-            void action(async () => {
-              const file = await window.axiom.qualityExport({
-                id: job!.id,
-                format: "json",
-                exceptions,
-              });
-              if (file) setMessage("Exported " + file);
-            })
-          }
-        >
-          Export JSON
-        </button>
-        <button
-          disabled={!report || busy}
-          onClick={() =>
-            void action(async () => {
-              const file = await window.axiom.qualityExport({
-                id: job!.id,
-                format: "csv",
-                exceptions,
-              });
-              if (file) setMessage("Exported " + file);
-            })
-          }
-        >
-          Export CSV
+          <Play />
+          {t("run")}
         </button>
       </div>
-      <div className="quality-scroll">
-        <h2>Ontology Quality</h2>
-        <p>
-          Review completeness, naming, structure, and feature compatibility.
-          Scanning leaves ontology statements unchanged.
-        </p>
-        <details open={!report && !busy} className="quality-settings">
-          <summary>Scan settings and rules</summary>
-          <fieldset disabled={busy}>
-            <legend>Scan scope</legend>
-            <div className="quality-fields">
-              <label>
-                Profile
-                <select
-                  value={options.profile}
-                  onChange={(e) =>
-                    change({
-                      ...defaultQualityOptions(
-                        e.target.value as QualityOptions["profile"],
-                      ),
-                      scope: options.scope,
-                      namespace: options.namespace,
-                      root: options.root,
-                    })
-                  }
+      <div className="srow at-tall">
+        <span className="k">{t("kinds.label")}</span>
+        {offeredKinds.map((k) => (
+          <button
+            key={k}
+            className="chip"
+            aria-pressed={options.kinds.includes(k)}
+            disabled={busy}
+            onClick={() => change({ kinds: toggle(options.kinds, k) })}
+          >
+            {kindPlural[k] + " "}
+            <span className="n">
+              {(census?.kinds[k] ?? 0).toLocaleString("en-US")}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="srow at-tall">
+        <span className="k">{t("checks.label")}</span>
+        {offeredGroups.map((g) => (
+          <button
+            key={g}
+            className="chip"
+            aria-pressed={options.groups.includes(g)}
+            disabled={busy}
+            onClick={() => change({ groups: toggle(options.groups, g) })}
+          >
+            {qualityGroupLabel(g)}
+          </button>
+        ))}
+        <span className="hint">{tn("checks.hint", enabledChecks)}</span>
+        <button
+          className="btn"
+          aria-pressed={mode === "rules"}
+          onClick={() => setMode(mode === "rules" ? "results" : "rules")}
+        >
+          {t("rules.open")}
+        </button>
+      </div>
+      {vocabulary()}
+    </div>
+  );
+  const tools = () => (
+    <div className="tools">
+      <div className="seg" role="group" aria-label={t("view.label")}>
+        <button
+          aria-pressed={view === "findings"}
+          onClick={() => setView("findings")}
+        >
+          {t("view.findings")}
+        </button>
+        <button
+          aria-pressed={view === "coverage"}
+          onClick={() => setView("coverage")}
+        >
+          {t("view.coverage")}
+        </button>
+      </div>
+      {view === "findings" && (
+        <>
+          {severities.map((s) => (
+            <button
+              key={s}
+              className="chip"
+              aria-pressed={sevOn.includes(s)}
+              onClick={() => setSevOn(toggle(sevOn, s))}
+            >
+              <span className={"sev " + severityClass(s)}>
+                <SeverityGlyph severity={s} />
+              </span>
+              {s + " "}
+              <span className="n">{counts[s].toLocaleString("en-US")}</span>
+            </button>
+          ))}
+          <button
+            className="chip"
+            aria-pressed={showSuppressed}
+            onClick={() => setShowSuppressed(!showSuppressed)}
+          >
+            {t("filter.suppressed") + " "}
+            <span className="n">{suppressedCount.toLocaleString("en-US")}</span>
+          </button>
+          {(Object.keys(more) as (keyof typeof more)[])
+            .filter((k) => more[k])
+            .map((k) => {
+              const name = t(("filter." + k) as QlyKey);
+              const value =
+                k === "rule"
+                  ? ruleOf(more.rule).title
+                  : k === "group"
+                    ? qualityGroupLabel(more.group as QualityGroup)
+                    : k === "kind"
+                      ? kindName(more.kind)
+                      : more.namespace;
+              return (
+                <button
+                  key={k}
+                  className="chip"
+                  aria-pressed="true"
+                  aria-label={t("filter.remove", { name, value })}
+                  onClick={() => setMore({ ...more, [k]: "" })}
                 >
-                  {["Axiom", "SKOS", "OBO-inspired"].map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Scope
-                <select
-                  value={options.scope}
-                  onChange={(e) =>
-                    change({ scope: e.target.value as QualityOptions["scope"] })
-                  }
-                >
-                  <option value="ontology">Whole loaded ontology</option>
-                  <option value="namespace">Namespace</option>
-                  <option value="branch">
-                    Taxonomy branch and descendants
-                  </option>
-                </select>
-              </label>
-              {options.scope === "namespace" && (
-                <label>
-                  Namespace
-                  <input
-                    value={options.namespace}
-                    placeholder="https://example.org/#"
-                    onChange={(e) => change({ namespace: e.target.value })}
-                  />
-                </label>
-              )}
-              {options.scope === "branch" && (
-                <label>
-                  Branch root
-                  <select
-                    value={options.root}
-                    onChange={(e) => change({ root: e.target.value })}
+                  {t("filter.active", { name, value }) + " ×"}
+                </button>
+              );
+            })}
+        </>
+      )}
+      <span className="fill"></span>
+      {view === "findings" && (
+        <>
+          <select
+            className="sel at-tall"
+            aria-label={t("groupBy.label")}
+            value={grouping}
+            onChange={(e) => setGrouping(e.target.value as "rule" | "entity")}
+          >
+            <option value="rule">{t("groupBy.rule")}</option>
+            <option value="entity">{t("groupBy.entity")}</option>
+          </select>
+          <input
+            className="txt at-wide"
+            type="search"
+            placeholder={t("filter.placeholder")}
+            aria-label={t("filter.label")}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+        </>
+      )}
+      <button
+        ref={exportButton}
+        className="btn"
+        aria-label={t("export.label")}
+        aria-describedby={exportNote}
+        title={t("export.note", { total: all.length })}
+        popoverTarget={exportId}
+      >
+        <Download />
+        <span className="at-full">{t("export")}</span>
+      </button>
+      <span id={exportNote} className="sr">
+        {t("export.note", { total: all.length })}
+      </span>
+      <Menu id={exportId} label={t("export.label")} anchor={exportButton}>
+        <button onClick={() => exportReport("json")}>{t("export.json")}</button>
+        <button onClick={() => exportReport("csv")}>{t("export.csv")}</button>
+        <p>{t("export.note", { total: all.length })}</p>
+      </Menu>
+      <button
+        ref={moreButton}
+        className="ib"
+        aria-label={t("more.label")}
+        title={t("more")}
+        popoverTarget={moreId}
+      >
+        <FindGlyph name="more" />
+      </button>
+      <Menu id={moreId} label={t("more.label")} anchor={moreButton}>
+        {(
+          [
+            [
+              "group",
+              qualityGroups
+                .filter((g) => all.some((f) => f.group === g))
+                .map((g) => [g, qualityGroupLabel(g)]),
+            ],
+            [
+              "rule",
+              [...new Set(all.map((f) => f.rule))]
+                .map((id) => [id, ruleOf(id).title])
+                .sort((a, b) => a[1].localeCompare(b[1])),
+            ],
+            [
+              "kind",
+              [...new Set(all.map((f) => f.kind))]
+                .sort()
+                .map((k) => [k, kindName(k)]),
+            ],
+            [
+              "namespace",
+              [...new Set(all.map((f) => f.namespace))]
+                .sort()
+                .map((n) => [n, n]),
+            ],
+          ] as [keyof typeof more, string[][]][]
+        ).map(([key, choices]) => (
+          <label key={key}>
+            {t(("filter." + key) as QlyKey)}
+            <select
+              value={more[key]}
+              onChange={(e) => setMore({ ...more, [key]: e.target.value })}
+            >
+              <option value="">{t("filter.all")}</option>
+              {choices.map(([value, name]) => (
+                <option key={value} value={value}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <button onClick={() => setMode("exceptions")}>
+          {t("exceptions.title")}
+        </button>
+        <button disabled={!canReview} onClick={beginReview}>
+          {t("labels.review")}
+        </button>
+        {!canReview && <p>{t("labels.unavailable")}</p>}
+      </Menu>
+    </div>
+  );
+  const findingRow = (f: QualityFinding, entityBand = false) => {
+    const isOpen = open === f.id;
+    const isSuppressed = suppressed(f);
+    const name = f.label || label(f.iri);
+    return (
+      <Fragment key={f.id}>
+        <div
+          className={
+            "frow" +
+            (isOpen ? " open" : "") +
+            (isSuppressed ? " suppressed" : "")
+          }
+        >
+          <button
+            className="fname"
+            aria-expanded={isOpen}
+            data-finding={f.id}
+            onClick={() => {
+              setOpen(isOpen ? "" : f.id);
+              setRecording("");
+              setReason("");
+            }}
+          >
+            {entityBand ? (
+              <>
+                <span className="lbl">{ruleOf(f.rule).title}</span>
+                <span className="kind">{f.severity}</span>
+                <span className="iri">{f.rule}</span>
+                <span className="fold">{f.severity + " · " + f.rule}</span>
+              </>
+            ) : (
+              <>
+                <span className="lbl">{name}</span>
+                <span className="kind">{kindName(f.kind)}</span>
+                <span className="iri">{f.iri}</span>
+                <span className="fold">
+                  {kindName(f.kind) + " · " + identifierParts(f.iri).name}
+                </span>
+              </>
+            )}
+          </button>
+          <span className="fact">
+            {isSuppressed ? (
+              <button
+                className="ib"
+                aria-label={t("detail.unsuppress", { entity: name })}
+                onClick={() => unsuppress(f)}
+              >
+                <Unsuppress />
+              </button>
+            ) : (
+              <>
+                {f.kind !== "Ontology" && (
+                  <button
+                    className="ib"
+                    aria-label={t("detail.open", { entity: name })}
+                    onClick={() => navigate(f.iri)}
                   >
-                    <option value="">Choose a named class</option>
-                    {snapshot.entities
-                      .filter(
-                        (e) =>
-                          ["Class", "Defined"].includes(e.kind) &&
-                          !e.iri.startsWith("_:"),
-                      )
-                      .map((e) => (
-                        <option key={e.iri} value={e.iri}>
-                          {e.label ?? humanise(e.name)} — {e.iri}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              )}
+                    <OpenDetails />
+                  </button>
+                )}
+                <button
+                  className="ib"
+                  aria-label={t("detail.suppress", { entity: name })}
+                  onClick={() => {
+                    setOpen(f.id);
+                    setRecording(f.id);
+                    setReason("");
+                  }}
+                >
+                  <Suppress />
+                </button>
+              </>
+            )}
+          </span>
+        </div>
+        {isOpen && detail(f, isSuppressed)}
+      </Fragment>
+    );
+  };
+  const detail = (f: QualityFinding, isSuppressed: boolean) => {
+    const r = ruleOf(f.rule);
+    const name = f.label || label(f.iri);
+    const alias = f.evidence.find(
+      (s) =>
+        s.subject === f.iri &&
+        s.object.literal &&
+        s.object.value.trim() &&
+        (aliasPredicates.includes(s.predicate) ||
+          s.predicate.slice(s.predicate.lastIndexOf("#") + 1) === "inflection"),
+    );
+    const excluded = all.some(
+      (o) => o.iri === f.iri && o.rule === "analysis.excluded",
+    );
+    const others = [
+      ...new Set(
+        all
+          .filter((o) => o.iri === f.iri && o.rule !== f.rule)
+          .map((o) => ruleOf(o.rule).title),
+      ),
+    ];
+    const exception = shown && qualitySuppression(shown, f, exceptions);
+    const labelPredicate = shown
+      ? qualityAdmitted(shown.options.labelPredicates, shown.census)[0]
+      : undefined;
+    const language = shown?.options.languages[0];
+    const wouldAdd =
+      f.rule === "label.missing" && labelPredicate && entityIds.has(f.iri)
+        ? turtleLines(
+            [
+              {
+                subject: f.iri,
+                predicate: labelPredicate,
+                object: {
+                  value: humanise(identifierParts(f.iri).name),
+                  literal: true,
+                  ...(language
+                    ? { language, datatype: NS.rdf + "langString" }
+                    : {}),
+                },
+              },
+            ],
+            base,
+          )
+        : "";
+    return (
+      <div className="fdet" role="group" aria-label={name + ", " + r.title}>
+        {/* A suppressed finding leads with why it is suppressed (exhibit F). */}
+        {isSuppressed && exception && (
+          <>
+            <div className="kv">
+              <span className="k">{t("detail.exception")}</span>
+              <span className="v">{exception.reason}</span>
             </div>
-            <p>
-              Only loaded definitions are checked. Remote imports are not
-              fetched.
-            </p>
-          </fieldset>
-          <fieldset disabled={busy}>
-            <legend>Entity kinds</legend>
-            <div className="quality-checks">
-              {qualityKinds.map((k) => (
-                <label key={k}>
-                  <input
-                    type="checkbox"
-                    checked={options.kinds.includes(k)}
-                    onChange={() => change({ kinds: toggle(options.kinds, k) })}
-                  />
-                  {kindLabel(k)}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset disabled={busy}>
-            <legend>Check groups</legend>
-            <div className="quality-checks">
-              {qualityGroups.map((g) => (
-                <label key={g}>
-                  <input
-                    type="checkbox"
-                    checked={options.groups.includes(g)}
-                    onChange={() =>
-                      change({ groups: toggle(options.groups, g) })
-                    }
-                  />
-                  {g}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <details>
-            <summary>Predicates, languages, and rule severity</summary>
-            <div className="quality-fields">
-              <label>
-                Preferred languages
-                <input
-                  value={options.languages.join(", ")}
-                  onChange={(e) =>
-                    change({
-                      languages: e.target.value
-                        .split(",")
-                        .map((s) => s.trim().toLowerCase()),
-                    })
-                  }
-                  placeholder="en, es (optional)"
-                />
-              </label>
-              {(
-                [
-                  ["labelPredicates", "Primary-label predicates"],
-                  ["descriptionPredicates", "Description predicates"],
-                  ["definitionPredicates", "Definition predicates"],
-                  ["replacementPredicates", "Replacement predicates"],
-                ] as const
-              ).map(([key, title]) => (
-                <label key={key}>
-                  {title}
-                  <textarea
-                    rows={3}
-                    value={options[key].join("\n")}
-                    onChange={(e) =>
-                      change({ [key]: e.target.value.split("\n") })
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-            <p>
-              One absolute predicate IRI per line. A violation from a configured
-              project rule is not a claim that RDF itself is invalid.
-              OBO-inspired is a limited curation profile, not certification.
-            </p>
-            <div className="quality-rule-list">
-              {qualityRules.map((r) => (
-                <label key={r.id}>
-                  <span>
-                    {r.title}
-                    <small>
-                      {r.id} · {r.basis}
-                    </small>
+            {exception.recorded && (
+              <div className="kv">
+                <span className="k">{t("detail.recorded")}</span>
+                <span className="v">
+                  {t("detail.recordedBody", { date: day(exception.recorded) })}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+        <div className="kv">
+          <span className="k">{t("detail.rule")}</span>
+          <span className="v">
+            {/* One text node between the elements, as the reference has. */}
+            <b>{r.title}</b>
+            {" · " + f.severity + " · "}
+            <span className="mono">{f.rule}</span>
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.basis")}</span>
+          <span className="v">{f.basis}</span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.entity")}</span>
+          <span className="v">
+            {kindName(f.kind) + " · "}
+            <span className="iri-v">{f.iri}</span>
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.evidence")}</span>
+          <span className="v">
+            {f.evidence.length ? (
+              <pre>{turtleEvidence(f.evidence, base)}</pre>
+            ) : (
+              <span className="na">{t("detail.noEvidence")}</span>
+            )}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.reading")}</span>
+          <span className="v">
+            {f.rule === "label.missing"
+              ? alias && !excluded
+                ? rich("reading.alias", {
+                    predicate: (
+                      <code className="mono">
+                        {turtleTerm(alias.predicate, base)}
+                      </code>
+                    ),
+                    eligible: <b>{t("reading.eligible")}</b>,
+                  })
+                : rich("reading.derived", {
+                    name: <b>{name}</b>,
+                    fragment: (
+                      <code className="mono">
+                        {identifierParts(f.iri).name}
+                      </code>
+                    ),
+                  })
+              : f.message}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.consequence")}</span>
+          <span className="v">{ruleCopy[f.rule]?.why}</span>
+        </div>
+        <div className="kv">
+          <span className="k">{t("detail.correction")}</span>
+          <span className="v">{f.suggestion}</span>
+        </div>
+        {wouldAdd && (
+          <div className="kv">
+            <span className="k">{t("detail.wouldAdd")}</span>
+            <span className="v">
+              <pre className="preview">{wouldAdd}</pre>
+            </span>
+          </div>
+        )}
+        <div className="kv">
+          <span className="k">{t("detail.alsoUnder")}</span>
+          <span className="v">
+            {others.length ? (
+              others.map((title, i) => (
+                <Fragment key={title}>
+                  {i ? " " : ""}
+                  <span className="tagf">{title}</span>
+                </Fragment>
+              ))
+            ) : (
+              <span className="na">
+                {f.rule === "label.missing" && !excluded
+                  ? t("detail.nothingExcluded")
+                  : t("detail.nothing")}
+              </span>
+            )}
+          </span>
+        </div>
+        {!isSuppressed && recording === f.id && (
+          <div className="kv">
+            <span className="k">{t("detail.exception")}</span>
+            <span className="v reason">
+              <input
+                className="txt"
+                aria-label={t("exception.reason", { entity: name })}
+                placeholder={t("exception.placeholder")}
+                value={reason}
+                autoFocus
+                onChange={(e) => setReason(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") record(f);
+                }}
+              />
+              <button
+                className="btn"
+                disabled={!reason.trim()}
+                onClick={() => record(f)}
+              >
+                {t("exception.record")}
+              </button>
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+  const findingsBody = (readOnlyPartial = false) => {
+    if (!shown) return null;
+    if (!bands.length)
+      return all.length ? (
+        <div className="state-body">
+          <h3>{t("filter.empty.headline")}</h3>
+          <p>
+            {t("filter.empty.body", {
+              total: t("foot.totals", {
+                total: all.length,
+                suppressed: 0,
+              }).split(" · ")[0],
+            })}
+          </p>
+        </div>
+      ) : null;
+    let offset = 0;
+    return bands.map((b) => {
+      const isExpanded = expanded.includes(b.key);
+      const start = offset;
+      if (isExpanded) offset += b.items.length;
+      const visible = isExpanded
+        ? b.items.slice(
+            Math.max(0, first - start),
+            Math.max(0, first + PAGE - start),
+          )
+        : [];
+      return (
+        <Fragment key={b.key}>
+          <button
+            className="rule"
+            aria-expanded={isExpanded}
+            onClick={() => setExpanded(toggle(expanded, b.key))}
+          >
+            <span className="tw">
+              <Chevron />
+            </span>
+            {b.severity && severityWord(b.severity)}
+            <span className="nm">{b.title}</span>
+            {b.id && <span className="id wide">{b.id}</span>}
+            <span className="ct">{b.count.toLocaleString("en-US")}</span>
+          </button>
+          {isExpanded &&
+            b.items.length > 0 &&
+            (visible.length ? (
+              <div className="flist">
+                {visible.map((f) =>
+                  findingRow(f, grouping === "entity" && !readOnlyPartial),
+                )}
+              </div>
+            ) : (
+              <div className="offpage">
+                {t("page.offpage", { n: b.items.length })}
+              </div>
+            ))}
+        </Fragment>
+      );
+    });
+  };
+  const coverageBody = () => {
+    if (!shown) return null;
+    const rows = shown.coverage.filter((c) => c.checked);
+    const disabled = shown.coverage.filter((c) => !c.checked).length;
+    const metadata = shown.coverage.find((c) => c.rule === "metadata.missing");
+    const predicates: Record<string, string[]> = {
+      "label.missing": shown.options.labelPredicates,
+      "description.missing": shown.options.descriptionPredicates,
+      "definition.missing": shown.options.definitionPredicates,
+      "deprecated.guidance": [
+        ...shown.options.replacementPredicates,
+        NS.rdfs + "comment",
+      ],
+    };
+    return (
+      <div className="cov">
+        <table className="ct">
+          <thead>
+            <tr>
+              <th>{t("coverage.check")}</th>
+              <th className="n">{t("coverage.applicable")}</th>
+              <th className="n">{t("coverage.present")}</th>
+              <th className="n">{t("coverage.missing")}</th>
+              <th className="n">{t("coverage.suppressed")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const tests = predicates[c.rule]
+                ? qualityAdmitted(predicates[c.rule], shown.census)
+                    .map(shorten)
+                    .join(", ")
+                : ruleCopy[c.rule]?.tests;
+              const held = all.filter(
+                (f) => f.rule === c.rule && suppressed(f),
+              ).length;
+              const present = c.applicable - c.affected;
+              return (
+                <tr key={c.rule}>
+                  <td>
+                    {ruleCopy[c.rule]?.check ?? ruleOf(c.rule).title}
+                    <span className="sub">{tests}</span>
+                  </td>
+                  {c.applicable ? (
+                    <>
+                      <td className="n">
+                        {c.applicable.toLocaleString("en-US")}
+                      </td>
+                      <td className="n">
+                        {present.toLocaleString("en-US") + " "}
+                        <span className="na">
+                          {"(" +
+                            Math.round((present / c.applicable) * 100) +
+                            "%)"}
+                        </span>
+                      </td>
+                      <td className="n">
+                        {c.affected.toLocaleString("en-US")}
+                      </td>
+                      <td className="n">{held.toLocaleString("en-US")}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="n na">0</td>
+                      <td className="n na" colSpan={3}>
+                        {t("coverage.na")}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="note">{t("coverage.note")}</p>
+        <p className="note">
+          {t("coverage.exclusions", { n: metadata?.applicable ?? 0 })}
+        </p>
+        {disabled > 0 && (
+          <p className="note">{tn("coverage.disabled", disabled)}</p>
+        )}
+        {shown.imports.length > 0 && (
+          <p className="note">
+            {t("coverage.imports", { list: shown.imports.join(", ") })}
+          </p>
+        )}
+      </div>
+    );
+  };
+  const rulesBody = () => {
+    const admitted = qualityRules.filter((r) => !withdrawn.includes(r.id));
+    return (
+      <div className="rcfg">
+        <p>{t("severity.note")}</p>
+        {qualityGroups.map((g) => {
+          const rules = admitted.filter((r) => r.group === g);
+          return rules.length ? (
+            <Fragment key={g}>
+              <h3>{qualityGroupLabel(g)}</h3>
+              {rules.map((r) => (
+                <div className="rrow" key={r.id}>
+                  <span className="nm">{r.title}</span>
+                  <span className="id">{r.id}</span>
+                  <span className="def">
+                    {t("rules.default", {
+                      severity:
+                        qualityDefaultSeverity(r) === "Off"
+                          ? t("rules.off")
+                          : r.severity,
+                    })}
                   </span>
                   <select
-                    aria-label={r.title + " severity"}
+                    className="sel"
+                    aria-label={t("rules.severity", { rule: r.title })}
                     value={options.rules[r.id]}
                     onChange={(e) =>
                       change({
@@ -401,568 +1569,510 @@ export function QualityPanel() {
                       })
                     }
                   >
-                    {["Off", "Violation", "Warning", "Information"].map((s) => (
-                      <option key={s}>{s}</option>
+                    <option value="Off">{t("rules.off")}</option>
+                    {severities.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                   </select>
-                </label>
+                </div>
               ))}
-            </div>
-          </details>
-        </details>
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-        {message && <p role="status">{message}</p>}
-        {busy && (
-          <div role="status">
-            <progress
-              aria-label="Quality scan progress"
-              max={Math.max(1, job?.total ?? 1)}
-              value={job?.scanned ?? 0}
-            />{" "}
-            {job?.phase ?? "Starting"} · {job?.scanned ?? 0} / {job?.total ?? 0}{" "}
-            entities
-          </div>
-        )}
-        {job?.state === "failed" && (
-          <p role="alert" className="error">
-            Scan failed: {job.error}. No complete report is available.
-          </p>
-        )}
-        {job?.state === "canceled" && (
-          <p role="status">
-            Scan canceled after {job.scanned} entities. Results are incomplete;
-            run the scan again.
-          </p>
-        )}
-        {report && (
-          <>
-            <div className="quality-summary">
-              <strong>{stale ? "Stale report" : "Scan complete"}</strong> ·{" "}
-              {report.scanned} entities scanned · {report.findings.length}{" "}
-              findings · {suppressed} suppressed
-              <p>
-                {report.name} · Dataset {report.datasetEpoch}, revision{" "}
-                {report.version} · {report.options.profile} ·{" "}
-                {report.options.scope}
-                {report.options.scope === "namespace"
-                  ? ": " + report.options.namespace
-                  : report.options.scope === "branch"
-                    ? ": " + report.options.root
-                    : ""}
-              </p>
-              {stale && (
-                <p role="status">
-                  The ontology changed. Run the scan again to refresh findings
-                  and label suggestions.
-                </p>
-              )}
-              {changedSettings && (
-                <p>
-                  Settings changed. These results retain the configuration used
-                  for the completed scan.
-                </p>
-              )}
-            </div>
-            <details>
-              <summary>Coverage and scan limitations</summary>
-              <ul>
-                {report.notes.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-              {!!report.imports.length && (
-                <p>Declared imports: {report.imports.join(", ")}</p>
-              )}
-              <table className="quality-table">
-                <caption>
-                  Coverage per rule (distinct entities; ontology metadata uses
-                  ontology records)
-                </caption>
-                <thead>
-                  <tr>
-                    <th>Rule</th>
-                    <th>Applicable</th>
-                    <th>With findings</th>
-                    <th>Not applicable</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.coverage.map((c) => (
-                    <tr key={c.rule}>
-                      <td>{c.rule}</td>
-                      <td>{c.applicable}</td>
-                      <td>{c.checked ? c.affected : "—"}</td>
-                      <td>{c.notApplicable}</td>
-                      <td>{c.checked ? "Checked" : "Not checked"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </details>
-            <div className="quality-filters">
-              <label>
-                Search findings
-                <input
-                  type="search"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-              </label>
-              <label>
-                Severity
-                <select
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value)}
-                >
-                  <option value="">All severities</option>
-                  {["Violation", "Warning", "Information"].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Check group
-                <select
-                  value={group}
-                  onChange={(e) => setGroup(e.target.value)}
-                >
-                  <option value="">All groups</option>
-                  {qualityGroups.map((g) => (
-                    <option key={g}>{g}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Rule
-                <select value={rule} onChange={(e) => setRule(e.target.value)}>
-                  <option value="">All rules</option>
-                  {qualityRules.map((r) => (
-                    <option value={r.id} key={r.id}>
-                      {r.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Entity kind
-                <select value={kind} onChange={(e) => setKind(e.target.value)}>
-                  <option value="">All kinds</option>
-                  {[...qualityKinds, "Ontology"].map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Finding namespace
-                <select
-                  value={namespace}
-                  onChange={(e) => setNamespace(e.target.value)}
-                >
-                  <option value="">All namespaces</option>
-                  {[...new Set(report.findings.map((f) => f.namespace))]
-                    .sort()
-                    .map((n) => (
-                      <option key={n}>{n}</option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                Group by
-                <select
-                  value={grouping}
-                  onChange={(e) => setGrouping(e.target.value)}
-                >
-                  <option value="rule">Rule</option>
-                  <option value="entity">Entity</option>
-                </select>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showSuppressed}
-                  onChange={(e) => setShowSuppressed(e.target.checked)}
-                />
-                Show suppressed
-              </label>
-            </div>
-            {!rows.length && (
-              <p role="status">
-                {report.findings.length
-                  ? "No findings match these filters."
-                  : "No findings under the selected checks. This does not establish ontology completeness."}
-              </p>
-            )}
-            {active && (
-              <section
-                className="quality-finding"
-                aria-label="Selected quality finding"
-              >
-                <h3>{active.label}</h3>
-                <p className="quality-iri">{active.iri}</p>
-                <p>
-                  <strong>
-                    {active.severity} · {active.rule}
-                  </strong>{" "}
-                  · {active.basis}
-                </p>
-                <p>{active.message}</p>
-                <p>{active.suggestion}</p>
-                <button
-                  disabled={stale || active.kind === "Ontology"}
-                  onClick={() => void navigate(active.iri)}
-                >
-                  Open entity in Details
-                </button>
-                <details>
-                  <summary>Statement evidence and related entities</summary>
-                  {active.evidence.length ? (
-                    <pre>{JSON.stringify(active.evidence, null, 2)}</pre>
-                  ) : (
-                    <p>No qualifying statement was found.</p>
-                  )}
-                  {active.related.map((iri) => (
-                    <p className="quality-iri" key={iri}>
-                      {iri}
-                    </p>
-                  ))}
-                </details>
-                {qualitySuppression(report, active, exceptions) ? (
-                  <p>
-                    Exception:{" "}
-                    {qualitySuppression(report, active, exceptions)!.reason}{" "}
-                    <button
-                      onClick={() =>
-                        saveExceptions(
-                          exceptions.filter(
-                            (e) =>
-                              e !==
-                              qualitySuppression(report, active, exceptions),
-                          ),
-                        )
-                      }
-                    >
-                      Remove exception
-                    </button>
-                  </p>
-                ) : (
-                  <div className="quality-exception">
-                    <label>
-                      Exception reason
-                      <input
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                      />
-                    </label>
-                    <button
-                      disabled={!reason.trim() || stale}
-                      onClick={() => {
-                        saveExceptions([
-                          ...exceptions,
-                          {
-                            ontology: report.ontology,
-                            iri: active.iri,
-                            rule: active.rule,
-                            signature: active.signature,
-                            reason: reason.trim(),
-                          },
-                        ]);
-                        setReason("");
-                      }}
-                    >
-                      Record intentional exception
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
-            {!!rows.length && (
-              <>
-                <div className="quality-table-scroll">
-                  <table className="quality-table">
-                    <caption>
-                      {rows.length} matching findings; all results are retained
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th>{grouping === "rule" ? "Rule" : "Entity"}</th>
-                        <th>{grouping === "rule" ? "Entity" : "Rule"}</th>
-                        <th>Severity</th>
-                        <th>Finding</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows
-                        .slice(currentPage * 40, currentPage * 40 + 40)
-                        .map((f) => (
-                          <tr key={f.id} data-active={f.id === active?.id}>
-                            <td>{grouping === "rule" ? f.rule : f.label}</td>
-                            <td>
-                              <button
-                                aria-pressed={f.id === active?.id}
-                                title={f.iri}
-                                onClick={() => {
-                                  setChosen(f.id);
-                                  setReason("");
-                                }}
-                              >
-                                {grouping === "rule" ? f.label : f.rule}
-                              </button>
-                            </td>
-                            <td>
-                              {f.severity}
-                              {qualitySuppression(report, f, exceptions) &&
-                                " (suppressed)"}
-                            </td>
-                            <td>{f.message}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+            </Fragment>
+          ) : null;
+        })}
+        <label>
+          {t("rules.languages")}
+          <input
+            value={options.languages.join(", ")}
+            placeholder={t("rules.languagesHint")}
+            onChange={(e) =>
+              change({
+                languages: e.target.value
+                  .split(",")
+                  .map((s) => s.trim().toLowerCase()),
+              })
+            }
+          />
+        </label>
+        {(
+          [
+            ["labelPredicates", "rules.labelPredicates"],
+            ["descriptionPredicates", "rules.descriptionPredicates"],
+            ["definitionPredicates", "rules.definitionPredicates"],
+            ["replacementPredicates", "rules.replacementPredicates"],
+          ] as const
+        ).map(([key, title]) => (
+          <label key={key}>
+            {t(title)}
+            <textarea
+              rows={3}
+              value={options[key].join("\n")}
+              onChange={(e) => change({ [key]: e.target.value.split("\n") })}
+            />
+          </label>
+        ))}
+        <p>{t("rules.predicatesHint")}</p>
+        <div>
+          <button className="btn" onClick={() => setMode("results")}>
+            {t("rules.done")}
+          </button>
+        </div>
+      </div>
+    );
+  };
+  const exceptionsBody = () => {
+    const mine = exceptions.filter(
+      (e) => !shown || e.ontology === shown.ontology,
+    );
+    return (
+      <>
+        <div className="state-body">
+          <h3>{t("exceptions.title")}</h3>
+          {!mine.length && <p>{t("exceptions.empty")}</p>}
+        </div>
+        {mine.length > 0 && (
+          <div className="flist">
+            {mine.map((e, i) => (
+              <div className="frow" key={i}>
+                <div className="fname">
+                  <span className="lbl">{label(e.iri)}</span>
+                  <span className="kind">{e.rule}</span>
+                  <span className="iri">{e.reason}</span>
+                  <span className="fold">{e.rule + " · " + e.reason}</span>
                 </div>
-                <nav
-                  aria-label="Quality findings pages"
-                  className="quality-toolbar"
-                >
+                <span className="fact">
                   <button
-                    disabled={!currentPage}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span>
-                    Page {currentPage + 1} of {pages}
-                  </span>
-                  <button
-                    disabled={currentPage + 1 >= pages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </nav>
-              </>
-            )}
-            <details>
-              <summary>
-                Recorded exceptions (
-                {
-                  exceptions.filter((e) => e.ontology === report.ontology)
-                    .length
-                }
-                )
-              </summary>
-              {exceptions
-                .filter((e) => e.ontology === report.ontology)
-                .map((e, i) => (
-                  <p key={i} className="quality-iri">
-                    {e.iri} · {e.rule} · {e.reason}{" "}
-                    <button
-                      onClick={() =>
-                        saveExceptions(exceptions.filter((x) => x !== e))
-                      }
-                    >
-                      Remove exception
-                    </button>
-                  </p>
-                ))}
-              <p>
-                Exceptions apply only to this ontology identity, exact entity,
-                rule, and finding evidence. Changed findings are reviewed again.
-              </p>
-            </details>
-            <div className="quality-toolbar">
-              <button
-                disabled={stale || busy || !missing.length}
-                onClick={() => {
-                  setRepairs(
-                    missing.map((f) => ({
-                      iri: f.iri,
-                      label: humanise(identifierParts(f.iri).name),
-                      predicate: report.options.labelPredicates[0],
-                      language: "",
-                      selected: false,
-                    })),
-                  );
-                  setRepairPage(0);
-                  setPreview(undefined);
-                }}
-              >
-                Review missing labels ({missing.length})
-              </button>
-            </div>
-            {repairs && (
-              <section
-                aria-label="Review proposed labels"
-                className="quality-repairs"
-              >
-                <h3>Review proposed labels</h3>
-                <p>
-                  These candidates come from identifiers. Select and edit the
-                  labels you want to add. Existing identifiers and annotations
-                  are preserved.
-                </p>
-                <button
-                  disabled={stale}
-                  onClick={() => {
-                    setRepairs(repairs.map((r) => ({ ...r, selected: true })));
-                    setPreview(undefined);
-                  }}
-                >
-                  Select all proposed labels
-                </button>{" "}
-                <button
-                  onClick={() => {
-                    setRepairs(repairs.map((r) => ({ ...r, selected: false })));
-                    setPreview(undefined);
-                  }}
-                >
-                  Clear selection
-                </button>
-                <div className="quality-table-scroll">
-                  <table className="quality-table">
-                    <thead>
-                      <tr>
-                        <th>Add</th>
-                        <th>Entity IRI</th>
-                        <th>Label</th>
-                        <th>Predicate</th>
-                        <th>Language</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {repairs
-                        .slice(repairPage * 30, repairPage * 30 + 30)
-                        .map((r) => {
-                          const update = (
-                            change: Partial<
-                              QualityRepair & { selected: boolean }
-                            >,
-                          ) => {
-                            setRepairs(
-                              repairs.map((x) =>
-                                x.iri === r.iri ? { ...x, ...change } : x,
-                              ),
-                            );
-                            setPreview(undefined);
-                          };
-                          return (
-                            <tr key={r.iri}>
-                              <td>
-                                <input
-                                  aria-label={"Add label for " + r.iri}
-                                  type="checkbox"
-                                  checked={r.selected}
-                                  onChange={(e) =>
-                                    update({ selected: e.target.checked })
-                                  }
-                                />
-                              </td>
-                              <td className="quality-iri">{r.iri}</td>
-                              <td>
-                                <input
-                                  aria-label={"Proposed label for " + r.iri}
-                                  value={r.label}
-                                  onChange={(e) =>
-                                    update({ label: e.target.value })
-                                  }
-                                />
-                              </td>
-                              <td>
-                                <select
-                                  aria-label={"Label predicate for " + r.iri}
-                                  value={r.predicate}
-                                  onChange={(e) =>
-                                    update({ predicate: e.target.value })
-                                  }
-                                >
-                                  {report.options.labelPredicates.map((p) => (
-                                    <option key={p}>{p}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td>
-                                <input
-                                  aria-label={"Label language for " + r.iri}
-                                  value={r.language}
-                                  onChange={(e) =>
-                                    update({ language: e.target.value })
-                                  }
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="quality-toolbar">
-                  <button
-                    disabled={!repairPage}
-                    onClick={() => setRepairPage((p) => p - 1)}
-                  >
-                    Previous labels
-                  </button>
-                  <span>
-                    Page {repairPage + 1} of {repairPages} ·{" "}
-                    {repairs.filter((r) => r.selected).length} selected
-                  </span>
-                  <button
-                    disabled={repairPage + 1 >= repairPages}
-                    onClick={() => setRepairPage((p) => p + 1)}
-                  >
-                    Next labels
-                  </button>
-                  <button
-                    disabled={stale || !repairs.some((r) => r.selected)}
+                    className="ib"
+                    aria-label={t("detail.unsuppress", {
+                      entity: label(e.iri),
+                    })}
                     onClick={() =>
-                      void action(async () =>
-                        setPreview(
-                          await request<QualityPreview>("qualityPreview", {
-                            id: job!.id,
-                            rows: repairs.filter((r) => r.selected),
-                          }),
-                        ),
-                      )
+                      saveExceptions(exceptions.filter((x) => x !== e))
                     }
                   >
-                    Preview selected additions
+                    <Unsuppress />
                   </button>
-                </div>
-                {preview && (
-                  <div>
-                    <h4>Exact statements to add</h4>
-                    <pre>{JSON.stringify(preview.statements, null, 2)}</pre>
-                    <button
-                      disabled={stale}
-                      onClick={() =>
-                        void action(async () => {
-                          const n = await request<number>("qualityApply", {
-                            datasetEpoch: preview.datasetEpoch,
-                            version: preview.version,
-                            token: preview.token,
-                          });
-                          setPreview(undefined);
-                          setRepairs(undefined);
-                          setMessage(
-                            "Added " +
-                              n +
-                              " labels. Use Edit > Undo to reverse this batch.",
-                          );
-                        })
-                      }
-                    >
-                      Apply {preview.statements.length} label additions
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
-          </>
+                </span>
+              </div>
+            ))}
+          </div>
         )}
+        <div className="state-body flush">
+          <div>
+            <button className="btn" onClick={() => setMode("results")}>
+              {t("exceptions.close")}
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  };
+  const body = () => {
+    if (mode === "rules") return rulesBody();
+    if (mode === "exceptions") return exceptionsBody();
+    if (busy)
+      return (
+        <div className="state-body">
+          <h3>{t("running.state")}</h3>
+          <p>{t("running.body")}</p>
+        </div>
+      );
+    if (job?.state === "failed")
+      return (
+        <div className="state-body">
+          <h3>{t("failed.headline")}</h3>
+          <p>{t("failed.body")}</p>
+        </div>
+      );
+    if (job?.state === "canceled")
+      return (
+        <>
+          <div className="state-body">
+            <p>{t("canceled.body")}</p>
+          </div>
+          {findingsBody(true)}
+        </>
+      );
+    if (!report)
+      return (
+        <div className="state-body">
+          <h3>{t("idle.headline")}</h3>
+          <p>{t("idle.body")}</p>
+        </div>
+      );
+    if (view === "coverage") return coverageBody();
+    if (!report.enabledChecks)
+      return (
+        <div className="state-body">
+          <h3>{t("nochecks.headline")}</h3>
+          <p>{t("nochecks.body")}</p>
+        </div>
+      );
+    if (!report.findings.length)
+      return (
+        <div className="state-body">
+          <h3>{t("clean.headline")}</h3>
+          <p>
+            {tn("clean.body", report.enabledChecks, {
+              scanned: report.scanned,
+              checks: report.enabledChecks,
+            })}
+          </p>
+          <p>{t("clean.notCanceled")}</p>
+        </div>
+      );
+    return findingsBody();
+  };
+  const footer = () => {
+    if (job?.state === "failed" || job?.state === "canceled") return null;
+    if (!report || busy) return <div className="foot"></div>;
+    const totals = t("foot.totals", {
+      total: all.length,
+      suppressed: suppressedCount,
+    });
+    if (view === "coverage" || !all.length || !listed)
+      return (
+        <div className="foot">
+          <span>
+            {view === "findings" && all.length && bands.length
+              ? t("foot.collapsed") + " · " + totals
+              : totals}
+          </span>
+        </div>
+      );
+    return (
+      <div className="foot">
+        <span>
+          {t("foot.position", {
+            first: first + 1,
+            last: Math.min(listed, first + PAGE),
+            listed,
+          }) +
+            " · " +
+            totals}
+        </span>
+        <span className="fill"></span>
+        <button
+          className="ib"
+          aria-label={t("foot.first")}
+          disabled={!current}
+          onClick={() => setPage(0)}
+        >
+          |←
+        </button>
+        <button
+          className="ib"
+          aria-label={t("foot.previous")}
+          disabled={!current}
+          onClick={() => setPage(current - 1)}
+        >
+          ←
+        </button>
+        <span className="pg">
+          {t("foot.page", { page: current + 1, pages })}
+        </span>
+        <button
+          className="ib"
+          aria-label={t("foot.next")}
+          disabled={current + 1 >= pages}
+          onClick={() => setPage(current + 1)}
+        >
+          →
+        </button>
+        <button
+          className="ib"
+          aria-label={t("foot.last")}
+          disabled={current + 1 >= pages}
+          onClick={() => setPage(pages - 1)}
+        >
+          →|
+        </button>
+        <span className="store at-full">
+          {t("foot.store", {
+            classes: snapshot.classCount,
+            individuals: snapshot.individualCount,
+            triples: snapshot.tripleCount,
+          })}
+        </span>
+      </div>
+    );
+  };
+
+  // ------------------------------------------------- reviewed label additions
+  const reviewPane = () => {
+    const eligible = repairs.filter((r) => !r.blocked);
+    const chosen = eligible.filter((r) => r.selected).length;
+    const predicates = report
+      ? qualityAdmitted(report.options.labelPredicates, report.census)
+      : [];
+    const languages = [
+      ...new Set(["", ...(report?.options.languages ?? []), "en"]),
+    ];
+    const update = (iri: string, values: Partial<Repair>) =>
+      setRepairs(repairs.map((r) => (r.iri === iri ? { ...r, ...values } : r)));
+    return (
+      <>
+        <div className="bar">
+          <span className="title">{t("labels.review")}</span>
+          <span className="sum">
+            {t("labels.reviewSummary", {
+              n: eligible.length,
+              revision: String(report?.version ?? 0),
+            })}
+          </span>
+          <button
+            className="btn"
+            onClick={() =>
+              setRepairs(
+                repairs.map((r) => ({
+                  ...r,
+                  selected: !r.blocked && chosen < eligible.length,
+                })),
+              )
+            }
+          >
+            {chosen < eligible.length
+              ? t("labels.selectAll")
+              : t("labels.clear")}
+          </button>
+          <button className="btn" onClick={() => setMode("results")}>
+            {t("cancel")}
+          </button>
+          <button
+            className="btn primary"
+            disabled={!chosen || staleStore}
+            onClick={buildPreview}
+          >
+            {t("labels.preview")}
+          </button>
+        </div>
+        <div className="body">
+          <div className="flist">
+            {repairs.map((r) => {
+              const entity = identifierParts(r.iri).name;
+              const who = label(r.iri);
+              return r.blocked ? (
+                <div className="lrow" key={r.iri}>
+                  <input
+                    type="checkbox"
+                    disabled
+                    aria-label={t("labels.ineligible", { entity: who })}
+                  />
+                  <span className="ent off">{entity}</span>
+                  <span className="ent na">
+                    {t(
+                      r.blocked === "blank"
+                        ? "labels.blank"
+                        : "labels.conflicting",
+                    ) +
+                      " " +
+                      t("labels.details")}
+                  </span>
+                </div>
+              ) : (
+                <div className="lrow" key={r.iri}>
+                  <input
+                    type="checkbox"
+                    checked={r.selected}
+                    aria-label={t("labels.include", { entity: who })}
+                    onChange={(e) =>
+                      update(r.iri, { selected: e.target.checked })
+                    }
+                  />
+                  <span className="ent" title={r.iri}>
+                    {entity}
+                  </span>
+                  <input
+                    className="cand"
+                    type="text"
+                    value={r.label}
+                    aria-label={t("labels.label", { entity: who })}
+                    onChange={(e) => update(r.iri, { label: e.target.value })}
+                  />
+                  <select
+                    className="pred"
+                    aria-label={t("labels.predicate", { entity: who })}
+                    value={r.predicate}
+                    onChange={(e) =>
+                      update(r.iri, { predicate: e.target.value })
+                    }
+                  >
+                    {predicates.map((p) => (
+                      <option key={p} value={p}>
+                        {shorten(p)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="lang"
+                    aria-label={t("labels.language", { entity: who })}
+                    value={r.language}
+                    onChange={(e) =>
+                      update(r.iri, { language: e.target.value })
+                    }
+                  >
+                    {languages.map((l) => (
+                      <option key={l} value={l}>
+                        {l || t("labels.noLanguage")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="foot">
+          <span>
+            {t("labels.selected", { selected: chosen, total: eligible.length })}
+          </span>
+        </div>
+      </>
+    );
+  };
+  const previewPane = () => {
+    if (!preview) return null;
+    const n = preview.statements.length;
+    const single = n - preview.multiGraph.length;
+    return (
+      <>
+        <div className="bar">
+          <span className="title">{t("labels.previewTitle")}</span>
+          <span className="sum">{t("labels.previewSummary", { n })}</span>
+          <button className="btn" onClick={() => setMode("review")}>
+            {t("cancel")}
+          </button>
+          <button className="btn primary" disabled={staleStore} onClick={apply}>
+            {tn("labels.apply", n)}
+          </button>
+        </div>
+        <div className="body">
+          <div className="fdet ok">
+            <div className="kv">
+              <span className="k">{t("detail.wouldAdd")}</span>
+              <span className="v">
+                <pre className="preview">
+                  {turtleLines(preview.statements, base)}
+                </pre>
+              </span>
+            </div>
+            <div className="kv">
+              <span className="k">{t("labels.graph")}</span>
+              <span className="v">
+                {[
+                  single > 0
+                    ? single === 1
+                      ? t("labels.graph.single.one")
+                      : single === 2
+                        ? t("labels.graph.single.two")
+                        : t("labels.graph.single", { n: single })
+                    : "",
+                  preview.multiGraph.length
+                    ? t("labels.graph.multiple", {
+                        n: preview.multiGraph.length,
+                        list: preview.multiGraph
+                          .map((iri) => turtleTerm(iri, base))
+                          .join(", "),
+                      })
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              </span>
+            </div>
+            <div className="kv">
+              <span className="k">{t("labels.guard")}</span>
+              <span className="v">
+                {rich("labels.guardValue", {
+                  dataset: <code className="mono">{report?.name ?? ""}</code>,
+                  revision: <b>{preview.version}</b>,
+                  token: (
+                    <code className="mono">
+                      {"pv-" + preview.token.toString(16).padStart(4, "0")}
+                    </code>
+                  ),
+                })}
+              </span>
+            </div>
+            <div className="kv">
+              <span className="k">{t("labels.retained")}</span>
+              <span className="v">{t("labels.retainedValue")}</span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+  const rejectedPane = () => {
+    const code = rejected?.code ?? "invalid";
+    const key = ("labels.reject." + code) as QlyKey;
+    return (
+      <>
+        <div className="bar alert-bad">
+          <span className="state">
+            <Failed />
+            {t("labels.notApplied")}
+          </span>
+          <span className="sum">{t("labels.nothingWritten")}</span>
+          <button className="btn" onClick={() => setMode("review")}>
+            {t("cancel")}
+          </button>
+        </div>
+        <div className="body">
+          <div className="guard" role="alert">
+            <b>{key in qly ? t(key) : t("labels.reject.invalid")}</b>
+            {" " +
+              t(
+                ((key in qly ? key : "labels.reject.invalid") +
+                  ".body") as QlyKey,
+                { entity: label(rejected?.entity ?? "") },
+              )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const reviewing =
+    mode === "review" || mode === "preview" || mode === "rejected";
+  return (
+    <section
+      ref={root}
+      className="quality-panel"
+      data-panel="quality"
+      aria-label={t("title")}
+      onKeyDown={onKeyDown}
+    >
+      {reviewing ? (
+        mode === "review" ? (
+          reviewPane()
+        ) : mode === "preview" ? (
+          previewPane()
+        ) : (
+          rejectedPane()
+        )
+      ) : (
+        <>
+          {commandBar()}
+          {settingsOpen && !busy && settings()}
+          {report && mode === "results" && tools()}
+          <div className="body">
+            {error && (
+              <div className="guard" role="alert">
+                {error}
+              </div>
+            )}
+            {body()}
+          </div>
+          <div className="limits">
+            <span>{t("limits")}</span>
+          </div>
+          {mode === "results" && footer()}
+        </>
+      )}
+      <div className="sr" aria-live="polite">
+        {announce}
       </div>
     </section>
   );

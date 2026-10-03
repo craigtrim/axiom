@@ -26,6 +26,7 @@ import type { Snapshot } from "../shared/protocol";
 import { syncTextAnalysisContext } from "./text-analysis-state";
 import { SparsityPanel } from "./SparsityPanel";
 import { QualityPanel } from "./QualityPanel";
+import { requestQualitySettings } from "./quality-view";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
@@ -946,7 +947,11 @@ export function App() {
         showTextEntities();
       } else if (id === "view.textentities") showTextEntities(true);
       else if (id.startsWith("view.")) show(id.slice(5));
-      if (id === "tools.quality") show("quality");
+      if (id === "tools.quality") {
+        // Tools opens the settings expanded; View keeps the pane's state (craigtrim/axiom#44).
+        requestQualitySettings();
+        show("quality");
+      }
       if (id === "textentities.open") showTextEntities();
       if (id === "textanalysis.inspect") show("details");
       if (id === "textanalysis.reveal") show("textanalysis", false);

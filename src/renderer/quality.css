@@ -1,163 +1,1038 @@
+/* Ontology Quality pane, rebuilt to Craig's visual reference (craigtrim/axiom#44).
+ * Ported from specs/quality/visual-reference.html, SHA-256
+ * 9eee75ead939e8c1e21a3bd9e23cf756091c57edc9006f1d0a239c58e4e79fe6.
+ * Rules keep the reference's selectors and order under one scope so the pane
+ * renders the same pixels. The presentation tiers read the shared pane
+ * measurement (data-pane-narrow / data-pane-shallow) instead of raw container
+ * queries, so they keep the 616 and 416 pixel hysteresis.
+ */
+
+/* Light tokens, carried unchanged from the reference. */
+.adaptive-pane[data-pane-id="quality"] {
+  --bg: #ffffff;
+  --sunken: #f4f4f4;
+  --raised: #fafafa;
+  --hover: #efefef;
+  --line: #e2e2e2;
+  --line-2: #c6c6c6;
+  --ink: #1b1b1b;
+  --ink-2: #585858;
+  --ink-3: #6a6a6a;
+  --accent: #0f5fa8;
+  --accent-2: #0b4a84;
+  --on-accent: #ffffff;
+  --tint: #eaf2fb;
+  --ok: #0b6b36;
+  --ok-tint: #e6f4ec;
+  --warn: #7d4a00;
+  --warn-tint: #fcf1df;
+  --warn-line: #d9a441;
+  --bad: #a8201a;
+  --bad-tint: #fbeae9;
+  --bad-line: #d4766f;
+  --focus: #0f5fa8;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+  background: var(--bg);
+}
+/* Dark tokens. Measured against #1e1e1e, not derived by inverting light. */
+[data-theme="dark"] .adaptive-pane[data-pane-id="quality"] {
+  --bg: #1e1e1e;
+  --sunken: #161616;
+  --raised: #272727;
+  --hover: #323232;
+  --line: #3a3a3a;
+  --line-2: #555555;
+  --ink: #f1f1f1;
+  --ink-2: #c3c3c3;
+  --ink-3: #a0a0a0;
+  --accent: #6cb4f5;
+  --accent-2: #9acbf8;
+  --on-accent: #0a1a28;
+  --tint: #16293a;
+  --ok: #65d18f;
+  --ok-tint: #11301e;
+  --warn: #e3a942;
+  --warn-tint: #33260c;
+  --warn-line: #6b5116;
+  --bad: #ff8d81;
+  --bad-tint: #3a1a17;
+  --bad-line: #7a3630;
+  --focus: #6cb4f5;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.7);
+}
+
+/* The reference renders on user agent defaults. Undo the workbench's element
+   styles inside the pane so the class rules below land on the same ground. */
+.quality-panel :where(button, input, select, textarea, p, h3, pre, code, a),
+.quality-menu :where(button, input, select, textarea, p, label) {
+  all: revert;
+  box-sizing: border-box;
+}
+.quality-panel :focus-visible,
+.quality-menu :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.quality-panel .sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The pane. The reference draws native controls in the default scheme. */
 .quality-panel {
-  min-width: 0;
-  height: 100%;
+  color-scheme: normal;
+  position: relative;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-.quality-scroll {
-  overflow: auto;
-  min-height: 0;
-  padding: 16px;
-}
-.quality-scroll h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
-.quality-scroll h3 {
-  margin: 0 0 6px;
-}
-.quality-scroll details {
-  margin: 12px 0;
-}
-.quality-scroll summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 6px 0;
-}
-.quality-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  padding: 8px;
-}
-.quality-fields,
-.quality-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 10px 0;
-}
-.quality-fields > label,
-.quality-filters > label,
-.quality-exception > label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 160px;
-  max-width: 100%;
-}
-.quality-fields > label {
-  flex: 1 1 240px;
-}
-.quality-filters > label:has(input[type="checkbox"]) {
-  flex-direction: row;
-  align-items: center;
-  align-self: end;
-  min-height: 30px;
-}
-.quality-fields textarea {
   width: 100%;
-  min-height: 74px;
-  resize: vertical;
+  height: 100%;
+  font:
+    13px/1.5 "Segoe UI Variable Text",
+    "Segoe UI",
+    system-ui,
+    sans-serif;
 }
-.quality-fields select {
-  max-width: 100%;
+.quality-panel svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
-.quality-checks {
+
+/* ----------------------------------------------------------- pane regions */
+.quality-panel .bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+  flex: none;
 }
-.quality-checks label {
-  display: flex;
+.quality-panel .bar .title {
+  font-weight: 600;
+  flex: none;
+}
+.quality-panel .bar .sum {
+  color: var(--ink-3);
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+.quality-panel .bar .state {
+  display: inline-flex;
   align-items: center;
   gap: 5px;
+  font-weight: 600;
+  flex: none;
 }
-.quality-settings fieldset {
-  border: 1px solid var(--stroke);
-  margin: 10px 0;
-  padding: 10px;
+.quality-panel .bar.alert-warn {
+  background: var(--warn-tint);
+  border-bottom-color: var(--warn-line);
 }
-.quality-rule-list > label {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--stroke);
-  padding: 7px 0;
+.quality-panel .bar.alert-warn .state {
+  color: var(--warn);
 }
-.quality-rule-list small {
+.quality-panel .bar.alert-bad {
+  background: var(--bad-tint);
+  border-bottom-color: var(--bad-line);
+}
+.quality-panel .bar.alert-bad .state {
+  color: var(--bad);
+}
+
+.quality-panel .prog {
+  flex: 1 1 140px;
+  max-width: 220px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.quality-panel .prog > i {
   display: block;
-  opacity: 0.8;
+  height: 100%;
+  background: var(--accent);
 }
-.quality-summary,
-.quality-finding,
-.quality-repairs {
-  background: var(--surface-alt);
-  border: 1px solid var(--stroke);
-  padding: 14px;
-  margin: 12px 0;
-  border-radius: 5px;
+
+.quality-panel .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  min-height: 26px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
 }
-.quality-summary > strong {
-  font-size: 17px;
+.quality-panel .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
-.quality-iri {
-  overflow-wrap: anywhere;
+.quality-panel .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
-.quality-exception {
+.quality-panel .ib {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.quality-panel .ib:disabled {
+  opacity: 0.35;
+}
+
+.quality-panel .settings {
+  padding: 6px 10px 8px;
+  display: grid;
+  gap: 5px;
+  border-bottom: 1px solid var(--line);
+  background: var(--sunken);
+  flex: none;
+}
+.quality-panel .srow {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  align-items: end;
+  flex-wrap: wrap;
+  min-height: 32px;
 }
-.quality-exception label {
-  flex: 1;
+.quality-panel .srow > .k {
+  flex: none;
+  width: 92px;
+  font-size: 12px;
+  color: var(--ink-3);
 }
-.quality-table-scroll {
+.quality-panel .srow .hint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.quality-panel .sel {
+  min-height: 26px;
+  max-width: 190px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.quality-panel .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.quality-panel .chip[aria-pressed="true"] {
+  background: var(--tint);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.quality-panel .chip .n {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.quality-panel .tagf {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 11.5px;
+  border-radius: 2px;
+  background: var(--hover);
+  color: var(--ink-2);
+}
+
+.quality-panel .tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  flex: none;
+}
+.quality-panel .seg {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.quality-panel .seg > button {
+  min-height: 24px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 0;
+  background: var(--bg);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.quality-panel .seg > button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.quality-panel .txt {
+  min-height: 26px;
+  max-width: 200px;
+  padding: 0 7px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.quality-panel .fill {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quality-panel .body {
+  flex: 1 1 auto;
   overflow: auto;
+  min-height: 0;
 }
-.quality-table {
-  border-collapse: collapse;
+
+/* severity */
+.quality-panel .sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+.quality-panel .sev.violation {
+  color: var(--bad);
+}
+.quality-panel .sev.warning {
+  color: var(--warn);
+}
+.quality-panel .sev.info {
+  color: var(--ink-2);
+}
+
+/* rule bands and findings */
+.quality-panel .rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
-.quality-table caption {
+.quality-panel .rule .tw {
+  color: var(--ink-3);
+  transition: transform 0.15s ease-out;
+}
+.quality-panel .rule[aria-expanded="true"] .tw {
+  transform: rotate(90deg);
+}
+.quality-panel .rule .nm {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quality-panel .rule .id {
+  flex: none;
+  font:
+    11px/1.5 Consolas,
+    monospace;
+  color: var(--ink-3);
+}
+.quality-panel .rule .ct {
+  flex: none;
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.quality-panel .flist {
+  border-bottom: 1px solid var(--line);
+}
+.quality-panel .frow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  margin-left: 10px;
+  padding-right: 8px;
+  border-left: 2px solid var(--line-2);
+}
+.quality-panel .frow.open {
+  background: var(--tint);
+}
+.quality-panel .frow.suppressed .lbl {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.quality-panel .fname {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
   text-align: left;
-  padding: 8px 0;
+  cursor: pointer;
 }
-.quality-table th,
-.quality-table td {
-  border-bottom: 1px solid var(--stroke);
-  padding: 8px;
+.quality-panel .fname .lbl {
+  flex: none;
+}
+.quality-panel .fname .kind {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.quality-panel .fname .iri {
+  flex: 1 1 auto;
+  min-width: 0;
+  font:
+    11px/1.6 Consolas,
+    monospace;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quality-panel .fname .fold {
+  display: none;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.quality-panel .fact {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+.quality-panel .offpage {
+  margin-left: 10px;
+  padding: 4px 8px 6px 18px;
+  border-left: 2px solid var(--line-2);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.quality-panel .fdet {
+  margin-left: 10px;
+  padding: 8px 10px 10px 10px;
+  border-left: 2px solid var(--accent);
+  background: var(--sunken);
+  max-width: 720px;
+  display: grid;
+  gap: 4px;
+}
+.quality-panel .fdet .kv {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.quality-panel .fdet .kv > .k {
+  flex: none;
+  width: 86px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.quality-panel .fdet .kv > .v {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.quality-panel .fdet pre {
+  margin: 0;
+  padding: 6px 8px;
+  max-width: 560px;
+  overflow-x: auto;
+  font:
+    11.5px/1.5 Consolas,
+    monospace;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.quality-panel .fdet pre.preview {
+  background: var(--ok-tint);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.quality-panel .fdet .iri-v {
+  font:
+    11.5px/1.5 Consolas,
+    monospace;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quality-panel .mono {
+  font-family: Consolas, monospace;
+  font-size: 11.5px;
+}
+.quality-panel .fdet .reason {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* coverage */
+.quality-panel .cov {
+  padding: 10px;
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+.quality-panel table.ct {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.quality-panel table.ct th,
+.quality-panel table.ct td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
-.quality-table th {
-  background: var(--surface-alt);
+.quality-panel table.ct th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  font-weight: 600;
 }
-.quality-table td {
-  overflow-wrap: anywhere;
+.quality-panel table.ct td.n,
+.quality-panel table.ct th.n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.quality-table tr[data-active="true"] {
-  background: var(--selection, #1677c51c);
+.quality-panel table.ct .sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
 }
-.quality-table button {
-  white-space: normal;
-  text-align: left;
+.quality-panel .na {
+  color: var(--ink-3);
+  font-style: italic;
 }
-.quality-repairs .quality-table input:not([type="checkbox"]) {
-  min-width: 100px;
-  width: 100%;
-}
-.quality-repairs .quality-table select {
-  max-width: 240px;
-}
-.quality-scroll pre {
-  overflow: auto;
-  max-height: 320px;
-  padding: 10px;
-  border: 1px solid var(--stroke);
-  background: var(--surface);
+.quality-panel .cov p.note {
+  margin: 0;
   font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* states */
+.quality-panel .state-body {
+  padding: 16px 12px;
+  display: grid;
+  gap: 6px;
+  max-width: 620px;
+}
+.quality-panel .state-body h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.quality-panel .state-body p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.quality-panel .state-body.flush {
+  padding-top: 0;
+}
+
+.quality-panel .limits {
+  padding: 4px 10px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  background: var(--sunken);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  flex: none;
+}
+.quality-panel .foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-height: 32px;
+  border-top: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 12px;
+  color: var(--ink-2);
+  flex: none;
+}
+.quality-panel .foot .pg {
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
+.quality-panel .foot .store {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the label addition workflow */
+.quality-panel .lrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-left: 10px;
+  padding-right: 8px;
+  border-left: 2px solid var(--line-2);
+}
+.quality-panel .lrow input[type="checkbox"] {
+  flex: none;
+  margin: 0 0 0 8px;
+}
+.quality-panel .lrow .ent {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.quality-panel .lrow .ent.off {
+  opacity: 0.6;
+}
+.quality-panel .lrow .cand {
+  flex: none;
+  width: 190px;
+}
+.quality-panel .lrow .pred {
+  flex: none;
+  width: 128px;
+}
+.quality-panel .lrow .lang {
+  flex: none;
+  width: 58px;
+}
+.quality-panel .lrow input.cand,
+.quality-panel .lrow select {
+  min-height: 24px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.quality-panel .guard {
+  padding: 8px 10px;
+  margin: 8px 10px 10px;
+  max-width: 560px;
+  border-left: 3px solid var(--bad);
+  background: var(--bad-tint);
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.quality-panel .guard b {
+  color: var(--bad);
+}
+.quality-panel .fdet.ok {
+  margin: 10px;
+  border-left-color: var(--ok);
+}
+
+/* Rule configuration. The reference does not depict it; it keeps the
+   reference's visual language. */
+.quality-panel .rcfg {
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+.quality-panel .rcfg h3 {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.quality-panel .rcfg .rrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.quality-panel .rcfg .rrow .nm {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.quality-panel .rcfg .rrow .id,
+.quality-panel .rcfg .rrow .def {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.quality-panel .rcfg .rrow .id {
+  font-family: Consolas, monospace;
+  font-size: 11px;
+}
+.quality-panel .rcfg label {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.quality-panel .rcfg textarea,
+.quality-panel .rcfg input {
+  max-width: 560px;
+  padding: 4px 7px;
+  font:
+    11.5px/1.5 Consolas,
+    monospace;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.quality-panel .rcfg textarea {
+  min-height: 60px;
+}
+.quality-panel .rcfg p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* the More and Export menus */
+.quality-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 8px;
+  display: none;
+  gap: 6px;
+  min-width: 220px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font:
+    12.5px/1.5 "Segoe UI Variable Text",
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+.quality-menu:popover-open {
+  display: grid;
+}
+.quality-menu label {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.quality-menu select,
+.quality-menu button {
+  min-height: 26px;
+  padding: 0 6px;
+  font: inherit;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.quality-menu button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.quality-menu p {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* recovery */
+.adaptive-pane[data-pane-id="quality"] > .pane-recovery-own {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    13px/1.5 "Segoe UI Variable Text",
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+.adaptive-pane[data-pane-id="quality"] > .pane-recovery-own[hidden] {
+  display: none !important;
+}
+.pane-recovery-own .id {
+  font-size: 13px;
+  font-weight: 600;
+}
+.pane-recovery-own p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.adaptive-pane[data-pane-id="quality"] > .pane-recovery-own button {
+  all: revert;
+  box-sizing: border-box;
+  min-height: 26px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quality-panel .rule .tw {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------- the presentation ladder */
+/* Only 600 and 400 appear, with the shared 616 and 416 exits. */
+.quality-panel .at-tall,
+.quality-panel .at-wide,
+.quality-panel .at-full {
+  display: none;
+}
+.quality-panel .limits {
+  display: none;
+}
+.quality-panel .fname .kind,
+.quality-panel .fname .iri {
+  display: none;
+}
+.quality-panel .fname .fold {
+  display: block;
+}
+.quality-panel .rule .id.wide {
+  display: none;
+}
+[data-pane-shallow="false"] > .adaptive-pane-content > .quality-panel .limits {
+  display: flex;
+}
+[data-pane-shallow="false"] > .adaptive-pane-content > .quality-panel .at-tall {
+  display: inline-flex;
+}
+[data-pane-shallow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .srow.at-tall {
+  display: flex;
+}
+[data-pane-narrow="false"] > .adaptive-pane-content > .quality-panel .at-wide {
+  display: inline-flex;
+}
+[data-pane-narrow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .rule
+  .id.wide {
+  display: inline;
+}
+[data-pane-narrow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .fname
+  .kind,
+[data-pane-narrow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .fname
+  .iri {
+  display: inline;
+}
+[data-pane-narrow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .fname
+  .fold {
+  display: none;
+}
+[data-pane-narrow="false"][data-pane-shallow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .at-full {
+  display: inline;
+}
+[data-pane-narrow="false"][data-pane-shallow="false"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .foot
+  .at-full {
+  display: block;
+}
+[data-pane-narrow="true"] > .adaptive-pane-content > .quality-panel .fdet {
+  padding-left: 30px;
+}
+[data-pane-narrow="true"] > .adaptive-pane-content > .quality-panel .fdet .kv {
+  display: grid;
+  gap: 1px;
+}
+[data-pane-narrow="true"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .fdet
+  .kv
+  > .k {
+  width: auto;
+}
+
+/* The workbench's global button hover and press rules outrank the classes
+   above; restate each control's own colours so the pane keeps them. */
+.quality-panel button:is(:hover, :active):not(:disabled) {
+  color: inherit;
+}
+.quality-panel .btn:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+.quality-panel .btn.primary:is(:hover, :active):not(:disabled) {
+  background: var(--accent-2);
+  color: var(--on-accent);
+  border-color: var(--accent-2);
+}
+.quality-panel .ib:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink-2);
+  border-color: transparent;
+}
+.quality-panel .chip:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink-2);
+  border-color: var(--line-2);
+}
+.quality-panel .chip[aria-pressed="true"]:is(:hover, :active):not(:disabled) {
+  background: var(--tint);
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.quality-panel .seg > button:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink-2);
+}
+.quality-panel
+  .seg
+  > button[aria-pressed="true"]:is(:hover, :active):not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.quality-panel .rule:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.quality-panel .fname:is(:hover, :active):not(:disabled) {
+  background: none;
+  color: var(--ink);
+}
+.quality-menu button:is(:hover, :active):not(:disabled),
+.adaptive-pane[data-pane-id="quality"]
+  > .pane-recovery-own
+  button:is(:hover, :active):not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+
+/* Narrow and shallow: command bar, severity filter, findings list, footer. */
+[data-pane-narrow="true"][data-pane-shallow="true"]
+  > .adaptive-pane-content
+  > .quality-panel
+  .tools
+  :is(.seg, .btn, .ib, .sel, .txt) {
+  display: none;
+}
+
+/* The workbench styles inputs through input:not([type=range]):not([type=checkbox])
+   and checkboxes through input[type=checkbox]; those selectors outrank the
+   reset above, so the pane restates its own values at a higher specificity. */
+.quality-panel input.txt:not([type="range"]):not([type="checkbox"]) {
+  min-height: 26px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+}
+.quality-panel .lrow input.cand:not([type="range"]):not([type="checkbox"]) {
+  min-height: 24px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg);
+}
+.quality-panel input[type="checkbox"] {
+  accent-color: auto;
+  vertical-align: baseline;
+}
+.quality-panel input::placeholder {
+  color: revert;
 }

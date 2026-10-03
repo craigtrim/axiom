@@ -36,6 +36,14 @@ const initial: PaneLayout = {
 };
 const PaneContext = createContext(initial);
 export const usePaneLayout = () => useContext(PaneContext);
+/** A pane may set its own recovery height and body; width recovery and Maximize stay shared. */
+export interface PaneRecovery {
+  height: number;
+  Body: (props: { maximize: ReactNode }) => ReactNode;
+}
+const recoveries = new Map<string, PaneRecovery>();
+export const registerPaneRecovery = (paneId: string, recovery: PaneRecovery) =>
+  void recoveries.set(paneId, recovery);
 
 export function measurePane(
   width: number,
@@ -82,6 +90,7 @@ export function AdaptivePane({
   const recover = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [layout, setLayout] = useState(initial);
+  const own = recoveries.get(paneId);
   useLayoutEffect(() => {
     const host = root.current!;
     const win = host.ownerDocument.defaultView!;
@@ -103,6 +112,11 @@ export function AdaptivePane({
         ).recovery;
         // Text Entities keeps its action footer usable while the form scrolls.
         if (visual || paneId === "textentities") next.recovery = false;
+        // Ontology Quality renders working content down to 120 tall (craigtrim/axiom#44).
+        const own = recoveries.get(paneId);
+        if (own && !visual)
+          next.recovery =
+            Math.round(width) < 240 || Math.round(height) < own.height;
         if (next.recovery && !old.recovery) {
           const focused = host.ownerDocument
             .activeElement as HTMLElement | null;
@@ -165,15 +179,27 @@ export function AdaptivePane({
         </div>
         <div
           hidden={!layout.recovery}
-          className="pane-recovery"
+          className={"pane-recovery" + (own ? " pane-recovery-own" : "")}
           role="region"
           aria-label={name + " pane"}
         >
-          <strong>{name}</strong>
-          <button ref={recover} onClick={maximize}>
-            Maximize pane
-          </button>
-          <span className="muted">Your work is retained.</span>
+          {own ? (
+            <own.Body
+              maximize={
+                <button ref={recover} onClick={maximize}>
+                  Maximize pane
+                </button>
+              }
+            />
+          ) : (
+            <>
+              <strong>{name}</strong>
+              <button ref={recover} onClick={maximize}>
+                Maximize pane
+              </button>
+              <span className="muted">Your work is retained.</span>
+            </>
+          )}
         </div>
       </div>
     </PaneContext.Provider>
