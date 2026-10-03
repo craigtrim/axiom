@@ -694,14 +694,24 @@ async function mount(
     { prepared, theme },
   );
 }
+/**
+ * Shows exactly one side. The application's recovery overlay sits above its
+ * content, so it is hidden too, and the reference stays visible even where
+ * recovery hides the content box around it.
+ */
 const showReference = (shown: boolean) =>
   page.evaluate((shown) => {
-    document.getElementById("quality-reference")!.style.display = shown
-      ? "block"
-      : "none";
-    document.querySelector<HTMLElement>(
-      '.adaptive-pane[data-pane-id="quality"] [data-panel="quality"]',
-    )!.style.display = shown ? "none" : "";
+    const host = '.adaptive-pane[data-pane-id="quality"]';
+    const reference = document.getElementById("quality-reference")!;
+    reference.style.display = shown ? "block" : "none";
+    reference.style.visibility = "visible";
+    for (const selector of [
+      host + " [data-panel=quality]",
+      host + " > .pane-recovery",
+    ])
+      document.querySelector<HTMLElement>(selector)!.style.display = shown
+        ? "none"
+        : "";
   }, shown);
 
 // ------------------------------------------------------------- comparisons

@@ -66,3 +66,22 @@ export const useQualitySettingsRequests = () =>
     },
     () => settingsRequests,
   );
+// The pane publishes whether its report is stale, so recovery never shows a
+// stale or untested result as current (craigtrim/axiom#44).
+let stale = false;
+const staleListeners = new Set<() => void>();
+export function publishQualityStale(value: boolean) {
+  if (stale === value) return;
+  stale = value;
+  for (const fn of staleListeners) fn();
+}
+export const useQualityStale = () =>
+  useSyncExternalStore(
+    (fn) => {
+      staleListeners.add(fn);
+      return () => {
+        staleListeners.delete(fn);
+      };
+    },
+    () => stale,
+  );

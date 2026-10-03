@@ -590,6 +590,45 @@ test("Tools expands the settings even when it remounts the pane", async () => {
   await menu("view.quality");
   await expect(pane().locator(".settings")).toHaveCount(0);
 });
+/** Sizes the pane's own host, which is what the pane measures. */
+const size = (width: number, height: number) =>
+  page.locator('.adaptive-pane[data-pane-id="quality"]').evaluate(
+    (el, box) =>
+      Object.assign((el as HTMLElement).style, {
+        position: "fixed",
+        left: "0",
+        top: "0",
+        width: box.width + "px",
+        height: box.height + "px",
+        zIndex: "1000",
+      }),
+    { width, height },
+  );
+test("recovery and narrow-and-shallow never strand or overstate a result", async () => {
+  await scan();
+  await pane().getByRole("button", { name: "Coverage", exact: true }).click();
+  await expect(pane().locator(".cov")).toBeVisible();
+  // Narrow and shallow drops the view switch, so it lists findings.
+  await size(500, 300);
+  await expect(pane().locator(".cov")).toHaveCount(0);
+  await expect(pane().locator(".rule").first()).toBeVisible();
+  await expect(
+    pane().locator(".tools .chip").filter({ hasText: "Warning" }),
+  ).toBeVisible();
+  await size(900, 600);
+  await pane().getByRole("button", { name: "Change" }).click();
+  await pane()
+    .locator(".settings .chip")
+    .filter({ hasText: "Data properties" })
+    .click();
+  await expect(pane().locator(".bar.alert-warn")).toContainText(
+    "The scan settings changed",
+  );
+  const recovery = page.getByRole("region", { name: "Ontology Quality pane" });
+  await size(200, 300);
+  await expect(recovery).toContainText("Out of date");
+  await expect(recovery).not.toContainText("findings");
+});
 test("the scope guard holds before the census answers", async () => {
   await scan();
   await app.evaluate(({ ipcMain }) => {

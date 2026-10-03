@@ -46,12 +46,14 @@ import {
 import { editEntity } from "./authoring";
 import {
   cancelQuality,
+  publishQualityStale,
   startQuality,
   takeQualitySettingsRequest,
+  useQualityStale,
   useQualitySettingsRequests,
   useQualityStatus,
 } from "./quality-view";
-import { registerPaneRecovery } from "./AdaptivePane";
+import { registerPaneRecovery, usePaneLayout } from "./AdaptivePane";
 import { qly, ruleCopy, t, tn, type QlyKey } from "./quality-copy";
 import {
   Chevron,
@@ -141,7 +143,7 @@ function rejection(message: string) {
 // Recovery keeps the pane's name and its last result (craigtrim/axiom#44).
 function QualityRecovery({ maximize }: { maximize: ReactNode }) {
   const job = useQualityStatus(),
-    snapshot = useSnapshot();
+    stale = useQualityStale();
   const report = job?.state === "complete" ? job.report : undefined;
   // One line, and never one that reads as clean when it is not.
   const last = !job
@@ -152,9 +154,7 @@ function QualityRecovery({ maximize }: { maximize: ReactNode }) {
         ? t("canceled.state")
         : job.state === "failed" || !report
           ? t("failed.state")
-          : snapshot &&
-              (report.datasetEpoch !== snapshot.datasetEpoch ||
-                report.version !== snapshot.version)
+          : stale
             ? t("stale.state")
             : !report.enabledChecks
               ? t("nochecks.headline")
@@ -318,7 +318,11 @@ export function QualityPanel() {
       JSON.stringify(readQualityOptions(options));
   const stale = staleStore || staleSettings;
   // Only a complete report has a coverage view; partial findings always list.
-  const resultView = report ? view : "findings";
+  // Narrow and shallow keeps the findings list and drops the view switch, so
+  // it shows findings whatever view was chosen at a larger size.
+  const { narrow, shallow } = usePaneLayout();
+  const resultView = report && !(narrow && shallow) ? view : "findings";
+  useEffect(() => publishQualityStale(stale), [stale]);
   const labels = useMemo(
     () =>
       new Map(
