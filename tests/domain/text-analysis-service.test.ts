@@ -17,8 +17,9 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
     MutatocClient: class {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
-          // craigtrim/axiom#40: parse results carry 0.4.0 code point offsets.
-          if (input.op === "version") return "0.4.0";
+          // craigtrim/axiom#40: parse results carry code point offsets.
+          // craigtrim/axiom#43: the fake engine reports the required 0.5.0.
+          if (input.op === "version") return "0.5.0";
           if (input.op === "parse")
             return {
               text: "dog",
@@ -73,13 +74,13 @@ afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
 
 describe("analysis service scheduling and failures", () => {
-  it.each(["0.2.3", "0.3.0", "0.3.1", "0.4.1"])(
+  it.each(["0.2.3", "0.3.0", "0.3.1", "0.4.0", "0.4.1", "0.5.1"])(
     "rejects incompatible runtime %s before loading and can recover",
     async (version) => {
       const pending = service.parse(input());
       current().request.mockResolvedValueOnce(version);
       await expect(pending).rejects.toThrow(
-        `requires Mutatoc 0.4.0; the configured runtime reports ${version}`,
+        `requires Mutatoc 0.5.0; the configured runtime reports ${version}`,
       );
       expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
         "version",

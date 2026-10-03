@@ -23,10 +23,11 @@ const home =
     ? path.join(path.dirname(process.env.AXIOM_TEST_EXE), "resources/mutatoc")
     : undefined) ??
   process.env.AXIOM_MUTATOC_HOME ??
-  // craigtrim/axiom#40: highlights come from Mutatoc 0.4.0 source offsets.
+  // craigtrim/axiom#40: highlights come from Mutatoc source offsets.
+  // craigtrim/axiom#43: the development fallback is the 0.5.0 runtime.
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.4.0"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.0"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run native matching desktop tests.",
