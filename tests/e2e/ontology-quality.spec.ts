@@ -523,6 +523,12 @@ test("a settings change blocks label additions, marks exports stale, and an unre
   await expect(pane().locator(".settings")).toContainText(
     "Enter a namespace to scan.",
   );
+  // Escape keeps unresolved settings, and their reason, in view.
+  await pane().getByRole("combobox", { name: "Scope", exact: true }).focus();
+  await page.keyboard.press("Escape");
+  await expect(pane().locator(".settings")).toContainText(
+    "Enter a namespace to scan.",
+  );
   for (const name of ["Run scan", "Rerun scan"])
     await expect(
       pane().getByRole("button", { name, exact: true }),
@@ -764,9 +770,17 @@ test("filters that match nothing say so, and findings group by entity", async ()
   await expect(pane()).toContainText("The scan itself completed and found");
   // Narrow withdraws the text field; the active filter stays clearable.
   await size(500, 600);
-  await pane()
-    .getByRole("button", { name: "Remove filter Text: no such entity" })
-    .click();
+  const chip = pane().getByRole("button", {
+    name: "Remove filter Text: no such entity",
+  });
+  // The chip must already be inside the pane, not reachable only by scrolling.
+  const [box, frame] = [
+    (await chip.boundingBox())!,
+    (await pane().boundingBox())!,
+  ];
+  expect(box.x).toBeGreaterThanOrEqual(frame.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
+  await chip.click();
   await expect(pane().locator(".rule").first()).toBeVisible();
   await size(900, 600);
   await pane()

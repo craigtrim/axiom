@@ -735,7 +735,8 @@ export function QualityPanel() {
     } else if (mode !== "results") {
       setMode("results");
       event.stopPropagation();
-    } else if (settingsOpen && report) {
+    } else if (settingsOpen && report && !unresolved) {
+      // An unresolved scope keeps its settings, and their reason, in view.
       setSettingsOpen(false);
       event.stopPropagation();
     }
@@ -1036,28 +1037,8 @@ export function QualityPanel() {
       )}
       {resultView === "findings" && (
         <>
-          {severities.map((s) => (
-            <button
-              key={s}
-              className="chip"
-              aria-pressed={sevOn.includes(s)}
-              onClick={() => setSevOn(toggle(sevOn, s))}
-            >
-              <span className={"sev " + severityClass(s)}>
-                <SeverityGlyph severity={s} />
-              </span>
-              {s + " "}
-              <span className="n">{counts[s].toLocaleString("en-US")}</span>
-            </button>
-          ))}
-          <button
-            className="chip"
-            aria-pressed={showSuppressed}
-            onClick={() => setShowSuppressed(!showSuppressed)}
-          >
-            {t("filter.suppressed") + " "}
-            <span className="n">{suppressedCount.toLocaleString("en-US")}</span>
-          </button>
+          {/* Active filters lead, so their clear controls stay on screen when
+              a narrow tools bar runs out of room. */}
           {(Object.keys(more) as (keyof typeof more)[])
             .filter((k) => more[k])
             .map((k) => {
@@ -1099,6 +1080,28 @@ export function QualityPanel() {
               }) + " ×"}
             </button>
           )}
+          {severities.map((s) => (
+            <button
+              key={s}
+              className="chip"
+              aria-pressed={sevOn.includes(s)}
+              onClick={() => setSevOn(toggle(sevOn, s))}
+            >
+              <span className={"sev " + severityClass(s)}>
+                <SeverityGlyph severity={s} />
+              </span>
+              {s + " "}
+              <span className="n">{counts[s].toLocaleString("en-US")}</span>
+            </button>
+          ))}
+          <button
+            className="chip"
+            aria-pressed={showSuppressed}
+            onClick={() => setShowSuppressed(!showSuppressed)}
+          >
+            {t("filter.suppressed") + " "}
+            <span className="n">{suppressedCount.toLocaleString("en-US")}</span>
+          </button>
         </>
       )}
       <span className="fill"></span>
