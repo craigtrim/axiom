@@ -22,6 +22,11 @@ import { ProvenanceService } from "./provenance-service";
 import { FilePreviewService } from "./file-preview-service";
 import type { LinkedFile } from "../shared/source";
 import { exportDocument } from "./export-service";
+import {
+  qualityExport,
+  readQualityExceptions,
+  type QualityStatus,
+} from "../shared/ontology-quality";
 import { QueryAssistantService } from "./query-assistant-service";
 import { WikipediaClient } from "./wikipedia-client";
 import { TouchpointService } from "./touchpoint-service";
@@ -145,6 +150,11 @@ const pending = new Map<
   { resolve: (v: any) => void; reject: (e: Error) => void }
 >();
 const methods = new Set<DomainMethod>([
+  "qualityStart",
+  "qualityStatus",
+  "qualityCancel",
+  "qualityPreview",
+  "qualityApply",
   "textAnalysisDraft",
   "textAnalysisCreatePreview",
   "textAnalysisCreate",
@@ -1649,6 +1659,38 @@ app.whenReady().then(async () => {
     if (typeof text !== "string" || text.length > 10000000)
       throw Error("Invalid clipboard data.");
     return clipboard.writeText(text);
+  });
+  handle("quality:export", async (event, input) => {
+    authorised(event);
+    if (!input || !["json", "csv"].includes(input.format))
+      throw Error("Choose JSON or CSV for a quality report.");
+    const job = (await request("qualityStatus", {
+      id: input.id,
+    })) as QualityStatus;
+    if (job.state !== "complete" || !job.report)
+      throw Error("Only completed scans can be exported.");
+    const content = qualityExport(
+      job.report,
+      readQualityExceptions(input.exceptions),
+      input.format,
+    );
+    const result = await dialog.showSaveDialog(
+      BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
+      {
+        title: "Export ontology quality report",
+        defaultPath: "ontology-quality." + input.format,
+        filters: [
+          { name: input.format.toUpperCase(), extensions: [input.format] },
+        ],
+      },
+    );
+    if (result.canceled || !result.filePath) return null;
+    const ext = path.extname(result.filePath).toLowerCase();
+    if (ext && ext !== "." + input.format)
+      throw Error("Use the selected report filename extension.");
+    const file = ext ? result.filePath : result.filePath + "." + input.format;
+    await writeFile(file, content, "utf8");
+    return file;
   });
   handle("export:document", async (event, input) => {
     authorised(event);

@@ -25,6 +25,7 @@ import { setState } from "./client";
 import type { Snapshot } from "../shared/protocol";
 import { syncTextAnalysisContext } from "./text-analysis-state";
 import { SparsityPanel } from "./SparsityPanel";
+import { QualityPanel } from "./QualityPanel";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
@@ -127,6 +128,7 @@ const names: Record<string, string> = {
   find: "Find",
   tabhistory: "Tab History",
   sparsity: "Sparsity",
+  quality: "Ontology Quality",
   textanalysis: "Text Analysis",
   textentities: "Text Entities",
   provenance: "Filesystem provenance",
@@ -623,6 +625,7 @@ export function App() {
         dataSibling ??
         (id === "tabhistory" ||
         id === "sparsity" ||
+        id === "quality" ||
         id === "textanalysis" ||
         id === "find" ||
         id === "errorlog" ||
@@ -644,6 +647,7 @@ export function App() {
           dataSibling ||
             id === "tabhistory" ||
             id === "sparsity" ||
+            id === "quality" ||
             id === "textanalysis" ||
             id === "find" ||
             id === "errorlog" ||
@@ -942,6 +946,7 @@ export function App() {
         showTextEntities();
       } else if (id === "view.textentities") showTextEntities(true);
       else if (id.startsWith("view.")) show(id.slice(5));
+      if (id === "tools.quality") show("quality");
       if (id === "textentities.open") showTextEntities();
       if (id === "textanalysis.inspect") show("details");
       if (id === "textanalysis.reveal") show("textanalysis", false);
@@ -1343,6 +1348,7 @@ export function App() {
                     />
                   ),
                   sparsity: <SparsityPanel />,
+                  quality: <QualityPanel />,
                   textanalysis: (
                     <Suspense
                       fallback={

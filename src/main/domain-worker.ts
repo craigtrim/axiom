@@ -10,6 +10,8 @@ import {
 import { textAnalysisGraphNodes } from "../domain/text-analysis-graph";
 import { textAnalysisContext } from "../domain/text-analysis-context";
 import { analyzeSparsity } from "../domain/sparsity";
+import { QualityJobs } from "../domain/quality-jobs";
+const qualityJobs = new QualityJobs();
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { addFindSynonym } from "../domain/find-synonyms";
 import { parseSuggestionValues } from "../shared/suggestions";
@@ -424,6 +426,7 @@ const tracked = new Set<DomainMethod>([
   "createClass",
   "createProperty",
   "updateEntity",
+  "qualityApply",
   "addFindSynonym",
   "applySource",
   "applyEntitySource",
@@ -1362,6 +1365,30 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "analyzeSparsity":
       return analyzeSparsity(store, a);
+    case "qualityStart":
+      return qualityJobs.start(store, datasetEpoch, a.options);
+    case "qualityStatus":
+      return qualityJobs.status(Number(a.id));
+    case "qualityCancel":
+      return qualityJobs.cancel(Number(a.id));
+    case "qualityPreview":
+      return qualityJobs.prepare(store, datasetEpoch, Number(a.id), a.rows);
+    case "qualityApply": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw Error("The workspace changed. Preview the labels again.");
+      const count = qualityJobs.apply(
+        store,
+        datasetEpoch,
+        Number(a.version),
+        Number(a.token),
+      );
+      mutate(
+        "Added " +
+          count +
+          " reviewed labels. Undo restores the prior statements.",
+      );
+      return count;
+    }
     case "find": {
       beginSearch(a);
       return rememberSearch(a);

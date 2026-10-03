@@ -127,6 +127,7 @@ export const menuTree: MenuDefinition[] = [
     c("view.find", "Find", "View"),
     c("view.tabhistory", "Tab History", "View"),
     c("view.sparsity", "Sparsity", "View"),
+    c("view.quality", "Ontology Quality", "View"),
     c("view.textanalysis", "Text Analysis", "View"),
     c("view.textentities", "Text Entities", "View"),
     c("view.taxonomy", "Suggestions", "View"),
@@ -163,6 +164,9 @@ export const menuTree: MenuDefinition[] = [
       app("F11"),
       "togglefullscreen",
     ),
+  ]),
+  menu("menu.tools", "Tools", "T", [
+    c("tools.quality", "Check ontology...", "Tools"),
   ]),
   menu("menu.graph", "Graph", "G", [
     c(

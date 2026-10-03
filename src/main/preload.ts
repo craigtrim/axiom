@@ -108,6 +108,7 @@ const bridge: AxiomBridge = {
   command: (command) => ipcRenderer.send("command", command),
   exportFile: (format, data) => invoke("export", format, data),
   exportDocument: (input) => invoke("export:document", input),
+  qualityExport: (input) => invoke("quality:export", input),
   copy: (text) => invoke("copy", text),
 };
 contextBridge.exposeInMainWorld("axiom", bridge);

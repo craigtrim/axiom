@@ -31,6 +31,7 @@ describe("keyboard conventions and settings", () => {
       "F",
       "E",
       "V",
+      "T",
       "G",
       "Q",
       "W",

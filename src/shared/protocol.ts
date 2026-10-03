@@ -87,6 +87,11 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  | "qualityStart"
+  | "qualityStatus"
+  | "qualityCancel"
+  | "qualityPreview"
+  | "qualityApply"
   | "semanticSimilarity"
   | "textAnalysisDraft"
   | "textAnalysisCreatePreview"
@@ -196,6 +201,11 @@ export interface Preferences {
   arrangement?: "auto" | "standard" | "wide" | "custom";
 }
 export interface AxiomBridge {
+  qualityExport(input: {
+    id: number;
+    format: "csv" | "json";
+    exceptions: import("./ontology-quality").QualityException[];
+  }): Promise<string | null>;
   textAnalysis: {
     parse(
       input: import("./text-analysis").TextAnalysisInput,

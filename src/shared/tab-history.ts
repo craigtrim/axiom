@@ -10,6 +10,7 @@ export const tabTypes: Record<string, string> = {
   touchpoints: "Find Touchpoints",
   taxonomy: "Suggestions",
   sparsity: "Sparsity",
+  quality: "Ontology Quality",
   textanalysis: "Text Analysis",
   textentities: "Text Entities",
   source: "Source",
