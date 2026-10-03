@@ -524,6 +524,96 @@ test("a settings change blocks label additions, marks exports stale, and an unre
     ).toBeDisabled();
   await expect(pane().locator(".rule").first()).toBeVisible();
 });
+test("a canceled report pages its findings from any view and goes stale like a complete one", async () => {
+  await writeFile(
+    file,
+    prefix +
+      Array.from({ length: 3000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
+  );
+  await openFile();
+  await scan();
+  await pane().getByRole("button", { name: "Coverage", exact: true }).click();
+  await pane().getByRole("button", { name: "Rerun" }).click();
+  await expect
+    .poll(async () =>
+      Number(
+        (await summary().textContent())
+          ?.match(/^([\d,]+) of/)?.[1]
+          .replace(/,/g, "") ?? 0,
+      ),
+    )
+    .toBeGreaterThanOrEqual(128);
+  await pane().getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(pane().locator(".bar.alert-warn")).toContainText(
+    "Stopped after",
+  );
+  await band("Missing explicit primary label").click();
+  await expect(pane().locator(".foot")).toContainText("1 to 40 of");
+  await pane().getByRole("button", { name: "Next page" }).click();
+  await expect(pane().locator(".foot")).toContainText("41 to");
+  await menu("tools.quality");
+  await pane()
+    .locator(".settings .chip")
+    .filter({ hasText: "Data properties" })
+    .click();
+  await expect(pane().locator(".bar.alert-warn")).toContainText(
+    "The scan settings changed",
+  );
+  await expect(pane()).toContainText(
+    "This report is incomplete and cannot be exported as complete.",
+  );
+});
+test("the scope guard holds before the census answers", async () => {
+  await scan();
+  await app.evaluate(({ ipcMain }) => {
+    const original = (ipcMain as any)._invokeHandlers.get("domain:request");
+    ipcMain.removeHandler("domain:request");
+    ipcMain.handle("domain:request", async (event, method, args) => {
+      if (method === "qualityCensus")
+        await new Promise((r) => setTimeout(r, 3000));
+      return original(event, method, args);
+    });
+  });
+  await pane().getByRole("button", { name: "Change" }).click();
+  await pane()
+    .getByRole("combobox", { name: "Scope", exact: true })
+    .selectOption("namespace");
+  // No waiting: the census is still three seconds away.
+  expect(
+    await pane()
+      .getByRole("button", { name: "Rerun scan", exact: true })
+      .isDisabled(),
+  ).toBe(true);
+  expect(
+    await pane()
+      .getByRole("button", { name: "Run scan", exact: true })
+      .isDisabled(),
+  ).toBe(true);
+  await expect(pane().locator(".settings")).toContainText(
+    "Enter a namespace to scan.",
+  );
+});
+test("Would add names the named graph a reviewed label will be written to", async () => {
+  const trig = path.join(profile, "graphs.trig");
+  await writeFile(
+    trig,
+    prefix + ":Courses { :Industrial_Safety a owl:Class. }",
+  );
+  await app.evaluate(({ dialog }, trig) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [trig],
+    });
+  }, trig);
+  await openFile();
+  await scan();
+  await band("Missing explicit primary label").click();
+  await row("Industrial Safety").click();
+  // The addition sits inside the entity's only graph, as the reviewed preview writes it.
+  await expect(detail().locator("pre.preview")).toContainText(
+    /Courses>? \{\n\s+\S*Industrial_Safety>? rdfs:label "Industrial Safety" \.\n\}/,
+  );
+});
 test("no enabled checks is reported as nothing tested, never as clean", async () => {
   for (const name of [
     "Completeness",

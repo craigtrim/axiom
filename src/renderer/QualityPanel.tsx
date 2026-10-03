@@ -296,16 +296,19 @@ export function QualityPanel() {
   const partial = job?.state === "canceled" ? job.partial : undefined;
   const shown: QualityReport | undefined = report ?? partial;
   const busy = starting || job?.state === "running";
+  // A canceled report's partial findings go stale the same way a complete report's do.
   const staleStore =
-    !!report &&
-    (report.datasetEpoch !== snapshot.datasetEpoch ||
-      report.version !== snapshot.version);
+    !!shown &&
+    (shown.datasetEpoch !== snapshot.datasetEpoch ||
+      shown.version !== snapshot.version);
   const staleSettings =
-    !!report &&
+    !!shown &&
     !staleStore &&
-    JSON.stringify(report.options) !==
+    JSON.stringify(shown.options) !==
       JSON.stringify(readQualityOptions(options));
   const stale = staleStore || staleSettings;
+  // Only a complete report has a coverage view; partial findings always list.
+  const resultView = report ? view : "findings";
   const labels = useMemo(
     () =>
       new Map(
@@ -397,7 +400,22 @@ export function QualityPanel() {
   ]);
 
   // Every scan entry point honours the scope guard, not only the settings row.
-  const unresolved = !!census?.scopeError;
+  // Checked synchronously so a scan cannot start before the census catches up.
+  const scopeProblem: QlyKey | undefined =
+    options.scope === "namespace" && !options.namespace.trim()
+      ? "scope.needsNamespace"
+      : options.scope === "branch" &&
+          !snapshot.entities.some(
+            (e) =>
+              e.iri === options.root && ["Class", "Defined"].includes(e.kind),
+          )
+        ? "scope.needsRoot"
+        : census?.scopeError
+          ? options.scope === "namespace"
+            ? "scope.needsNamespace"
+            : "scope.needsRoot"
+          : undefined;
+  const unresolved = !!scopeProblem;
   const run = () =>
     void action(async () => {
       if (unresolved) {
@@ -761,23 +779,7 @@ export function QualityPanel() {
           )}
         </div>
       );
-    if (job?.state === "canceled")
-      return (
-        <div className="bar alert-warn">
-          <span className="state">
-            <Triangle />
-            {t("canceled.state")}
-          </span>
-          <span className="sum">
-            {t("canceled.summary", { scanned: job.scanned, total: job.total })}
-          </span>
-          <button className="btn" disabled={busy || unresolved} onClick={run}>
-            <Rerun />
-            {t("rerun")}
-          </button>
-        </div>
-      );
-    if (report && stale)
+    if (shown && stale)
       return (
         <div className="bar alert-warn">
           <span className="state">
@@ -787,13 +789,29 @@ export function QualityPanel() {
           <span className="sum">
             {staleStore
               ? t("stale.store", {
-                  ran: String(report.version),
+                  ran: String(shown.version),
                   current: String(snapshot.version),
                 })
               : t("stale.settings", {
-                  checks: report.enabledChecks,
-                  scope: scopeText(report.options, label),
+                  checks: shown.enabledChecks,
+                  scope: scopeText(shown.options, label),
                 })}
+          </span>
+          <button className="btn" disabled={busy || unresolved} onClick={run}>
+            <Rerun />
+            {t("rerun")}
+          </button>
+        </div>
+      );
+    if (job?.state === "canceled")
+      return (
+        <div className="bar alert-warn">
+          <span className="state">
+            <Triangle />
+            {t("canceled.state")}
+          </span>
+          <span className="sum">
+            {t("canceled.summary", { scanned: job.scanned, total: job.total })}
           </span>
           <button className="btn" disabled={busy || unresolved} onClick={run}>
             <Rerun />
@@ -914,19 +932,11 @@ export function QualityPanel() {
               ))}
           </select>
         )}
-        {census?.scopeError && (
-          <span className="hint">
-            {t(
-              options.scope === "namespace"
-                ? "scope.needsNamespace"
-                : "scope.needsRoot",
-            )}
-          </span>
-        )}
+        {scopeProblem && <span className="hint">{t(scopeProblem)}</span>}
         <span className="fill"></span>
         <button
           className="btn primary"
-          disabled={busy || !!census?.scopeError}
+          disabled={busy || unresolved}
           onClick={run}
         >
           <Play />
@@ -1251,6 +1261,13 @@ export function QualityPanel() {
       ? qualityAdmitted(shown.options.labelPredicates, shown.census)[0]
       : undefined;
     const language = shown?.options.languages[0];
+    // The same destination the reviewed preview uses: an entity described in
+    // one named graph gets its label there; otherwise the default graph.
+    const graphs = [
+      ...new Set(
+        f.evidence.filter((s) => s.subject === f.iri).map((s) => s.graph),
+      ),
+    ];
     const wouldAdd =
       f.rule === "label.missing" && labelPredicate && entityIds.has(f.iri)
         ? turtleLines(
@@ -1265,6 +1282,9 @@ export function QualityPanel() {
                     ? { language, datatype: NS.rdf + "langString" }
                     : {}),
                 },
+                ...(graphs.length === 1 && graphs[0]
+                  ? { graph: graphs[0] }
+                  : {}),
               },
             ],
             base,
@@ -1722,7 +1742,7 @@ export function QualityPanel() {
           <p>{t("idle.body")}</p>
         </div>
       );
-    if (view === "coverage") return coverageBody();
+    if (resultView === "coverage") return coverageBody();
     if (!report.enabledChecks)
       return (
         <div className="state-body">
@@ -1754,11 +1774,11 @@ export function QualityPanel() {
       total: all.length,
       suppressed: suppressedCount,
     });
-    if (view === "coverage" || !all.length || !listed)
+    if (resultView === "coverage" || !all.length || !listed)
       return (
         <div className="foot">
           <span>
-            {view === "findings" && all.length && bands.length
+            {resultView === "findings" && all.length && bands.length
               ? t("foot.collapsed") + " · " + totals
               : totals}
           </span>
