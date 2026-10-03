@@ -140,21 +140,30 @@ function rejection(message: string) {
 
 // Recovery keeps the pane's name and its last result (craigtrim/axiom#44).
 function QualityRecovery({ maximize }: { maximize: ReactNode }) {
-  const job = useQualityStatus();
+  const job = useQualityStatus(),
+    snapshot = useSnapshot();
+  const report = job?.state === "complete" ? job.report : undefined;
+  // One line, and never one that reads as clean when it is not.
   const last = !job
     ? t("idle.summary")
     : job.state === "running"
       ? t("running.progress", { scanned: job.scanned, total: job.total })
       : job.state === "canceled"
         ? t("canceled.state")
-        : job.state === "failed"
+        : job.state === "failed" || !report
           ? t("failed.state")
-          : job.report?.findings.length
-            ? t("foot.totals", {
-                total: job.report.findings.length,
-                suppressed: 0,
-              }).split(" · ")[0]
-            : t("clean.headline");
+          : snapshot &&
+              (report.datasetEpoch !== snapshot.datasetEpoch ||
+                report.version !== snapshot.version)
+            ? t("stale.state")
+            : !report.enabledChecks
+              ? t("nochecks.headline")
+              : report.findings.length
+                ? t("foot.totals", {
+                    total: report.findings.length,
+                    suppressed: 0,
+                  }).split(" · ")[0]
+                : t("clean.headline");
   return (
     <>
       <span className="id">{t("recovery.name")}</span>

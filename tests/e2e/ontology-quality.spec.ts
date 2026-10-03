@@ -658,6 +658,27 @@ test("no enabled checks is reported as nothing tested, never as clean", async ()
   await expect(pane()).toContainText("No checks are enabled");
   await expect(pane()).toContainText("This is not a clean result.");
   await expect(pane()).not.toContainText("No findings");
+  // At recovery size the one-line result still does not read as clean.
+  await pane().getByRole("button", { name: "Change" }).focus();
+  const popup = app.waitForEvent("window");
+  await menu("pane.detach");
+  const child = await popup;
+  // The pane measures its own host, so narrowing the host is enough.
+  await child.locator('.adaptive-pane[data-pane-id="quality"]').evaluate((el) =>
+    Object.assign((el as HTMLElement).style, {
+      position: "fixed",
+      left: "0",
+      top: "0",
+      width: "200px",
+      height: "300px",
+    }),
+  );
+  const recovery = child.getByRole("region", {
+    name: "Ontology Quality pane",
+  });
+  await expect(recovery).toBeVisible();
+  await expect(recovery).toContainText("No checks are enabled");
+  await expect(recovery).not.toContainText("No findings");
 });
 test("the census withdraws checks for vocabularies the ontology does not use", async () => {
   await writeFile(
