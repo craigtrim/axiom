@@ -1061,6 +1061,35 @@ export class Store {
     );
     return iri;
   }
+  /** Add reviewed annotations as one history entry, without identifier retargeting. */
+  addQualityLabels(statements: Triple[]) {
+    for (const t of statements) {
+      validateStatement(t);
+      if (
+        !this.entities.has(t.subject) ||
+        !t.object.literal ||
+        !t.object.value.trim()
+      )
+        throw Error("Invalid quality label addition.");
+    }
+    if (!statements.length) return;
+    const before = this.schemaState();
+    this.record(
+      "Add " + statements.length + " reviewed labels",
+      () => {
+        this.tbox.push(...structuredClone(statements));
+        const projected = projectEntities(this.tbox);
+        if (this.ontology.assertedOnly) this.entities = projected;
+        else
+          for (const t of statements) {
+            const e = projected.get(t.subject);
+            if (e) this.entities.set(t.subject, e);
+          }
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+  }
   replaceRdf(statements: Triple[]) {
     for (const t of statements) validateStatement(t);
     const next = removeRedundantThingParents(structuredClone(statements));

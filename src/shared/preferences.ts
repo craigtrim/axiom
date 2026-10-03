@@ -1,5 +1,6 @@
 import { readTabHistory } from "./tab-history";
 import { readSparsityOptions } from "./sparsity";
+import { readQualityOptions, readQualityExceptions } from "./ontology-quality";
 import { readFindOptions } from "./find";
 import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
 import { readKeyboardSettings } from "./shortcuts";
@@ -96,6 +97,10 @@ export function readPreferences(input: unknown): Preferences {
     out["textanalysis.pane.size"] = s["textanalysis.pane.size"];
   if (object(s["sparsity.view"]))
     out["sparsity.view"] = readSparsityOptions(s["sparsity.view"]);
+  if (object(s["quality.options"]))
+    out["quality.options"] = readQualityOptions(s["quality.options"]);
+  if (Array.isArray(s["quality.exceptions"]))
+    out["quality.exceptions"] = readQualityExceptions(s["quality.exceptions"]);
   if (object(s["find.view"]))
     out["find.view"] = readFindOptions(s["find.view"]);
   if (Array.isArray(s["find.recent"]))

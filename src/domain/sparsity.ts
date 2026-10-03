@@ -15,7 +15,7 @@ const cache = new WeakMap<
 >();
 
 /** Iterative Kosaraju traversal. Cycles are reported, never unrolled into counts. */
-function cyclicNodes(
+export function cyclicNodes(
   children: Map<string, string[]>,
   parents: Map<string, string[]>,
 ) {
