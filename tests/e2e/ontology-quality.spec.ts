@@ -560,6 +560,14 @@ test("a canceled report pages its findings from any view and goes stale like a c
   await expect(pane().locator(".foot")).toContainText("1 to 40 of");
   await pane().getByRole("button", { name: "Next page" }).click();
   await expect(pane().locator(".foot")).toContainText("41 to");
+  // A current partial finding opens in Details like a complete one.
+  await pane()
+    .locator(".frow")
+    .first()
+    .getByRole("button", { name: /^Open .+ in Details$/ })
+    .click();
+  await expect.poll(async () => (await state()).selected).toMatch(/#A\d+$/);
+  await menu("view.quality");
   await menu("tools.quality");
   await pane()
     .locator(".settings .chip")
@@ -571,6 +579,16 @@ test("a canceled report pages its findings from any view and goes stale like a c
   await expect(pane()).toContainText(
     "This report is incomplete and cannot be exported as complete.",
   );
+});
+test("Tools expands the settings even when it remounts the pane", async () => {
+  await scan();
+  await expect(pane().locator(".settings")).toHaveCount(0);
+  await openFile();
+  await expect(pane().locator(".settings")).toBeVisible();
+  await scan();
+  await menu("view.hierarchy");
+  await menu("view.quality");
+  await expect(pane().locator(".settings")).toHaveCount(0);
 });
 test("the scope guard holds before the census answers", async () => {
   await scan();
@@ -668,6 +686,12 @@ test("the census withdraws checks for vocabularies the ontology does not use", a
 });
 test("filters that match nothing say so, and findings group by entity", async () => {
   await scan();
+  // Severity chips alone can hide every finding while passing rules keep bands.
+  for (const s of ["Warning", "Information"])
+    await pane().locator(".tools .chip").filter({ hasText: s }).click();
+  await expect(pane()).toContainText("No findings match the current filter.");
+  for (const s of ["Warning", "Information"])
+    await pane().locator(".tools .chip").filter({ hasText: s }).click();
   await pane()
     .getByRole("searchbox", { name: "Filter findings" })
     .fill("no such entity");

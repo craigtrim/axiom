@@ -47,6 +47,7 @@ import { editEntity } from "./authoring";
 import {
   cancelQuality,
   startQuality,
+  takeQualitySettingsRequest,
   useQualitySettingsRequests,
   useQualityStatus,
 } from "./quality-view";
@@ -339,14 +340,20 @@ export function QualityPanel() {
   };
 
   // Tools > Check ontology... opens the settings block.
-  const firstRequest = useRef(settingsRequests);
+  // Runs on mount too: Tools may have asked before this pane existed.
   useEffect(() => {
-    if (settingsRequests === firstRequest.current) return;
+    if (!takeQualitySettingsRequest()) return;
     setSettingsOpen(true);
     setMode((m) => (m === "rules" ? m : "results"));
   }, [settingsRequests]);
-  // A finished scan collapses the settings into the summary line.
+  // A scan that finishes while the pane is open collapses the settings into
+  // the summary line. Mounting is not a transition, so a pane remounted by
+  // Tools keeps the settings it was asked to show.
+  const seenJob = useRef(job ? job.id + ":" + job.state : "");
   useEffect(() => {
+    const key = job ? job.id + ":" + job.state : "";
+    if (key === seenJob.current) return;
+    seenJob.current = key;
     if (job?.state === "complete") setSettingsOpen(false);
     setOpen("");
     setRecording("");
@@ -553,11 +560,12 @@ export function QualityPanel() {
   // ---------------------------------------------------------------- actions
   const navigate = (iri: string) =>
     void action(async () => {
-      if (!report || staleStore) throw Error(t("stale.navigate"));
+      // Partial findings from a canceled scan navigate under the same guard.
+      if (!shown || staleStore) throw Error(t("stale.navigate"));
       await request("select", {
         iri,
-        datasetEpoch: report.datasetEpoch,
-        version: report.version,
+        datasetEpoch: shown.datasetEpoch,
+        version: shown.version,
       });
       editEntity(iri);
     });
@@ -1440,7 +1448,8 @@ export function QualityPanel() {
   };
   const findingsBody = (readOnlyPartial = false) => {
     if (!shown) return null;
-    if (!bands.length)
+    // Passing rules keep their bands, but not when the filters hide every finding.
+    if (!bands.some((b) => b.count))
       return all.length ? (
         <div className="state-body">
           <h3>{t("filter.empty.headline")}</h3>
@@ -1790,7 +1799,9 @@ export function QualityPanel() {
       return (
         <div className="foot">
           <span>
-            {resultView === "findings" && all.length && bands.length
+            {resultView === "findings" &&
+            all.length &&
+            bands.some((b) => b.count)
               ? t("foot.collapsed") + " · " + totals
               : totals}
           </span>

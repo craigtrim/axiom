@@ -42,11 +42,19 @@ export async function cancelQuality() {
 }
 // Tools > Check ontology... opens the settings block; View > Ontology Quality
 // keeps whatever the pane last showed (craigtrim/axiom#44).
-let settingsRequests = 0;
+let settingsRequests = 0,
+  settingsPending = false;
 const settingsListeners = new Set<() => void>();
 export function requestQualitySettings() {
   settingsRequests++;
+  settingsPending = true;
   for (const fn of settingsListeners) fn();
+}
+/** True once per request, so a pane mounted by the request still honours it. */
+export function takeQualitySettingsRequest() {
+  const pending = settingsPending;
+  settingsPending = false;
+  return pending;
 }
 export const useQualitySettingsRequests = () =>
   useSyncExternalStore(
