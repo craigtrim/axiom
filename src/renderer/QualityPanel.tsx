@@ -793,6 +793,14 @@ export function QualityPanel() {
               " " +
               t("failed.partial")}
           </span>
+          {/* The settings that failed must stay reachable to be corrected. */}
+          <button
+            className="btn"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          >
+            {t("change")}
+          </button>
           {!settingsOpen && (
             <button className="btn" disabled={busy || unresolved} onClick={run}>
               {t("run")}
@@ -1074,6 +1082,23 @@ export function QualityPanel() {
                 </button>
               );
             })}
+          {/* Narrow sizes withdraw the text field; its filter stays clearable. */}
+          {narrow && query && (
+            <button
+              className="chip"
+              aria-pressed="true"
+              aria-label={t("filter.remove", {
+                name: t("filter.text"),
+                value: text.trim(),
+              })}
+              onClick={() => setText("")}
+            >
+              {t("filter.active", {
+                name: t("filter.text"),
+                value: text.trim(),
+              }) + " ×"}
+            </button>
+          )}
         </>
       )}
       <span className="fill"></span>

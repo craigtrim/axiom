@@ -528,6 +528,8 @@ interface Plan {
   more?: boolean;
   rules?: boolean;
   before?: string[];
+  /** Buttons inserted before the bar's first button. */
+  barStart?: string[];
   after?: string[];
   maximize?: boolean;
   noRuleId?: boolean;
@@ -631,6 +633,10 @@ async function prepare(plan: Plan, theme: string) {
         pane
           .querySelectorAll(".srow")[2]
           ?.append(button('<button class="btn">Rules</button>'));
+      for (const label of plan.barStart ?? [])
+        pane
+          .querySelector(".bar .btn")!
+          .before(button(`<button class="btn">${label}</button>`));
       for (const label of plan.before ?? [])
         pane
           .querySelector(".bar .btn.primary")!
@@ -1041,7 +1047,8 @@ const cases: Case[] = [
   },
   {
     name: "a8-failed",
-    plan: { section: "a", index: 8 },
+    // The failed state keeps Change, so the settings that failed stay reachable.
+    plan: { section: "a", index: 8, barStart: ["Change"] },
     full: true,
     regions: [],
     drive: () =>

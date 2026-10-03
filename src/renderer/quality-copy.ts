@@ -72,6 +72,7 @@ export const qly = {
   "filter.active": "{name}: {value}",
   "filter.remove": "Remove filter {name}: {value}",
   "filter.all": "All",
+  "filter.text": "Text",
   "filter.group": "Group",
   "filter.rule": "Rule",
   "filter.kind": "Kind",

@@ -441,6 +441,11 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     "Configure absolute predicate IRIs and at least one primary-label predicate. Partial results are not shown.",
   );
   await expect(pane()).toContainText("The scan did not finish");
+  // The settings that failed stay reachable from the failed state.
+  await pane().getByRole("button", { name: "Change" }).click();
+  await expect(
+    pane().locator(".settings").getByRole("button", { name: "Rules" }),
+  ).toBeVisible();
   await expect(
     pane().getByRole("button", { name: "Export findings" }),
   ).toHaveCount(0);
@@ -757,7 +762,13 @@ test("filters that match nothing say so, and findings group by entity", async ()
     .fill("no such entity");
   await expect(pane()).toContainText("No findings match the current filter.");
   await expect(pane()).toContainText("The scan itself completed and found");
-  await pane().getByRole("searchbox", { name: "Filter findings" }).fill("");
+  // Narrow withdraws the text field; the active filter stays clearable.
+  await size(500, 600);
+  await pane()
+    .getByRole("button", { name: "Remove filter Text: no such entity" })
+    .click();
+  await expect(pane().locator(".rule").first()).toBeVisible();
+  await size(900, 600);
   await pane()
     .getByRole("combobox", { name: "Group findings by" })
     .selectOption("entity");
