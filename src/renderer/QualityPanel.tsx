@@ -3,6 +3,7 @@ import {
   Fragment,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -137,7 +138,26 @@ function scopeText(
 /** Error messages from the worker carry the rejected condition. */
 function rejection(message: string) {
   const m = /quality-reject:(\w+):([^:]*):/.exec(message);
-  return m ? { code: m[1], entity: m[2] } : undefined;
+  return m ? { code: m[1], entity: decodeURIComponent(m[2]) } : undefined;
+}
+
+// Closing a tab or moving it between pane hosts must retain its presentation.
+// Ontology settings still live in workspace preferences; this session state
+// holds only the view and unfinished review while the renderer is alive.
+const retainedView = new Map<string, unknown>();
+const retainedScroll = new Map<string, number>();
+function useRetainedState<T>(key: string, initial: T | (() => T)) {
+  const [value, setValue] = useState<T>(() =>
+    retainedView.has(key)
+      ? (retainedView.get(key) as T)
+      : typeof initial === "function"
+        ? (initial as () => T)()
+        : initial,
+  );
+  useEffect(() => {
+    retainedView.set(key, value);
+  }, [key, value]);
+  return [value, setValue] as const;
 }
 
 // Recovery keeps the pane's name and its last result (craigtrim/axiom#44).
@@ -270,32 +290,53 @@ export function QualityPanel() {
   const [exceptions, setExceptions] = useState(() =>
     readQualityExceptions(panel("quality.exceptions", [])),
   );
-  const [settingsOpen, setSettingsOpen] = useState(!job?.report);
+  const [settingsOpen, setSettingsOpen] = useRetainedState(
+    "settingsOpen",
+    !job?.report,
+  );
   const [census, setCensus] = useState<QualityCensusResult>();
-  const [view, setView] = useState<"findings" | "coverage">("findings");
-  const [sevOn, setSevOn] = useState<QualitySeverity[]>(severities);
-  const [showSuppressed, setShowSuppressed] = useState(false);
-  const [grouping, setGrouping] = useState<"rule" | "entity">("rule");
-  const [text, setText] = useState("");
-  const [more, setMore] = useState({
+  const [view, setView] = useRetainedState<"findings" | "coverage">(
+    "view",
+    "findings",
+  );
+  const [sevOn, setSevOn] = useRetainedState<QualitySeverity[]>(
+    "sevOn",
+    severities,
+  );
+  const [showSuppressed, setShowSuppressed] = useRetainedState(
+    "showSuppressed",
+    false,
+  );
+  const [grouping, setGrouping] = useRetainedState<"rule" | "entity">(
+    "grouping",
+    "rule",
+  );
+  const [text, setText] = useRetainedState("text", "");
+  const [more, setMore] = useRetainedState("more", {
     group: "",
     rule: "",
     kind: "",
     namespace: "",
   });
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const [open, setOpen] = useState("");
-  const [recording, setRecording] = useState("");
-  const [reason, setReason] = useState("");
-  const [page, setPage] = useState(0);
-  const [mode, setMode] = useState<Mode>("results");
-  const [repairs, setRepairs] = useState<Repair[]>([]);
-  const [preview, setPreview] = useState<QualityPreview>();
-  const [rejected, setRejected] = useState<{ code: string; entity: string }>();
+  const [expanded, setExpanded] = useRetainedState<string[]>("expanded", []);
+  const [open, setOpen] = useRetainedState("open", "");
+  const [recording, setRecording] = useRetainedState("recording", "");
+  const [reason, setReason] = useRetainedState("reason", "");
+  const [page, setPage] = useRetainedState("page", 0);
+  const [mode, setMode] = useRetainedState<Mode>("mode", "results");
+  const [repairs, setRepairs] = useRetainedState<Repair[]>("repairs", []);
+  const [preview, setPreview] = useRetainedState<QualityPreview | undefined>(
+    "preview",
+    undefined,
+  );
+  const [rejected, setRejected] = useRetainedState<
+    { code: string; entity: string } | undefined
+  >("rejected", undefined);
   const [error, setError] = useState("");
   const [announce, setAnnounce] = useState("");
   const [starting, setStarting] = useState(false);
   const root = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const moreButton = useRef<HTMLButtonElement>(null),
     exportButton = useRef<HTMLButtonElement>(null);
   const moreId = useId(),
@@ -320,8 +361,37 @@ export function QualityPanel() {
   // Only a complete report has a coverage view; partial findings always list.
   // Narrow and shallow keeps the findings list and drops the view switch, so
   // it shows findings whatever view was chosen at a larger size.
-  const { narrow, shallow } = usePaneLayout();
+  const { narrow, shallow, width, height } = usePaneLayout();
   const resultView = report && !(narrow && shallow) ? view : "findings";
+  const scrollKey = `${job?.id ?? 0}:${mode}:${resultView}`;
+  const pendingScroll = useRef<{ key: string; top: number; pending: boolean }>({
+    key: scrollKey,
+    top: retainedScroll.get(scrollKey) ?? 0,
+    pending: true,
+  });
+  useLayoutEffect(() => {
+    if (pendingScroll.current.key !== scrollKey)
+      pendingScroll.current = {
+        key: scrollKey,
+        top: retainedScroll.get(scrollKey) ?? 0,
+        pending: true,
+      };
+    const body = bodyRef.current;
+    // A remounted tab first has unconstrained content height. Wait for its
+    // actual docking rectangle; restoring earlier would clamp the scroll to 0.
+    const host = root.current?.closest<HTMLElement>(".adaptive-pane");
+    const box = host?.getBoundingClientRect();
+    const zoom = Number(host?.dataset.paneZoom ?? 1);
+    if (
+      !box ||
+      Math.round(box.width / zoom) !== width ||
+      Math.round(box.height / zoom) !== height
+    )
+      return;
+    if (!body || !body.clientHeight || !pendingScroll.current.pending) return;
+    body.scrollTop = pendingScroll.current.top;
+    pendingScroll.current.pending = false;
+  }, [scrollKey, width, height]);
   useEffect(() => publishQualityStale(stale), [stale]);
   const labels = useMemo(
     () =>
@@ -390,9 +460,13 @@ export function QualityPanel() {
   useEffect(() => {
     if (stale) setAnnounce(t("announce.stale"));
   }, [stale]);
+  const filters = JSON.stringify([text, sevOn, showSuppressed, more, grouping]);
+  const seenFilters = useRef(filters);
   useEffect(() => {
+    if (seenFilters.current === filters) return;
+    seenFilters.current = filters;
     setPage(0);
-  }, [text, sevOn, showSuppressed, more, grouping]);
+  }, [filters]);
   // The census the settings block shows follows the scope and the store.
   useEffect(() => {
     let live = true;
@@ -2164,7 +2238,17 @@ export function QualityPanel() {
           {commandBar()}
           {settingsOpen && !busy && settings()}
           {shown && mode === "results" && tools()}
-          <div className="body">
+          <div
+            className="body"
+            ref={bodyRef}
+            onScroll={(event) => {
+              if (
+                !pendingScroll.current.pending &&
+                event.currentTarget.clientHeight
+              )
+                retainedScroll.set(scrollKey, event.currentTarget.scrollTop);
+            }}
+          >
             {error && (
               <div className="guard" role="alert">
                 {error}

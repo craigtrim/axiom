@@ -793,3 +793,92 @@ test("filters that match nothing say so, and findings group by entity", async ()
       .filter({ hasText: "Missing explicit primary label" }),
   ).toHaveCount(1);
 });
+
+test("View restores filters, expanded bands and the page after the quality tab is closed", async () => {
+  await writeFile(
+    file,
+    prefix +
+      Array.from(
+        { length: 137 },
+        (_, i) => `:Course_${String(i).padStart(3, "0")} a owl:Class.`,
+      ).join("\n"),
+  );
+  await openFile();
+  await size(1200, 700);
+  await scan();
+  await pane()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("Course");
+  await band("Missing explicit primary label").click();
+  await pane().getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(pane()).toContainText("Page 2 of 4");
+  const first = await pane().locator("button.fname").first().textContent();
+  await pane()
+    .locator(".body")
+    .evaluate((el) => {
+      el.scrollTop = 180;
+    });
+  await pane().getByRole("button", { name: "Change", exact: true }).click();
+  await pane().getByRole("button", { name: "Rules", exact: true }).click();
+  await pane().getByRole("button", { name: "Done", exact: true }).click();
+  await expect
+    .poll(() =>
+      pane()
+        .locator(".body")
+        .evaluate((el) => el.scrollTop),
+    )
+    .toBe(180);
+  await pane().getByRole("searchbox", { name: "Filter findings" }).focus();
+  await menu("pane.close");
+  await expect(pane()).toHaveCount(0);
+  await menu("view.quality");
+  await size(1200, 700);
+  await expect(
+    pane().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Course");
+  await expect(band("Missing explicit primary label")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(pane()).toContainText("Page 2 of 4");
+  await expect(pane().locator("button.fname").first()).toHaveText(first!);
+  await expect(pane().locator(".settings")).toBeVisible();
+  await expect
+    .poll(() =>
+      pane()
+        .locator(".body")
+        .evaluate((el) => el.scrollTop),
+    )
+    .toBe(180);
+});
+
+test("a rejected duplicate label selection identifies the full entity without writing statements", async () => {
+  await scan();
+  const before = await state();
+  await app.evaluate(({ ipcMain }) => {
+    const original = (ipcMain as any)._invokeHandlers.get("domain:request");
+    ipcMain.removeHandler("domain:request");
+    ipcMain.handle("domain:request", (event, method, args) => {
+      if (method === "qualityPreview")
+        args = { ...args, rows: [...args.rows, args.rows[0]] };
+      return original(event, method, args);
+    });
+  });
+  await pane()
+    .getByRole("button", { name: "More finding options", exact: true })
+    .click();
+  await pane()
+    .getByRole("button", { name: "Review missing labels", exact: true })
+    .click();
+  await pane()
+    .getByRole("checkbox", { name: "Include Industrial Safety", exact: true })
+    .check();
+  await pane()
+    .getByRole("button", { name: "Preview selected additions", exact: true })
+    .click();
+  await expect(pane().getByRole("alert")).toContainText(
+    "Industrial Safety appears more than once in this batch.",
+  );
+  await expect(pane()).toContainText("No statements were written.");
+  expect((await state()).version).toBe(before.version);
+});

@@ -30,6 +30,8 @@ The pane follows Craig's visual reference for issue #44, pinned at `tests/fixtur
 
 Findings group into one band per rule, carrying its severity glyph and word, name, identifier and count, or into one band per entity. A rule with no findings keeps its band; a rule emptied by a filter is withdrawn. The severity and Suppressed chips, the text filter, and the group, rule, kind and namespace filters under **More** narrow the list. Pages hold 40 findings and run over the findings actually listed, so a collapsed band contributes nothing. A finding's detail shows its rule, basis, entity, statement evidence, what Axiom currently displays, the consequence, the correction, the statements a correction would add, and the other rules the entity appears under. A suppressed finding's detail leads with its exception reason and when it was recorded.
 
+Closing and reopening the pane during the session retains its filters, expanded bands, page, open detail, settings visibility and unfinished label review. Opening Rules and returning to results restores the previous scroll position; a remounted pane restores it after the docking host has been measured. Tools still explicitly opens the scan settings, while View retains the chosen presentation.
+
 Coverage lists each enabled check with its applicable, present, missing and suppressed counts. Every percentage sits beside its denominator, and not applicable is shown as a different fact from zero missing.
 
 The pane reads the shared pane measurement, with its 600 and 400 pixel thresholds and 616 and 416 pixel exits. Narrow folds the entity kind and IRI into the name cell and withdraws the store line. Shallow withdraws the limits line, the advanced settings rows and Group by. Narrow and shallow keeps only the command bar, the severity filter, the findings and the footer. Below 240 pixels wide or 120 tall the pane shows its name, its last result and an instruction to widen, with the shared Maximize pane action.
@@ -51,6 +53,8 @@ Select **More > Review missing labels** for a completed, current report. Review 
 Applying the preview adds the selected labels in one undoable edit. There is no 100-statement cap. Established and placeholder identifiers are preserved; this path does not run the normal placeholder-renaming behavior. Existing annotations are retained. A single-source-graph entity receives its label in that graph; entities described across multiple graphs receive the addition in the default graph, which is visible in the preview.
 
 Every apply is guarded by dataset, revision, and the exact active preview token. Intervening edits, replaced previews, invalid batches, duplicate selections, and repeated application are rejected before mutation, and the pane names which one fired. Only scanned missing-label entities in the editable Store are eligible.
+
+The displayed statement evidence and preview preserve literal control characters through escaping, including Windows line breaks, and keep identifiers ending in a dot as full IRIs. RDF round-trip tests verify that the displayed statements preserve the subject, predicate, literal, language, datatype and source graph.
 
 ## Text Analysis compatibility
 

@@ -665,7 +665,9 @@ describe("scan jobs and reviewed repairs", () => {
     const other = await prepared();
     expect(() =>
       other.jobs.prepare(other.store, 7, other.id, [proposal(), proposal()]),
-    ).toThrow("quality-reject:duplicate:" + base + "NewClass");
+    ).toThrow(
+      "quality-reject:duplicate:" + encodeURIComponent(base + "NewClass"),
+    );
     for (const rows of [
       [{ ...proposal(), label: " " }],
       [{ ...proposal(), predicate: NS.rdf + "type" }],

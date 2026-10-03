@@ -17,7 +17,7 @@ export const qualityReject = (
   code: QualityRejection,
   detail: string,
   entity = "",
-) => Error(`quality-reject:${code}:${entity}:${detail}`);
+) => Error(`quality-reject:${code}:${encodeURIComponent(entity)}:${detail}`);
 export class QualityJobs {
   private sequence = 0;
   private job?: QualityStatus;

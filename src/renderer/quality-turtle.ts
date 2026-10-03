@@ -4,7 +4,7 @@ import { NS, TYPE, type Triple } from "../domain/model";
 const prefixes = Object.entries(NS).filter(
   ([p]) => !["pizza", "demo"].includes(p),
 );
-const localName = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+const localName = /^[A-Za-z_](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?$/;
 /** `base` is written as the empty prefix, as the reference writes the ontology namespace. */
 export function turtleTerm(iri: string, base: string) {
   for (const [prefix, ns] of prefixes)
@@ -17,8 +17,7 @@ export function turtleTerm(iri: string, base: string) {
 export function turtleObject(t: Triple, base: string) {
   const o = t.object;
   if (!o.literal) return turtleTerm(o.value, base);
-  const text =
-    '"' + o.value.replace(/["\\]/g, "\\$&").replace(/\n/g, "\\n") + '"';
+  const text = JSON.stringify(o.value);
   if (o.language) return text + "@" + o.language;
   if (
     o.datatype &&
