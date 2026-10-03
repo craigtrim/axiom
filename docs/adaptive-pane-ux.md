@@ -6,7 +6,7 @@ The shared layouts adapt workbench views to their available pane dimensions.
 
 Each view adapts to the space inside its pane. Primary actions remain outside the content scroller. Supporting explanations and occasional settings use named disclosures, Options and More.
 
-All seventeen dockable component types use the shared pane measurement, with layouts suited to each view's content. Graph retains its existing presentation and interaction model at every size. Its canvas resizes without entering the form recovery presentation.
+All eighteen dockable component types use the shared pane measurement, with layouts suited to each view's content. Graph retains its existing presentation and interaction model at every size. Its canvas resizes without entering the form recovery presentation.
 
 ## Evidence and its limits
 
@@ -68,7 +68,7 @@ The search field, Search and Refresh controls remain above the results scroller.
 
 ## Coverage across the current views
 
-App.tsx declares seventeen dockable component types. The per-view policies below cover eleven of them; Taxonomy assistance, Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
+App.tsx declares eighteen dockable component types. The per-view policies below cover twelve of them; Taxonomy assistance, Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
@@ -83,12 +83,17 @@ App.tsx declares seventeen dockable component types. The per-view policies below
 | Source | Editor with format and edit actions | Same editor; compact controls | Action/status row above editor | Exact source, draft, cursor and validation |
 | Filesystem provenance | Folder/options and collection details | Choose, Collect/Cancel and progress; options disclosed | Folder/action row above progress or evidence | Root, coverage limits, errors and status |
 | Graph | Graph and existing interaction model | Same graph; smaller drawing area | Same graph; smaller drawing area | Camera, layout, budget, pins and selection |
+| Ontology Quality | Full report, settings, limits, coverage | Kind and IRI fold into the name cell; store line withdraws | Limits, advanced settings rows and Group by withdraw; in Narrow and shallow only the command bar, severity filter, findings and footer remain | Report, settings, expanded rules, open finding and review selections |
 
 For grids, a smaller width should not silently remove data columns or replace the grid with unbounded cards. Optional column presentation needs explicit access to hidden values. Tree indentation continues to represent hierarchy.
 
 Linked file previews preserve images, document pages and other visual content. Their metadata can use disclosures. Taxonomy assistance retains its modal review flow and footer actions. Export and style settings also remain dialogs. These tools are not independently dockable layouts.
 
 Graph is an explicit exception to content abbreviation. Its existing toolbar and canvas retain their behavior. Every pane shape keeps the visual workspace, camera and node budget.
+
+### Ontology Quality
+
+The Ontology Quality pane follows its pinned visual reference (issue #44) and reads the shared measurement with its hysteresis rather than adding container breakpoints. It is the one pane with its own recovery height: it recovers below 240 pixels wide, as every form pane does, but only below 120 pixels tall, because the reference renders working content at 150. Its recovery shows the pane name, the last result and an instruction to widen, followed by the shared Maximize pane action.
 
 ### Find
 
