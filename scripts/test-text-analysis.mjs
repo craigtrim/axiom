@@ -4,12 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const executable = process.platform === "win32" ? "mutatoc.exe" : "mutatoc";
-// craigtrim/axiom#40: the development fallback follows the bundled 0.4.0 runtime.
+// craigtrim/axiom#43: the development fallback follows the bundled 0.5.0 runtime.
 const candidates = process.env.AXIOM_MUTATOC_HOME
   ? [path.resolve(process.env.AXIOM_MUTATOC_HOME)]
   : [
       path.join(root, "vendor/mutatoc"),
-      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.4.0"),
+      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.0"),
     ];
 const home = candidates.find((folder) =>
   existsSync(path.join(folder, executable)),
