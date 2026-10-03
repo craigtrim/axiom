@@ -4,18 +4,31 @@ import { validResource, validateStatement } from "./rdf-model";
 import { qualityInput, scanQuality } from "./ontology-quality";
 import {
   readQualityOptions,
+  type QualityReport,
   type QualityStatus,
   type QualityPreview,
   type QualityRepair,
 } from "../shared/ontology-quality";
 
+export type QualityRejection =
+  "edits" | "replaced" | "invalid" | "duplicate" | "repeated";
+/** Each rejection names its condition so the pane can say which one fired (craigtrim/axiom#44). */
+export const qualityReject = (
+  code: QualityRejection,
+  detail: string,
+  entity = "",
+) => Error(`quality-reject:${code}:${entity}:${detail}`);
 export class QualityJobs {
   private sequence = 0;
   private job?: QualityStatus;
   private preview?: QualityPreview;
   private previewSequence = 0;
+  private applied = new Set<number>();
+  // What a scan has found so far; a canceled job keeps it (craigtrim/axiom#44).
+  private partial?: () => QualityReport;
   start(store: Store, epoch: number, options: unknown) {
     if (this.job?.state === "running") this.job.state = "canceled";
+    this.partial = undefined;
     this.preview = undefined;
     const job: QualityStatus = {
       id: ++this.sequence,
@@ -47,7 +60,9 @@ export class QualityJobs {
           job.state = "complete";
           job.phase = "Complete";
         } else {
-          Object.assign(job, next.value);
+          const { partial, ...progress } = next.value;
+          if (partial) this.partial = partial;
+          Object.assign(job, progress);
           setTimeout(step, 0);
         }
       } catch (error) {
@@ -68,7 +83,8 @@ export class QualityJobs {
     const job = this.status(id);
     if (job.state === "running") {
       job.state = "canceled";
-      job.phase = "Canceled — incomplete";
+      job.phase = "Canceled";
+      job.partial = this.partial?.();
     }
     return job;
   }
@@ -85,13 +101,15 @@ export class QualityJobs {
       report.datasetEpoch !== epoch ||
       report.version !== store.version
     )
-      throw Error(
+      throw qualityReject(
+        "edits",
         "The ontology changed. Run the scan again before reviewing labels.",
       );
     if (!Array.isArray(rows) || !rows.length)
-      throw Error("Select labels to preview.");
+      throw qualityReject("invalid", "Select labels to preview.");
     const options = readQualityOptions(report.options),
-      selected = new Set<string>();
+      selected = new Set<string>(),
+      multiGraph: string[] = [];
     const statements = rows.map((r: QualityRepair): Triple => {
       if (
         !r ||
@@ -103,9 +121,13 @@ export class QualityJobs {
         !options.labelPredicates.includes(r.predicate) ||
         !validResource(r.predicate, false)
       )
-        throw Error("Invalid proposed label.");
+        throw qualityReject("invalid", "Invalid proposed label.");
       if (selected.has(r.iri))
-        throw Error("Choose one proposed label per entity.");
+        throw qualityReject(
+          "duplicate",
+          "Choose one proposed label per entity.",
+          r.iri,
+        );
       selected.add(r.iri);
       if (
         !report.findings.some(
@@ -113,13 +135,18 @@ export class QualityJobs {
         ) ||
         !store.entities.has(r.iri)
       )
-        throw Error(
+        throw qualityReject(
+          "invalid",
           "Only scanned entities with missing labels can be repaired here.",
         );
       const existing = store.tbox.filter((t) => t.subject === r.iri);
       if (existing.some((t) => options.labelPredicates.includes(t.predicate)))
-        throw Error("A primary label already exists. Review it in Details.");
+        throw qualityReject(
+          "invalid",
+          "A primary label already exists. Review it in Details.",
+        );
       const graphs = [...new Set(existing.map((t) => t.graph))];
+      if (graphs.length > 1) multiGraph.push(r.iri);
       const t: Triple = {
         subject: r.iri,
         predicate: r.predicate,
@@ -132,7 +159,11 @@ export class QualityJobs {
         },
         ...(graphs.length === 1 && graphs[0] ? { graph: graphs[0] } : {}),
       };
-      validateStatement(t);
+      try {
+        validateStatement(t);
+      } catch (error) {
+        throw qualityReject("invalid", (error as Error).message);
+      }
       return t;
     });
     this.preview = {
@@ -140,23 +171,34 @@ export class QualityJobs {
       datasetEpoch: epoch,
       version: store.version,
       statements,
+      multiGraph,
     };
     return structuredClone(this.preview);
   }
+  /** Every condition is checked before any statement is written. */
   apply(store: Store, epoch: number, version: number, token: number) {
     const p = this.preview;
+    if (this.applied.has(token))
+      throw qualityReject("repeated", "These additions were already applied.");
+    if (!p || p.token !== token)
+      throw qualityReject("replaced", "The preview changed. Preview again.");
     if (
-      !p ||
-      p.token !== token ||
       p.datasetEpoch !== epoch ||
       p.version !== store.version ||
       version !== p.version
     )
-      throw Error(
-        "The ontology or preview changed. Preview the labels again before applying.",
-      );
+      throw qualityReject("edits", "The ontology changed. Preview again.");
+    const subjects = new Set<string>();
+    for (const t of p.statements) {
+      if (subjects.has(t.subject))
+        throw qualityReject("duplicate", "Duplicate selection.", t.subject);
+      subjects.add(t.subject);
+      if (!store.entities.has(t.subject))
+        throw qualityReject("invalid", "The entity no longer exists.");
+    }
     this.preview = undefined;
     store.addQualityLabels(p.statements);
+    this.applied.add(token);
     return p.statements.length;
   }
 }

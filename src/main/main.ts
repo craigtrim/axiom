@@ -150,6 +150,7 @@ const pending = new Map<
   { resolve: (v: any) => void; reject: (e: Error) => void }
 >();
 const methods = new Set<DomainMethod>([
+  "qualityCensus",
   "qualityStart",
   "qualityStatus",
   "qualityCancel",
@@ -1673,6 +1674,8 @@ app.whenReady().then(async () => {
       job.report,
       readQualityExceptions(input.exceptions),
       input.format,
+      // A stale report exports as its recorded revision (craigtrim/axiom#44).
+      Number.isInteger(input.staleAt) ? input.staleAt : undefined,
     );
     const result = await dialog.showSaveDialog(
       BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,

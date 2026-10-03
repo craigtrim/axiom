@@ -87,6 +87,7 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  | "qualityCensus"
   | "qualityStart"
   | "qualityStatus"
   | "qualityCancel"
@@ -205,6 +206,8 @@ export interface AxiomBridge {
     id: number;
     format: "csv" | "json";
     exceptions: import("./ontology-quality").QualityException[];
+    /** The store revision when a stale report is exported (craigtrim/axiom#44). */
+    staleAt?: number;
   }): Promise<string | null>;
   textAnalysis: {
     parse(

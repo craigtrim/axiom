@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { NS, THING } from "../../src/domain/model";
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
-import { qualityInput, scanQuality } from "../../src/domain/ontology-quality";
+import {
+  qualityCensus,
+  qualityInput,
+  scanQuality,
+} from "../../src/domain/ontology-quality";
+import { createHash } from "node:crypto";
 import { QualityJobs } from "../../src/domain/quality-jobs";
 import { textAnalysisContext } from "../../src/domain/text-analysis-context";
 import { TextAnalysisService } from "../../src/main/text-analysis-service";
@@ -338,17 +343,154 @@ it("findings retain named graph evidence and exact identity across equal local n
     new Set([base + "A", "https://other.test/#A"]),
   );
 });
-it("profiles and explicit severity overrides name the project policy", async () => {
+it("severity overrides name the project policy without citing a profile", async () => {
   const s = await fixture(
     ":A a owl:Class; rdfs:comment 'General description'.",
   );
-  const r = scan(s, defaultQualityOptions("OBO-inspired"));
-  expect(findings(r, "definition.missing")[0]).toMatchObject({
-    severity: "Violation",
-    basis: "OBO-inspired selected project constraint",
+  const options = defaultQualityOptions();
+  const r = scan(s, {
+    rules: { ...options.rules, "definition.missing": "Violation" },
   });
+  expect(findings(r, "definition.missing")[0].severity).toBe("Violation");
+  expect(findings(r, "definition.missing")[0].basis).toMatch(
+    /^Selected project constraint\./,
+  );
+  expect(r.findings.some((f) => /profile|OBO-inspired/i.test(f.basis))).toBe(
+    false,
+  );
   const off = scan(s, { groups: ["Naming"] });
   expect(off.findings.every((f) => f.group === "Naming")).toBe(true);
+});
+
+// craigtrim/axiom#44: the vocabulary census withdraws checks for vocabularies
+// the ontology does not use; checks for something missing are never gated.
+describe("vocabulary census", () => {
+  it("withdraws SKOS and retired-entity rules from an ontology without them", async () => {
+    const r = scan(
+      await fixture(":O a owl:Ontology. :A a owl:Class; rdfs:label 'A'."),
+      enabled(),
+    );
+    expect(r.census.SKOS).toBeUndefined();
+    expect(r.census["owl:deprecated"]).toBeUndefined();
+    expect(r.withdrawn.sort()).toEqual(
+      [
+        "deprecated.boolean",
+        "deprecated.guidance",
+        "deprecated.reference",
+        "skos.disjoint",
+        "skos.literal",
+        "skos.multiple",
+      ].sort(),
+    );
+    for (const id of r.withdrawn) {
+      expect(r.coverage.some((c) => c.rule === id)).toBe(false);
+      expect(r.findings.some((f) => f.rule === id)).toBe(false);
+    }
+    expect(r.enabledChecks).toBe(qualityRules.length - 6);
+    expect(r.census.OWL).toEqual([NS.owl + "Class", NS.owl + "Ontology"]);
+  });
+  it("admits them when the vocabulary is used", async () => {
+    const r = scan(
+      await fixture(
+        ":A a owl:Class; skos:prefLabel 'A'; owl:deprecated true. :B a owl:Class; rdfs:subClassOf :A.",
+      ),
+      enabled(),
+    );
+    expect(r.withdrawn).toEqual([]);
+    expect(r.coverage.some((c) => c.rule === "skos.multiple")).toBe(true);
+    expect(findings(r, "deprecated.reference", base + "B")).toHaveLength(1);
+  });
+  it("counts predicates and declared types, not other object references", async () => {
+    const r = scan(await fixture(":A a owl:Class; rdfs:seeAlso skos:Concept."));
+    expect(r.census.SKOS).toBeUndefined();
+    const typed = scan(await fixture(":A a skos:Concept."));
+    expect(typed.census.SKOS).toEqual([NS.skos + "Concept"]);
+  });
+  it("still reports missing publication metadata when Dublin Core is absent", async () => {
+    const r = scan(await fixture(":O a owl:Ontology. :A a owl:Class."), {
+      rules: {
+        ...defaultQualityOptions().rules,
+        "metadata.missing": "Information",
+      },
+    });
+    expect(r.census["Dublin Core"]).toBeUndefined();
+    expect(findings(r, "metadata.missing", base + "O")[0].message).toContain(
+      "license",
+    );
+  });
+  it("names only admitted predicates in a basis", async () => {
+    const r = scan(await fixture(":A a owl:Class."));
+    const basis = findings(r, "label.missing")[0].basis;
+    expect(basis).toContain("rdfs:label");
+    expect(basis).not.toContain("skos:prefLabel");
+    const desc = findings(r, "description.missing")[0].basis;
+    expect(desc).toContain("rdfs:comment");
+    expect(desc).not.toMatch(/dcterms|IAO|skos/);
+  });
+  it("covers in-scope statements only, before and during a scan", async () => {
+    const s = await fixture(
+      ":Root a owl:Class. :A a owl:Class; rdfs:subClassOf :Root. :Else a owl:Class; skos:prefLabel 'Else'.",
+    );
+    const branch = { scope: "branch" as const, root: base + "Root" };
+    expect(scan(s, branch).census.SKOS).toBeUndefined();
+    expect(scan(s).census.SKOS).toEqual([NS.skos + "prefLabel"]);
+    const before = qualityCensus(s, branch);
+    expect(before.census.SKOS).toBeUndefined();
+    expect(before.kinds.Class).toBe(2);
+    expect(qualityCensus(s, {}).kinds.Class).toBe(3);
+    expect(
+      qualityCensus(s, { scope: "branch", root: base + "Missing" }).scopeError,
+    ).toContain("branch root");
+  });
+});
+
+it("a scan with every group switched off completes with nothing to test", async () => {
+  const s = await fixture(":A a owl:Class.");
+  const r = scan(s, { groups: [] });
+  expect(r.enabledChecks).toBe(0);
+  expect(r.findings).toEqual([]);
+  expect(r.notes.join(" ")).toContain("not a clean result");
+  expect(JSON.parse(qualityExport(r, [], "json")).status).toContain(
+    "no checks enabled",
+  );
+  expect(() => scan(s, { kinds: [] })).toThrow("entity kind");
+});
+
+it("reads settings saved before the profiles and group names changed", () => {
+  const legacy = readQualityOptions({
+    profile: "OBO-inspired",
+    groups: ["Deprecated entities", "Axiom compatibility", "Naming"],
+    rules: { "definition.missing": "Violation" },
+    labelPredicates: [NS.skos + "prefLabel"],
+  });
+  expect(legacy).not.toHaveProperty("profile");
+  expect(legacy.groups).toEqual([
+    "Retired entities",
+    "Text Analysis compatibility",
+    "Naming",
+  ]);
+  expect(legacy.rules["definition.missing"]).toBe("Violation");
+  expect(legacy.labelPredicates).toEqual([NS.skos + "prefLabel"]);
+});
+
+it("keeps the exception fingerprint recorded before the profiles were removed", async () => {
+  const r = scan(await fixture(":A a owl:Class; rdfs:label ' name '."));
+  const f = findings(r, "label.whitespace")[0];
+  expect(f.signature).toBe(
+    createHash("sha256")
+      .update(
+        JSON.stringify([
+          f.rule,
+          f.iri,
+          f.message,
+          f.evidence,
+          f.related,
+          "Axiom",
+          "Warning",
+        ]),
+      )
+      .digest("hex"),
+  );
 });
 it("exceptions survive the same findings but not changes in evidence, identity or policy", async () => {
   const s = await fixture(":A a owl:Class; rdfs:label ' name '.");
@@ -387,6 +529,12 @@ it("exports every finding and revision/configuration including suppressed findin
   );
   const data = JSON.parse(qualityExport(r, [], "json"));
   expect(data.findings.length).toBe(r.findings.length);
+  expect(data.status).toBe("complete");
+  expect(data.census).toEqual(r.census);
+  expect(data.withdrawn).toEqual(r.withdrawn);
+  const stale = JSON.parse(qualityExport(r, [], "json", r.version + 3));
+  expect(stale.status).toContain("revision " + r.version);
+  expect(stale.version).toBe(r.version);
   expect(data.scanned).toBe(137);
   expect(data.version).toBe(r.version);
   expect(r.findings.filter((f) => f.rule === "label.missing")).toHaveLength(
@@ -398,6 +546,7 @@ it("exports every finding and revision/configuration including suppressed findin
     "csv",
   );
   expect(csv).toContain('"scanConfiguration"');
+  expect(csv).toContain('"vocabularyCensus"');
   expect(csv).toContain(base + "A136");
   const zero = { ...r, findings: [] };
   expect(qualityExport(zero, [], "csv").split("\r\n")).toHaveLength(2);
@@ -433,6 +582,20 @@ describe("scan jobs and reviewed repairs", () => {
     expect(result.version).toBeLessThan(s.version);
     expect(findings(result, "label.missing")).toHaveLength(1);
     expect(() => jobs.status(first.id)).toThrow("no longer");
+  });
+  it("a canceled scan keeps what it found, marked incomplete", async () => {
+    const s = await fixture(
+      Array.from({ length: 3000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
+    );
+    const jobs = new QualityJobs();
+    const { id } = jobs.start(s, 7, {});
+    for (let i = 0; i < 500 && jobs.status(id).scanned < 64; i++)
+      await new Promise((r) => setTimeout(r, 1));
+    const canceled = jobs.cancel(id);
+    expect(canceled.state).toBe("canceled");
+    expect(canceled.report).toBeUndefined();
+    expect(canceled.partial!.findings.length).toBeGreaterThan(0);
+    expect(canceled.partial!.scanned).toBeLessThan(3000);
   });
   it("adds more than 100 reviewed labels as one undoable edit, preserving every IRI and old statement", async () => {
     const { store, jobs, id } = await prepared(
@@ -479,20 +642,26 @@ describe("scan jobs and reviewed repairs", () => {
     const { store, jobs, id } = await prepared();
     const p = jobs.prepare(store, 7, id, [proposal()]);
     const newer = jobs.prepare(store, 7, id, [proposal(base + "B")]);
+    const version = store.version;
     expect(() => jobs.apply(store, 7, p.version, p.token)).toThrow(
-      "preview changed",
+      "quality-reject:replaced",
     );
     expect(() => jobs.apply(store, 8, newer.version, newer.token)).toThrow(
-      "preview changed",
+      "quality-reject:edits",
     );
+    expect(store.version).toBe(version);
     jobs.apply(store, 7, newer.version, newer.token);
-    expect(() => jobs.apply(store, 7, newer.version, newer.token)).toThrow();
+    expect(() => jobs.apply(store, 7, newer.version, newer.token)).toThrow(
+      "quality-reject:repeated",
+    );
     expect(() => jobs.prepare(store, 7, id, [proposal()])).toThrow(
-      "ontology changed",
+      "quality-reject:edits",
     );
     const other = await prepared();
+    expect(() =>
+      other.jobs.prepare(other.store, 7, other.id, [proposal(), proposal()]),
+    ).toThrow("quality-reject:duplicate:" + base + "NewClass");
     for (const rows of [
-      [proposal(), proposal()],
       [{ ...proposal(), label: " " }],
       [{ ...proposal(), predicate: NS.rdf + "type" }],
       [{ ...proposal(), language: "not a language" }],
@@ -504,7 +673,7 @@ describe("scan jobs and reviewed repairs", () => {
     other.store.rename(base + "B", "Changed");
     expect(() =>
       other.jobs.apply(other.store, 7, stale.version, stale.token),
-    ).toThrow();
+    ).toThrow("quality-reject:edits");
   });
 });
 

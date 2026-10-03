@@ -1,14 +1,29 @@
 import { createHash } from "node:crypto";
-import { NS, TYPE, SUBCLASS, THING, type Entity, type Triple } from "./model";
+import {
+  NS,
+  TYPE,
+  SUBCLASS,
+  THING,
+  shorten,
+  type Entity,
+  type Kind,
+  type Triple,
+} from "./model";
 import type { Store } from "./store";
 import { taxonomyParents } from "./class-expressions";
 import { isDefaultIdentifier, statementKey, validResource } from "./rdf-model";
 import { textAnalysisConcepts } from "./text-analysis-concepts";
 import { cyclicNodes } from "./sparsity";
 import {
+  qualityAdmitted,
+  qualityEnabledChecks,
   qualityNamespace,
   qualityRules,
+  qualityVocabulary,
+  qualityWithdrawn,
   readQualityOptions,
+  type QualityCensus,
+  type QualityCensusResult,
   type QualityReport,
   type QualityFinding,
   type QualityOptions,
@@ -101,11 +116,133 @@ export function qualityInput(store: Store, datasetEpoch: number): QualityInput {
   };
 }
 
+/** Census of the loaded statements (craigtrim/axiom#44). Recomputed for every scan, never cached. */
+export function qualityCensusOf(triples: Iterable<Triple>): QualityCensus {
+  const seen = new Map<string, Set<string>>();
+  const note = (iri: string) => {
+    for (const v of qualityVocabulary(iri)) {
+      const set = seen.get(v) ?? new Set();
+      set.add(iri);
+      seen.set(v, set);
+    }
+  };
+  // Predicates in use, plus the classes entities are typed with (owl:Class,
+  // skos:Concept). Other object references do not put a vocabulary in use.
+  for (const t of triples) {
+    note(t.predicate);
+    if (t.predicate === TYPE && !t.object.literal) note(t.object.value);
+  }
+  return Object.fromEntries(
+    [...seen].map(([v, iris]) => [v, [...iris].sort()]),
+  );
+}
+const isCandidate = (
+  iri: string,
+  subjects: Set<string>,
+  ontologies: Set<string>,
+) => named(iri) && !builtIn(iri) && subjects.has(iri) && !ontologies.has(iri);
+const ontologyRecords = (triples: Triple[]) =>
+  new Set(
+    triples
+      .filter(
+        (t) =>
+          t.predicate === TYPE &&
+          !t.object.literal &&
+          t.object.value === NS.owl + "Ontology",
+      )
+      .map((t) => t.subject),
+  );
+type ScopeEntity = { iri: string; kind: Kind; parents: string[] };
+/** The chosen named class and its named descendants; owl:Thing selects the whole named taxonomy. */
+function branchMembers(entities: ScopeEntity[], rootIri: string) {
+  const all = new Map(entities.map((e) => [e.iri, e]));
+  const children = new Map<string, string[]>();
+  for (const e of entities)
+    for (const p of e.parents)
+      if (all.has(p)) children.set(p, [...(children.get(p) ?? []), e.iri]);
+  const root = all.get(rootIri);
+  if (!root || !["Class", "Defined"].includes(root.kind))
+    throw Error("Choose a named class as the branch root.");
+  const branch = new Set([root.iri]);
+  const queue = [root.iri];
+  if (root.iri === THING)
+    for (const e of entities)
+      if (["Class", "Defined"].includes(e.kind)) {
+        branch.add(e.iri);
+        queue.push(e.iri);
+      }
+  for (let i = 0; i < queue.length; i++)
+    for (const c of children.get(queue[i]) ?? [])
+      if (!branch.has(c)) {
+        branch.add(c);
+        queue.push(c);
+      }
+  return branch;
+}
+function inScope(entities: ScopeEntity[], options: QualityOptions) {
+  if (options.scope === "namespace" && !options.namespace)
+    throw Error("Enter a namespace to scan.");
+  const branch =
+    options.scope === "branch"
+      ? branchMembers(entities, options.root)
+      : undefined;
+  return (iri: string) =>
+    (options.scope !== "namespace" ||
+      qualityNamespace(iri) === options.namespace) &&
+    (!branch || branch.has(iri));
+}
+/** The census covers in-scope statements plus the ontology records, whose metadata is checked per ontology. */
+const scopedCensus = (
+  triples: Triple[],
+  member: (iri: string) => boolean,
+  ontologies: Set<string>,
+) =>
+  qualityCensusOf(
+    triples.filter((t) => member(t.subject) || ontologies.has(t.subject)),
+  );
+/** The settings block shows the census and the entity kinds before any scan. */
+export function qualityCensus(
+  store: Store,
+  supplied: unknown,
+): QualityCensusResult {
+  const options = readQualityOptions(supplied);
+  const triples = [...store.scan()];
+  const subjects = new Set(triples.map((t) => t.subject)),
+    ontologies = ontologyRecords(triples);
+  const entities: ScopeEntity[] = [...store.entities.values()].map((e) => ({
+    iri: e.iri,
+    kind: e.kind,
+    parents: [...taxonomyParents(e)],
+  }));
+  for (const e of [...store.individuals, ...store.customers])
+    if (!store.entities.has(e.iri))
+      entities.push({ iri: e.iri, kind: "Individual", parents: [] });
+  let member: (iri: string) => boolean;
+  try {
+    member = inScope(entities, options);
+  } catch (error) {
+    return { census: {}, kinds: {}, scopeError: (error as Error).message };
+  }
+  const kinds: Partial<Record<Kind, number>> = {};
+  for (const e of entities)
+    if (isCandidate(e.iri, subjects, ontologies) && member(e.iri))
+      kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+  return { census: scopedCensus(triples, member, ontologies), kinds };
+}
+
 /** Yields between bounded batches so worker requests, including cancellation, can run. */
 export function* scanQuality(
   input: QualityInput,
   supplied: unknown,
-): Generator<{ scanned: number; total: number; phase: string }, QualityReport> {
+): Generator<
+  {
+    scanned: number;
+    total: number;
+    phase: string;
+    partial?: () => QualityReport;
+  },
+  QualityReport
+> {
   const options = readQualityOptions(supplied);
   if (
     !options.labelPredicates.length ||
@@ -121,10 +258,9 @@ export function* scanQuality(
     );
   if (options.languages.some((l) => !/^[a-z]+(?:-[a-z0-9]+)*$/i.test(l)))
     throw Error("Use language tags such as en or en-US.");
-  if (options.scope === "namespace" && !options.namespace)
-    throw Error("Enter a namespace to scan.");
-  if (!options.kinds.length || !options.groups.length)
-    throw Error("Select at least one entity kind and check group.");
+  // No enabled group is a completed scan with nothing to test, not an error.
+  if (!options.kinds.length) throw Error("Select at least one entity kind.");
+  const member = inScope(input.entities, options);
   const bySubject = new Map<string, Triple[]>(),
     definitions = new Set<string>(),
     incoming = new Set<string>();
@@ -162,49 +298,15 @@ export function* scanQuality(
   for (const [iri, ps] of parents)
     for (const p of ps) children.get(p)!.push(iri);
   const cyclic = cyclicNodes(children, parents);
-  let branch: Set<string> | undefined;
-  if (options.scope === "branch") {
-    const root = all.get(options.root);
-    if (!root || !["Class", "Defined"].includes(root.kind))
-      throw Error("Choose a named class as the branch root.");
-    branch = new Set([root.iri]);
-    const queue = [root.iri];
-    if (root.iri === THING)
-      for (const e of input.entities)
-        if (["Class", "Defined"].includes(e.kind)) {
-          branch.add(e.iri);
-          queue.push(e.iri);
-        }
-    for (let i = 0; i < queue.length; i++)
-      for (const c of children.get(queue[i]) ?? [])
-        if (!branch.has(c)) {
-          branch.add(c);
-          queue.push(c);
-        }
-  }
-  const ontologySubjects = new Set(
-    input.triples
-      .filter(
-        (t) =>
-          t.predicate === TYPE &&
-          !t.object.literal &&
-          t.object.value === NS.owl + "Ontology",
-      )
-      .map((t) => t.subject),
-  );
-  const candidates = input.entities.filter(
-    (e) =>
-      named(e.iri) &&
-      !builtIn(e.iri) &&
-      definitions.has(e.iri) &&
-      !ontologySubjects.has(e.iri),
+  const ontologySubjects = ontologyRecords(input.triples);
+  const census = scopedCensus(input.triples, member, ontologySubjects),
+    withdrawn = new Set(qualityWithdrawn(census)),
+    enabledChecks = qualityEnabledChecks(options, census).length;
+  const candidates = input.entities.filter((e) =>
+    isCandidate(e.iri, definitions, ontologySubjects),
   );
   const selected = candidates.filter(
-    (e) =>
-      options.kinds.includes(e.kind) &&
-      (options.scope !== "namespace" ||
-        qualityNamespace(e.iri) === options.namespace) &&
-      (!branch || branch.has(e.iri)),
+    (e) => options.kinds.includes(e.kind) && member(e.iri),
   );
   const classIds = new Set(
     selected
@@ -269,7 +371,34 @@ export function* scanQuality(
     affected = new Map<string, Set<string>>();
   const active = (id: string) => {
     const r = qualityRules.find((r) => r.id === id)!;
-    return options.rules[id] !== "Off" && options.groups.includes(r.group);
+    return (
+      options.rules[id] !== "Off" &&
+      options.groups.includes(r.group) &&
+      !withdrawn.has(id)
+    );
+  };
+  // A basis that names accepted predicates names only those the census admits.
+  const accepted = (title: string, predicates: string[]) => {
+    const names = qualityAdmitted(predicates, census).map(shorten);
+    return names.length ? " " + title + ": " + names.join(", ") + "." : "";
+  };
+  const policy: Record<string, string> = {
+    "label.missing": accepted(
+      "Accepted primary labels",
+      options.labelPredicates,
+    ),
+    "description.missing": accepted(
+      "Accepted descriptions",
+      options.descriptionPredicates,
+    ),
+    "definition.missing": accepted(
+      "Accepted definitions",
+      options.definitionPredicates,
+    ),
+    "deprecated.guidance": accepted(
+      "Accepted replacement guidance",
+      options.replacementPredicates,
+    ),
   };
   const check = (
     e: { iri: string; label: string; kind: string },
@@ -292,13 +421,15 @@ export function* scanQuality(
       ...new Map(evidence.map((t) => [statementKey(t), t])).values(),
     ].sort((a, b) => statementKey(a).localeCompare(statementKey(b)));
     const ids = [...new Set(related)].sort();
+    // "Axiom" stands where the removed profile was, so exceptions recorded
+    // before craigtrim/axiom#44 keep their fingerprints.
     const signature = digest([
       id,
       e.iri,
       message,
       ts,
       ids,
-      options.profile,
+      "Axiom",
       options.rules[id],
     ]);
     findings.push({
@@ -308,9 +439,9 @@ export function* scanQuality(
       severity: options.rules[id] as QualityFinding["severity"],
       group: r.group,
       basis:
-        options.rules[id] === "Violation" && r.severity !== "Violation"
-          ? options.profile + " selected project constraint"
-          : r.basis,
+        (options.rules[id] === "Violation" && r.severity !== "Violation"
+          ? "Selected project constraint."
+          : r.basis.replace(/\.?$/, ".")) + (policy[id] ?? ""),
       iri: e.iri,
       label: e.label,
       kind: e.kind,
@@ -324,6 +455,65 @@ export function* scanQuality(
     set.add(e.iri);
     affected.set(id, set);
   };
+  const imports = [
+    ...new Set(
+      input.triples
+        .filter((t) => t.predicate === NS.owl + "imports" && !t.object.literal)
+        .map((t) => t.object.value),
+    ),
+  ];
+  // Also called mid-scan: a canceled job keeps what was found, marked incomplete.
+  const report = (): QualityReport => ({
+    ontology: input.ontology,
+    name: input.name,
+    datasetEpoch: input.datasetEpoch,
+    version: input.version,
+    createdAt: new Date().toISOString(),
+    options,
+    scanned,
+    candidates: candidates.length,
+    findings: [...findings],
+    coverage: qualityRules
+      .filter((r) => !withdrawn.has(r.id))
+      .map((r) => ({
+        rule: r.id,
+        applicable: applicability.get(r.id)?.size ?? 0,
+        affected: affected.get(r.id)?.size ?? 0,
+        notApplicable:
+          (r.id === "metadata.missing" ? ontologySubjects.size : scanned) -
+          (applicability.get(r.id)?.size ?? 0),
+        checked: active(r.id),
+      })),
+    imports,
+    notes: [
+      "Checks use loaded statements; no remote imports are fetched and a complete import closure is not assumed.",
+      "Named subjects only; built-in vocabulary, anonymous expressions, and reference-only resources are excluded from completeness denominators.",
+      "Branch scope includes the root and named taxonomy descendants. Namespace scope uses the exact identifier namespace.",
+      "This is a deterministic quality review, not proof of logical consistency or domain completeness.",
+      ...(withdrawn.size
+        ? [
+            "Checks for vocabularies this ontology does not use were withdrawn, not reported as passing: " +
+              [...withdrawn].join(", ") +
+              ".",
+          ]
+        : []),
+      ...(!enabledChecks
+        ? [
+            "No checks were enabled, so the scan had nothing to test. This is not a clean result.",
+          ]
+        : []),
+      ...(imports.length
+        ? [
+            "Declared imports: " +
+              imports.length +
+              ". References may depend on definitions outside the loaded data.",
+          ]
+        : []),
+    ],
+    census,
+    withdrawn: [...withdrawn],
+    enabledChecks,
+  });
   let scanned = 0;
   for (const e of selected) {
     const ts = bySubject.get(e.iri) ?? [],
@@ -763,7 +953,12 @@ export function* scanQuality(
     );
     scanned++;
     if (scanned % 64 === 0)
-      yield { scanned, total: selected.length, phase: "Checking entities" };
+      yield {
+        scanned,
+        total: selected.length,
+        phase: "Checking entities",
+        partial: report,
+      };
   }
   if (!ontologySubjects.size) ontologySubjects.add(input.ontology);
   for (const iri of ontologySubjects) {
@@ -813,45 +1008,5 @@ export function* scanQuality(
       ts,
     );
   }
-  const imports = [
-    ...new Set(
-      input.triples
-        .filter((t) => t.predicate === NS.owl + "imports" && !t.object.literal)
-        .map((t) => t.object.value),
-    ),
-  ];
-  return {
-    ontology: input.ontology,
-    name: input.name,
-    datasetEpoch: input.datasetEpoch,
-    version: input.version,
-    createdAt: new Date().toISOString(),
-    options,
-    scanned,
-    candidates: candidates.length,
-    findings,
-    coverage: qualityRules.map((r) => ({
-      rule: r.id,
-      applicable: applicability.get(r.id)?.size ?? 0,
-      affected: affected.get(r.id)?.size ?? 0,
-      notApplicable:
-        (r.id === "metadata.missing" ? ontologySubjects.size : scanned) -
-        (applicability.get(r.id)?.size ?? 0),
-      checked: active(r.id),
-    })),
-    imports,
-    notes: [
-      "Checks use loaded statements; no remote imports are fetched and a complete import closure is not assumed.",
-      "Named subjects only; built-in vocabulary, anonymous expressions, and reference-only resources are excluded from completeness denominators.",
-      "Branch scope includes the root and named taxonomy descendants. Namespace scope uses the exact identifier namespace.",
-      "This is a deterministic quality review, not proof of logical consistency or domain completeness.",
-      ...(imports.length
-        ? [
-            "Declared imports: " +
-              imports.length +
-              ". References may depend on definitions outside the loaded data.",
-          ]
-        : []),
-    ],
-  };
+  return report();
 }

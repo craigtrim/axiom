@@ -1,15 +1,52 @@
 import { NS, type Kind, type Triple } from "../domain/model";
 
+// Group names, the vocabulary census and profile removal: craigtrim/axiom#44.
 export const qualityGroups = [
   "Completeness",
   "Naming",
   "Structure",
-  "Deprecated entities",
-  "Ontology metadata",
-  "Axiom compatibility",
+  "Retired entities",
+  "Publication metadata",
+  "Text Analysis compatibility",
 ] as const;
 export type QualitySeverity = "Violation" | "Warning" | "Information";
 export type QualityGroup = (typeof qualityGroups)[number];
+/** Saved workspace settings from before the rename keep their selections. */
+const legacyGroups: Record<string, QualityGroup> = {
+  "Deprecated entities": "Retired entities",
+  "Ontology metadata": "Publication metadata",
+  "Axiom compatibility": "Text Analysis compatibility",
+};
+export const qualityGroupLabel = (g: QualityGroup) =>
+  g === "Text Analysis compatibility" ? "Text Analysis" : g;
+export const qualityVocabularies = [
+  "RDFS",
+  "OWL",
+  "SKOS",
+  "owl:deprecated",
+  "Dublin Core",
+  "IAO",
+] as const;
+export type QualityVocabulary = (typeof qualityVocabularies)[number];
+/** Vocabularies seen in the loaded statements, each with the IRIs that showed it. */
+export type QualityCensus = Partial<Record<QualityVocabulary, string[]>>;
+const IAO = "http://purl.obolibrary.org/obo/IAO_";
+export function qualityVocabulary(iri: string): QualityVocabulary[] {
+  const found: QualityVocabulary[] = [];
+  if (iri.startsWith(NS.rdfs)) found.push("RDFS");
+  if (iri.startsWith(NS.owl)) found.push("OWL");
+  if (iri === NS.owl + "deprecated") found.push("owl:deprecated");
+  if (iri.startsWith(NS.skos)) found.push("SKOS");
+  if (iri.startsWith(NS.dc) || iri.startsWith(NS.dcterms))
+    found.push("Dublin Core");
+  if (iri.startsWith(IAO)) found.push("IAO");
+  return found;
+}
+/** Predicates from an absent vocabulary are not offered as accepted evidence. */
+export const qualityAdmitted = (predicates: string[], census: QualityCensus) =>
+  predicates.filter((p) =>
+    qualityVocabulary(p).every((v) => v === "OWL" || v === "RDFS" || census[v]),
+  );
 export const qualityKinds: Kind[] = [
   "Class",
   "Defined",
@@ -25,9 +62,10 @@ const rule = (
   title: string,
   group: QualityGroup,
   severity: QualitySeverity,
-  basis = "Axiom review policy",
+  basis = "Project review policy",
   enabled = true,
-) => ({ id, title, group, severity, basis, enabled });
+  requires?: QualityVocabulary,
+) => ({ id, title, group, severity, basis, enabled, requires });
 export const qualityRules = [
   rule(
     "label.missing",
@@ -65,6 +103,8 @@ export const qualityRules = [
     "Naming",
     "Violation",
     "SKOS S14",
+    true,
+    "SKOS",
   ),
   rule(
     "skos.disjoint",
@@ -72,6 +112,8 @@ export const qualityRules = [
     "Naming",
     "Violation",
     "SKOS S13",
+    true,
+    "SKOS",
   ),
   rule(
     "skos.literal",
@@ -79,6 +121,8 @@ export const qualityRules = [
     "Naming",
     "Violation",
     "SKOS S12",
+    true,
+    "SKOS",
   ),
   rule("description.missing", "Missing description", "Completeness", "Warning"),
   rule(
@@ -189,25 +233,34 @@ export const qualityRules = [
   rule(
     "deprecated.boolean",
     "Malformed deprecation value",
-    "Deprecated entities",
+    "Retired entities",
     "Warning",
+    undefined,
+    true,
+    "owl:deprecated",
   ),
   rule(
     "deprecated.reference",
     "Reference to a deprecated entity",
-    "Deprecated entities",
+    "Retired entities",
     "Warning",
+    undefined,
+    true,
+    "owl:deprecated",
   ),
   rule(
     "deprecated.guidance",
     "No retirement guidance",
-    "Deprecated entities",
+    "Retired entities",
     "Information",
+    undefined,
+    true,
+    "owl:deprecated",
   ),
   rule(
     "metadata.missing",
     "Missing ontology metadata",
-    "Ontology metadata",
+    "Publication metadata",
     "Information",
     "Optional publication checklist",
     false,
@@ -215,13 +268,12 @@ export const qualityRules = [
   rule(
     "analysis.excluded",
     "Excluded from Text Analysis vocabulary",
-    "Axiom compatibility",
+    "Text Analysis compatibility",
     "Warning",
     "Current Axiom concept-map eligibility",
   ),
 ];
 export interface QualityOptions {
-  profile: "Axiom" | "SKOS" | "OBO-inspired";
   scope: "ontology" | "namespace" | "branch";
   namespace: string;
   root: string;
@@ -234,65 +286,41 @@ export interface QualityOptions {
   replacementPredicates: string[];
   languages: string[];
 }
-export function defaultQualityOptions(
-  profile: QualityOptions["profile"] = "Axiom",
-): QualityOptions {
+export const qualityDefaultSeverity = (r: (typeof qualityRules)[number]) =>
+  r.enabled ? r.severity : ("Off" as const);
+export function defaultQualityOptions(): QualityOptions {
   return {
-    profile,
     scope: "ontology",
     namespace: "",
     root: "",
     kinds: [...qualityKinds],
     groups: [...qualityGroups],
     rules: Object.fromEntries(
-      qualityRules.map((r) => [r.id, !r.enabled ? "Off" : r.severity]),
+      qualityRules.map((r) => [r.id, qualityDefaultSeverity(r)]),
     ),
-    labelPredicates:
-      profile === "SKOS"
-        ? [NS.skos + "prefLabel"]
-        : [NS.rdfs + "label", NS.skos + "prefLabel"],
+    labelPredicates: [NS.rdfs + "label", NS.skos + "prefLabel"],
     descriptionPredicates: [
       NS.rdfs + "comment",
       NS.skos + "definition",
       NS.dcterms + "description",
-      "http://purl.obolibrary.org/obo/IAO_0000115",
+      IAO + "0000115",
     ],
-    definitionPredicates: [
-      NS.skos + "definition",
-      "http://purl.obolibrary.org/obo/IAO_0000115",
-    ],
+    definitionPredicates: [NS.skos + "definition", IAO + "0000115"],
     replacementPredicates: [
       NS.dcterms + "isReplacedBy",
-      "http://purl.obolibrary.org/obo/IAO_0100001",
+      IAO + "0100001",
       "http://www.geneontology.org/formats/oboInOwl#consider",
     ],
     languages: [],
-    ...(profile === "OBO-inspired"
-      ? {
-          rules: Object.fromEntries(
-            qualityRules.map((r) => [
-              r.id,
-              ["label.missing", "definition.missing"].includes(r.id)
-                ? "Violation"
-                : r.enabled
-                  ? r.severity
-                  : "Off",
-            ]),
-          ),
-        }
-      : {}),
   };
 }
+/** A stored `profile` from before the presets were removed is ignored; its saved predicates and severities stay. */
 export function readQualityOptions(value: unknown): QualityOptions {
   const v =
     value && typeof value === "object"
       ? (value as Partial<QualityOptions>)
       : {};
-  const d = defaultQualityOptions(
-    ["Axiom", "SKOS", "OBO-inspired"].includes(v.profile ?? "")
-      ? v.profile
-      : undefined,
-  );
+  const d = defaultQualityOptions();
   const strings = (a: unknown, fallback: string[]) =>
     Array.isArray(a) && a.every((s) => typeof s === "string")
       ? [...new Set(a.map((s) => s.trim()).filter(Boolean))]
@@ -307,7 +335,9 @@ export function readQualityOptions(value: unknown): QualityOptions {
     kinds: strings(v.kinds, d.kinds).filter((k) =>
       qualityKinds.includes(k as Kind),
     ) as Kind[],
-    groups: strings(v.groups, d.groups).filter((g) =>
+    groups: [
+      ...new Set(strings(v.groups, d.groups).map((g) => legacyGroups[g] ?? g)),
+    ].filter((g) =>
       qualityGroups.includes(g as QualityGroup),
     ) as QualityGroup[],
     rules: Object.fromEntries(
@@ -336,6 +366,22 @@ export function readQualityOptions(value: unknown): QualityOptions {
     languages: strings(v.languages, []).map((s) => s.toLowerCase()),
   };
 }
+/** Rules whose vocabulary the census did not find; they are not part of the catalog. */
+export const qualityWithdrawn = (census: QualityCensus) =>
+  qualityRules
+    .filter((r) => r.requires && !census[r.requires])
+    .map((r) => r.id);
+/** Enabled checks: switched on, in an enabled group, and admitted by the census. */
+export const qualityEnabledChecks = (
+  options: QualityOptions,
+  census: QualityCensus,
+) =>
+  qualityRules.filter(
+    (r) =>
+      options.rules[r.id] !== "Off" &&
+      options.groups.includes(r.group) &&
+      !(r.requires && !census[r.requires]),
+  );
 export interface QualityFinding {
   id: string;
   rule: string;
@@ -358,6 +404,8 @@ export interface QualityException {
   rule: string;
   signature: string;
   reason: string;
+  /** ISO time the exception was recorded; absent on exceptions from before #44. */
+  recorded?: string;
 }
 export function readQualityExceptions(input: unknown): QualityException[] {
   return Array.isArray(input)
@@ -367,6 +415,7 @@ export function readQualityExceptions(input: unknown): QualityException[] {
           ["ontology", "iri", "rule", "signature", "reason"].every(
             (k) => typeof e[k] === "string",
           ) &&
+          (e.recorded === undefined || typeof e.recorded === "string") &&
           e.reason.trim() &&
           qualityRules.some((r) => r.id === e.rule),
       )
@@ -392,6 +441,11 @@ export interface QualityReport {
   coverage: QualityCoverage[];
   imports: string[];
   notes: string[];
+  census: QualityCensus;
+  /** Rule ids the census withdrew; they have no findings and no coverage rows. */
+  withdrawn: string[];
+  /** Rules that ran. Zero means the scan had nothing to test. */
+  enabledChecks: number;
 }
 export interface QualityStatus {
   id: number;
@@ -401,6 +455,15 @@ export interface QualityStatus {
   phase: string;
   error?: string;
   report?: QualityReport;
+  /** Findings produced before cancellation. Never a complete report. */
+  partial?: QualityReport;
+}
+/** What the settings block shows before a scan runs. */
+export interface QualityCensusResult {
+  census: QualityCensus;
+  kinds: Partial<Record<Kind, number>>;
+  /** Why the chosen scope cannot be resolved yet, such as no branch root. */
+  scopeError?: string;
 }
 export interface QualityRepair {
   iri: string;
@@ -413,6 +476,8 @@ export interface QualityPreview {
   datasetEpoch: number;
   version: number;
   statements: Triple[];
+  /** Entities described across several graphs; their labels go to the default graph. */
+  multiGraph: string[];
 }
 export const qualityNamespace = (iri: string) =>
   iri.slice(
@@ -432,23 +497,38 @@ export const qualitySuppression = (
       e.rule === finding.rule &&
       e.signature === finding.signature,
   );
+/** `staleAt` marks a stale export: the findings stay those of the recorded revision. */
 export function qualityExport(
   report: QualityReport,
   exceptions: QualityException[],
   format: "json" | "csv",
+  staleAt?: number,
 ) {
   const findings = report.findings.map((f) => ({
     ...f,
     exception: qualitySuppression(report, f, exceptions)?.reason ?? "",
   }));
+  const status =
+    staleAt !== undefined
+      ? "stale: findings are from revision " +
+        report.version +
+        "; the store was at revision " +
+        staleAt +
+        " when exported"
+      : report.enabledChecks
+        ? "complete"
+        : "complete with no checks enabled: not a clean result";
   if (format === "json")
-    return JSON.stringify({ ...report, findings }, null, 2);
+    return JSON.stringify({ status, ...report, findings }, null, 2);
   const headers = [
+    "status",
     "ontology",
     "datasetEpoch",
     "version",
     "createdAt",
-    "profile",
+    "enabledChecks",
+    "vocabularyCensus",
+    "withdrawnRules",
     "scope",
     "scanConfiguration",
     "scanned",
@@ -473,11 +553,14 @@ export function qualityExport(
   return [
     headers,
     ...rows.map((f) => [
+      status,
       report.ontology,
       report.datasetEpoch,
       report.version,
       report.createdAt,
-      report.options.profile,
+      report.enabledChecks,
+      JSON.stringify(report.census),
+      JSON.stringify(report.withdrawn),
       report.options.scope,
       JSON.stringify(report.options),
       report.scanned,

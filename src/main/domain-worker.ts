@@ -10,7 +10,8 @@ import {
 import { textAnalysisGraphNodes } from "../domain/text-analysis-graph";
 import { textAnalysisContext } from "../domain/text-analysis-context";
 import { analyzeSparsity } from "../domain/sparsity";
-import { QualityJobs } from "../domain/quality-jobs";
+import { QualityJobs, qualityReject } from "../domain/quality-jobs";
+import { qualityCensus } from "../domain/ontology-quality";
 const qualityJobs = new QualityJobs();
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { addFindSynonym } from "../domain/find-synonyms";
@@ -1365,6 +1366,9 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "analyzeSparsity":
       return analyzeSparsity(store, a);
+    // The settings block's vocabulary census and entity kinds (craigtrim/axiom#44).
+    case "qualityCensus":
+      return qualityCensus(store, a.options);
     case "qualityStart":
       return qualityJobs.start(store, datasetEpoch, a.options);
     case "qualityStatus":
@@ -1375,7 +1379,10 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return qualityJobs.prepare(store, datasetEpoch, Number(a.id), a.rows);
     case "qualityApply": {
       if (a.datasetEpoch !== datasetEpoch)
-        throw Error("The workspace changed. Preview the labels again.");
+        throw qualityReject(
+          "edits",
+          "The workspace changed. Preview the labels again.",
+        );
       const count = qualityJobs.apply(
         store,
         datasetEpoch,
