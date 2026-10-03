@@ -497,27 +497,34 @@ export const qualitySuppression = (
       e.rule === finding.rule &&
       e.signature === finding.signature,
   );
-/** `staleAt` marks a stale export: the findings stay those of the recorded revision. */
+/**
+ * `stale` marks a stale export, by the store's current revision or by
+ * "settings"; the findings stay those of the recorded revision.
+ */
 export function qualityExport(
   report: QualityReport,
   exceptions: QualityException[],
   format: "json" | "csv",
-  staleAt?: number,
+  stale?: number | "settings",
 ) {
   const findings = report.findings.map((f) => ({
     ...f,
     exception: qualitySuppression(report, f, exceptions)?.reason ?? "",
   }));
   const status =
-    staleAt !== undefined
-      ? "stale: findings are from revision " +
+    stale === "settings"
+      ? "stale: the scan settings changed after this scan; findings are from revision " +
         report.version +
-        "; the store was at revision " +
-        staleAt +
-        " when exported"
-      : report.enabledChecks
-        ? "complete"
-        : "complete with no checks enabled: not a clean result";
+        " under the recorded configuration"
+      : stale !== undefined
+        ? "stale: findings are from revision " +
+          report.version +
+          "; the store was at revision " +
+          stale +
+          " when exported"
+        : report.enabledChecks
+          ? "complete"
+          : "complete with no checks enabled: not a clean result";
   if (format === "json")
     return JSON.stringify({ status, ...report, findings }, null, 2);
   const headers = [

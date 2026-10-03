@@ -221,6 +221,10 @@ function Menu({
         if ((event.target as HTMLElement).closest("button"))
           ref.current?.hidePopover();
       }}
+      // Escape closes the menu only; the pane must not also collapse its settings.
+      onKeyDown={(event) => {
+        if (event.key === "Escape") event.stopPropagation();
+      }}
     >
       {children}
     </div>
@@ -392,8 +396,14 @@ export function QualityPanel() {
     snapshot.version,
   ]);
 
+  // Every scan entry point honours the scope guard, not only the settings row.
+  const unresolved = !!census?.scopeError;
   const run = () =>
     void action(async () => {
+      if (unresolved) {
+        setSettingsOpen(true);
+        return;
+      }
       setStarting(true);
       setSettingsOpen(false);
       setMode("results");
@@ -539,7 +549,11 @@ export function QualityPanel() {
         id: job!.id,
         format,
         exceptions,
-        ...(staleStore ? { staleAt: snapshot.version } : {}),
+        ...(staleStore
+          ? { stale: snapshot.version }
+          : staleSettings
+            ? { stale: "settings" as const }
+            : {}),
       });
       if (file) notify(t("export.done", { file }));
     });
@@ -563,7 +577,8 @@ export function QualityPanel() {
     const e = shown && qualitySuppression(shown, f, exceptions);
     if (e) saveExceptions(exceptions.filter((x) => x !== e));
   };
-  const canReview = !!report && !staleStore && !busy;
+  // Label additions need a current report: neither the store nor the settings changed.
+  const canReview = !!report && !stale && !busy;
   const entityIds = useMemo(
     () => new Set(snapshot.entities.map((e) => e.iri)),
     [snapshot.entities],
@@ -665,6 +680,8 @@ export function QualityPanel() {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
+    // An open menu takes Escape for itself; the pane keeps its state.
+    if (root.current?.querySelector(".quality-menu:popover-open")) return;
     if (open) {
       const id = open;
       setOpen("");
@@ -738,7 +755,7 @@ export function QualityPanel() {
               t("failed.partial")}
           </span>
           {!settingsOpen && (
-            <button className="btn" disabled={busy} onClick={run}>
+            <button className="btn" disabled={busy || unresolved} onClick={run}>
               {t("run")}
             </button>
           )}
@@ -754,7 +771,7 @@ export function QualityPanel() {
           <span className="sum">
             {t("canceled.summary", { scanned: job.scanned, total: job.total })}
           </span>
-          <button className="btn" disabled={busy} onClick={run}>
+          <button className="btn" disabled={busy || unresolved} onClick={run}>
             <Rerun />
             {t("rerun")}
           </button>
@@ -778,7 +795,7 @@ export function QualityPanel() {
                   scope: scopeText(report.options, label),
                 })}
           </span>
-          <button className="btn" disabled={busy} onClick={run}>
+          <button className="btn" disabled={busy || unresolved} onClick={run}>
             <Rerun />
             {t("rerun")}
           </button>
@@ -804,7 +821,11 @@ export function QualityPanel() {
           >
             {t("change")}
           </button>
-          <button className="btn at-wide" disabled={busy} onClick={run}>
+          <button
+            className="btn at-wide"
+            disabled={busy || unresolved}
+            onClick={run}
+          >
             <Rerun />
             {t("rerun.short")}
           </button>
@@ -1725,8 +1746,10 @@ export function QualityPanel() {
     return findingsBody();
   };
   const footer = () => {
-    if (job?.state === "failed" || job?.state === "canceled") return null;
-    if (!report || busy) return <div className="foot"></div>;
+    if (job?.state === "failed") return null;
+    // A canceled report pages its partial findings once any are listed.
+    if (job?.state === "canceled" && !listed) return null;
+    if (!shown || busy) return <div className="foot"></div>;
     const totals = t("foot.totals", {
       total: all.length,
       suppressed: suppressedCount,
@@ -1841,7 +1864,7 @@ export function QualityPanel() {
           </button>
           <button
             className="btn primary"
-            disabled={!chosen || staleStore}
+            disabled={!chosen || stale}
             onClick={buildPreview}
           >
             {t("labels.preview")}
@@ -1943,7 +1966,7 @@ export function QualityPanel() {
           <button className="btn" onClick={() => setMode("review")}>
             {t("cancel")}
           </button>
-          <button className="btn primary" disabled={staleStore} onClick={apply}>
+          <button className="btn primary" disabled={stale} onClick={apply}>
             {tn("labels.apply", n)}
           </button>
         </div>

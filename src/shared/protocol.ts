@@ -206,8 +206,8 @@ export interface AxiomBridge {
     id: number;
     format: "csv" | "json";
     exceptions: import("./ontology-quality").QualityException[];
-    /** The store revision when a stale report is exported (craigtrim/axiom#44). */
-    staleAt?: number;
+    /** Why an exported report is stale: the store's revision, or its settings (craigtrim/axiom#44). */
+    stale?: number | "settings";
   }): Promise<string | null>;
   textAnalysis: {
     parse(

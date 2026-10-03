@@ -535,6 +535,11 @@ it("exports every finding and revision/configuration including suppressed findin
   const stale = JSON.parse(qualityExport(r, [], "json", r.version + 3));
   expect(stale.status).toContain("revision " + r.version);
   expect(stale.version).toBe(r.version);
+  const settings = JSON.parse(qualityExport(r, [], "json", "settings"));
+  expect(settings.status).toContain("scan settings changed");
+  expect(qualityExport(r, [], "csv", "settings")).toContain(
+    "scan settings changed",
+  );
   expect(data.scanned).toBe(137);
   expect(data.version).toBe(r.version);
   expect(r.findings.filter((f) => f.rule === "label.missing")).toHaveLength(

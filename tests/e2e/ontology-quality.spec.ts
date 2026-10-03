@@ -459,6 +459,16 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     .locator(".settings")
     .getByRole("button", { name: "Run scan", exact: true })
     .click();
+  // Let the scan reach past one page of findings before canceling it.
+  await expect
+    .poll(async () =>
+      Number(
+        (await summary().textContent())
+          ?.match(/^([\d,]+) of/)?.[1]
+          .replace(/,/g, "") ?? 0,
+      ),
+    )
+    .toBeGreaterThanOrEqual(128);
   await pane().getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
@@ -469,6 +479,50 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
   await expect(
     pane().getByRole("button", { name: "Export findings" }),
   ).toHaveCount(0);
+  // Every partial finding stays reachable: a listed band pages like a complete one.
+  await band("Missing explicit primary label").click();
+  await expect(pane().locator(".foot")).toContainText("1 to 40 of");
+  await pane().getByRole("button", { name: "Next page" }).click();
+  await expect(pane().locator(".foot")).toContainText("41 to");
+});
+test("a settings change blocks label additions, marks exports stale, and an unresolved scope blocks every rerun", async () => {
+  await scan();
+  await pane().getByRole("button", { name: "Change" }).click();
+  await pane()
+    .locator(".settings .chip")
+    .filter({ hasText: "Data properties" })
+    .click();
+  await expect(pane().locator(".bar.alert-warn")).toContainText(
+    "The scan settings changed",
+  );
+  await pane().getByRole("button", { name: "More finding options" }).click();
+  await expect(
+    page.getByRole("button", { name: "Review missing labels", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
+  const destination = path.join(profile, "stale-report.json");
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+  }, destination);
+  await pane().getByRole("button", { name: "Export findings" }).click();
+  await page.getByRole("button", { name: "Export JSON" }).click();
+  await expect
+    .poll(() => readFile(destination, "utf8").catch(() => ""))
+    .not.toBe("");
+  expect(JSON.parse(await readFile(destination, "utf8")).status).toContain(
+    "scan settings changed",
+  );
+  await pane()
+    .getByRole("combobox", { name: "Scope", exact: true })
+    .selectOption("namespace");
+  await expect(pane().locator(".settings")).toContainText(
+    "Enter a namespace to scan.",
+  );
+  for (const name of ["Run scan", "Rerun scan"])
+    await expect(
+      pane().getByRole("button", { name, exact: true }),
+    ).toBeDisabled();
+  await expect(pane().locator(".rule").first()).toBeVisible();
 });
 test("no enabled checks is reported as nothing tested, never as clean", async () => {
   for (const name of [

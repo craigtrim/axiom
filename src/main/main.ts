@@ -1675,7 +1675,9 @@ app.whenReady().then(async () => {
       readQualityExceptions(input.exceptions),
       input.format,
       // A stale report exports as its recorded revision (craigtrim/axiom#44).
-      Number.isInteger(input.staleAt) ? input.staleAt : undefined,
+      Number.isInteger(input.stale) || input.stale === "settings"
+        ? input.stale
+        : undefined,
     );
     const result = await dialog.showSaveDialog(
       BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
