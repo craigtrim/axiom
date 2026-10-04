@@ -18,7 +18,7 @@ const reference = path.resolve(
   "tests/fixtures/find-visual/visual-reference.html",
 );
 const referenceHash =
-  "5c4e9b6bb03200bbc4aab4e16c61431a887d21d000ae7ec4c65c77260222c541";
+  "5fb508df79392f7212bf313127e90ad2787a363ffd24ed5f95309610a32ba73c";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
 async function capture(root: Locator, label: string) {
@@ -272,6 +272,129 @@ test.beforeEach(async ({}, info) => {
 test.afterEach(async () => {
   await app?.close();
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`reference ${theme} issue48 results actions`, async ({}, info) => {
+    await menu(`theme.${theme}`);
+    await pane()
+      .getByRole("searchbox", { name: "Search the ontology" })
+      .fill("neuro");
+    await expect(
+      pane().getByRole("button", {
+        name: 'Add "Neuro" as a new class',
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await pane().locator(".find-result-name").first().click();
+    await specimen.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme;
+      const frame = document.getElementById("fr-exp")!;
+      Object.assign(frame.style, {
+        position: "absolute",
+        left: "24px",
+        top: "24px",
+        resize: "none",
+      });
+      frame.querySelectorAll(".pin").forEach((node) => node.remove());
+      document.body.replaceChildren(frame);
+    }, theme);
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    await page.mouse.move(0, 0);
+    await specimen.mouse.move(0, 0);
+    await mkdir("artifacts/issue-48", { recursive: true });
+    for (const [name, expectedControl, actualControl] of [
+      [
+        "create-action",
+        specimen.locator("#fr-exp .rhead .od-row"),
+        pane().locator(".find-result-actions"),
+      ],
+      [
+        "synonym-action",
+        specimen.locator("#fr-exp .addsyn").first(),
+        pane().locator(".find-synonym").first(),
+      ],
+    ] as const) {
+      // Compare isolated controls at integer origins in both independent renders.
+      // Fractional crop edges otherwise include different neighbouring row pixels.
+      for (const control of [expectedControl, actualControl])
+        await control.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          Object.assign((el as HTMLElement).style, {
+            position: "relative",
+            left: `${Math.ceil(r.x) - r.x}px`,
+            top: `${Math.ceil(r.y) - r.y}px`,
+            transform: "translateZ(0)",
+          });
+        });
+      const expected = await capture(expectedControl, "reference");
+      const actual = await capture(actualControl, "application");
+      const metrics = async (control: Locator) =>
+        control.evaluate((el) =>
+          [el, ...el.querySelectorAll("*")].map((node) => {
+            const r = node.getBoundingClientRect(),
+              s = getComputedStyle(node);
+            return {
+              tag: node.tagName,
+              rect: { x: r.x, y: r.y, width: r.width, height: r.height },
+              font: s.font,
+              color: s.color,
+              background: s.backgroundColor,
+              padding: s.padding,
+              border: s.border,
+              lineHeight: s.lineHeight,
+              styles: Object.fromEntries(
+                [...s].map((name) => [name, s.getPropertyValue(name)]),
+              ),
+            };
+          }),
+        );
+      await writeFile(
+        `artifacts/issue-48/metrics-${theme}-${name}.json`,
+        JSON.stringify(
+          {
+            expected: await metrics(expectedControl),
+            actual: await metrics(actualControl),
+          },
+          null,
+          2,
+        ),
+      );
+      const baselinePath = info.snapshotPath(`${theme}-${name}.png`);
+      if (process.env.AXIOM_UPDATE_REFERENCE === "1") {
+        await mkdir(path.dirname(baselinePath), { recursive: true });
+        await writeFile(baselinePath, expected);
+      }
+      const baseline = await readFile(baselinePath);
+      await writeFile(
+        `artifacts/issue-48/expected-${theme}-${name}.png`,
+        expected,
+      );
+      await writeFile(`artifacts/issue-48/actual-${theme}-${name}.png`, actual);
+      expect(expected).toMatchSnapshot(`${theme}-${name}.png`, {
+        threshold: 0,
+        maxDiffPixels: 0,
+      });
+      expect.soft(actual).toMatchSnapshot(`${theme}-${name}.png`, {
+        threshold: 0,
+        maxDiffPixels: 0,
+      });
+      const equal = await app.evaluate(
+        ({ nativeImage }, buffers) => {
+          const [expected, actual, baseline] = buffers.map((s) =>
+            nativeImage.createFromBuffer(Buffer.from(s, "base64")).toBitmap(),
+          );
+          return {
+            application: actual.equals(expected),
+            baseline: baseline.equals(expected),
+          };
+        },
+        [expected, actual, baseline].map((b) => b.toString("base64")),
+      );
+      expect.soft(equal).toEqual({ application: true, baseline: true });
+    }
+    await page.screenshot({ path: `artifacts/issue-48/results-${theme}.png` });
+  });
+}
 
 for (const theme of ["light", "dark"] as const) {
   for (const [name, frame] of [

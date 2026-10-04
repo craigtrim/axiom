@@ -91,6 +91,195 @@ async function expectPageSize(value: string) {
   await expect(input).toHaveValue(value);
   await input.press("Escape");
 }
+
+async function openNetworkFixture() {
+  const file = path.join(profile, "networks.ttl");
+  await writeFile(
+    file,
+    `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.rdfs}>.
+    : a owl:Ontology.
+    :Course a owl:Class; rdfs:label "Course".
+    :NetworkSecurity a owl:Class; rdfs:label "Network Security".
+    :Professional a owl:Class; rdfs:label "Professional Certification".
+    :BlockedName a owl:Class; rdfs:label "Different Existing Label".
+    :Lower a owl:Class; rdfs:label "network qualification".
+    ${Array.from({ length: 55 }, (_, i) => `:Network${i} a owl:Class; rdfs:label "Network Topic ${String(i).padStart(2, "0")}".`).join("\n")}`,
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () => (await state()).ontology.name)
+    .toBe("networks.ttl");
+  await menu("view.find");
+  await expect(pane()).toBeVisible();
+}
+
+for (const chosenParent of [false, true]) {
+  test(`near-match results offer a new class with ${chosenParent ? "a chosen parent" : "Thing"}, preserving results and supporting undo (#48)`, async () => {
+    await openNetworkFixture();
+    const query = pane().getByRole("searchbox", {
+      name: "Search the ontology",
+    });
+    await query.fill("Network Certification");
+    await setPageSize("25");
+    await pane()
+      .getByRole("button", { name: "Next results page", exact: true })
+      .click();
+    await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+    const table = pane().locator(".find-results");
+    const row = table.locator("tbody tr").nth(3);
+    await row.locator(".find-result-name").click();
+    const selectedName = await row.locator(".find-result-name").innerText();
+    const before = await table.innerText();
+    const offer = pane().getByRole("button", {
+      name: 'Add "Network Certification" as a new class',
+      exact: true,
+    });
+    await expect(offer).toBeEnabled();
+    await expect(table.locator(".find-synonym").first()).toContainText(
+      "Synonym",
+    );
+    await offer.click();
+    const form = pane().getByRole("region", {
+      name: "Add to the ontology",
+      exact: true,
+    });
+    await expect(
+      form.getByRole("textbox", { name: "Class label", exact: true }),
+    ).toHaveValue("Network Certification");
+    await expect(table).toHaveAttribute("inert", "");
+    await form
+      .getByRole("textbox", { name: "Class comment", exact: true })
+      .fill("Retained draft description");
+    await pane()
+      .getByRole("button", { name: "Back to results", exact: true })
+      .click();
+    await expect(offer).toBeFocused();
+    expect(await table.innerText()).toBe(before);
+    await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+    await expect(
+      table.locator('tr[data-selected="true"] .find-result-name'),
+    ).toHaveText(selectedName);
+    await offer.click();
+    await expect(
+      form.getByRole("textbox", { name: "Class comment", exact: true }),
+    ).toHaveValue("Retained draft description");
+    await form
+      .getByRole("textbox", { name: "Class label", exact: true })
+      .press("Escape");
+    await expect(form).toHaveCount(0);
+    await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+    await offer.click();
+    if (chosenParent) {
+      await form
+        .getByRole("combobox", { name: "Parent classes", exact: true })
+        .fill("Course");
+      await page
+        .getByRole("option")
+        .filter({ hasText: /^Course/ })
+        .first()
+        .click();
+    }
+    await page.screenshot({
+      path: `artifacts/testing/issue48-create-${chosenParent ? "parent" : "root"}.png`,
+    });
+    await form
+      .getByRole("button", { name: "Create class", exact: true })
+      .click();
+    await expect(form).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.find(
+            (e) => e.label === "Network Certification",
+          )?.parents,
+      )
+      .toEqual([chosenParent ? base + "Course" : NS.owl + "Thing"]);
+    const entity = (await state()).entities.find(
+      (e) => e.label === "Network Certification",
+    )!;
+    expect(entity.comment).toBe("Retained draft description");
+    await expect(
+      pane().getByRole("button", {
+        name: "Network Certification already exists",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await page.evaluate(() => window.axiom.request("undo"));
+    await expect
+      .poll(async () =>
+        (await state()).entities.some((e) => e.iri === entity.iri),
+      )
+      .toBe(false);
+    await expect(offer).toBeEnabled();
+    await offer.click();
+    await expect(
+      form.getByRole("textbox", { name: "Class label", exact: true }),
+    ).toHaveValue("Network Certification");
+    await pane()
+      .getByRole("button", { name: "Back to results", exact: true })
+      .click();
+  });
+}
+
+test("Find creation checks exact and IRI collisions, allows normalized warnings and preserves zero state (#48)", async () => {
+  await openNetworkFixture();
+  const query = pane().getByRole("searchbox", { name: "Search the ontology" });
+  await query.fill("Network Security");
+  await expect(
+    pane().getByRole("button", {
+      name: "Network Security already exists",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await expect(
+    pane().getByRole("button", {
+      name: "Network Security already exists",
+      exact: true,
+    }),
+  ).toHaveAttribute("title", "Network Security already exists");
+  await query.fill("Blocked Name");
+  await expect(
+    pane().getByRole("button", {
+      name: "Different Existing Label already exists",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await query.fill("Network Qualification");
+  const offer = pane().getByRole("button", {
+    name: 'Add "Network Qualification" as a new class',
+    exact: true,
+  });
+  await expect(offer).toBeEnabled();
+  await offer.click();
+  const form = pane().getByRole("region", {
+    name: "Add to the ontology",
+    exact: true,
+  });
+  await expect(form).toContainText("network qualification");
+  await expect(
+    form.getByRole("button", { name: "Create class", exact: true }),
+  ).toBeEnabled();
+  await pane()
+    .getByRole("button", { name: "Back to results", exact: true })
+    .click();
+  await query.fill("");
+  await expect(pane().locator(".find-result-actions .ib")).toHaveCount(0);
+  await query.fill("asdfasdf");
+  await expect(form).toBeVisible();
+  await expect(
+    form.getByRole("textbox", { name: "Class label", exact: true }),
+  ).toHaveValue("Asdfasdf");
+  await expect(
+    pane().getByRole("button", { name: "Back to results", exact: true }),
+  ).toHaveCount(0);
+  await expect(pane().locator(".find-result-actions")).toHaveCount(0);
+});
 async function types(selected: string[]) {
   for (const label of ["Classes", "Instances", "Properties", "Other entities"])
     await pane()
@@ -275,7 +464,9 @@ test("Find adds its search text as a synonym without clearing results and refres
   await expect(values.nth(1)).toHaveValue("Developmental Psycho");
   await menu("view.find");
   // Find focuses its search box on opening; use ontology Undo, not text Undo.
+  await expect(query).toBeFocused();
   await name.focus();
+  await expect(name).toBeFocused();
   expect((await state()).undoLabel).toBe("Add synonym");
   await menu("edit.undo");
   await expect(add).toBeEnabled();

@@ -355,6 +355,18 @@
     font-size: 13px;
     color: var(--ink-2);
   }
+  .find-result-actions {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 4px;
+  }
+  .addsyn {
+    font-size: 12px;
+    padding: 2px 8px;
+    min-height: 24px;
+    margin-top: 4px;
+  }
   .find-results-scroll {
     overflow-y: auto;
     min-height: 0;

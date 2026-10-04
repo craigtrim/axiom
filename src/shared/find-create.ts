@@ -1,4 +1,5 @@
 import { NS, SUBCLASS, TYPE } from "../domain/model";
+import { findSynonymText } from "./find-synonyms";
 import type {
   TextAnalysisDraft,
   TextAnalysisClassInput,
@@ -21,6 +22,20 @@ export interface FindCollision {
   path: string;
   kind: "exact" | "normalized" | "iri";
   openable?: boolean;
+}
+/** Result count never decides whether a query can name a new class. */
+export function findCreationOffer(query: string, collisions: FindCollision[]) {
+  const text = findSynonymText(query);
+  const label = text ? titleCaseQuery(text) : "";
+  const collision = collisions.find((item) => item.kind !== "normalized");
+  return {
+    label,
+    visible: !!text,
+    enabled: !!text && !collision,
+    title: collision
+      ? `${collision.label} already exists`
+      : `Add "${label}" as a new class`,
+  };
 }
 export interface FindCreationDraft extends FindCreationInput {
   labelEdited: boolean;

@@ -51,7 +51,10 @@ async function size(width: number, height: number) {
   // arrive before the renderer's resize, so a native/DOM delta races unmaximize.
   const inset = await host().evaluate((el) => {
     const rect = el.getBoundingClientRect();
-    return { width: innerWidth - rect.width, height: innerHeight - rect.height };
+    return {
+      width: innerWidth - rect.width,
+      height: innerHeight - rect.height,
+    };
   });
   await window.evaluate(
     (win, target) => {
@@ -431,6 +434,36 @@ test("Recent searches and More disclose by keyboard and remain open across resiz
   await query().press("Alt+ArrowDown");
   await recent.getByRole("button", { name: "Topic 010", exact: true }).click();
   await expect(query()).toHaveValue("Topic 010");
+});
+
+test("near-match creation remains reachable in a shallow detached pane (#48)", async () => {
+  await query().fill("Topic Certification");
+  await settled();
+  await size(360, 260);
+  const popup = await more();
+  await popup
+    .getByRole("button", {
+      name: 'Add "Topic Certification" as a new class',
+      exact: true,
+    })
+    .click();
+  await expect(create().getByLabel("Class label", { exact: true })).toHaveValue(
+    "Topic Certification",
+  );
+  await create()
+    .getByLabel("Class label", { exact: true })
+    .fill("Topic Specialization");
+  await size(1100, 660);
+  await expect(create().getByLabel("Class label", { exact: true })).toHaveValue(
+    "Topic Specialization",
+  );
+  await size(360, 260);
+  await create().getByLabel("Class label", { exact: true }).press("Escape");
+  await expect(create()).toHaveCount(0);
+  await expect(
+    pane().getByRole("button", { name: "More", exact: true }),
+  ).toBeFocused();
+  await noOverflow();
 });
 
 test("zero-state scope copy, remedies and one creation affordance survive all sizes", async () => {

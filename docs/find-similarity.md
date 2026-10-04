@@ -20,6 +20,12 @@ Exact preferred labels rank first, followed by preferred-label prefixes. Other p
 
 Pagination covers all filtered matches, with 10, 25 and 50 rows per page. A new Find pane defaults to 10; existing page-size preferences are retained. Sort by best match, name in either direction or type. Field selection, type selection, sorting and recent searches persist with Find preferences. Older saved match modes and similarity thresholds are ignored; the retired IRI sort migrates to type. Background enrichment preserves the selected entity and keyboard focus. Closing a search or typing another query cancels its pending semantic work.
 
+## Add a new class from Find
+
+When results are near matches, the quiet **+** beside the graph action opens the class editor with the title-cased query. Its tooltip names the proposed class. An exact name or proposed subject IRI already in the ontology disables the button and names the existing entity. A normalized-only similarity remains a warning in the editor. This check uses the whole ontology, regardless of the current search filters or result count. Empty queries, IRIs and query syntax do not offer a new class.
+
+The editor overlays the results without changing their page, selection or scroll. **Back to results** and Escape close it and retain the draft for reopening. When a shallow pane withdraws the count strip, the same creation action is available under **More**. The row action is labeled **+ Synonym**: it adds the query as `rdfs:seeAlso` on that existing entity. New-class creation and adding a synonym remain separate actions.
+
 ## A search with no results
 
 Find states the query, scope and store size, then offers applicable remedies in order: search every field, include every entity type, and reset every filter. Each button shows its computed match count. Zero-yield remedies remain visible and disabled. Widening the scope retains the creation draft and returns to the first page.

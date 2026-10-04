@@ -593,7 +593,7 @@ table.doc code { font-size: 12.5px; }
   <li><span class="pin">4</span><span><b>Sort.</b> Query row, trailing. Orders the list the field produces. Its visible label drops before the control does. <span class="ref">FND-89</span></span></li>
   <li><span class="pin">5</span><span><b>More.</b> Holds match mode and page size, both changed rarely. Stays in More at every size. <span class="ref">FND-89, FND-90</span></span></li>
   <li><span class="pin">6</span><span><b>Reset filters.</b> Scope rail header. It resets scope, not the query, so it belongs with scope. Absent while scope, match mode and sort are all at their defaults. <span class="ref">FND-30</span></span></li>
-  <li><span class="pin">7</span><span><b>The results header action slot.</b> One slot, one action, decided by the result count. With results it carries the graph action. With none it is empty: there is nothing to send to a graph, and the body below already carries creation, so a button here would duplicate it. <span class="ref">FND-91, FND-92</span></span></li>
+  <li><span class="pin">7</span><span><b>The results header action slot.</b> With results it carries the graph action and a quiet plus for creating a new class. Issue 48 adds the plus and disables it for exact-name or IRI collisions. With none it is empty: there is nothing to send to a graph, and the body below already carries creation, so a button here would duplicate it. <span class="ref">FND-91, FND-92</span></span></li>
 </ol>
 
 <!-- ============ C ============ -->
@@ -912,14 +912,14 @@ function paneHTML(o) {
   });
   r += '</aside>';
 
-  /* --- results header: one slot, and the result count decides it. FND-91 ---
-     With results it carries the graph action. With none it is empty, because the
-     zero body below already carries creation and a second entry would be noise. */
+  /* Issue 48 amends FND-91: the results header also offers a quiet new-class
+     action beside Graph. Exact-name or IRI collisions disable it. With no
+     results the inline editor remains the sole creation entry. */
   var rh = '<div class="rhead"><span class="n">' +
     (zero ? '0 matches of 6,027 entities' : ROWS.length + ' matches of 6,027 entities') + '</span>' +
     (zero
       ? ''
-      : '<span class="od-row od-fixed" style="gap:4px">' + pin(7) + '<button type="button" class="btn">' + I.graph + 'Open results in new graph</button></span>') +
+      : '<span class="od-row od-fixed" style="gap:4px">' + pin(7) + '<button type="button" class="ib create-entity" title="Add &quot;Neuro&quot; as a new class" aria-label="Add &quot;Neuro&quot; as a new class">' + I.plus + '</button><button type="button" class="btn">' + I.graph + 'Open results in new graph</button></span>') +
     '</div>';
 
   /* --- results body --- */
@@ -940,7 +940,7 @@ function paneHTML(o) {
              '<span class="efold fold-syn"><b>Synonym</b> ' + (row.s || "none recorded") + '</span></td>';
       t +=   '<td class="col-type">' + row.t + '</td>';
       t +=   '<td class="col-syn"><span class="syn' + (row.s ? '' : ' none') + '">' + (row.s || "none recorded") +
-             '</span><button type="button" class="btn addsyn">' + I.plus + 'Add</button></td>';
+             '</span><button type="button" class="btn addsyn">' + I.plus + 'Synonym</button></td>';
       t += '</tr>';
     });
     t += '</tbody></table>';

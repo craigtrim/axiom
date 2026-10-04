@@ -20,6 +20,13 @@ import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
 import { FindCreatePanel } from "./FindCreatePanel";
+import {
+  emptyFindDraft,
+  findCreationOffer,
+  type FindCreationPreview,
+} from "../shared/find-create";
+import { useRetainedPreview } from "./use-retained-preview";
+import { entityIdentifier } from "../shared/entity-names";
 import { usePaneLayout } from "./AdaptivePane";
 import { FindPopover } from "./FindPopover";
 import "./find-editor.css";
@@ -38,6 +45,7 @@ import {
   openSimilar,
   selectFind,
   updateFind,
+  updateFindDraft,
   useFindState,
 } from "./find-state";
 
@@ -289,6 +297,7 @@ export function FindPanel() {
   const queryInput = useRef<HTMLInputElement>(null);
   const scopeTrigger = useRef<HTMLButtonElement>(null);
   const recentTrigger = useRef<HTMLButtonElement>(null);
+  const moreTrigger = useRef<HTMLButtonElement>(null);
   const createTrigger = useRef<HTMLButtonElement>(null);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -296,7 +305,6 @@ export function FindPanel() {
     createId = useId();
   const pendingPageFocus = useRef<string | undefined>(undefined);
   const scopeVisible = !layout.compact || scopeOpen;
-  const createOverlay = layout.shallow && createOpen;
   const { options, selected, recent, created } = useFindState();
   const searchOptions = { ...options, browse: true, diagnostics: true };
   const { data, facets, busy, ready, announcing, error, displayedOptions } =
@@ -332,6 +340,57 @@ export function FindPanel() {
   const [addedSynonyms, setAddedSynonyms] = useState(new Set<string>());
   const graphPending = useRef(false);
   const rows = data?.rows ?? [];
+  const createOverlay = createOpen && (layout.shallow || rows.length > 0);
+  const offerKey = JSON.stringify([
+    synonymText,
+    snapshot.datasetEpoch,
+    snapshot.version,
+  ]);
+  const offerCheck = useRetainedPreview(
+    synonymText && rows.length ? offerKey : null,
+    String(snapshot.datasetEpoch),
+    () =>
+      request<FindCreationPreview>("findCreatePreview", {
+        creation: {
+          ...emptyFindDraft(synonymText),
+          // Check the proposed name's IRI before the editor can disambiguate it.
+          iri:
+            snapshot.ontology.namespace +
+            entityIdentifier(emptyFindDraft(synonymText).label),
+        },
+        datasetEpoch: snapshot.datasetEpoch,
+        version: snapshot.version,
+      }),
+    100,
+  );
+  const offer = findCreationOffer(
+    options.text,
+    offerCheck.fresh ? (offerCheck.value?.collisions ?? []) : [],
+  );
+  const offerReady =
+    ready &&
+    offerCheck.fresh &&
+    !offerCheck.value?.errors.length &&
+    offer.enabled;
+  const openedQuery = useRef("");
+  const openResultCreation = () => {
+    if (!offerReady) return;
+    const query = JSON.stringify([synonymText, snapshot.datasetEpoch]);
+    if (openedQuery.current !== query) {
+      updateFindDraft(emptyFindDraft(synonymText));
+      openedQuery.current = query;
+    }
+    setCreateOpen(true);
+    root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+      root.current
+        ?.querySelector<HTMLInputElement>('[aria-label="Class label"]')
+        ?.focus(),
+    );
+  };
+  useEffect(() => {
+    setCreateOpen(false);
+    openedQuery.current = "";
+  }, [options.text, snapshot.datasetEpoch]);
   const active = rows.find((row) => row.iri === selected);
   const [chrome, setChrome] = useState({
     header: true,
@@ -437,7 +496,8 @@ export function FindPanel() {
   const closeCreate = () => {
     setCreateOpen(false);
     root.current?.ownerDocument.defaultView?.requestAnimationFrame(() => {
-      if (layout.shallow) createTrigger.current?.focus();
+      if (rows.length && !chrome.header) moreTrigger.current?.focus();
+      else if (layout.shallow || rows.length) createTrigger.current?.focus();
       else queryInput.current?.focus();
     });
   };
@@ -584,6 +644,8 @@ export function FindPanel() {
     const epoch = snapshot.datasetEpoch;
     await request("select", { iri, datasetEpoch: epoch });
     if (state?.datasetEpoch !== epoch) return;
+    setCreateOpen(false);
+    openedQuery.current = "";
     updateFind(
       {
         text: label,
@@ -648,7 +710,7 @@ export function FindPanel() {
     return (
       <button
         type="button"
-        className={compact ? "find-synonym" : undefined}
+        className={compact ? "btn addsyn find-synonym" : undefined}
         title={title}
         aria-label={
           available ? `Add "${synonymText}" as synonym for ${row.name}` : title
@@ -656,15 +718,20 @@ export function FindPanel() {
         disabled={!ready || !!addingSynonym || !available}
         onClick={() => addSynonym(row)}
       >
-        {addingSynonym === row.iri
-          ? "Adding…"
-          : added
-            ? "Added"
-            : !available
-              ? "Exists"
-              : compact
-                ? "+ Add"
-                : "Add as synonym"}
+        {addingSynonym === row.iri ? (
+          "Adding…"
+        ) : added ? (
+          "Added"
+        ) : !available ? (
+          "Exists"
+        ) : compact ? (
+          <>
+            <FindGlyph name="plus" />
+            Synonym
+          </>
+        ) : (
+          "Add as synonym"
+        )}
       </button>
     );
   };
@@ -749,6 +816,31 @@ export function FindPanel() {
       "DataProperty",
       "AnnotationProperty",
     ].includes(active.kind);
+  const creationEditor = (
+    <div
+      id={createId}
+      className="find-create-host"
+      hidden={(layout.shallow || rows.length > 0) && !createOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && createOpen && !event.defaultPrevented) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeCreate();
+        }
+      }}
+    >
+      {createOpen && (
+        <button
+          type="button"
+          className="find-create-close"
+          onClick={closeCreate}
+        >
+          Back to results
+        </button>
+      )}
+      <FindCreatePanel reveal={reveal} />
+    </div>
+  );
   return (
     <section
       ref={root}
@@ -877,9 +969,20 @@ export function FindPanel() {
         </label>
         <FindPopover
           label="More"
+          triggerRef={moreTrigger}
           className="ib"
           face={<FindGlyph name="more" />}
         >
+          {!chrome.header && rows.length > 0 && offer.visible && (
+            <button
+              type="button"
+              title={offerCheck.error || offer.title}
+              disabled={!offerReady}
+              onClick={openResultCreation}
+            >
+              {offer.title}
+            </button>
+          )}
           <label>
             Results per page
             <select
@@ -988,6 +1091,7 @@ export function FindPanel() {
           id={scopeId}
           className="find-facets"
           aria-label="Search scope"
+          inert={createOverlay || undefined}
           hidden={!scopeVisible}
           onKeyDown={(event) => {
             if (event.key === "Escape" && scopeOpen) {
@@ -1084,8 +1188,8 @@ export function FindPanel() {
           <header
             className="find-results-toolbar"
             data-withdrawn={!chrome.header}
-            inert={!chrome.header || undefined}
-            aria-hidden={!chrome.header || undefined}
+            inert={!chrome.header || createOverlay || undefined}
+            aria-hidden={!chrome.header || createOverlay || undefined}
           >
             <div className="find-summary" role="status">
               {announcing
@@ -1095,21 +1199,38 @@ export function FindPanel() {
                   : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
             </div>
             {total > 0 && (
-              <button
-                className="btn"
-                type="button"
-                onClick={graphResults}
-                disabled={!ready || openingGraph}
-                aria-label="Open results in new graph"
-                title="Open all filtered matches, across every page, with shared ancestry back to the roots"
-              >
-                <FindGlyph name="graph" />
-                <span className="find-graph-label" hidden={layout.compact}>
-                  {openingGraph
-                    ? "Opening graph..."
-                    : "Open results in new graph"}
-                </span>
-              </button>
+              <span className="find-result-actions">
+                {offer.visible && (
+                  <button
+                    ref={createTrigger}
+                    type="button"
+                    className="ib"
+                    aria-label={offer.title}
+                    title={offerCheck.error || offer.title}
+                    disabled={!offerReady}
+                    aria-expanded={createOpen}
+                    aria-controls={createId}
+                    onClick={openResultCreation}
+                  >
+                    <FindGlyph name="plus" />
+                  </button>
+                )}
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={graphResults}
+                  disabled={!ready || openingGraph}
+                  aria-label="Open results in new graph"
+                  title="Open all filtered matches, across every page, with shared ancestry back to the roots"
+                >
+                  <FindGlyph name="graph" />
+                  <span className="find-graph-label" hidden={layout.compact}>
+                    {openingGraph
+                      ? "Opening graph..."
+                      : "Open results in new graph"}
+                  </span>
+                </button>
+              </span>
             )}
           </header>
           {(error || actionError) && (
@@ -1124,7 +1245,12 @@ export function FindPanel() {
             aria-label="Find results"
           >
             {(!data || rows.length > 0) && (
-              <table className="find-results" aria-label="Found entities">
+              <table
+                className="find-results"
+                aria-label="Found entities"
+                inert={createOverlay || undefined}
+                aria-hidden={createOverlay || undefined}
+              >
                 <thead>
                   <tr>
                     <th scope="col">Entity</th>
@@ -1308,33 +1434,12 @@ export function FindPanel() {
                   </button>
                   <span>{`Carries "${displayedOptions.text.trim()}" across.`}</span>
                 </div>
-                <div
-                  id={createId}
-                  className="find-create-host"
-                  hidden={layout.shallow && !createOpen}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Escape" &&
-                      createOpen &&
-                      !event.defaultPrevented
-                    ) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      closeCreate();
-                    }
-                  }}
-                >
-                  {createOpen && (
-                    <button
-                      type="button"
-                      className="find-create-close"
-                      onClick={closeCreate}
-                    >
-                      Back to results
-                    </button>
-                  )}
-                  <FindCreatePanel reveal={reveal} />
-                </div>
+                {creationEditor}
+              </fieldset>
+            )}
+            {rows.length > 0 && createOpen && (
+              <fieldset className="find-zero" disabled={!ready}>
+                {creationEditor}
               </fieldset>
             )}
           </div>
@@ -1343,8 +1448,8 @@ export function FindPanel() {
             role="group"
             aria-label="Result pages"
             data-withdrawn={!chrome.pager}
-            inert={!chrome.pager || undefined}
-            aria-hidden={!chrome.pager || undefined}
+            inert={!chrome.pager || createOverlay || undefined}
+            aria-hidden={!chrome.pager || createOverlay || undefined}
           >
             <span>
               {total
@@ -1405,8 +1510,8 @@ export function FindPanel() {
           className="find-inspector"
           aria-label="Selected entity"
           data-withdrawn={!chrome.inspector}
-          inert={!chrome.inspector || undefined}
-          aria-hidden={!chrome.inspector || undefined}
+          inert={!chrome.inspector || createOverlay || undefined}
+          aria-hidden={!chrome.inspector || createOverlay || undefined}
         >
           <p
             title={`${active.name} · ${kindLabel(active.kind)} · ${active.iri} · ${active.path ?? "no parent recorded"} · ${active.aliases?.join(", ") || "none recorded"} · ${active.description || "none recorded"}`}

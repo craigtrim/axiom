@@ -8,11 +8,15 @@ C:\Users\Craig\AppData\Roaming\Open Design\namespaces\release-stable-win\data\pr
 
 Issue 36 removes the empty context line from this test fixture. The external original and the files under `specs/` remain unchanged.
 
-SHA-256: `5c4e9b6bb03200bbc4aab4e16c61431a887d21d000ae7ec4c65c77260222c541`.
+Issue 48 explicitly amends the results state: a quiet plus button beside Graph offers a new class; exact-name or proposed-IRI collisions disable it. Row actions read `+ Synonym`. The zero-results reference remains unchanged. These changes implement the approved issue and are exceptions to #34's older reference. The amended HTML is the source for the new result-action baselines; application screenshots are never used as expected images.
+
+SHA-256: `5fb508df79392f7212bf313127e90ad2787a363ffd24ed5f95309610a32ba73c`.
 
 The rendered HTML takes precedence over issue 34's older prose. In particular it retains the labeled `Add to the ontology` rule, `follows rdfs:label`, `Create class`, and the simple ancestry line when no parent is selected. The issue's explicit exception remains: the removed word-match mode is not restored.
 
 ## Screenshot checks
+
+The #48 action checks compare the new plus/graph group and renamed synonym button in both themes. These controls are captured at integer origins with matching compositor isolation in both windows, avoiding fractional ancestor-layer rasterization differences. Their dimensions, fonts, paint properties and all raw pixels must agree; nothing is masked or resampled. The four additional baselines come from the amended HTML. Zero-state specimens remain unchanged.
 
 The test launches the actual Electron application, imports a real small ontology, detaches Find, and edits its real controls. Only the reference's search counts, facet catalogue, suggested IRI and store totals are presentation fixtures. Domain behavior, persistence, validation, handoffs and undo are exercised separately by the functional suites.
 
