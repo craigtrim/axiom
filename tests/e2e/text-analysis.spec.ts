@@ -1093,6 +1093,107 @@ async function createParent(
     form.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue(label);
 }
+
+test("parent search shares Find normalization and typo ranking without duplicate creation (#47)", async () => {
+  await writeFile(
+    file,
+    turtle + '\n:Abstract_Course a owl:Class; rdfs:label "Abstract_Course" .',
+  );
+  await menu("file.open");
+  await expect
+    .poll(async () =>
+      (
+        await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+      ).entities.some((e) => e.iri === base + "Abstract_Course"),
+    )
+    .toBe(true);
+  const form = await selectForCreation("Specialized Seminar");
+  const input = form.getByRole("combobox", {
+    name: "Parent classes",
+    exact: true,
+  });
+  const list = page.getByRole("listbox", {
+    name: "Parent classes",
+    exact: true,
+  });
+  for (const query of [
+    "Abstract Course",
+    "abstract course",
+    "AbstractCourse",
+    "abstract-course",
+    "Abstract_Course",
+    "abstr cour",
+    "Abstrct Course",
+  ]) {
+    await input.fill(query);
+    await expect(
+      list.getByRole("option").filter({ hasText: "Abstract_Course" }),
+    ).toBeVisible();
+    if (!["abstr cour", "Abstrct Course"].includes(query))
+      await expect(
+        list.getByRole("option").filter({ hasText: "Create “" }),
+      ).toHaveCount(0);
+  }
+  await input.fill("Abstract Course");
+  await list.getByRole("option").filter({ hasText: "Abstract_Course" }).click();
+  await expect(
+    form.getByRole("button", { name: "Remove Abstract_Course", exact: true }),
+  ).toBeVisible();
+  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  const snapshot = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  expect(
+    snapshot.entities.find((e) => e.label === "Specialized Seminar")?.parents,
+  ).toEqual([base + "Abstract_Course"]);
+  expect(
+    snapshot.entities.filter((e) => e.label === "Abstract_Course"),
+  ).toHaveLength(1);
+  await page.evaluate(() => window.axiom.request("undo"));
+  expect(
+    (
+      await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+    ).entities.some((e) => e.label === "Specialized Seminar"),
+  ).toBe(false);
+});
+
+test("parent search ignores stale replies and cannot create while lookup is pending (#47)", async () => {
+  const form = await selectForCreation("Specialized Seminar");
+  const input = form.getByRole("combobox", {
+    name: "Parent classes",
+    exact: true,
+  });
+  const list = page.getByRole("listbox", {
+    name: "Parent classes",
+    exact: true,
+  });
+  await holdRequests(app, ["resourceSuggestions"]);
+  await input.fill("Dog");
+  await waitForHeld(app);
+  await input.fill("Computing");
+  await waitForHeld(app, 2);
+  await expect(list).toHaveAttribute("aria-busy", "true");
+  await input.press("Enter");
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Specialized Seminar");
+  await releaseRequests(app, { reverse: true });
+  await expect(
+    list.getByRole("option").filter({ hasText: "Computing" }),
+  ).toBeVisible();
+  await expect(list.getByRole("option").filter({ hasText: "Dog" })).toHaveCount(
+    0,
+  );
+  await expect(
+    list.getByRole("option").filter({ hasText: "Create “" }),
+  ).toHaveCount(0);
+  await input.press("ArrowDown");
+  await input.press("Enter");
+  await expect(
+    form.getByRole("button", { name: "Remove Computing", exact: true }),
+  ).toBeVisible();
+});
 async function chooseParent(
   form: import("@playwright/test").Locator,
   label: string,

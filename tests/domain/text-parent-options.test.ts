@@ -7,6 +7,8 @@ import { buildStore } from "../../src/domain/fixture";
 import { textAnalysisDraft } from "../../src/domain/text-analysis-authoring";
 import type { Snapshot } from "../../src/shared/protocol";
 import { Model } from "flexlayout-react";
+import { EntitySearchIndex } from "../../src/domain/entity-search";
+import { declaration, fromTriples, iri } from "../fixtures/search/fixture";
 import {
   setTextEntitySplit,
   textEntitySplit,
@@ -14,6 +16,78 @@ import {
 } from "../../src/renderer/text-entity-split";
 
 describe("text entity parent picker", () => {
+  const courses = fromTriples([
+    ...declaration(iri("Abstract_Course"), "Abstract_Course"),
+    ...declaration(iri("Hidden_Course"), "Different display label"),
+    ...declaration(iri("Cafe"), "Café Studies"),
+    ...declaration(iri("Course"), "Course"),
+  ]);
+  const courseEntities = [...courses.entities.values()] as Snapshot["entities"];
+  const index = new EntitySearchIndex(courses);
+  const optionsFor = (
+    text: string,
+    parents: Parameters<typeof textParentOptions>[1] = [],
+  ) =>
+    textParentOptions(
+      courseEntities,
+      parents,
+      text,
+      [],
+      [],
+      "Codex",
+      index.search(text, true),
+    );
+  it.each([
+    "Abstract Course",
+    "abstract course",
+    "AbstractCourse",
+    "abstract-course",
+    "Abstract_Course",
+    "  ABSTRACT   COURSE  ",
+  ])(
+    "uses Find normalization for %s and suppresses duplicate creation",
+    (text) => {
+      const options = optionsFor(text);
+      expect(options[0]?.iri).toBe(iri("Abstract_Course"));
+      expect(options.some((o) => o.group === "Create")).toBe(false);
+    },
+  );
+  it.each(["abstr cour", "Abstrct Course", "course abstract"])(
+    "uses Find ranking for partial and misspelled %s",
+    (text) => {
+      expect(optionsFor(text)[0]?.iri).toBe(iri("Abstract_Course"));
+    },
+  );
+  it.each(["hidden course", "cafe studies"])(
+    "blocks duplicate creation for local names and diacritics: %s",
+    (text) => {
+      expect(optionsFor(text).some((o) => o.group === "Create")).toBe(false);
+    },
+  );
+  it("excludes selected and drafted parents even under another spelling", () => {
+    expect(
+      optionsFor("Abstract Course", [{ iri: iri("Abstract_Course") }]).some(
+        (o) => o.iri === iri("Abstract_Course") || o.group === "Create",
+      ),
+    ).toBe(false);
+    expect(
+      optionsFor("New Course", [
+        {
+          create: {
+            label: "New_Course",
+            comment: "",
+            parents: [],
+            manualParents: true,
+          },
+        },
+      ]).some((o) => o.group === "Create"),
+    ).toBe(false);
+    expect(optionsFor("Unique Subject").at(-1)).toEqual({
+      label: "Unique Subject",
+      group: "Create",
+    });
+    expect(optionsFor("---").some((o) => o.group === "Create")).toBe(false);
+  });
   const store = buildStore(0),
     entities = [...store.entities.values()] as Snapshot["entities"];
   it("groups phrase matches before assistant results and excludes selected or repeated IRIs", () => {

@@ -1,6 +1,9 @@
 import type { Snapshot } from "../shared/protocol";
 import type { TextAnalysisDraft } from "../shared/text-analysis";
 import type { TextEntityClassDraft } from "./text-analysis-session";
+import { normalizeSearchText as key } from "../domain/cosine";
+import { local } from "../domain/model";
+import type { ResourceMatch } from "../domain/resource-search";
 
 export interface ParentOption {
   iri?: string;
@@ -14,27 +17,30 @@ export function textParentOptions(
   phrase: TextAnalysisDraft["parents"],
   suggested: { value: string }[],
   assistant: string,
+  matches: ResourceMatch[] = [],
 ): ParentOption[] {
-  const key = (s: string) => s.trim().normalize("NFC").toLowerCase();
   const query = key(text);
   const classes = entities.filter((e) => ["Class", "Defined"].includes(e.kind));
   const byIri = new Map(classes.map((e) => [e.iri, e]));
   const used = new Set(parents.flatMap((p) => ("iri" in p ? [p.iri] : [])));
   const options: ParentOption[] = [];
+  const matching = new Set(matches.map((e) => e.iri));
   const add = (iri: string, group: string) => {
     const entity = byIri.get(iri);
     if (!entity || used.has(iri)) return;
     const label = entity.label || entity.name || iri;
     used.add(iri);
-    if (!query || key(label).includes(query) || key(iri).includes(query))
-      options.push({ iri, label, group });
+    if (!query || matching.has(iri)) options.push({ iri, label, group });
   };
   for (const p of phrase) add(p.iri, "From the phrase");
   for (const p of suggested) add(p.value, "Suggested by " + assistant);
-  let remaining = 8;
-  for (const e of classes.sort((a, b) =>
-    (a.label || a.name).localeCompare(b.label || b.name),
-  )) {
+  let remaining = query ? matches.length : 8;
+  const ranked = query
+    ? matches
+    : classes.sort((a, b) =>
+        (a.label || a.name).localeCompare(b.label || b.name),
+      );
+  for (const e of ranked) {
     if (!remaining) break;
     const before = options.length;
     add(e.iri, "Existing classes");
@@ -42,7 +48,9 @@ export function textParentOptions(
   }
   if (
     query &&
-    !classes.some((e) => key(e.label || e.name) === query) &&
+    !classes.some((e) =>
+      [e.label ?? "", e.name, local(e.iri)].some((name) => key(name) === query),
+    ) &&
     !parents.some((p) => "create" in p && key(p.create.label) === query)
   )
     options.push({ label: text.trim(), group: "Create" });

@@ -13,6 +13,9 @@ import type { TextAnalysisDraft } from "../shared/text-analysis";
 import type { TextEntityClassDraft } from "./text-analysis-session";
 import { useDraftParentSuggestions } from "./useDraftParentSuggestions";
 import { textParentOptions, type ParentOption } from "./text-parent-options";
+import { request } from "./client";
+import { progressiveSearch } from "./progressive-search";
+import type { ResourceMatch } from "../domain/resource-search";
 
 export const parentIri = (iri: string, namespace: string) =>
   namespace && iri.startsWith(namespace)
@@ -59,6 +62,61 @@ export function TextParentPicker({
     maxHeight: 232,
   });
   const [showPrompt, setShowPrompt] = useState(false);
+  const consumer = useRef(crypto.randomUUID()).current;
+  const [search, setSearch] = useState<{
+    key: string;
+    matches: ResourceMatch[];
+    error?: string;
+  }>();
+  const searchKey = JSON.stringify([
+    text,
+    snapshot.datasetEpoch,
+    snapshot.version,
+    excludeIri,
+    value.parents,
+  ]);
+  const latestSearch = useRef(searchKey);
+  latestSearch.current = searchKey;
+  useEffect(() => {
+    if (!open || disabled || !text.trim()) return;
+    let cancel = () => {};
+    const timer = setTimeout(() => {
+      cancel = progressiveSearch<ResourceMatch[]>(
+        request,
+        "resourceSuggestions",
+        {
+          query: text,
+          classesOnly: true,
+          exclude: [
+            excludeIri,
+            ...value.parents.flatMap((p) => ("iri" in p ? [p.iri] : [])),
+          ].filter(Boolean),
+          consumer,
+          searchId: crypto.randomUUID(),
+        },
+        (matches) => {
+          if (latestSearch.current === searchKey) {
+            setSearch({ key: searchKey, matches });
+            setActive(-1);
+          }
+        },
+        () => {
+          if (latestSearch.current === searchKey)
+            setSearch({
+              key: searchKey,
+              matches: [],
+              error: "Search unavailable. Try again.",
+            });
+        },
+      );
+    }, 120);
+    return () => {
+      clearTimeout(timer);
+      cancel();
+    };
+  }, [searchKey, open, disabled]);
+  const searching = !!text.trim() && search?.key !== searchKey;
+  const searchError = search?.key === searchKey ? search.error : undefined;
   const assistant = useDraftParentSuggestions(
     snapshot,
     {
@@ -86,14 +144,19 @@ export function TextParentPicker({
   );
   const options = useMemo(
     () =>
-      textParentOptions(
-        snapshot.entities,
-        value.parents,
-        text,
-        preview?.parents ?? [],
-        assistant.entry?.state === "completed" ? assistant.entry.values : [],
-        assistant.assistant,
-      ).filter((option) => !option.iri || option.iri !== excludeIri),
+      searching || searchError
+        ? []
+        : textParentOptions(
+            snapshot.entities,
+            value.parents,
+            text,
+            preview?.parents ?? [],
+            assistant.entry?.state === "completed"
+              ? assistant.entry.values
+              : [],
+            assistant.assistant,
+            search?.key === searchKey ? search.matches : [],
+          ).filter((option) => !option.iri || option.iri !== excludeIri),
     [
       snapshot.entities,
       value.parents,
@@ -102,6 +165,10 @@ export function TextParentPicker({
       assistant.entry,
       assistant.assistant,
       excludeIri,
+      searching,
+      searchError,
+      search,
+      searchKey,
     ],
   );
   useEffect(() => {
@@ -310,8 +377,11 @@ export function TextParentPicker({
             aria-label="Parent classes"
             className="text-parent-listbox"
             style={position}
+            aria-busy={searching}
           >
-            {!options.length && (
+            {searching && <p role="status">Searching classes…</p>}
+            {searchError && <p role="alert">{searchError}</p>}
+            {!searching && !searchError && !options.length && (
               <p>No class matches that. Keep typing to create one.</p>
             )}
             {options.map((option, index) => (
