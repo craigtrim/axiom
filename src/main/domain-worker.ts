@@ -1233,7 +1233,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       layouts = new Layouts(view, store);
       frozen = false;
       if (results) view.setBudget(Math.max(view.budget, iris.length));
-      view.seed(iris, true, !results);
+      view.seed(iris, true, !results && a.expand !== false);
       if (results) {
         view.focus = new Set(
           results.roots.length ? results.roots : results.matches.slice(0, 1),

@@ -1,5 +1,19 @@
 # Suggestions
 
+## Multiple selected hierarchy nodes
+
+Use **Ctrl-click** to add or remove individual hierarchy nodes, or **Shift-click** to select a range of visible rows. Ctrl+Shift-click adds a range to the existing selection. Shift+Up/Down and Shift+Home/End extend a range; Ctrl+Up/Down moves focus without changing selection; Ctrl+Space toggles the focused node. Ctrl+A explicitly selects all visible rows. An ordinary click, Enter or Escape returns to one selected node. Filtering, collapsing branches or switching hierarchy tabs removes selections that are no longer visible.
+
+Selecting a parent never selects its children or descendants automatically. An explicitly selected parent and child are two separate targets. Right-clicking a selected row preserves the full selection; right-clicking an unselected row selects only that row. Shift+F10 opens the same menu with letter access keys.
+
+The context menu keeps its single-node structure. **Suggest > Add Children**, **Suggest > Add Parents**, **Find > Synonyms** and **Find > Instances** start one run per selected node. Class-only actions require every selected node to be a class; synonyms also support selected properties. Details, Rename, New subclass, New instance, Define New, Delete, Analyze, Find Similar, Touchpoints and Show instances are disabled for multiple selections. Rename and Delete shortcuts also respect this restriction. Delete remains disabled because the existing deletion flow includes decisions about descendants.
+
+**Show in graph** includes exactly the selected nodes for a multiple selection. **Add neighbours to graph** uses those nodes as its starting points and retains its usual meaning of adding their neighbours. Expand/Collapse applies to the selected branches only; it does not recursively expand deeper branches. Pin in graph requires all selected nodes to be present in the graph: it pins them all, or unpins them all when all are pinned. Copy IRIs copies one selected IRI per line. Dragging is disabled for multiple selections.
+
+The dockable **Suggestion runs** view lists each target, its status and result count. Open it again through **View > Suggestion runs**. Batches retain the selected assistant and exact target list from the moment the action was invoked; changing the hierarchy selection does not retarget them. Runs execute sequentially through the existing assistant services. An existing individual run is allowed to finish first. A failed run does not prevent later targets from running. There is no additional limit on the number of selected nodes.
+
+**Open run** opens that node's exact saved run in the existing Suggestions review, without sending another request. Review and accept proposals there using the existing duplicate checks, context validation and Undo. A batch never adds suggestions automatically. Cancel an individual unfinished run, or **Cancel remaining runs** to stop the active request and discard queued requests while retaining completed results. Closing the view lets work continue. Changing workspaces or the ontology namespace cancels outstanding work. Completed and failed reviews and the batch list survive restarting Axiom; unfinished work is marked interrupted and is never silently restarted. Assistant prompts retain the existing single-node context (which may describe related nodes); those related nodes do not become extra run targets.
+
 ## Add Parents using existing class names
 
 Choose **Suggest > Add Parents** from a class context menu in Graph or Hierarchy. The search starts immediately. The selected class is the child. A local index finds shorter existing class names by omitting words while retaining their order, including omissions in the middle. For Alpha Beta Gamma, existing Alpha Gamma and Beta Gamma are possible parents. Matching normalizes case, punctuation and camel case. It matches complete words, so Alpha does not match Alphabet. The review lists up to 100 matches, with the closest names first.

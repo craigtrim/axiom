@@ -44,6 +44,7 @@ import { ErrorDetailsButton } from "./ErrorNotice";
 import { selectAudit } from "./audit-state";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 import { openTaxonomy, suggestionStarts } from "./taxonomy-view";
+import { SuggestionRunsPanel } from "./SuggestionRunsPanel";
 import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
@@ -133,6 +134,7 @@ const names: Record<string, string> = {
   query: "Query",
   touchpoints: "Find Touchpoints",
   taxonomy: "Suggestions",
+  suggestionruns: "Suggestion runs",
   errorlog: "Error log",
   find: "Find",
   tabhistory: "Tab History",
@@ -626,6 +628,7 @@ export function App() {
         id === "find" ||
         id === "errorlog" ||
         id === "taxonomy" ||
+        id === "suggestionruns" ||
         id.startsWith("taxonomy:") ||
         id === "provenance" ||
         id === "source" ||
@@ -648,6 +651,7 @@ export function App() {
             id === "find" ||
             id === "errorlog" ||
             id === "taxonomy" ||
+            id === "suggestionruns" ||
             id.startsWith("taxonomy:") ||
             id === "touchpoints" ||
             id === "provenance" ||
@@ -926,6 +930,21 @@ export function App() {
   useEffect(() => {
     const initialMenuTimer = setTimeout(updatePaneMenu, 100);
     const off = onCommand((id) => {
+      const hierarchyTree = focusedDocument().activeElement?.closest(
+        '[role="tree"][aria-multiselectable="true"]',
+      );
+      if (
+        hierarchyTree &&
+        Number(hierarchyTree.getAttribute("data-selection-count")) > 1 &&
+        [
+          "entity.edit",
+          "entity.rename",
+          "entity.delete",
+          "entity.createClass",
+          "entity.createIndividual",
+        ].includes(id)
+      )
+        return;
       if (id === "cache.wikipedia.cleared") report("Wikipedia cache cleared.");
       if (id === "cache.model.cleared") report("Model cache cleared.");
       if (
@@ -1337,6 +1356,7 @@ export function App() {
                   inspector: <InspectorPanel />,
                   touchpoints: <TouchpointsPanel />,
                   taxonomy: <SuggestionsPanel paneId={n.getId()} />,
+                  suggestionruns: <SuggestionRunsPanel />,
                   errorlog: <ErrorLogPanel />,
                   find: <FindPanel />,
                   tabhistory: (

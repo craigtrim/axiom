@@ -39,6 +39,15 @@ export function installKeyboard(doc: Document) {
     )
       return;
     const context = keyboardContext(doc);
+    const hierarchyTree = (e.target as HTMLElement)?.closest(
+      '[role="tree"][aria-multiselectable="true"]',
+    );
+    if (
+      hierarchyTree &&
+      (e.ctrlKey || e.metaKey) &&
+      e.key.toLowerCase() === "a"
+    )
+      return;
     if (context.modal) {
       clear();
       return;
@@ -79,6 +88,21 @@ export function installKeyboard(doc: Document) {
       return;
     }
     if (!match.command) return;
+    if (
+      hierarchyTree &&
+      Number(hierarchyTree.getAttribute("data-selection-count")) > 1 &&
+      [
+        "entity.edit",
+        "entity.rename",
+        "entity.delete",
+        "entity.createClass",
+        "entity.createIndividual",
+      ].includes(match.command)
+    ) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     // Let the focused editor process its standard text keys synchronously.
     if (
       context.text &&

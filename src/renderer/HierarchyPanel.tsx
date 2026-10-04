@@ -40,6 +40,12 @@ import {
   setSelectionOrigin,
 } from "./client";
 import { THING, NS, kindLabel } from "../domain/model";
+import {
+  singleHierarchySelection,
+  selectHierarchyRow,
+  pruneHierarchySelection,
+  type HierarchySelection,
+} from "./hierarchy-selection";
 export function HierarchyPanel() {
   const s = useSnapshot()!,
     [tab, setTab] = useState(panel("hierarchy.tab", "classes")),
@@ -47,6 +53,7 @@ export function HierarchyPanel() {
     [draft, setDraft] = useState<Creation | null>(null),
     [context, setContext] = useState<{
       iri: string;
+      iris: string[];
       x: number;
       y: number;
       doc: Document;
@@ -64,6 +71,22 @@ export function HierarchyPanel() {
         ),
     );
   const rootRef = useRef<HTMLElement>(null);
+  const [selection, setSelection] = useState(() =>
+    singleHierarchySelection(s.selected),
+  );
+  const selectionRef = useRef(selection);
+  const updateSelection = (next: HierarchySelection) => {
+    selectionRef.current = next;
+    setSelection(next);
+  };
+  useEffect(() => {
+    if (!selectionFromHierarchy)
+      updateSelection(singleHierarchySelection(s.selected));
+  }, [s.selected]);
+  useEffect(() => {
+    updateSelection(singleHierarchySelection(s.selected));
+    setContext(null);
+  }, [s.datasetEpoch]);
   const revealRef = useRef<ReturnType<typeof takeTaxonomyReveal>>(null);
   const [revealTick, setRevealTick] = useState(0);
   useEffect(() => {
@@ -164,7 +187,45 @@ export function HierarchyPanel() {
     }
     return parents;
   }, [rows]);
-  const selectedVisible = rows.some((r) => r.iri === s.selected);
+  const visibleIds = useMemo(() => rows.map((r) => r.iri), [rows]);
+  useEffect(() => {
+    // External navigation can select a hidden node before the ancestry-opening
+    // effect runs. Keep that selection until the next render reveals it.
+    if (
+      selectionFromHierarchy ||
+      !s.selected ||
+      !entities.some((e) => e.iri === s.selected)
+    )
+      updateSelection(
+        pruneHierarchySelection(selectionRef.current, visibleIds),
+      );
+    const visible = new Set(visibleIds);
+    setContext((current) =>
+      current && current.iris.every((iri) => visible.has(iri)) ? current : null,
+    );
+  }, [visibleIds]);
+  const selectedSet = new Set(selection.ids);
+  const selectedVisible = rows.some((r) => r.iri === selection.focus);
+  const choose = (
+    iri: string,
+    modifiers: { toggle?: boolean; range?: boolean; focusOnly?: boolean } = {},
+  ) => {
+    updateSelection(
+      selectHierarchyRow(selectionRef.current, iri, visibleIds, modifiers),
+    );
+    if (!modifiers.focusOnly) void act("select", { iri, origin: "hierarchy" });
+  };
+  const menuSelection = (iri: string) => {
+    if (!selectionRef.current.ids.includes(iri)) choose(iri);
+    else updateSelection({ ...selectionRef.current, focus: iri });
+    return [...selectionRef.current.ids];
+  };
+  const focusRow = (iri: string) => {
+    const tree = rootRef.current?.querySelector('[role="tree"]');
+    [...(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])]
+      .find((row) => row.dataset.entityIri === iri)
+      ?.focus();
+  };
   const dragging = useRef<TaxonomyDrag | null>(null),
     hover = useRef<{
       iri: string;
@@ -387,7 +448,10 @@ export function HierarchyPanel() {
             aria-label="Filter hierarchy"
             placeholder="Filter hierarchy"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => {
+              setSelectionOrigin("hierarchy");
+              setFilter(e.target.value);
+            }}
           />
           <button
             title="New class"
@@ -404,6 +468,9 @@ export function HierarchyPanel() {
       </div>
       <div
         role="tree"
+        aria-multiselectable="true"
+        data-selection-count={selection.ids.length}
+        aria-description="Ctrl-click toggles a node. Shift-click selects a visible range. Ctrl+A selects all visible rows."
         aria-label={properties ? "Property hierarchy" : "Class hierarchy"}
         className="tree"
         onDragOver={(ev) => {
@@ -463,20 +530,20 @@ export function HierarchyPanel() {
                 aria-expanded={
                   taxonomyChildren(e).length ? expanded : undefined
                 }
-                aria-selected={s.selected === iri}
+                aria-selected={selectedSet.has(iri)}
                 tabIndex={
-                  s.selected === iri || (!selectedVisible && index === 0)
+                  selection.focus === iri || (!selectedVisible && index === 0)
                     ? 0
                     : -1
                 }
                 key={iri}
                 className={
                   "tree-row " +
-                  (s.selected === iri ? "selected " : "") +
+                  (selectedSet.has(iri) ? "selected " : "") +
                   (dropTarget === iri ? "taxonomy-drop-target" : "")
                 }
                 style={{ paddingLeft: 8 + depth * 16 }}
-                draggable={!draft}
+                draggable={!draft && selection.ids.length <= 1}
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData(entityDragType, iri);
                   ev.dataTransfer.setData("text/plain", iri);
@@ -508,22 +575,55 @@ export function HierarchyPanel() {
                 }}
                 onDragEnd={stopDrag}
                 onDrop={(ev) => void drop(ev, iri)}
-                onClick={() => void act("select", { iri, origin: "hierarchy" })}
+                onClick={(ev) =>
+                  choose(iri, {
+                    toggle: ev.ctrlKey || ev.metaKey,
+                    range: ev.shiftKey,
+                  })
+                }
                 onDoubleClick={() => {
                   if (taxonomyChildren(e).length) toggle(iri);
                 }}
                 onContextMenu={(ev) => {
                   ev.preventDefault();
                   ev.currentTarget.focus();
-                  void act("select", { iri, origin: "hierarchy" });
                   setContext({
                     iri,
+                    iris: menuSelection(iri),
                     x: ev.clientX,
                     y: ev.clientY,
                     doc: ev.currentTarget.ownerDocument,
                   });
                 }}
                 onKeyDown={(ev) => {
+                  if (
+                    (ev.target as HTMLElement).closest(
+                      "input,[data-inline-rename]",
+                    )
+                  )
+                    return;
+                  const control = ev.ctrlKey || ev.metaKey;
+                  if (control && ev.key.toLowerCase() === "a") {
+                    ev.preventDefault();
+                    updateSelection({
+                      ids: [...visibleIds],
+                      anchor: iri,
+                      focus: iri,
+                    });
+                    return;
+                  }
+                  if (
+                    ev.key === " " ||
+                    ev.key === "Enter" ||
+                    ev.key === "Escape"
+                  ) {
+                    ev.preventDefault();
+                    choose(iri, {
+                      toggle: ev.key === " " && control,
+                      range: ev.key === " " && ev.shiftKey,
+                    });
+                    return;
+                  }
                   if (
                     ev.key === "ContextMenu" ||
                     (ev.shiftKey && ev.key === "F10")
@@ -532,6 +632,7 @@ export function HierarchyPanel() {
                     const r = ev.currentTarget.getBoundingClientRect();
                     setContext({
                       iri,
+                      iris: menuSelection(iri),
                       x: r.x + 40,
                       y: r.y + 20,
                       doc: ev.currentTarget.ownerDocument,
@@ -541,24 +642,29 @@ export function HierarchyPanel() {
                     ev.preventDefault();
                     if (taxonomyChildren(e).length && !open.has(iri))
                       toggle(iri);
-                    else
-                      (
-                        ev.currentTarget.nextElementSibling as HTMLElement
-                      )?.focus();
+                    else if (rows[index + 1]) {
+                      const next = rows[index + 1].iri;
+                      choose(next, {
+                        range: ev.shiftKey,
+                        toggle: control,
+                        focusOnly: control && !ev.shiftKey,
+                      });
+                      focusRow(next);
+                    }
                   }
                   if (ev.key === "ArrowLeft") {
                     ev.preventDefault();
                     if (open.has(iri)) toggle(iri);
                     else {
-                      const parent = rows.findIndex(
-                        (r) => r.iri === e.parents[0],
-                      );
-                      if (parent >= 0)
-                        (
-                          ev.currentTarget.parentElement?.children[
-                            parent
-                          ] as HTMLElement
-                        )?.focus();
+                      const parent = rowParents.get(iri);
+                      if (parent) {
+                        choose(parent, {
+                          range: ev.shiftKey,
+                          toggle: control,
+                          focusOnly: control && !ev.shiftKey,
+                        });
+                        focusRow(parent);
+                      }
                     }
                   }
                   if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
@@ -573,20 +679,22 @@ export function HierarchyPanel() {
                           ),
                         )
                       ];
-                    void act("select", { iri: row.iri, origin: "hierarchy" });
-                    (
-                      ev.currentTarget.parentElement?.children[
-                        rows.indexOf(row)
-                      ] as HTMLElement
-                    )?.focus();
+                    choose(row.iri, {
+                      range: ev.shiftKey,
+                      toggle: control,
+                      focusOnly: control && !ev.shiftKey,
+                    });
+                    focusRow(row.iri);
                   }
                   if (ev.key === "Home" || ev.key === "End") {
                     ev.preventDefault();
-                    (
-                      ev.currentTarget.parentElement?.children[
-                        ev.key === "Home" ? 0 : rows.length - 1
-                      ] as HTMLElement
-                    )?.focus();
+                    const next = rows[ev.key === "Home" ? 0 : rows.length - 1];
+                    choose(next.iri, {
+                      range: ev.shiftKey,
+                      toggle: control,
+                      focusOnly: control && !ev.shiftKey,
+                    });
+                    focusRow(next.iri);
                   }
                 }}
               >
@@ -660,16 +768,20 @@ export function HierarchyPanel() {
       )}
       <div className="panel-toolbar bottom">
         <button
-          disabled={!s.selected}
+          disabled={!selection.ids.length}
           onClick={() => {
-            void act("seed", { iris: [s.selected] }).then(() =>
-              command("graph.fit"),
-            );
+            void act("seed", {
+              iris: selection.ids,
+              expand: selection.ids.length <= 1,
+            }).then(() => command("graph.fit"));
             command("view.graph");
           }}
         >
           Show in graph
         </button>
+        <span className="hierarchy-selection-count" role="status">
+          {selection.ids.length > 1 ? selection.ids.length + " selected" : ""}
+        </span>
       </div>
       {context && (
         <EntityMenu
@@ -678,10 +790,29 @@ export function HierarchyPanel() {
           close={() => setContext(null)}
           taxonomy={(mode) => openTaxonomy(context.iri, mode)}
           branch={
-            map.get(context.iri)?.children.length
+            context.iris.some((id) => taxonomyChildren(map.get(id)).length)
               ? {
-                  open: open.has(context.iri),
-                  toggle: () => toggle(context.iri),
+                  open: context.iris
+                    .filter((id) => taxonomyChildren(map.get(id)).length)
+                    .every((id) => open.has(id)),
+                  count: context.iris.reduce(
+                    (n, id) => n + taxonomyChildren(map.get(id)).length,
+                    0,
+                  ),
+                  toggle: () => {
+                    const branches = context.iris.filter(
+                      (id) => taxonomyChildren(map.get(id)).length,
+                    );
+                    const collapse = branches.every((id) => open.has(id));
+                    setOpen((previous) => {
+                      const next = new Set(previous);
+                      for (const id of branches)
+                        if (collapse) next.delete(id);
+                        else next.add(id);
+                      savePanel("hierarchy.open", [...next]);
+                      return next;
+                    });
+                  },
                 }
               : undefined
           }

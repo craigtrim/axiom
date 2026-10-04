@@ -9,8 +9,14 @@ import { startInlineRename } from "./InlineRename";
 import { ContextMenu, type ContextAction } from "./ContextMenu";
 import { useSnapshot, request, command, report } from "./client";
 import { THING } from "../domain/model";
+import {
+  supportsBatchMode,
+  type BatchMode,
+} from "../shared/suggestion-batches";
+import { openSuggestionBatch } from "./SuggestionRunsPanel";
 export function EntityMenu({
   iri,
+  iris: selectedIris,
   x,
   y,
   document: doc,
@@ -19,11 +25,12 @@ export function EntityMenu({
   taxonomy,
 }: {
   iri: string;
+  iris?: string[];
   x: number;
   y: number;
   document: Document;
   close: () => void;
-  branch?: { open: boolean; toggle: () => void };
+  branch?: { open: boolean; toggle: () => void; count?: number };
   taxonomy?: (
     mode: import("../shared/taxonomy-assistant").TaxonomyMode,
   ) => void;
@@ -31,6 +38,18 @@ export function EntityMenu({
   const s = useSnapshot()!,
     entity = s.entities.find((e) => e.iri === iri),
     node = s.graph.nodes.find((n) => n.iri === iri);
+  const iris = [...new Set(selectedIris ?? [iri])];
+  const multiple = iris.length > 1;
+  const entities = new Map(s.entities.map((e) => [e.iri, e]));
+  const allClass = iris.every((id) =>
+    supportsBatchMode(entities.get(id), "children"),
+  );
+  const canSuggest = (mode: BatchMode) =>
+    iris.every((id) => supportsBatchMode(entities.get(id), mode));
+  const suggest = (mode: BatchMode) =>
+    multiple ? openSuggestionBatch(iris, mode) : openTaxonomy(iri, mode);
+  const graphNodes = iris.map((id) => s.graph.nodes.find((n) => n.iri === id));
+  const allPinned = graphNodes.every((n) => n?.pinned);
   const run = async (action: () => unknown) => {
     close();
     try {
@@ -47,34 +66,52 @@ export function EntityMenu({
       key: "S",
       run: () => {},
       children: [
-        { label: "New graph", key: "N", run: () => command("entity.newGraph") },
+        {
+          label: "New graph",
+          key: "N",
+          run: async () => {
+            if (!multiple) return command("entity.newGraph");
+            const id = await request<string>("graphCreate", {
+              iris,
+              expand: false,
+            });
+            command("view." + id);
+            command("graph.fit");
+          },
+        },
         {
           label: "Current graph",
           key: "C",
-          run: () => command("entity.showGraph"),
+          run: async () => {
+            if (!multiple) return command("entity.showGraph");
+            await request("seed", { iris, expand: false });
+            command("view.graph");
+            command("graph.fit");
+          },
         },
       ],
     },
     {
       ...instanceAction(entity),
+      enabled: !multiple && instanceAction(entity).enabled,
       key: "O",
       run: () => showInstances(iri),
     },
     {
       label: countLabel(
         branch?.open ? "Collapse branch" : "Expand branch",
-        taxonomyChildren(entity).length,
+        branch?.count ?? taxonomyChildren(entity).length,
       ),
       key: "B",
       visible: isClass || !!branch,
-      enabled: !!branch && !!taxonomyChildren(entity).length,
+      enabled: !!branch && !!(branch.count ?? taxonomyChildren(entity).length),
       run: () => branch?.toggle(),
     },
     {
       label: "Add neighbours to graph",
       key: "E",
       run: async () => {
-        await request("seed", { iris: [iri], replace: false });
+        await request("seed", { iris, replace: false });
         command("view.graph");
         command("graph.fit");
       },
@@ -82,31 +119,37 @@ export function EntityMenu({
     {
       label: "Pin in graph",
       key: "P",
-      checked: !!node?.pinned,
-      enabled: !!node,
-      run: () => request("pin", { iri }),
+      checked: multiple ? allPinned : !!node?.pinned,
+      enabled: graphNodes.every(Boolean),
+      run: async () => {
+        for (const n of graphNodes)
+          if (n && (!multiple || n.pinned === allPinned))
+            await request("pin", { iri: n.iri });
+      },
     },
     null,
     {
       label: "Details",
       key: "T",
-      enabled: !!entity,
+      enabled: !multiple && !!entity,
       run: () => editEntity(iri),
     },
     {
       label: "Rename",
       key: "R",
-      enabled: !!entity && iri !== THING,
+      enabled: !multiple && !!entity && iri !== THING,
       run: () => startInlineRename(iri, { document: doc, panel: "hierarchy" }),
     },
     {
       label: "New subclass",
+      enabled: !multiple,
       key: "N",
       visible: isClass,
       run: () => command("entity.createClass"),
     },
     {
       label: "New instance",
+      enabled: !multiple,
       key: "I",
       visible: isClass,
       run: () => command("entity.createIndividual"),
@@ -114,6 +157,7 @@ export function EntityMenu({
     null,
     {
       label: "Analyze",
+      enabled: !multiple,
       key: "A",
       visible: isClass,
       run: () => {},
@@ -134,26 +178,28 @@ export function EntityMenu({
         {
           label: "Similar",
           key: "S",
-          enabled: !!entity || !!node,
+          enabled: !multiple && (!!entity || !!node),
           run: () => openSimilar(entity?.name || node?.label || iri, iri),
         },
         {
           label: "Synonyms",
           key: "Y",
-          enabled: !iri.startsWith("_:"),
-          run: () => openTaxonomy(iri, "synonyms"),
+          enabled: canSuggest("synonyms"),
+          run: () => suggest("synonyms"),
         },
         {
           label: "Touchpoints",
           key: "T",
-          enabled: !iri.startsWith("_:"),
+          enabled: !multiple && !iri.startsWith("_:"),
           run: () => command("touchpoints.open"),
         },
         {
           label: "Instances",
+          enabled: allClass,
           key: "I",
           visible: !!taxonomy && isClass,
-          run: () => taxonomy?.("instances"),
+          run: () =>
+            multiple ? suggest("instances") : taxonomy?.("instances"),
         },
       ],
     },
@@ -165,31 +211,36 @@ export function EntityMenu({
       children: [
         {
           label: "Add Children",
-          enabled: isClass,
+          enabled: allClass,
           key: "C",
-          run: () => openTaxonomy(iri, "children"),
+          run: () => suggest("children"),
         },
         {
           label: "Add Parents",
-          enabled: isClass,
+          enabled: allClass,
           key: "P",
-          run: () => openTaxonomy(iri, "parents"),
+          run: () => suggest("parents"),
         },
         {
           label: "Define New",
+          enabled: !multiple,
           key: "N",
           run: () => openTaxonomy(iri, "define"),
         },
       ],
     },
     null,
-    { label: "Copy IRI", key: "C", run: () => window.axiom.copy(iri) },
+    {
+      label: multiple ? "Copy IRIs" : "Copy IRI",
+      key: "C",
+      run: () => window.axiom.copy(iris.join("\r\n")),
+    },
     null,
     {
       label: "Delete class...",
       key: "D",
       visible: isClass,
-      enabled: iri !== THING,
+      enabled: !multiple && iri !== THING,
       run: () => command("entity.delete"),
     },
   ];
