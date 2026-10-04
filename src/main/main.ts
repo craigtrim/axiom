@@ -1661,6 +1661,10 @@ app.whenReady().then(async () => {
       throw Error("Invalid clipboard data.");
     return clipboard.writeText(text);
   });
+  handle("editors:readClipboard", (event) => {
+    authorised(event);
+    return clipboard.readText();
+  });
   handle("quality:export", async (event, input) => {
     authorised(event);
     if (!input || !["json", "csv"].includes(input.format))

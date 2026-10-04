@@ -1,3 +1,4 @@
+import { registerEditorMenu } from "./editor-menu-keys";
 import { ErrorNotice } from "./ErrorNotice";
 import { ontologyLanguage } from "./ontology-language";
 import { PaneToolbar, PaneDetails } from "./AdaptivePane";
@@ -78,6 +79,7 @@ export function SourcePanel() {
           : "vs",
     });
     editor.current = instance;
+    const removeEditorMenu = registerEditorMenu(instance);
     const change = instance.onDidChangeModelContent(() => {
       if (!updating.current && current.current) {
         setError("");
@@ -116,6 +118,7 @@ export function SourcePanel() {
       commands();
       observer.disconnect();
       change.dispose();
+      removeEditorMenu();
       instance.dispose();
       model.dispose();
       editor.current = null;

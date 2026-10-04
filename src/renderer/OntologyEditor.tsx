@@ -1,3 +1,4 @@
+import { registerEditorMenu } from "./editor-menu-keys";
 import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
@@ -48,6 +49,7 @@ export default function OntologyEditor({
       padding: { top: 10, bottom: 10 },
     });
     editor.current = instance;
+    const removeEditorMenu = registerEditorMenu(instance);
     const listener = instance.onDidChangeModelContent(() => {
       if (!updating.current) current.current.change(instance.getValue());
     });
@@ -69,6 +71,7 @@ export default function OntologyEditor({
       commands();
       observer.disconnect();
       listener.dispose();
+      removeEditorMenu();
       instance.dispose();
       model.dispose();
       editor.current = null;

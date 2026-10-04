@@ -40,6 +40,7 @@ const bridge: AxiomBridge = {
   },
   maximizeWindow: (url) => invoke("pane:maximizeWindow", url),
   editors: {
+    readClipboard: () => invoke("editors:readClipboard"),
     load: () => invoke("editors:load"),
     dirty: (count) => ipcRenderer.send("editors:dirty", count),
     flushed: (error) => ipcRenderer.send("editors:flushed", error),

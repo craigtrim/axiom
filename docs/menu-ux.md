@@ -2,6 +2,12 @@
 
 Design review and implementation record, updated 30 September 2026. The source audit and original proposals below record the design rationale. The delivered behavior includes the approved Analyze, Find and Suggest grouping and instance-report shortcuts.
 
+## Editor context-menu access keys (4 October 2026)
+
+Monaco editor menus now show underlined, unique letter keys. Text Analysis uses F for Find, A for Add entity, T for Cut, C for Copy and P for Paste. Selected-text commands appear only with a selection. Query, ontology source, entity source and detached-window editor menus use the same adapter. Existing hierarchy, graph and tab menus retain their access keys. Plain letters or Alt+letter activate an enabled item; arrows, Enter and Escape retain menu navigation. Ctrl/Meta shortcuts and composition events are not treated as menu letters.
+
+The adapter observes Monaco's open shadow-root popups, suspends application accelerators while a popup is open, and delegates actions to Monaco's action handler. Paste reads plain text through the trusted desktop bridge and applies it to the owning Monaco editor for mouse, Enter and P activation, including detached panes that share the main renderer. Browser clipboard-read permission remains disabled. Replies are ignored if the editor, focus, selection, model version or read-only state changed while the read was pending.
+
 ## Delivered behavior
 
 File > Open contains Workspace... (Ctrl+O), Recent and Examples. Examples contains Pizza. Recent retains up to 12 successfully opened or saved workspace and ontology files across restarts, newest first. Reopening a file moves it to the top without adding a duplicate. Every entry shows its full absolute file path. Recent is disabled when empty. Recent-file clicks use the same unsaved-change handling and file validation as Workspace...; a failed or cancelled open does not add that file to the list.

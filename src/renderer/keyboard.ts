@@ -1,4 +1,5 @@
 import { commandById } from "../shared/commands";
+import { installEditorMenuKeys, editorMenuOpen } from "./editor-menu-keys";
 import {
   ShortcutResolver,
   eventStroke,
@@ -15,10 +16,12 @@ export function keyboardContext(doc: Document): KeyboardContext {
     text: !!el?.closest(
       "input,textarea,select,[contenteditable=true],.monaco-editor",
     ),
-    modal: !!doc.querySelector("dialog[open],[role=menu]"),
+    modal:
+      editorMenuOpen(doc) || !!doc.querySelector("dialog[open],[role=menu]"),
   };
 }
 export function installKeyboard(doc: Document) {
+  const removeEditorMenuKeys = installEditorMenuKeys(doc);
   const resolver = new ShortcutResolver(),
     win = doc.defaultView!;
   let chordTimer: ReturnType<typeof setTimeout> | undefined;
@@ -116,6 +119,7 @@ export function installKeyboard(doc: Document) {
   win.addEventListener("keydown", keydown, true);
   win.addEventListener("blur", clear);
   return () => {
+    removeEditorMenuKeys();
     clear();
     win.removeEventListener("keydown", keydown, true);
     win.removeEventListener("blur", clear);

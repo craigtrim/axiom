@@ -253,6 +253,7 @@ export interface AxiomBridge {
   };
   maximizeWindow(url: string): Promise<void>;
   editors: {
+    readClipboard(): Promise<string>;
     dirty(count: number): void;
     flushed(error?: string): void;
     load(): Promise<import("./editor-state").SavedEditorDrafts | undefined>;

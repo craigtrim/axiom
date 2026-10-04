@@ -1,3 +1,4 @@
+import { registerEditorMenu } from "./editor-menu-keys";
 import { ErrorNotice } from "./ErrorNotice";
 import { PaneToolbar, usePaneLayout } from "./AdaptivePane";
 import { queryResultId, queryTitle } from "../shared/query-history";
@@ -304,6 +305,7 @@ export function QueryPanel() {
       tabSize: 2,
     });
     editor.current = e;
+    const removeEditorMenu = registerEditorMenu(e);
     const change = e.onDidChangeModelContent(() => {
       if (activeId.current)
         editQuery(activeId.current, e.getValue(), e.saveViewState());
@@ -363,6 +365,7 @@ export function QueryPanel() {
       ro.disconnect();
       theme.disconnect();
       un();
+      removeEditorMenu();
       e.dispose();
       editor.current = null;
     };
