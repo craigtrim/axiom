@@ -91,6 +91,8 @@ export function readPreferences(input: unknown): Preferences {
     out["textanalysis.text"] = s["textanalysis.text"];
   if (s["textanalysis.entitiesView"] === true)
     out["textanalysis.entitiesView"] = true;
+  if (["text", "summary"].includes(s["textanalysis.view"] as string))
+    out["textanalysis.view"] = s["textanalysis.view"];
   if (typeof s["textanalysis.pane.open"] === "boolean")
     out["textanalysis.pane.open"] = s["textanalysis.pane.open"];
   if (number(s["textanalysis.pane.size"], 15, 70))

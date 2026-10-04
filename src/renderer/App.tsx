@@ -19,11 +19,19 @@ import {
   restoreTabState,
   notifyTabHistory,
 } from "./tab-history";
-import { emptyTabHistory, type SavedTab } from "../shared/tab-history";
+import {
+  emptyTabHistory,
+  entityTabName,
+  type SavedTab,
+} from "../shared/tab-history";
 import { ContextMenu } from "./ContextMenu";
 import { setState } from "./client";
 import type { Snapshot } from "../shared/protocol";
-import { syncTextAnalysisContext } from "./text-analysis-state";
+import {
+  syncTextAnalysisContext,
+  ensureEntityDraft,
+  textAnalysisSession,
+} from "./text-analysis-state";
 import { SparsityPanel } from "./SparsityPanel";
 import { QualityPanel } from "./QualityPanel";
 import { requestQualitySettings } from "./quality-view";
@@ -131,7 +139,7 @@ const names: Record<string, string> = {
   sparsity: "Sparsity",
   quality: "Ontology Quality",
   textanalysis: "Text Analysis",
-  textentities: "Text Entities",
+  textentities: "Add entity",
   provenance: "Filesystem provenance",
   source: "Source",
 };
@@ -254,6 +262,13 @@ export function restoreLayout(value: unknown): Model {
     const v = structuredClone(value) as IJsonModel;
     const migrate = (node: any) => {
       if (!node || typeof node !== "object") return;
+      if (node.component === "textentities") {
+        const metadata = node.config?.axiomTab;
+        if (typeof node.name === "string")
+          node.name = entityTabName(node.name, metadata?.named === true);
+        if (typeof metadata?.defaultName === "string")
+          metadata.defaultName = entityTabName(metadata.defaultName, false);
+      }
       if (node.component === "research") {
         node.component = "touchpoints";
         if (node.id === "research") node.id = "touchpoints";
@@ -322,26 +337,6 @@ export function restoreLayout(value: unknown): Model {
           }),
         );
       else model.doAction(Actions.deleteTab(n.getId()));
-    }
-    const textEditor = model.getNodeById("textanalysis");
-    if (
-      textEditor &&
-      preferences.panelState?.["textanalysis.entitiesView"] !== true
-    ) {
-      if (
-        !model.getNodeById("textentities") &&
-        preferences.panelState?.["textanalysis.pane.open"] !== false
-      )
-        model.doAction(
-          Actions.addTab(
-            tab("textentities"),
-            textEditor.getParent()!.getId(),
-            DockLocation.BOTTOM,
-            -1,
-            false,
-          ),
-        );
-      (preferences.panelState ??= {})["textanalysis.entitiesView"] = true;
     }
     return model;
   } catch {
@@ -695,7 +690,10 @@ export function App() {
         const target =
           recovery ??
           content?.querySelector<HTMLElement>(
-            id === "query" || id === "source" || id === "textanalysis"
+            id === "query" ||
+              id === "source" ||
+              (id === "textanalysis" &&
+                textAnalysisSession.getSnapshot().view === "text")
               ? ".monaco-editor textarea"
               : id === "graph" || id.startsWith("graph:")
                 ? "canvas"
@@ -944,9 +942,10 @@ export function App() {
       }
       if (id === "view.textanalysis") {
         show("textanalysis");
-        showTextEntities();
-      } else if (id === "view.textentities") showTextEntities(true);
-      else if (id.startsWith("view.")) show(id.slice(5));
+      } else if (id === "view.textentities") {
+        ensureEntityDraft();
+        showTextEntities(true);
+      } else if (id.startsWith("view.")) show(id.slice(5));
       if (id === "tools.quality") {
         // Tools opens the settings expanded; View keeps the pane's state (craigtrim/axiom#44).
         requestQualitySettings();
@@ -1366,7 +1365,7 @@ export function App() {
                   textentities: (
                     <Suspense
                       fallback={
-                        <div className="startup">Opening Text Entities...</div>
+                        <div className="startup">Opening Add entity...</div>
                       }
                     >
                       <TextEntitiesPanel />

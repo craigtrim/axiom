@@ -58,9 +58,11 @@ const panel = () =>
 const editor = () =>
   panel().getByRole("textbox", { name: "Text to analyze", exact: true });
 const entitiesPane = (target = page) =>
-  target.getByRole("region", { name: "Text Entities", exact: true });
+  target.getByRole("region", { name: "Add entity view", exact: true });
+const summary = () =>
+  page.locator('[data-panel="textanalysis"] .text-analysis-summary');
 const chip = (label: string) =>
-  entitiesPane()
+  summary()
     .locator(".text-analysis-chip")
     .filter({
       has: page.locator("span", { hasText: new RegExp("^" + label + "$") }),
@@ -115,8 +117,35 @@ async function launch() {
   }, file);
   await expect(page.locator(".docking-workspace")).toBeVisible();
 }
+async function showText() {
+  await menu("view.textanalysis");
+  await expect(panel()).toBeVisible();
+  const toggle = panel().getByRole("button", {
+    name: "View Text",
+    exact: true,
+  });
+  if (await toggle.isVisible()) await toggle.click();
+  await expect(editor()).toBeVisible();
+}
+async function showSummary() {
+  await menu("view.textanalysis");
+  await expect(panel()).toBeVisible();
+  const toggle = panel().getByRole("button", {
+    name: "View Summary",
+    exact: true,
+  });
+  if (await toggle.isVisible()) await toggle.click();
+  await expect(
+    panel().getByRole("region", { name: "Text Analysis summary", exact: true }),
+  ).toBeVisible();
+}
+async function selectSummaryEntity(label: string) {
+  await showSummary();
+  await expect(chip(label)).toBeVisible();
+  await chip(label).click();
+}
 async function enter(text: string) {
-  if (!(await editor().isVisible())) await menu("view.textanalysis");
+  if (!(await editor().isVisible())) await showText();
   await editor().focus();
   await page.keyboard.press("Control+A");
   if (text) await page.keyboard.insertText(text);
@@ -168,7 +197,7 @@ test("typing and pasting highlight original text automatically with accessible c
       .count(),
   ).toBe(0);
   await enter("Dog");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const text = "😀 Dog\ncanine and a big cat. Cat lives in London.";
   const oldClipboard = await app.evaluate(({ clipboard }) =>
     clipboard.readText(),
@@ -187,9 +216,9 @@ test("typing and pasting highlight original text automatically with accessible c
       oldClipboard,
     );
   }
-  await expect(chip("lion")).toBeVisible();
+  await expect(chip("lion")).toBeAttached();
   await expect(chip("dog")).toContainText("2");
-  await expect(chip("cat")).toBeVisible();
+  await expect(chip("cat")).toBeAttached();
   await expect(chip("Place")).toHaveCount(0);
   const colors = await Promise.all(
     [chip("dog"), chip("cat")].map((c) =>
@@ -213,7 +242,6 @@ test("typing and pasting highlight original text automatically with accessible c
   const audit = await new AxeBuilder({ page })
     .setLegacyMode(true)
     .include('[data-panel="textanalysis"]')
-    .include('[data-panel="textentities"]')
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
   expect(audit.violations).toEqual([]);
@@ -224,13 +252,31 @@ test("typing and pasting highlight original text automatically with accessible c
       await new AxeBuilder({ page })
         .setLegacyMode(true)
         .include('[data-panel="textanalysis"]')
-        .include('[data-panel="textentities"]')
         .withTags(["wcag2a", "wcag2aa"])
         .analyze()
     ).violations,
   ).toEqual([]);
+  for (const theme of ["light", "dark"]) {
+    await menu("theme." + theme);
+    await showSummary();
+    await expect(chip("dog")).toBeVisible();
+    await expect(chip("cat")).toBeVisible();
+    await expect(chip("lion")).toBeVisible();
+    await page.screenshot({
+      path: "artifacts/testing/text-summary-" + theme + ".png",
+    });
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .setLegacyMode(true)
+          .include('[data-panel="textanalysis"]')
+          .withTags(["wcag2a", "wcag2aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+  }
   await enter("unmatchedword");
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).toHaveCount(0);
@@ -240,7 +286,7 @@ test("typing and pasting highlight original text automatically with accessible c
 
 test("unsaved ontology edits reparse the same text and text survives restart", async () => {
   await enter("Dog and kitty");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await expect(chip("cat")).toHaveCount(0);
   await page.evaluate(async (base) => {
     const source = await window.axiom.request<
@@ -253,12 +299,12 @@ test("unsaved ontology edits reparse the same text and text survives restart", a
         `\n<${base}Cat> <http://www.w3.org/2004/02/skos/core#altLabel> "kitty" .`,
     });
   }, base);
-  await expect(chip("cat")).toBeVisible({ timeout: 10000 });
+  await expect(chip("cat")).toBeAttached({ timeout: 10000 });
   await app.close();
   await launch();
   await menu("view.textanalysis");
-  await expect(chip("cat")).toBeVisible({ timeout: 20000 });
-  await expect(chip("dog")).toBeVisible();
+  await expect(chip("cat")).toBeAttached({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached();
   await expect
     .poll(async () =>
       (await page.evaluate(() => window.axiom.preferences.load())).panelState?.[
@@ -276,12 +322,12 @@ test("switching ontologies clears old matches and a blank workspace has no infer
     BrowserWindow.getAllWindows()[0].setSize(1800, 1100),
   );
   await enter("Dog in London");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await menu("file.new");
   await expect(panel()).toHaveCount(0);
   await menu("view.textanalysis");
   await expect(editor()).toBeVisible();
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
   await expect(chip("Place")).toHaveCount(0);
   await expect(chip("dog")).toHaveCount(0);
   await menu("file.example");
@@ -296,7 +342,7 @@ test("switching ontologies clears old matches and a blank workspace has no infer
   await menu("view.textanalysis");
   await expect(editor()).toBeVisible();
   await enter("Margherita");
-  await expect(chip("margherita")).toBeVisible({ timeout: 30000 });
+  await expect(chip("margherita")).toBeAttached({ timeout: 30000 });
 });
 
 async function highlighted(label: string) {
@@ -310,7 +356,7 @@ async function highlighted(label: string) {
 
 test("background analysis retains moved highlights, status and legend until one replacement", async () => {
   await enter("canine");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const status = panel().locator(".text-analysis-status");
   await expect(status).toHaveText("1 match");
   await expect(status).toHaveAttribute("title", /Analysis took .* ms/);
@@ -324,7 +370,7 @@ test("background analysis retains moved highlights, status and legend until one 
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
   ).toBeEnabled();
-  await expect(chip("dog")).toBeVisible();
+  await expect(chip("dog")).toBeAttached();
   await expect(
     page.getByText("Analyzing text...", { exact: true }),
   ).toHaveCount(0);
@@ -341,13 +387,13 @@ test("background analysis retains moved highlights, status and legend until one 
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await releaseRequests(app);
   await menu("view.textanalysis");
-  await expect(chip("cat")).toBeVisible();
+  await expect(chip("cat")).toBeAttached();
   await expect(status).toHaveText("2 matches");
 });
 
 test("View in Graph waits for current text instead of using retained matches", async () => {
   await enter("canine");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const before = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
@@ -389,14 +435,14 @@ test("View in Graph waits for current text instead of using retained matches", a
 
 test("editing again cancels a queued graph action and deleted highlights cannot select old concepts", async () => {
   await enter("canine");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const before = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
   await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
   await enter("Cat");
   await waitForHeld(app);
-  await chip("dog").click();
+  await selectSummaryEntity("dog");
   expect(
     (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
       .selected,
@@ -406,7 +452,7 @@ test("editing again cancels a queued graph action and deleted highlights cannot 
     .click();
   await enter("Lion");
   await releaseRequests(app);
-  await expect(chip("lion")).toBeVisible();
+  await expect(chip("lion")).toBeAttached();
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
   ).toBeEnabled();
@@ -440,7 +486,9 @@ test("a seeAlso synonym added beside an empty Details row matches immediately, c
     "data-entity-iri",
     base + "Phlebotomy",
   );
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  await details()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
   const synonym = details()
     .locator(
       'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
@@ -448,7 +496,7 @@ test("a seeAlso synonym added beside an empty Details row matches immediately, c
     .getByRole("combobox", { name: /Value/ });
   await synonym.fill("phleb");
   await synonym.press("Tab");
-  await expect(chip("phlebotomy")).toBeVisible({ timeout: 20000 });
+  await expect(chip("phlebotomy")).toBeAttached({ timeout: 20000 });
   await expect(details().locator('tr[data-predicate=""]')).toHaveCount(1);
   await expect(details().locator(".entity-save-status")).toHaveText("Saved");
   const savedSynonyms = () =>
@@ -465,11 +513,11 @@ test("a seeAlso synonym added beside an empty Details row matches immediately, c
   await expect(chip("phlebotomy")).toHaveCount(0);
   await expect(synonym).toHaveValue("");
   await menu("edit.redo");
-  await expect(chip("phlebotomy")).toBeVisible();
+  await expect(chip("phlebotomy")).toBeAttached();
   await expect(synonym).toHaveValue("phleb");
   await enter("phleb Phleb PHLEB");
   await expect(chip("phlebotomy")).toContainText("3");
-  await chip("phlebotomy").click();
+  await selectSummaryEntity("phlebotomy");
   await expect(details()).toHaveAttribute(
     "data-entity-iri",
     base + "Phlebotomy",
@@ -502,20 +550,20 @@ test("dotted course synonyms highlight the full phrase and open the correct Deta
     "U.S.\nHistory\nto\n1865",
   ]) {
     await enter("😀 " + phrase + " ~~");
-    await expect(chip("course1865")).toBeVisible({ timeout: 30000 });
+    await expect(chip("course1865")).toBeAttached({ timeout: 30000 });
     await expect
       .poll(() => highlighted("course1865"))
       .toBe(phrase.replace(/\n/g, ""));
     await expect(chip("history")).toHaveCount(0);
   }
-  await chip("course1865").click();
+  await selectSummaryEntity("course1865");
   await expect(details()).toHaveAttribute(
     "data-entity-iri",
     base + "Course1865",
   );
   await enter("U.S. History to 1866");
   await expect(chip("course1865")).toHaveCount(0);
-  await expect(chip("history")).toBeVisible();
+  await expect(chip("history")).toBeAttached();
 });
 
 test("punctuated synonyms highlight whole phrases and navigate to their ontology entities", async () => {
@@ -554,20 +602,18 @@ test("punctuated synonyms highlight whole phrases and navigate to their ontology
       .trim();
     for (const surface of [phrase, spaced]) {
       await enter(`😀 ${surface} ~~`);
-      await expect(chip(canonical)).toBeVisible({ timeout: 30000 });
+      await expect(chip(canonical)).toBeAttached({ timeout: 30000 });
       await expect.poll(() => highlighted(canonical)).toBe(surface);
-      await expect(entitiesPane().locator(".text-analysis-chip")).toHaveCount(
-        1,
-      );
+      await expect(summary().locator(".text-analysis-chip")).toHaveCount(1);
     }
-    await chip(canonical).click();
+    await selectSummaryEntity(canonical);
     await expect(details()).toHaveAttribute(
       "data-entity-iri",
       base + `Punctuated${index}`,
     );
   }
   await enter("PE/PE");
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
 });
 
 test("text ending in an abbreviation or contraction keeps its highlights and curly apostrophes match", async () => {
@@ -587,14 +633,14 @@ test("text ending in an abbreviation or contraction keeps its highlights and cur
     "😀 Dog and a big cat, I can't",
   ]) {
     await enter(text);
-    await expect(chip("lion")).toBeVisible({ timeout: 30000 });
+    await expect(chip("lion")).toBeAttached({ timeout: 30000 });
     await expect.poll(() => highlighted("dog")).toBe("Dog");
     await expect.poll(() => highlighted("lion")).toBe("big cat");
   }
   await enter("Driver’s Ed starts after the dept.");
-  await expect(chip("driversed")).toBeVisible({ timeout: 30000 });
+  await expect(chip("driversed")).toBeAttached({ timeout: 30000 });
   await expect.poll(() => highlighted("driversed")).toBe("Driver’s Ed");
-  await chip("driversed").click();
+  await selectSummaryEntity("driversed");
   await expect(details()).toHaveAttribute(
     "data-entity-iri",
     base + "DriversEd",
@@ -608,18 +654,18 @@ test("plus spans highlight intervening words and stop at the reference distance 
     "alpha blah blah blah beta",
   ]) {
     await enter(text);
-    await expect(chip("pair")).toBeVisible({ timeout: 20000 });
+    await expect(chip("pair")).toBeAttached({ timeout: 20000 });
     await expect.poll(() => highlighted("pair")).toBe(text);
   }
   await enter("alpha blah blah blah blah beta");
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
   await expect(chip("pair")).toHaveCount(0);
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).toHaveCount(0);
 
   await enter("alpha blah gamma");
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
   await page.evaluate(async () => {
     const source = await window.axiom.request<
       import("../../src/shared/source").SourceDocument
@@ -629,14 +675,14 @@ test("plus spans highlight intervening words and stop at the reference distance 
       text: source.text.replace('"alpha+beta"', '"alpha+gamma"'),
     });
   });
-  await expect(chip("pair")).toBeVisible();
+  await expect(chip("pair")).toBeAttached();
   await expect.poll(() => highlighted("pair")).toBe("alpha blah gamma");
 });
 
 test("nested plus spans select the complete original text across line breaks and emoji", async () => {
   const span = "kidney injury\nblah acute";
   await enter("😀 " + span + ".");
-  await expect(chip("condition")).toBeVisible({ timeout: 20000 });
+  await expect(chip("condition")).toBeAttached({ timeout: 20000 });
   await expect(chip("renal_trauma")).toHaveCount(0);
   await expect(chip("acute")).toHaveCount(0);
   await expect
@@ -644,7 +690,7 @@ test("nested plus spans select the complete original text across line breaks and
     .toBe(span.replace(/\n/g, ""));
   const clipboard = await app.evaluate(({ clipboard }) => clipboard.readText());
   try {
-    await chip("condition").click();
+    await selectSummaryEntity("condition");
     await expect(details()).toHaveAttribute(
       "data-entity-iri",
       base + "Condition",
@@ -673,7 +719,7 @@ const details = (target = page) =>
 const detailsTab = (target = page) =>
   target.getByRole("tab", { name: /^Details(?:_\d+)?$/, exact: true });
 async function clickHighlight(label: string, occurrence = 0) {
-  if (!(await editor().isVisible())) await menu("view.textanalysis");
+  if (!(await editor().isVisible())) await showText();
   const className = (await chip(label).getAttribute("class"))!.match(
     /text-entity-\d+/,
   )![0];
@@ -682,14 +728,11 @@ async function clickHighlight(label: string, occurrence = 0) {
 
 test("clicking a synonym reuses the editable Details tab for successive entities", async () => {
   await enter("canine and Cat");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await clickHighlight("dog");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await expect(detailsTab()).toHaveCount(1);
-  await expect(entitiesPane().getByRole("tab")).toHaveText([
-    "Summary",
-    "Add entity",
-  ]);
+  await expect(entitiesPane()).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Span details" })).toHaveCount(
     0,
   );
@@ -734,7 +777,7 @@ test("clicking a synonym reuses the editable Details tab for successive entities
   await clickHighlight("cat");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Cat");
   await expect(detailsTab()).toHaveCount(1);
-  await chip("dog").click();
+  await selectSummaryEntity("dog");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await expect(
     details().getByRole("textbox", { name: "Entity comment", exact: true }),
@@ -749,7 +792,7 @@ test("clicking a synonym reuses the editable Details tab for successive entities
 
 test("keyboard ontology matches reuse Details and unmatched names have no inferred annotations", async () => {
   await enter("alpha blah beta in London with Dog");
-  await expect(chip("pair")).toBeVisible({ timeout: 20000 });
+  await expect(chip("pair")).toBeAttached({ timeout: 20000 });
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Alt+Enter");
@@ -774,7 +817,7 @@ test("keyboard ontology matches reuse Details and unmatched names have no inferr
   await page.evaluate(() => window.axiom.request("select", { iri: null }));
   await expect(details()).toContainText("Select a node or edge");
   await enter("London");
-  await expect(entitiesPane()).toContainText("No entities found.");
+  await expect(summary()).toContainText("No entities found.");
   await expect(chip("Place")).toHaveCount(0);
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
@@ -794,7 +837,7 @@ test("shared canonical names offer their actual ontology entries in the existing
     });
   }, base);
   await enter("canine");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await clickHighlight("dog");
   await expect(details()).toContainText("shared by 2 ontology entries");
   await expect(
@@ -815,8 +858,8 @@ test("shared canonical names offer their actual ontology entries in the existing
 
 test("text entity clicks reuse a detached Details view", async () => {
   await enter("canine and Cat");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
-  await chip("dog").click();
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await selectSummaryEntity("dog");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await menu("view.details");
   const popup = app.waitForEvent("window");
@@ -850,7 +893,7 @@ test("text entity clicks reuse a detached Details view", async () => {
 
 test("View in Graph opens unique matches and every parent path in a new graph and preserves the old graph", async () => {
   await enter("canine and canine, big cat and alpha blah beta");
-  await expect(chip("pair")).toBeVisible({ timeout: 20000 });
+  await expect(chip("pair")).toBeAttached({ timeout: 20000 });
   const before = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
@@ -926,7 +969,7 @@ test("stale graph requests leave existing graphs unchanged", async () => {
 
 test("gapped matches open the canonical entity and Details follows ontology updates", async () => {
   await enter("alpha blah beta");
-  await expect(chip("pair")).toBeVisible({ timeout: 20000 });
+  await expect(chip("pair")).toBeAttached({ timeout: 20000 });
   await clickHighlight("pair");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Pair");
   await page.evaluate(async (base) => {
@@ -944,7 +987,7 @@ test("gapped matches open the canonical entity and Details follows ontology upda
     details().getByRole("textbox", { name: "Entity comment", exact: true }),
   ).toHaveValue("Updated span description");
   await enter("canine plainword");
-  await expect(chip("dog")).toBeVisible();
+  await expect(chip("dog")).toBeAttached();
   await panel()
     .locator(".view-lines span")
     .filter({ hasText: "plainword" })
@@ -975,19 +1018,19 @@ test("long pasted text retains every match as its beginning and end change", asy
   ).toBeEnabled();
 });
 
-test("Text Entities opens alongside the editor and docks, resizes, closes and restores independently", async () => {
-  await expect(entitiesPane()).toBeVisible();
+test("Add entity opens on demand and docks, resizes, closes and restores independently", async () => {
+  await expect(entitiesPane()).toHaveCount(0);
   await enter("canine and Cat");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const className = (await chip("dog").getAttribute("class"))!.match(
     /text-entity-\d+/,
   )![0];
+  await menu("view.textentities");
   expect(
     await entitiesPane().evaluate(
       (el) => !!el.closest('[data-panel="textanalysis"]'),
     ),
   ).toBe(false);
-  await menu("view.textentities");
   await menu("pane.move.right");
   const before = (await entitiesPane().boundingBox())!;
   await menu("pane.wider");
@@ -1011,9 +1054,10 @@ test("Text Entities opens alongside the editor and docks, resizes, closes and re
   await expect(editor()).toBeVisible();
   await expect(entitiesPane()).toHaveCount(0);
   await panel()
-    .getByRole("button", { name: "View Entities", exact: true })
+    .getByRole("button", { name: "View Summary", exact: true })
     .click();
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await showText();
   await expect.poll(() => highlighted("dog")).toBe("canine");
 });
 
@@ -1023,10 +1067,10 @@ async function selectForCreation(text: string) {
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
   await expect(
-    panel().getByRole("button", { name: "Add selected text", exact: true }),
+    panel().getByRole("button", { name: "Add entity", exact: true }),
   ).toBeEnabled();
   await panel()
-    .getByRole("button", { name: "Add selected text", exact: true })
+    .getByRole("button", { name: "Add entity", exact: true })
     .click();
   return entitiesPane().getByRole("region", {
     name: "Add entity",
@@ -1336,13 +1380,13 @@ test("a selected phrase becomes a class under Systems and immediately gains its 
   const canonical = added.iri
     .slice(added.iri.lastIndexOf("#") + 1)
     .toLowerCase();
-  await expect(chip(canonical)).toBeVisible({ timeout: 20000 });
+  await expect(chip(canonical)).toBeAttached({ timeout: 20000 });
   await expect.poll(() => highlighted(canonical)).toBe(phrase);
   await page.evaluate(() => window.axiom.request("undo"));
   await expect(entitiesPane().locator(".text-analysis-created")).toHaveCount(0);
-  await expect(chip("systems")).toBeVisible({ timeout: 20000 });
+  await expect(chip("systems")).toBeAttached({ timeout: 20000 });
   await page.evaluate(() => window.axiom.request("redo"));
-  await expect(chip(canonical)).toBeVisible({ timeout: 20000 });
+  await expect(chip(canonical)).toBeAttached({ timeout: 20000 });
   await selectForCreation(phrase);
   await expect(form).toContainText("already exists in this ontology");
   await expect(
@@ -1852,7 +1896,7 @@ for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
     await page.keyboard.press("Control+Shift+End");
     if (route === "toolbar") {
       await panel()
-        .getByRole("button", { name: "Add selected text", exact: true })
+        .getByRole("button", { name: "Add entity", exact: true })
         .click();
     } else if (route === "Alt+Enter") {
       await page.keyboard.press("Alt+Enter");
@@ -1860,7 +1904,7 @@ for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
       await page.keyboard.press("Shift+F10");
       await expect(
         page.getByRole("menuitem", {
-          name: "Add selected text to taxonomy",
+          name: "Add entity",
           exact: true,
         }),
       ).toBeVisible();
@@ -1996,7 +2040,7 @@ test("selected text opens the add pane from Alt+Enter and the editor context men
   await page.keyboard.press("Shift+F10");
   await expect(
     page.getByRole("menuitem", {
-      name: "Add selected text to taxonomy",
+      name: "Add entity",
       exact: true,
     }),
   ).toBeVisible();
@@ -2059,11 +2103,17 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await find.getByRole("button", { name: "More", exact: true }).click();
   await find.getByRole("button", { name: "Clear", exact: true }).click();
   await page.keyboard.press("Escape");
-  await find.getByRole("button", { name: /^Options:/ }).click();
+  if (await find.getByRole("button", { name: /^Options:/ }).isVisible())
+    await find.getByRole("button", { name: /^Options:/ }).click();
   await find.getByRole("checkbox", { name: "Classes", exact: true }).uncheck();
-  await find
-    .getByRole("button", { name: "Close Options", exact: true })
-    .click();
+  if (
+    await find
+      .getByRole("button", { name: "Close Options", exact: true })
+      .isVisible()
+  )
+    await find
+      .getByRole("button", { name: "Close Options", exact: true })
+      .click();
   await findSelection("  Dog  ");
   await find.getByRole("button", { name: "More", exact: true }).click();
   await expect(
@@ -2086,7 +2136,8 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(
     find.getByRole("combobox", { name: "Sort results" }),
   ).toHaveValue("relevance");
-  await find.getByRole("button", { name: /^Options:/ }).click();
+  if (await find.getByRole("button", { name: /^Options:/ }).isVisible())
+    await find.getByRole("button", { name: /^Options:/ }).click();
   await expect(
     find.getByRole("checkbox", { name: "Classes", exact: true }),
   ).toBeChecked();
@@ -2096,9 +2147,14 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(
     find.getByRole("checkbox", { name: "IRI", exact: true }),
   ).toBeChecked();
-  await find
-    .getByRole("button", { name: "Close Options", exact: true })
-    .click();
+  if (
+    await find
+      .getByRole("button", { name: "Close Options", exact: true })
+      .isVisible()
+  )
+    await find
+      .getByRole("button", { name: "Close Options", exact: true })
+      .click();
   await find
     .getByRole("button", { name: "Recent searches", exact: true })
     .click();
@@ -2118,37 +2174,28 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await page.keyboard.press("Escape");
 });
 
-test("the entity summary survives closing the editor and reopening either view", async () => {
+test("Summary belongs to Text Analysis and survives closing, reopening and restarting", async () => {
   await enter("canine");
+  await showSummary();
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
-  await editor().focus();
+  await expect(editor()).toHaveCount(0);
+  await expect(entitiesPane()).toHaveCount(0);
   await menu("pane.close");
   await expect(panel()).toHaveCount(0);
-  await expect(chip("dog")).toBeVisible();
-  await chip("dog").click();
-  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await menu("view.textanalysis");
-  await expect(editor()).toBeVisible();
-  await expect(editor()).toBeFocused();
-  await editor().focus();
-  await menu("pane.close");
-  await entitiesPane()
-    .getByRole("tab", { name: "Summary", exact: true })
-    .click();
+  await expect(chip("dog")).toBeVisible();
   await app.close();
   await launch();
-  await expect(panel()).toHaveCount(0);
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
-  await entitiesPane()
-    .getByRole("button", { name: "View Text", exact: true })
-    .click();
-  await expect(editor()).toBeVisible();
+  await selectSummaryEntity("dog");
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
+  await showText();
   await expect.poll(() => highlighted("dog")).toBe("canine");
 });
 
-test("a detached Text Entities view stays synchronized and can add a selected class", async () => {
+test("a detached Add entity view retains nested drafts and can add a selected class", async () => {
   await enter("canine");
-  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const originalForm = await selectForCreation("Draft Systems");
   await originalForm
     .getByRole("textbox", { name: "Description", exact: true })
@@ -2163,7 +2210,10 @@ test("a detached Text Entities view stays synchronized and can add a selected cl
   const detached = await popup;
   detached.on("pageerror", (error) => errors.push(error.message));
   await expect(
-    detached.getByRole("tabpanel", { name: "Text Entities", exact: true }),
+    detached.getByRole("tabpanel", {
+      name: /^Add entity(?:_\d+)?$/,
+      exact: true,
+    }),
   ).toBeVisible();
   const recovery = detached.getByRole("button", {
     name: "Maximize pane",
@@ -2197,16 +2247,12 @@ test("a detached Text Entities view stays synchronized and can add a selected cl
   ).toHaveValue("Retain this description when docking changes.");
   await retained.getByRole("button", { name: "Cancel", exact: true }).click();
   await enter("Electronic Surveillance Systems");
-  await expect(
-    entitiesPane(detached)
-      .locator(".text-analysis-chip")
-      .filter({ hasText: "systems" }),
-  ).toBeVisible({ timeout: 20000 });
+  await expect(chip("systems")).toBeAttached({ timeout: 20000 });
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
   await panel()
-    .getByRole("button", { name: "Add selected text", exact: true })
+    .getByRole("button", { name: "Add entity", exact: true })
     .click();
   const form = entitiesPane(detached).getByRole("region", {
     name: "Add entity",
@@ -2247,4 +2293,292 @@ test("a detached Text Entities view stays synchronized and can add a selected cl
   await expect(entitiesPane()).toContainText(
     "Added Electronic Surveillance Systems under Systems.",
   );
+});
+
+test("Summary toggling preserves the editor model, selection, undo and nested entity drafts", async () => {
+  const form = await selectForCreation("Draft Systems");
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Keep this description");
+  await createParent(form, "Draft parent");
+  await form
+    .getByRole("textbox", { name: "Description", exact: true })
+    .fill("Keep nested description");
+  await showSummary();
+  await expect(editor()).toHaveCount(0);
+  await expect(
+    panel().getByRole("region", { name: "Text Analysis summary" }),
+  ).toBeVisible();
+  await expect(chip("systems")).toBeVisible({ timeout: 20000 });
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Draft parent");
+  await page.screenshot({
+    path: "artifacts/testing/text-summary-and-add-entity.png",
+  });
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .setLegacyMode(true)
+        .include('[data-panel="textanalysis"]')
+        .withTags(["wcag2a", "wcag2aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await showText();
+  await expect(
+    form.getByRole("textbox", { name: "Description", exact: true }),
+  ).toHaveValue("Keep nested description");
+  await form
+    .getByRole("button", { name: "Discard parent", exact: true })
+    .click();
+  await expect(
+    form.getByRole("textbox", { name: "Description", exact: true }),
+  ).toHaveValue("Keep this description");
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  // Replacing the still-selected phrase verifies that selection survived both presentations.
+  await editor().focus();
+  await page.keyboard.insertText("Replacement");
+  await expect(panel().locator(".view-lines")).toHaveText("Replacement");
+  await page.keyboard.press("Control+Z");
+  await expect(panel().locator(".view-lines")).toHaveText("Draft Systems");
+});
+
+test("View Add entity starts a blank standalone form without changing analysis text", async () => {
+  await enter("canine");
+  await showSummary();
+  const before = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
+  await menu("view.textentities");
+  const form = entitiesPane().getByRole("region", {
+    name: "Add entity",
+    exact: true,
+  });
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("");
+  await expect(
+    form.getByRole("button", { name: "Add class", exact: true }),
+  ).toBeDisabled();
+  await expect(entitiesPane().getByRole("tab")).toHaveCount(0);
+  await expect(chip("dog")).toBeVisible({ timeout: 20000 });
+  await form
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Uncommitted class");
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor()).toBeVisible();
+  await expect(panel().locator(".view-lines")).toHaveText("canine");
+  expect(
+    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+      .version,
+  ).toBe(before.version);
+});
+
+test("editor right-click letters invoke Find and Add entity with visible unique mnemonics", async () => {
+  await enter("Fresh Systems");
+  await page.keyboard.press("Control+A");
+  await panel()
+    .locator(".view-line")
+    .first()
+    .click({ button: "right", position: { x: 25, y: 10 } });
+  const popup = page.locator(".monaco-menu [role=menu]");
+  await expect(popup).toBeVisible();
+  const items = popup.locator("[data-menu-key]");
+  await expect(items).toHaveCount(5);
+  expect(
+    await items.evaluateAll((items) =>
+      items.map((item) => item.getAttribute("data-menu-key")),
+    ),
+  ).toEqual(["T", "C", "F", "P", "A"]);
+  await expect(popup.locator("u")).toHaveText(["t", "C", "F", "P", "A"]);
+  await page.screenshot({
+    path: "artifacts/testing/text-editor-menu-keys.png",
+  });
+  await page.keyboard.press("f");
+  await expect(popup).toHaveCount(0);
+  await expect(
+    page.getByRole("searchbox", { name: "Search the ontology" }),
+  ).toHaveValue("Fresh Systems");
+  await showText();
+  await editor().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.keyboard.press("a");
+  const form = entitiesPane().getByRole("region", {
+    name: "Add entity",
+    exact: true,
+  });
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Fresh Systems");
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await editor().focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Shift+F10");
+  await expect(popup.locator('[data-menu-key="A"]')).toHaveCount(0);
+  await expect(popup.locator('[data-menu-key="F"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(editor()).toBeFocused();
+});
+
+test("editor menu copy, cut and paste letters execute native editing commands", async () => {
+  const oldClipboard = await app.evaluate(({ clipboard }) =>
+    clipboard.readText(),
+  );
+  try {
+    await enter("Original phrase");
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Shift+F10");
+    await page.keyboard.press("c");
+    await expect
+      .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+      .toBe("Original phrase");
+    await editor().focus();
+    await page.keyboard.press("Shift+F10");
+    await page.keyboard.press("t");
+    await expect(panel().locator(".view-lines")).toHaveText("");
+    await editor().focus();
+    await page.keyboard.press("Shift+F10");
+    await page.keyboard.press("p");
+    await expect(panel().locator(".view-lines")).toHaveText("Original phrase");
+    for (const activation of ["enter", "mouse"]) {
+      await editor().focus();
+      await page.keyboard.press("Control+A");
+      await page.keyboard.press("Backspace");
+      await page.keyboard.press("Shift+F10");
+      const paste = page.getByRole("menuitem", { name: "Paste", exact: true });
+      if (activation === "enter") {
+        await paste.focus();
+        await page.keyboard.press("Enter");
+      } else await paste.click();
+      await expect(panel().locator(".view-lines")).toHaveText(
+        "Original phrase",
+      );
+    }
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.type("f");
+    await expect(panel().locator(".view-lines")).toHaveText("Original phrasef");
+  } finally {
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.writeText(value),
+      oldClipboard,
+    );
+  }
+});
+
+for (const [commandId, label] of [
+  ["view.query", "SPARQL query editor"],
+  ["view.source", "Ontology source"],
+]) {
+  test(`letter access keys work in the ${label} context menu`, async () => {
+    await menu(commandId);
+    const input = page.getByRole("textbox", { name: label, exact: true });
+    await expect(input).toBeVisible();
+    await input.focus();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Shift+F10");
+    const popup = page.locator(".monaco-menu [role=menu]");
+    await expect(popup.locator('[data-menu-key="C"]')).toBeVisible();
+    const keys = await popup
+      .locator("[data-menu-key]")
+      .evaluateAll((items) =>
+        items.map((item) => item.getAttribute("data-menu-key")),
+      );
+    expect(new Set(keys).size).toBe(keys.length);
+    await expect(popup.locator("u")).toHaveCount(keys.length);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Escape");
+    await expect(input).toBeFocused();
+    const before = await app.evaluate(({ clipboard }) => clipboard.readText());
+    try {
+      await app.evaluate(({ clipboard }) =>
+        clipboard.writeText("menu sentinel"),
+      );
+      await page.keyboard.press("Shift+F10");
+      await page.keyboard.press("c");
+      await expect(popup).toHaveCount(0);
+      await expect
+        .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .not.toBe("menu sentinel");
+    } finally {
+      await app.evaluate(
+        ({ clipboard }, value) => clipboard.writeText(value),
+        before,
+      );
+    }
+  });
+}
+
+test("letter access keys also work in the entity source editor", async () => {
+  await enter("canine");
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await selectSummaryEntity("dog");
+  await details().getByText("Source", { exact: true }).click();
+  const input = details().getByRole("textbox", {
+    name: "Entity source",
+    exact: true,
+  });
+  await input.focus();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.press("Shift+F10");
+  const popup = page.locator(".monaco-menu [role=menu]");
+  await expect(popup.locator('[data-menu-key="C"]')).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(input).toBeFocused();
+});
+
+test("a detached Text Analysis switches Summary and handles context menu letters", async () => {
+  await enter("Fresh systems");
+  await showSummary();
+  await expect(chip("systems")).toBeVisible({ timeout: 20000 });
+  const opening = app.waitForEvent("window");
+  await menu("pane.detach");
+  const detached = await opening;
+  detached.on("pageerror", (error) => errors.push(error.message));
+  const content = detached.getByRole("region", {
+    name: "Text Analysis",
+    exact: true,
+  });
+  await expect(content.locator(".text-analysis-chip")).toBeVisible();
+  await content.getByRole("button", { name: "View Text", exact: true }).click();
+  const input = content.getByRole("textbox", {
+    name: "Text to analyze",
+    exact: true,
+  });
+  await input.focus();
+  await content
+    .locator(".view-line")
+    .first()
+    .dblclick({ position: { x: 15, y: 10 } });
+  await expect(
+    content.getByRole("button", { name: "Add entity", exact: true }),
+  ).toBeEnabled();
+  await detached.keyboard.press("Shift+F10");
+  await expect(
+    detached.locator('.monaco-menu [data-menu-key="F"]'),
+  ).toBeVisible();
+  await detached.keyboard.press("f");
+  await expect(
+    page.getByRole("searchbox", { name: "Search the ontology" }),
+  ).toHaveValue("Fresh");
+  const before = await app.evaluate(({ clipboard }) => clipboard.readText());
+  try {
+    await app.evaluate(({ clipboard }) => clipboard.writeText("Changed"));
+    await content
+      .locator(".view-line")
+      .first()
+      .dblclick({ position: { x: 15, y: 10 } });
+    await detached.keyboard.press("Shift+F10");
+    await detached.keyboard.press("p");
+    await expect(content.locator(".view-lines")).toHaveText("Changed systems");
+  } finally {
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.writeText(value),
+      before,
+    );
+  }
+  await content
+    .getByRole("button", { name: "View Summary", exact: true })
+    .click();
+  await expect(content.locator(".text-analysis-chip")).toBeVisible();
 });

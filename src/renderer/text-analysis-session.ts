@@ -36,6 +36,7 @@ export interface TextAnalysisSessionState {
   input: TextAnalysisInput;
   analysis: LiveAnalysisState;
   mode: "summary" | "add";
+  view: "text" | "summary";
   details?: { entity: TextEntity; result: TextAnalysisResult };
   creation?: {
     phrase: string;
@@ -51,6 +52,7 @@ export class TextAnalysisSession {
     input: { text: "", datasetEpoch: -1, version: -1 },
     analysis: { status: "idle" },
     mode: "summary",
+    view: "text",
   };
   private listeners = new Set<() => void>();
   private live: LiveAnalysis;
@@ -153,6 +155,9 @@ export class TextAnalysisSession {
   setMode(mode: TextAnalysisSessionState["mode"]) {
     if (mode === "add" && !this.value.creation) return;
     this.publish({ mode });
+  }
+  setView(view: TextAnalysisSessionState["view"]) {
+    if (view !== this.value.view) this.publish({ view });
   }
   summary() {
     this.publish({ mode: "summary", creation: undefined });

@@ -129,7 +129,7 @@ export const menuTree: MenuDefinition[] = [
     c("view.sparsity", "Sparsity", "View"),
     c("view.quality", "Ontology Quality", "View"),
     c("view.textanalysis", "Text Analysis", "View"),
-    c("view.textentities", "Text Entities", "View"),
+    c("view.textentities", "Add entity", "View"),
     c("view.taxonomy", "Suggestions", "View"),
     c("view.errorlog", "Error log", "View"),
     c("layout.reset", "Reset pane layout", "View"),

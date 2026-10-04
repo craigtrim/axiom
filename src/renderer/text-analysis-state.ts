@@ -19,12 +19,46 @@ export const textAnalysisSession = new TextAnalysisSession((input) =>
   window.axiom.textAnalysis.parse(input),
 );
 let initialized = false;
+function initialize() {
+  if (initialized || !state) return;
+  initialized = true;
+  textAnalysisSession.setView(
+    preferences.panelState?.["textanalysis.view"] === "summary"
+      ? "summary"
+      : "text",
+  );
+  textAnalysisSession.update({
+    text: String(preferences.panelState?.["textanalysis.text"] ?? ""),
+    datasetEpoch: state.datasetEpoch,
+    version: state.version,
+  });
+}
+export function ensureEntityDraft() {
+  if (!state) return;
+  initialize();
+  textAnalysisSession.update({
+    text: textAnalysisSession.getSnapshot().input.text,
+    datasetEpoch: state.datasetEpoch,
+    version: state.version,
+  });
+  if (!textAnalysisSession.getSnapshot().creation)
+    textAnalysisSession.openDraft({
+      label: "",
+      comment: "",
+      parents: [],
+      manualParents: false,
+    });
+}
+export function setTextAnalysisView(view: "text" | "summary") {
+  textAnalysisSession.setView(view);
+  savePanel("textanalysis.view", view, false);
+}
 export function openClassDraft(
   draft: TextEntityClassDraft,
   parentLabel?: string,
 ) {
   if (!state) return;
-  initialized = true;
+  initialize();
   textAnalysisSession.update({
     text: textAnalysisSession.getSnapshot().input.text,
     datasetEpoch: state.datasetEpoch,
@@ -50,15 +84,7 @@ export function useTextAnalysis() {
     textAnalysisSession.getSnapshot,
   );
   useEffect(() => {
-    if (!initialized) {
-      initialized = true;
-      if (state)
-        textAnalysisSession.update({
-          text: String(preferences.panelState?.["textanalysis.text"] ?? ""),
-          datasetEpoch: state.datasetEpoch,
-          version: state.version,
-        });
-    }
+    initialize();
     syncTextAnalysisContext();
   }, [snapshot.datasetEpoch, snapshot.version]);
   const current =
@@ -160,6 +186,7 @@ export function focusAnalysisText() {
   editor?.focus();
 }
 onCommand((id) => {
+  if (id === "textanalysis.reveal") setTextAnalysisView("text");
   if (id === "entity.edit") {
     ++inspectionTicket;
     textAnalysisSession.clearDetails();
@@ -168,6 +195,11 @@ onCommand((id) => {
   if (id !== "textanalysis.reset") return;
   ++inspectionTicket;
   reveal = undefined;
+  textAnalysisSession.setView(
+    preferences.panelState?.["textanalysis.view"] === "summary"
+      ? "summary"
+      : "text",
+  );
   if (initialized && state)
     textAnalysisSession.reset({
       text: String(preferences.panelState?.["textanalysis.text"] ?? ""),

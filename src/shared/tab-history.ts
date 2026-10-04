@@ -12,7 +12,7 @@ export const tabTypes: Record<string, string> = {
   sparsity: "Sparsity",
   quality: "Ontology Quality",
   textanalysis: "Text Analysis",
-  textentities: "Text Entities",
+  textentities: "Add entity",
   source: "Source",
   provenance: "Filesystem provenance",
   errorlog: "Error log",
@@ -42,6 +42,11 @@ export const emptyTabHistory = (): TabHistory => ({
 });
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
+export function entityTabName(name: string, named: boolean) {
+  return named
+    ? name
+    : name.replace(/^Text Entities(?=(_\d+)?$)/, "Add entity");
+}
 export function readTabHistory(value: unknown): TabHistory {
   if (value === undefined) return emptyTabHistory();
   if (
@@ -87,11 +92,25 @@ export function readTabHistory(value: unknown): TabHistory {
     return {
       id: v.id,
       type: v.type,
-      name: v.name,
+      name: v.type === "textentities" ? entityTabName(v.name, v.named) : v.name,
       named: v.named,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt,
-      config: v.config,
+      config:
+        v.type === "textentities" &&
+        object(v.config.axiomTab) &&
+        typeof v.config.axiomTab.defaultName === "string"
+          ? {
+              ...v.config,
+              axiomTab: {
+                ...v.config.axiomTab,
+                defaultName: entityTabName(
+                  v.config.axiomTab.defaultName,
+                  false,
+                ),
+              },
+            }
+          : v.config,
       panelState: v.panelState,
       selected: v.selected as string | null | undefined,
     };

@@ -44,6 +44,92 @@ async function ready(session: TextAnalysisSession, args = input()) {
   return analysis.result;
 }
 describe("shared Text Analysis session", () => {
+  it("switches text and Summary without reparsing or discarding nested creation drafts", async () => {
+    const { session, parse } = setup();
+    const result = await ready(session);
+    session.create("New Dog");
+    const draft = {
+      frames: [
+        {
+          value: {
+            label: "New Dog",
+            comment: "Retain description",
+            parents: [],
+            manualParents: true,
+          },
+        },
+        {
+          value: {
+            label: "New parent",
+            comment: "Retain nested draft",
+            parents: [],
+            manualParents: false,
+          },
+        },
+      ],
+    };
+    session.updateDraft(draft);
+    const before = session.getSnapshot();
+    session.setView("summary");
+    expect(session.getSnapshot()).toEqual({ ...before, view: "summary" });
+    session.setView("text");
+    expect(session.getSnapshot()).toEqual(before);
+    expect(session.getSnapshot().creation?.draft).toBe(draft);
+    expect(await session.whenReady()).toBe(result);
+    expect(parse).toHaveBeenCalledTimes(1);
+    session.dispose();
+  });
+  it.each(["text", "summary"])(
+    "persists the %s presentation preference",
+    (view) => {
+      expect(
+        readPreferences({
+          version: 1,
+          panelState: { "textanalysis.view": view },
+        }).panelState?.["textanalysis.view"],
+      ).toBe(view);
+    },
+  );
+  it("rejects invalid presentation preferences", () => {
+    expect(
+      readPreferences({
+        version: 1,
+        panelState: { "textanalysis.view": "add" },
+      }).panelState?.["textanalysis.view"],
+    ).toBeUndefined();
+  });
+  it.each([
+    ["Text Entities", false, "Add entity"],
+    ["Text Entities_8", false, "Add entity_8"],
+    ["Text Entities_8", true, "Text Entities_8"],
+    ["My drafts", true, "My drafts"],
+  ])(
+    "migrates automatic pane names while retaining custom names: %s",
+    (name, named, expected) => {
+      const entry = {
+        id: "textentities",
+        type: "textentities",
+        name,
+        named,
+        createdAt: "2026-09-27T12:00:00Z",
+        updatedAt: "2026-09-27T12:00:00Z",
+        config: { axiomTab: { defaultName: "Text Entities_8", named } },
+        panelState: {},
+      };
+      const history = readTabHistory({
+        version: 1,
+        entries: [entry],
+        counters: { textentities: 8 },
+      });
+      expect(history.entries[0].name).toBe(expected);
+      expect(history.entries[0].config.axiomTab).toEqual({
+        defaultName: "Add entity_8",
+        named,
+      });
+      expect(entry.config.axiomTab.defaultName).toBe("Text Entities_8");
+      expect(history.counters.textentities).toBe(8);
+    },
+  );
   it("retains the exact result throughout typing and releases actions only with fresh analysis", async () => {
     const { session } = setup();
     const settled = await ready(session);
@@ -348,7 +434,7 @@ describe("shared Text Analysis session", () => {
         entries: [entry],
         counters: { textentities: 1 },
       }).entries,
-    ).toEqual([entry]);
+    ).toEqual([{ ...entry, name: "Add entity" }]);
     expect(
       readPreferences({
         version: 1,

@@ -1,3 +1,4 @@
+import { registerEditorMenu } from "./editor-menu-keys";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
@@ -12,7 +13,9 @@ import {
   textAnalysisSession,
   attachTextEditor,
   inspectTextEntity,
+  setTextAnalysisView,
 } from "./text-analysis-state";
+import { TextAnalysisSummary } from "./TextAnalysisSummary";
 import { textEntityGroups } from "./text-analysis-session";
 import {
   entityHue,
@@ -37,7 +40,7 @@ function matchedOntologyIris(result?: TextAnalysisResult) {
 }
 
 export function TextAnalysisPanel() {
-  const { snapshot, input, analysis, result } = useTextAnalysis();
+  const { snapshot, input, analysis, result, view } = useTextAnalysis();
   const text = input.text;
   const [selectedText, setSelectedText] = useState("");
   const addSelection = useRef<() => void>(() => {});
@@ -78,6 +81,7 @@ export function TextAnalysisPanel() {
       theme: owner.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
     });
     editor.current = instance;
+    const removeEditorMenu = registerEditorMenu(instance);
     decorations.current = instance.createDecorationsCollection();
     const trackedRange = (entity: TextEntity) => {
       const displayed = interaction.current?.result;
@@ -97,7 +101,13 @@ export function TextAnalysisPanel() {
         trackedRange(entity)?.equalsRange(selection),
       );
     const detach = attachTextEditor({
-      focus: () => instance.focus(),
+      focus: () => {
+        // The editor stays mounted beneath Summary; wait for React to reveal it.
+        owner.defaultView?.requestAnimationFrame(() => {
+          if (textAnalysisSession.getSnapshot().view === "text")
+            instance.focus();
+        });
+      },
       select: (entity) => {
         let range = trackedRange(entity);
         const analysis = textAnalysisSession.getSnapshot().analysis;
@@ -184,7 +194,7 @@ export function TextAnalysisPanel() {
     });
     const addAction = instance.addAction({
       id: "textanalysis.addSelection",
-      label: "Add selected text to taxonomy",
+      label: "Add entity",
       contextMenuGroupId: "9_cutcopypaste",
       contextMenuOrder: 5,
       precondition: "editorHasSelection",
@@ -247,6 +257,7 @@ export function TextAnalysisPanel() {
       selectionChanged.dispose();
       addAction.dispose();
       findAction.dispose();
+      removeEditorMenu();
       instance.dispose();
       model.dispose();
       editor.current = null;
@@ -283,7 +294,6 @@ export function TextAnalysisPanel() {
     graphPending.current = true;
     setOpeningGraph(true);
     setGraphError("");
-    textAnalysisSession.summary();
     try {
       const fresh = await textAnalysisSession.whenReady();
       if (
@@ -384,15 +394,23 @@ export function TextAnalysisPanel() {
         >
           {openingGraph ? "Opening..." : "View in Graph"}
         </button>
+        {view === "text" && (
+          <button
+            disabled={!selectedText || selectedText.length > 256}
+            title="Select a phrase of up to 256 characters, then add it to the taxonomy"
+            onClick={() => addSelection.current()}
+          >
+            Add entity
+          </button>
+        )}
         <button
-          disabled={!selectedText || selectedText.length > 256}
-          title="Select a phrase of up to 256 characters, then add it to the taxonomy"
-          onClick={() => addSelection.current()}
+          onClick={() => {
+            setTextAnalysisView(view === "text" ? "summary" : "text");
+            if (view === "summary")
+              requestAnimationFrame(() => editor.current?.focus());
+          }}
         >
-          Add selected text
-        </button>
-        <button onClick={() => command("view.textentities")}>
-          View Entities
+          {view === "text" ? "View Summary" : "View Text"}
         </button>
         <span
           role="status"
@@ -403,10 +421,10 @@ export function TextAnalysisPanel() {
           {status}
         </span>
       </div>
-      <p className="text-analysis-hint">
+      <p className="text-analysis-hint" hidden={view !== "text"}>
         Type or paste plain text. Matches update automatically using the open
         ontology. Click a highlight to open the Details view. Select a new
-        phrase and choose Add selected text, or press Alt+Enter.
+        phrase and choose Add entity, or press Alt+Enter.
       </p>
       {analysis.status === "error" && (
         <p role="alert" className="error text-analysis-error">
@@ -418,7 +436,14 @@ export function TextAnalysisPanel() {
           {graphError}
         </p>
       )}
-      <div className="text-analysis-editor" ref={host} />
+      <div
+        className="text-analysis-editor"
+        ref={host}
+        hidden={view !== "text"}
+      />
+      <div className="text-analysis-summary-host" hidden={view !== "summary"}>
+        <TextAnalysisSummary />
+      </div>
     </section>
   );
 }

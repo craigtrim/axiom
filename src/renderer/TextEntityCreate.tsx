@@ -444,7 +444,11 @@ function TextClassEditor({
         ) : (
           <>
             <span>
-              {value.findDraft ? "Adding from Find" : "Adding from selection"}
+              {value.findDraft
+                ? "Adding from Find"
+                : phrase
+                  ? "Adding from selection"
+                  : "Adding an entity"}
             </span>
             <span className="text-create-source">
               {context?.before}
