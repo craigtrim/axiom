@@ -71,6 +71,7 @@ import {
 } from "./quality-glyphs";
 import { turtleEvidence, turtleLines, turtleTerm } from "./quality-turtle";
 import { FindGlyph } from "./FindGlyph";
+import { QualityToolbar, type QualityCommand } from "./QualityToolbar";
 
 const PAGE = 40;
 const severities: QualitySeverity[] = ["Violation", "Warning", "Information"];
@@ -201,11 +202,13 @@ function Menu({
   label,
   anchor,
   children,
+  className = "",
 }: {
   id: string;
   label: string;
   anchor: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const place = () => {
@@ -218,6 +221,8 @@ function Menu({
     );
     const box = trigger.getBoundingClientRect();
     const w = Math.min(280, win.innerWidth / scale - 16);
+    const viewportHeight = win.innerHeight / scale;
+    const maxHeight = Math.max(0, viewportHeight - 16);
     Object.assign(menu.style, {
       width: w + "px",
       left:
@@ -225,25 +230,43 @@ function Menu({
           8,
           Math.min(box.right / scale - w, win.innerWidth / scale - w - 8),
         ) + "px",
-      top: box.bottom / scale + 4 + "px",
-      maxHeight:
-        Math.max(120, win.innerHeight / scale - box.bottom / scale - 16) + "px",
+      maxHeight: maxHeight + "px",
       overflow: "auto",
     });
+    menu.style.top =
+      Math.max(
+        8,
+        Math.min(
+          box.bottom / scale + 4,
+          viewportHeight - Math.min(menu.scrollHeight + 2, maxHeight) - 8,
+        ),
+      ) + "px";
   };
+  useLayoutEffect(() => {
+    const menu = ref.current;
+    if (menu?.matches(":popover-open")) place();
+  });
+  useEffect(() => {
+    const win = ref.current?.ownerDocument.defaultView;
+    const resize = () => {
+      if (ref.current?.matches(":popover-open")) place();
+    };
+    win?.addEventListener("resize", resize);
+    return () => win?.removeEventListener("resize", resize);
+  }, []);
   return (
     <div
       ref={ref}
       id={id}
       popover="auto"
-      className="quality-menu"
+      className={"quality-menu " + className}
       role="dialog"
       aria-label={label}
       onToggle={(event) => {
         if (event.newState === "open") {
           place();
           ref.current
-            ?.querySelector<HTMLElement>("select, button:not(:disabled)")
+            ?.querySelector<HTMLElement>("select, input, button:not(:disabled)")
             ?.focus();
         }
       }}
@@ -253,7 +276,12 @@ function Menu({
       }}
       // Escape closes the menu only; the pane must not also collapse its settings.
       onKeyDown={(event) => {
-        if (event.key === "Escape") event.stopPropagation();
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          ref.current?.hidePopover();
+          anchor.current?.focus({ preventScroll: true });
+        }
       }}
     >
       {children}
@@ -362,7 +390,7 @@ export function QualityPanel() {
   // Narrow and shallow keeps the findings list and drops the view switch, so
   // it shows findings whatever view was chosen at a larger size.
   const { narrow, shallow, width, height } = usePaneLayout();
-  const resultView = report && !(narrow && shallow) ? view : "findings";
+  const resultView = report ? view : "findings";
   const scrollKey = `${job?.id ?? 0}:${mode}:${resultView}`;
   const pendingScroll = useRef<{ key: string; top: number; pending: boolean }>({
     key: scrollKey,
@@ -1091,54 +1119,89 @@ export function QualityPanel() {
   );
   // Partial findings from a canceled scan keep their filters reachable; only a
   // complete report has a coverage view and an export.
-  const tools = () => (
-    <div className="tools">
-      {report && (
-        <div className="seg" role="group" aria-label={t("view.label")}>
-          <button
-            aria-pressed={view === "findings"}
-            onClick={() => setView("findings")}
-          >
-            {t("view.findings")}
-          </button>
-          <button
-            aria-pressed={view === "coverage"}
-            onClick={() => setView("coverage")}
-          >
-            {t("view.coverage")}
-          </button>
-        </div>
-      )}
-      {resultView === "findings" && (
-        <>
-          {/* Active filters lead, so their clear controls stay on screen when
-              a narrow tools bar runs out of room. */}
-          {(Object.keys(more) as (keyof typeof more)[])
-            .filter((k) => more[k])
-            .map((k) => {
-              const name = t(("filter." + k) as QlyKey);
-              const value =
-                k === "rule"
-                  ? ruleOf(more.rule).title
-                  : k === "group"
-                    ? qualityGroupLabel(more.group as QualityGroup)
-                    : k === "kind"
-                      ? kindName(more.kind)
-                      : more.namespace;
-              return (
-                <button
-                  key={k}
-                  className="chip"
-                  aria-pressed="true"
-                  aria-label={t("filter.remove", { name, value })}
-                  onClick={() => setMore({ ...more, [k]: "" })}
-                >
-                  {t("filter.active", { name, value }) + " ×"}
-                </button>
-              );
-            })}
-          {/* Narrow sizes withdraw the text field; its filter stays clearable. */}
-          {narrow && query && (
+  const tools = () => {
+    const groupControl = (
+      <select
+        className="sel"
+        aria-label={t("groupBy.label")}
+        value={grouping}
+        onChange={(e) => setGrouping(e.target.value as "rule" | "entity")}
+      >
+        <option value="rule">{t("groupBy.rule")}</option>
+        <option value="entity">{t("groupBy.entity")}</option>
+      </select>
+    );
+    const textControl = (
+      <input
+        className="txt"
+        type="search"
+        placeholder={t("filter.placeholder")}
+        aria-label={t("filter.label")}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+    );
+    const exportActions = (
+      <>
+        <button onClick={() => exportReport("json")}>{t("export.json")}</button>
+        <button onClick={() => exportReport("csv")}>{t("export.csv")}</button>
+        <p>{t("export.note", { total: all.length })}</p>
+      </>
+    );
+    const commands: QualityCommand[] = [];
+    if (report)
+      commands.push({
+        id: "view",
+        priority: 60,
+        content: (
+          <div className="seg" role="group" aria-label={t("view.label")}>
+            <button
+              aria-pressed={view === "findings"}
+              onClick={() => setView("findings")}
+            >
+              {t("view.findings")}
+            </button>
+            <button
+              aria-pressed={view === "coverage"}
+              onClick={() => setView("coverage")}
+            >
+              {t("view.coverage")}
+            </button>
+          </div>
+        ),
+      });
+    if (resultView === "findings") {
+      for (const k of Object.keys(more) as (keyof typeof more)[]) {
+        if (!more[k]) continue;
+        const name = t(("filter." + k) as QlyKey);
+        const value =
+          k === "rule"
+            ? ruleOf(more.rule).title
+            : k === "group"
+              ? qualityGroupLabel(more.group as QualityGroup)
+              : k === "kind"
+                ? kindName(more.kind)
+                : more.namespace;
+        commands.push({
+          id: "active-" + k,
+          priority: 50,
+          content: (
+            <button
+              className="chip"
+              aria-pressed="true"
+              aria-label={t("filter.remove", { name, value })}
+              onClick={() => setMore({ ...more, [k]: "" })}
+            >
+              {t("filter.active", { name, value }) + " ×"}
+            </button>
+          ),
+        });
+      }
+      if (narrow && query)
+        commands.push({
+          id: "active-text",
+          priority: 50,
+          content: (
             <button
               className="chip"
               aria-pressed="true"
@@ -1153,10 +1216,14 @@ export function QualityPanel() {
                 value: text.trim(),
               }) + " ×"}
             </button>
-          )}
-          {severities.map((s) => (
+          ),
+        });
+      severities.forEach((s, i) =>
+        commands.push({
+          id: "severity-" + s,
+          priority: 10 + i * 10,
+          content: (
             <button
-              key={s}
               className="chip"
               aria-pressed={sevOn.includes(s)}
               onClick={() => setSevOn(toggle(sevOn, s))}
@@ -1167,41 +1234,58 @@ export function QualityPanel() {
               {s + " "}
               <span className="n">{counts[s].toLocaleString("en-US")}</span>
             </button>
-          ))}
-          <button
-            className="chip"
-            aria-pressed={showSuppressed}
-            onClick={() => setShowSuppressed(!showSuppressed)}
-          >
-            {t("filter.suppressed") + " "}
-            <span className="n">{suppressedCount.toLocaleString("en-US")}</span>
-          </button>
-        </>
-      )}
-      <span className="fill"></span>
-      {resultView === "findings" && (
-        <>
-          <select
-            className="sel at-tall"
-            aria-label={t("groupBy.label")}
-            value={grouping}
-            onChange={(e) => setGrouping(e.target.value as "rule" | "entity")}
-          >
-            <option value="rule">{t("groupBy.rule")}</option>
-            <option value="entity">{t("groupBy.entity")}</option>
-          </select>
-          <input
-            className="txt at-wide"
-            type="search"
-            placeholder={t("filter.placeholder")}
-            aria-label={t("filter.label")}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </>
-      )}
-      {report && (
-        <>
+          ),
+        }),
+      );
+      commands.push(
+        {
+          id: "suppressed",
+          priority: 70,
+          content: (
+            <button
+              className="chip"
+              aria-pressed={showSuppressed}
+              onClick={() => setShowSuppressed(!showSuppressed)}
+            >
+              {t("filter.suppressed") + " "}
+              <span className="n">
+                {suppressedCount.toLocaleString("en-US")}
+              </span>
+            </button>
+          ),
+        },
+        {
+          id: "group",
+          priority: 100,
+          trailing: true,
+          content: groupControl,
+          overflow: (
+            <label>
+              {t("groupBy.label")}
+              {groupControl}
+            </label>
+          ),
+        },
+        {
+          id: "text",
+          priority: 90,
+          trailing: true,
+          content: textControl,
+          overflow: (
+            <label>
+              {t("filter.label")}
+              {textControl}
+            </label>
+          ),
+        },
+      );
+    }
+    if (report)
+      commands.push({
+        id: "export",
+        priority: 80,
+        trailing: true,
+        content: (
           <button
             ref={exportButton}
             className="btn"
@@ -1213,83 +1297,102 @@ export function QualityPanel() {
             <Download />
             <span className="at-full">{t("export")}</span>
           </button>
-          <span id={exportNote} className="sr">
-            {t("export.note", { total: all.length })}
-          </span>
-          <Menu id={exportId} label={t("export.label")} anchor={exportButton}>
-            <button onClick={() => exportReport("json")}>
-              {t("export.json")}
+        ),
+        overflow: (
+          <div role="group" aria-label={t("export.label")}>
+            {exportActions}
+          </div>
+        ),
+      });
+    return (
+      <QualityToolbar
+        commands={commands}
+        more={moreButton}
+        menu={(overflow) => (
+          <Menu id={moreId} label={t("more.label")} anchor={moreButton}>
+            {overflow}
+            {(
+              [
+                [
+                  "group",
+                  qualityGroups
+                    .filter((g) => all.some((f) => f.group === g))
+                    .map((g) => [g, qualityGroupLabel(g)]),
+                ],
+                [
+                  "rule",
+                  [...new Set(all.map((f) => f.rule))]
+                    .map((id) => [id, ruleOf(id).title])
+                    .sort((a, b) => a[1].localeCompare(b[1])),
+                ],
+                [
+                  "kind",
+                  [...new Set(all.map((f) => f.kind))]
+                    .sort()
+                    .map((k) => [k, kindName(k)]),
+                ],
+                [
+                  "namespace",
+                  [...new Set(all.map((f) => f.namespace))]
+                    .sort()
+                    .map((n) => [n, n]),
+                ],
+              ] as [keyof typeof more, string[][]][]
+            ).map(([key, choices]) => (
+              <label key={key}>
+                {t(("filter." + key) as QlyKey)}
+                <select
+                  value={more[key]}
+                  onChange={(e) => setMore({ ...more, [key]: e.target.value })}
+                >
+                  <option value="">{t("filter.all")}</option>
+                  {choices.map(([value, name]) => (
+                    <option key={value} value={value}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <button onClick={() => setMode("exceptions")}>
+              {t("exceptions.title")}
             </button>
-            <button onClick={() => exportReport("csv")}>
-              {t("export.csv")}
+            <button disabled={!canReview} onClick={beginReview}>
+              {t("labels.review")}
             </button>
-            <p>{t("export.note", { total: all.length })}</p>
+            {!canReview && <p>{t("labels.unavailable")}</p>}
           </Menu>
-        </>
-      )}
-      <button
-        ref={moreButton}
-        className="ib"
-        aria-label={t("more.label")}
-        title={t("more")}
-        popoverTarget={moreId}
+        )}
       >
-        <FindGlyph name="more" />
-      </button>
-      <Menu id={moreId} label={t("more.label")} anchor={moreButton}>
-        {(
-          [
-            [
-              "group",
-              qualityGroups
-                .filter((g) => all.some((f) => f.group === g))
-                .map((g) => [g, qualityGroupLabel(g)]),
-            ],
-            [
-              "rule",
-              [...new Set(all.map((f) => f.rule))]
-                .map((id) => [id, ruleOf(id).title])
-                .sort((a, b) => a[1].localeCompare(b[1])),
-            ],
-            [
-              "kind",
-              [...new Set(all.map((f) => f.kind))]
-                .sort()
-                .map((k) => [k, kindName(k)]),
-            ],
-            [
-              "namespace",
-              [...new Set(all.map((f) => f.namespace))]
-                .sort()
-                .map((n) => [n, n]),
-            ],
-          ] as [keyof typeof more, string[][]][]
-        ).map(([key, choices]) => (
-          <label key={key}>
-            {t(("filter." + key) as QlyKey)}
-            <select
-              value={more[key]}
-              onChange={(e) => setMore({ ...more, [key]: e.target.value })}
+        {report && (
+          <>
+            <span id={exportNote} className="sr">
+              {t("export.note", { total: all.length })}
+            </span>
+            <Menu
+              id={exportId}
+              label={t("export.label")}
+              anchor={exportButton}
+              className="quality-export-menu"
             >
-              <option value="">{t("filter.all")}</option>
-              {choices.map(([value, name]) => (
-                <option key={value} value={value}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-        <button onClick={() => setMode("exceptions")}>
-          {t("exceptions.title")}
+              {exportActions}
+            </Menu>
+          </>
+        )}
+        <button
+          ref={moreButton}
+          className="ib"
+          aria-label={t("more.label")}
+          title={t("more")}
+          popoverTarget={moreId}
+          aria-haspopup="dialog"
+        >
+          <FindGlyph name="more" />
         </button>
-        <button disabled={!canReview} onClick={beginReview}>
-          {t("labels.review")}
-        </button>
-        {!canReview && <p>{t("labels.unavailable")}</p>}
-      </Menu>
-    </div>
-  );
+      </QualityToolbar>
+    );
+  };
+
   const findingRow = (f: QualityFinding, entityBand = false) => {
     const isOpen = open === f.id;
     const isSuppressed = suppressed(f);

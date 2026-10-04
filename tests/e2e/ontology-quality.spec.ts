@@ -52,6 +52,7 @@ async function openFile() {
   await imported;
   await menu("tools.quality");
   await expect(pane()).toBeVisible();
+  await size(1300, 720);
 }
 async function launch() {
   const env = {
@@ -69,6 +70,7 @@ async function launch() {
   page.on("pageerror", (e) => errors.push(e.message));
   app.on("window", (w) => w.on("pageerror", (e) => errors.push(e.message)));
   await app.evaluate(({ dialog, BrowserWindow }, file) => {
+    BrowserWindow.getAllWindows()[0].setContentSize(1400, 900);
     if (process.env.AXIOM_TEST_BACKGROUND === "1")
       BrowserWindow.getAllWindows()[0].setFocusable(false);
     dialog.showOpenDialog = async () => ({
@@ -102,6 +104,9 @@ test.beforeEach(async () => {
   file = path.join(profile, "quality.ttl");
   await writeFile(file, prefix + body);
   await launch();
+  // Existing workflow cases use the expanded toolbar. Dedicated overflow cases
+  // below exercise the same controls at smaller widths and pane zoom levels.
+  await size(1300, 720);
 });
 test.afterEach(async ({}, info) => {
   if (info.status !== info.expectedStatus && page && !page.isClosed())
@@ -481,6 +486,22 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
   await expect(pane()).toContainText(
     "This report is incomplete and cannot be exported as complete.",
   );
+  await size(400, 500);
+  await openMore();
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toBeVisible();
+  await expect(
+    moreDialog().getByRole("combobox", { name: "Group findings by" }),
+  ).toBeVisible();
+  await expect(
+    moreDialog().getByRole("button", { name: /^Export / }),
+  ).toHaveCount(0);
+  await expect(
+    moreDialog().getByRole("button", { name: "Coverage", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await size(1300, 720);
   await expect(
     pane().getByRole("button", { name: "Export findings" }),
   ).toHaveCount(0);
@@ -509,14 +530,16 @@ test("a settings change blocks label additions, marks exports stale, and an unre
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
   }, destination);
-  await pane().getByRole("button", { name: "Export findings" }).click();
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await size(400, 500);
+  await openMore();
+  await moreDialog().getByRole("button", { name: "Export JSON" }).click();
   await expect
     .poll(() => readFile(destination, "utf8").catch(() => ""))
     .not.toBe("");
   expect(JSON.parse(await readFile(destination, "utf8")).status).toContain(
     "scan settings changed",
   );
+  await size(1300, 720);
   await pane()
     .getByRole("combobox", { name: "Scope", exact: true })
     .selectOption("namespace");
@@ -619,14 +642,15 @@ test("recovery and narrow-and-shallow never strand or overstate a result", async
   await scan();
   await pane().getByRole("button", { name: "Coverage", exact: true }).click();
   await expect(pane().locator(".cov")).toBeVisible();
-  // Narrow and shallow drops the view switch, so it lists findings.
+  // #46 keeps the selected view, with its switch reachable through More.
   await size(500, 300);
-  await expect(pane().locator(".cov")).toHaveCount(0);
+  await expect(pane().locator(".cov")).toBeVisible();
+  await pane().getByRole("button", { name: "Findings", exact: true }).click();
   await expect(pane().locator(".rule").first()).toBeVisible();
   await expect(
     pane().locator(".tools .chip").filter({ hasText: "Warning" }),
   ).toBeVisible();
-  await size(900, 600);
+  await size(1300, 600);
   await pane().getByRole("button", { name: "Change" }).click();
   await pane()
     .locator(".settings .chip")
@@ -768,8 +792,9 @@ test("filters that match nothing say so, and findings group by entity", async ()
     .fill("no such entity");
   await expect(pane()).toContainText("No findings match the current filter.");
   await expect(pane()).toContainText("The scan itself completed and found");
-  // Narrow withdraws the text field; the active filter stays clearable.
+  // Narrow moves the text field and its clear action into reachable More.
   await size(500, 600);
+  await openMore();
   const chip = pane().getByRole("button", {
     name: "Remove filter Text: no such entity",
   });
@@ -782,7 +807,7 @@ test("filters that match nothing say so, and findings group by entity", async ()
   expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
   await chip.click();
   await expect(pane().locator(".rule").first()).toBeVisible();
-  await size(900, 600);
+  await size(1300, 600);
   await pane()
     .getByRole("combobox", { name: "Group findings by" })
     .selectOption("entity");
@@ -882,3 +907,317 @@ test("a rejected duplicate label selection identifies the full entity without wr
   await expect(pane()).toContainText("No statements were written.");
   expect((await state()).version).toBe(before.version);
 });
+
+const moreTrigger = () =>
+  pane().getByRole("button", { name: "More finding options", exact: true });
+const moreDialog = () =>
+  pane().getByRole("dialog", { name: "More finding options", exact: true });
+async function openMore() {
+  if (!(await moreDialog().isVisible())) await moreTrigger().click();
+  await expect(moreDialog()).toBeVisible();
+}
+
+test("overflow works in a detached pane through zoom and short-window resizing", async () => {
+  await scan();
+  await pane()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("Industrial");
+  await moreTrigger().focus();
+  const opened = app.waitForEvent("window");
+  await menu("pane.detach");
+  page = await opened;
+  await expect(pane()).toBeVisible();
+  const win = await app.browserWindow(page);
+  await win.evaluate((w) => w.setContentSize(1000, 700));
+  const host = page.locator('.adaptive-pane[data-pane-id="quality"]');
+  await size(500, 420);
+  for (const delta of [-200, 400]) {
+    const previous = Number(await host.getAttribute("data-pane-zoom"));
+    await pane().locator(".bar").hover();
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, delta);
+    await page.keyboard.up("Control");
+    await expect
+      .poll(async () => Number(await host.getAttribute("data-pane-zoom")))
+      .not.toBe(previous);
+    await openMore();
+    await expect(
+      moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+    ).toHaveValue("Industrial");
+    await expect
+      .poll(() =>
+        moreDialog().evaluate((el) => {
+          const b = el.getBoundingClientRect();
+          return (
+            b.left >= 0 &&
+            b.right <= innerWidth &&
+            b.top >= 0 &&
+            b.bottom <= innerHeight
+          );
+        }),
+      )
+      .toBe(true);
+    await moreDialog()
+      .getByRole("searchbox", { name: "Filter findings" })
+      .focus();
+    await page.keyboard.press("Escape");
+    await expect(moreTrigger()).toBeFocused();
+  }
+  await win.evaluate((w) => w.setContentSize(800, 360));
+  await size(400, 300);
+  await openMore();
+  await expect
+    .poll(() =>
+      moreDialog().evaluate((el) => {
+        const b = el.getBoundingClientRect();
+        return b.bottom <= innerHeight && el.scrollHeight > el.clientHeight;
+      }),
+    )
+    .toBe(true);
+  // Tab to an action below the initial viewport; the popup scrolls it into view.
+  let reached = false;
+  for (let i = 0; i < 25; i++) {
+    if (
+      await moreDialog()
+        .getByRole("button", { name: "Review missing labels", exact: true })
+        .evaluate((el) => el === document.activeElement)
+    ) {
+      reached = true;
+      break;
+    }
+    await page.keyboard.press("Tab");
+  }
+  expect(reached).toBe(true);
+  await page.screenshot({
+    path: "artifacts/testing/quality-overflow-detached-zoom.png",
+  });
+  await page.keyboard.press("Enter");
+  await expect(pane().locator(".bar .title")).toHaveText(
+    "Review missing labels",
+  );
+});
+
+test("overflow moves grouping, text filtering and both exports into More and restores their state", async () => {
+  await scan();
+  await pane()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("Industrial");
+  await pane()
+    .getByRole("combobox", { name: "Group findings by" })
+    .selectOption("entity");
+  await size(718, 600);
+  await expect(pane().locator('[data-quality-command="text"]')).toHaveAttribute(
+    "data-overflowed",
+    "true",
+  );
+  await expect(
+    pane().locator('[data-quality-command="group"]'),
+  ).toHaveAttribute("data-overflowed", "true");
+  await openMore();
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Industrial");
+  await expect(
+    moreDialog().getByRole("combobox", { name: "Group findings by" }),
+  ).toHaveValue("entity");
+  await moreDialog()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("Synonym");
+  await moreDialog()
+    .getByRole("combobox", { name: "Group findings by" })
+    .selectOption("rule");
+  await page.keyboard.press("Escape");
+  await size(500, 500);
+  for (const format of ["json", "csv"]) {
+    await openMore();
+    const destination = path.join(profile, "overflow." + format);
+    await app.evaluate(({ dialog }, file) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+    }, destination);
+    await moreDialog()
+      .getByRole("button", { name: "Export " + format.toUpperCase() })
+      .click();
+    await expect
+      .poll(() => readFile(destination, "utf8").catch(() => ""))
+      .not.toBe("");
+    if (format === "json") {
+      const report = JSON.parse(await readFile(destination, "utf8"));
+      expect(report.status).toBe("complete");
+      expect(
+        report.findings.some(
+          (f: { iri: string }) => f.iri === base + "Industrial_Safety",
+        ),
+      ).toBe(true);
+    }
+  }
+  await size(1300, 720);
+  await expect(
+    pane().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Synonym");
+  await expect(
+    pane().getByRole("combobox", { name: "Group findings by" }),
+  ).toHaveValue("rule");
+  await expect(
+    pane().getByRole("button", { name: "Export findings" }),
+  ).toBeVisible();
+  await band("Missing explicit primary label").click();
+  await expect(row("Synonym Only")).toHaveCount(1);
+  await expect(row("Industrial Safety")).toHaveCount(0);
+});
+
+test("overflow retains keyboard focus when controls move and Escape returns to More", async () => {
+  await scan();
+  await pane().getByRole("searchbox", { name: "Filter findings" }).focus();
+  await size(400, 500);
+  await expect(moreTrigger()).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(moreDialog()).toBeVisible();
+  await moreDialog()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .focus();
+  await page.keyboard.type("Industrial");
+  await page.keyboard.press("Escape");
+  await expect(moreDialog()).not.toBeVisible();
+  await expect(moreTrigger()).toBeFocused();
+  await page.keyboard.press("Space");
+  await moreDialog()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .focus();
+  await size(1300, 720);
+  await expect(moreTrigger()).toBeFocused();
+  await expect(moreDialog()).not.toBeVisible();
+  await expect(
+    pane().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Industrial");
+});
+
+test("overflow keeps every severity, suppression and view control usable at minimum width", async () => {
+  await scan();
+  await size(240, 300);
+  for (const severity of [
+    "Violation",
+    "Warning",
+    "Information",
+    "Suppressed",
+  ]) {
+    let button = pane().getByRole("button", {
+      name: new RegExp("^" + severity + " [0-9,]+$"),
+    });
+    if (!(await button.isVisible())) await openMore();
+    const before = await button.getAttribute("aria-pressed");
+    await button.click();
+    if (!(await button.isVisible())) await openMore();
+    await expect(button).toHaveAttribute(
+      "aria-pressed",
+      before === "true" ? "false" : "true",
+    );
+    await button.click();
+  }
+  await openMore();
+  await moreDialog()
+    .getByRole("button", { name: "Coverage", exact: true })
+    .click();
+  await expect(pane().locator(".cov")).toBeVisible();
+  await size(1300, 720);
+  await expect(
+    pane().getByRole("button", { name: "Coverage", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(pane().locator(".cov")).toBeVisible();
+});
+
+test("overflow keeps long active filters clearable and restores the findings", async () => {
+  const namespace =
+    "https://quality.test/" + "a-long-namespace-segment/".repeat(12) + "#";
+  await writeFile(file, prefix + body + `<${namespace}Extra> a owl:Class.`);
+  await openFile();
+  await scan();
+  await size(400, 500);
+  await openMore();
+  await moreDialog()
+    .getByRole("combobox", { name: "Namespace", exact: true })
+    .selectOption(namespace);
+  await moreDialog()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("Nothing matches");
+  await page.keyboard.press("Escape");
+  await expect(pane()).toContainText("No findings match the current filter.");
+  await openMore();
+  await moreDialog()
+    .getByRole("button", { name: /^Remove filter Namespace/ })
+    .click();
+  await openMore();
+  await moreDialog()
+    .getByRole("searchbox", { name: "Filter findings" })
+    .fill("");
+  await page.keyboard.press("Escape");
+  await expect(pane()).not.toContainText(
+    "No findings match the current filter.",
+  );
+  await band("Missing explicit primary label").click();
+  await expect(row("Industrial Safety")).toHaveCount(1);
+  await expect(pane().locator(".foot")).toContainText("1 to 4 of 4 listed");
+});
+
+// Layout checks are separate from the functional cases above: every visible
+// command and the stable More trigger must fit one 36 CSS pixel row.
+for (const theme of ["light", "dark"])
+  test(`overflow layout remains reachable in ${theme} at all pane sizes`, async () => {
+    await scan();
+    await menu("theme." + theme);
+    for (const height of [160, 300, 600])
+      for (const width of [240, 300, 400, 500, 599, 616, 718, 900, 1300]) {
+        await size(width, height);
+        await expect
+          .poll(() =>
+            pane()
+              .locator(".tools")
+              .evaluate((bar) => {
+                const bounds = bar.getBoundingClientRect();
+                const items = [
+                  ...bar.querySelectorAll<HTMLElement>(
+                    ':scope > [data-quality-command][data-overflowed="false"], :scope > button',
+                  ),
+                ];
+                return (
+                  items.every((el) => {
+                    const b = el.getBoundingClientRect();
+                    return (
+                      b.left >= bounds.left &&
+                      b.right <= bounds.right &&
+                      b.top >= bounds.top &&
+                      b.bottom <= bounds.bottom
+                    );
+                  }) && bounds.height === 36
+                );
+              }),
+          )
+          .toBe(true);
+        await expect(moreTrigger()).toBeVisible();
+      }
+    await openMore();
+    await expect
+      .poll(() =>
+        moreDialog().evaluate((el) => {
+          const b = el.getBoundingClientRect();
+          return (
+            b.left >= 0 &&
+            b.right <= innerWidth &&
+            b.top >= 0 &&
+            b.bottom <= innerHeight
+          );
+        }),
+      )
+      .toBe(true);
+    await page.keyboard.press("Escape");
+    await size(718, 460);
+    await expect(
+      pane().locator('[data-quality-command="text"]'),
+    ).toHaveAttribute("data-overflowed", "true");
+    await page.screenshot({
+      path: `artifacts/testing/quality-overflow-${theme}.png`,
+    });
+    await openMore();
+    await page.screenshot({
+      path: `artifacts/testing/quality-overflow-${theme}-menu.png`,
+    });
+  });

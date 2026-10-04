@@ -34,7 +34,9 @@ Closing and reopening the pane during the session retains its filters, expanded 
 
 Coverage lists each enabled check with its applicable, present, missing and suppressed counts. Every percentage sits beside its denominator, and not applicable is shown as a different fact from zero missing.
 
-The pane reads the shared pane measurement, with its 600 and 400 pixel thresholds and 616 and 416 pixel exits. Narrow folds the entity kind and IRI into the name cell and withdraws the store line. Shallow withdraws the limits line, the advanced settings rows and Group by. Narrow and shallow keeps only the command bar, the severity filter, the findings and the footer. Below 240 pixels wide or 120 tall the pane shows its name, its last result and an instruction to widen, with the shared Maximize pane action.
+The pane reads the shared pane measurement, with its 600 and 400 pixel thresholds and 616 and 416 pixel exits. Narrow folds the entity kind and IRI into the name cell and withdraws the store line. Shallow withdraws the limits line and the advanced settings rows. Below 240 pixels wide or 120 tall the pane shows its name, its last result and an instruction to widen, with the shared Maximize pane action.
+
+The tools bar stays one row, 36 CSS pixels high. **More (...)** remains reachable as commands run out of room. Group by, text filtering and Export move there first, followed as necessary by Suppressed, the Findings/Coverage switch, active-filter clear controls and lower-priority severity filters. Actual control widths determine what fits, including longer counts, namespace filters and pane zoom. Controls return when space grows. Filtering, grouping, suppression and the selected view stay unchanged during resizing; both completed and canceled-partial findings keep their appropriate controls. Escape closes the popup and returns focus to More. A control that moves while focused also returns focus to More. This is Craig's approved exception to #44's clipping reference, implemented under #46; the pinned HTML remains unchanged.
 
 ## Findings, evidence and exceptions
 

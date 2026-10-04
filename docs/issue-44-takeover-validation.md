@@ -37,9 +37,9 @@ D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
 
 ## Toolbar decision
 
-Issue #44's final handoff identifies a conflict between exact reference fidelity and toolbar reachability. At the reference's ordinary Expanded width of 718 pixels, trailing toolbar controls are clipped. The current package preserves the reference's layout. Wrapping the toolbar is recommended when controls cannot fit, but it changes the authoritative appearance and is awaiting Craig's choice.
+Issue #44's final handoff identified a conflict between exact reference fidelity and toolbar reachability. At the reference's ordinary Expanded width of 718 pixels, trailing toolbar controls were clipped. The initial takeover package preserved that layout. Craig subsequently approved the modern Windows command-bar pattern: one row with an always-reachable More menu and dynamic overflow. Issue #44 now explicitly records that exception; implementation and validation are tracked in #46.
 
-The pinned HTML and production toolbar CSS have not been changed. A wrapping proposal is captured by injecting CSS into one isolated test application solely for a comparison screenshot; that injection is removed afterward and does not alter the package. Issue #44 remains open pending the toolbar decision.
+The pinned HTML is unchanged. The initial wrapping proposal below was captured by injecting CSS into one isolated test application solely for a comparison screenshot. It was not selected or implemented. The #46 implementation supersedes the former pending toolbar decision and the initial package described above.
 
 The comparison screenshots, inspected against the real ontology at 718 CSS pixels, are:
 

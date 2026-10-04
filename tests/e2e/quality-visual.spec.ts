@@ -615,19 +615,41 @@ async function prepare(plan: Plan, theme: string) {
         return t.content.firstElementChild as HTMLElement;
       };
       // The More menu, the one control added to the tools bar.
-      if (plan.more)
+      if (plan.more || plan.constrained)
         pane.querySelectorAll(".tools").forEach((tools) => {
           const more = button(
             '<button class="ib" aria-label="More finding options" title="More"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="3.5" cy="8" r=".9" fill="currentColor"></circle><circle cx="8" cy="8" r=".9" fill="currentColor"></circle><circle cx="12.5" cy="8" r=".9" fill="currentColor"></circle></svg></button>',
           );
           tools.append(more);
         });
-      if (plan.constrained)
-        pane
-          .querySelectorAll(
-            ".tools .seg, .tools .btn, .tools .ib, .tools .sel, .tools .txt",
-          )
-          .forEach((n) => n.remove());
+      // #46's approved exception: move controls into More instead of clipping.
+      // Tag the reference's own controls; never import the app's allocator or CSS.
+      pane.querySelectorAll(".tools").forEach((tools) => {
+        const priorities = [10, 20, 30, 70];
+        let chip = 0;
+        for (const item of [...tools.children] as HTMLElement[]) {
+          const priority = item.matches(".seg")
+            ? 60
+            : item.matches(".chip")
+              ? priorities[chip++]
+              : item.matches(".sel")
+                ? 100
+                : item.matches(".txt")
+                  ? 90
+                  : item.matches(".btn")
+                    ? 80
+                    : undefined;
+          if (priority === undefined) continue;
+          item.classList.remove("at-tall", "at-wide");
+          // Intrinsic measurement must not shrink a field before allocation.
+          const slot = document.createElement("div");
+          slot.dataset.referencePriority = String(priority);
+          slot.style.cssText =
+            "display:inline-flex;flex:none;width:max-content";
+          item.before(slot);
+          slot.append(item);
+        }
+      });
       // Rule configuration is reached from the Checks row.
       if (plan.rules)
         pane
@@ -711,6 +733,48 @@ const showReference = (shown: boolean) =>
     const reference = document.getElementById("quality-reference")!;
     reference.style.display = shown ? "block" : "none";
     reference.style.visibility = "visible";
+    if (shown) {
+      // Independently allocate the rendered specimen by its documented priorities.
+      // Hidden controls exist in More in the app; the closed-menu specimen needs
+      // only the controls that fit. The original pinned HTML is never changed.
+      for (const bar of reference.shadowRoot!.querySelectorAll<HTMLElement>(
+        ".tools",
+      )) {
+        const slots = [
+          ...bar.querySelectorAll<HTMLElement>("[data-reference-priority]"),
+        ];
+        slots.forEach((slot) => {
+          slot.style.display = "inline-flex";
+        });
+        const style = getComputedStyle(bar);
+        const fixed =
+          parseFloat(style.paddingLeft) +
+          parseFloat(style.paddingRight) +
+          (bar
+            .querySelector<HTMLElement>(":scope > .ib")
+            ?.getBoundingClientRect().width ?? 0) +
+          parseFloat(style.columnGap);
+        let used =
+          fixed +
+          slots.reduce(
+            (n, slot) =>
+              n +
+              slot.getBoundingClientRect().width +
+              parseFloat(style.columnGap),
+            0,
+          );
+        for (const slot of slots.sort(
+          (a, b) =>
+            Number(b.dataset.referencePriority) -
+            Number(a.dataset.referencePriority),
+        )) {
+          if (used <= bar.getBoundingClientRect().width) break;
+          used -=
+            slot.getBoundingClientRect().width + parseFloat(style.columnGap);
+          slot.style.display = "none";
+        }
+      }
+    }
     for (const selector of [
       host + " [data-panel=quality]",
       host + " > .pane-recovery",
@@ -1424,7 +1488,7 @@ for (const theme of ["light", "dark"] as const)
       await launch(theme, c.exceptions ? [exception] : []);
       const size = await prepare(c.plan, theme);
       // Drive at a working size, then take the specimen's size.
-      await resize(Math.max(size.width, 720), Math.max(size.height, 460));
+      await resize(Math.max(size.width, 1300), Math.max(size.height, 460));
       await c.drive();
       await resize(size.width, size.height);
       await mount(size, theme);

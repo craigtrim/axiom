@@ -277,14 +277,47 @@
 }
 
 .quality-panel .tools {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 10px;
   min-height: 36px;
+  height: 36px;
+  overflow: clip;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
   flex: none;
+}
+.quality-command {
+  display: inline-flex;
+  flex: none;
+  width: max-content;
+}
+.quality-command[data-overflowed="true"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.quality-overflow-command,
+.quality-overflow-command > [role="group"] {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.quality-overflow-command .chip {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.quality-overflow-command .seg {
+  display: flex;
+}
+.quality-overflow-command :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .quality-panel .seg {
   display: inline-flex;
@@ -765,7 +798,7 @@
   padding: 8px;
   display: none;
   gap: 6px;
-  min-width: 220px;
+  min-width: 0;
   border: 1px solid var(--line-2);
   border-radius: 4px;
   background: var(--bg);
@@ -782,11 +815,17 @@
 }
 .quality-menu label {
   display: grid;
+  min-width: 0;
   gap: 2px;
   font-size: 12px;
   color: var(--ink-3);
 }
+.quality-menu :is(select, input) {
+  min-width: 0;
+  width: 100%;
+}
 .quality-menu select,
+.quality-menu input,
 .quality-menu button {
   min-height: 26px;
   padding: 0 6px;
@@ -1005,14 +1044,7 @@
   border-color: var(--line-2);
 }
 
-/* Narrow and shallow: command bar, severity filter, findings list, footer. */
-[data-pane-narrow="true"][data-pane-shallow="true"]
-  > .adaptive-pane-content
-  > .quality-panel
-  .tools
-  :is(.seg, .btn, .ib, .sel, .txt) {
-  display: none;
-}
+/* #46: every presentation retains More; measured commands overflow into it. */
 
 /* The workbench styles inputs through input:not([type=range]):not([type=checkbox])
    and checkboxes through input[type=checkbox]; those selectors outrank the
