@@ -224,6 +224,11 @@ export interface AxiomBridge {
     menu(id: string, x: number, y: number): Promise<void>;
   };
   suggestions: {
+    batches(): Promise<import("./suggestion-batches").SuggestionBatch[]>;
+    enqueue(
+      input: import("./suggestion-batches").BatchRequest,
+    ): Promise<import("./suggestion-batches").SuggestionBatch>;
+    cancelBatch(batchId: string, runId?: string): Promise<void>;
     definitions(): Promise<import("./suggestions").SuggestionDefinition[]>;
     saveDefinition(
       input: import("./suggestions").SuggestionDefinition,

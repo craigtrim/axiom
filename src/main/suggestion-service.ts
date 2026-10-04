@@ -26,6 +26,7 @@ import {
   parentPromptLimit,
 } from "../shared/parent-suggestions";
 import { entity } from "../domain/model";
+import { SuggestionBusyError } from "../shared/suggestion-batches";
 import { displayName } from "../domain/rdf-model";
 import { ModelCache, modelHash, type ModelCacheKey } from "./model-cache";
 import type { AssistantRunResult } from "../shared/assistant";
@@ -187,10 +188,15 @@ export class SuggestionService {
       this.runner.cancel();
     }
   }
+  busy() {
+    return !!this.active || this.applying;
+  }
   async run(input: SuggestionRequest) {
     await this.load();
     if (this.active || this.applying)
-      throw Error("Wait for the current suggestions to finish.");
+      throw new SuggestionBusyError(
+        "Wait for the current suggestions to finish.",
+      );
     const definition =
       input.mode === "synonyms"
         ? synonymDefinition
@@ -211,6 +217,11 @@ export class SuggestionService {
     let run: SuggestionRun | undefined;
     try {
       const s = await this.request<Snapshot>("state");
+      if (
+        input.datasetEpoch !== undefined &&
+        s.datasetEpoch !== input.datasetEpoch
+      )
+        throw Error("The workspace changed. Start a new run.");
       const document: SuggestionDocument = input.draft
         ? {
             entity: {

@@ -24,6 +24,10 @@ const bridge: AxiomBridge = {
     menu: (id, x, y) => invoke("chrome:menu", id, x, y),
   },
   suggestions: {
+    batches: () => invoke("suggestions:batches"),
+    enqueue: (input) => invoke("suggestions:enqueue", input),
+    cancelBatch: (batchId, runId) =>
+      invoke("suggestions:cancelBatch", batchId, runId),
     definitions: () => invoke("suggestions:definitions"),
     saveDefinition: (input) => invoke("suggestions:saveDefinition", input),
     history: () => invoke("suggestions:history"),

@@ -44,6 +44,7 @@ export interface SuggestionRun {
   session: string;
 }
 export interface SuggestionRequest {
+  datasetEpoch?: number;
   bypassCache?: boolean;
   iri: string;
   mode: string;

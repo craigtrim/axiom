@@ -8,6 +8,7 @@ import {
   type SavedEditorDrafts,
 } from "../shared/editor-state";
 import { SuggestionService } from "./suggestion-service";
+import { SuggestionBatches } from "./suggestion-batches";
 import { AuditLog, auditFailureId } from "./audit-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
@@ -359,6 +360,58 @@ const taxonomyAssistant = new TaxonomyAssistantService(
   undefined,
   undefined,
   modelCache,
+);
+const suggestionBatches = new SuggestionBatches(
+  path.join(app.getPath("userData"), "suggestion-batches"),
+  () => request<Snapshot>("state"),
+  {
+    busy: () => taxonomyAssistant.busy() || suggestions.busy(),
+    run: (batch, run, snapshot) =>
+      errorLog.run(
+        "Batch suggestions: " + batch.mode,
+        { iri: run.iri, provider: batch.provider, id: run.id },
+        async () => {
+          if (batch.mode === "children" || batch.mode === "instances") {
+            const result = await taxonomyAssistant.run({
+              id: run.id,
+              iri: run.iri,
+              mode: batch.mode,
+              provider: batch.provider,
+              datasetEpoch: batch.datasetEpoch,
+              version: snapshot.version,
+            });
+            return result.result.suggestions.length;
+          }
+          await suggestions.history();
+          if (run.state !== "running") throw Error("Suggestions cancelled.");
+          const result = await suggestions.run({
+            id: run.id,
+            iri: run.iri,
+            mode: batch.mode,
+            provider: batch.provider,
+            datasetEpoch: batch.datasetEpoch,
+          });
+          return result.values.length;
+        },
+      ),
+    cancel: (batch, run) => {
+      if (batch.mode === "children" || batch.mode === "instances")
+        taxonomyAssistant.cancel(run.id);
+      else suggestions.cancel(run.id);
+    },
+    hasRun: async (batch, run) =>
+      (batch.mode === "children" || batch.mode === "instances"
+        ? await taxonomyAssistant.history()
+        : await suggestions.history()
+      ).some((r) => r.id === run.id),
+  },
+  () => {
+    for (const w of BrowserWindow.getAllWindows())
+      if (!w.isDestroyed()) {
+        w.webContents.send("command", "suggestions.batchesChanged");
+        w.webContents.send("command", "suggestions.historyChanged");
+      }
+  },
 );
 const queryHistory = new QueryHistoryService(
   path.join(app.getPath("userData"), "query-history.json"),
@@ -1028,6 +1081,15 @@ app.whenReady().then(async () => {
       if (packet.event.type === "state") {
         if (lastState?.datasetEpoch !== packet.event.data.datasetEpoch)
           capturedDrafts = undefined;
+        if (
+          lastState?.datasetEpoch !== packet.event.data.datasetEpoch ||
+          lastState?.ontology.namespace !== packet.event.data.ontology.namespace
+        ) {
+          suggestionBatches.workspaceChanged(
+            packet.event.data.datasetEpoch,
+            packet.event.data.ontology.namespace,
+          );
+        }
         lastState = packet.event.data;
         updateWindowTitle();
       }
@@ -1382,6 +1444,23 @@ app.whenReady().then(async () => {
           if (!owner.isDestroyed()) owner.webContents.focus();
         },
       });
+  });
+  handle("suggestions:batches", (event) => {
+    authorised(event);
+    return suggestionBatches.history();
+  });
+  handle("suggestions:enqueue", (event, input) => {
+    authorised(event);
+    return suggestionBatches.enqueue(input);
+  });
+  handle("suggestions:cancelBatch", (event, batchId, runId) => {
+    authorised(event);
+    if (
+      typeof batchId !== "string" ||
+      (runId !== undefined && typeof runId !== "string")
+    )
+      throw Error("Choose a suggestion run to cancel.");
+    return suggestionBatches.cancel(batchId, runId);
   });
   handle("suggestions:definitions", (event) => {
     authorised(event);
@@ -1796,6 +1875,7 @@ app.whenReady().then(async () => {
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
+  suggestionBatches.close();
   textAnalysis.close();
   const suggestion = suggestions.status();
   if (suggestion) suggestions.cancel(suggestion.id);

@@ -1,5 +1,6 @@
 import { auditStep, auditMetadata, auditId } from "./audit-log";
 import { randomUUID } from "node:crypto";
+import { SuggestionBusyError } from "../shared/suggestion-batches";
 import { TaxonomyHistory } from "./taxonomy-history";
 import { LocalAssistantRunner, discoverAssistants } from "./local-assistant";
 import { ModelCache, modelHash, type ModelCacheKey } from "./model-cache";
@@ -101,9 +102,14 @@ export class TaxonomyAssistantService {
     this.cancelled = true;
     this.runner.cancel();
   }
+  busy() {
+    return this.current.running || this.applying;
+  }
   async run(input: TaxonomyRequest): Promise<TaxonomyResponse> {
     if (this.current.running || this.applying)
-      throw Error("Taxonomy suggestions are already running.");
+      throw new SuggestionBusyError(
+        "Taxonomy suggestions are already running.",
+      );
     if (
       !input ||
       typeof input.id !== "string" ||
