@@ -1,0 +1,249 @@
+/* The control tokens and metrics come from the hash-pinned #49 reference. */
+.entity-extend,
+.extend-context,
+.extend-confirmation {
+  grid-row: 4;
+  --ext-raised: #fff;
+  --ext-border: #e1e4e8;
+  --ext-border-strong: #d0d7de;
+  --ext-text: #1b1f24;
+  --ext-muted: #57606a;
+  --ext-hover: #f6f7f9;
+  --ext-focus: #0b5fd0;
+  --ext-accent: #0b5fd0;
+  --ext-tint: #f4f8fe;
+  --ext-ok: #0a7a3d;
+  --ext-ok-bg: #e8f5ed;
+  --ext-ok-border: #a9d8bd;
+  --ext-shadow: 0 8px 24px rgba(27, 31, 36, 0.18);
+  --ext-font:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ext-mono:
+    "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  font: 13px/1.5 var(--ext-font);
+  color: var(--ext-text);
+}
+[data-theme="dark"] :is(.entity-extend, .extend-context, .extend-confirmation) {
+  --ext-raised: #1c2128;
+  --ext-border: #30363d;
+  --ext-border-strong: #3d444d;
+  --ext-text: #e6edf3;
+  --ext-muted: #9ba7b4;
+  --ext-hover: #161b22;
+  --ext-focus: #6aabff;
+  --ext-accent: #4c9aff;
+  --ext-tint: #0f1a28;
+  --ext-ok: #4ade80;
+  --ext-ok-bg: #0f2a1b;
+  --ext-ok-border: #1d5233;
+  --ext-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+.find-panel .find-extend-column {
+  width: 148px;
+  text-align: end;
+}
+/* Retain #34's preferred widths while reserving the new action column and a
+   readable entity column. This shrinks continuously without a new layout mode. */
+.find-panel:is([data-layout="expanded"], [data-layout="shallow"])
+  .find-results
+  .find-type-column {
+  width: min(120px, calc((100% - 148px - 80px) * 0.4));
+}
+.find-panel:is([data-layout="expanded"], [data-layout="shallow"])
+  .find-results
+  .find-synonym-column {
+  width: min(180px, calc((100% - 148px - 80px) * 0.6));
+}
+.find-panel[data-layout="narrow"] .find-extend-column,
+.find-panel[data-layout="constrained"] .find-extend-column {
+  width: 44px;
+}
+.entity-extend {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  visibility: hidden;
+  vertical-align: top;
+}
+tr:hover .entity-extend,
+tr:focus-within .entity-extend,
+tr[data-selected="true"] .entity-extend,
+.entity-extend[data-open="true"] {
+  visibility: visible;
+}
+@media (hover: none), (pointer: coarse) {
+  .entity-extend {
+    visibility: visible;
+  }
+}
+.entity-extend .ext-action {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 26px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ext-text);
+  background: var(--ext-raised);
+  border: 1px solid var(--ext-border-strong);
+  cursor: pointer;
+}
+.entity-extend .ext-action:hover {
+  background: var(--ext-hover);
+}
+.entity-extend .ext-main {
+  border-radius: 4px 0 0 4px;
+}
+.entity-extend .ext-more {
+  border-radius: 0 4px 4px 0;
+  border-inline-start: 0;
+  padding: 0 5px;
+}
+.entity-extend .ext-only {
+  border-radius: 4px;
+  padding: 0 7px;
+}
+.entity-extend .ext-action:focus-visible {
+  outline: 2px solid var(--ext-focus);
+  outline-offset: 1px;
+  z-index: 2;
+}
+.entity-extend .ext-action:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.entity-extend .ext-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  min-width: 236px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: visible;
+  padding: 3px;
+  text-align: start;
+  background: var(--ext-raised);
+  color: var(--ext-text);
+  border: 1px solid var(--ext-border-strong);
+  border-radius: 6px;
+  box-shadow: var(--ext-shadow);
+  font: inherit;
+}
+.entity-extend .ext-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ext-text);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.entity-extend .ext-item:hover,
+.entity-extend .ext-item:focus-visible {
+  background: var(--ext-hover);
+}
+.entity-extend .ext-item:focus-visible {
+  outline: 2px solid var(--ext-focus);
+  outline-offset: -2px;
+}
+.entity-extend .ext-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ext-label {
+  flex: none;
+}
+.ext-predicate {
+  flex: 1 1 auto;
+  text-align: end;
+  font-family: var(--ext-mono);
+  font-size: 11.5px;
+  color: var(--ext-muted);
+}
+.ext-separator {
+  height: 1px;
+  margin: 3px 0;
+  background: var(--ext-border);
+}
+.ext-caption {
+  display: block;
+  padding: 4px 8px 2px;
+  font-size: 11.5px;
+  color: var(--ext-muted);
+}
+.extend-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ext-border);
+  background: var(--ext-tint);
+  font-size: 12.5px;
+}
+.extend-context .extend-back {
+  all: unset;
+  box-sizing: border-box;
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ext-text);
+  background: var(--ext-raised);
+  border: 1px solid var(--ext-border-strong);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.extend-context code {
+  font-family: var(--ext-mono);
+  font-size: 11.5px;
+  color: var(--ext-accent);
+}
+.extend-context .extend-back:focus-visible {
+  outline: 2px solid var(--ext-focus);
+  outline-offset: 1px;
+}
+.extend-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ext-ok-border);
+  background: var(--ext-ok-bg);
+  color: var(--ext-ok);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.find-label-hint {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.find-panel[data-create-open="true"] .find-create-host {
+  padding: 0;
+}
+.find-panel .extend-context {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.find-panel .extend-context code {
+  font-family: var(--ext-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ext-accent);
+}

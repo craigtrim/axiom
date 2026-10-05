@@ -1264,6 +1264,19 @@
   .find-results-scroll:has(.find-results) {
     scrollbar-gutter: stable;
   }
+  /* Withdrawn chrome leaves the results in their scrollable track. */
+  .find-matches:has(.find-results) {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+  .find-matches:has(.find-results) > .find-results-toolbar {
+    grid-row: 1;
+  }
+  .find-matches:has(.find-results) > .find-results-scroll {
+    grid-row: 2;
+  }
+  .find-matches:has(.find-results) > .find-pagination {
+    grid-row: 3;
+  }
   .find-result-name {
     border: 0;
     padding: 0;

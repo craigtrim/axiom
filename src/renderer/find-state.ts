@@ -4,6 +4,7 @@ import {
   emptyFindDraft,
   titleCaseQuery,
   type FindCreationDraft,
+  type FindCreationKind,
 } from "../shared/find-create";
 import {
   defaultFindOptions,
@@ -20,6 +21,33 @@ let current:
     }
   | undefined;
 const listeners = new Set<() => void>();
+const creationDrafts = new Map<string, FindCreationDraft>();
+let creationKey = "";
+export function openFindCreation(
+  origin: NonNullable<FindCreationDraft["origin"]>,
+  kind: FindCreationKind = "Class",
+) {
+  const old = findState();
+  const key = JSON.stringify([
+    old.options.text.trim(),
+    origin.door,
+    origin.target,
+  ]);
+  if (creationKey && creationKey !== key)
+    creationDrafts.set(creationKey, structuredClone(old.draft));
+  const draft =
+    creationKey === key
+      ? old.draft
+      : (creationDrafts.get(key) ?? {
+          ...emptyFindDraft(old.options.text),
+          kind,
+          origin,
+          parents: origin.target ? [origin.target] : [],
+        });
+  creationKey = key;
+  current = { ...old, draft };
+  for (const fn of listeners) fn();
+}
 export function findState() {
   if (current) return current;
   const options = readFindOptions({
@@ -42,6 +70,14 @@ export const useFindState = () =>
   }, findState);
 export function updateFind(change: Partial<FindOptions>, selected = "") {
   const old = findState();
+  if (
+    change.text !== undefined &&
+    change.text !== old.options.text &&
+    creationKey
+  ) {
+    creationDrafts.set(creationKey, structuredClone(old.draft));
+    creationKey = "";
+  }
   const options = readFindOptions({
     ...old.options,
     offset: 0,
@@ -76,6 +112,8 @@ export function updateFindDraft(change: Partial<FindCreationDraft>) {
 }
 export function markFindCreated(iri: string, related: string[] = []) {
   const old = findState();
+  creationDrafts.delete(creationKey);
+  creationKey = "";
   current = {
     ...old,
     draft: emptyFindDraft(),
@@ -88,6 +126,8 @@ let epoch: number | undefined;
 export function syncFindEpoch(value: number) {
   if (epoch === value) return;
   epoch = value;
+  creationDrafts.clear();
+  creationKey = "";
   if (current) {
     current = {
       ...current,

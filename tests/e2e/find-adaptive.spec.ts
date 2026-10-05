@@ -239,7 +239,8 @@ for (const [width, height, mode, columns] of [
     await settled();
     await size(width, height);
     await expect(host()).toHaveAttribute("data-pane-layout", mode);
-    await expect(pane().getByRole("columnheader")).toHaveCount(columns);
+    // #49 adds the reserved trailing action column in every presentation.
+    await expect(pane().getByRole("columnheader")).toHaveCount(columns + 1);
     await fits(
       pane().getByRole("columnheader", { name: "Entity", exact: true }),
     );
@@ -260,7 +261,10 @@ for (const [width, height, mode, columns] of [
     }
     await noOverflow();
     const undersized = await pane()
-      .locator("button:visible:not(.find-store button), select:visible")
+      // The adjoining chevron uses the narrower face pinned by #49's reference.
+      .locator(
+        "button:visible:not(.find-store button):not(.ext-more), select:visible",
+      )
       .evaluateAll((elements) =>
         elements
           .filter((el) => {

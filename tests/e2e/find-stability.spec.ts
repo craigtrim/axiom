@@ -180,8 +180,14 @@ test("full Find retains display-only rows and blocks graph, synonym and paging a
   await expect(
     pane.getByRole("button", { name: "Next results page" }),
   ).toBeDisabled();
-  for (const button of await pane.locator(".find-synonym").all())
+  const retainedActions = pane.locator(".entity-extend .ext-action");
+  expect(await retainedActions.count()).toBeGreaterThan(0);
+  for (const button of await retainedActions.all()) {
     await expect(button).toBeDisabled();
+    await expect(button).toHaveAccessibleDescription(
+      "Finishing the current search",
+    );
+  }
   const previous = (await d.request<Snapshot>("state")).selected;
   await pane.locator(".find-results tbody tr").first().dispatchEvent("click");
   expect((await d.request<Snapshot>("state")).selected).toBe(previous);

@@ -121,6 +121,7 @@ test("blank query browses with permanent columns, denominator and explicit inspe
     "Entity",
     "Type",
     "Synonym",
+    "Extend entity",
   ]);
   await expect(pane().locator(".find-summary")).toHaveText(
     /\d+ matches of \d+ entities/,

@@ -6,6 +6,12 @@ import {
   fixedFindPredicates,
   type FindCreationInput,
   type FindCreationPreview,
+  findCreationKinds,
+  creationType,
+  creationNoun,
+  creationRelation,
+  creationTargetMatches,
+  type FindCreationKind,
 } from "../shared/find-create";
 import type { Snapshot } from "../shared/protocol";
 import { request, setState, state, useSnapshot } from "./client";
@@ -30,6 +36,15 @@ export function FindCreatePanel({
   reveal(iri: string, label: string, message: string): Promise<void>;
 }) {
   const { draft } = useFindState();
+  const kind = draft.kind ?? "Class";
+  const noun = creationNoun(kind);
+  const relation = creationRelation(kind);
+  const relationName =
+    kind === "Class"
+      ? "rdfs:subClassOf"
+      : kind === "Individual"
+        ? "rdf:type"
+        : "rdfs:subPropertyOf";
   const snapshot = useSnapshot()!;
   const id = useId();
   const [error, setError] = useState("");
@@ -47,6 +62,7 @@ export function FindCreatePanel({
     })),
   );
   const creation: FindCreationInput = {
+    kind,
     label: draft.label,
     iri: draft.iri,
     comment: draft.comment,
@@ -118,7 +134,7 @@ export function FindCreatePanel({
     !preview.collisions.some((c) => c.kind !== "normalized") &&
     !draft.parentText.trim();
   const handoff = async (parentLabel?: string) => {
-    if (!ready || busy || pending.current) return;
+    if (kind !== "Class" || !ready || busy || pending.current) return;
     pending.current = true;
     try {
       const fresh = await check.validate();
@@ -170,9 +186,9 @@ export function FindCreatePanel({
       setState(next);
       const entity = next.entities.find((e) => e.iri === createdIri);
       if (!entity)
-        throw Error("The saved class is no longer in this ontology.");
+        throw Error("The saved entity is no longer in this ontology.");
       const label = entity.label || entity.name;
-      const parentLabels = entity.parents.map((iri) => {
+      const parentLabels = selectedParents.map((iri) => {
         const parent = next.entities.find((e) => e.iri === iri);
         return (
           parent?.label ||
@@ -181,11 +197,13 @@ export function FindCreatePanel({
         );
       });
       const message =
-        entity.parents.length === 1 && entity.parents[0] === THING
-          ? `${label} created at the root`
-          : `${label} created under ${parentLabels.join(", ")}`;
-      await reveal(createdIri, label, message + ". Showing the saved class.");
+        kind === "Class" &&
+        (!selectedParents.length ||
+          (selectedParents.length === 1 && selectedParents[0] === THING))
+          ? `${label} added under owl:Thing`
+          : `${label} added as a ${noun} ${kind === "Individual" ? "of" : "under"} ${parentLabels.join(", ")}`;
       markFindCreated(createdIri);
+      await reveal(createdIri, label, message);
     } catch (reason) {
       if (state?.datasetEpoch === datasetEpoch)
         setError((reason as Error).message);
@@ -221,12 +239,14 @@ export function FindCreatePanel({
         }}
       >
         <fieldset disabled={busy} className="find-create-fields">
-          <legend className="sr-only">New class</legend>
-          <AncestryChain
-            snapshot={snapshot}
-            label={draft.label}
-            parents={selectedParents}
-          />
+          <legend className="sr-only">New {noun}</legend>
+          {kind === "Class" && (
+            <AncestryChain
+              snapshot={snapshot}
+              label={draft.label}
+              parents={selectedParents}
+            />
+          )}
           <div className="entity-subject subj">
             <label className="k" htmlFor={id + "-subject"}>
               Subject
@@ -269,11 +289,30 @@ export function FindCreatePanel({
                 <select
                   className="w-label"
                   aria-label="rdf:type"
-                  value={NS.owl + "Class"}
-                  onChange={() => {}}
+                  value={creationType(kind)}
+                  onChange={(event) => {
+                    const next = findCreationKinds.find(
+                      (k) => creationType(k) === event.target.value,
+                    )!;
+                    updateFindDraft({
+                      kind: next,
+                      parents: selectedParents.filter((iri) => {
+                        const target = snapshot.entities.find(
+                          (e) => e.iri === iri,
+                        );
+                        return target && creationTargetMatches(next, target);
+                      }),
+                      parentText: "",
+                    });
+                  }}
                 >
-                  <option value={NS.owl + "Class"}>owl:Class</option>
+                  {findCreationKinds.map((k) => (
+                    <option key={k} value={creationType(k)}>
+                      {compactIri(creationType(k), snapshot.ontology.namespace)}
+                    </option>
+                  ))}
                 </select>
+                {fieldError("kind")}
               </td>
             </tr>
             <tr>
@@ -286,7 +325,7 @@ export function FindCreatePanel({
                 <input
                   id={id + "-label"}
                   className="w-label"
-                  aria-label="Class label"
+                  aria-label={`${noun[0].toUpperCase() + noun.slice(1)} label`}
                   maxLength={256}
                   value={draft.label}
                   aria-invalid={!draft.label.trim() || !!fieldErrors("label")}
@@ -298,6 +337,11 @@ export function FindCreatePanel({
                     })
                   }
                 />
+                {(draft.origin || kind !== "Class") && (
+                  <span className="find-label-hint">
+                    The label the {noun} will carry.
+                  </span>
+                )}
                 <span
                   id={id + "-label-error"}
                   hidden={!!draft.label.trim() && !fieldErrors("label")}
@@ -315,11 +359,11 @@ export function FindCreatePanel({
             </tr>
             <StatementGroupRow
               group={{
-                predicate: NS.rdfs + "subClassOf",
+                predicate: relation,
                 values: parentValues as [string, ...string[]],
               }}
-              name="rdfs:subClassOf"
-              predicate={<code>rdfs:subClassOf</code>}
+              name={relationName}
+              predicate={<code>{relationName}</code>}
               valueKey={(value, index) => value || "parent-" + index}
               add={() => {
                 setActiveParent(parentValues.length);
@@ -334,36 +378,78 @@ export function FindCreatePanel({
               removable={(value) => !!value || parentValues.length > 1}
               renderValue={(parent, index) => (
                 <>
-                  <TextParentPicker
-                    snapshot={snapshot}
-                    value={{
-                      label: draft.label,
-                      comment: draft.comment,
-                      parents: selectedParents.map((iri) => ({ iri })),
-                      manualParents: true,
-                    }}
-                    preview={preview}
-                    disabled={busy}
-                    ready={ready}
-                    compact
-                    selectedText={parentLabels[index] ?? ""}
-                    placeholder="owl:Thing (root). Search or type a name."
-                    excludeIri={preview?.iri ?? iri}
-                    text={activeParent === index ? draft.parentText : ""}
-                    setText={(parentText) => {
-                      setActiveParent(index);
-                      updateFindDraft({ parentText });
-                    }}
-                    add={(iri) => {
-                      updateFindDraft({
-                        parents: parentValues.map((p, i) =>
-                          i === index ? iri : p,
-                        ),
-                        parentText: "",
-                      });
-                    }}
-                    create={(parentLabel) => void handoff(parentLabel)}
-                  />
+                  {kind === "Class" ? (
+                    <TextParentPicker
+                      snapshot={snapshot}
+                      value={{
+                        label: draft.label,
+                        comment: draft.comment,
+                        parents: selectedParents.map((iri) => ({ iri })),
+                        manualParents: true,
+                      }}
+                      preview={preview}
+                      disabled={busy}
+                      ready={ready}
+                      compact
+                      selectedText={parentLabels[index] ?? ""}
+                      placeholder="owl:Thing (root). Search or type a name."
+                      excludeIri={preview?.iri ?? iri}
+                      text={activeParent === index ? draft.parentText : ""}
+                      setText={(parentText) => {
+                        setActiveParent(index);
+                        updateFindDraft({ parentText });
+                      }}
+                      add={(iri) => {
+                        updateFindDraft({
+                          parents: parentValues.map((p, i) =>
+                            i === index ? iri : p,
+                          ),
+                          parentText: "",
+                        });
+                      }}
+                      create={(parentLabel) => void handoff(parentLabel)}
+                    />
+                  ) : (
+                    <select
+                      className="w-label"
+                      aria-label={
+                        kind === "Individual"
+                          ? "Instance type"
+                          : "Parent property"
+                      }
+                      value={parent}
+                      onChange={(event) =>
+                        updateFindDraft({
+                          parents: parentValues.map((p, i) =>
+                            i === index ? event.target.value : p,
+                          ),
+                          parentText: "",
+                        })
+                      }
+                    >
+                      <option value="">
+                        {kind === "Individual"
+                          ? "Choose a class"
+                          : "Choose a parent property"}
+                      </option>
+                      {snapshot.entities
+                        .filter(
+                          (e) =>
+                            e.iri !== iri &&
+                            creationTargetMatches(kind, e) &&
+                            (e.iri === parent ||
+                              !selectedParents.includes(e.iri)),
+                        )
+                        .sort((a, b) =>
+                          (a.label || a.name).localeCompare(b.label || b.name),
+                        )
+                        .map((e) => (
+                          <option key={e.iri} value={e.iri}>
+                            {e.label || e.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
                   {index === 0 && fieldError("parents")}
                 </>
               )}
@@ -378,7 +464,7 @@ export function FindCreatePanel({
                 <input
                   id={id + "-comment"}
                   className="w-comment"
-                  aria-label="Class comment"
+                  aria-label={`${noun[0].toUpperCase() + noun.slice(1)} comment`}
                   maxLength={10000}
                   value={draft.comment}
                   placeholder="One sentence saying what this is"
@@ -510,7 +596,7 @@ export function FindCreatePanel({
                     : ""}
                 . It sits under {collision.path}.
                 {collision.kind === "normalized" &&
-                  " You can still create a separate class."}
+                  ` You can still create a separate ${noun}.`}
               </p>
               {collision.openable === false ? (
                 <p>
@@ -549,29 +635,35 @@ export function FindCreatePanel({
           <footer className="find-create-actions cfoot">
             <span
               className="dest"
-              title={`Creates ${draft.label} under ${parentLabels.filter(Boolean).join(", ") || "owl:Thing"}.`}
+              title={`Creates ${draft.label} ${kind === "Individual" ? "as an instance of" : "under"} ${parentLabels.filter(Boolean).join(", ") || (kind === "Class" ? "owl:Thing" : "a target you choose")}.`}
             >
               Creates <b>{draft.label}</b>
-              {" under "}
-              <b>{parentLabels.filter(Boolean).join(", ") || "owl:Thing"}</b>.
+              {kind === "Individual" ? " as an instance of " : " under "}
+              <b>
+                {parentLabels.filter(Boolean).join(", ") ||
+                  (kind === "Class" ? "owl:Thing" : "a target you choose")}
+              </b>
+              .
             </span>
             <span className="acts">
-              <button
-                className="btn"
-                type="button"
-                disabled={!ready}
-                onClick={() =>
-                  void handoff(draft.parentText.trim() || undefined)
-                }
-              >
-                Continue in Add entity
-              </button>
+              {kind === "Class" && (
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!ready}
+                  onClick={() =>
+                    void handoff(draft.parentText.trim() || undefined)
+                  }
+                >
+                  Continue in Add entity
+                </button>
+              )}
               <button
                 className="btn primary"
                 type="submit"
                 disabled={!valid || busy}
               >
-                {busy ? "Adding…" : "Create class"}
+                {busy ? "Adding…" : `Create ${noun}`}
               </button>
             </span>
           </footer>

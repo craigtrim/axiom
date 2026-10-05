@@ -10,6 +10,7 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import type { Snapshot } from "../../src/shared/protocol";
 import { NS } from "../../src/domain/model";
+import { extendBase, extendOntology } from "../fixtures/extend-visual/ontology";
 const base = "https://example.test/courses#";
 let app: ElectronApplication, page: Page, profile: string;
 const errors: string[] = [];
@@ -287,6 +288,332 @@ async function types(selected: string[]) {
       .setChecked(selected.includes(label));
 }
 
+async function openExtendFixture() {
+  const file = path.join(profile, "extend.ttl");
+  await writeFile(file, extendOntology);
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () => (await state()).ontology.name)
+    .toBe("extend.ttl");
+  await menu("view.find");
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("Psy");
+  await expect(pane().locator(".find-results-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+}
+const extendRow = (name: string) =>
+  pane()
+    .locator(".find-results tbody tr")
+    .filter({ has: page.getByRole("button", { name, exact: true }) });
+async function extendMenu(name: string) {
+  const row = extendRow(name);
+  await row.hover();
+  const trigger = row.getByRole("button", {
+    name: `More ways to extend ${name}`,
+    exact: true,
+    includeHidden: true,
+  });
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  return trigger;
+}
+
+for (const [target, door, noun, predicate, kind] of [
+  ["Psychology", "Subclass", "class", NS.rdfs + "subClassOf", "Class"],
+  ["Psychology", "Instance", "individual", NS.rdf + "type", "Individual"],
+  [
+    "teaches",
+    "Subproperty",
+    "property",
+    NS.rdfs + "subPropertyOf",
+    "ObjectProperty",
+  ],
+  [
+    "psychology data",
+    "Subproperty",
+    "property",
+    NS.rdfs + "subPropertyOf",
+    "DataProperty",
+  ],
+  [
+    "psychology annotation",
+    "Subproperty",
+    "property",
+    NS.rdfs + "subPropertyOf",
+    "AnnotationProperty",
+  ],
+] as const) {
+  test(`#49 ${door} creates a ${kind} with its relation, custom IRI and one Undo`, async () => {
+    await openExtendFixture();
+    await extendMenu(target);
+    await page.getByRole("menuitem", { name: new RegExp("^" + door) }).click();
+    const form = pane().getByRole("region", {
+      name: "Add to the ontology",
+      exact: true,
+    });
+    const label = form.getByRole("textbox", {
+      name: new RegExp("^" + noun + " label$", "i"),
+    });
+    await expect(label).toHaveValue("Psy");
+    await expect(pane().locator(".extend-context")).toContainText(target);
+    await expect(
+      form.getByRole("combobox", { name: "rdf:type", exact: true }),
+    ).toHaveValue(
+      NS.owl +
+        (kind === "Individual"
+          ? "NamedIndividual"
+          : kind === "DataProperty"
+            ? "DatatypeProperty"
+            : kind),
+    );
+    const name = "New " + kind;
+    await label.fill(name);
+    const iri = extendBase + "Custom" + kind;
+    await form
+      .getByRole("textbox", { name: "Subject IRI", exact: true })
+      .fill(iri);
+    await form
+      .getByRole("textbox", { name: new RegExp("^" + noun + " comment$", "i") })
+      .fill("Created from Find");
+    const targetIri = (await state()).entities.find(
+      (e) => (e.label || e.name) === target,
+    )!.iri;
+    await form
+      .getByRole("button", { name: `Create ${noun}`, exact: true })
+      .click();
+    await expect
+      .poll(
+        async () => (await state()).entities.find((e) => e.iri === iri)?.kind,
+      )
+      .toBe(kind);
+    const doc = await page.evaluate(
+      (iri) => window.axiom.request<any>("entityDocument", { iri }),
+      iri,
+    );
+    expect(doc.statements).toContainEqual(
+      expect.objectContaining({
+        predicate,
+        object: expect.objectContaining({ literal: false, value: targetIri }),
+      }),
+    );
+    if (kind !== "Class")
+      expect(
+        doc.statements.some((t: any) => t.predicate === NS.rdfs + "subClassOf"),
+      ).toBe(false);
+    await pane().getByRole("searchbox").blur();
+    await menu("edit.undo");
+    await expect
+      .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+      .toBe(false);
+    await menu("edit.redo");
+    await expect
+      .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+      .toBe(true);
+    await pane().getByRole("searchbox").fill("Psy");
+    await expect(pane().locator(".find-results-scroll")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await extendMenu(target);
+    await page.getByRole("menuitem", { name: new RegExp("^" + door) }).click();
+    await expect(label).toHaveValue("Psy");
+    await expect(
+      form.getByRole("textbox", { name: "Subject IRI", exact: true }),
+    ).not.toHaveValue(iri);
+  });
+}
+
+test("#49 menus retain selection, close outside or on Escape, and keep independent door drafts", async () => {
+  await openExtendFixture();
+  await extendRow("General Psychology").locator(".find-result-name").click();
+  const selected = await pane().locator('tr[data-selected="true"]').innerText();
+  const first = await extendMenu("Psychology");
+  await first.press("Escape");
+  // Escape also works while focus remains on the pointer-opened trigger.
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(first).toBeFocused();
+  await first.press("Enter");
+  await expect(page.getByRole("menuitem").first()).toBeFocused();
+  await page.getByRole("menuitem").first().press("Escape");
+  await expect(first).toBeFocused();
+  await first.press("Space");
+  await expect(page.getByRole("menuitem").first()).toBeFocused();
+  await page.getByRole("menuitem").first().press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /^Instance/ })).toBeFocused();
+  await page.getByRole("menuitem", { name: /^Instance/ }).press("Escape");
+  await first.click();
+  const second = await extendMenu("teaches");
+  await expect(page.getByRole("menu")).toHaveCount(1);
+  await expect(first).toHaveAttribute("aria-expanded", "false");
+  await pane().getByRole("searchbox").click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(second).toBeFocused();
+  expect(await pane().locator('tr[data-selected="true"]').innerText()).toBe(
+    selected,
+  );
+  await extendMenu("Psychology");
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  const label = pane().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  await label.fill("Retained class draft");
+  await label.press("Escape");
+  await expect(first).toBeFocused();
+  await first.click();
+  await page.getByRole("menuitem", { name: /^Instance/ }).click();
+  await expect(
+    pane().getByRole("textbox", { name: "Individual label", exact: true }),
+  ).toHaveValue("Psy");
+  await pane()
+    .getByRole("button", { name: "Remove this rdf:type value", exact: true })
+    .click();
+  await expect(
+    pane().getByRole("button", { name: "Create individual", exact: true }),
+  ).toBeDisabled();
+  await expect(pane()).toContainText(
+    "Choose an existing class as the individual's type.",
+  );
+  await expect(
+    pane().getByRole("combobox", { name: "rdf:type", exact: true }),
+  ).toHaveValue(NS.owl + "NamedIndividual");
+  await pane()
+    .getByRole("button", { name: "Back to results", exact: true })
+    .click();
+  await first.click();
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await expect(label).toHaveValue("Retained class draft");
+});
+
+test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations", async () => {
+  await openExtendFixture();
+  await page.locator('[data-pane-id="find"]').evaluate((el) =>
+    Object.assign((el as HTMLElement).style, {
+      position: "fixed",
+      left: "24px",
+      top: "24px",
+      width: "502px",
+      height: "560px",
+      zIndex: "1000",
+    }),
+  );
+  await expect(pane()).toHaveAttribute("data-layout", "narrow");
+  const row = extendRow("Psychology");
+  await expect
+    .poll(
+      async () =>
+        (await row.locator(".find-extend-column").boundingBox())!.width,
+    )
+    .toBe(44);
+  const trigger = await extendMenu("Psychology");
+  await expect(trigger).toHaveText("+");
+  await expect(page.getByRole("menuitem")).toHaveText([
+    "Synonymrdfs:seeAlso",
+    "Subclassrdfs:subClassOf",
+    "Instancerdf:type",
+  ]);
+  await expect(page.getByRole("menu")).toHaveAttribute(
+    "aria-label",
+    "Psychology",
+  );
+  await page.getByRole("menuitem").first().click();
+  await expect(pane().locator(".extend-confirmation")).toHaveText(
+    "Psy added to Psychology",
+  );
+  await extendMenu("Psychology");
+  await expect(page.getByRole("menuitem")).toHaveCount(2);
+});
+
+test("#49 a row door preserves the results page, scroll, selection and its draft", async () => {
+  await openNetworkFixture();
+  await pane().getByRole("searchbox").fill("Network Certification");
+  await setPageSize("25");
+  await pane()
+    .getByRole("button", { name: "Next results page", exact: true })
+    .click();
+  await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+  const rows = pane().locator(".find-results tbody tr");
+  await rows.nth(2).locator(".find-result-name").click();
+  const selected = await pane()
+    .locator('tr[data-selected="true"] .find-result-name')
+    .innerText();
+  const target = rows.nth(15);
+  await target.scrollIntoViewIfNeeded();
+  await target.hover();
+  const trigger = target.getByRole("button", { name: /^More ways to extend/ });
+  await trigger.click();
+  const scroll = await pane()
+    .locator(".find-results-scroll")
+    .evaluate((el) => el.scrollTop);
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  const label = pane().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  await label.fill("Page two draft");
+  await label.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+  expect(
+    await pane()
+      .locator(".find-results-scroll")
+      .evaluate((el) => el.scrollTop),
+  ).toBe(scroll);
+  await expect(
+    pane().locator('tr[data-selected="true"] .find-result-name'),
+  ).toHaveText(selected);
+  await trigger.click();
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await expect(label).toHaveValue("Page two draft");
+  await pane()
+    .getByRole("button", { name: "Back to results", exact: true })
+    .click();
+  expect(
+    await pane()
+      .locator(".find-results-scroll")
+      .evaluate((el) => el.scrollTop),
+  ).toBe(scroll);
+});
+
+test("#49 shallow rows stay stable when the toolbar must withdraw", async () => {
+  await openExtendFixture();
+  await page.locator('[data-pane-id="find"]').evaluate((el) =>
+    Object.assign((el as HTMLElement).style, {
+      position: "fixed",
+      left: "24px",
+      top: "24px",
+      width: "760px",
+      height: "320px",
+      zIndex: "1000",
+    }),
+  );
+  await expect(pane()).toHaveAttribute("data-layout", "shallow");
+  const target = extendRow("Psychology");
+  await target.scrollIntoViewIfNeeded();
+  await target.focus();
+  await expect(target.locator(".ext-main")).toBeVisible();
+  const positions = await target.evaluate(async (el) => {
+    const samples: number[] = [];
+    for (let frame = 0; frame < 12; frame++) {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      samples.push(el.getBoundingClientRect().y);
+    }
+    return samples;
+  });
+  expect(new Set(positions).size).toBe(1);
+});
+
 test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
@@ -419,18 +746,17 @@ test("Find adds its search text as a synonym without clearing results and refres
     }),
   });
   const add = row.getByRole("button", {
-    name: 'Add "Developmental Psycho" as synonym for Developmental Psychology',
+    name: "Add Developmental Psycho as a synonym of Developmental Psychology",
     exact: true,
   });
   await expect(add).toHaveAttribute(
     "title",
-    'Add "Developmental Psycho" as rdfs:seeAlso',
+    "Add Developmental Psycho as a synonym of Developmental Psychology",
   );
   await add.click();
-  await expect(row.locator(".find-synonym")).toHaveText("Added");
-  await expect(row.locator(".find-synonym")).toBeDisabled();
+  await expect(row.locator(".find-synonym")).toHaveCount(0);
   await expect(p).toContainText(
-    "Added “Developmental Psycho” as a synonym for Developmental Psychology.",
+    "Developmental Psycho added to Developmental Psychology",
   );
   await expect(p.locator(".find-results-scroll")).toHaveAttribute(
     "aria-busy",
@@ -479,8 +805,7 @@ test("Find adds its search text as a synonym without clearing results and refres
     "aria-busy",
     "false",
   );
-  await expect(row.locator(".find-synonym")).toHaveText("Exists");
-  await expect(row.locator(".find-synonym")).toBeDisabled();
+  await expect(row.locator(".find-synonym")).toHaveCount(0);
   expect((await synonymDocument()).statements).toEqual(after.statements);
   await page.screenshot({ path: "artifacts/testing/find-add-synonym.png" });
 });
@@ -501,17 +826,9 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
     }),
   });
   const before = await synonymDocument();
-  await expect(row.locator(".find-synonym")).toBeDisabled();
-  await expect(row.locator(".find-synonym")).toHaveAttribute(
-    "title",
-    /already matches this entity's name/,
-  );
+  await expect(row.locator(".find-synonym")).toHaveCount(0);
   await query.fill("developmental psyc");
-  await expect(row.locator(".find-synonym")).toBeDisabled();
-  await expect(row.locator(".find-synonym")).toHaveAttribute(
-    "title",
-    /already exists as rdfs:seeAlso/,
-  );
+  await expect(row.locator(".find-synonym")).toHaveCount(0);
   for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
     await query.fill(text);
     await expect(p.locator(".find-synonym")).toHaveCount(0);
@@ -525,17 +842,12 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
   await query.fill("Developmental Psycho");
   await name.click();
   const add = row.getByRole("button", {
-    name: 'Add "Developmental Psycho" as synonym for Developmental Psychology',
+    name: "Add Developmental Psycho as a synonym of Developmental Psychology",
     exact: true,
   });
   await add.focus();
   await add.press("Enter");
-  await expect(
-    row.getByRole("button", {
-      name: 'Added "Developmental Psycho" as rdfs:seeAlso',
-      exact: true,
-    }),
-  ).toBeDisabled();
+  await expect(row.locator(".find-synonym")).toHaveCount(0);
   expect(
     (await synonymDocument()).statements
       .filter((t) => t.predicate === NS.rdfs + "seeAlso")

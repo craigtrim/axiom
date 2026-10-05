@@ -20,10 +20,13 @@ import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
 import { kindLabel } from "../domain/model";
 import { FindCreatePanel } from "./FindCreatePanel";
+import { EntityExtend, focusEntityExtendTrigger } from "./EntityExtend";
+import type { ExtendRelation } from "../shared/entity-extend";
 import {
   emptyFindDraft,
   findCreationOffer,
   type FindCreationPreview,
+  creationNoun,
 } from "../shared/find-create";
 import { useRetainedPreview } from "./use-retained-preview";
 import { entityIdentifier } from "../shared/entity-names";
@@ -45,8 +48,8 @@ import {
   openSimilar,
   selectFind,
   updateFind,
-  updateFindDraft,
   useFindState,
+  openFindCreation,
 } from "./find-state";
 
 function useFindResults(options: FindOptions) {
@@ -301,11 +304,13 @@ export function FindPanel() {
   const createTrigger = useRef<HTMLButtonElement>(null);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [extendOpen, setExtendOpen] = useState("");
+  const createReturnFocus = useRef<HTMLButtonElement | null>(null);
   const scopeId = useId(),
     createId = useId();
   const pendingPageFocus = useRef<string | undefined>(undefined);
   const scopeVisible = !layout.compact || scopeOpen;
-  const { options, selected, recent, created } = useFindState();
+  const { options, selected, recent, created, draft } = useFindState();
   const searchOptions = { ...options, browse: true, diagnostics: true };
   const { data, facets, busy, ready, announcing, error, displayedOptions } =
     useFindResults(searchOptions);
@@ -372,14 +377,10 @@ export function FindPanel() {
     offerCheck.fresh &&
     !offerCheck.value?.errors.length &&
     offer.enabled;
-  const openedQuery = useRef("");
   const openResultCreation = () => {
     if (!offerReady) return;
-    const query = JSON.stringify([synonymText, snapshot.datasetEpoch]);
-    if (openedQuery.current !== query) {
-      updateFindDraft(emptyFindDraft(synonymText));
-      openedQuery.current = query;
-    }
+    createReturnFocus.current = null;
+    openFindCreation({ door: "header" });
     setCreateOpen(true);
     root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
       root.current
@@ -387,9 +388,26 @@ export function FindPanel() {
         ?.focus(),
     );
   };
+  const openRelatedCreation = (
+    row: FindRow,
+    relation: ExtendRelation,
+    trigger: HTMLButtonElement,
+  ) => {
+    if (!ready) return;
+    createReturnFocus.current = trigger;
+    openFindCreation({ door: relation.door, target: row.iri }, relation.kind);
+    setCreateOpen(true);
+    root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+      root.current
+        ?.querySelector<HTMLInputElement>(
+          '.find-create input[aria-label$=" label"]',
+        )
+        ?.focus(),
+    );
+  };
   useEffect(() => {
     setCreateOpen(false);
-    openedQuery.current = "";
+    setExtendOpen("");
   }, [options.text, snapshot.datasetEpoch]);
   const active = rows.find((row) => row.iri === selected);
   const [chrome, setChrome] = useState({
@@ -401,8 +419,18 @@ export function FindPanel() {
     const host = root.current;
     if (!host) return;
     const win = host.ownerDocument.defaultView!;
-    const measure = (selector: string) =>
-      host.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0;
+    const measure = (selector: string) => {
+      const element = host.querySelector<HTMLElement>(selector);
+      if (!element) return 0;
+      // Withdrawn chrome is absolutely positioned, so it can wrap to a different
+      // height than when it participates in the grid. Measure its natural grid
+      // width to avoid alternating show/hide decisions at the fit boundary.
+      const withdrawn = element.dataset.withdrawn;
+      if (withdrawn === "true") element.dataset.withdrawn = "false";
+      const height = element.offsetHeight;
+      if (withdrawn === "true") element.dataset.withdrawn = withdrawn;
+      return height;
+    };
     const update = () => {
       const next = { header: true, pager: true, inspector: true };
       if (layout.shallow && (layout.narrow || !rows.length))
@@ -496,6 +524,13 @@ export function FindPanel() {
   const closeCreate = () => {
     setCreateOpen(false);
     root.current?.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (
+        createReturnFocus.current?.isConnected &&
+        !createReturnFocus.current.disabled
+      ) {
+        focusEntityExtendTrigger(createReturnFocus.current);
+        return;
+      }
       if (rows.length && !chrome.header) moreTrigger.current?.focus();
       else if (layout.shallow || rows.length) createTrigger.current?.focus();
       else queryInput.current?.focus();
@@ -645,7 +680,6 @@ export function FindPanel() {
     await request("select", { iri, datasetEpoch: epoch });
     if (state?.datasetEpoch !== epoch) return;
     setCreateOpen(false);
-    openedQuery.current = "";
     updateFind(
       {
         text: label,
@@ -687,53 +721,14 @@ export function FindPanel() {
         setAddedSynonyms((previous) => new Set([...previous, row.iri]));
         setMessage(
           result.added
-            ? `Added “${result.value}” as a synonym for ${row.name}.`
-            : `“${result.value}” is already recorded for ${row.name}.`,
+            ? `${result.value} added to ${row.name}`
+            : `${row.name} already records ${result.value}`,
         );
       } finally {
         synonymPending.current = false;
         setAddingSynonym("");
       }
     });
-  };
-  const synonymButton = (row: FindRow | undefined, compact = false) => {
-    if (!synonymText || !row?.synonym) return null;
-    const added = addedSynonyms.has(row.iri),
-      available = row.synonym === "available" && !added;
-    const title = added
-      ? `Added "${synonymText}" as rdfs:seeAlso`
-      : row.synonym === "label"
-        ? `"${synonymText}" already matches this entity's name`
-        : row.synonym === "exists"
-          ? `"${synonymText}" already exists as rdfs:seeAlso`
-          : `Add "${synonymText}" as rdfs:seeAlso`;
-    return (
-      <button
-        type="button"
-        className={compact ? "btn addsyn find-synonym" : undefined}
-        title={title}
-        aria-label={
-          available ? `Add "${synonymText}" as synonym for ${row.name}` : title
-        }
-        disabled={!ready || !!addingSynonym || !available}
-        onClick={() => addSynonym(row)}
-      >
-        {addingSynonym === row.iri ? (
-          "Adding…"
-        ) : added ? (
-          "Added"
-        ) : !available ? (
-          "Exists"
-        ) : compact ? (
-          <>
-            <FindGlyph name="plus" />
-            Synonym
-          </>
-        ) : (
-          "Add as synonym"
-        )}
-      </button>
-    );
   };
   const graph = (fresh: boolean) => {
     if (!ready || !active) return;
@@ -830,13 +825,38 @@ export function FindPanel() {
       }}
     >
       {createOpen && (
-        <button
-          type="button"
-          className="find-create-close"
-          onClick={closeCreate}
-        >
-          Back to results
-        </button>
+        <div className="extend-context">
+          <button type="button" className="extend-back" onClick={closeCreate}>
+            Back to results
+          </button>
+          {!draft.origin || draft.origin.door === "header" ? (
+            <span>
+              Adding <b>{options.text.trim()}</b> from your search
+            </span>
+          ) : (
+            <span>
+              New <b>{creationNoun(draft.kind ?? "Class")}</b>
+              {`, ${(draft.kind ?? "Class") === "Class" ? "subclass" : draft.kind === "Individual" ? "instance" : "subproperty"} of `}
+              <b>
+                {draft.parents
+                  .filter(Boolean)
+                  .map((iri) => {
+                    const target = snapshot.entities.find((e) => e.iri === iri);
+                    return target?.label || target?.name || iri;
+                  })
+                  .join(", ") || "…"}
+              </b>
+              {", asserted with "}
+              <code>
+                {(draft.kind ?? "Class") === "Class"
+                  ? "rdfs:subClassOf"
+                  : draft.kind === "Individual"
+                    ? "rdf:type"
+                    : "rdfs:subPropertyOf"}
+              </code>
+            </span>
+          )}
+        </div>
       )}
       <FindCreatePanel reveal={reveal} />
     </div>
@@ -1268,6 +1288,9 @@ export function FindPanel() {
                     >
                       Synonym
                     </th>
+                    <th scope="col" className="find-extend-column">
+                      <span className="sr-only">Extend entity</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1336,7 +1359,6 @@ export function FindPanel() {
                               <span className="sr-only">Synonyms: </span>
                               {row.aliases?.join(", ") || "none recorded"}
                             </span>
-                            {synonymButton(row, true)}
                           </div>
                         )}
                       </td>
@@ -1351,9 +1373,32 @@ export function FindPanel() {
                           <span className="find-row-synonyms">
                             {row.aliases?.join(", ") || "none recorded"}
                           </span>
-                          {synonymButton(row, true)}
                         </td>
                       )}
+                      <td className="find-extend-column">
+                        <EntityExtend
+                          row={row}
+                          query={options.text}
+                          narrow={layout.narrow}
+                          ready={ready}
+                          pending={!!addingSynonym}
+                          added={addedSynonyms.has(row.iri)}
+                          open={extendOpen === row.iri}
+                          setOpen={(open) =>
+                            setExtendOpen((previous) =>
+                              open
+                                ? row.iri
+                                : previous === row.iri
+                                  ? ""
+                                  : previous,
+                            )
+                          }
+                          synonym={() => addSynonym(row)}
+                          create={(relation, trigger) =>
+                            openRelatedCreation(row, relation, trigger)
+                          }
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1499,7 +1544,11 @@ export function FindPanel() {
             </button>
           </footer>
           {message && (
-            <span className="find-message" role="status">
+            <span
+              className="extend-confirmation"
+              role="status"
+              aria-live="polite"
+            >
               {message}
             </span>
           )}
