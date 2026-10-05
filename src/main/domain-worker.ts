@@ -965,7 +965,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       if (method === "findCreatePreview")
         return previewFindCreation(store, a.creation, datasetEpoch);
       selected = createFindEntity(store, a.creation, datasetEpoch);
-      mutate("Class added from Find. Undo removes the addition.");
+      mutate("Entity added from Find. Undo removes the addition.");
       return selected;
     }
     case "textAnalysisDraft":

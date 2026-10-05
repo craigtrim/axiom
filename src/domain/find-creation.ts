@@ -1,4 +1,4 @@
-import { NS, SUBCLASS, THING, TYPE, type Triple } from "./model";
+import { NS, THING, TYPE, type Triple } from "./model";
 import type { Store } from "./store";
 import {
   validLabel,
@@ -15,10 +15,14 @@ import {
 import {
   fixedFindPredicates,
   resourcePredicates,
+  findCreationKinds,
+  creationType,
+  creationRelation,
+  creationTargetMatches,
+  type FindCreationKind,
   type FindCreationPreview,
 } from "../shared/find-create";
 import type { TextAnalysisClassInput } from "../shared/text-analysis";
-import { namedClass } from "./class-expressions";
 import { writeRdf } from "./rdf-io";
 import { entityPath } from "./entity-path";
 
@@ -28,6 +32,9 @@ function prepare(store: Store, input: unknown, epoch: number) {
       ? (input as Record<string, unknown>)
       : {};
   const errors: FindCreationPreview["errors"] = [];
+  const kind = (value.kind ?? "Class") as FindCreationKind;
+  if (!findCreationKinds.includes(kind))
+    errors.push({ field: "kind", message: "Choose a supported entity kind." });
   const label =
     typeof value.label === "string"
       ? value.label.replace(/\s+/gu, " ").trim()
@@ -79,26 +86,41 @@ function prepare(store: Store, input: unknown, epoch: number) {
       field: "parents",
       message: "Choose existing parent classes.",
     });
+  if (kind !== "Class" && !parents.length)
+    errors.push({
+      field: "parents",
+      message:
+        kind === "Individual"
+          ? "Choose an existing class as the individual's type."
+          : "Choose a parent property of the same kind.",
+    });
   for (const parent of parents) {
     if (parent === iri)
       errors.push({
         field: "parents",
         message:
-          "A class cannot be its own ancestor. Choose a different parent name.",
+          "An entity cannot be its own relation target. Choose a different target.",
       });
     else if (
       !store.entities.get(parent) ||
-      !namedClass(store.entities.get(parent)!) ||
-      parent.startsWith("_:")
+      !creationTargetMatches(kind, store.entities.get(parent)!)
     )
       errors.push({
         field: "parents",
-        message: "Choose an existing superclass.",
+        message:
+          kind === "Class"
+            ? "Choose an existing superclass."
+            : kind === "Individual"
+              ? "Choose an existing class as the individual's type."
+              : "Choose a parent property of the same kind.",
       });
   }
-  const writtenParents = parents.length
-    ? parents.filter((p) => parents.length === 1 || p !== THING)
-    : [THING];
+  const writtenParents =
+    kind !== "Class"
+      ? parents
+      : parents.length
+        ? parents.filter((p) => parents.length === 1 || p !== THING)
+        : [THING];
   const statements: NonNullable<TextAnalysisClassInput["statements"]> = [];
   if (!Array.isArray(value.statements))
     errors.push({
@@ -148,7 +170,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     }
   const names = entityNameCollisions(store, label, iri, true);
   let suggested: ReturnType<typeof textAnalysisDraft> | undefined;
-  if (label && !errors.some((e) => e.field === "label"))
+  if (kind === "Class" && label && !errors.some((e) => e.field === "label"))
     suggested = textAnalysisDraft(store, label, epoch);
   for (const existing of suggested?.existing ?? [])
     if (!names.collisions.some((c) => c.iri === existing.iri))
@@ -170,7 +192,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     {
       subject: iri,
       predicate: TYPE,
-      object: { literal: false, value: NS.owl + "Class" },
+      object: { literal: false, value: creationType(kind) },
     },
     {
       subject: iri,
@@ -179,7 +201,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     },
     ...writtenParents.map((parent) => ({
       subject: iri,
-      predicate: SUBCLASS,
+      predicate: creationRelation(kind),
       object: { literal: false, value: parent },
     })),
     ...(comment
@@ -212,7 +234,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     version: store.version,
     datasetEpoch: epoch,
   };
-  return { creation, preview, triples };
+  return { creation, preview, triples, kind };
 }
 export async function previewFindCreation(
   store: Store,
@@ -233,7 +255,7 @@ export async function previewFindCreation(
   return preview;
 }
 export function createFindEntity(store: Store, input: unknown, epoch: number) {
-  const { creation, preview } = prepare(store, input, epoch);
+  const { creation, preview, triples, kind } = prepare(store, input, epoch);
   if (preview.errors.length) throw Error(preview.errors[0].message);
   const blocking = preview.collisions.find(
     (collision) => collision.kind !== "normalized",
@@ -242,5 +264,7 @@ export function createFindEntity(store: Store, input: unknown, epoch: number) {
     throw Error(
       `${blocking.label} already exists. Open the existing entity or change the label and IRI.`,
     );
-  return createTextAnalysisHierarchy(store, creation, true);
+  return kind === "Class"
+    ? createTextAnalysisHierarchy(store, creation, true)
+    : store.createEntityStatements(preview.iri, triples);
 }

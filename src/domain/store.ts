@@ -1030,8 +1030,14 @@ export class Store {
   createProperty(
     label: string,
     kind: "ObjectProperty" | "DataProperty" | "AnnotationProperty",
+    parent?: string,
   ) {
     label = validLabel(label);
+    if (
+      parent &&
+      (parent.startsWith("_:") || this.entities.get(parent)?.kind !== kind)
+    )
+      throw Error("Choose a parent property of the same kind.");
     const iri = this.mintIri(label),
       before = this.schemaState();
     this.record(
@@ -1054,7 +1060,49 @@ export class Store {
             ),
           },
           { subject: iri, predicate: LABEL, object: literal(label) },
+          ...(parent
+            ? [
+                {
+                  subject: iri,
+                  predicate: SUBPROPERTY,
+                  object: iriTerm(parent),
+                },
+              ]
+            : []),
         );
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+    return iri;
+  }
+  /** Commit a validated new subject and all of its statements in one history entry. */
+  createEntityStatements(iri: string, statements: Triple[]) {
+    if (!validResource(iri, false) || iri.startsWith("_:"))
+      throw Error("Enter a valid subject IRI.");
+    if (
+      this.exists(iri) ||
+      this.bySubject.has(iri) ||
+      this.byPredicate.has(iri) ||
+      this.reverse.has(iri)
+    )
+      throw Error("That IRI already exists.");
+    for (const t of statements) {
+      validateStatement(t);
+      if (t.subject !== iri)
+        throw Error("Keep creation scoped to the new entity.");
+    }
+    const rows = structuredClone([
+      ...new Map(statements.map((t) => [statementKey(t), t])).values(),
+    ]);
+    const created = projectEntities(rows).get(iri);
+    if (!created) throw Error("Provide statements describing the new entity.");
+    const before = this.schemaState();
+    this.record(
+      "Create " + (created.label || created.name),
+      () => {
+        this.entities.set(iri, structuredClone(created));
+        this.tbox.push(...structuredClone(rows));
         this.rebuildSchema();
       },
       () => this.restoreSchema(before),

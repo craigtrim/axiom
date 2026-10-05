@@ -1,4 +1,4 @@
-import { NS, SUBCLASS, TYPE } from "../domain/model";
+import { NS, SUBCLASS, TYPE, SUBPROPERTY, type Kind } from "../domain/model";
 import { findSynonymText } from "./find-synonyms";
 import type {
   TextAnalysisDraft,
@@ -10,12 +10,46 @@ export interface FindStatement {
   value: string;
 }
 export interface FindCreationInput {
+  kind?: FindCreationKind;
   label: string;
   comment: string;
   parents: string[];
   iri?: string;
   statements: FindStatement[];
 }
+export const findCreationKinds = [
+  "Class",
+  "Individual",
+  "ObjectProperty",
+  "DataProperty",
+  "AnnotationProperty",
+] as const;
+export type FindCreationKind = (typeof findCreationKinds)[number];
+export const creationType = (kind: FindCreationKind) =>
+  NS.owl +
+  {
+    Class: "Class",
+    Individual: "NamedIndividual",
+    ObjectProperty: "ObjectProperty",
+    DataProperty: "DatatypeProperty",
+    AnnotationProperty: "AnnotationProperty",
+  }[kind];
+export const creationNoun = (kind: FindCreationKind) =>
+  kind === "Class"
+    ? "class"
+    : kind === "Individual"
+      ? "individual"
+      : "property";
+export const creationRelation = (kind: FindCreationKind) =>
+  kind === "Class" ? SUBCLASS : kind === "Individual" ? TYPE : SUBPROPERTY;
+export const creationTargetMatches = (
+  kind: FindCreationKind,
+  target: { iri: string; kind: Kind },
+) =>
+  !target.iri.startsWith("_:") &&
+  (kind === "Class" || kind === "Individual"
+    ? ["Class", "Defined"].includes(target.kind)
+    : target.kind === kind);
 export interface FindCollision {
   iri: string;
   label: string;
@@ -38,6 +72,10 @@ export function findCreationOffer(query: string, collisions: FindCollision[]) {
   };
 }
 export interface FindCreationDraft extends FindCreationInput {
+  origin?: {
+    door: "header" | "subclass" | "instance" | "subproperty";
+    target?: string;
+  };
   labelEdited: boolean;
   sourceOpen: boolean;
   parentText: string;
@@ -65,6 +103,7 @@ export const fixedFindPredicates = [
   NS.rdfs + "label",
   SUBCLASS,
   NS.rdfs + "comment",
+  SUBPROPERTY,
 ];
 export const resourcePredicates = new Set([
   TYPE,
