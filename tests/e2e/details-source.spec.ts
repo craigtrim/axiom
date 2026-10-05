@@ -197,6 +197,11 @@ test("two-column grid uses predicates, commits cell edits, preserves language an
 test("Source saves only explicitly, updates the grid and graph, validates syntax, and supports Undo", async () => {
   await openSource();
   const original = await sourceText();
+  expect(original).toMatch(/^:Alpha\b/);
+  expect(original).not.toMatch(/^\s*@prefix/m);
+  await page.screenshot({
+    path: "artifacts/testing/entity-source-no-headers.png",
+  });
   await setSource(original.replace('"Alpha"', '"From source"'));
   await expect(label()).toHaveValue("Alpha");
   await details()
@@ -216,8 +221,15 @@ test("Source saves only explicitly, updates the grid and graph, validates syntax
     .getByRole("button", { name: "Save source", exact: true })
     .click();
   await expect(details().getByRole("alert")).toBeVisible();
+  await expect(details().getByRole("alert")).toContainText("line 1");
   await expect.poll(sourceText).toMatch("invalid rdf {");
   await expect(label()).toHaveValue("Alpha");
+  await menu("view.source");
+  const fullSource = page.getByRole("region", {
+    name: "Ontology source editor",
+  });
+  await expect(fullSource.getByRole("status")).toContainText("Synchronized");
+  await expect(fullSource.locator(".view-lines")).toContainText("@prefix");
 });
 test("source drafts survive navigation and reject overwriting later grid edits", async () => {
   await openSource();
@@ -261,7 +273,8 @@ test("native RDF/XML source preserves an OWL intersection through editing", asyn
   await menu("view.details");
   await expect(label()).toHaveValue("Combined");
   await openSource();
-  await expect.poll(sourceText).toMatch(/^<\?xml/);
+  await expect.poll(sourceText).toMatch(/^\s*<rdf:Description/);
+  expect(await sourceText()).not.toMatch(/<\?xml|<\/?rdf:RDF/);
   await expectSyntaxColors();
   const before = (await state()).entities.find(
     (e) => e.iri === base + "Combined",

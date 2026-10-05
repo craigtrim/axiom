@@ -1,5 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { sourceFormats, type EntitySourceDocument } from "../shared/source";
+import {
+  entitySourceSnippet,
+  snippetSourceError,
+} from "../shared/entity-source-snippet";
 import { request, useSnapshot, panel, savePanel } from "./client";
 import { entityRetargeted } from "./editor-drafts";
 import {
@@ -41,6 +45,10 @@ export function EntitySource({
     };
   }, [iri, s.datasetEpoch, s.version, open, !!draft, reload]);
   const loaded = draft?.loaded ?? (doc?.iri === iri ? doc : undefined);
+  const snippet = entitySourceSnippet(
+    draft?.text ?? loaded?.text ?? "",
+    loaded ?? { text: "" },
+  );
   const save = async () => {
     if (!draft || busy) return;
     setBusy(true);
@@ -55,9 +63,12 @@ export function EntitySource({
       setReload((n) => n + 1);
     } catch (e) {
       setError(
-        (e as Error).message.replace(
-          /^Error invoking remote method '[^']+': Error: /,
-          "",
+        snippetSourceError(
+          (e as Error).message.replace(
+            /^Error invoking remote method '[^']+': Error: /,
+            "",
+          ),
+          snippet,
         ),
       );
     } finally {
@@ -116,10 +127,13 @@ export function EntitySource({
               label="Entity source"
               format={loaded?.format}
               disabled={!loaded || busy}
-              value={draft?.text ?? loaded?.text ?? ""}
+              value={snippet.body}
               change={(text) => {
                 if (loaded) {
-                  setEntitySourceDraft(iri, s.datasetEpoch, { loaded, text });
+                  setEntitySourceDraft(iri, s.datasetEpoch, {
+                    loaded,
+                    text: snippet.header + text + snippet.footer,
+                  });
                   setError("");
                 }
               }}

@@ -14,6 +14,8 @@ Invalid text stays in the editor with an error and leaves the ontology unchanged
 
 Typing in Source does not update the ontology on every keystroke. **Apply changes** and source format switching validate ontology source; **Save source** applies a Details source draft. Layout changes remain workbench state; moving a graph node does not invent an RDF statement.
 
+Details source snippets start with the entity's statements. Turtle/TriG prefix declarations and the RDF/XML document wrapper are hidden in this editor, but retained with its draft so editing and saving preserve namespace resolution. Copying from the snippet editor copies only the displayed fragment. The full **View > Source** document and ontology exports include their serialization headers.
+
 ## Formats
 
 | Source format | Extension | Preserves named graphs |
