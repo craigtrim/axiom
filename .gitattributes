@@ -2,3 +2,5 @@ tests/conformance/w3c/** -text
 tests/fixtures/find-visual/visual-reference.html -text
 # Craig's Ontology Quality reference, hash-pinned (craigtrim/axiom#44).
 tests/fixtures/quality-visual/visual-reference.html -text
+# Craig's row extend reference, hash-pinned (craigtrim/axiom#49).
+tests/fixtures/extend-visual/visual-reference.html -text

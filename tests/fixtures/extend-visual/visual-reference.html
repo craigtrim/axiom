@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Row extend: visual reference for specs/extend/README.md</title>
+<style>
+/* ============================================================================
+   Row extend visual reference.
+   A picture, not a specification. Where this file and README.md disagree,
+   README.md wins and this file is the defect.
+
+   Self contained. No dependencies, no build step, no network.
+   Tokens are carried unchanged from find.html and are addressable per panel,
+   so light and dark sit side by side and each is audited on its own.
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+[data-theme="light"] {
+  color-scheme: light;
+  --ground: #ffffff; --surface: #f6f7f9; --raised: #ffffff; --sunken: #f0f2f5;
+  --border: #e1e4e8; --border-strong: #d0d7de;
+  --text: #1b1f24; --text-muted: #57606a;
+  --accent: #0b5fd0; --accent-hover: #0a52b4; --accent-fg: #ffffff;
+  --accent-soft: #eaf2fd; --accent-tint: #f4f8fe;
+  --ok: #0a7a3d; --ok-bg: #e8f5ed; --ok-border: #a9d8bd;
+  --warn: #8a6116; --warn-bg: #fdf5e3; --warn-border: #e6cf95;
+  --idle: #57606a; --idle-border: #c6cbd1;
+  --row-hover: #f6f7f9; --row-selected: #eaf2fd;
+  --focus: #0b5fd0; --shadow-pop: 0 8px 24px rgba(27, 31, 36, .18);
+}
+/* Dark is measured against #0d1117, not derived by inverting light. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-hover: #6aabff; --accent-fg: #06192e;
+  --accent-soft: #12243a; --accent-tint: #0f1a28;
+  --ok: #4ade80; --ok-bg: #0f2a1b; --ok-border: #1d5233;
+  --warn: #e3b341; --warn-bg: #2b2211; --warn-border: #5a4718;
+  --idle: #9ba7b4; --idle-border: #454c54;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+}
+:root {
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+/* --------------------------------------------------------- reference page */
+body { margin: 0; padding: 0 0 72px; font: 14px/1.55 var(--font);
+  background: #eef0f3; color: #1b1f24; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+header.doc { background: #1b1f24; color: #e6edf3; padding: 24px 0 20px; margin-bottom: 20px; }
+header.doc h1 { margin: 0 0 6px; font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
+header.doc p { margin: 0; font-size: 13px; color: #9ba7b4; max-width: 780px; }
+.banner { margin: 14px 0 0; padding: 9px 12px; border-left: 3px solid #e3b341;
+  background: #2b2f36; color: #e6edf3; font-size: 13px; max-width: 780px; }
+.banner b { color: #e3b341; }
+
+nav.idx { margin: 0 0 24px; padding: 12px 14px; background: #fff; border: 1px solid #d8dbdf; }
+nav.idx h2 { margin: 0 0 8px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #57606a; }
+nav.idx ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; font-size: 13px; }
+nav.idx li { margin-bottom: 3px; break-inside: avoid; }
+nav.idx a { color: #0b5fd0; }
+
+section.ex { margin: 0 0 34px; }
+section.ex > h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600;
+  padding-bottom: 5px; border-bottom: 2px solid #1b1f24; }
+section.ex > .lede { margin: 0 0 12px; font-size: 13px; color: #404650; max-width: 880px; }
+.cites { margin: 0 0 12px; font-size: 12px; color: #57606a; }
+.cites code, .lede code, figcaption code {
+  background: #fff; border: 1px solid #d8dbdf; padding: 0 4px; border-radius: 2px;
+  font: 11.5px/1.5 var(--mono); color: #0a52b4; }
+
+.row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+figure { margin: 0; }
+figcaption { margin-top: 6px; font-size: 12px; color: #404650; max-width: 560px; }
+figcaption b { color: #1b1f24; }
+.tag { display: inline-block; font: 10px/1.6 var(--mono); text-transform: uppercase;
+  letter-spacing: .08em; padding: 0 5px; border: 1px solid #c6cbd1; background: #fff;
+  color: #57606a; margin-bottom: 5px; }
+.tag.dk { background: #1c2128; border-color: #3d444d; color: #9ba7b4; }
+
+/* ----------------------------------------------------------- pane specimen */
+.pane {
+  container-type: size; container-name: pane;
+  background: var(--ground); color: var(--text);
+  border: 1px solid #b7bcc3; overflow: hidden;
+  display: flex; flex-direction: column; font: 13px/1.5 var(--font);
+}
+.pane.sizer { resize: both; overflow: auto; }
+.w760 { width: 760px; } .w560 { width: 560px; } .w420 { width: 420px; }
+.h150 { height: 150px; } .h190 { height: 190px; } .h230 { height: 230px; }
+.h300 { height: 300px; } .h360 { height: 360px; }
+
+.qbar { display: flex; align-items: center; gap: var(--sp-2); flex: none;
+  padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border);
+  background: var(--surface); }
+.qbar .q { flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 8px;
+  font: inherit; font-size: 13px; color: var(--text);
+  background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl); display: flex; align-items: center; }
+.qbar .plus { flex: none; width: 28px; height: 28px; display: inline-flex;
+  align-items: center; justify-content: center; color: var(--text-muted);
+  background: none; border: 1px solid transparent; border-radius: var(--r-ctl);
+  font: inherit; cursor: pointer; }
+
+table.grid { width: 100%; border-collapse: collapse; }
+table.grid th { padding: 6px var(--sp-3); text-align: start; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted);
+  font-weight: 600; border-bottom: 1px solid var(--border); background: var(--surface); }
+table.grid td { padding: 7px var(--sp-3); border-bottom: 1px solid var(--border);
+  vertical-align: top; }
+tr.is-selected > td { background: var(--row-selected); }
+.ename { display: block; font-size: 14px; color: var(--accent); }
+.epath { display: block; font-size: 12px; color: var(--text-muted); }
+.syn { font-size: 13px; color: var(--text-muted); }
+.badge { display: inline-block; padding: 0 6px; font-size: 11.5px; line-height: 18px;
+  color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--r-ctl);
+  white-space: nowrap; }
+.scroll { flex: 1 1 auto; overflow: auto; min-height: 0; }
+
+/* ------------------------------------------------------ the control itself */
+.c-act { width: 148px; }
+td.c-act { text-align: end; }
+
+.rowact { position: relative; display: inline-flex; align-items: center; visibility: hidden; }
+tr:hover .rowact, tr:focus-within .rowact, tr.is-selected .rowact,
+.rowact.is-open, .rowact.show { visibility: visible; }
+@media (hover: none), (pointer: coarse) { .rowact { visibility: visible; } }
+
+.ra { display: inline-flex; align-items: center; gap: 4px; flex: none;
+  height: 26px; padding: 0 8px; font: inherit; font-size: 13px;
+  color: var(--text); background: var(--raised);
+  border: 1px solid var(--border-strong); cursor: pointer; }
+.ra:hover { background: var(--row-hover); }
+.ra-main { border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
+.ra-more { border-radius: 0 var(--r-ctl) var(--r-ctl) 0; border-inline-start: 0; padding: 0 5px; }
+.ra-only { border-radius: var(--r-ctl); padding: 0 7px; }
+.ra.focus { outline: 2px solid var(--focus); outline-offset: 1px; z-index: 2; }
+
+.ramenu { position: absolute; top: calc(100% + 3px); inset-inline-end: 0; z-index: 30;
+  min-width: 236px; padding: 3px; text-align: start;
+  background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-pop); }
+.ramenu .mi { display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 6px 8px; font-size: 13px; color: var(--text);
+  border-radius: var(--r-ctl); }
+.ramenu .mi:hover { background: var(--row-hover); }
+.rm-label { flex: none; }
+.rm-pred { flex: 1 1 auto; text-align: end; font-family: var(--mono);
+  font-size: 11.5px; color: var(--text-muted); }
+.ramenu .sep { height: 1px; margin: 3px 0; background: var(--border); }
+.ramenu .cap { display: block; padding: 4px 8px 2px; font-size: 11.5px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------ editor doors */
+.ovl { position: absolute; inset: 0; background: var(--ground); display: flex;
+  flex-direction: column; }
+.ctx { display: flex; align-items: center; gap: var(--sp-2); flex: none;
+  padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border);
+  background: var(--accent-tint); font-size: 12.5px; color: var(--text); }
+.ctx .back { flex: none; height: 24px; padding: 0 8px; font: inherit; font-size: 12px;
+  color: var(--text); background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl); display: inline-flex; align-items: center; }
+.ctx code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+.ebody { padding: var(--sp-3); display: grid; gap: var(--sp-3); max-width: 480px; }
+.f { display: grid; gap: 3px; }
+.f label { font-size: 12px; color: var(--text-muted); }
+.f .ctl { height: 28px; padding: 0 8px; font-size: 13px; color: var(--text);
+  background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl); display: flex; align-items: center; }
+.f .hint { font-size: 11.5px; color: var(--text-muted); }
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 4px 0 9px;
+  font-size: 12.5px; color: var(--text); background: var(--accent-soft);
+  border: 1px solid var(--accent); border-radius: var(--r-pill); }
+.chip .x { color: var(--text-muted); padding: 0 3px; }
+
+.toastline { display: flex; align-items: center; gap: 6px; flex: none;
+  padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--ok-border);
+  background: var(--ok-bg); color: var(--ok); font-size: 12.5px; font-weight: 600; }
+
+/* ------------------------------------------------- the presentation ladder */
+/* Only the published 600 and 400 appear. No tier here was invented. */
+@container pane (max-width: 599px) {
+  .c-act { width: 44px; }
+  .ra-txt, .ra-more { display: none; }
+  .ra-main { border-radius: var(--r-ctl); padding: 0 7px; }
+  .col-syn { display: none; }
+}
+@container pane (max-height: 399px) {
+  .at-tall { display: none; }
+}
+
+/* ---------------------------------------------------------- doc furniture */
+table.spec { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff;
+  border: 1px solid #d8dbdf; margin: 0 0 12px; }
+table.spec th, table.spec td { padding: 6px 9px; text-align: start;
+  border-bottom: 1px solid #e6e8ea; vertical-align: top; }
+table.spec th { background: #f6f7f9; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; color: #57606a; }
+table.spec tr:last-child td { border-bottom: 0; }
+table.spec code { font: 11.5px/1.5 var(--mono); color: #0a52b4; }
+.bad { color: #a4201a; font-weight: 600; }
+.good { color: #0a7a3d; font-weight: 600; }
+.hint-p { font-size: 12.5px; color: #404650; background: #fff; border: 1px solid #d8dbdf;
+  border-left: 3px solid #0b5fd0; padding: 9px 12px; margin: 0 0 12px; max-width: 880px; }
+footer.doc { margin-top: 36px; padding: 18px 0; border-top: 1px solid #d0d4d8;
+  font-size: 12.5px; color: #57606a; }
+</style>
+</head>
+<body data-theme="light">
+
+<header class="doc">
+  <div class="wrap">
+    <h1>Row extend: visual reference</h1>
+    <p>Companion specimen for <code>specs/extend/README.md</code>, which owns the
+       <code>EXT</code> requirement prefix. Every figure names the requirements it shows.</p>
+    <div class="banner">
+      <b>This is a picture, not a specification.</b> Where this file and
+      <code>README.md</code> disagree, <code>README.md</code> wins and this file is the
+      defect. The only capture of this surface shows the shipped <code>+ Synonym</code>
+      alone; the menu has never run in the application, so these figures carry it.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="idx">
+  <h2>Exhibits</h2>
+  <ol>
+    <li><a href="#a">At rest, and engaged</a></li>
+    <li><a href="#b">The relation matrix</a></li>
+    <li><a href="#c">Synonym is one press</a></li>
+    <li><a href="#d">Three doors, one editor</a></li>
+    <li><a href="#e">The narrow collapse</a></li>
+    <li><a href="#f">Dark, audited independently</a></li>
+    <li><a href="#g">What the prototype gets wrong</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================== A. rest and engaged -->
+<section class="ex" id="a">
+  <h2>A. At rest, and engaged</h2>
+  <p class="lede">The cluster is hidden until the row is engaged, and its width is reserved
+     while it hides, so revealing it never reflows the table. Three standing pills across a
+     full page of rows would be roughly 280 pixels of permanent chrome per row taken from
+     the entity name and its path.</p>
+  <p class="cites">Shows <code>EXT-15</code> to <code>EXT-23</code>,
+     <code>EXT-27</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="tag">at rest</span>
+      <div class="pane w760 h190">
+        <div class="qbar"><span class="q">Physiological Psychology</span>
+          <button class="plus" type="button" aria-label="Add a new class">+</button></div>
+        <div class="scroll"><table class="grid">
+          <thead><tr><th>Entity</th><th>Type</th><th class="col-syn">Synonym</th>
+            <th class="c-act"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Extend</span></th></tr></thead>
+          <tbody>
+            <tr><td><span class="ename">Psychology</span>
+                    <span class="epath">Course &gt; Science</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">Psyc, Psych, PSY</span></td>
+                <td class="c-act"><span class="rowact">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+            <tr><td><span class="ename">General Psychology</span>
+                    <span class="epath">Course &gt; Science &gt; Psychology</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">Basic Psychology</span></td>
+                <td class="c-act"><span class="rowact">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+            <tr><td><span class="ename">Clinical Psychology</span>
+                    <span class="epath">Course &gt; Science &gt; Psychology</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">none recorded</span></td>
+                <td class="c-act"><span class="rowact">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <figcaption>Three rows, no chrome. The column still holds its 148 pixels, so the
+        entity and path columns do not move when a cluster appears.
+        <code>EXT-19</code>, <code>EXT-21</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">engaged · row 2</span>
+      <div class="pane w760 h190">
+        <div class="qbar"><span class="q">Physiological Psychology</span>
+          <button class="plus" type="button" aria-label="Add a new class">+</button></div>
+        <div class="scroll"><table class="grid">
+          <thead><tr><th>Entity</th><th>Type</th><th class="col-syn">Synonym</th>
+            <th class="c-act"></th></tr></thead>
+          <tbody>
+            <tr><td><span class="ename">Psychology</span>
+                    <span class="epath">Course &gt; Science</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">Psyc, Psych, PSY</span></td>
+                <td class="c-act"><span class="rowact">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+            <tr style="background:var(--row-hover)">
+                <td><span class="ename">General Psychology</span>
+                    <span class="epath">Course &gt; Science &gt; Psychology</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">Basic Psychology</span></td>
+                <td class="c-act"><span class="rowact show">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+            <tr><td><span class="ename">Clinical Psychology</span>
+                    <span class="epath">Course &gt; Science &gt; Psychology</span></td>
+                <td><span class="badge">Class</span></td>
+                <td class="col-syn"><span class="syn">none recorded</span></td>
+                <td class="c-act"><span class="rowact">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <figcaption>Hover, focus within, or selection all reveal it. A coarse pointer has no
+        hover, so there the cluster stands rather than hides.
+        <code>EXT-20</code>, <code>EXT-22</code></figcaption>
+    </figure>
+  </div>
+
+  <p class="hint-p"><b>The split weighting is not symmetry.</b> The face carries the action
+     that annotates the row's entity in place; the menu carries the ones that write a new
+     subject into the ontology. The common action gets one press, the creating ones take a
+     deliberate second. Inverting that to make three equal buttons is forbidden by
+     <code>EXT-24</code> to <code>EXT-26</code>.</p>
+</section>
+
+<!-- =================================================== B. the relation matrix -->
+<section class="ex" id="b">
+  <h2>B. The relation matrix</h2>
+  <p class="lede">The menu is derived from the row entity's own type, so it never offers a
+     relation the entity cannot hold. An unavailable relation is absent, not disabled, and
+     when nothing remains the chevron goes with it.</p>
+  <p class="cites">Shows <code>EXT-18</code>, <code>EXT-30</code> to <code>EXT-37</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="tag">class · two relations</span>
+      <div class="pane w420 h230">
+        <div class="scroll"><table class="grid"><tbody>
+          <tr class="is-selected"><td><span class="ename">Psychology</span>
+              <span class="epath">Course &gt; Science</span></td>
+            <td class="c-act"><span class="rowact is-open">
+              <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+              <span class="ra ra-more">v</span>
+              <span class="ramenu" role="menu">
+                <span class="cap">Under Psychology</span>
+                <span class="mi"><span class="rm-label">Subclass</span>
+                  <span class="rm-pred">rdfs:subClassOf</span></span>
+                <span class="mi"><span class="rm-label">Instance</span>
+                  <span class="rm-pred">rdf:type</span></span>
+                <span class="sep"></span>
+                <span class="cap">creates a new class, or a new individual</span>
+              </span></span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption>Each item names the triple it asserts, in the face reserved for predicates.
+        The menu names the row it acts under, so a menu opened from the wrong row is visible
+        before it is used. <code>EXT-35</code>, <code>EXT-37</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">property · one relation</span>
+      <div class="pane w420 h230">
+        <div class="scroll"><table class="grid"><tbody>
+          <tr class="is-selected"><td><span class="ename">teaches</span>
+              <span class="epath">Object property</span></td>
+            <td class="c-act"><span class="rowact is-open">
+              <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+              <span class="ra ra-more">v</span>
+              <span class="ramenu" role="menu">
+                <span class="cap">Under teaches</span>
+                <span class="mi"><span class="rm-label">Subproperty</span>
+                  <span class="rm-pred">rdfs:subPropertyOf</span></span>
+                <span class="sep"></span>
+                <span class="cap">creates a new property</span>
+              </span></span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption>A property is <b>specialised</b>, not subclassed. <code>Subclass</code> is
+        absent rather than disabled, because the triple it would write is not well formed.
+        <code>EXT-33</code>, <code>EXT-34</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">individual · no chevron</span>
+      <div class="pane w420 h150">
+        <div class="scroll"><table class="grid"><tbody>
+          <tr class="is-selected"><td><span class="ename">PSY 101 Fall 2026</span>
+              <span class="epath">Individual of General Psychology</span></td>
+            <td class="c-act"><span class="rowact show">
+              <span class="ra ra-main ra-only">+ <span class="ra-txt">Synonym</span></span>
+            </span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption>An individual has no subclasses and no instances, so the menu would be
+        empty and <b>the chevron is absent entirely</b>. A split control with an empty menu
+        lies about what it can do. <code>EXT-18</code>, <code>EXT-32</code></figcaption>
+    </figure>
+  </div>
+
+  <table class="spec">
+    <thead><tr><th>Row entity</th><th>Menu offers</th><th>Asserts</th><th>Chevron</th></tr></thead>
+    <tbody>
+      <tr><td>Class</td><td>Subclass, Instance</td>
+          <td><code>rdfs:subClassOf</code>, <code>rdf:type</code></td><td class="good">present</td></tr>
+      <tr><td>Property</td><td>Subproperty</td>
+          <td><code>rdfs:subPropertyOf</code></td><td class="good">present</td></tr>
+      <tr><td>Individual</td><td>nothing</td><td></td><td class="bad">absent</td></tr>
+      <tr><td>Unclassified</td><td>nothing</td><td></td><td class="bad">absent</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- =================================================== C. synonym is one press -->
+<section class="ex" id="c">
+  <h2>C. Synonym is one press</h2>
+  <p class="lede">The shipped action asserts <b>the current query</b> as
+     <code>rdfs:seeAlso</code> on that entity. The value is already on screen, so there is no
+     field and nothing to type. This is the behaviour the prototype replaced with a text
+     editor, and the most consequential divergence in the specification.</p>
+  <p class="cites">Shows <code>EXT-8</code> to <code>EXT-10</code>,
+     <code>EXT-38</code> to <code>EXT-45</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="tag">before</span>
+      <div class="pane w560 h190">
+        <div class="qbar"><span class="q">Physiological Psychology</span></div>
+        <div class="scroll"><table class="grid"><tbody>
+          <tr style="background:var(--row-hover)">
+            <td><span class="ename">Psychology</span>
+                <span class="epath">Course &gt; Science</span>
+                <span class="syn">Psyc, Psych, PSY</span></td>
+            <td class="c-act"><span class="rowact show">
+              <span class="ra ra-main" title="Add Physiological Psychology as a synonym of Psychology">+ <span class="ra-txt">Synonym</span></span>
+              <span class="ra ra-more">v</span></span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption>The tooltip states the whole transaction:
+        <b>Add Physiological Psychology as a synonym of Psychology</b>. Both operands are
+        already visible, which is why no field is needed.
+        <code>EXT-39</code>, <code>EXT-40</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">after one press</span>
+      <div class="pane w560 h190">
+        <div class="qbar"><span class="q">Physiological Psychology</span></div>
+        <div class="scroll"><table class="grid"><tbody>
+          <tr><td><span class="ename">Psychology</span>
+                  <span class="epath">Course &gt; Science</span>
+                  <span class="syn">Psyc, Psych, PSY, <b>Physiological Psychology</b></span></td>
+              <td class="c-act"><span class="rowact">
+                <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                <span class="ra ra-more">v</span></span></td></tr>
+        </tbody></table></div>
+        <div class="toastline">Physiological Psychology added to Psychology</div>
+      </div>
+      <figcaption>One triple, one undoable edit, announced on a polite live region. Because
+        the search reads that field, the same query now returns the entity on the next run.
+        The loop closes where it started. <code>EXT-43</code>, <code>EXT-90</code></figcaption>
+    </figure>
+  </div>
+
+  <table class="spec">
+    <thead><tr><th>Query</th><th>Action</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Empty</td><td class="bad">withdrawn</td><td>There is no value to assert</td></tr>
+      <tr><td>An IRI</td><td class="bad">withdrawn</td>
+          <td>The parallel creation path excludes IRIs; the same exclusion applies</td></tr>
+      <tr><td>Query syntax</td><td class="bad">withdrawn</td><td>Same source, same reasoning</td></tr>
+      <tr><td>Already recorded on that entity</td><td class="bad">withdrawn</td>
+          <td>The triple exists, and a no op would read as success</td></tr>
+      <tr><td>A plain phrase not yet recorded</td><td class="good">offered</td>
+          <td>The common case</td></tr>
+    </tbody>
+  </table>
+  <p class="cites">Withdrawal rules: <code>EXT-41</code>. Where the synonym action is
+     withdrawn but relations remain, the cluster presents the menu button alone,
+     <code>EXT-42</code>.</p>
+</section>
+
+<!-- ====================================================== D. three doors -->
+<section class="ex" id="d">
+  <h2>D. Three doors, one editor</h2>
+  <p class="lede">There is exactly one entity editor. The doors differ only in what they
+     prefill, and each states in words which door was used, because a prefilled parent the
+     author did not notice is how the wrong triple gets written.</p>
+  <p class="cites">Shows <code>EXT-46</code> to <code>EXT-55</code>,
+     <code>EXT-64</code> to <code>EXT-66</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="tag">door 1 · the header plus</span>
+      <div class="pane w560 h230" style="position:relative">
+        <div class="ovl">
+          <div class="ctx"><span class="back">Back to results</span>
+            <span>Adding <b>Physiological Psychology</b> from your search</span></div>
+          <div class="ebody">
+            <div class="f"><label>Name</label>
+              <span class="ctl">Physiological Psychology</span>
+              <span class="hint">The label the class will carry.</span></div>
+            <div class="f"><label>Parents</label>
+              <span class="ctl" style="color:var(--text-muted)">Search for a parent</span>
+              <span class="hint">Without a parent the class is added under owl:Thing.</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>No relation, no parent. This door creates an entity that is <b>not</b>
+        related to any one row, which is why it survives alongside the row doors.
+        <code>EXT-51</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">door 2 · row subclass</span>
+      <div class="pane w560 h230" style="position:relative">
+        <div class="ovl">
+          <div class="ctx"><span class="back">Back to results</span>
+            <span>New <b>class</b>, subclass of <b>Psychology</b>, asserted with
+              <code>rdfs:subClassOf</code></span></div>
+          <div class="ebody">
+            <div class="f"><label>Name</label>
+              <span class="ctl" style="color:var(--text-muted)">Name the new class</span>
+              <span class="hint">The label the class will carry.</span></div>
+            <div class="f"><label>Parents</label>
+              <span><span class="chip">Psychology <span class="x">x</span></span></span>
+              <span class="hint">Prefilled from the row. Changeable here, not hidden state.</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>The target is prefilled, visible and removable. The context line names the
+        relation in words as well as showing the chip.
+        <code>EXT-54</code>, <code>EXT-61</code></figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">door 3 · row instance</span>
+      <div class="pane w560 h230" style="position:relative">
+        <div class="ovl">
+          <div class="ctx"><span class="back">Back to results</span>
+            <span>New <b>individual</b>, instance of <b>General Psychology</b>, asserted with
+              <code>rdf:type</code></span></div>
+          <div class="ebody">
+            <div class="f"><label>Name</label>
+              <span class="ctl" style="color:var(--text-muted)">Name the new individual</span>
+              <span class="hint">The label the individual will carry.</span></div>
+            <div class="f"><label>Type</label>
+              <span><span class="chip">General Psychology <span class="x">x</span></span></span>
+              <span class="hint">Asserted as rdf:type, never as rdfs:subClassOf.</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>This door needs a capability that does not ship.</b> The documented editor creates
+        classes only, so this is declared as an extension rather than assumed. An
+        implementation that cannot create individuals withholds the menu item rather than
+        opening an editor that will quietly produce a class.
+        <code>EXT-64</code> to <code>EXT-66</code>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================= E. the narrow collapse -->
+<section class="ex" id="e">
+  <h2>E. The narrow collapse</h2>
+  <p class="lede">Both panes below are resizable from the corner. Drag one past 600 wide and
+     the split folds into one menu button carrying every action, Synonym included, and the
+     column cost drops from 148 to 44. The thresholds come from the published policy; no
+     number here was invented.</p>
+  <p class="cites">Shows <code>EXT-27</code>, <code>EXT-75</code> to <code>EXT-80</code>.</p>
+
+  <div class="row">
+    <figure>
+      <span class="tag">drag me · starts above 600</span>
+      <div class="pane sizer w760 h230">
+        <div class="scroll"><table class="grid">
+          <thead><tr><th>Entity</th><th class="col-syn">Synonym</th><th class="c-act"></th></tr></thead>
+          <tbody>
+            <tr style="background:var(--row-hover)">
+              <td><span class="ename">Psychology</span>
+                  <span class="epath">Course &gt; Science</span></td>
+              <td class="col-syn"><span class="syn">Psyc, Psych, PSY</span></td>
+              <td class="c-act"><span class="rowact show">
+                <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                <span class="ra ra-more">v</span></span></td></tr>
+            <tr><td><span class="ename">Clinical Psychology</span>
+                    <span class="epath">Course &gt; Science &gt; Psychology</span></td>
+                <td class="col-syn"><span class="syn">none recorded</span></td>
+                <td class="c-act"><span class="rowact show">
+                  <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+                  <span class="ra ra-more">v</span></span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <figcaption>Above the threshold: label on the face, chevron beside it, Synonym column
+        present. Drag the corner narrower and watch all three change together.</figcaption>
+    </figure>
+
+    <figure>
+      <span class="tag">folded · one button, every action</span>
+      <div class="pane w420 h230">
+        <div class="scroll"><table class="grid"><tbody>
+          <tr class="is-selected"><td><span class="ename">Psychology</span>
+              <span class="epath">Course &gt; Science</span></td>
+            <td class="c-act" style="width:44px"><span class="rowact is-open">
+              <span class="ra ra-main ra-only">+</span>
+              <span class="ramenu" role="menu">
+                <span class="cap">Psychology</span>
+                <span class="mi"><span class="rm-label">Synonym</span>
+                  <span class="rm-pred">rdfs:seeAlso</span></span>
+                <span class="sep"></span>
+                <span class="mi"><span class="rm-label">Subclass</span>
+                  <span class="rm-pred">rdfs:subClassOf</span></span>
+                <span class="mi"><span class="rm-label">Instance</span>
+                  <span class="rm-pred">rdf:type</span></span>
+              </span></span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption>Synonym is listed <b>first and separated</b>, preserving by order the
+        weighting that position can no longer express. The folded button keeps an accessible
+        name that names the entity, not just the verb.
+        <code>EXT-79</code>, <code>EXT-80</code></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================================== F. dark theme -->
+<section class="ex" id="f">
+  <h2>F. Dark, audited independently</h2>
+  <p class="lede">Dark is its own token block measured against <code>#0d1117</code>, not an
+     inversion of light. The control is neutral chrome in both, distinguished from the
+     chevron by shape and border rather than by colour.</p>
+  <p class="cites">Shows <code>EXT-88</code>, <code>EXT-89</code>.</p>
+
+  <div class="row">
+    <figure data-theme="dark">
+      <span class="tag dk">dark · menu open</span>
+      <div class="pane w560 h230">
+        <div class="qbar"><span class="q">Physiological Psychology</span>
+          <button class="plus" type="button" aria-label="Add a new class">+</button></div>
+        <div class="scroll"><table class="grid"><tbody>
+          <tr class="is-selected"><td><span class="ename">Psychology</span>
+              <span class="epath">Course &gt; Science</span></td>
+            <td class="c-act"><span class="rowact is-open">
+              <span class="ra ra-main">+ <span class="ra-txt">Synonym</span></span>
+              <span class="ra ra-more">v</span>
+              <span class="ramenu" role="menu">
+                <span class="cap">Under Psychology</span>
+                <span class="mi"><span class="rm-label">Subclass</span>
+                  <span class="rm-pred">rdfs:subClassOf</span></span>
+                <span class="mi"><span class="rm-label">Instance</span>
+                  <span class="rm-pred">rdf:type</span></span>
+                <span class="sep"></span>
+                <span class="cap">creates a new class, or a new individual</span>
+              </span></span></td></tr>
+        </tbody></table></div>
+      </div>
+      <figcaption style="color:#404650">The menu lifts off the row with a dark specific
+        shadow rather than a lightened surface.</figcaption>
+    </figure>
+
+    <figure data-theme="dark">
+      <span class="tag dk">dark · focus and result</span>
+      <div class="pane w560 h230">
+        <div class="scroll"><table class="grid"><tbody>
+          <tr><td><span class="ename">Psychology</span>
+                  <span class="epath">Course &gt; Science</span></td>
+              <td class="c-act"><span class="rowact show">
+                <span class="ra ra-main focus">+ <span class="ra-txt">Synonym</span></span>
+                <span class="ra ra-more">v</span></span></td></tr>
+          <tr><td><span class="ename">PSY 101 Fall 2026</span>
+                  <span class="epath">Individual of General Psychology</span></td>
+              <td class="c-act"><span class="rowact show">
+                <span class="ra ra-main ra-only">+ <span class="ra-txt">Synonym</span></span>
+              </span></td></tr>
+        </tbody></table></div>
+        <div class="toastline">Physiological Psychology added to Psychology</div>
+      </div>
+      <figcaption style="color:#404650">Focus is visible against the dark ground on its own
+        terms. The second row is an individual, so it carries no chevron here either.
+        <code>EXT-18</code>, <code>EXT-89</code></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ==================================================== G. prototype defects -->
+<section class="ex" id="g">
+  <h2>G. What the prototype gets wrong</h2>
+  <p class="lede"><code>find.html</code> diverges from this specification in eight places.
+     The prototype is the defect in every one. The full table is Appendix B.1 of
+     <code>README.md</code>; the three that change behaviour rather than coverage are
+     below.</p>
+
+  <table class="spec">
+    <thead><tr><th>#</th><th>Divergence</th><th>Requirement</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td>1</td>
+          <td><code>+ Synonym</code> opens an inline text field for the author to type a
+              value. The shipped action asserts the current query in one press.</td>
+          <td><code>EXT-9</code>, <code>EXT-39</code>, <code>EXT-40</code></td>
+          <td class="bad">Blocking. A regression against built and tested behaviour.</td></tr>
+      <tr><td>2</td>
+          <td>No unavailability rules: the action is offered on an empty query, on an IRI,
+              and when the value is already recorded.</td>
+          <td><code>EXT-41</code></td><td class="bad">High</td></tr>
+      <tr><td>3</td>
+          <td>The editor cannot create individuals, so the <code>Instance</code> door
+              produces a class under a parent rather than an individual of a type.</td>
+          <td><code>EXT-64</code> to <code>EXT-66</code></td><td class="bad">High</td></tr>
+    </tbody>
+  </table>
+
+  <p class="hint-p"><b>Row 1 is my error, not an implementer's.</b> The prototype was built
+     before <code>docs/find-similarity.md</code> was read, and that document states the row
+     action adds the query. It is the same class of mistake as deleting the Find inline
+     editor and rendering the Quality correction preview read only: shipped behaviour that
+     was not read first.</p>
+</section>
+
+<footer class="doc">
+  <div class="wrap" style="padding:0">
+    <p><b>Row extend visual reference.</b> Companion to
+       <code>specs/extend/README.md</code>, which owns the <code>EXT</code> prefix and wins
+       every disagreement with this file.</p>
+    <p>Self contained: no dependencies, no build step, no network requests. Tokens are
+       carried unchanged from <code>find.html</code>. Light and dark are independent blocks,
+       each audited on its own.</p>
+    <p>No em dashes and no en dashes appear in this file, per a standing instruction.</p>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

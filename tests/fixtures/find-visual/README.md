@@ -16,7 +16,11 @@ The rendered HTML takes precedence over issue 34's older prose. In particular it
 
 ## Screenshot checks
 
-The #48 action checks compare the new plus/graph group and renamed synonym button in both themes. These controls are captured at integer origins with matching compositor isolation in both windows, avoiding fractional ancestor-layer rasterization differences. Their dimensions, fonts, paint properties and all raw pixels must agree; nothing is masked or resampled. The four additional baselines come from the amended HTML. Zero-state specimens remain unchanged.
+The #48 action checks compare the plus/graph group in both themes. These controls are captured at integer origins with matching compositor isolation in both windows, avoiding fractional ancestor-layer rasterization differences. Their dimensions, fonts, paint properties and all raw pixels must agree; nothing is masked or resampled. Zero-state specimens remain unchanged.
+
+Issue 49 replaces the former isolated `synonym-action` checks with the complete control suite in `extend-visual.spec.ts`. At capture time the #34 results tables are amended in memory: `.addsyn` is removed and an empty trailing column reserves 148 pixels, or 44 when narrow. This does not modify the pinned HTML or the zero-results specimens. The new control's baselines come only from the separate extend reference.
+
+The integration also treats Type/Synonym's previous widths as maximums where the new column would otherwise crowd Entity out of the smallest expanded pane. They shrink continuously while reserving Entity space; no new presentation threshold is introduced. The in-memory results amendment applies the same rule.
 
 The test launches the actual Electron application, imports a real small ontology, detaches Find, and edits its real controls. Only the reference's search counts, facet catalogue, suggested IRI and store totals are presentation fixtures. Domain behavior, persistence, validation, handoffs and undo are exercised separately by the functional suites.
 
