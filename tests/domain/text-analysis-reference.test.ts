@@ -20,6 +20,44 @@ const exactWhitespaceCases = new Set([
   "plus-043",
 ]);
 
+// craigtrim/axiom#52: Mutatoc 0.5.1 uses the closest occurrence of a repeated
+// span word, where the Python reference used the last one. That trims a match
+// that ran past its own words and finds a pair the last occurrence hid.
+const closestOccurrenceCases = new Map([
+  [
+    "plus-088",
+    {
+      python: "pair",
+      canonical: "pair beta",
+      entities: [
+        {
+          start: 0,
+          end: 15,
+          label: "pair",
+          method: "spans",
+          surface: "alpha blah beta",
+        },
+      ],
+    },
+  ],
+  [
+    "plus-092",
+    {
+      python: "beta alpha blah blah blah blah beta",
+      canonical: "pair blah blah blah blah beta",
+      entities: [
+        {
+          start: 0,
+          end: 10,
+          label: "pair",
+          method: "spans",
+          surface: "beta alpha",
+        },
+      ],
+    },
+  ],
+]);
+
 let executable: string | undefined;
 try {
   executable = mutatocExecutable(process.cwd(), "", false);
@@ -57,13 +95,17 @@ describe.skipIf(!executable)(
         it.each(profile.cases)(
           "$id: $text",
           async ({ id, text, canonical, entities }) => {
-            const expected = exactWhitespaceCases.has(id)
-              ? entities.map((entity) => {
-                  expect(entity.method).toBe("spans");
-                  expect(entity.label).toBe("pair");
-                  return { ...entity, method: "exact" };
-                })
-              : entities;
+            const corrected = closestOccurrenceCases.get(id);
+            if (corrected) expect(canonical).toBe(corrected.python);
+            const expected = corrected
+              ? corrected.entities
+              : exactWhitespaceCases.has(id)
+                ? entities.map((entity) => {
+                    expect(entity.method).toBe("spans");
+                    expect(entity.label).toBe("pair");
+                    return { ...entity, method: "exact" };
+                  })
+                : entities;
             const actual = await service.parse({
               text,
               datasetEpoch: 1,
@@ -71,7 +113,7 @@ describe.skipIf(!executable)(
             });
             expect(actual.superseded).toBeUndefined();
             expect(actual.text).toBe(text);
-            expect(actual.canonical).toBe(canonical);
+            expect(actual.canonical).toBe(corrected?.canonical ?? canonical);
             expect(
               actual.entities
                 .filter((e) => e.source === "ontology")

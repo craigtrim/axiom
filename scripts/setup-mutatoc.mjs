@@ -10,7 +10,7 @@ const source = candidate
   ? path.resolve(candidate)
   : existsSync(path.join(target, "package-manifest.json"))
     ? target
-    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.0");
+    : path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.1");
 let manifest;
 try {
   manifest = JSON.parse(
@@ -18,12 +18,12 @@ try {
   );
 } catch {
   throw Error(
-    "Install the complete mutatoc 0.5.0 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
+    "Install the complete mutatoc 0.5.1 Windows package: npm run setup:mutatoc -- <extracted-package-folder>",
   );
 }
-// craigtrim/axiom#43: Text Analysis is verified against the 0.5.0 runtime.
-if (manifest.version !== "0.5.0")
-  throw Error("Axiom requires the tested mutatoc 0.5.0 runtime.");
+// craigtrim/axiom#52: Text Analysis is verified against the 0.5.1 runtime.
+if (manifest.version !== "0.5.1")
+  throw Error("Axiom requires the tested mutatoc 0.5.1 runtime.");
 const entries = Object.entries(manifest.files);
 for (const required of [
   "mutatoc.exe",
@@ -43,7 +43,7 @@ for (const [relative, record] of entries) {
     throw Error("Invalid package path.");
   if (relative.split(/[\\/]/)[0].toLowerCase() === "runtime")
     throw Error(
-      "Mutatoc 0.5.0 must not contain a retired Python/model runtime.",
+      "Mutatoc 0.5.1 must not contain a retired Python/model runtime.",
     );
   const content = await readFile(path.join(source, relative));
   if (
@@ -71,7 +71,7 @@ if (source !== target) {
 }
 // A copied older runtime must never reintroduce Python/model payloads.
 if (existsSync(path.join(target, "runtime")))
-  throw Error("Mutatoc 0.5.0 must not contain a retired Python/model runtime.");
+  throw Error("Mutatoc 0.5.1 must not contain a retired Python/model runtime.");
 console.log(
   `mutatoc ${manifest.version}: verified ${entries.length} packaged files in ${target}`,
 );

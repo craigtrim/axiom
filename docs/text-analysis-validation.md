@@ -1,6 +1,6 @@
 # Text Analysis validation
 
-The current Mutatoc 0.5.0 upgrade (craigtrim/axiom#43) is recorded in [verification](verification.md#mutatoc-050-upgrade-october-3-2026). The 0.4.0 upgrade it replaced is recorded in [verification](verification.md#mutatoc-040-upgrade-october-2-2026), and the 0.3.1 upgrade before that in [verification](verification.md#mutatoc-031-upgrade-october-1-2026). Performance measurements from earlier versions are reported separately in [Text Analysis performance](text-analysis-performance.md).
+The current Mutatoc 0.5.1 upgrade (craigtrim/axiom#52) is recorded in [verification](verification.md#mutatoc-051-upgrade-october-5-2026). The 0.5.0 upgrade it replaced is recorded in [verification](verification.md#mutatoc-050-upgrade-october-3-2026), the 0.4.0 upgrade before that in [verification](verification.md#mutatoc-040-upgrade-october-2-2026), and the 0.3.1 upgrade before that in [verification](verification.md#mutatoc-031-upgrade-october-1-2026). Performance measurements from earlier versions are reported separately in [Text Analysis performance](text-analysis-performance.md).
 
 ## Historical validation: Mutatoc 0.2.1
 

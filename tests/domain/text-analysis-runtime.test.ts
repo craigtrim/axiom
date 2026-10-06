@@ -420,3 +420,55 @@ it.skipIf(!available)(
     }
   },
 );
+
+// craigtrim/axiom#52: Mutatoc 0.5.0 held only two words of a three-word span
+// label to the distance, so one match could cover hundreds of pasted lines.
+it.skipIf(!available)(
+  "holds every word of a multiword span label within the span distance",
+  async () => {
+    const parsed = await parseRdf(
+      `@prefix : <https://example.org/text#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:Digital_Circuit_Design a owl:Class; rdfs:label "Digital Circuit Design" .`,
+      "circuits.ttl",
+      "https://example.org/text#",
+    );
+    const store = storeFromRdf(parsed.triples, "circuits");
+    const service = new TextAnalysisService(
+      () => executable,
+      () => textAnalysisContext(store, 1),
+    );
+    const gap = "one two three four five six seven eight nine ten";
+    const list = Array.from(
+      { length: 20 },
+      (_, i) => `Pottery Studio ${i}\t12`,
+    ).join("\r\n");
+    const matches = async (text: string) =>
+      (
+        await service.parse({ text, datasetEpoch: 1, version: store.version })
+      ).entities
+        .filter((entity) => entity.source === "ontology")
+        .map((entity) => [text.slice(entity.start, entity.end), entity.method]);
+    try {
+      expect(await matches("Digital Circuit Design")).toEqual([
+        ["Digital Circuit Design", "exact"],
+      ]);
+      expect(await matches("digital one circuit two design")).toEqual([
+        ["digital one circuit two design", "spans"],
+      ]);
+      expect(await matches(`Circuit ${gap} digital design`)).toEqual([]);
+      expect(await matches(`digital design ${gap} circuit`)).toEqual([]);
+      expect(
+        await matches(
+          `Circuit Theory\t30\r\n${list}\r\nDigital Design Basics\t9`,
+        ),
+      ).toEqual([]);
+      expect(await matches(`circuit digital design ${gap} circuit`)).toEqual([
+        ["circuit digital design", "spans"],
+      ]);
+    } finally {
+      service.close();
+    }
+  },
+);
