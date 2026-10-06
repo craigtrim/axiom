@@ -288,9 +288,9 @@ async function types(selected: string[]) {
       .setChecked(selected.includes(label));
 }
 
-async function openExtendFixture() {
+async function openExtendFixture(extra = "") {
   const file = path.join(profile, "extend.ttl");
-  await writeFile(file, extendOntology);
+  await writeFile(file, extendOntology + extra);
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -448,6 +448,8 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   await first.press("Space");
   await expect(page.getByRole("menuitem").first()).toBeFocused();
   await page.getByRole("menuitem").first().press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /^Sibling/ })).toBeFocused();
+  await page.getByRole("menuitem", { name: /^Sibling/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Instance/ })).toBeFocused();
   await page.getByRole("menuitem", { name: /^Instance/ }).press("Escape");
   await first.click();
@@ -519,6 +521,7 @@ test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations"
   await expect(page.getByRole("menuitem")).toHaveText([
     "Synonymrdfs:seeAlso",
     "Subclassrdfs:subClassOf",
+    "Siblingrdfs:subClassOf",
     "Instancerdf:type",
   ]);
   await expect(page.getByRole("menu")).toHaveAttribute(
@@ -530,7 +533,192 @@ test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations"
     "Psy added to Psychology",
   );
   await extendMenu("Psychology");
-  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  await expect(page.getByRole("menuitem")).toHaveCount(3);
+});
+
+for (const count of [0, 1, 2]) {
+  test(`#55 Sibling shares ${count} named parents in Details and undoes every statement`, async () => {
+    await openExtendFixture(
+      count === 2
+        ? `:ClinicalPsychology rdfs:subClassOf :GeneralPsychology,
+            [a owl:Restriction; owl:onProperty :teaches; owl:someValuesFrom :Psychology].`
+        : "",
+    );
+    const target = count ? "Clinical Psychology" : "Psychology";
+    const parents =
+      count === 2
+        ? ["Psychology", "General Psychology"]
+        : count
+          ? ["Psychology"]
+          : [];
+    await extendMenu(target);
+    await page.getByRole("menuitem", { name: /^Sibling/ }).click();
+    const form = pane().getByRole("region", { name: "Add to the ontology" });
+    await expect(
+      form.getByRole("textbox", { name: "Class label", exact: true }),
+    ).toHaveValue("Psy");
+    await expect(pane().locator(".extend-context")).toHaveText(
+      `Back to resultsNew class, sibling of ${target}, under ${parents.join(", ") || "owl:Thing"}, asserted with rdfs:subClassOf`,
+    );
+    await expect(
+      form.getByRole("button", {
+        name: "Remove this rdfs:subClassOf value",
+        exact: true,
+      }),
+    ).toHaveCount(count);
+    const iri = extendBase + "Sibling";
+    await form
+      .getByRole("textbox", { name: "Class label", exact: true })
+      .fill("Sibling subject");
+    await form
+      .getByRole("textbox", { name: "Subject IRI", exact: true })
+      .fill(iri);
+    await form
+      .getByRole("button", { name: "Create class", exact: true })
+      .click();
+    await expect
+      .poll(
+        async () => (await state()).entities.find((e) => e.iri === iri)?.label,
+      )
+      .toBe("Sibling subject");
+    await expect(pane()).toContainText(
+      count
+        ? `Sibling subject added as a class under ${parents.join(", ")}`
+        : "Sibling subject added under owl:Thing",
+    );
+    await resultAction("Details");
+    const details = page.locator('[data-panel="details"]');
+    await expect(details).toHaveAttribute("data-entity-iri", iri);
+    const relations = details.locator(
+      `tr[data-predicate="${NS.rdfs}subClassOf"]`,
+    );
+    const parentFields = relations.getByRole("combobox", { name: /^Value / });
+    await expect(parentFields).toHaveCount(count || 1);
+    const values = await parentFields.evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value).sort(),
+    );
+    expect(values).toEqual(count ? [...parents].sort() : ["owl:Thing"]);
+    const expected = count
+      ? parents.map((label) => extendBase + label.replaceAll(" ", ""))
+      : [NS.owl + "Thing"];
+    const readParents = () =>
+      page.evaluate(async (iri) => {
+        const doc = await window.axiom.request<any>("entityDocument", { iri });
+        return doc.statements
+          .filter(
+            (t: any) =>
+              t.predicate === "http://www.w3.org/2000/01/rdf-schema#subClassOf",
+          )
+          .map((t: any) => t.object.value)
+          .sort();
+      }, iri);
+    expect(await readParents()).toEqual([...expected].sort());
+    await details.locator(".statement-grid-toolbar").click();
+    await menu("edit.undo");
+    await expect
+      .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+      .toBe(false);
+    const undone = await page.evaluate(() =>
+      window.axiom.request<{ text: string }>("sourceDocument", {
+        format: "ntriples",
+      }),
+    );
+    expect(undone.text).not.toContain(`<${iri}>`);
+    await menu("edit.redo");
+    await expect.poll(readParents).toEqual([...expected].sort());
+  });
+}
+
+test("#55 Escape and Back to results preserve separate Sibling and Subclass drafts", async () => {
+  await openExtendFixture();
+  const trigger = await extendMenu("Clinical Psychology");
+  const label = pane().getByRole("textbox", {
+    name: "Class label",
+    exact: true,
+  });
+  const context = pane().locator(".extend-context");
+  await page.getByRole("menuitem", { name: /^Sibling/ }).click();
+  await label.fill("Retained sibling");
+  await pane()
+    .getByRole("button", {
+      name: "Remove this rdfs:subClassOf value",
+      exact: true,
+    })
+    .click();
+  await expect(context).toContainText(
+    "sibling of Clinical Psychology, under owl:Thing",
+  );
+  await label.press("Escape");
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await expect(label).toHaveValue("Psy");
+  await expect(context).toContainText("subclass of Clinical Psychology");
+  await label.fill("Retained subclass");
+  await pane()
+    .getByRole("button", { name: "Back to results", exact: true })
+    .click();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.getByRole("menuitem", { name: /^Sibling/ }).click();
+  await expect(label).toHaveValue("Retained sibling");
+  await expect(context).toContainText(
+    "sibling of Clinical Psychology, under owl:Thing",
+  );
+  await pane()
+    .getByRole("button", { name: "Back to results", exact: true })
+    .click();
+  await trigger.click();
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await expect(label).toHaveValue("Retained subclass");
+  await expect(context).toContainText("subclass of Clinical Psychology");
+});
+
+for (const mode of ["expanded", "narrow", "constrained"] as const) {
+  test(`#55 ${mode} menu cycles through every S item and wraps`, async () => {
+    await openExtendFixture();
+    await page.locator('[data-pane-id="find"]').evaluate(
+      (el, mode) =>
+        Object.assign((el as HTMLElement).style, {
+          position: "fixed",
+          left: "24px",
+          top: "24px",
+          zIndex: "1000",
+          width: mode === "expanded" ? "760px" : "500px",
+          height: mode === "constrained" ? "320px" : "560px",
+        }),
+      mode,
+    );
+    await expect(pane()).toHaveAttribute("data-layout", mode);
+    const trigger = await extendMenu("Psychology");
+    await trigger.press("Escape");
+    await trigger.press("Enter");
+    await expect(page.getByRole("menuitem").first()).toBeFocused();
+    const order =
+      mode === "expanded"
+        ? ["Sibling", "Subclass", "Sibling"]
+        : ["Subclass", "Sibling", "Synonym", "Subclass"];
+    for (const item of order) {
+      await page.keyboard.press("s");
+      await expect(
+        page.getByRole("menuitem", { name: new RegExp("^" + item) }),
+      ).toBeFocused();
+    }
+  });
+}
+
+test("#55 owl:Thing offers Subclass and Instance without Sibling", async () => {
+  await openExtendFixture(`owl:Thing a owl:Class; rdfs:label "Thing".`);
+  await pane().getByRole("searchbox").fill("Thing");
+  await expect(pane().locator(".find-results-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await extendMenu("Thing");
+  await expect(page.getByRole("menuitem")).toHaveText([
+    "Subclassrdfs:subClassOf",
+    "Instancerdf:type",
+  ]);
 });
 
 test("#49 a row door preserves the results page, scroll, selection and its draft", async () => {

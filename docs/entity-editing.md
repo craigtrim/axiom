@@ -4,6 +4,8 @@ In Details, a subclass parent uses the ontology resource picker. Typing `Enginee
 
 Find selects the matching entity and reveals it in an open Hierarchy pane. It clears the hierarchy filter, selects Classes or Properties, expands the ancestor path and scrolls the selected row into view. This works in detached panes and keeps keyboard focus in Find. A closed Hierarchy pane stays closed.
 
+Find's class-row menu offers Subclass, Sibling and Instance. Sibling opens a new class draft with every direct named parent of the row, leaving out anonymous restrictions and `owl:Thing`. Review or remove those parents before creating the class; an empty parent field creates it under `owl:Thing`. The context bar follows your edits, and one Undo removes the new class and its statements. Escape and Back to results retain separate drafts for each row and action. `owl:Thing` itself has no Sibling action. In an open menu, pressing S repeatedly cycles through matching items, including Synonym in narrow panes.
+
 ## Concurrent edits
 
 Details, Inspector and an entity's scoped Source editor compare the loaded statements, the draft and the current ontology before saving. The worker merges them in the same operation that updates the entity, avoiding a gap between checking the version and applying the changes.

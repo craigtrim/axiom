@@ -811,6 +811,14 @@ export function FindPanel() {
       "DataProperty",
       "AnnotationProperty",
     ].includes(active.kind);
+  const creationLabel = (iri: string) => {
+    const entity = snapshot.entities.find((entity) => entity.iri === iri);
+    return entity?.label || entity?.name || iri;
+  };
+  const creationParents = draft.parents
+    .filter(Boolean)
+    .map(creationLabel)
+    .join(", ");
   const creationEditor = (
     <div
       id={createId}
@@ -833,19 +841,19 @@ export function FindPanel() {
             <span>
               Adding <b>{options.text.trim()}</b> from your search
             </span>
+          ) : draft.origin.door === "sibling" ? (
+            <span>
+              New <b>class</b>
+              {`, sibling of ${creationLabel(draft.origin.target ?? "")}, under `}
+              <b>{creationParents || "owl:Thing"}</b>
+              {", asserted with "}
+              <code>rdfs:subClassOf</code>
+            </span>
           ) : (
             <span>
               New <b>{creationNoun(draft.kind ?? "Class")}</b>
               {`, ${(draft.kind ?? "Class") === "Class" ? "subclass" : draft.kind === "Individual" ? "instance" : "subproperty"} of `}
-              <b>
-                {draft.parents
-                  .filter(Boolean)
-                  .map((iri) => {
-                    const target = snapshot.entities.find((e) => e.iri === iri);
-                    return target?.label || target?.name || iri;
-                  })
-                  .join(", ") || "…"}
-              </b>
+              <b>{creationParents || "…"}</b>
               {", asserted with "}
               <code>
                 {(draft.kind ?? "Class") === "Class"

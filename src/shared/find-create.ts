@@ -73,7 +73,7 @@ export function findCreationOffer(query: string, collisions: FindCollision[]) {
 }
 export interface FindCreationDraft extends FindCreationInput {
   origin?: {
-    door: "header" | "subclass" | "instance" | "subproperty";
+    door: "header" | "subclass" | "sibling" | "instance" | "subproperty";
     target?: string;
   };
   labelEdited: boolean;

@@ -91,6 +91,18 @@ async function referenceControl(
     ({ selector, theme, width, replacements }) => {
       document.body.dataset.theme = theme;
       const control = document.querySelector<HTMLElement>(selector)!;
+      // #55 amends only these #49 menus in memory; the pinned bytes stay intact.
+      if (
+        selector === "#b figure:first-child .ramenu" ||
+        selector === "#e figure:nth-child(2) .ramenu"
+      ) {
+        const subclass = [...control.querySelectorAll<HTMLElement>(".mi")].find(
+          (item) => item.querySelector(".rm-label")?.textContent === "Subclass",
+        )!;
+        const sibling = subclass.cloneNode(true) as HTMLElement;
+        sibling.querySelector(".rm-label")!.textContent = "Sibling";
+        subclass.after(sibling);
+      }
       const frame = control.closest<HTMLElement>(".pane")!;
       // Specimen dimensions and the surrounding table are explicitly scaffolding
       // in #49. Render expanded controls above the published narrow threshold.
@@ -563,6 +575,16 @@ for (const theme of ["light", "dark"] as const)
           "Subclass",
           "#d figure:nth-child(2) .ctx",
           [],
+        ],
+        [
+          "sibling-context",
+          "Psychology",
+          "Sibling",
+          "#d figure:nth-child(2) .ctx",
+          [
+            ["Psychology", "owl:Thing"],
+            ["subclass of", "sibling of Psychology, under"],
+          ],
         ],
         [
           "instance-context",

@@ -2,8 +2,8 @@ import { expect, it } from "vitest";
 import { extendControl, extendRelations } from "../../src/shared/entity-extend";
 import type { Kind } from "../../src/domain/model";
 const matrix: [Kind, string[]][] = [
-  ["Class", ["subclass", "instance"]],
-  ["Defined", ["subclass", "instance"]],
+  ["Class", ["subclass", "sibling", "instance"]],
+  ["Defined", ["subclass", "sibling", "instance"]],
   ["ObjectProperty", ["subproperty"]],
   ["DataProperty", ["subproperty"]],
   ["AnnotationProperty", ["subproperty"]],

@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useRef } from "react";
 import { extendControl, type ExtendRelation } from "../shared/entity-extend";
+import { THING } from "../domain/model";
 import type { FindRow } from "../shared/find";
 import { suspendMenus } from "./access-keys";
 import "./entity-extend.css";
@@ -39,6 +40,9 @@ export function EntityExtend({
   create(relation: ExtendRelation, trigger: HTMLButtonElement): void;
 }) {
   const control = extendControl(row.kind, query, row.synonym, narrow, added);
+  const relations = control.relations.filter(
+    (relation) => relation.door !== "sibling" || row.iri !== THING,
+  );
   const folded = control.form === "folded";
   const id = useId();
   const root = useRef<HTMLSpanElement>(null);
@@ -120,7 +124,7 @@ export function EntityExtend({
   }, [ready, control.form]);
   if (control.form === "empty") return null;
   const main = !folded && control.synonym;
-  const more = folded || control.relations.length > 0;
+  const more = folded || relations.length > 0;
   const title = `Add ${query.trim()} as a synonym of ${row.name}`;
   return (
     <span
@@ -209,12 +213,19 @@ export function EntityExtend({
               next = (current - 1 + items.length) % items.length;
             if (event.key === "Home") next = 0;
             if (event.key === "End") next = items.length - 1;
-            if (event.key.length === 1 && /\p{L}/u.test(event.key))
-              next = items.findIndex((item) =>
-                item.textContent
-                  ?.toLocaleLowerCase()
-                  .startsWith(event.key.toLocaleLowerCase()),
-              );
+            if (event.key.length === 1 && /\p{L}/u.test(event.key)) {
+              for (let offset = 1; offset <= items.length; offset++) {
+                const index = (current + offset) % items.length;
+                if (
+                  items[index].textContent
+                    ?.toLocaleLowerCase()
+                    .startsWith(event.key.toLocaleLowerCase())
+                ) {
+                  next = index;
+                  break;
+                }
+              }
+            }
             if (next >= 0) {
               event.preventDefault();
               items[next]?.focus({ preventScroll: true });
@@ -241,12 +252,12 @@ export function EntityExtend({
                 <span className="ext-label">Synonym</span>
                 <span className="ext-predicate">rdfs:seeAlso</span>
               </button>
-              {!!control.relations.length && (
+              {!!relations.length && (
                 <span role="separator" className="ext-separator" />
               )}
             </>
           )}
-          {control.relations.map((relation) => (
+          {relations.map((relation) => (
             <button
               type="button"
               role="menuitem"
@@ -262,11 +273,11 @@ export function EntityExtend({
               <span className="ext-predicate">{relation.predicate}</span>
             </button>
           ))}
-          {!folded && !!control.relations.length && (
+          {!folded && !!relations.length && (
             <>
               <span role="separator" className="ext-separator" />
               <span className="ext-caption">
-                {control.relations.length === 2
+                {row.kind === "Class" || row.kind === "Defined"
                   ? "creates a new class, or a new individual"
                   : "creates a new property"}
               </span>

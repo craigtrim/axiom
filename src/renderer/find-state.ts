@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { panel, savePanel, command } from "./client";
+import { panel, savePanel, command, state } from "./client";
+import { taxonomyParents } from "../domain/class-expressions";
+import { THING } from "../domain/model";
 import {
   emptyFindDraft,
   titleCaseQuery,
@@ -42,7 +44,21 @@ export function openFindCreation(
           ...emptyFindDraft(old.options.text),
           kind,
           origin,
-          parents: origin.target ? [origin.target] : [],
+          parents:
+            origin.door === "sibling"
+              ? taxonomyParents(
+                  state?.entities.find(
+                    (entity) => entity.iri === origin.target,
+                  ),
+                ).filter(
+                  (iri) =>
+                    !iri.startsWith("_:") &&
+                    iri !== THING &&
+                    iri !== origin.target,
+                )
+              : origin.target
+                ? [origin.target]
+                : [],
         });
   creationKey = key;
   current = { ...old, draft };

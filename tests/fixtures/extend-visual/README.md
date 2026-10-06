@@ -11,7 +11,7 @@ expected images. `light.json` and `dark.json` store the reference PNGs as base64
 alongside their source hash.
 
 Each theme covers the reserved empty column, engaged split, lone main button,
-class/property menus, keyboard focus, four editor context bars, shallow split,
+class/property menus, keyboard focus, five editor context bars, shallow split,
 narrow/constrained fold, folded menu and synonym confirmation. The test checks
 both Axiom against the fresh reference and that reference against the committed
 baseline, requiring **zero differing decoded pixels**. It does not mask pixels,
@@ -24,8 +24,11 @@ as scaffolding governed by issue 34. Expanded reference specimens therefore use
 a width above the shared narrow threshold; several exhibits otherwise fold their
 own controls at their supplied widths. The reference pane background uses Find's
 existing background. Query and entity data can be substituted. The subproperty
-context, which has no specimen, follows the subclass context's structure with the
-required words and predicate. Captures align origins to integer pixels and use
+and sibling contexts, which have no specimens, follow the subclass context's
+structure with the required text substitutions. Issue 55 adds Sibling after
+Subclass in exhibit B's first menu and exhibit E's folded menu, by cloning the
+Subclass item and changing its label in memory before capture. The pinned HTML
+and its hash remain unchanged. Captures align origins to integer pixels and use
 matching compositor isolation for the control and menu items on both sides.
 This avoids fractional baseline rounding between a top-layer popup and a static
 exhibit; it does not change fonts, colours, dimensions or relative layout.

@@ -3,7 +3,7 @@ import { findSynonymText, type FindSynonymStatus } from "./find-synonyms";
 import type { FindCreationKind } from "./find-create";
 
 export interface ExtendRelation {
-  door: "subclass" | "instance" | "subproperty";
+  door: "subclass" | "sibling" | "instance" | "subproperty";
   label: string;
   predicate: string;
   kind: FindCreationKind;
@@ -14,6 +14,12 @@ export function extendRelations(kind: Kind): ExtendRelation[] {
       {
         door: "subclass",
         label: "Subclass",
+        predicate: "rdfs:subClassOf",
+        kind: "Class",
+      },
+      {
+        door: "sibling",
+        label: "Sibling",
         predicate: "rdfs:subClassOf",
         kind: "Class",
       },
