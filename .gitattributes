@@ -4,3 +4,5 @@ tests/fixtures/find-visual/visual-reference.html -text
 tests/fixtures/quality-visual/visual-reference.html -text
 # Craig's row extend reference, hash-pinned (craigtrim/axiom#49).
 tests/fixtures/extend-visual/visual-reference.html -text
+# Revised extension contract for issue 56; retain revision 1 unchanged.
+tests/fixtures/extend-visual/visual-reference-v2.html -text
