@@ -141,11 +141,26 @@ export function AdaptivePane({
       recover.current?.focus();
     } else if (!layout.recovery && recoveryFocused) {
       const previous = previousFocus.current;
+      // Quiet row actions become hidden when recovery moves focus away. Reveal
+      // their still-mounted row before restoring the original action's focus.
+      if (
+        previous?.isConnected &&
+        !previous.checkVisibility({ visibilityProperty: true })
+      ) {
+        const row = previous.closest<HTMLElement>("[tabindex]");
+        if (row?.checkVisibility({ visibilityProperty: true }))
+          row.focus({ preventScroll: true });
+      }
       const target =
-        previous?.isConnected && previous.checkVisibility()
+        previous?.isConnected &&
+        previous.checkVisibility({ visibilityProperty: true })
           ? previous
-          : content.current?.querySelector<HTMLElement>(
-              'button:not([hidden]):not(:disabled), input:not(:disabled), [tabindex="0"]',
+          : [
+              ...(content.current?.querySelectorAll<HTMLElement>(
+                'button:not([hidden]):not(:disabled), input:not(:disabled), [tabindex="0"]',
+              ) ?? []),
+            ].find((element) =>
+              element.checkVisibility({ visibilityProperty: true }),
             );
       target?.focus();
       previousFocus.current = null;

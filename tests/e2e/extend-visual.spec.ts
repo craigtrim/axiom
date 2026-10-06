@@ -14,10 +14,10 @@ import { extendOntology } from "../fixtures/extend-visual/ontology";
 import type { Snapshot } from "../../src/shared/protocol";
 
 const reference = path.resolve(
-  "tests/fixtures/extend-visual/visual-reference.html",
+  "tests/fixtures/extend-visual/visual-reference-v2.html",
 );
 const referenceHash =
-  "ccf5025880e27b2536c483574d533b5e58d3f2a032c59d84a95963d0ee55a881";
+  "e7dda85e59b560b5cb6879120d1fdfd9e2ae35a1efcb0dd97b28e747284bfaa8";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
 const row = (name = "Psychology") =>
@@ -91,18 +91,6 @@ async function referenceControl(
     ({ selector, theme, width, replacements }) => {
       document.body.dataset.theme = theme;
       const control = document.querySelector<HTMLElement>(selector)!;
-      // #55 amends only these #49 menus in memory; the pinned bytes stay intact.
-      if (
-        selector === "#b figure:first-child .ramenu" ||
-        selector === "#e figure:nth-child(2) .ramenu"
-      ) {
-        const subclass = [...control.querySelectorAll<HTMLElement>(".mi")].find(
-          (item) => item.querySelector(".rm-label")?.textContent === "Subclass",
-        )!;
-        const sibling = subclass.cloneNode(true) as HTMLElement;
-        sibling.querySelector(".rm-label")!.textContent = "Sibling";
-        subclass.after(sibling);
-      }
       const frame = control.closest<HTMLElement>(".pane")!;
       // Specimen dimensions and the surrounding table are explicitly scaffolding
       // in #49. Render expanded controls above the published narrow threshold.
@@ -283,7 +271,7 @@ async function capture(control: Locator, owner: Page, pad = 0) {
 const captureLayouts = new Map<Locator, unknown>();
 
 for (const theme of ["light", "dark"] as const)
-  test(`#49 ${theme} isolated controls match the independent HTML with zero differing pixels`, async ({}, info) => {
+  test(`#56 ${theme} isolated controls match the independent HTML with zero differing pixels`, async ({}, info) => {
     test.setTimeout(180000);
     if (["all", "changed"].includes(info.config.updateSnapshots))
       throw Error(
@@ -294,8 +282,15 @@ for (const theme of ["light", "dark"] as const)
         .update(await readFile(reference))
         .digest("hex"),
     ).toBe(referenceHash);
+    expect(
+      createHash("sha256")
+        .update(
+          await readFile("tests/fixtures/extend-visual/visual-reference.html"),
+        )
+        .digest("hex"),
+    ).toBe("ccf5025880e27b2536c483574d533b5e58d3f2a032c59d84a95963d0ee55a881");
     await mkdir("artifacts/testing", { recursive: true });
-    await mkdir("artifacts/issue-49", { recursive: true });
+    await mkdir("artifacts/issue-56/visual", { recursive: true });
     const profile = await mkdtemp(
       path.resolve("artifacts/testing/extend-visual-"),
     );
@@ -393,11 +388,11 @@ for (const theme of ["light", "dark"] as const)
         const actual = await capture(actualControl, page, pad);
         generated[name] = expected.toString("base64");
         await writeFile(
-          `artifacts/issue-49/${theme}-${name}-expected.png`,
+          `artifacts/issue-56/visual/${theme}-${name}-expected.png`,
           expected,
         );
         await writeFile(
-          `artifacts/issue-49/${theme}-${name}-actual.png`,
+          `artifacts/issue-56/visual/${theme}-${name}-actual.png`,
           actual,
         );
         const differences = await app.evaluate(
@@ -450,7 +445,7 @@ for (const theme of ["light", "dark"] as const)
             }),
           );
         await writeFile(
-          `artifacts/issue-49/${theme}-${name}-metrics.json`,
+          `artifacts/issue-56/visual/${theme}-${name}-metrics.json`,
           JSON.stringify(
             {
               differences,
@@ -580,11 +575,8 @@ for (const theme of ["light", "dark"] as const)
           "sibling-context",
           "Psychology",
           "Sibling",
-          "#d figure:nth-child(2) .ctx",
-          [
-            ["Psychology", "owl:Thing"],
-            ["subclass of", "sibling of Psychology, under"],
-          ],
+          "#d figure:nth-child(4) .ctx",
+          [],
         ],
         [
           "instance-context",
@@ -597,13 +589,8 @@ for (const theme of ["light", "dark"] as const)
           "subproperty-context",
           "teaches",
           "Subproperty",
-          "#d figure:nth-child(2) .ctx",
-          [
-            ["class", "property"],
-            ["subclass", "subproperty"],
-            ["Psychology", "teaches"],
-            ["rdfs:subClassOf", "rdfs:subPropertyOf"],
-          ],
+          "#d figure:nth-child(5) .ctx",
+          [],
         ],
       ] as const) {
         await openMenu(target);

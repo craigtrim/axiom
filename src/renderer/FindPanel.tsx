@@ -841,7 +841,8 @@ export function FindPanel() {
             <span>
               Adding <b>{options.text.trim()}</b> from your search
             </span>
-          ) : draft.origin.door === "sibling" ? (
+          ) : draft.origin.door === "sibling" &&
+            (draft.kind ?? "Class") === "Class" ? (
             <span>
               New <b>class</b>
               {`, sibling of ${creationLabel(draft.origin.target ?? "")}, under `}
@@ -853,7 +854,10 @@ export function FindPanel() {
             <span>
               New <b>{creationNoun(draft.kind ?? "Class")}</b>
               {`, ${(draft.kind ?? "Class") === "Class" ? "subclass" : draft.kind === "Individual" ? "instance" : "subproperty"} of `}
-              <b>{creationParents || "…"}</b>
+              <b>
+                {creationParents ||
+                  ((draft.kind ?? "Class") === "Class" ? "owl:Thing" : "…")}
+              </b>
               {", asserted with "}
               <code>
                 {(draft.kind ?? "Class") === "Class"

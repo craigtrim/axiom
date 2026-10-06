@@ -41,14 +41,8 @@ async function menu(id: string, target = page) {
 }
 async function size(width: number, height: number) {
   const window = await app.browserWindow(page);
-  if (await window.evaluate((win) => win.isMaximized())) {
-    await window.evaluate((win) => win.unmaximize());
-    await expect
-      .poll(() => window.evaluate((win) => win.isMaximized()))
-      .toBe(false);
-  }
-  // Measure the pane and renderer viewport together. Native restore bounds can
-  // arrive before the renderer's resize, so a native/DOM delta races unmaximize.
+  // Capture the stable pane insets before native restore starts. The native
+  // viewport can resize before the docking layout receives its new bounds.
   const inset = await host().evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return {
@@ -56,6 +50,12 @@ async function size(width: number, height: number) {
       height: innerHeight - rect.height,
     };
   });
+  if (await window.evaluate((win) => win.isMaximized())) {
+    await window.evaluate((win) => win.unmaximize());
+    await expect
+      .poll(() => window.evaluate((win) => win.isMaximized()))
+      .toBe(false);
+  }
   await window.evaluate(
     (win, target) => {
       win.setMinimumSize(100, 100);
@@ -261,10 +261,7 @@ for (const [width, height, mode, columns] of [
     }
     await noOverflow();
     const undersized = await pane()
-      // The adjoining chevron uses the narrower face pinned by #49's reference.
-      .locator(
-        "button:visible:not(.find-store button):not(.ext-more), select:visible",
-      )
+      .locator("button:visible:not(.find-store button), select:visible")
       .evaluateAll((elements) =>
         elements
           .filter((el) => {

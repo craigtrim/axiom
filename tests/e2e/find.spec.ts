@@ -453,12 +453,12 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   await expect(page.getByRole("menuitem", { name: /^Instance/ })).toBeFocused();
   await page.getByRole("menuitem", { name: /^Instance/ }).press("Escape");
   await first.click();
-  const second = await extendMenu("teaches");
+  await extendMenu("teaches");
   await expect(page.getByRole("menu")).toHaveCount(1);
   await expect(first).toHaveAttribute("aria-expanded", "false");
   await pane().getByRole("searchbox").click();
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await expect(second).toBeFocused();
+  await expect(pane().getByRole("searchbox")).toBeFocused();
   expect(await pane().locator('tr[data-selected="true"]').innerText()).toBe(
     selected,
   );

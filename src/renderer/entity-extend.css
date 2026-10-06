@@ -1,4 +1,4 @@
-/* The control tokens and metrics come from the hash-pinned #49 reference. */
+/* Control tokens and metrics: hash-pinned extension reference, revision 2 (#56). */
 .entity-extend,
 .extend-context,
 .extend-confirmation {
@@ -99,11 +99,14 @@ tr[data-selected="true"] .entity-extend,
   border-radius: 4px 0 0 4px;
 }
 .entity-extend .ext-more {
+  min-width: 24px;
+  justify-content: center;
   border-radius: 0 4px 4px 0;
   border-inline-start: 0;
   padding: 0 5px;
 }
 .entity-extend .ext-only {
+  min-width: 24px;
   border-radius: 4px;
   padding: 0 7px;
 }
@@ -121,10 +124,11 @@ tr[data-selected="true"] .entity-extend,
   inset: auto;
   margin: 0;
   width: max-content;
-  min-width: 236px;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
-  overflow: visible;
+  min-width: min(236px, var(--ext-menu-width, calc(100vw - 16px)));
+  max-width: var(--ext-menu-width, calc(100vw - 16px));
+  max-height: var(--ext-menu-height, calc(100vh - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 3px;
   text-align: start;
   background: var(--ext-raised);
@@ -139,7 +143,8 @@ tr[data-selected="true"] .entity-extend,
   box-sizing: border-box;
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 0 10px;
   width: 100%;
   padding: 6px 8px;
   font: inherit;
@@ -161,28 +166,36 @@ tr[data-selected="true"] .entity-extend,
   cursor: default;
 }
 .ext-label {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .ext-predicate {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: end;
   font-family: var(--ext-mono);
   font-size: 11.5px;
   color: var(--ext-muted);
 }
 .ext-separator {
+  display: block;
   height: 1px;
   margin: 3px 0;
   background: var(--ext-border);
 }
 .ext-caption {
   display: block;
+  overflow-wrap: anywhere;
   padding: 4px 8px 2px;
   font-size: 11.5px;
   color: var(--ext-muted);
 }
 .extend-context {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   flex: none;
@@ -191,11 +204,18 @@ tr[data-selected="true"] .entity-extend,
   background: var(--ext-tint);
   font-size: 12.5px;
 }
+.extend-context > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
 .extend-context .extend-back {
   all: unset;
   box-sizing: border-box;
   flex: none;
-  height: 24px;
+  min-height: 24px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 0 8px;
   font: inherit;
   font-size: 12px;
