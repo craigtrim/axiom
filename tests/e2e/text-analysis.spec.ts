@@ -433,6 +433,232 @@ test("View in Graph waits for current text instead of using retained matches", a
   expect(after.graph.nodes.map((node) => node.iri)).not.toContain(base + "Dog");
 });
 
+async function changeAnalysisSynonym(
+  entity: string,
+  synonym: string,
+  add: boolean,
+) {
+  await page.evaluate(
+    async ({ iri, synonym, add }) => {
+      const doc = await window.axiom.request<
+        import("../../src/shared/editor-state").DocumentData
+      >("entityDocument", { iri });
+      const predicate = "http://www.w3.org/2004/02/skos/core#altLabel";
+      const statements = doc.statements.filter(
+        (t) =>
+          !(
+            t.predicate === predicate &&
+            t.object.literal &&
+            t.object.value === synonym
+          ),
+      );
+      if (add)
+        statements.push({
+          subject: iri,
+          predicate,
+          object: { literal: true, value: synonym },
+        });
+      await window.axiom.request("updateEntity", {
+        iri,
+        original: doc.statements,
+        statements,
+        datasetEpoch: doc.datasetEpoch,
+        version: doc.version,
+        preserveSelection: true,
+      });
+    },
+    { iri: base + entity, synonym, add },
+  );
+}
+
+for (const add of [true, false]) {
+  test(`#54 ${add ? "adding" : "removing"} a synonym retains highlights, status and legend until replacement`, async () => {
+    await enter(add ? "Dog and kitty" : "canine and Cat");
+    await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+    const count = add ? "1 match" : "2 matches";
+    await expect(panel().locator(".text-analysis-status")).toHaveText(count);
+    await panel().evaluate((root) => {
+      const read = () => ({
+        status: root.querySelector(".text-analysis-status")!.textContent,
+        legend: root.querySelector(".text-analysis-legend")!.textContent,
+        highlights: [
+          ...root.querySelectorAll('.view-lines [class*="text-entity-"]'),
+        ].map((el) => el.textContent),
+        graphDisabled: root.querySelector<HTMLButtonElement>(
+          ".text-analysis-graph",
+        )!.disabled,
+      });
+      const original = JSON.stringify(read());
+      const observation = {
+        changes: [] as string[],
+        observer: new MutationObserver(() => {
+          const value = JSON.stringify(read());
+          if (value !== original) observation.changes.push(value);
+        }),
+      };
+      observation.observer.observe(root, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+      });
+      (window as any).__analysisRetention = observation;
+    });
+    await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+    await changeAnalysisSynonym(
+      add ? "Cat" : "Dog",
+      add ? "kitty" : "canine",
+      add,
+    );
+    await waitForHeld(app);
+    await expect.poll(() => highlighted("dog")).toBe(add ? "Dog" : "canine");
+    await expect(panel().locator(".text-analysis-status")).toHaveText(count);
+    await expect(
+      panel().getByRole("button", { name: "View in Graph", exact: true }),
+    ).toBeEnabled();
+    if (add) await expect(chip("cat")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => {
+        const observation = (window as any).__analysisRetention;
+        observation.observer.disconnect();
+        return observation.changes;
+      }),
+    ).toEqual([]);
+    await releaseRequests(app);
+    await expect(panel().locator(".text-analysis-status")).toHaveText(
+      add ? "2 matches" : "1 match",
+    );
+    await expect.poll(() => highlighted("cat")).toBe(add ? "kitty" : "Cat");
+    if (add) await expect.poll(() => highlighted("dog")).toBe("Dog");
+    else await expect(chip("dog")).toHaveCount(0);
+  });
+}
+
+for (const action of ["highlight", "Alt+Enter", "Summary"] as const) {
+  for (const remains of [true, false]) {
+    test(`#54 ${action} waits for a retained match that ${remains ? "survives" : "disappears"}`, async () => {
+      await enter("canine and kitty");
+      await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+      await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+      await changeAnalysisSynonym(
+        remains ? "Cat" : "Dog",
+        remains ? "kitty" : "canine",
+        remains,
+      );
+      await waitForHeld(app);
+      const before = await page.evaluate(() =>
+        window.axiom.request<Snapshot>("state"),
+      );
+      if (action === "highlight") await clickHighlight("dog");
+      else if (action === "Summary") await selectSummaryEntity("dog");
+      else {
+        await editor().focus();
+        await page.keyboard.press("Control+Home");
+        await page.keyboard.press("Alt+Enter");
+      }
+      await expect(details()).toHaveCount(0);
+      expect(
+        (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+          .selected,
+      ).toBe(before.selected);
+      await releaseRequests(app);
+      if (remains)
+        await expect(details()).toHaveAttribute(
+          "data-entity-iri",
+          base + "Dog",
+        );
+      else {
+        await expect(chip("dog")).toHaveCount(0);
+        await expect(panel().locator(".text-analysis-status")).toHaveText(
+          "0 matches",
+        );
+        await expect(details()).toHaveCount(0);
+        expect(
+          (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+            .selected,
+        ).toBe(before.selected);
+      }
+    });
+  }
+}
+
+for (const remains of [true, false]) {
+  test(`#54 View in Graph waits for ontology edits${remains ? " and uses fresh matches" : " and cancels when no matches remain"}`, async () => {
+    await enter("canine and kitty");
+    await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+    await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+    await changeAnalysisSynonym(
+      remains ? "Cat" : "Dog",
+      remains ? "kitty" : "canine",
+      remains,
+    );
+    await waitForHeld(app);
+    const before = await page.evaluate(() =>
+      window.axiom.request<Snapshot>("state"),
+    );
+    await panel()
+      .getByRole("button", { name: "View in Graph", exact: true })
+      .click();
+    expect(
+      Object.keys(
+        (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+          .graphs!,
+      ),
+    ).toHaveLength(Object.keys(before.graphs!).length);
+    await releaseRequests(app);
+    if (remains) {
+      await expect
+        .poll(
+          async () =>
+            (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+              .activeGraphId,
+        )
+        .not.toBe(before.activeGraphId);
+      const after = await page.evaluate(() =>
+        window.axiom.request<Snapshot>("state"),
+      );
+      expect(after.graph.nodes.map((node) => node.iri)).toEqual(
+        expect.arrayContaining([base + "Dog", base + "Cat"]),
+      );
+      expect(Object.keys(after.graphs!)).toHaveLength(
+        Object.keys(before.graphs!).length + 1,
+      );
+    } else {
+      await expect(panel().locator(".text-analysis-status")).toHaveText(
+        "0 matches",
+      );
+      await expect(
+        panel().getByRole("button", { name: "View in Graph", exact: true }),
+      ).toBeDisabled();
+      expect(
+        Object.keys(
+          (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+            .graphs!,
+        ),
+      ).toHaveLength(Object.keys(before.graphs!).length);
+    }
+  });
+}
+
+test("#54 Undo and Redo retain the last settled display through superseded ontology analyses", async () => {
+  await enter("Dog and kitty");
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+  await changeAnalysisSynonym("Cat", "kitty", true);
+  await waitForHeld(app);
+  await editor().blur();
+  await menu("edit.undo");
+  await menu("edit.redo");
+  await expect.poll(() => highlighted("dog")).toBe("Dog");
+  await expect(panel().locator(".text-analysis-status")).toHaveText("1 match");
+  await expect(chip("cat")).toHaveCount(0);
+  await releaseRequests(app);
+  await expect(chip("cat")).toBeAttached();
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "2 matches",
+  );
+});
+
 test("editing again cancels a queued graph action and deleted highlights cannot select old concepts", async () => {
   await enter("canine");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });

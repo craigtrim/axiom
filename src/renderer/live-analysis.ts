@@ -27,10 +27,8 @@ export function pendingAnalysis(
   const result = analysisResult(state);
   return {
     status: "pending",
-    ...(result?.datasetEpoch === input.datasetEpoch &&
-    result.version === input.version
-      ? { result }
-      : {}),
+    // Same-ontology edits retain the exact display until the new result settles.
+    ...(result?.datasetEpoch === input.datasetEpoch ? { result } : {}),
   };
 }
 /** Keep only the newest edit while the engine is busy. */

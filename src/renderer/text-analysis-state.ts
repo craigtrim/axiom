@@ -87,10 +87,11 @@ export function useTextAnalysis() {
     initialize();
     syncTextAnalysisContext();
   }, [snapshot.datasetEpoch, snapshot.version]);
-  const current =
-    value.input.datasetEpoch === snapshot.datasetEpoch &&
-    value.input.version === snapshot.version;
-  const result = current ? analysisResult(value.analysis) : undefined;
+  const retained = analysisResult(value.analysis);
+  // The snapshot can render before the effect updates the session. Only a new
+  // dataset withdraws the display; navigation still requires the current version.
+  const result =
+    retained?.datasetEpoch === snapshot.datasetEpoch ? retained : undefined;
   return { ...value, result, snapshot };
 }
 export function updateAnalysisText(text: string) {
@@ -101,6 +102,15 @@ export function updateAnalysisText(text: string) {
     version: state.version,
   });
   savePanel("textanalysis.text", text, false);
+}
+export function waitForCurrentTextAnalysis() {
+  if (!state) return Promise.resolve(undefined);
+  textAnalysisSession.update({
+    text: textAnalysisSession.getSnapshot().input.text,
+    datasetEpoch: state.datasetEpoch,
+    version: state.version,
+  });
+  return textAnalysisSession.whenReady();
 }
 interface TextEditorBridge {
   focus(): void;
@@ -129,13 +139,50 @@ function currentMatch(entity: TextEntity) {
     : undefined;
 }
 let inspectionTicket = 0;
-export async function inspectTextEntity(entity: TextEntity, iri?: string) {
-  const result = currentMatch(entity);
-  if (!result) return;
+export function inspectTextEntity(entity: TextEntity, iri?: string) {
+  return activateTextEntity(entity, false, iri);
+}
+export function selectTextEntity(entity: TextEntity) {
+  return activateTextEntity(entity, true);
+}
+async function activateTextEntity(
+  entity: TextEntity,
+  selectText: boolean,
+  iri?: string,
+) {
+  let result = analysisResult(textAnalysisSession.getSnapshot().analysis);
+  if (
+    !result?.entities.includes(entity) ||
+    result.datasetEpoch !== state?.datasetEpoch
+  )
+    return;
+  const ticket = ++inspectionTicket;
+  if (
+    result.version !== state.version ||
+    (selectText &&
+      !editor &&
+      textAnalysisSession.getSnapshot().analysis.status === "pending")
+  ) {
+    // Synchronize before waiting, including a click before the view's effect ran.
+    const fresh = await waitForCurrentTextAnalysis();
+    if (!fresh || ticket !== inspectionTicket) return;
+    const match = fresh.entities.find((item) => item.key === entity.key);
+    if (!match || currentMatch(match) !== fresh) return;
+    entity = match;
+    result = fresh;
+  }
   const concepts = textEntityConcepts(result, entity);
   if (iri && !concepts.some((concept) => concept.iri === iri)) return;
   const target = iri ?? (concepts.length === 1 ? concepts[0].iri : null);
-  const ticket = ++inspectionTicket;
+  if (selectText) {
+    if (editor) {
+      command("textanalysis.reveal");
+      if (!editor.select(entity)) return;
+    } else {
+      reveal = { entity, result };
+      command("textanalysis.reveal");
+    }
+  }
   textAnalysisSession.clearDetails();
   try {
     await request("select", {
@@ -157,24 +204,6 @@ export async function inspectTextEntity(entity: TextEntity, iri?: string) {
     if (ticket === inspectionTicket)
       report(error instanceof Error ? error.message : String(error), true);
   }
-}
-export async function selectTextEntity(entity: TextEntity) {
-  const result = currentMatch(entity);
-  if (!result) return;
-  if (editor) {
-    command("textanalysis.reveal");
-    if (!editor.select(entity)) return;
-  } else {
-    if (textAnalysisSession.getSnapshot().analysis.status === "pending") {
-      const fresh = await textAnalysisSession.whenReady();
-      const match = fresh?.entities.find((item) => item.key === entity.key);
-      if (match) void selectTextEntity(match);
-      return;
-    }
-    reveal = { entity, result };
-    command("textanalysis.reveal");
-  }
-  void inspectTextEntity(entity);
 }
 export function useTextInspection() {
   return useSyncExternalStore(

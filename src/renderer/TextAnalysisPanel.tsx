@@ -14,6 +14,7 @@ import {
   attachTextEditor,
   inspectTextEntity,
   setTextAnalysisView,
+  waitForCurrentTextAnalysis,
 } from "./text-analysis-state";
 import { TextAnalysisSummary } from "./TextAnalysisSummary";
 import { textEntityGroups } from "./text-analysis-session";
@@ -288,14 +289,14 @@ export function TextAnalysisPanel() {
   };
   const entities = result?.entities ?? [];
   const legend = useMemo(() => textEntityGroups(result), [result]);
-  const matchedIris = matchedOntologyIris(result);
+  const matchedIris = useMemo(() => matchedOntologyIris(result), [result]);
   const openGraph = async () => {
     if (!result || !matchedIris.length || graphPending.current) return;
     graphPending.current = true;
     setOpeningGraph(true);
     setGraphError("");
     try {
-      const fresh = await textAnalysisSession.whenReady();
+      const fresh = await waitForCurrentTextAnalysis();
       if (
         !fresh ||
         !editor.current ||

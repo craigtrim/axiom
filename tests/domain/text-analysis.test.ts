@@ -8,6 +8,7 @@ import {
 } from "../../src/main/text-analysis-spans";
 import {
   LiveAnalysis,
+  pendingAnalysis,
   type LiveAnalysisState,
 } from "../../src/renderer/live-analysis";
 import type {
@@ -160,6 +161,18 @@ describe("original text highlighting", () => {
 });
 
 describe("automatic parsing", () => {
+  it("retains the settled result through ontology revisions but clears it on a dataset switch", () => {
+    const settled = result(input("Dog"));
+    let state: LiveAnalysisState = { status: "ready", result: settled };
+    for (const version of [2, 3, 4]) {
+      state = pendingAnalysis(state, input("Dog", version));
+      expect(state).toEqual({ status: "pending", result: settled });
+      expect(state.status === "pending" && state.result).toBe(settled);
+    }
+    expect(
+      pendingAnalysis(state, { ...input("Dog"), datasetEpoch: 2 }),
+    ).toEqual({ status: "pending" });
+  });
   it("coalesces edits and never publishes stale results or errors", async () => {
     vi.useFakeTimers();
     const pending: {

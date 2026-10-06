@@ -2,7 +2,7 @@
 
 Open **View > Text Analysis** and type or paste plain text. Matching runs automatically after a 60 ms typing pause. The editor stays responsive while matching runs. Only the newest pending edit is parsed, and results from older edits cannot replace current highlights.
 
-Matches use the currently open ontology, including unsaved changes already applied through Axiom's editors. Saving an RDF file is unnecessary. Editing the ontology triggers a new analysis of the same text. Named graphs contribute their union of asserted statements to matching; the original dataset remains unchanged.
+Matches use the currently open ontology, including unsaved changes already applied through Axiom's editors. Saving an RDF file is unnecessary. Editing the ontology triggers a new analysis of the same text. The last settled highlights, match count and Summary legend stay visible until that analysis completes, then update together. Named graphs contribute their union of asserted statements to matching; the original dataset remains unchanged.
 
 Each canonical ontology entity has a stable background color. Synonyms share that color, so `Dog` and `canine` have the same highlight when the ontology defines that synonym. Highlights have no underline. Colors adapt to light and dark themes, and labels provide an alternative to color alone.
 
@@ -12,7 +12,7 @@ Click a highlight or summary entry to open Axiom's existing **Details** view. On
 
 A summary entry also selects its first occurrence in the text and reopens the editor if needed. Alt+Enter opens Details at the cursor or for an exactly selected match. If several ontology entries share a canonical name, Details lists their identifiers so you can choose the intended entry. The normal Back control returns to the previously selected entity.
 
-Text Analysis and Add entity share one analysis session. Moving a view to another window does not start another parser. Closing Text Analysis closes both its presentations; reopening it restores the saved presentation and text. Editing the ontology refreshes the normal Details editor and starts a new analysis. Text or ontology changes clear obsolete annotation information.
+Text Analysis and Add entity share one analysis session. Moving a view to another window does not start another parser. Closing Text Analysis closes both its presentations; reopening it restores the saved presentation and text. Editing the ontology refreshes the normal Details editor and starts a new analysis while retaining the displayed matches. Clicking a retained highlight, pressing Alt+Enter or choosing a Summary entry waits for the current analysis and opens Details only if the entity still matches. Switching ontologies clears the old matches immediately.
 
 Highlights come from the open ontology. Mutatoc 0.5.1 does not supply spaCy annotations such as Person, Place or Organization; those words are highlighted only when the ontology itself matches them. A blank ontology produces no matches. The editor retains your text, supports Undo, Redo and Find, and saves its text with the workbench. Up to 100,000 characters can be analyzed at once.
 
@@ -36,7 +36,7 @@ No classes are created until **Add class** saves the original class and all its 
 
 **View in Graph** opens a new graph containing every matched ontology entry and each direct parent path to its root. Repeated matches and shared ancestors appear once. All parent branches are retained when an entity has multiple parents. Existing graph views keep their contents. The graph includes the ancestor paths without expanding unrelated siblings or descendants.
 
-The action uses the ontology version that produced the highlights. An ontology change invalidates old details and graph requests. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
+The action stays available during background analysis and waits for current matches before building the graph. Further text edits or ontology changes cancel a waiting action. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
 
 Ontology IDs determine navigation, including when the matched text is a synonym. If multiple namespaces share the same canonical identifier, the Details tab lists the corresponding entries and the graph includes them. The graph button becomes available when at least one ontology entry is matched.
 
