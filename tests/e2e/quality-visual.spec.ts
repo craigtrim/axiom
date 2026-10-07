@@ -1159,7 +1159,7 @@ const cases: Case[] = [
       firstBand,
       { name: "row-1", spec: ".frow", text: "Industrial Safety" },
       { name: "row-2", spec: ".frow", text: "Welding Technology" },
-      { name: "band-zero", spec: ".rule", text: "Hierarchy cycle" },
+      // The specimen's zero-count band is not compared; see amendment 10 (craigtrim/axiom#62).
       { name: "limits", spec: ".limits" },
       foot,
     ],
