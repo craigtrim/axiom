@@ -72,12 +72,12 @@ App.tsx declares eighteen dockable component types. The per-view policies below 
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
-| Touchpoints | Search and ranked candidates | Wrapped rows and relationship controls | Compact actions above results | Query, candidate attribution and explicit Apply |
-| Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
+| Touchpoints | Pinned identity, query and ranked candidates | Target IRI withdraws; relationship column narrows | Header, query and footer remain around results | Pinned subject, query, candidates, choices and explicit Apply |
+| Inspector | Header save state, identity, grouped statements and usage | IRI withdraws; predicate column narrows to 118 px | Usage withdraws; header save state and statement table remain | Subject draft, validation, RDF metadata and Apply changes |
 | Details | Vertical ancestry, statement table, content-sized source and IRI/revision footer | 128 px predicate column, uncapped values/source, More hidden | Source and footer withdraw; draft state/actions stay in header | Draft text, validation, language, datatype and graph identifiers |
 | Find | Persistent scope rail; one query row; Entity, Type and Synonym columns | Options shows scope ratios; synonyms fold into Entity; condensed pager and one inspector line | Options replaces the body; rows take priority over header, pager and inspector | Query, scope, sort, page, selected result, scroll and creation draft |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
-| Individuals | Grid and filters | Compact filters; column access and deliberate horizontal scrolling | Compact actions/filters; maximum row area | Sort, filters, selection, values and virtualization |
+| Individuals | Column chooser, class scope and grid | Class and creation controls withdraw; grid scrolls horizontally | Status line withdraws; toolbar and grid remain | Per-class column visibility, order and widths; sort, filter, page, selection and scroll |
 | Query | Editor with composer alongside when space permits | Editor or composer in active body | Compact history/actions above editor | Text, undo, cursor, document identity and Run |
 | Query results | Grid with execution context | Brief identity; execution-detail disclosure | Actions and counts above grid | Executed query, run attribution and column access |
 | Source | Editor with format and edit actions | Same editor; compact controls | Action/status row above editor | Exact source, draft, cursor and validation |
@@ -115,13 +115,13 @@ CSS container queries style descendants according to container dimensions. Queri
 
 Use CSS for spacing and column changes. Use the existing ResizeObserver approach when React must choose the visible working section. Share one measurement policy; avoid separately inferred JavaScript and CSS breakpoints that disagree. Measure the pane in its owner document, including popout windows.
 
-Do not key or remount an editor by presentation mode. Keep drafts and operation ownership outside replaceable layout fragments. Touchpoints requests remain attached to the captured entity, with stale responses ignored after selection changes. Monaco models and grid state must retain their existing owners.
+Do not key or remount an editor by presentation mode. Keep drafts and operation ownership outside replaceable layout fragments. Touchpoints requests remain attached to the pinned entity, with stale responses ignored after workspace changes. Monaco models and grid state must retain their existing owners.
 
 Ignore zero-size readings from inactive tabs. Keep mode changes stable around boundaries, with a small tested hysteresis interval if needed. Preserve explicit disclosure choices across resizes. Touchpoints keeps its search controls visible in every working layout. If a focused section would become hidden, keep it open or move focus to its named disclosure control with the work preserved.
 
 Prefer a content scroller bounded by actual header/footer rows over layers that cover content. Avoid several nested scroll areas for ordinary fields. Exceptionally small panes should surface the maximize recovery action without changing the task.
 
-Inspector submits its existing form through an associated Apply button in the fixed footer. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; taxonomy assistance remains a modal with its existing review footer.
+Inspector applies its grouped statement draft from the header. Individuals, Inspector and Touchpoints register recovery below 240 pixels wide or 120 pixels tall: only their header remains, with no bottom rule. Their retained content and draft state survive recovery. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; taxonomy assistance remains a modal with its existing review footer.
 
 ## Validation criteria
 

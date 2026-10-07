@@ -1,8 +1,10 @@
 # Find Touchpoints
 
-Select an entity and choose **Find > Touchpoints** in its taxonomy or graph menu. The graph and Inspector also have a **Find Touchpoints** button. **View > Touchpoints** opens the pane directly.
+Select an entity and choose **Find > Touchpoints** in its taxonomy or graph menu. The graph selection bar also offers this action; Inspector exposes **Find touchpoints** under **···**. **View > Touchpoints** opens the pane for the selected entity.
 
-The query starts with the preferred label and remains editable. Press Enter or choose **Search** to fetch up to twenty English Wikipedia candidates. Typing does not send requests. Each row shows its title, short description and target IRI. **Open Wikipedia page** opens the article in the default browser.
+Each subject has one pane titled **Touchpoints · {subject label}**. Opening the action again focuses that pane. Selection changes never retarget it, and closing and reopening it never adds a numeric suffix. Separate subjects can have separate panes, including detached windows.
+
+The query starts with the preferred label and remains editable. Press Enter or choose **Search** to fetch up to twenty English Wikipedia candidates. Typing does not send requests. Each row shows its title, short description, relationship and target. Linked rows show their target IRI, which withdraws below 600 pixels wide.
 
 When the local MPNet model is available, Axiom uses the entity's label, parents and description to rank the returned candidates. Without the model, Wikipedia's ranking is retained. Search does not invoke Claude or Codex.
 
@@ -12,7 +14,7 @@ Select the rows to add and review their relationship and target. A matching labe
 
 DBpedia is the default target. Wikidata is available when Wikipedia reports an item ID. Wikipedia is also available and becomes the default target for `rdfs:seeAlso`. Every touchpoint is a resource statement. Text synonyms continue to use the separate Find Synonyms action.
 
-Disambiguation pages cannot be selected. A candidate already linked through its Wikipedia, DBpedia or Wikidata identity is marked **Linked**. **Apply selected touchpoints** adds the reviewed statements as one Undo operation. If the ontology changes after a search, search again before applying. Validation rejects the whole batch if any selected statement is unavailable or invalid.
+Disambiguation pages cannot be selected. A candidate already linked through its Wikipedia, DBpedia or Wikidata identity is marked **Linked**. Both resource objects and `xsd:anyURI` literals count as links. **Apply selected touchpoints** adds the reviewed statements as one Undo operation. If the ontology changes after a search, search again before applying. Validation rejects the whole batch if any selected statement is unavailable or invalid.
 
 ## Saved results and refresh
 
