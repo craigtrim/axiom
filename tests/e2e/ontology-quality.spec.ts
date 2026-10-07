@@ -226,6 +226,64 @@ test("reviewed batch adds labels without renaming placeholder identifiers and su
   await scan();
   await expect(band("Missing explicit primary label")).toHaveCount(0);
 });
+
+test("Would add applies successive corrections, keeps the report current, focuses the next row and supports individual Undo", async () => {
+  await scan();
+  await band("Missing explicit primary label").click();
+  await row("Industrial Safety").click();
+  const before = await state();
+  await detail().getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(row("Industrial Safety")).toHaveCount(0);
+  await expect(row("New Class")).toBeFocused();
+  await expect(summary()).toContainText("revision " + (before.version + 1));
+  await expect(pane().locator(".bar.alert-warn")).toHaveCount(0);
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "Industrial_Safety")
+      ?.label,
+  ).toBe("Industrial Safety");
+  await row("New Class").click();
+  await expect(
+    detail().getByRole("button", { name: "Apply", exact: true }),
+  ).toBeEnabled();
+  await detail().getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(row("New Class")).toHaveCount(0);
+  await expect(summary()).toContainText("revision " + (before.version + 2));
+  await row("Synonym Only").click();
+  await detail().getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(band("Missing explicit primary label")).toHaveCount(0);
+  await menu("edit.undo");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === base + "Synonym_Only")
+          ?.label,
+    )
+    .toBeUndefined();
+  expect(
+    (await state()).entities.find((e) => e.iri === base + "NewClass")?.label,
+  ).toBe("New Class");
+});
+
+test("a rejected finding correction stays open with its reason", async () => {
+  await scan();
+  await band("Missing explicit primary label").click();
+  await row("Industrial Safety").click();
+  await app.evaluate(({ ipcMain }) => {
+    const original = (ipcMain as any)._invokeHandlers.get("domain:request");
+    ipcMain.removeHandler("domain:request");
+    ipcMain.handle("domain:request", (event, method, args) => {
+      if (method === "qualityApplyFinding") throw new Error("quality-reject:invalid::A primary label already exists. Review it in Details.");
+      return original(event, method, args);
+    });
+  });
+  const before = await state();
+  await detail().getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(detail().getByRole("alert")).toHaveText(
+    "A primary label already exists. Review it in Details.",
+  );
+  await expect(row("Industrial Safety")).toBeVisible();
+  expect((await state()).version).toBe(before.version);
+});
 test("rules that found nothing get no band, and Coverage still lists them", async () => {
   await scan();
   await expect(band("Missing explicit primary label")).toHaveCount(1);

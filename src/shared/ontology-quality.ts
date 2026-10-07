@@ -1,4 +1,5 @@
-import { NS, type Kind, type Triple } from "../domain/model";
+import { NS, humanise, type Kind, type Triple } from "../domain/model";
+import { identifierParts } from "../domain/rdf-model";
 
 // Group names, the vocabulary census and profile removal: craigtrim/axiom#44.
 export const qualityGroups = [
@@ -470,6 +471,37 @@ export interface QualityRepair {
   label: string;
   predicate: string;
   language: string;
+}
+/** The exact correction shown in a missing-label finding (craigtrim/axiom#63). */
+export function qualityCorrection(
+  report: QualityReport,
+  finding: QualityFinding,
+): Triple | undefined {
+  const predicate = qualityAdmitted(
+    report.options.labelPredicates,
+    report.census,
+  )[0];
+  if (finding.rule !== "label.missing" || !predicate) return;
+  const language = report.options.languages[0];
+  const graphs = [
+    ...new Set(
+      finding.evidence
+        .filter((t) => t.subject === finding.iri)
+        .map((t) => t.graph),
+    ),
+  ];
+  return {
+    subject: finding.iri,
+    predicate,
+    object: {
+      value: humanise(identifierParts(finding.iri).name),
+      literal: true,
+      ...(language
+        ? { language, datatype: NS.rdf + "langString" }
+        : { datatype: NS.xsd + "string" }),
+    },
+    ...(graphs.length === 1 && graphs[0] ? { graph: graphs[0] } : {}),
+  };
 }
 export interface QualityPreview {
   token: number;

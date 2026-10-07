@@ -14,6 +14,7 @@ import { mutatocExecutable } from "../../src/main/mutatoc-client";
 import {
   defaultQualityOptions,
   qualityExport,
+  qualityCorrection,
   qualityRules,
   qualitySuppression,
   readQualityOptions,
@@ -572,6 +573,93 @@ describe("scan jobs and reviewed repairs", () => {
     label,
     predicate: NS.rdfs + "label",
     language: "en",
+  });
+  it("applies exact finding corrections successively and refreshes all related findings at each revision", async () => {
+    const { store, jobs, id } = await prepared(
+      ":NewClass a owl:Class. :Second_Class a owl:Class. :Existing a owl:Class; rdfs:label 'New Class'.",
+    );
+    const original = [...store.scan()];
+    const first = jobs
+      .status(id)
+      .report!.findings.find(
+        (f) => f.rule === "label.missing" && f.iri === base + "NewClass",
+      )!;
+    const exact = qualityCorrection(jobs.status(id).report!, first)!;
+    const updated = jobs.applyFinding(
+      store,
+      7,
+      store.version,
+      id,
+      first.id,
+    ).report!;
+    expect([...store.scan()]).toContainEqual(exact);
+    expect(
+      updated.findings.some(
+        (f) =>
+          f.iri === first.iri &&
+          ["label.missing", "analysis.excluded"].includes(f.rule),
+      ),
+    ).toBe(false);
+    expect(
+      updated.findings
+        .filter((f) => f.rule === "label.duplicate")
+        .map((f) => f.iri)
+        .sort(),
+    ).toEqual([base + "Existing", first.iri].sort());
+    const fresh = scan(store);
+    expect({ ...updated, createdAt: "" }).toEqual({ ...fresh, createdAt: "" });
+    const afterFirst = [...store.scan()];
+    const second = updated.findings.find((f) => f.rule === "label.missing")!;
+    const after = jobs.applyFinding(
+      store,
+      7,
+      store.version,
+      id,
+      second.id,
+    ).report!;
+    expect(after.version).toBe(updated.version + 1);
+    expect(after.findings.filter((f) => f.rule === "label.missing")).toEqual(
+      [],
+    );
+    store.undo();
+    expect([...store.scan()]).toEqual(afterFirst);
+    store.undo();
+    expect([...store.scan()]).toEqual(original);
+  });
+  it("retains the configured predicate, language and source graph, and rejects an intervening write without removing findings", async () => {
+    const store = await fixture(
+      ":G { :A a owl:Class. :B a owl:Class; skos:altLabel 'Alias'. }",
+      "fixture.trig",
+    );
+    const jobs = new QualityJobs();
+    const { id } = jobs.start(store, 7, {
+      ...defaultQualityOptions(),
+      labelPredicates: [NS.skos + "prefLabel"],
+      languages: ["fr"],
+    });
+    await finish(jobs, id);
+    const before = jobs.status(id).report!;
+    const finding = before.findings.find(
+      (f) => f.rule === "label.missing" && f.iri === base + "A",
+    )!;
+    const exact = qualityCorrection(before, finding)!;
+    expect(exact).toMatchObject({
+      predicate: NS.skos + "prefLabel",
+      graph: base + "G",
+      object: { value: "A", language: "fr", datatype: NS.rdf + "langString" },
+    });
+    jobs.applyFinding(store, 7, store.version, id, finding.id);
+    expect([...store.scan()]).toContainEqual(exact);
+    const report = jobs.status(id).report!;
+    const next = report.findings.find((f) => f.rule === "label.missing")!;
+    store.rename(next.iri, "Written elsewhere");
+    const version = store.version;
+    expect(() =>
+      jobs.applyFinding(store, 7, report.version, id, next.id),
+    ).toThrow("quality-reject:edits");
+    expect(store.version).toBe(version);
+    expect(jobs.status(id).report).toBe(report);
+    expect(report.findings).toContain(next);
   });
   it("captures one immutable revision and supports cancellation, failure, and supersession", async () => {
     const s = await fixture(":A a owl:Class.");

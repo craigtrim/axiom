@@ -433,6 +433,7 @@ const tracked = new Set<DomainMethod>([
   "createProperty",
   "updateEntity",
   "qualityApply",
+  "qualityApplyFinding",
   "addFindSynonym",
   "applySource",
   "applyEntitySource",
@@ -1406,6 +1407,22 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           " reviewed labels. Undo restores the prior statements.",
       );
       return count;
+    }
+    case "qualityApplyFinding": {
+      if (a.datasetEpoch !== datasetEpoch)
+        throw qualityReject(
+          "edits",
+          "The workspace changed. Run the scan again.",
+        );
+      const job = qualityJobs.applyFinding(
+        store,
+        datasetEpoch,
+        Number(a.version),
+        Number(a.id),
+        String(a.findingId),
+      );
+      mutate("Added the proposed label. Undo restores the prior statements.");
+      return job;
     }
     case "find": {
       beginSearch(a);

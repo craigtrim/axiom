@@ -94,6 +94,7 @@ export type DomainMethod =
   | "qualityCancel"
   | "qualityPreview"
   | "qualityApply"
+  | "qualityApplyFinding"
   | "semanticSimilarity"
   | "textAnalysisDraft"
   | "textAnalysisCreatePreview"

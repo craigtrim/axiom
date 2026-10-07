@@ -17,6 +17,7 @@ import { identifierParts } from "../domain/rdf-model";
 import {
   defaultQualityOptions,
   qualityAdmitted,
+  qualityCorrection,
   qualityDefaultSeverity,
   qualityEnabledChecks,
   qualityGroupLabel,
@@ -47,6 +48,7 @@ import {
 import { editEntity } from "./authoring";
 import {
   cancelQuality,
+  applyQualityFinding,
   publishQualityStale,
   startQuality,
   takeQualitySettingsRequest,
@@ -363,6 +365,13 @@ export function QualityPanel() {
   const [error, setError] = useState("");
   const [announce, setAnnounce] = useState("");
   const [starting, setStarting] = useState(false);
+  const [applying, setApplying] = useState("");
+  const [correctionError, setCorrectionError] = useState<{
+    id: string;
+    message: string;
+  }>();
+  const correctionLock = useRef(false);
+  const correctionFocus = useRef<string[] | undefined>(undefined);
   const root = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const moreButton = useRef<HTMLButtonElement>(null),
@@ -379,7 +388,8 @@ export function QualityPanel() {
   const staleStore =
     !!shown &&
     (shown.datasetEpoch !== snapshot.datasetEpoch ||
-      shown.version !== snapshot.version);
+      (shown.version !== snapshot.version &&
+        !(applying && snapshot.version === shown.version + 1)));
   const staleSettings =
     !!shown &&
     !staleStore &&
@@ -639,6 +649,22 @@ export function QualityPanel() {
   const pages = Math.max(1, Math.ceil(listed / PAGE)),
     current = Math.min(page, pages - 1),
     first = current * PAGE;
+  useLayoutEffect(() => {
+    if (!correctionFocus.current || applying) return;
+    const candidates = correctionFocus.current;
+    correctionFocus.current = undefined;
+    const next = candidates
+      .map((id) =>
+        root.current?.querySelector<HTMLElement>(
+          `[data-finding="${CSS.escape(id)}"]`,
+        ),
+      )
+      .find(Boolean);
+    (
+      next ??
+      root.current?.querySelector<HTMLElement>("button.rule, .bar button")
+    )?.focus();
+  }, [report, applying]);
 
   // ---------------------------------------------------------------- settings
   const knownCensus = census?.census ?? {};
@@ -710,7 +736,37 @@ export function QualityPanel() {
     if (e) saveExceptions(exceptions.filter((x) => x !== e));
   };
   // Label additions need a current report: neither the store nor the settings changed.
-  const canReview = !!report && !stale && !busy;
+  const canReview = !!report && !stale && !busy && !applying;
+  const applyCorrection = async (finding: QualityFinding) => {
+    if (!canReview || correctionLock.current) return;
+    correctionLock.current = true;
+    setApplying(finding.id);
+    setCorrectionError(undefined);
+    const rows = Array.from(
+      root.current?.querySelectorAll<HTMLElement>("[data-finding]") ?? [],
+    ).map((el) => el.dataset.finding!);
+    const index = rows.indexOf(finding.id);
+    try {
+      await applyQualityFinding(finding.id);
+      setOpen("");
+      correctionFocus.current = [
+        ...rows.slice(index + 1),
+        ...rows.slice(0, index).reverse(),
+      ];
+      setAnnounce(t("labels.applied", { n: 1 }));
+      notify(t("labels.applied", { n: 1 }));
+    } catch (e) {
+      setCorrectionError({
+        id: finding.id,
+        message: (e as Error).message
+          .replace(/^.*quality-reject:\w+:[^:]*:/, "")
+          .replace(/^.*Error: /, ""),
+      });
+    } finally {
+      correctionLock.current = false;
+      setApplying("");
+    }
+  };
   const entityIds = useMemo(
     () => new Set(snapshot.entities.map((e) => e.iri)),
     [snapshot.entities],
@@ -1486,39 +1542,8 @@ export function QualityPanel() {
       ),
     ];
     const exception = shown && qualitySuppression(shown, f, exceptions);
-    const labelPredicate = shown
-      ? qualityAdmitted(shown.options.labelPredicates, shown.census)[0]
-      : undefined;
-    const language = shown?.options.languages[0];
-    // The same destination the reviewed preview uses: an entity described in
-    // one named graph gets its label there; otherwise the default graph.
-    const graphs = [
-      ...new Set(
-        f.evidence.filter((s) => s.subject === f.iri).map((s) => s.graph),
-      ),
-    ];
-    const wouldAdd =
-      f.rule === "label.missing" && labelPredicate && entityIds.has(f.iri)
-        ? turtleLines(
-            [
-              {
-                subject: f.iri,
-                predicate: labelPredicate,
-                object: {
-                  value: humanise(identifierParts(f.iri).name),
-                  literal: true,
-                  ...(language
-                    ? { language, datatype: NS.rdf + "langString" }
-                    : {}),
-                },
-                ...(graphs.length === 1 && graphs[0]
-                  ? { graph: graphs[0] }
-                  : {}),
-              },
-            ],
-            base,
-          )
-        : "";
+    const correction = shown && qualityCorrection(shown, f);
+    const wouldAdd = correction ? turtleLines([correction], base) : "";
     return (
       <div className="fdet" role="group" aria-label={name + ", " + r.title}>
         {/* A suppressed finding leads with why it is suppressed (exhibit F). */}
@@ -1605,6 +1630,20 @@ export function QualityPanel() {
             <span className="k">{t("detail.wouldAdd")}</span>
             <span className="v">
               <pre className="preview">{wouldAdd}</pre>
+              <button
+                className="btn"
+                disabled={!canReview}
+                title={!canReview ? t("labels.unavailable") : undefined}
+                onClick={() => void applyCorrection(f)}
+              >
+                {t("correction.apply")}
+              </button>
+              {!canReview && (
+                <p className="correction-note">{t("labels.unavailable")}</p>
+              )}
+              {correctionError?.id === f.id && (
+                <p role="alert">{correctionError.message}</p>
+              )}
             </span>
           </div>
         )}

@@ -7,6 +7,19 @@ function publish(value: QualityStatus) {
   status = value;
   for (const fn of listeners) fn();
 }
+export async function applyQualityFinding(findingId: string) {
+  const job = status;
+  if (!job?.report || job.state !== "complete")
+    throw Error("Run the scan again before applying a correction.");
+  const next = await request<QualityStatus>("qualityApplyFinding", {
+    id: job.id,
+    findingId,
+    datasetEpoch: job.report.datasetEpoch,
+    version: job.report.version,
+  });
+  if (status?.id === job.id) publish(next);
+  return next;
+}
 export const useQualityStatus = () =>
   useSyncExternalStore(
     (fn) => {

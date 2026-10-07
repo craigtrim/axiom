@@ -4,6 +4,7 @@ import { validResource, validateStatement } from "./rdf-model";
 import { qualityInput, scanQuality } from "./ontology-quality";
 import {
   readQualityOptions,
+  qualityCorrection,
   type QualityReport,
   type QualityStatus,
   type QualityPreview,
@@ -175,6 +176,62 @@ export class QualityJobs {
     };
     return structuredClone(this.preview);
   }
+  /** Every condition is checked before any statement is written. */
+  applyFinding(
+    store: Store,
+    epoch: number,
+    version: number,
+    id: number,
+    findingId: string,
+  ) {
+    const job = this.status(id),
+      report = job.report;
+    if (
+      job.state !== "complete" ||
+      !report ||
+      report.datasetEpoch !== epoch ||
+      report.version !== store.version ||
+      version !== report.version
+    )
+      throw qualityReject(
+        "edits",
+        "The ontology changed. Run the scan again before applying this correction.",
+      );
+    const finding = report.findings.find((f) => f.id === findingId);
+    const statement = finding && qualityCorrection(report, finding);
+    if (!statement || !store.entities.has(statement.subject))
+      throw qualityReject(
+        "invalid",
+        "The correction is no longer available for this entity.",
+      );
+    if (
+      store.tbox.some(
+        (t) =>
+          t.subject === statement.subject &&
+          report.options.labelPredicates.includes(t.predicate),
+      )
+    )
+      throw qualityReject(
+        "invalid",
+        "A primary label already exists. Review it in Details.",
+      );
+    validateStatement(statement);
+    store.addQualityLabels([statement]);
+    this.preview = undefined;
+    // Label effects cross entity boundaries (duplicates, aliases and analysis
+    // eligibility). Run the same rule engine against the new immutable revision
+    // before publishing it, keeping this job and its settings current.
+    const iterator = scanQuality(qualityInput(store, epoch), report.options);
+    for (;;) {
+      const next = iterator.next();
+      if (next.done) {
+        job.report = next.value;
+        job.scanned = job.total = next.value.scanned;
+        return structuredClone(job);
+      }
+    }
+  }
+
   /** Every condition is checked before any statement is written. */
   apply(store: Store, epoch: number, version: number, token: number) {
     const p = this.preview;

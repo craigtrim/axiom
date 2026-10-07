@@ -6,6 +6,7 @@ export const qly = {
   "idle.body":
     "Choose a scope and the checks above, then run the scan. Scanning reads the ontology and changes nothing.",
   "idle.summary": "No scan has been run.",
+  "correction.apply": "Apply",
   run: "Run scan",
   rerun: "Rerun scan",
   "rerun.short": "Rerun",

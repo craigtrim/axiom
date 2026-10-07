@@ -195,6 +195,7 @@ const methods = new Set<DomainMethod>([
   "qualityCancel",
   "qualityPreview",
   "qualityApply",
+  "qualityApplyFinding",
   "textAnalysisDraft",
   "textAnalysisCreatePreview",
   "textAnalysisCreate",
