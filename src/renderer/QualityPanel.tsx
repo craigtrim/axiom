@@ -567,7 +567,6 @@ export function QualityPanel() {
     ]),
   ) as Record<QualitySeverity, number>;
   const query = text.trim().toLowerCase();
-  const narrowing = !!(query || more.kind || more.namespace);
   const passes = (f: QualityFinding) =>
     sevOn.includes(f.severity) &&
     (showSuppressed || !suppressed(f)) &&
@@ -614,19 +613,11 @@ export function QualityPanel() {
             (a, b) =>
               a.label.localeCompare(b.label) || a.iri.localeCompare(b.iri),
           );
-        const total = shown.findings.filter((f) => f.rule === id).length;
-        const r = ruleOf(id);
-        const visible =
-          items.length > 0 ||
-          (total === 0 &&
-            !narrowing &&
-            sevOn.includes(severity) &&
-            (!more.group || r.group === more.group) &&
-            (!more.rule || id === more.rule));
-        return visible
+        // A rule that found nothing gets no band (craigtrim/axiom#62).
+        return items.length
           ? {
               key: "r:" + id,
-              title: r.title,
+              title: ruleOf(id).title,
               id,
               severity,
               count: items.length,
@@ -1666,8 +1657,8 @@ export function QualityPanel() {
   };
   const findingsBody = (readOnlyPartial = false) => {
     if (!shown) return null;
-    // Passing rules keep their bands, but not when the filters hide every finding.
-    if (!bands.some((b) => b.count))
+    // Only rules with findings have bands, so no band means the filters hid them all.
+    if (!bands.length)
       return all.length ? (
         <div className="state-body">
           <h3>{t("filter.empty.headline")}</h3>
