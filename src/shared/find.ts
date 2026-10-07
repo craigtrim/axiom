@@ -18,6 +18,10 @@ export interface FindOptions {
   kinds: FindKind[];
   fields: string[];
   excludeIri: string;
+  /** Restrict ranking and semantic admission to this class's direct instances. */
+  instanceOf?: string;
+  /** The ontology grid excludes the generated example's order/customer rows. */
+  namedIndividualsOnly?: boolean;
   sort: "relevance" | "name" | "name-desc" | "iri" | "type";
   browse?: boolean;
   diagnostics?: boolean;
@@ -74,6 +78,10 @@ export function readFindOptions(input: unknown): FindOptions {
   return {
     ...(v.browse === true ? { browse: true } : {}),
     ...(v.diagnostics === true ? { diagnostics: true } : {}),
+    ...(v.namedIndividualsOnly === true ? { namedIndividualsOnly: true } : {}),
+    ...(typeof v.instanceOf === "string" && v.instanceOf
+      ? { instanceOf: v.instanceOf.slice(0, 10000) }
+      : {}),
     ...(typeof v.revealIri === "string" && v.revealIri
       ? { revealIri: v.revealIri.slice(0, 10000) }
       : {}),

@@ -2,7 +2,10 @@ import { local, NS, TYPE } from "./model";
 import { displayName, LABEL } from "./rdf-model";
 import { compactIri, entityNamespace } from "../shared/terms";
 import type { Store } from "./store";
-import { indexFor } from "./resource-search";
+import { findEntityIris } from "./resource-search";
+import { individualSearchFields } from "./entity-search";
+import { readFindOptions } from "../shared/find";
+import type { SemanticScores } from "../shared/embeddings";
 import {
   defaultIndividualColumns,
   type IndividualColumn,
@@ -143,28 +146,52 @@ export function individualCensus(store: Store, scope = "") {
     entry.scopes.delete(entry.scopes.keys().next().value!);
   return result;
 }
-export function individualGridPage(
+export interface IndividualGridInput {
+  scope?: string;
+  query?: string;
+  shown?: string[];
+  sort?: string;
+  direction?: number;
+  page?: number;
+}
+export function individualGridFindOptions(
   store: Store,
-  input: {
-    scope?: string;
-    query?: string;
-    shown?: string[];
-    sort?: string;
-    direction?: number;
-    page?: number;
-  },
-): IndividualGridPage {
+  input: IndividualGridInput,
+) {
   const { rows, columns } = individualCensus(store, input.scope);
   const shown =
     input.shown ?? defaultIndividualColumns(columns, rows.length).visible;
+  return readFindOptions({
+    text: input.query,
+    kinds: ["individuals"],
+    fields: individualSearchFields(
+      shown.filter((key) => columns.some((c) => c.key === key)),
+    ),
+    instanceOf: input.scope,
+    namedIndividualsOnly: true,
+    browse: true,
+  });
+}
+export function individualGridPage(
+  store: Store,
+  input: IndividualGridInput,
+  scores?: SemanticScores,
+): IndividualGridPage {
+  const { rows, columns } = individualCensus(store, input.scope);
   const matches = input.query?.trim()
-    ? indexFor(store).individualMatches(input.query, shown)
+    ? findEntityIris(store, individualGridFindOptions(store, input), scores)
     : null;
   const sort = columns.find((c) => c.key === input.sort) ?? columns[0],
     direction = input.direction === -1 ? -1 : 1;
-  const result = rows
-    .filter((r) => !matches || matches.has(r.iri))
-    .sort((a, b) => {
+  const byIri = new Map(rows.map((r) => [r.iri, r]));
+  const result = matches
+    ? matches.flatMap((iri) => {
+        const row = byIri.get(iri);
+        return row ? [row] : [];
+      })
+    : [...rows];
+  if (!matches || input.sort)
+    result.sort((a, b) => {
       const x = a.values[sort.key]?.[0] ?? "",
         y = b.values[sort.key]?.[0] ?? "";
       if (!x || !y)

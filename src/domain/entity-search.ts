@@ -24,11 +24,19 @@ import { entityPath } from "./entity-path";
 const stopWords = new Set("and of the for in to a an on with".split(" "));
 const labelField = "$label",
   aliasField = "$alias",
+  localField = "$local",
   iriField = "$iri";
+/** Keep hidden aliases and the IRI namespace out of the Individuals filter. */
+export const individualSearchFields = (shown: string[]) => [
+  localField,
+  ...shown.map((f) =>
+    f === "subject" ? labelField : f === "iri" ? iriField : f,
+  ),
+];
 const publicField = (field: string) =>
   field === labelField || field === aliasField
     ? "name"
-    : field === iriField
+    : field === iriField || field === localField
       ? "iri"
       : field;
 function queryText(text: string) {
@@ -87,6 +95,7 @@ export class EntitySearchIndex {
   private engine: MiniSearch<RecordRow>;
   private indexedFields = new Set<string>();
   private corpora = new Map<string, string[]>();
+  private instanceScopes = new Map<string, Set<string>>();
   private ranked?: { key: string; scores?: SemanticScores; hits: Hit[] };
   private scopeData?: {
     key: string;
@@ -115,6 +124,7 @@ export class EntitySearchIndex {
       const identifier = compactIri(iri, store.ontology.namespace);
       const values = new Map<string, string[]>([
         [labelField, [name]],
+        [localField, [local(iri)]],
         [iriField, [...new Set([local(iri), identifier, iri])]],
       ]);
       if (description) values.set(NS.rdfs + "comment", [description]);
@@ -186,13 +196,7 @@ export class EntitySearchIndex {
       const publicFields = new Set<string>();
       for (const field of row.values.keys()) {
         allFields.add(field);
-        publicFields.add(
-          field === labelField || field === aliasField
-            ? "name"
-            : field === iriField
-              ? "iri"
-              : field,
-        );
+        publicFields.add(publicField(field));
       }
       if (row.entity)
         for (const field of publicFields)
@@ -225,7 +229,12 @@ export class EntitySearchIndex {
       searchOptions: {
         combineWith: "OR",
         prefix: true,
-        boost: { [labelField]: 8, [aliasField]: 5, [iriField]: 3 },
+        boost: {
+          [labelField]: 8,
+          [aliasField]: 5,
+          [iriField]: 3,
+          [localField]: 3,
+        },
         weights: { prefix: 0.9, fuzzy: 0.35 },
       },
     });
@@ -247,54 +256,16 @@ export class EntitySearchIndex {
       ),
     ].filter((f) => this.indexedFields.has(f));
   }
-  /** Individuals searches only visible predicates, its displayed name and the
-   * local identifier. In particular, hidden aliases must not leak through the
-   * shared Names and aliases facet. The filter requires every query token. */
-  individualMatches(text: string, shown: string[]): Set<string> {
-    const fields = shown
-      .flatMap((f) =>
-        f === "subject" ? [labelField] : f === "iri" ? [iriField] : [f],
-      )
-      .filter((f) => this.indexedFields.has(f));
-    const query = queryText(text);
-    if (!query) return new Set();
-    const hits = this.engine.search(query, {
-      fields,
-      fuzzy,
-      combineWith: "AND",
-    });
-    const eligible = hits.filter(
-      (h) => this.rows[h.id].category === "individuals",
-    );
-    // Preserve literal phrases when present; token-prefix/fuzzy expansion is
-    // the fallback for a query with no direct phrase in the shown field set.
-    const phrase = normalize(text);
-    const literal = eligible.filter((h) =>
-      fields.some((f) =>
-        this.rows[h.id].values
-          .get(f)
-          ?.some((v) => v.toLowerCase().includes(text.trim().toLowerCase())),
-      ),
-    );
-    const exact = eligible.filter((h) =>
-      fields.some((f) =>
-        this.rows[h.id].values
-          .get(f)
-          ?.some((v) => normalize(v).includes(phrase)),
-      ),
-    );
-    const iris = new Set(
-      (literal.length ? literal : exact.length ? exact : eligible).map(
-        (h) => this.rows[h.id].iri,
-      ),
-    );
-    for (const row of this.rows)
-      if (
-        row.category === "individuals" &&
-        normalize(local(row.iri)).includes(normalize(text))
-      )
-        iris.add(row.iri);
-    return iris;
+  private instanceScope(iri?: string) {
+    if (!iri) return;
+    let members = this.instanceScopes.get(iri);
+    if (!members) {
+      members = new Set(this.store.instanceIris(iri));
+      this.instanceScopes.set(iri, members);
+      if (this.instanceScopes.size > 8)
+        this.instanceScopes.delete(this.instanceScopes.keys().next().value!);
+    }
+    return members;
   }
   semanticTexts(fields: string[]): string[] {
     const selected = this.selectedFields(fields).sort(),
@@ -337,15 +308,22 @@ export class EntitySearchIndex {
       options.fields,
       options.kinds,
       options.excludeIri,
+      options.instanceOf,
+      options.namedIndividualsOnly,
       options.browse,
       resources,
       classesOnly,
       exclude,
     ]);
+    const members = this.instanceScope(options.instanceOf);
     const eligible = (row: RecordRow) =>
       resources
         ? (!classesOnly || row.isClass) && !exclude.includes(row.iri)
-        : row.entity && row.iri !== options.excludeIri;
+        : row.entity &&
+          row.iri !== options.excludeIri &&
+          (!options.namedIndividualsOnly ||
+            this.store.entities.get(row.iri)?.kind === "Individual") &&
+          (!members || members.has(row.iri));
     if (this.ranked?.key === key && this.ranked.scores === scores)
       return this.ranked.hits;
     const text = normalize(options.text),
@@ -395,7 +373,7 @@ export class EntitySearchIndex {
         matched.some((group) => group.includes(f)),
       );
       const evidence =
-        field && ![labelField, iriField].includes(field)
+        field && ![labelField, iriField, localField].includes(field)
           ? {
               field: publicField(field),
               value: row.values
@@ -457,7 +435,7 @@ export class EntitySearchIndex {
                 field:
                   field === labelField || field === aliasField
                     ? "name"
-                    : field === iriField
+                    : field === iriField || field === localField
                       ? "iri"
                       : field,
                 value,
@@ -546,11 +524,25 @@ export class EntitySearchIndex {
       options.fields,
       options.kinds,
       options.excludeIri,
+      options.instanceOf,
+      options.namedIndividualsOnly,
       options.browse,
     ]);
     if (this.diagnostic?.key === key && this.diagnostic.scores === scores)
       return this.diagnostic.value;
-    const scopeKey = JSON.stringify([options.text, options.excludeIri]);
+    const members = this.instanceScope(options.instanceOf);
+    const eligible = (row: RecordRow) =>
+      row.entity &&
+      row.iri !== options.excludeIri &&
+      (!options.namedIndividualsOnly ||
+        this.store.entities.get(row.iri)?.kind === "Individual") &&
+      (!members || members.has(row.iri));
+    const scopeKey = JSON.stringify([
+      options.text,
+      options.excludeIri,
+      options.instanceOf,
+      options.namedIndividualsOnly,
+    ]);
     let scope = this.scopeData;
     if (!scope || scope.key !== scopeKey || scope.scores !== scores) {
       const lexical =
@@ -561,11 +553,11 @@ export class EntitySearchIndex {
       const query = queryText(options.text);
       if (query && scope?.key !== scopeKey)
         for (const hit of this.engine.search(query, {
-          fields: [...this.indexedFields],
+          fields: [...this.indexedFields].filter((f) => f !== localField),
           fuzzy,
         })) {
           const row = this.rows[hit.id];
-          if (!row.entity || row.iri === options.excludeIri) continue;
+          if (!eligible(row)) continue;
           for (const group of Object.values(hit.match))
             for (const internal of group) {
               const field = publicField(internal);
@@ -576,9 +568,10 @@ export class EntitySearchIndex {
         }
       if (query && scores)
         for (const row of this.rows) {
-          if (!row.entity || row.iri === options.excludeIri) continue;
+          if (!eligible(row)) continue;
           for (const [field, values] of row.values)
             for (const value of values) {
+              if (field === localField) continue;
               const score = scores.get(value);
               if (
                 score === undefined ||
@@ -607,10 +600,7 @@ export class EntitySearchIndex {
       if (!options.text.trim())
         return options.browse
           ? this.rows.filter(
-              (row) =>
-                row.entity &&
-                row.iri !== options.excludeIri &&
-                kinds.includes(row.category),
+              (row) => eligible(row) && kinds.includes(row.category),
             ).length
           : 0;
       const lexical = new Set<number>(),
@@ -638,7 +628,18 @@ export class EntitySearchIndex {
     };
     const fields = options.text.trim()
       ? this.fields.map((f) => ({ ...f, count: count([f.id], options.kinds) }))
-      : this.fields;
+      : members
+        ? this.fields.map((f) => ({
+            ...f,
+            count: this.rows.filter(
+              (row) =>
+                eligible(row) &&
+                this.selectedFields([f.id]).some((field) =>
+                  row.values.has(field),
+                ),
+            ).length,
+          }))
+        : this.fields;
     const kinds = findKinds.map((id) => ({
       id,
       label: labels[id],
@@ -677,7 +678,8 @@ export class EntitySearchIndex {
       offset,
       kinds,
       fields: this.fields,
-      storeTotal: this.storeTotal,
+      storeTotal:
+        this.instanceScope(options.instanceOf)?.size ?? this.storeTotal,
       ...(options.diagnostics ? this.diagnostics(options, scores) : {}),
       rows: hits.slice(offset, offset + options.limit).map((h) => {
         const {

@@ -5,7 +5,7 @@ export function progressiveSearch<T>(
     method: DomainMethod,
     args: Record<string, unknown>,
   ) => Promise<R>,
-  method: "find" | "resourceSuggestions",
+  method: "find" | "resourceSuggestions" | "individualGrid" | "instances",
   args: Record<string, unknown>,
   receive: (value: T) => void,
   failed: (error: Error) => void,
@@ -17,10 +17,7 @@ export function progressiveSearch<T>(
       if (!active) return;
       receive(value);
       timer = setTimeout(() => {
-        void request<T | undefined>(
-          method === "find" ? "findSemantic" : "resourceSuggestionsSemantic",
-          args,
-        )
+        void request<T | undefined>(`${method}Semantic`, args)
           .then((enriched) => {
             if (active && enriched) receive(enriched);
           })

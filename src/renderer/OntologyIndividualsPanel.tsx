@@ -18,6 +18,7 @@ import {
   useSnapshot,
 } from "./client";
 import { clearInstanceReport, useInstanceTarget } from "./instance-report";
+import { progressiveSearch } from "./progressive-search";
 import { displayName } from "../domain/rdf-model";
 import {
   columnReasons,
@@ -275,7 +276,10 @@ export function OntologyIndividualsPanel() {
     [query, setQuery] = useState(() => panel("table.individuals.query", "")),
     [page, setPage] = useState(() => panel("table.individuals.page", 1)),
     [sort, setSort] = useState(() =>
-      panel("table.individuals.sort", { key: "subject", direction: 1 }),
+      panel<{ key: string; direction: number; explicit?: boolean }>(
+        "table.individuals.sort",
+        { key: "subject", direction: 1 },
+      ),
     );
   const [data, setData] = useState<IndividualGridPage>(),
     [layout, setLayout] = useState<IndividualColumnLayout>(),
@@ -287,6 +291,12 @@ export function OntologyIndividualsPanel() {
     pendingSelection = useRef<"first" | "last">(null),
     generation = useRef(0),
     restored = useRef(false);
+  const consumer = useRef(crypto.randomUUID()).current;
+  const columnSorted =
+    !query.trim() ||
+    sort.explicit ||
+    sort.key !== "subject" ||
+    sort.direction !== 1;
   const selected = useRef(s.selected);
   selected.current = s.selected;
   const chooseScope = useCallback((value: string) => {
@@ -330,15 +340,22 @@ export function OntologyIndividualsPanel() {
       scope
     ];
     const current = liveLayout.current ?? saved;
-    void request<IndividualGridPage>("individualGrid", {
-      scope,
-      query,
-      shown: current?.visible,
-      sort: sort.key,
-      direction: sort.direction,
-      page,
-    })
-      .then((value) => {
+    return progressiveSearch<IndividualGridPage>(
+      request,
+      "individualGrid",
+      {
+        scope,
+        query,
+        shown: current?.visible,
+        sort: columnSorted ? sort.key : undefined,
+        direction: sort.direction,
+        page,
+        consumer,
+        searchId: crypto.randomUUID(),
+        datasetEpoch: s.datasetEpoch,
+        version: s.version,
+      },
+      (value) => {
         if (ticket !== generation.current) return;
         const next = restoreIndividualColumns(
           value.columns,
@@ -357,8 +374,9 @@ export function OntologyIndividualsPanel() {
           pendingSelection.current = null;
           if (row) void act("select", { iri: row.iri });
         }
-      })
-      .catch((e) => report(e.message, true));
+      },
+      (e) => report(e.message, true),
+    );
   }, [
     scope,
     query,
@@ -653,7 +671,7 @@ export function OntologyIndividualsPanel() {
                   scope="col"
                   className={i === 0 ? "pin" : ""}
                   aria-sort={
-                    sort.key === c.key
+                    columnSorted && sort.key === c.key
                       ? sort.direction === 1
                         ? "ascending"
                         : "descending"
@@ -725,7 +743,7 @@ export function OntologyIndividualsPanel() {
                           );
                       }}
                       data-dir={
-                        sort.key === c.key
+                        columnSorted && sort.key === c.key
                           ? sort.direction === 1
                             ? "asc"
                             : "desc"
@@ -733,11 +751,15 @@ export function OntologyIndividualsPanel() {
                       }
                       onClick={() => {
                         const direction =
-                          sort.key === c.key ? -sort.direction : 1;
-                        setSort({ key: c.key, direction });
+                          columnSorted && sort.key === c.key
+                            ? -sort.direction
+                            : 1;
+                        setSort({ key: c.key, direction, explicit: true });
+                        setPage(1);
                         savePanel("table.individuals.sort", {
                           key: c.key,
                           direction,
+                          explicit: true,
                         });
                         say(
                           `Sorted by ${c.label}, ${direction === 1 ? "ascending" : "descending"}`,

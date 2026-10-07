@@ -196,6 +196,7 @@ export function readPreferences(input: unknown): Preferences {
     out["table.individuals.sort"] = {
       key: individualSort.key,
       direction: individualSort.direction === -1 ? -1 : 1,
+      ...(individualSort.explicit === true ? { explicit: true } : {}),
     };
   for (const [key, scroll] of Object.entries(s))
     if (

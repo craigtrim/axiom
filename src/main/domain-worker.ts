@@ -1,7 +1,10 @@
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
-import { individualGridPage } from "../domain/individual-columns";
+import {
+  individualGridPage,
+  individualGridFindOptions,
+} from "../domain/individual-columns";
 import {
   textAnalysisDraft,
   planTextAnalysisHierarchy,
@@ -42,7 +45,7 @@ import type { EntitySourceDocument } from "../shared/source";
 import { intersectionSuggestions } from "../domain/intersection-suggestions";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { namedClass, taxonomyParents } from "../domain/class-expressions";
-import { instancePage } from "../domain/instances";
+import { instancePage, instanceFindOptions } from "../domain/instances";
 import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
 import { sourceDocument, applySource, linkedFile } from "../domain/source";
 import type { SourceDocument } from "../shared/source";
@@ -1719,7 +1722,24 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         origin: a.origin === "hierarchy" ? "hierarchy" : undefined,
       });
       return true;
+    case "individualGridSemantic": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        return;
+      const scores = await semanticFindScores({
+        ...a,
+        ...individualGridFindOptions(store, a),
+      });
+      return scores ? individualGridPage(store, a, scores) : undefined;
+    }
     case "individualGrid":
+      if (
+        (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch) ||
+        (a.version !== undefined && a.version !== store.version)
+      )
+        throw Error(
+          "The ontology changed. Filter the current individuals again.",
+        );
+      beginSearch(a);
       return individualGridPage(store, a);
     case "inspector": {
       const iri = string(a, "iri"),
@@ -1744,15 +1764,28 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       };
       return data;
     }
+    case "instancesSemantic":
     case "instances": {
       if (a.datasetEpoch !== datasetEpoch)
         throw Error("The workspace changed. Open the instance report again.");
-      return instancePage(
-        store,
-        string(a, "iri"),
-        string(a, "query", 512),
-        number(a, "start", 0, 1000000),
-      );
+      if (a.version !== undefined && a.version !== store.version)
+        throw Error(
+          "The ontology changed. Filter the current instances again.",
+        );
+      const iri = string(a, "iri"),
+        query = string(a, "query", 512),
+        start = number(a, "start", 0, 1000000);
+      if (method === "instancesSemantic") {
+        const scores = await semanticFindScores({
+          ...a,
+          ...instanceFindOptions(iri, query),
+        });
+        return scores
+          ? instancePage(store, iri, query, start, scores)
+          : undefined;
+      }
+      beginSearch(a);
+      return instancePage(store, iri, query, start);
     }
     case "table": {
       const rows = getTable(a),

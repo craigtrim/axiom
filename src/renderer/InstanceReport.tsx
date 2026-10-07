@@ -1,6 +1,6 @@
 import { countLabel, instanceAction } from "../shared/action-state";
-import { useState } from "react";
-import { useRetainedPreview } from "./use-retained-preview";
+import { useEffect, useRef, useState } from "react";
+import { progressiveSearch } from "./progressive-search";
 import { INSTANCE_PAGE_SIZE, type InstancePage } from "../shared/instances";
 import { displayName } from "../domain/rdf-model";
 import { PaneToolbar } from "./AdaptivePane";
@@ -11,21 +11,50 @@ export function InstanceReport({ iri }: { iri: string }) {
   const [query, setQuery] = useState("");
   const [start, setStart] = useState(0);
   const entity = s.entities.find((e) => e.iri === iri);
-  const preview = useRetainedPreview(
-    JSON.stringify([iri, query, start, s.version, s.datasetEpoch]),
-    JSON.stringify([iri, s.datasetEpoch]),
-    async () => ({
-      page: await request<InstancePage>("instances", {
-        iri,
-        query,
-        start,
-        datasetEpoch: s.datasetEpoch,
-      }),
-      query,
-      version: s.version,
-    }),
-    180,
+  const consumer = useRef(crypto.randomUUID()).current;
+  const scope = JSON.stringify([iri, s.datasetEpoch]);
+  const key = JSON.stringify([scope, query, start, s.version]);
+  const [result, setResult] = useState<{
+    scope: string;
+    key: string;
+    value?: { page: InstancePage; query: string; version: number };
+    error?: string;
+  }>();
+  useEffect(
+    () =>
+      progressiveSearch<InstancePage>(
+        request,
+        "instances",
+        {
+          iri,
+          query,
+          start,
+          datasetEpoch: s.datasetEpoch,
+          version: s.version,
+          consumer,
+          searchId: crypto.randomUUID(),
+        },
+        (page) =>
+          setResult({
+            scope,
+            key,
+            value: { page, query, version: s.version },
+          }),
+        (error) =>
+          setResult((previous) => ({
+            scope,
+            key,
+            value: previous?.scope === scope ? previous.value : undefined,
+            error: error.message,
+          })),
+      ),
+    [iri, query, start, s.version, s.datasetEpoch],
   );
+  const preview = {
+    value: result?.scope === scope ? result.value : undefined,
+    error: result?.scope === scope ? result.error : undefined,
+    fresh: result?.key === key && !result.error,
+  };
   const page = preview.value?.page,
     error = preview.error;
   const loading = !page && !error;
@@ -77,7 +106,7 @@ export function InstanceReport({ iri }: { iri: string }) {
       >
         <input
           aria-label="Filter instances"
-          placeholder="Filter by name or IRI"
+          placeholder="Filter by name, alias or IRI"
           maxLength={512}
           value={query}
           onChange={(e) => {
