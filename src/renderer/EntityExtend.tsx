@@ -1,6 +1,11 @@
 import { useId, useLayoutEffect, useRef } from "react";
-import { extendControl, type ExtendRelation } from "../shared/entity-extend";
-import { THING } from "../domain/model";
+import {
+  extendControl,
+  extendGroup,
+  type ExtendRelation,
+  type ExtendAction,
+} from "../shared/entity-extend";
+import { rememberExtendAction, useExtendActions } from "./extend-actions";
 import type { FindRow } from "../shared/find";
 import { suspendMenus } from "./access-keys";
 import { usePaneLayout } from "./AdaptivePane";
@@ -16,11 +21,10 @@ export function focusEntityExtendTrigger(button: HTMLButtonElement | null) {
   button.focus({ preventScroll: true });
 }
 
-/** An in-place annotation on the face, creation through the relation menu. */
+/** The face repeats the last applicable action; the caret always offers choices. */
 export function EntityExtend({
   row,
   query,
-  narrow,
   ready,
   pending,
   open,
@@ -30,7 +34,6 @@ export function EntityExtend({
 }: {
   row: FindRow;
   query: string;
-  narrow: boolean;
   ready: boolean;
   pending: boolean;
   open: boolean;
@@ -39,14 +42,20 @@ export function EntityExtend({
   create(relation: ExtendRelation, trigger: HTMLButtonElement): void;
 }) {
   const layout = usePaneLayout();
-  const control = extendControl(row.kind, query, row.synonym, narrow);
-  const relations = control.relations.filter(
-    (relation) => relation.door !== "sibling" || row.iri !== THING,
+  const preferences = useExtendActions();
+  const preferred = preferences[extendGroup(row.kind)] ?? "synonym";
+  const control = extendControl(
+    row.kind,
+    query,
+    row.synonym,
+    preferred,
+    row.iri,
   );
-  const folded = control.form === "folded";
+  const relations = control.relations;
   const id = useId();
   const root = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const mainButton = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const keyboardOpen = useRef(false);
   const close = (focus = true) => {
@@ -62,6 +71,17 @@ export function EntityExtend({
         ?.closest<HTMLElement>("[tabindex]")
         ?.focus({ preventScroll: true });
     synonym();
+  };
+  const run = (action: ExtendAction, fromMenu = false) => {
+    if (!ready || pending) return;
+    rememberExtendAction(row.kind, action);
+    if (open) close(false);
+    if (action === "synonym") recordSynonym();
+    else {
+      const relation = relations.find((item) => item.door === action);
+      if (relation)
+        create(relation, fromMenu ? trigger.current! : mainButton.current!);
+    }
   };
   const focusItem = (item: HTMLButtonElement | undefined | null) => {
     const popup = menu.current;
@@ -157,23 +177,35 @@ export function EntityExtend({
   }, [open, layout.recovery]);
   useLayoutEffect(() => {
     if (open) position();
-  }, [layout.width, layout.height, narrow, control.form, open]);
+  }, [layout.width, layout.height, control.form, control.primary, open]);
   useLayoutEffect(() => {
     if (!ready || layout.recovery || control.form === "empty") setOpen(false);
   }, [ready, layout.recovery, control.form]);
   if (control.form === "empty") return null;
-  const main = !folded && control.synonym;
-  const more = folded || relations.length > 0;
-  const title = `Add ${query.trim()} as a synonym of ${row.name}`;
+  const more = control.form === "split";
+  const primaryRelation = relations.find(
+    (relation) => relation.door === control.primary,
+  );
+  const synonymTitle = `Add ${query.trim()} as a synonym of ${row.name}`;
+  const title =
+    control.primary === "synonym"
+      ? synonymTitle
+      : `Add ${primaryRelation!.label.toLowerCase()} ${control.primary === "sibling" || control.primary === "instance" ? "of" : "under"} ${row.name}`;
   return (
     <span
       ref={root}
       className="entity-extend"
+      data-primary-action={control.primary}
       data-open={open || undefined}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         event.stopPropagation();
+        if (!open && more && ready && !pending && event.key === "ArrowDown") {
+          event.preventDefault();
+          keyboardOpen.current = true;
+          setOpen(true);
+        }
         if (open && event.key === "Escape") {
           event.preventDefault();
           close();
@@ -185,37 +217,41 @@ export function EntityExtend({
           Finishing the current search
         </span>
       )}
-      {main && (
+      {control.primary && (
         <button
           type="button"
-          className={`ext-action ext-main find-synonym${!more ? " ext-only" : ""}`}
+          ref={mainButton}
+          className={`ext-action ext-main${control.primary === "synonym" ? " find-synonym" : ""}${!more ? " ext-only" : ""}`}
           title={title}
           aria-label={title}
           disabled={!ready || pending}
           aria-describedby={!ready ? id + "-busy" : undefined}
-          onClick={recordSynonym}
+          onClick={() => run(control.primary!)}
         >
-          + <span>Synonym</span>
+          +{" "}
+          <span>
+            {control.primary === "synonym" ? "Synonym" : primaryRelation!.label}
+          </span>
         </button>
       )}
       {more && (
         <button
           type="button"
           ref={trigger}
-          className={`ext-action ${folded ? "ext-main ext-only" : "ext-more"}`}
+          className="ext-action ext-more"
           aria-label={`More ways to extend ${row.name}`}
           title={`More ways to extend ${row.name}`}
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={open ? id : undefined}
-          disabled={!ready}
+          disabled={!ready || pending}
           aria-describedby={!ready ? id + "-busy" : undefined}
           onClick={(event) => {
             keyboardOpen.current = event.detail === 0;
             setOpen(!open);
           }}
         >
-          {folded ? "+" : "v"}
+          v
         </button>
       )}
       {more && open && !layout.recovery && (
@@ -225,7 +261,7 @@ export function EntityExtend({
           popover="manual"
           className="ext-menu"
           role="menu"
-          aria-label={folded ? row.name : `Under ${row.name}`}
+          aria-label={row.name}
           onKeyDown={(event) => {
             event.stopPropagation();
             const items = [
@@ -271,22 +307,17 @@ export function EntityExtend({
             }
           }}
         >
-          <span className="ext-caption">
-            {folded ? row.name : `Under ${row.name}`}
-          </span>
-          {folded && control.synonym && (
+          <span className="ext-caption">{row.name}</span>
+          {control.synonym && (
             <>
               <button
                 type="button"
                 role="menuitem"
                 className="ext-item"
-                title={title}
+                title={synonymTitle}
                 disabled={!ready || pending}
                 aria-describedby={!ready ? id + "-busy" : undefined}
-                onClick={() => {
-                  close();
-                  recordSynonym();
-                }}
+                onClick={() => run("synonym", true)}
               >
                 <span className="ext-label">Synonym</span>
                 <span className="ext-predicate">rdfs:seeAlso</span>
@@ -300,28 +331,15 @@ export function EntityExtend({
             <button
               type="button"
               role="menuitem"
-              disabled={!ready}
+              disabled={!ready || pending}
               key={relation.door}
               className="ext-item"
-              onClick={() => {
-                close(false);
-                create(relation, trigger.current!);
-              }}
+              onClick={() => run(relation.door, true)}
             >
               <span className="ext-label">{relation.label}</span>
               <span className="ext-predicate">{relation.predicate}</span>
             </button>
           ))}
-          {!folded && !!relations.length && (
-            <>
-              <span role="separator" className="ext-separator" />
-              <span className="ext-caption">
-                {row.kind === "Class" || row.kind === "Defined"
-                  ? "creates a new class, or a new individual"
-                  : "creates a new property"}
-              </span>
-            </>
-          )}
         </div>
       )}
     </span>

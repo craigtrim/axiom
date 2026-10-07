@@ -1,5 +1,6 @@
 import { readTabHistory } from "./tab-history";
 import { readSeeAlsoWarnings } from "./seealso-warnings";
+import { extendPreferencesKey, readExtendPreferences } from "./entity-extend";
 import { readSparsityOptions } from "./sparsity";
 import { readQualityOptions, readQualityExceptions } from "./ontology-quality";
 import { readFindOptions } from "./find";
@@ -48,6 +49,8 @@ export function readPreferences(input: unknown): Preferences {
     p.bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
   const s = object(input.panelState) ? input.panelState : {},
     out = p.panelState!;
+  if (object(s[extendPreferencesKey]))
+    out[extendPreferencesKey] = readExtendPreferences(s[extendPreferencesKey]);
   if (object(s["warnings.seeAlso"]))
     out["warnings.seeAlso"] = readSeeAlsoWarnings(s["warnings.seeAlso"]);
   for (const [key, value] of Object.entries(s)) {

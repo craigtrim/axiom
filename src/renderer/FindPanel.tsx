@@ -1268,7 +1268,7 @@ export function FindPanel() {
                     <th
                       scope="col"
                       className="find-type-column"
-                      hidden={layout.narrow && layout.shallow}
+                      hidden={layout.narrow}
                     >
                       Type
                     </th>
@@ -1340,7 +1340,7 @@ export function FindPanel() {
                           )}
                         <span
                           className="find-folded-type"
-                          hidden={!(layout.narrow && layout.shallow)}
+                          hidden={!layout.narrow}
                         >
                           {kindLabel(row.kind)}
                         </span>
@@ -1353,10 +1353,7 @@ export function FindPanel() {
                           </div>
                         )}
                       </td>
-                      <td
-                        className="find-type-column"
-                        hidden={layout.narrow && layout.shallow}
-                      >
+                      <td className="find-type-column" hidden={layout.narrow}>
                         {kindLabel(row.kind)}
                       </td>
                       {!layout.narrow && (
@@ -1370,7 +1367,6 @@ export function FindPanel() {
                         <EntityExtend
                           row={row}
                           query={options.text}
-                          narrow={layout.narrow}
                           ready={ready}
                           pending={!!addingSynonym}
                           open={extendOpen === row.iri}

@@ -687,6 +687,7 @@ async function writeWorkspace(
           panelState: {
             ...preferences.panelState,
             "warnings.seeAlso": undefined,
+            "find.extendActions": undefined,
           },
         },
         editorDrafts,
@@ -758,6 +759,7 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
     panelState: {
       ...data.workbench?.panelState,
       "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
+      "find.extendActions": preferences.panelState?.["find.extendActions"],
     },
     tabHistory: data.workbench?.tabHistory,
     keyboard: preferences.keyboard,
@@ -1136,6 +1138,7 @@ app.whenReady().then(async () => {
       panelState: {
         ...session.workbench.panelState,
         "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
+        "find.extendActions": preferences.panelState?.["find.extendActions"],
       },
       keyboard: preferences.keyboard,
       tabSavePolicy: preferences.tabSavePolicy,

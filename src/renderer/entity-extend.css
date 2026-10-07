@@ -1,4 +1,4 @@
-/* Control tokens and metrics: hash-pinned extension reference, revision 2 (#56). */
+/* Reference split-button styling; the split now persists at every pane width. */
 .entity-extend,
 .extend-context,
 .extend-confirmation {
@@ -42,6 +42,14 @@
   width: 148px;
   text-align: end;
 }
+/* Keep unbroken names and aliases inside their cell when the split reserves
+   space. Narrow panes place Type below the entity alongside its other metadata. */
+.find-panel
+  .find-results
+  :is(.find-result-name, .find-row-synonyms, .find-folded-type),
+.find-panel .find-results .find-type-column {
+  overflow-wrap: anywhere;
+}
 /* Retain #34's preferred widths while reserving the new action column and a
    readable entity column. This shrinks continuously without a new layout mode. */
 .find-panel:is([data-layout="expanded"], [data-layout="shallow"])
@@ -53,10 +61,6 @@
   .find-results
   .find-synonym-column {
   width: min(180px, calc((100% - 148px - 80px) * 0.6));
-}
-.find-panel[data-layout="narrow"] .find-extend-column,
-.find-panel[data-layout="constrained"] .find-extend-column {
-  width: 44px;
 }
 .entity-extend {
   position: relative;

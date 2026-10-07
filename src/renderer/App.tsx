@@ -1087,6 +1087,7 @@ export function App() {
         void window.axiom.preferences.load().then((p) => {
           setPreferences(p);
           command("warnings.seeAlso");
+          command("find.extendActions");
           command("textanalysis.reset");
           notifyTabHistory();
           command("query.reset");
