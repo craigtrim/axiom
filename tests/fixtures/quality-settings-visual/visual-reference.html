@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The scan settings region: visual reference</title>
+<style>
+/* ============================================================================
+   VISUAL REFERENCE for specs/quality-settings/README.md
+
+   A picture, not a specification. Where this file and README.md disagree, the
+   README wins. Every exhibit cites the requirements it renders, and every QSS
+   identifier used here resolves against that document.
+
+   Self contained apart from the two captures in screenshots/, referenced
+   relatively, so this file renders its images only from inside its own folder.
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  color-scheme: light;
+  --ground:#ffffff; --surface:#f6f7f9; --raised:#ffffff; --sunken:#f0f2f5;
+  --border:#e1e4e8; --border-strong:#d0d7de;
+  --text:#1b1f24; --text-muted:#57606a;
+  --accent:#0b5fd0; --accent-hover:#0a52b4; --accent-fg:#ffffff;
+  --accent-soft:#eaf2fd; --accent-tint:#f4f8fe;
+  --ok:#0a7a3d; --ok-bg:#e8f5ed; --ok-border:#a9d8bd;
+  --warn:#8a6116; --warn-bg:#fdf5e3; --warn-border:#e6cf95;
+  --bad:#a4201a; --bad-bg:#fdecea; --bad-border:#e4a9a4;
+  --idle:#57606a; --idle-border:#c6cbd1;
+  --row-hover:#f6f7f9; --row-selected:#eaf2fd;
+  --focus:#0b5fd0; --shadow-pop:0 8px 24px rgba(27,31,36,.18);
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --r-ctl:4px; --r-panel:6px; --r-card:8px; --r-pill:999px;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;
+}
+/* Dark is measured against #0d1117 and is not an inversion of light. The same
+   block serves the page theme and the scoped .dk wrapper, so both themes can
+   be shown side by side and audited against each other. */
+:root[data-theme="dark"], .dk {
+  color-scheme: dark;
+  --ground:#0d1117; --surface:#161b22; --raised:#1c2128; --sunken:#10151c;
+  --border:#30363d; --border-strong:#3d444d;
+  --text:#e6edf3; --text-muted:#9ba7b4;
+  --accent:#4c9aff; --accent-hover:#6aabff; --accent-fg:#06192e;
+  --accent-soft:#12243a; --accent-tint:#0f1a28;
+  --ok:#4ade80; --ok-bg:#0f2a1b; --ok-border:#1d5233;
+  --warn:#e3b341; --warn-bg:#2b2211; --warn-border:#5a4718;
+  --bad:#ff8d81; --bad-bg:#3a1a17; --bad-border:#7a3630;
+  --idle:#9ba7b4; --idle-border:#454c54;
+  --row-hover:#161b22; --row-selected:#12243a;
+  --focus:#6aabff; --shadow-pop:0 8px 24px rgba(0,0,0,.55);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground:#0d1117; --surface:#161b22; --raised:#1c2128; --sunken:#10151c;
+    --border:#30363d; --border-strong:#3d444d;
+    --text:#e6edf3; --text-muted:#9ba7b4;
+    --accent:#4c9aff; --accent-hover:#6aabff; --accent-fg:#06192e;
+    --accent-soft:#12243a; --accent-tint:#0f1a28;
+    --ok:#4ade80; --ok-bg:#0f2a1b; --ok-border:#1d5233;
+    --warn:#e3b341; --warn-bg:#2b2211; --warn-border:#5a4718;
+    --bad:#ff8d81; --bad-bg:#3a1a17; --bad-border:#7a3630;
+    --idle:#9ba7b4; --idle-border:#454c54;
+    --row-hover:#161b22; --row-selected:#12243a;
+    --focus:#6aabff; --shadow-pop:0 8px 24px rgba(0,0,0,.55);
+  }
+}
+.dk { background: var(--ground); color: var(--text); }
+
+html { scroll-behavior: smooth; }
+body { margin:0; font:14px/1.6 var(--font); background:var(--surface); color:var(--text); }
+.vh { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-8); }
+h1 { font-size: 26px; margin: 0 0 var(--sp-2); letter-spacing: -.01em; }
+h2 { font-size: 18px; margin: var(--sp-8) 0 var(--sp-2); padding-top: var(--sp-4);
+  border-top: 2px solid var(--border-strong); }
+h3 { font-size: 14px; margin: var(--sp-5) 0 var(--sp-2); }
+p  { margin: 0 0 var(--sp-3); max-width: 76ch; }
+.lede { color: var(--text-muted); max-width: 86ch; }
+.req { display:inline-block; font-family:var(--mono); font-size:11.5px; color:var(--text-muted);
+  border:1px solid var(--border-strong); border-radius:var(--r-ctl); padding:0 5px;
+  background:var(--sunken); white-space:nowrap; }
+.req.q { color:var(--warn); border-color:var(--warn-border); background:var(--warn-bg); }
+.reqs { margin: 0 0 var(--sp-3); display:flex; flex-wrap:wrap; gap:4px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--sunken);
+  border-radius: 3px; padding: 0 4px; }
+
+table.doc { border-collapse: collapse; width: 100%; margin: 0 0 var(--sp-4); font-size: 13px; }
+table.doc th, table.doc td { border: 1px solid var(--border); padding: 5px var(--sp-2);
+  text-align: start; vertical-align: top; }
+table.doc th { background: var(--surface); font-weight: 600; font-size: 12px; }
+table.doc td.n { text-align: end; font-variant-numeric: tabular-nums; }
+tr.bad td { background: var(--bad-bg); }
+tr.good td { background: var(--ok-bg); }
+
+.note { border-inline-start: 3px solid var(--border-strong); background: var(--sunken);
+  padding: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-4); font-size: 13px; max-width: 86ch; }
+.note.bad { border-inline-start-color: var(--bad); background: var(--bad-bg); }
+.note.ok  { border-inline-start-color: var(--ok); background: var(--ok-bg); }
+
+figure { margin: 0 0 var(--sp-4); }
+figcaption { font-size: 12px; color: var(--text-muted); margin-top: var(--sp-1); }
+img.shot { display:block; width:100%; height:auto; border:1px solid var(--border-strong);
+  border-radius: var(--r-panel); }
+
+.pair { display:grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+
+.toc { display:grid; gap:2px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  margin:0 0 var(--sp-6); padding:var(--sp-3); border:1px solid var(--border);
+  border-radius:var(--r-panel); background:var(--ground); }
+.toc a { color:var(--accent); text-decoration:none; font-size:13px; padding:2px 0; }
+.toc a:hover { text-decoration:underline; }
+.themebtn { position:fixed; inset-block-start:10px; inset-inline-end:10px; z-index:40; }
+
+/* ---------------------------------------------------------- the pane shell */
+.pane {
+  container-type: size; container-name: pane;
+  display:flex; flex-direction:column; min-width:0; min-height:0;
+  background:var(--ground); color:var(--text);
+  border:1px solid var(--border-strong); border-radius:var(--r-panel); overflow:hidden;
+}
+.frame { position: relative; resize: both; overflow: hidden; min-width: 220px; min-height: 120px;
+  border-radius: var(--r-panel); margin-bottom: var(--sp-1); }
+.frame > .pane { height: 100%; }
+.sizecap { font-size:11.5px; color:var(--text-muted); font-family:var(--mono);
+  margin-bottom: var(--sp-4); }
+
+.btn { display:inline-flex; align-items:center; gap:5px; flex:none; min-height:28px; padding:0 10px;
+  font:inherit; font-size:12.5px; color:var(--text); background:var(--raised);
+  border:1px solid var(--border-strong); border-radius:var(--r-ctl); cursor:pointer; white-space:nowrap; }
+.btn:hover { background: var(--row-hover); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600; }
+.btn.tiny { min-height:22px; padding:0 6px; font-size:12px; }
+.sel { min-height:26px; padding:0 var(--sp-1); font:inherit; font-size:12.5px; color:var(--text);
+  background:var(--raised); border:1px solid var(--border-strong); border-radius:var(--r-ctl); }
+:is(.btn,.sel,.chipc,button,select,a):focus-visible {
+  outline:2px solid var(--focus); outline-offset:1px; border-radius:var(--r-ctl); }
+
+.cbar { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:40px;
+  padding:0 var(--sp-3); border-bottom:1px solid var(--border); background:var(--surface); }
+.cbar .t { font-weight:600; font-size:13px; }
+.cbar .sum { font-size:12.5px; color:var(--text-muted); }
+.pbody { flex:1 1 auto; min-height:0; overflow:auto; padding:var(--sp-3); }
+
+/* ------------------------------------------------- the settings region QSS-23 */
+.settings { max-width: 1040px; display:grid; gap:0; }
+.srow { display:flex; align-items:center; gap:var(--sp-2); min-height:32px; height:32px; }
+.srow > .k { flex:none; width:90px; font-size:12px; color:var(--text-muted); }
+/* QSS-32. A row scrolls rather than wrapping, so the region keeps four rows at
+   every width and QSS-26's height budget means something. */
+.rail { display:flex; align-items:center; gap:var(--sp-2); flex:1 1 auto; min-width:0;
+  overflow-x:auto; scrollbar-width:none; scroll-snap-type:x proximity;
+  padding-inline-end:var(--sp-4); scroll-padding-inline:var(--sp-2); }
+.rail::-webkit-scrollbar { display:none; }
+.rail > * { flex:none; scroll-snap-align:start; }
+.actline { display:flex; align-items:center; gap:var(--sp-2); min-height:36px; height:36px;
+  max-width:1040px; }
+
+.chipc { display:inline-flex; align-items:center; gap:6px; min-height:24px; padding:0 10px;
+  font:inherit; font-size:12.5px; color:var(--text); background:var(--raised);
+  border:1px solid var(--border-strong); border-radius:var(--r-pill); cursor:pointer; }
+.chipc .n { color:var(--text-muted); font-variant-numeric:tabular-nums; }
+.chipc:hover { background:var(--row-hover); }
+.chipc[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); font-weight:600; }
+.chipc[aria-pressed="true"] .n { color:var(--text); }
+.chipc[aria-disabled="true"] { background:var(--sunken); border-style:dashed;
+  color:var(--text-muted); cursor:default; }
+.chipc .mk { font-size:10px; font-weight:700; letter-spacing:.04em; }
+.tagf { display:inline-flex; align-items:center; min-height:22px; padding:0 8px; font-size:12px;
+  color:var(--text-muted); background:var(--sunken); border-radius:var(--r-ctl); }
+.hint { font-size:12px; color:var(--text-muted); flex:none; }
+
+/* QSS-40. One measure rule. 72 characters, expressed per type size. */
+.m125 { max-width:440px; font-size:12.5px; }
+.m15  { max-width:530px; font-size:15px; }
+.nomeasure { font-size:12.5px; }
+
+.limits { color:var(--text-muted); padding-top:var(--sp-2); }
+.statusline { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:32px;
+  padding:0 var(--sp-3); border-top:1px solid var(--border); font-size:12px;
+  color:var(--text-muted); background:var(--surface); }
+.headline { font-size:15px; font-weight:600; margin:0 0 var(--sp-1); }
+
+.pop { margin-top:var(--sp-2); max-width:460px; border:1px solid var(--border-strong);
+  border-radius:var(--r-panel); background:var(--raised); padding:var(--sp-2); }
+.pop h4 { margin:0 0 var(--sp-1); font-size:11px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--text-muted); }
+.pop ul { margin:0; padding:0; list-style:none; display:grid; gap:3px; }
+.pop li { font-size:12.5px; padding:2px var(--sp-1); border-radius:var(--r-ctl); }
+.pop li:nth-child(odd) { background:var(--sunken); }
+
+.legend { display:flex; flex-wrap:wrap; gap:var(--sp-3); align-items:center; padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--r-panel); background:var(--ground); }
+
+/* the as built comparison */
+.asbuilt .settings { max-width:none; }
+.asbuilt .srow { height:auto; min-height:45px; flex-wrap:wrap; }
+.asbuilt .rail { overflow:visible; flex-wrap:wrap; }
+.asbuilt .spacer { flex:1 1 0; min-width:0; }
+.asbuilt .limits { max-width:none; }
+
+/* ======================================================================== */
+/* Presentation. Container queries against each frame's own rectangle at the
+   published 600 and 400 with the 239 and 119 recovery. Defaults are declared
+   above so a query always wins over the value it replaces.                  */
+/* ======================================================================== */
+@container pane (max-width: 599px) {
+  .srow > .k { width: 72px; }
+  .settings, .actline { max-width: none; }
+  .m125, .m15 { max-width: none; }
+}
+@container pane (max-height: 399px) {
+  .limits { display: none; }
+}
+@container pane (max-width: 239px), pane (max-height: 119px) {
+  .pbody, .statusline { display: none; }
+  .cbar { border-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration:1ms !important; animation-duration:1ms !important; }
+}
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<button type="button" class="btn themebtn" id="themeBtn">Theme: follow system</button>
+<div class="wrap">
+
+<h1>The scan settings region</h1>
+<p class="lede">Visual reference for <code>specs/quality-settings/README.md</code>. A picture, not a specification: where this file and the README disagree, the README wins. Requirements in grey are <code>QSS</code>; requirements in amber are <code>QLY</code>, owned by <code>specs/quality/README.md</code>. Frames with a resize grip re tier off their own rectangle, not off the window.</p>
+
+<nav class="toc" aria-label="Exhibits">
+  <a href="#x0">0. What the captures cost</a>
+  <a href="#xa">A. The region, corrected</a>
+  <a href="#xb">B. Four control states</a>
+  <a href="#xc">C. The measure</a>
+  <a href="#xd">D. Four rows at every width</a>
+  <a href="#xe">E. The idle state</a>
+  <a href="#xf">F. The census row</a>
+  <a href="#xg">G. Two class counts</a>
+  <a href="#xh">H. What was superseded</a>
+</nav>
+
+<h2 id="x0">Exhibit 0. What the captures cost</h2>
+<div class="reqs"><span class="req">QSS-14</span><span class="req">QSS-15</span><span class="req">QSS-17</span><span class="req">QSS-18</span><span class="req">QSS-20</span></div>
+<div class="pair">
+  <figure>
+    <img class="shot" src="screenshots/01-vertical-before-scan.png"
+      alt="The Ontology Quality pane in a tall narrow dock before a scan, with the settings block wrapped to seven rows above an almost entirely empty body.">
+    <figcaption>01. 619 by 1591 CSS pixels. Four settings rows wrapped to seven, and a body about 92 per cent empty.</figcaption>
+  </figure>
+  <figure>
+    <img class="shot" src="screenshots/02-full-screen-before-scan.png"
+      alt="The same pane at full screen, four settings rows each ending in dead width, the Run scan action at the far right edge, and a single very long limits line at the bottom.">
+    <figcaption>02. 1894 by 1597 CSS pixels. Four rows, every one ending in dead width, the action at the far edge, and a 245 character limits line.</figcaption>
+  </figure>
+</div>
+<table class="doc">
+  <thead><tr><th>Measured</th><th>01, narrow</th><th>02, full screen</th><th>Required</th><th>By</th></tr></thead>
+  <tbody>
+    <tr><td>Settings rows rendered</td><td class="n">7</td><td class="n">4</td><td class="n">4</td><td><span class="req">QSS-24</span></td></tr>
+    <tr><td>Height a row</td><td class="n">~38 px</td><td class="n">~45 px</td><td class="n">32 px</td><td><span class="req">QSS-26</span></td></tr>
+    <tr class="bad"><td>Settings region total</td><td class="n">~266 px</td><td class="n">~180 px</td><td class="n">164 px</td><td><span class="req">QSS-26</span></td></tr>
+    <tr class="bad"><td>Scope control to the action</td><td class="n">n/a</td><td class="n">~1,520 px</td><td>the next line</td><td><span class="req">QSS-28</span></td></tr>
+    <tr><td>Dead width, Entity kinds</td><td class="n">n/a</td><td class="n">~816 px</td><td>correct beside a capped region</td><td><span class="req">QSS-38</span></td></tr>
+    <tr><td>Dead width, Checks</td><td class="n">n/a</td><td class="n">~1,258 px</td><td>correct beside a capped region</td><td><span class="req">QSS-38</span></td></tr>
+    <tr class="bad"><td>Limits statement</td><td class="n">wrapped</td><td class="n">245 chars, 1 line</td><td class="n">101 chars, 2 lines</td><td><span class="req">QSS-46</span></td></tr>
+    <tr class="bad"><td>Controls that cannot be chosen</td><td class="n">3</td><td class="n">3</td><td>rendered, not selectable</td><td><span class="req">QSS-50</span></td></tr>
+    <tr class="bad"><td>Check groups rendered of six</td><td class="n">4</td><td class="n">4</td><td class="n">5</td><td><span class="req">QSS-55</span></td></tr>
+  </tbody>
+</table>
+<div class="note bad"><b>The 1,520 pixels have a named cause.</b> <span class="req">QSS-18</span>. The prototype emits the Scope row as the label, the select, <code>&lt;span class="od-fill"&gt;&lt;/span&gt;</code>, then the action. <code>od-fill</code> is <code>flex: 1 1 0</code>: a spacer whose declared job is to take whatever width remains. The action is not drifting, it is being pushed, by an element written to push it.</div>
+<div class="note"><b>And seven rows were never seven rows.</b> <span class="req">QSS-15</span>. The prototype builds exactly four <code>.srow</code> elements. Capture 01 shows those four wrapping. A reader of the narrow capture alone reaches the wrong conclusion, which is why both captures are in the folder.</div>
+
+<h2 id="xa">A. The region, corrected</h2>
+<div class="reqs"><span class="req">QSS-23</span><span class="req">QSS-25</span><span class="req">QSS-26</span><span class="req">QSS-28</span><span class="req">QSS-32</span><span class="req">QSS-33</span></div>
+<p>Four rows at 32 pixels, an action line at 36, capped at 1,040 and aligned left. Drag the corner: the region does not grow past its cap, and below it the rows scroll rather than wrap.</p>
+<div class="frame" style="width:100%;max-width:1180px;height:300px">
+  <section class="pane" aria-label="Ontology Quality, idle">
+    <div class="cbar"><span class="t">Ontology Quality</span><span class="sum">No scan has been run.</span></div>
+    <div class="pbody">
+      <div class="headline">Ready to scan</div>
+      <p class="m15" style="color:var(--text-muted);margin-bottom:var(--sp-4)">Choose a scope and the checks above, then run the scan. Scanning reads the ontology and changes nothing.</p>
+      <div class="settings" id="set1"></div>
+      <div class="actline"><button type="button" class="btn primary">Run scan</button></div>
+      <p class="limits m125">Reads what is asserted. No reasoning, no definition judgement, no remote links, no unresolved imports.</p>
+    </div>
+    <div class="statusline"><span>6,172 classes of which 5,559 named and 612 defined</span><span>0 individuals</span><span>25,141 triples</span></div>
+  </section>
+</div>
+<div class="sizecap">Below 600 wide the label column narrows to 72 and the caps release to the content column <span class="req">QSS-88</span>. Below 400 tall the limits statement withdraws <span class="req">QSS-48</span>. Below 240 wide the pane states what it is.</div>
+<div class="note ok"><b>The space to the right of the region is correct.</b> <span class="req">QSS-38</span>, and <span class="req q">QLY-23</span> before it. At 1,894 pixels the region stops at 1,040 and leaves about 854 blank. What was wrong in capture 02 is not that the space existed, it is that the action walked across it.</div>
+
+<h2 id="xb">B. Four control states</h2>
+<div class="reqs"><span class="req">QSS-49</span><span class="req">QSS-50</span><span class="req">QSS-52</span><span class="req">QSS-55</span><span class="req">QSS-99</span><span class="req">QSS-104</span></div>
+<p>Each state differs from the others by more than colour. Try the controls: the first two toggle, the third does not and says why.</p>
+<div class="pair">
+  <div class="legend" id="legLight"></div>
+  <div class="legend dk" id="legDark"></div>
+</div>
+<table class="doc">
+  <thead><tr><th>State</th><th>Meaning</th><th>Rendered</th><th>Selectable</th><th>Announced as</th></tr></thead>
+  <tbody>
+    <tr><td>Selected</td><td>In scope for the next scan</td><td>yes</td><td>yes</td><td><code>{name}, {count}, selected</code></td></tr>
+    <tr><td>Available</td><td>Could be in scope, currently is not</td><td>yes</td><td>yes</td><td><code>{name}, {count}, not selected</code></td></tr>
+    <tr><td>Empty</td><td>Nothing in the ontology to scan</td><td>yes</td><td><b>no</b></td><td><code>{name}, none in this ontology, unavailable</code></td></tr>
+    <tr><td>Withdrawn</td><td>Its vocabulary is absent from the census</td><td><b>no</b></td><td>n/a</td><td>not announced, because not rendered</td></tr>
+  </tbody>
+</table>
+<div class="note bad"><b>Both captures render Empty identically to Available.</b> <span class="req">QSS-50</span>. <code>Individuals 0</code>, <code>Object properties 0</code> and <code>Data properties 0</code> look like live controls and cannot change the result of a scan. <span class="req q">QLY-39</span> permitted that with a MAY while <span class="req q">QLY-48</span> already forbade the same thing for a group chip, so the two requirements disagreed with each other.</div>
+<div class="note bad"><b>And both captures make Withdrawn and default off indistinguishable.</b> <span class="req">QSS-55</span>. Of six groups, four are rendered. <code>Retired entities</code> is correctly withdrawn because <code>owl:deprecated</code> is absent. <code>Publication metadata</code> is default off under <span class="req q">QLY-65</span>, not withdrawn, and must appear as a control you can switch on. Both are simply missing, which is the collision <span class="req q">QLY-74</span> forbids and never gave a presentation to.</div>
+
+<h2 id="xc">C. The measure</h2>
+<div class="reqs"><span class="req">QSS-40</span><span class="req">QSS-41</span><span class="req">QSS-43</span><span class="req">QSS-46</span></div>
+<p>One rule: 72 characters a line, everywhere, with a pixel equivalent per type size. The two lines below are the same region before and after.</p>
+<div class="note bad" style="max-width:none">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">As built, 245 characters on one line</div>
+  <p class="nomeasure" style="margin:0;max-width:none">This scan checks what is asserted. It does not run OWL reasoning, judge whether a definition is correct, follow remote links, or load unresolved imports. Checks for a vocabulary the ontology does not use are withdrawn, never reported as passing.</p>
+</div>
+<div class="note ok">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">As specified, 101 characters within a 440 pixel measure</div>
+  <p class="m125" style="margin:0">Reads what is asserted. No reasoning, no definition judgement, no remote links, no unresolved imports.</p>
+</div>
+<table class="doc">
+  <thead><tr><th>Type size</th><th class="n">Cap</th><th class="n">Characters</th><th>Used by</th></tr></thead>
+  <tbody>
+    <tr><td>12.5 px</td><td class="n">440 px</td><td class="n">72</td><td>limits statement, vocabulary note, check count</td></tr>
+    <tr><td>13 px</td><td class="n">460 px</td><td class="n">72</td><td>secondary body copy</td></tr>
+    <tr><td>15 px</td><td class="n">530 px</td><td class="n">72</td><td>a state headline body</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>The copy was shortened, not the measure widened.</b> <span class="req">QSS-43</span>. The clause that went is the withdrawal fact, because the Vocabulary row already states it and <span class="req q">QLY-16</span> forbids stating one fact twice. Removing a duplication is what bought the two lines.</div>
+
+<h2 id="xd">D. Four rows at every width</h2>
+<div class="reqs"><span class="req">QSS-24</span><span class="req">QSS-32</span><span class="req">QSS-34</span><span class="req">QSS-89</span></div>
+<p>The same region at 619 pixels, the width of capture 01. On the left as built, wrapping to seven rows. On the right as specified, four rows whose content scrolls. Drag either corner.</p>
+<div class="pair">
+  <div>
+    <div class="frame asbuilt" style="width:100%;height:270px">
+      <section class="pane" aria-label="As built, wrapping">
+        <div class="cbar"><span class="t">As built</span></div>
+        <div class="pbody"><div class="settings" id="set2"></div></div>
+      </section>
+    </div>
+    <div class="sizecap">Seven bands. Height depends on width, so no budget can hold.</div>
+  </div>
+  <div>
+    <div class="frame" style="width:100%;height:270px">
+      <section class="pane" aria-label="As specified, scrolling">
+        <div class="cbar"><span class="t">As specified</span></div>
+        <div class="pbody"><div class="settings" id="set3"></div>
+          <div class="actline"><button type="button" class="btn primary">Run scan</button></div></div>
+      </section>
+    </div>
+    <div class="sizecap">Four bands plus the action line. 164 pixels at every width.</div>
+  </div>
+</div>
+<div class="note"><b>Why a rail rather than a wrap.</b> <span class="req">QSS-34</span>. A region whose height depends on its width cannot carry a height budget. <span class="req">QSS-26</span> is only enforceable because <span class="req">QSS-32</span> exists, and that is the whole repair to <span class="req q">QLY-17</span>.</div>
+
+<h2 id="xe">E. The idle state</h2>
+<div class="reqs"><span class="req">QSS-72</span><span class="req">QSS-73</span><span class="req">QSS-75</span><span class="req">QSS-76</span><span class="req">QSS-77</span></div>
+<table class="doc">
+  <thead><tr><th>Band</th><th class="n">Height</th></tr></thead>
+  <tbody>
+    <tr><td>Command bar</td><td class="n">40 px</td></tr>
+    <tr><td>State headline</td><td class="n">28 px</td></tr>
+    <tr><td>State body, two lines at 15 px</td><td class="n">44 px</td></tr>
+    <tr><td>Settings region with its action line</td><td class="n">164 px</td></tr>
+    <tr><td>Limits statement, two lines at 12.5 px</td><td class="n">36 px</td></tr>
+    <tr><td>Status line</td><td class="n">32 px</td></tr>
+    <tr class="good"><td><b>Total</b></td><td class="n"><b>344 px</b></td></tr>
+  </tbody>
+</table>
+<div class="note ok"><b>Everything below 344 pixels in an idle pane is empty, and that is correct.</b> <span class="req">QSS-76</span>. Nothing has been scanned, so there is nothing to show. The distinction <span class="req">QSS-77</span> draws is between emptiness that reports a fact and emptiness that reports a layout failure: an idle pane with its action 1,900 pixels from the bottom edge is the second kind. Moving the action into the region converts it to the first.</div>
+
+<h2 id="xf">F. The census row</h2>
+<div class="reqs"><span class="req">QSS-53</span><span class="req">QSS-54</span><span class="req">QSS-59</span><span class="req">QSS-63</span></div>
+<p>One row, not two. The withdrawal count is a control, and activating it names each withdrawn check and the vocabulary that removed it.</p>
+<div class="frame" style="width:100%;max-width:720px;height:190px">
+  <section class="pane" aria-label="The vocabulary row">
+    <div class="cbar"><span class="t">Vocabulary</span></div>
+    <div class="pbody">
+      <div class="settings">
+        <div class="srow"><span class="k">Vocabulary</span>
+          <div class="rail">
+            <span class="tagf">RDFS</span><span class="tagf">OWL</span><span class="tagf">SKOS</span>
+            <button type="button" class="btn tiny" id="wdBtn" aria-expanded="false">3 withdrawn</button>
+          </div></div>
+      </div>
+      <div class="pop" id="wdPop" hidden>
+        <h4>Withdrawn checks</h4>
+        <ul>
+          <li>Retired entity references, because owl:deprecated is not used here</li>
+          <li>Stated replacement for a retired entity, because owl:deprecated is not used here</li>
+          <li>Dedicated definition coverage, because IAO is not used here</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="note bad"><b>Naming them is not a convenience.</b> <span class="req">QSS-54</span>. <span class="req q">QLY-69</span> forbids gating a check that tests for something <b>missing</b>, because gating the license rule on Dublin Core would guarantee it never fires on the ontologies that most need it. Capture 01 says three checks are withdrawn and names none, so the capture cannot establish whether that rule is honoured. The three listed above are an illustration of the shape, not a reading of the build.</div>
+
+<h2 id="xg">G. Two class counts</h2>
+<div class="reqs"><span class="req">QSS-65</span><span class="req">QSS-66</span><span class="req">QSS-67</span><span class="req">QSS-68</span></div>
+<table class="doc">
+  <thead><tr><th>Where</th><th>Reads</th><th>Problem</th></tr></thead>
+  <tbody>
+    <tr class="bad"><td>Entity kinds row</td><td><code>Classes 5,559</code></td><td rowspan="2">613 apart, neither accounting for the other. 5,559 plus 612 defined is 6,171, one short, so the two are probably counting named, defined and one more thing. Probably is not a specification.</td></tr>
+    <tr class="bad"><td>Status line</td><td><code>6,172 classes</code></td></tr>
+    <tr class="good"><td colspan="2">As specified: <code>6,172 classes of which 5,559 named and 612 defined</code></td><td>Each count accounts for the other, and a later completeness percentage has a denominator a reader can check.</td></tr>
+  </tbody>
+</table>
+<div class="note"><span class="req q">QLY-38</span> already states the principle this serves: a denominator the reader cannot account for is a denominator the reader cannot trust. <span class="req">QSS-65</span> extends it from the coverage report to every count in the pane.</div>
+
+<h2 id="xh">H. What was superseded</h2>
+<div class="reqs"><span class="req">QSS-4</span><span class="req">QSS-111</span></div>
+<p class="lede">Six requirements in <code>specs/quality/README.md</code>, five of them written earlier in the same session by the same author against the same pane. Full quotations are in Appendix B.2 of the README.</p>
+<table class="doc">
+  <thead><tr><th>Superseded</th><th>By</th><th>Reason, in one line</th></tr></thead>
+  <tbody>
+    <tr><td><span class="req q">QLY-17</span> four rows at 32, so 128</td><td><span class="req">QSS-24</span> <span class="req">QSS-26</span> <span class="req">QSS-32</span></td><td>A budget that assumes rows do not wrap is not a budget.</td></tr>
+    <tr><td><span class="req q">QLY-18</span> chrome at most 136</td><td><span class="req">QSS-75</span></td><td>It budgets the scanned pane and leaves the idle pane, which both captures show, unbudgeted.</td></tr>
+    <tr><td><span class="req q">QLY-21</span> the per region cap table</td><td><span class="req">QSS-40</span> <span class="req">QSS-41</span></td><td>A pixel table drifts as copy changes and silently omitted the limits line.</td></tr>
+    <tr><td><span class="req q">QLY-39</span> a zero kind MAY be offered</td><td><span class="req">QSS-50</span> <span class="req">QSS-51</span></td><td>The permission is what put three dead controls on screen.</td></tr>
+    <tr><td><span class="req q">QLY-45</span> the limits line is one line</td><td><span class="req">QSS-44</span> to <span class="req">QSS-48</span></td><td>One line without a measure becomes a 245 character line at a wide pane.</td></tr>
+    <tr><td><span class="req q">QLY-74</span> withdrawn and default off differ</td><td><span class="req">QSS-49</span> <span class="req">QSS-52</span> <span class="req">QSS-55</span></td><td>Correct, and never given a presentation, so both resolved to absent.</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>Three of the six share one cause.</b> Rows 1, 3 and 5 are each a rule written on one axis with no counterpart on the other. That is the third time this suite has produced that failure. <span class="req">QSS-40</span> states the measure once for every region precisely so there is no second place to forget it.</div>
+
+</div>
+<script>
+"use strict";
+
+/* The entity kinds measured in both captures. Counts are read from the
+   captures; the state each one takes is what QSS-49 requires. */
+var KINDS = [
+  { name: "Classes", n: "5,559", state: "sel" },
+  { name: "Defined classes", n: "612", state: "sel" },
+  { name: "Individuals", n: "0", state: "empty" },
+  { name: "Object properties", n: "0", state: "empty" },
+  { name: "Data properties", n: "0", state: "empty" },
+  { name: "Annotation properties", n: "11", state: "av" },
+  { name: "Datatypes", n: "1", state: "av" }
+];
+/* Six groups per QLY-46. Retired entities is withdrawn by the census and is
+   therefore absent from this list, not present and disabled. QSS-52. */
+var GROUPS = [
+  { name: "Completeness", state: "sel" },
+  { name: "Naming", state: "sel" },
+  { name: "Structure", state: "sel" },
+  { name: "Text Analysis", state: "sel" },
+  { name: "Publication metadata", state: "av" }
+];
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function $(id) { return document.getElementById(id); }
+
+function chip(c) {
+  if (c.state === "empty") {
+    return '<button type="button" class="chipc" aria-disabled="true"' +
+      ' aria-label="' + esc(c.name) + ', none in this ontology, unavailable">' +
+      '<span>' + esc(c.name) + '</span><span class="n">0</span>' +
+      '<span class="mk">n/a</span></button>';
+  }
+  var on = c.state === "sel";
+  return '<button type="button" class="chipc" aria-pressed="' + (on ? "true" : "false") + '"' +
+    ' aria-label="' + esc(c.name) + (c.n ? ", " + c.n : "") + '">' +
+    (on ? '<span class="mk">&#10003;</span>' : "") +
+    '<span>' + esc(c.name) + '</span>' +
+    (c.n ? '<span class="n">' + esc(c.n) + "</span>" : "") + "</button>";
+}
+
+/* QSS-23. Four rows and one action line, in this order, at every width. */
+function settingsHtml(withHint) {
+  return '<div class="srow"><span class="k">Scope</span>' +
+      '<select class="sel" aria-label="Scan scope"><option>Whole ontology</option>' +
+      '<option>Namespace devry.edu/courses</option>' +
+      '<option>Branch: Shop Class and descendants</option></select></div>' +
+    '<div class="srow"><span class="k">Entity kinds</span><div class="rail">' +
+      KINDS.map(chip).join("") + "</div></div>" +
+    '<div class="srow"><span class="k">Checks</span><div class="rail">' +
+      GROUPS.map(chip).join("") +
+      '<button type="button" class="btn tiny">Rules</button>' +
+      (withHint ? '<span class="hint">27 checks</span>' : "") + "</div></div>" +
+    '<div class="srow"><span class="k">Vocabulary</span><div class="rail">' +
+      '<span class="tagf">RDFS</span><span class="tagf">OWL</span><span class="tagf">SKOS</span>' +
+      '<button type="button" class="btn tiny">3 withdrawn</button></div></div>';
+}
+
+/* The as built comparison keeps the spacer and the wrapping that produced
+   capture 01, so the two forms can be read against each other. */
+function asBuiltHtml() {
+  return '<div class="srow"><span class="k">Scope</span>' +
+      '<select class="sel" aria-label="Scan scope, as built"><option>Whole ontology</option></select>' +
+      '<span class="spacer"></span>' +
+      '<button type="button" class="btn primary">Run scan</button></div>' +
+    '<div class="srow"><span class="k">Entity kinds</span><div class="rail">' +
+      KINDS.map(function (c) { return chip({ name: c.name, n: c.n, state: c.state === "empty" ? "av" : c.state }); }).join("") +
+      "</div></div>" +
+    '<div class="srow"><span class="k">Checks</span><div class="rail">' +
+      GROUPS.slice(0, 4).map(chip).join("") +
+      '<span class="hint">27 checks.</span></div></div>' +
+    '<div class="srow"><span class="k"></span><div class="rail">' +
+      '<button type="button" class="btn tiny">Rules</button></div></div>' +
+    '<div class="srow"><span class="k">Vocabulary</span><div class="rail">' +
+      '<span class="tagf">RDFS</span><span class="tagf">OWL</span><span class="tagf">SKOS</span></div></div>' +
+    '<div class="srow"><span class="k"></span><span class="hint">' +
+      'Not used here: owl:deprecated, Dublin Core, IAO. 3 checks are withdrawn.</span></div>';
+}
+
+$("set1").innerHTML = settingsHtml(true);
+$("set2").innerHTML = asBuiltHtml();
+$("set3").innerHTML = settingsHtml(false);
+
+/* QSS-50. Selected and Available toggle. Empty does not, and says why. */
+document.addEventListener("click", function (e) {
+  var c = e.target.closest(".chipc");
+  if (!c) return;
+  if (c.getAttribute("aria-disabled") === "true") {
+    say(c.textContent.replace(/n\/a$/, "").trim() + ": none in this ontology, so it cannot be scanned.");
+    return;
+  }
+  var on = c.getAttribute("aria-pressed") === "true";
+  c.setAttribute("aria-pressed", on ? "false" : "true");
+  var mk = c.querySelector(".mk");
+  if (on && mk) { mk.remove(); }
+  if (!on && !mk) { c.insertAdjacentHTML("afterbegin", '<span class="mk">&#10003;</span>'); }
+  say(c.textContent.trim() + (on ? ", not selected" : ", selected"));
+});
+
+/* QSS-53. The withdrawal count is a control that names what it removed. */
+$("wdBtn").addEventListener("click", function () {
+  var open = this.getAttribute("aria-expanded") === "true";
+  this.setAttribute("aria-expanded", open ? "false" : "true");
+  $("wdPop").hidden = open;
+  if (!open) say("Three withdrawn checks listed");
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape" || $("wdPop").hidden) return;
+  $("wdPop").hidden = true;
+  $("wdBtn").setAttribute("aria-expanded", "false");
+  $("wdBtn").focus();
+});
+
+function say(m) { var l = $("live"); if (l) l.textContent = m; }
+
+/* The four states side by side, in both themes, for an independent audit. */
+function legendHtml() {
+  return chip({ name: "Classes", n: "5,559", state: "sel" }) +
+    chip({ name: "Datatypes", n: "1", state: "av" }) +
+    chip({ name: "Individuals", n: "0", state: "empty" }) +
+    '<span style="font-size:12px;color:var(--text-muted)">Withdrawn is not rendered</span>';
+}
+$("legLight").innerHTML = legendHtml();
+$("legDark").innerHTML = legendHtml();
+
+var THEMES = ["auto", "light", "dark"];
+var WORD = { auto: "follow system", light: "light", dark: "dark" };
+var t = 0;
+$("themeBtn").addEventListener("click", function () {
+  t = (t + 1) % 3;
+  document.documentElement.setAttribute("data-theme", THEMES[t]);
+  this.textContent = "Theme: " + WORD[THEMES[t]];
+});
+</script>
+<div id="live" class="vh" role="status" aria-live="polite"></div>
+</body>
+</html>
