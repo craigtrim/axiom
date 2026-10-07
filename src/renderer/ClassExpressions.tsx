@@ -1,6 +1,5 @@
-import { EntitySource } from "./EntitySource";
-import { DetailsBack } from "./DetailsNavigation";
-import { PaneToolbar } from "./AdaptivePane";
+import { EntitySource, useEntitySource } from "./EntitySource";
+import { DetailsHeader, DetailsFooter } from "./DetailsChrome";
 import { NS, SUBCLASS, type Entity } from "../domain/model";
 import { displayName } from "../domain/rdf-model";
 import { useSnapshot, act, command } from "./client";
@@ -89,46 +88,44 @@ export function IntersectionDetails({
   const owners = s.entities.filter((e) =>
     e.classExpressions?.some((r) => r.iri === entity.iri),
   );
+  const source = useEntitySource(entity.iri);
   return (
     <section
-      className="panel entity-editor"
+      className="panel entity-editor details-pane"
       data-panel={panelId}
       aria-label={panelId === "inspector" ? "Entity inspector" : "Details"}
     >
-      {panelId !== "inspector" && (
-        <PaneToolbar label="Details navigation">
-          <DetailsBack />
-          <strong>Intersection</strong>
-        </PaneToolbar>
-      )}
-      <div className="entity-editor-content">
-        {panelId === "inspector" && <h2>Intersection</h2>}
-        <p>An AND expression: an instance must belong to every member.</p>
-        <ClassExpressions entity={entity} />
-        {!!owners.length && (
-          <section>
-            <h3>Used by</h3>
-            <ul>
-              {owners.map((owner) => (
-                <li key={owner.iri}>
-                  <button
-                    className="entity-link"
-                    onClick={() => void act("select", { iri: owner.iri })}
-                  >
-                    {displayName(owner)}
-                  </button>
-                  {owner.classExpressions?.find((r) => r.iri === entity.iri)
-                    ?.predicate ===
-                  NS.rdfs + "subClassOf"
-                    ? " is a subclass of this intersection"
-                    : " is equivalent to this intersection"}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        <EntitySource key={entity.iri} iri={entity.iri} initialOpen />
+      <DetailsHeader name="Intersection" source={source} />
+      <div className="entity-editor-content pbody">
+        <div className="details-expression">
+          <p>An AND expression: an instance must belong to every member.</p>
+          <ClassExpressions entity={entity} />
+          {!!owners.length && (
+            <section>
+              <h3>Used by</h3>
+              <ul>
+                {owners.map((owner) => (
+                  <li key={owner.iri}>
+                    <button
+                      className="entity-link"
+                      onClick={() => void act("select", { iri: owner.iri })}
+                    >
+                      {displayName(owner)}
+                    </button>
+                    {owner.classExpressions?.find((r) => r.iri === entity.iri)
+                      ?.predicate ===
+                    NS.rdfs + "subClassOf"
+                      ? " is a subclass of this intersection"
+                      : " is equivalent to this intersection"}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+        <EntitySource source={source} name="Intersection" />
       </div>
+      <DetailsFooter iri={entity.iri} />
     </section>
   );
 }

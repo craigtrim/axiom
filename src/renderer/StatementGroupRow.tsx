@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { StatementGroup } from "./statement-groups";
 import "./statement-groups.css";
+import { DetailsGlyph } from "./DetailsGlyph";
 
 export function StatementGroupRow<Value>({
   group,
@@ -17,6 +18,7 @@ export function StatementGroupRow<Value>({
   add,
   remove,
   removable = () => true,
+  details = false,
 }: {
   group: StatementGroup<Value>;
   name: string;
@@ -26,6 +28,7 @@ export function StatementGroupRow<Value>({
   add?: () => void;
   remove(value: Value, index: number): void;
   removable?: (value: Value) => boolean;
+  details?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const row = useRef<HTMLTableRowElement>(null);
@@ -107,7 +110,7 @@ export function StatementGroupRow<Value>({
                     remove(value, index);
                   }}
                 >
-                  ×
+                  {details ? <DetailsGlyph kind="remove" /> : "×"}
                 </button>
               )}
               {!grouped && addButton(true)}

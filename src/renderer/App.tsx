@@ -35,6 +35,7 @@ import {
 import { SparsityPanel } from "./SparsityPanel";
 import { QualityPanel } from "./QualityPanel";
 import { requestQualitySettings } from "./quality-view";
+import { WarningSettings } from "./SeeAlsoWarning";
 import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
@@ -441,6 +442,7 @@ export function App() {
     [shortcuts, setShortcuts] = useState(false),
     [keyboardSettings, setKeyboardSettings] = useState(false),
     [tabSettings, setTabSettings] = useState(false),
+    [warningSettings, setWarningSettings] = useState(false),
     [tabRename, setTabRename] = useState<{ id: string; name: string } | null>(
       null,
     ),
@@ -976,6 +978,7 @@ export function App() {
       if (id.startsWith("pane.")) pane(id);
       if (id === "palette") setPalette(true);
       if (id === "tabs.settings") setTabSettings(true);
+      if (id === "warnings.settings") setWarningSettings(true);
       if (id === "tabs.capture") {
         syncTabHistory(modelRef.current);
         persist();
@@ -1083,6 +1086,7 @@ export function App() {
       if (id === "workspace.preferences")
         void window.axiom.preferences.load().then((p) => {
           setPreferences(p);
+          command("warnings.seeAlso");
           command("textanalysis.reset");
           notifyTabHistory();
           command("query.reset");
@@ -1138,7 +1142,8 @@ export function App() {
       if (id === "help.shortcuts") setShortcuts(true);
       if (id === "search") {
         const focused = focusedDocument().activeElement;
-        if (focused?.closest('[data-panel="source"] .monaco-editor'))
+        if (focused?.closest(".details-source-text")) command("details.find");
+        else if (focused?.closest('[data-panel="source"] .monaco-editor'))
           command("source.find");
         else if (focused?.closest('[data-panel="textanalysis"]'))
           command("textanalysis.find");
@@ -1544,6 +1549,9 @@ export function App() {
       )}
       {tabSettings && (
         <TabHistorySettings close={() => setTabSettings(false)} />
+      )}
+      {warningSettings && (
+        <WarningSettings close={() => setWarningSettings(false)} />
       )}
       {keyboardSettings && (
         <KeyboardDialog close={() => setKeyboardSettings(false)} />

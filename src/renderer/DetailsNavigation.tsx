@@ -11,6 +11,7 @@ import { displayName } from "../domain/rdf-model";
 import type { Snapshot } from "../shared/protocol";
 import { request, report, state, useSnapshot } from "./client";
 import { followDetailsInTaxonomy } from "./taxonomy-navigation";
+import { DetailsGlyph } from "./DetailsGlyph";
 
 type Place =
   | { kind: "node"; iri: string }
@@ -63,19 +64,20 @@ const Navigation = createContext<{
   title: string;
   disabled: boolean;
 } | null>(null);
-export function DetailsBack() {
+export function DetailsBack({ quiet = false }: { quiet?: boolean }) {
   const navigation = useContext(Navigation);
   if (!navigation) return null;
   return (
     <button
       type="button"
-      className="details-back"
+      className={"details-back" + (quiet ? " btn quiet" : "")}
       aria-keyshortcuts="Backspace"
       title={navigation.title}
       disabled={navigation.disabled}
       onClick={navigation.back}
     >
-      <span aria-hidden="true">←</span> Back
+      {quiet ? <DetailsGlyph kind="back" /> : <span aria-hidden="true">←</span>}{" "}
+      Back
     </button>
   );
 }

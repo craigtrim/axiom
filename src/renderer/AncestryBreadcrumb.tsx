@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { ancestryTrail, type AncestryStep } from "../domain/ancestry";
-import { usePaneLayout } from "./AdaptivePane";
 import { useSnapshot } from "./client";
 import { editEntity } from "./authoring";
 
@@ -23,7 +22,6 @@ function description(step: AncestryStep) {
 
 export function AncestryBreadcrumb({ iri }: { iri: string }) {
   const s = useSnapshot()!;
-  const pane = usePaneLayout();
   const [expanded, setExpanded] = useState(false);
   const [limit, setLimit] = useState(2048);
   const [groups, setGroups] = useState<Set<string>>(new Set());
@@ -38,7 +36,6 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
   const entity = index.get(iri);
   if (!entity || !["Class", "Defined", "Individual"].includes(entity.kind))
     return null;
-  const vertical = pane.width < pane.height;
   const folded = result.stages.length > 5 && !expanded;
   const stages: (AncestryStep[] | number)[] = folded
     ? [
@@ -49,114 +46,69 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
     : result.stages;
   return (
     <nav
-      className="ancestry"
+      className="anc ancestry"
       aria-label="Ancestry"
-      data-orientation={vertical ? "vertical" : "horizontal"}
+      data-orientation="vertical"
     >
-      <div className="ancestry-heading">
-        <span className="ancestry-title">
-          <svg
-            viewBox="0 0 20 20"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path d="M5 5v10h10V5M5 10h10" />
-            <circle cx="5" cy="4" r="2" fill="currentColor" />
-            <circle cx="15" cy="4" r="2" fill="currentColor" />
-            <circle cx="10" cy="15" r="2.5" fill="currentColor" />
-          </svg>{" "}
-          Ancestry
-        </span>
-        {result.stages.length === 1 && !result.stages[0][0].parents.length && (
-          <span className="ancestry-summary">
-            {entity.kind === "Individual"
-              ? "No named class assigned"
-              : "Root class"}
-          </span>
-        )}
-      </div>
-      <div className="ancestry-track">
-        <ol className="ancestry-trail" aria-label="Selected entity to roots">
-          {stages.map((stage) => {
-            if (typeof stage === "number")
-              return (
-                <li className="ancestry-gap" key="gap">
-                  <button
-                    title="Show every ancestry stage"
-                    onClick={() => setExpanded(true)}
-                  >
-                    <span className="ancestry-dots" aria-hidden="true">
-                      ···
-                    </span>
-                    <span>{stage} more</span>
-                    <span className="sr-only"> ancestry stages</span>
-                  </button>
-                </li>
-              );
-            const key = stage.map((step) => step.iri).join(" ");
-            const grouped = stage.length > 1;
-            const visible = groups.has(key) ? stage : stage.slice(0, 4);
+      <ol className="ancestry-trail" aria-label="Selected entity to roots">
+        {stages.map((stage, index) => {
+          if (typeof stage === "number")
             return (
-              <li className="ancestry-stage" key={key} data-grouped={grouped}>
-                <div className={grouped ? "ancestry-peers" : undefined}>
-                  {visible.map((step) => {
-                    const selected = step.iri === iri;
-                    const content = (
-                      <>
-                        <span className="ancestry-node-mark" aria-hidden="true">
-                          {selected
-                            ? entity.kind === "Individual"
-                              ? "◆"
-                              : "▣"
-                            : step.root
-                              ? "◉"
-                              : "○"}
-                        </span>
-                        <span className="ancestry-crumb-text">
-                          {!grouped && (
-                            <small>
-                              {selected
-                                ? entity.kind === "Individual"
-                                  ? "Selected instance"
-                                  : "Selected class"
-                                : step.root
-                                  ? "Root"
-                                  : step.unresolved
-                                    ? "Referenced class"
-                                    : "Ancestor"}
-                            </small>
-                          )}
-                          <strong>{step.label}</strong>
-                        </span>
-                      </>
-                    );
-                    return selected ? (
-                      <div
-                        key={step.iri}
-                        className="ancestry-crumb ancestry-current"
-                        aria-current="page"
-                        title={description(step)}
-                      >
-                        {content}
-                      </div>
-                    ) : (
-                      <button
-                        key={step.iri}
-                        className="ancestry-crumb"
-                        data-root={step.root}
-                        aria-label={"View " + step.label + " details"}
-                        title={description(step)}
-                        onClick={() => editEntity(step.iri)}
-                      >
-                        {content}
-                      </button>
-                    );
-                  })}
+              <li className="ancestry-gap" key="gap">
+                <div className="join" />
+                <button
+                  className="lnk"
+                  title="Show every ancestry stage"
+                  onClick={() => setExpanded(true)}
+                >
+                  {stage} more<span className="sr-only"> ancestry stages</span>
+                </button>
+              </li>
+            );
+          const key = stage.map((step) => step.iri).join(" ");
+          const grouped = stage.length > 1;
+          const visible = groups.has(key) ? stage : stage.slice(0, 4);
+          const cards = visible.map((step) =>
+            step.iri === iri ? (
+              <div
+                key={step.iri}
+                className="card sel ancestry-current"
+                aria-current="page"
+                title={description(step)}
+              >
+                <span className="cap">
+                  {entity.kind === "Individual"
+                    ? "Selected instance"
+                    : "Selected class"}
+                </span>
+                <strong className="nm">{step.label}</strong>
+              </div>
+            ) : (
+              <button
+                key={step.iri}
+                className="card ancestry-crumb"
+                data-root={step.root}
+                aria-label={"View " + step.label + " details"}
+                title={description(step)}
+                onClick={() => editEntity(step.iri)}
+              >
+                <span
+                  className={"glyph" + (step.root ? " root" : "")}
+                  aria-hidden="true"
+                />
+                <strong>{step.label}</strong>
+              </button>
+            ),
+          );
+          return (
+            <li className="ancestry-stage" key={key} data-grouped={grouped}>
+              {index > 0 && <div className="join" />}
+              {grouped ? (
+                <div className="fan ancestry-peers">
+                  {cards}
                   {visible.length < stage.length && (
                     <button
-                      className="ancestry-group-more"
+                      className="lnk ancestry-group-more"
                       onClick={() => setGroups((old) => new Set(old).add(key))}
                     >
                       Show {stage.length - visible.length} more
@@ -164,14 +116,16 @@ export function AncestryBreadcrumb({ iri }: { iri: string }) {
                     </button>
                   )}
                 </div>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+              ) : (
+                cards
+              )}
+            </li>
+          );
+        })}
+      </ol>
       {result.more && (
         <div className="ancestry-actions">
-          <button onClick={() => setLimit((n) => n + 2048)}>
+          <button className="lnk" onClick={() => setLimit((n) => n + 2048)}>
             Load more ancestors
           </button>
         </div>

@@ -1,0 +1,838 @@
+/* Details: Craig's byte-pinned reference, issue #57. The pane host supplies
+ * measured presentations; no viewport or container-query breakpoints here. */
+.details-pane.details-pane {
+  color-scheme: light;
+
+  --ground: #ffffff;
+  --surface: #f6f7f9;
+  --raised: #ffffff;
+  --sunken: #f0f2f5;
+
+  --border: #e1e4e8;
+  --border-strong: #d0d7de;
+
+  --text: #1b1f24;
+  --text-muted: #57606a;
+
+  --accent: #0b5fd0;
+  --accent-hover: #0a52b4;
+  --accent-fg: #ffffff;
+  --accent-soft: #eaf2fd;
+  --accent-tint: #f4f8fe;
+
+  --ok: #0a7a3d;
+  --ok-bg: #e8f5ed;
+  --ok-border: #a9d8bd;
+
+  --warn: #8a6116;
+  --warn-bg: #fdf5e3;
+  --warn-border: #e6cf95;
+
+  --bad: #a4201a;
+  --bad-bg: #fdecea;
+  --bad-border: #e4a9a4;
+
+  --idle: #57606a;
+  --idle-border: #c6cbd1;
+
+  --row-hover: #f6f7f9;
+  --row-selected: #eaf2fd;
+
+  --focus: #0b5fd0;
+  --shadow-pop: 0 8px 24px rgba(27, 31, 36, 0.18);
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  --r-ctl: 4px;
+  --r-panel: 6px;
+  --r-card: 8px;
+  --r-pill: 999px;
+
+  --t-fast: 120ms;
+  --t-enter: 180ms;
+
+  --font:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  container-type: size;
+  font: 14px/1.5 var(--font);
+  color: var(--text);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  :is(.btn, .card, .chev, .lnk, .fmt, .src, .val),
+  .statement-value-cell input {
+    all: revert;
+    box-sizing: border-box;
+  }
+  p {
+    margin: 1em 0;
+  }
+  svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .btn:focus-visible,
+  .sel:focus-visible,
+  .val:focus-visible,
+  .src:focus-visible,
+  .statement-value-cell input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  /* band 1: header. 40px. Carries the ONE save status line for the pane. */
+  .phead {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: none;
+    min-height: 40px;
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .phead .name {
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    min-height: 26px;
+    padding: 0 9px;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-ctl);
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--row-hover);
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+  }
+  .btn.primary:hover {
+    background: var(--accent-hover);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn.quiet {
+    background: none;
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+  .btn.quiet:hover {
+    background: var(--row-hover);
+    color: var(--text);
+  }
+
+  /* The save status slot. Clean is one muted word; a draft brings its actions
+   with it. This is the only place in the pane that reports save state, which
+   is what makes withdrawing the source region below safe: the draft stays
+   visible even when its text does not. */
+  .state {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-left: auto;
+    flex: none;
+  }
+  .state .word {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .state.pending .word {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .state.invalid .word {
+    color: var(--bad);
+    font-weight: 600;
+  }
+  .state.stale .word {
+    color: var(--warn);
+    font-weight: 600;
+  }
+
+  .pbody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  /* ------------------------------------------- band 2: ancestry. 34px a tier */
+  /* No heading band: a chain of linked cards does not need a label reading
+   ANCESTRY above it. The accent treatment appears once in this pane, on the
+   selected card, and nowhere else. */
+  .anc {
+    padding: var(--sp-3) var(--sp-3) var(--sp-2);
+    display: grid;
+    gap: 0;
+  }
+  .card {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 34px;
+    padding: 0 var(--sp-3);
+    background: var(--raised);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    font-size: 14px;
+  }
+  .card.sel {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+    display: grid;
+    gap: 0;
+    align-content: center;
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .card.sel .cap {
+    font-size: 11.5px;
+    opacity: 0.85;
+  }
+  .card.sel .nm {
+    font-weight: 600;
+  }
+  .card .glyph {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--idle-border);
+  }
+  .card .glyph.root {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 3px var(--accent);
+  }
+  .card.sel .glyph {
+    border-color: currentColor;
+    box-shadow: inset 0 0 0 3px currentColor;
+  }
+
+  /* One connector that fans to the siblings of a tier. No sub card wraps them:
+   two parents at one tier are two cards at one indent, not a box. */
+  .join {
+    height: var(--sp-3);
+    margin-left: 17px;
+    border-left: 1px solid var(--border-strong);
+  }
+  .fan {
+    margin-left: 17px;
+    padding-left: var(--sp-3);
+    border-left: 1px solid var(--border-strong);
+    display: grid;
+    gap: var(--sp-1);
+  }
+  .fan > .card {
+    position: relative;
+  }
+  .fan > .card::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: calc(var(--sp-3) * -1);
+    top: 50%;
+    width: var(--sp-3);
+    border-top: 1px solid var(--border-strong);
+  }
+
+  /* ------------------------------------- band 3: statements. 30px a statement */
+  .scount {
+    padding: var(--sp-2) var(--sp-3) var(--sp-1);
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  table.st {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.st th {
+    padding: 4px var(--sp-3);
+    text-align: start;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  table.st td {
+    padding: 4px var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.st tr:last-child td {
+    border-bottom: 0;
+  }
+  .c-pred {
+    width: 160px;
+  }
+
+  .pred {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 30px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+  }
+  .pred .n {
+    font-family: var(--font);
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .chev {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--r-ctl);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .chev:hover {
+    background: var(--row-hover);
+    color: var(--text);
+  }
+
+  .vstack {
+    display: grid;
+    gap: var(--sp-1);
+  }
+  .vrow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+  :is(.val, .statement-value-cell input) {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 320px;
+    min-height: 30px;
+    padding: 0 var(--sp-2);
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--text);
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-ctl);
+  }
+  :is(.val, .statement-value-cell input)[readonly] {
+    background: none;
+    border-color: transparent;
+    padding-inline-start: 0;
+  }
+  .vact {
+    flex: none;
+    display: flex;
+    gap: 2px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .vact {
+      visibility: hidden;
+    }
+    .vrow:hover .vact,
+    .vrow:focus-within .vact {
+      visibility: visible;
+    }
+  }
+  .vtools {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding-top: 2px;
+  }
+  .lnk {
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--accent);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .lnk:hover {
+    text-decoration: underline;
+  }
+  .lnk.muted {
+    color: var(--text-muted);
+  }
+
+  .addrow {
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  }
+
+  /* ======================================================================
+   band 4: SOURCE. Not a card. One hairline, one quiet line carrying the
+   format, then the text. Nothing else stands here.
+   ====================================================================== */
+  .srcwrap {
+    color: var(--text);
+    border-top: 1px solid var(--border);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    display: grid;
+    gap: var(--sp-1);
+  }
+  /* 22px, not a band: the format name and nothing else when the draft is clean. */
+  .srcline {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 22px;
+  }
+  .fmt {
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--r-ctl);
+    padding: 1px 2px;
+    cursor: pointer;
+  }
+  .fmt:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .srcnote {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  /* The editor is sized by its content. rows is set from the line count, so four
+   lines of Turtle is four lines and the pane keeps the rest. */
+  .src {
+    display: block;
+    width: 100%;
+    max-width: 620px;
+    resize: none;
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text);
+    background: var(--sunken);
+    border: 0;
+    border-inline-start: 2px solid var(--border-strong);
+    border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+    overflow-y: auto;
+  }
+  /* The draft is legible on the region itself, so the state reads without
+   consulting the header. */
+  .srcwrap.pending .src {
+    border-inline-start-color: var(--accent);
+    background: var(--accent-tint);
+  }
+  .srcwrap.invalid .src {
+    border-inline-start-color: var(--bad);
+    background: var(--bad-bg);
+  }
+  .srcwrap.stale .src {
+    border-inline-start-color: var(--warn);
+    background: var(--warn-bg);
+  }
+
+  .srcerr {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: baseline;
+    max-width: 620px;
+    font-size: 12.5px;
+    color: var(--bad);
+  }
+  .srcerr .ln {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    flex: none;
+  }
+  .srcwarn {
+    max-width: 620px;
+    font-size: 12.5px;
+    color: var(--warn);
+  }
+
+  /* -------------------------------------------------------- the status foot */
+  .pfoot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: none;
+    min-height: 28px;
+    padding: 0 var(--sp-3);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .od-fill {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .entity-editor-content {
+    padding: 0;
+  }
+  .ancestry-trail {
+    display: contents;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ancestry-stage,
+  .ancestry-gap {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .card {
+    width: 100%;
+    font-family: inherit;
+    line-height: inherit;
+    color: inherit;
+    text-align: start;
+  }
+  button.card {
+    cursor: pointer;
+  }
+  button.card:hover {
+    background: var(--row-hover);
+  }
+  .card strong {
+    font-weight: 400;
+  }
+  .card.sel .nm {
+    font-weight: 600;
+  }
+  .ancestry-group-more,
+  .ancestry-actions {
+    justify-self: start;
+  }
+  .ancestry-actions {
+    padding-top: 8px;
+  }
+  table.st {
+    table-layout: auto;
+    font: inherit;
+  }
+  .statement-predicate-column {
+    width: 160px;
+  }
+  .statement-group-predicate {
+    gap: 4px;
+    min-height: 30px;
+    font: 12.5px/1.5 var(--mono);
+    color: var(--text);
+  }
+  .statement-group-predicate .statement-fixed {
+    padding: 0;
+    line-height: inherit;
+    flex: none;
+    overflow-wrap: normal;
+  }
+  .details-predicate-select {
+    display: inline-flex;
+    position: relative;
+    gap: 4px;
+    align-items: center;
+  }
+  .details-predicate-select > select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    opacity: 0;
+    cursor: pointer;
+    padding: 0;
+  }
+  .details-predicate-select:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: 4px;
+  }
+  .statement-value-count {
+    font: 11.5px/1.5 var(--font);
+    color: var(--text-muted);
+  }
+  .statement-value-stack {
+    display: grid;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+  }
+  .statement-value-line {
+    min-height: 0;
+  }
+  .statement-value-field {
+    max-width: 320px;
+  }
+  .statement-value-cell {
+    width: 100%;
+  }
+  .statement-value-cell input {
+    width: 100%;
+    height: auto;
+  }
+  .statement-value-cell .resource-input {
+    min-width: 0;
+    width: 100%;
+  }
+  .statement-value-stack .statement-value-tools {
+    gap: 12px;
+    min-height: 0;
+    padding-top: 2px;
+  }
+  .statement-value-stack button.statement-text-action {
+    all: revert;
+    font: 12.5px/1.5 var(--font);
+    color: var(--accent);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .statement-value-stack button.statement-value-expand {
+    color: var(--text-muted);
+    margin-left: 0;
+  }
+  .statement-value-stack button.statement-value-remove {
+    all: revert;
+    box-sizing: border-box;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .statement-value-stack button.statement-value-remove:hover {
+    background: var(--row-hover);
+    color: var(--text);
+  }
+  /* A single value's Add action remains keyboard-accessible without spending
+     permanent width on a tools band. */
+  .statement-value-stack .statement-value-line > button.statement-text-action {
+    position: absolute;
+    right: 12px;
+  }
+  .statement-value-line {
+    position: relative;
+  }
+  .statement-expression {
+    font-size: 13.5px;
+  }
+  .details-source-text {
+    min-width: 0;
+  }
+  .details-source-find {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .details-source-find input {
+    min-width: 0;
+    flex: 1;
+  }
+  .details-more-menu {
+    margin: 0;
+    padding: 8px;
+    background: var(--raised);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    box-shadow: var(--shadow-pop);
+  }
+  .details-expression {
+    padding: 12px;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .details-pane.details-pane
+    .statement-value-stack
+    button.statement-value-action {
+    opacity: 0;
+  }
+  .details-pane.details-pane
+    .statement-value-line:hover
+    .statement-value-action,
+  .details-pane.details-pane
+    .statement-value-line:focus-within
+    .statement-value-action {
+    opacity: 1;
+  }
+}
+[data-theme="dark"] .details-pane.details-pane {
+  color-scheme: dark;
+  --ground: #0d1117;
+  --surface: #161b22;
+  --raised: #1c2128;
+  --sunken: #10151c;
+  --border: #30363d;
+  --border-strong: #3d444d;
+  --text: #e6edf3;
+  --text-muted: #9ba7b4;
+  --accent: #4c9aff;
+  --accent-hover: #6aabff;
+  --accent-fg: #06192e;
+  --accent-soft: #12243a;
+  --accent-tint: #0f1a28;
+  --ok: #4ade80;
+  --ok-bg: #0f2a1b;
+  --ok-border: #1d5233;
+  --warn: #e3b341;
+  --warn-bg: #2b2211;
+  --warn-border: #5a4718;
+  --bad: #ff8d81;
+  --bad-bg: #3a1a17;
+  --bad-border: #7a3630;
+  --idle: #9ba7b4;
+  --idle-border: #454c54;
+  --row-hover: #161b22;
+  --row-selected: #12243a;
+  --focus: #6aabff;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] .details-pane.details-pane {
+    color-scheme: dark;
+    --ground: #0d1117;
+    --surface: #161b22;
+    --raised: #1c2128;
+    --sunken: #10151c;
+    --border: #30363d;
+    --border-strong: #3d444d;
+    --text: #e6edf3;
+    --text-muted: #9ba7b4;
+    --accent: #4c9aff;
+    --accent-hover: #6aabff;
+    --accent-fg: #06192e;
+    --accent-soft: #12243a;
+    --accent-tint: #0f1a28;
+    --ok: #4ade80;
+    --ok-bg: #0f2a1b;
+    --ok-border: #1d5233;
+    --warn: #e3b341;
+    --warn-bg: #2b2211;
+    --warn-border: #5a4718;
+    --bad: #ff8d81;
+    --bad-bg: #3a1a17;
+    --bad-border: #7a3630;
+    --idle: #9ba7b4;
+    --idle-border: #454c54;
+    --row-hover: #161b22;
+    --row-selected: #12243a;
+    --focus: #6aabff;
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+}
+.adaptive-pane[data-pane-id="details"][data-pane-narrow="true"] .details-pane {
+  .statement-predicate-column {
+    width: 128px;
+  }
+  .val,
+  .statement-value-cell input,
+  .statement-value-field,
+  .src {
+    max-width: none;
+  }
+  .phead .more {
+    display: none;
+  }
+}
+.adaptive-pane[data-pane-id="details"] > .pane-recovery-own {
+  padding: 0;
+  align-items: stretch;
+  justify-content: start;
+  gap: 0;
+}
+.details-pane.details-recovery .phead {
+  border-bottom: 0;
+}
+.details-recovery-header:has(> .phead:not(.details-recovery-fallback))
+  > .details-recovery-fallback {
+  display: none;
+}
+.details-pane.details-recovery .phead .btn {
+  align-self: auto;
+}
+.details-pane.details-recovery .phead .name {
+  font-size: 14px;
+}
+.details-pane.details-recovery .phead .word {
+  font-size: 12.5px;
+}
+.adaptive-pane[data-pane-id="details"] > .pane-recovery-own {
+  background: inherit;
+}
+
+.adaptive-pane[data-pane-id="details"] {
+  background: #f6f7f9;
+}
+[data-theme="dark"] .adaptive-pane[data-pane-id="details"] {
+  background: #161b22;
+}
+
+.details-pane.details-pane .statement-value-field,
+.details-pane.details-pane .statement-value-cell,
+.details-pane.details-pane .statement-value-cell .resource-input {
+  display: contents;
+}
+.details-pane.details-pane .statement-value-cell input {
+  width: auto;
+}

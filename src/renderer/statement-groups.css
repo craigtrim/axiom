@@ -36,6 +36,7 @@ table tr.statement-group-row > td,
   min-width: 0;
 }
 .statement-value-field > input,
+.statement-value-field > .seealso-value > input,
 .statement-value-field .resource-input input {
   height: 30px;
   min-height: 30px;

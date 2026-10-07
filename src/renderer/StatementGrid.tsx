@@ -136,228 +136,237 @@ export function StatementGrid({
     );
   };
   return (
-    <table
-      ref={table}
-      className="statement-grid"
-      aria-label="Entity statements"
-    >
-      <colgroup>
-        <col className="statement-predicate-column" />
-        <col />
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Predicate</th>
-          <th>Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        {groups.map((group) => {
-          const fixed = group.predicate === TYPE;
-          const single = [LABEL, COMMENT, TYPE].includes(group.predicate);
-          const name = compactIri(group.predicate, namespace);
-          return (
-            <StatementGroupRow
-              key={group.predicate}
-              group={group}
-              name={name}
-              valueKey={(v) => v.index + ":" + v.member}
-              removable={(v) => !declaration(v.t)}
-              remove={({ index, member, members }) => {
-                update(index, member, members);
-                commit();
-              }}
-              add={
-                !single && group.predicate
-                  ? () => {
-                      const last = group.values.at(-1)!.index;
-                      replace([
-                        ...triples.slice(0, last + 1),
-                        {
-                          subject,
-                          predicate: group.predicate,
-                          object: {
-                            literal: !resourcePredicate(group.predicate),
-                            value: "",
-                          },
-                        },
-                        ...triples.slice(last + 1),
-                      ]);
-                    }
-                  : undefined
-              }
-              predicate={
-                fixed ? (
-                  <span className="statement-fixed">{name}</span>
-                ) : (
-                  <PredicateSelect
-                    label={"Predicate " + group.values[0].number}
-                    value={group.predicate}
-                    options={predicates.filter(
-                      (p) =>
-                        p === group.predicate ||
-                        ((!group.predicate
-                          ? !groups.some((g) => g.predicate === p)
-                          : true) &&
-                          (![LABEL, COMMENT].includes(p) ||
-                            (group.values.length === 1 &&
-                              !groups.some((g) => g.predicate === p)))),
-                    )}
-                    namespace={namespace}
-                    change={(predicate) => {
-                      rememberPredicate(predicate, snapshot.datasetEpoch);
-                      const resource = resourcePredicate(predicate);
-                      const previous = triples.find(
-                        (t) => t.predicate === predicate,
-                      );
-                      replace(
-                        triples.map((t) =>
-                          t.predicate !== group.predicate
-                            ? t
-                            : {
-                                ...t,
-                                predicate,
-                                ...(!t.object.value
-                                  ? {
-                                      object: {
-                                        ...t.object,
-                                        literal: resource
-                                          ? false
-                                          : (previous?.object.literal ?? true),
-                                      },
-                                    }
-                                  : {}),
-                              },
-                        ),
-                      );
-                      if (
-                        !group.values.some(
-                          ({ t }) =>
-                            resource && t.object.literal && t.object.value,
-                        )
-                      )
-                        commit();
-                    }}
-                  />
-                )
-              }
-              renderValue={(
-                { t, index, member, members, number },
-                position,
-              ) => {
-                const locked = declaration(t);
-                const change = (next: Triple, save = true) => {
-                  update(index, member, members, next);
-                  if (save) commit();
-                };
-                const label =
-                  t.predicate === LABEL && position === 0
-                    ? "Entity label"
-                    : t.predicate === COMMENT && position === 0
-                      ? "Entity comment"
-                      : "Value " + number;
-                const expr = !t.object.literal && expression(t.object.value);
-                return (
-                  <div className="statement-value-cell">
-                    {locked ? (
-                      <span
-                        className="statement-fixed"
-                        title="This entity is an ontology class"
-                      >
-                        owl:Class
-                      </span>
-                    ) : !resourcePredicate(t.predicate) &&
-                      ([NS.rdfs + "seeAlso", NS.rdfs + "isDefinedBy"].includes(
-                        t.predicate,
-                      ) ||
-                        entities.get(t.predicate)?.kind ===
-                          "AnnotationProperty") ? (
-                      <ResourceInput
-                        value={t.object.value}
-                        textValue={t.object.literal}
-                        namespace={namespace}
-                        label={label}
-                        useText={(value) =>
-                          change({
-                            ...t,
-                            object: t.object.literal
-                              ? { ...t.object, value }
-                              : { literal: true, value },
-                          })
-                        }
-                        change={(value) =>
-                          change({ ...t, object: { literal: false, value } })
-                        }
-                      />
-                    ) : t.object.literal && !resourcePredicate(t.predicate) ? (
-                      <input
-                        type="text"
-                        aria-label={label}
-                        title={t.object.value}
-                        spellCheck={false}
-                        value={t.object.value}
-                        onBlur={commit}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" &&
-                            !e.shiftKey &&
-                            !e.nativeEvent.isComposing
-                          ) {
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          }
-                        }}
-                        onChange={(e) =>
-                          change(
-                            {
-                              ...t,
-                              object: { ...t.object, value: e.target.value },
+    <>
+      <table
+        ref={table}
+        className="statement-grid st"
+        aria-label="Entity statements"
+      >
+        <colgroup>
+          <col className="statement-predicate-column c-pred" />
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Predicate</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => {
+            const fixed = group.predicate === TYPE;
+            const single = [LABEL, COMMENT, TYPE].includes(group.predicate);
+            const name = compactIri(group.predicate, namespace);
+            return (
+              <StatementGroupRow
+                details
+                key={group.predicate}
+                group={group}
+                name={name}
+                valueKey={(v) => v.index + ":" + v.member}
+                removable={(v) => !declaration(v.t)}
+                remove={({ index, member, members }) => {
+                  update(index, member, members);
+                  commit();
+                }}
+                add={
+                  !single && group.predicate
+                    ? () => {
+                        const last = group.values.at(-1)!.index;
+                        replace([
+                          ...triples.slice(0, last + 1),
+                          {
+                            subject,
+                            predicate: group.predicate,
+                            object: {
+                              literal: !resourcePredicate(group.predicate),
+                              value: "",
                             },
-                            false,
+                          },
+                          ...triples.slice(last + 1),
+                        ]);
+                      }
+                    : undefined
+                }
+                predicate={
+                  fixed ? (
+                    <span className="statement-fixed">{name}</span>
+                  ) : (
+                    <PredicateSelect
+                      quiet
+                      label={"Predicate " + group.values[0].number}
+                      value={group.predicate}
+                      options={predicates.filter(
+                        (p) =>
+                          p === group.predicate ||
+                          ((!group.predicate
+                            ? !groups.some((g) => g.predicate === p)
+                            : true) &&
+                            (![LABEL, COMMENT].includes(p) ||
+                              (group.values.length === 1 &&
+                                !groups.some((g) => g.predicate === p)))),
+                      )}
+                      namespace={namespace}
+                      change={(predicate) => {
+                        rememberPredicate(predicate, snapshot.datasetEpoch);
+                        const resource = resourcePredicate(predicate);
+                        const previous = triples.find(
+                          (t) => t.predicate === predicate,
+                        );
+                        replace(
+                          triples.map((t) =>
+                            t.predicate !== group.predicate
+                              ? t
+                              : {
+                                  ...t,
+                                  predicate,
+                                  ...(!t.object.value
+                                    ? {
+                                        object: {
+                                          ...t.object,
+                                          literal: resource
+                                            ? false
+                                            : (previous?.object.literal ??
+                                              true),
+                                        },
+                                      }
+                                    : {}),
+                                },
+                          ),
+                        );
+                        if (
+                          !group.values.some(
+                            ({ t }) =>
+                              resource && t.object.literal && t.object.value,
                           )
-                        }
-                      />
-                    ) : expr ? (
-                      <span
-                        className="statement-expression"
-                        title={t.object.value}
-                      >
-                        {expr}
-                      </span>
-                    ) : (
-                      <ResourceInput
-                        value={t.object.value}
-                        namespace={namespace}
-                        label={label}
-                        textValue={t.object.literal}
-                        classesOnly={classEntity && t.predicate === SUBCLASS}
-                        exclude={
-                          classEntity && t.predicate === SUBCLASS
-                            ? [t.subject]
-                            : []
-                        }
-                        change={(value) =>
-                          change({ ...t, object: { literal: false, value } })
-                        }
-                      />
-                    )}
-                    {/* craigtrim/axiom#37: no per-value open button; Ancestry and Source cover navigation. */}
-                  </div>
-                );
-              }}
-            />
-          );
-        })}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colSpan={2}>
-            <button className="statement-add-row" onClick={addRow}>
-              + Add row
-            </button>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+                        )
+                          commit();
+                      }}
+                    />
+                  )
+                }
+                renderValue={(
+                  { t, index, member, members, number },
+                  position,
+                ) => {
+                  const locked = declaration(t);
+                  const change = (next: Triple, save = true) => {
+                    update(index, member, members, next);
+                    if (save) commit();
+                  };
+                  const label =
+                    t.predicate === LABEL && position === 0
+                      ? "Entity label"
+                      : t.predicate === COMMENT && position === 0
+                        ? "Entity comment"
+                        : "Value " + number;
+                  const expr = !t.object.literal && expression(t.object.value);
+                  return (
+                    <div className="statement-value-cell">
+                      {locked ? (
+                        <input
+                          className="val"
+                          readOnly
+                          value="owl:Class"
+                          aria-label={label}
+                          title="This entity is an ontology class"
+                        />
+                      ) : !resourcePredicate(t.predicate) &&
+                        ([
+                          NS.rdfs + "seeAlso",
+                          NS.rdfs + "isDefinedBy",
+                        ].includes(t.predicate) ||
+                          entities.get(t.predicate)?.kind ===
+                            "AnnotationProperty") ? (
+                        <ResourceInput
+                          value={t.object.value}
+                          textValue={t.object.literal}
+                          seeAlsoSubject={
+                            t.predicate === NS.rdfs + "seeAlso"
+                              ? subject
+                              : undefined
+                          }
+                          namespace={namespace}
+                          label={label}
+                          useText={(value) =>
+                            change({
+                              ...t,
+                              object: t.object.literal
+                                ? { ...t.object, value }
+                                : { literal: true, value },
+                            })
+                          }
+                          change={(value) =>
+                            change({ ...t, object: { literal: false, value } })
+                          }
+                        />
+                      ) : t.object.literal &&
+                        !resourcePredicate(t.predicate) ? (
+                        <input
+                          type="text"
+                          aria-label={label}
+                          title={t.object.value}
+                          spellCheck={false}
+                          value={t.object.value}
+                          onBlur={commit}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "Enter" &&
+                              !e.shiftKey &&
+                              !e.nativeEvent.isComposing
+                            ) {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          onChange={(e) =>
+                            change(
+                              {
+                                ...t,
+                                object: { ...t.object, value: e.target.value },
+                              },
+                              false,
+                            )
+                          }
+                        />
+                      ) : expr ? (
+                        <span
+                          className="statement-expression"
+                          title={t.object.value}
+                        >
+                          {expr}
+                        </span>
+                      ) : (
+                        <ResourceInput
+                          value={t.object.value}
+                          namespace={namespace}
+                          label={label}
+                          textValue={t.object.literal}
+                          classesOnly={classEntity && t.predicate === SUBCLASS}
+                          exclude={
+                            classEntity && t.predicate === SUBCLASS
+                              ? [t.subject]
+                              : []
+                          }
+                          change={(value) =>
+                            change({ ...t, object: { literal: false, value } })
+                          }
+                        />
+                      )}
+                      {/* craigtrim/axiom#37: no per-value open button; Ancestry and Source cover navigation. */}
+                    </div>
+                  );
+                }}
+              />
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="addrow">
+        <button className="statement-add-row lnk" onClick={addRow}>
+          + Add row
+        </button>
+      </div>
+    </>
   );
 }
