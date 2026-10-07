@@ -50,22 +50,22 @@ describe("synonyms from Find", () => {
     expect(findSynonymStatus(store, iri, query.text)).toBe("exists");
   });
   it.each(["DEVELOPMENTAL PSYCHOLOGY", "developmental psyc"])(
-    "does not duplicate the existing name or synonym %s",
+    "allows a synonym matching the name or differing only in case: %s",
     async (text) => {
       const store = await fixture(),
         before = structuredClone(store.tbox),
         version = store.version;
-      expect(addFindSynonym(store, iri, text).added).toBe(false);
-      expect(store.tbox).toEqual(before);
-      expect(store.version).toBe(version);
-      expect(store.undoStack).toHaveLength(0);
+      expect(addFindSynonym(store, iri, text).added).toBe(true);
+      expect(store.tbox).toHaveLength(before.length + 1);
+      expect(store.version).toBeGreaterThan(version);
+      expect(store.undoStack).toHaveLength(1);
     },
   );
   it("rechecks current RDF when an already displayed result is clicked twice", async () => {
     const store = await fixture();
     expect(addFindSynonym(store, iri, "Developmental Psycho").added).toBe(true);
     const version = store.version;
-    expect(addFindSynonym(store, iri, "developmental psycho").added).toBe(
+    expect(addFindSynonym(store, iri, "Developmental Psycho").added).toBe(
       false,
     );
     expect(store.version).toBe(version);

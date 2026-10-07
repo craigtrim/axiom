@@ -533,7 +533,10 @@ test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations"
     "Psy added to Psychology",
   );
   await extendMenu("Psychology");
-  await expect(page.getByRole("menuitem")).toHaveCount(3);
+  await expect(page.getByRole("menuitem")).toHaveCount(4);
+  await expect(page.getByRole("menuitem").first()).toHaveText(
+    "Synonymrdfs:seeAlso",
+  );
 });
 
 for (const count of [0, 1, 2]) {
@@ -613,7 +616,7 @@ for (const count of [0, 1, 2]) {
           .sort();
       }, iri);
     expect(await readParents()).toEqual([...expected].sort());
-    await details.locator(".statement-grid-toolbar").click();
+    await details.locator(".scount").click();
     await menu("edit.undo");
     await expect
       .poll(async () => (await state()).entities.some((e) => e.iri === iri))
@@ -942,7 +945,7 @@ test("Find adds its search text as a synonym without clearing results and refres
     "Add Developmental Psycho as a synonym of Developmental Psychology",
   );
   await add.click();
-  await expect(row.locator(".find-synonym")).toHaveCount(0);
+  await expect(row.locator(".find-synonym")).toBeEnabled();
   await expect(p).toContainText(
     "Developmental Psycho added to Developmental Psychology",
   );
@@ -993,12 +996,12 @@ test("Find adds its search text as a synonym without clearing results and refres
     "aria-busy",
     "false",
   );
-  await expect(row.locator(".find-synonym")).toHaveCount(0);
+  await expect(row.locator(".find-synonym")).toBeEnabled();
   expect((await synonymDocument()).statements).toEqual(after.statements);
   await page.screenshot({ path: "artifacts/testing/find-add-synonym.png" });
 });
 
-test("Find synonym action blocks case-insensitive duplicates and query syntax and supports keyboard activation", async () => {
+test("Find synonym action permits name and synonym matches, rejects query syntax and supports keyboard activation", async () => {
   await openSynonymFixture();
   await find("DEVELOPMENTAL PSYCHOLOGY");
   const p = pane(),
@@ -1014,9 +1017,9 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
     }),
   });
   const before = await synonymDocument();
-  await expect(row.locator(".find-synonym")).toHaveCount(0);
+  await expect(row.locator(".find-synonym")).toBeEnabled();
   await query.fill("developmental psyc");
-  await expect(row.locator(".find-synonym")).toHaveCount(0);
+  await expect(row.locator(".find-synonym")).toBeEnabled();
   for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
     await query.fill(text);
     await expect(p.locator(".find-synonym")).toHaveCount(0);
@@ -1035,7 +1038,7 @@ test("Find synonym action blocks case-insensitive duplicates and query syntax an
   });
   await add.focus();
   await add.press("Enter");
-  await expect(row.locator(".find-synonym")).toHaveCount(0);
+  await expect(row.locator(".find-synonym")).toBeEnabled();
   expect(
     (await synonymDocument()).statements
       .filter((t) => t.predicate === NS.rdfs + "seeAlso")
