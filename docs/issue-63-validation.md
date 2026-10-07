@@ -11,3 +11,5 @@ Validated on Windows, 7 October 2026:
 - Electron desktop: successive Apply/current revision/focus/last-band removal/Undo passed; rejected correction/detail reason passed; existing reviewed batch and named-graph preview passed.
 
 The report refresh runs in the domain worker. It recomputes all rules to preserve cross-entity correctness; it does not ask the user to rerun the scan.
+
+The final packaged build also passed both correction journeys. All 31 Ontology Quality desktop cases passed in the broader package audit. The retained report reference suite passed 138 exact region comparisons across 36 cases; its reference amendments cover this issue's Apply control and #65's limits presentation. Combined verification and the older desktop failures are recorded in `docs/issues-63-65-66-validation.md`.

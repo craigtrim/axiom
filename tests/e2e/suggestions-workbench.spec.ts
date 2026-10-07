@@ -158,9 +158,9 @@ test.afterEach(async ({}, info) => {
   }
   expect(errors).toEqual([]);
 });
-test("uses a native-menu title bar with the absolute path and keeps palette shortcuts", async () => {
-  await expect(page.getByTestId("window-titlebar")).toContainText(
-    "Axiom | " + file,
+test("uses the document pill with the absolute folder and keeps palette shortcuts", async () => {
+  await expect(page.getByTestId("window-titlebar").locator(".path")).toHaveText(
+    path.dirname(file),
   );
   await expect(
     page.getByTestId("window-titlebar").locator("strong"),
@@ -183,8 +183,8 @@ test("uses a native-menu title bar with the absolute path and keeps palette shor
     ).toHaveCount(0);
   await expect(
     page
-      .getByRole("navigation", { name: "Application menus" })
-      .getByRole("button", { name: "View", exact: true }),
+      .getByRole("menubar", { name: "Application menus" })
+      .getByRole("menuitem", { name: "View", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Control+Shift+P");
   await expect(

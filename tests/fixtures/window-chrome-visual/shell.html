@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom window chrome</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+  /* containers */
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+  /* stacked information: each piece is its own line, never sibling inline spans */
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+
+  /* media keeps its intrinsic ratio by default; never a distorted or cropped
+     cover by accident. height:auto lets the ratio win over a height attribute
+     on the image. Cropping to a uniform box is an explicit opt in: set
+     --od-ratio AND add .od-media-cover together (per the core rule, only where
+     a crop is deliberate, such as tile thumbs and decorative fills, never on
+     full frame content). */
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+
+  /* data text only; authored copy is rewritten to its budget instead */
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }   /* block-level reservation for a shared baseline */
+  .od-nowrap  { white-space: nowrap; }           /* number plus unit, price plus suffix, date plus weekday */
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; } /* CJK labels break at spaces or wbr first */
+
+  /* screen skeleton (optional): bars take their own space, the middle scrolls, no padding guessed for chrome */
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+  /* horizontal rail: the next item peeks at the edge; trailing room survives overflow */
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* ============================================================================
+   AXIOM WINDOW CHROME
+   Tokens continue index.html, find.html, quality.html, details.html and
+   individuals.html unchanged. Light and dark are authored independently.
+   ============================================================================ */
+:root {
+  color-scheme: light;
+
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+
+  --accent:        #0b5fd0;
+  --accent-fg:     #ffffff;
+
+  --ok:            #0a7a3d;
+
+  --warn:          #8a6116;
+
+  --bad:           #a4201a;
+
+  --idle:          #57606a;
+
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+
+  /* chrome: the only tokens this surface adds */
+  --chrome:        #eceff3;
+  --chrome-hover:  #dfe4ea;
+  --chrome-press:  #d3d9e1;
+  --chrome-border: #d7dce2;
+  --rail:          #e6eaef;
+  --rail-icon:     #4a5560;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --r-ctl: 4px;
+  --r-panel: 6px;
+  --r-card: 8px;
+  --r-pill: 999px;
+
+  --t-fast: 120ms;
+  --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* geometry. Provenance is in the Measurements panel. */
+  --h-title:  36px;
+  --h-tabs:   32px;
+  --h-status: 22px;
+  --w-rail:   48px;
+  --w-wco:    138px;   /* three native caption buttons, Windows default */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-fg: #06192e; --ok: #4ade80; --warn: #e3b341; --bad: #ff8d81; --idle: #9ba7b4; --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  --chrome: #11161d; --chrome-hover: #212831; --chrome-press: #2b333d;
+  --chrome-border: #272e37; --rail: #0f141a; --rail-icon: #9ba7b4;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-fg: #06192e; --ok: #4ade80; --warn: #e3b341; --bad: #ff8d81; --idle: #9ba7b4; --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+    --chrome: #11161d; --chrome-hover: #212831; --chrome-press: #2b333d;
+    --chrome-border: #272e37; --rail: #0f141a; --rail-icon: #9ba7b4;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: 13px/1.45 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl); }
+
+/* ---------------------------------------------------------------- shell ---- */
+.shell {
+  container-type: size;
+  container-name: shell;
+  display: grid;
+  grid-template-rows: var(--h-title) minmax(0, 1fr) var(--h-status);
+  height: 100%;
+  background: var(--ground);
+}
+
+/* ------------------------------------------------------------- titlebar ---- */
+/* One band. In Electron: titleBarStyle hidden plus titleBarOverlay, then this
+   whole header is the drag region and every control inside it opts out. */
+.titlebar {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  height: var(--h-title);
+  padding-inline: 0 var(--w-wco);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--chrome-border);
+  position: relative;
+  z-index: 40;
+}
+.titlebar button,
+.titlebar .doc,
+.titlebar .menubar { -webkit-app-region: no-drag; }
+
+.appmark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: var(--h-title);
+  border: 0;
+  background: none;
+  cursor: default;
+}
+.appmark svg { width: 18px; height: 18px; display: block; }
+
+.menubar { display: flex; align-items: center; flex: none; }
+.mtrigger {
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  cursor: default;
+  white-space: nowrap;
+}
+.mtrigger:hover { background: var(--chrome-hover); }
+.mtrigger[aria-expanded="true"] { background: var(--chrome-press); }
+.mtrigger u { text-decoration: none; }
+.shell[data-alt="on"] .mtrigger u,
+.shell[data-alt="on"] .mi u { text-decoration: underline; text-underline-offset: 2px; }
+
+/* the compact trigger replaces all eight below the fold width */
+.mcompact { display: none; }
+
+/* the document pill: filename, path, and the palette. Centred in the room the
+   menus leave, never overlapping them, never stretching to the pane edge. */
+.docwrap { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; padding-inline: var(--sp-4); }
+.doc {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 26px;
+  max-width: 460px;
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--ground) 55%, transparent);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.doc:hover { background: var(--ground); border-color: var(--chrome-border); }
+.doc svg { width: 13px; height: 13px; flex: none; }
+.doc .name { color: var(--text); font-weight: 600; flex: none; }
+.doc .dirty { color: var(--warn); font-weight: 700; flex: none; }
+.doc .path { min-width: 0; }
+
+/* the native caption buttons live in the reserved region. Drawn here only so
+   the reservation is visible; Windows draws them in the real application. */
+.wco {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: var(--w-wco);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.wco span { display: grid; place-items: center; width: 46px; height: 100%; }
+.wco svg { width: 10px; height: 10px; display: block; }
+
+/* ----------------------------------------------------------------- menu ---- */
+.menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 216px;
+  max-width: 420px;
+  padding: var(--sp-1) 0;
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  animation: pop var(--t-fast) ease-out;
+}
+@keyframes pop { from { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .menu, .scrim { animation: none; } }
+
+.mi {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--sp-3) 0 26px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: start;
+  white-space: nowrap;
+  cursor: default;
+  position: relative;
+}
+.mi:hover:not([aria-disabled="true"]),
+.mi[data-active="true"]:not([aria-disabled="true"]) { background: var(--row-selected); }
+.mi[aria-disabled="true"] { color: var(--idle); }
+.mi[aria-disabled="true"][data-active="true"] { background: var(--sunken); }
+.mi .lab { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mi .acc { flex: none; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.mi[aria-disabled="true"] .acc { color: var(--idle); }
+.mi .chev { flex: none; width: 12px; height: 12px; color: var(--text-muted); }
+.mi .tick {
+  position: absolute; inset-inline-start: 7px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 13px; color: var(--accent);
+}
+.msep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+/* ----------------------------------------------------------------- rail ---- */
+.midrow { display: grid; grid-template-columns: var(--w-rail) minmax(0, 1fr); min-height: 0; }
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--rail);
+  border-inline-end: 1px solid var(--chrome-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.railgroup { display: flex; flex-direction: column; }
+.railgroup.bottom { margin-top: auto; }
+
+.ri {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--w-rail);
+  border: 0;
+  background: none;
+  color: var(--rail-icon);
+  cursor: pointer;
+}
+.ri svg { width: 20px; height: 20px; display: block; }
+.ri:hover { color: var(--text); background: var(--chrome-hover); }
+/* current pane: a 2px bar on the leading edge plus full strength ink, so the
+   state is a shape and a weight, never colour alone */
+.ri[aria-current="true"] { color: var(--text); }
+.ri[aria-current="true"]::before {
+  content: "";
+  position: absolute; inset-block: 0; inset-inline-start: 0;
+  width: 2px; background: var(--accent);
+}
+.ri .badge {
+  position: absolute;
+  inset-block-start: 7px;
+  inset-inline-end: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ri .badge.warn { background: var(--warn); color: var(--accent-fg); }
+
+/* ----------------------------------------------------------------- tabs ---- */
+.stage { display: grid; grid-template-rows: var(--h-tabs) minmax(0, 1fr); min-width: 0; min-height: 0; }
+.tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 220px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tab:hover { background: var(--row-hover); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--ground); color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute; inset-inline: 0; inset-block-end: -1px;
+  height: 2px; background: var(--accent);
+}
+.tab .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --------------------------------------------------------------- status ---- */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--h-status);
+  padding-inline: var(--sp-2);
+  background: var(--chrome);
+  border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.statusbar .si { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; }
+.statusbar .si svg { width: 11px; height: 11px; }
+.statusbar button.si {
+  height: 18px; padding: 0 var(--sp-1); border: 0; border-radius: 3px;
+  background: none; color: inherit; font-size: 11px; cursor: pointer;
+}
+.statusbar button.si:hover { background: var(--chrome-hover); color: var(--text); }
+.statusbar .warnink { color: var(--warn); }
+.statusbar .okink { color: var(--ok); }
+.statusbar .num { font-variant-numeric: tabular-nums; color: var(--text); }
+
+/* -------------------------------------------------------------- palette ---- */
+.scrim {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(27, 31, 36, .28);
+  display: grid; justify-items: center; align-items: start;
+  padding-top: 72px;
+  animation: fade var(--t-enter) ease-out;
+}
+@keyframes fade { from { opacity: 0; } }
+:root[data-theme="dark"] .scrim { background: rgba(0, 0, 0, .55); }
+.palette {
+  width: min(620px, 92vw);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.palette input {
+  width: 100%; height: 36px; padding: 0 var(--sp-3);
+  border: 0; border-bottom: 1px solid var(--border);
+  background: var(--raised); color: var(--text); font: 13px var(--font);
+}
+.palette input:focus { outline: none; box-shadow: inset 0 -2px 0 var(--accent); }
+.plist { max-height: 340px; overflow-y: auto; padding: var(--sp-1) 0; }
+.pi {
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%;
+  padding: var(--sp-1) var(--sp-3); border: 0; background: none;
+  color: var(--text); font-size: 13px; text-align: start; cursor: pointer;
+}
+.pi[data-active="true"] { background: var(--row-selected); }
+.pi .ppath { color: var(--text-muted); font-size: 11px; }
+.pi .pacc { margin-inline-start: auto; color: var(--text-muted); font-size: 11px; }
+.pempty { padding: var(--sp-4) var(--sp-3); color: var(--text-muted); font-size: 12px; }
+
+/* ----------------------------------------------------------- stage body ---- */
+.sheet { overflow-y: auto; padding: var(--sp-5) var(--sp-5) var(--sp-8); background: var(--ground); }
+.measure { max-width: 860px; }
+.sheet h1 { margin: 0 0 var(--sp-1); font-size: 17px; font-weight: 600; }
+.sheet h2 { margin: var(--sp-6) 0 var(--sp-2); font-size: 13px; font-weight: 600; }
+.sheet p  { margin: 0 0 var(--sp-3); color: var(--text-muted); max-width: 72ch; }
+.sheet code { font: 12px var(--mono); background: var(--sunken); padding: 1px 4px; border-radius: 3px; }
+.lede { color: var(--text) !important; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: var(--sp-3); }
+.tbl th, .tbl td { text-align: start; padding: 5px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: top; }
+.tbl th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.tbl td.n { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+
+/* the before and after exhibit, both drawn at the same scale */
+.exhibit { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-bottom: var(--sp-3); }
+.spec { flex: 1 1 340px; min-width: 300px; }
+.spec .cap { font-size: 11px; color: var(--text-muted); margin-bottom: var(--sp-1); }
+.spec .cap b { color: var(--text); font-weight: 600; }
+.frame { border: 1px solid var(--border-strong); border-radius: var(--r-card); overflow: hidden; }
+
+/* a faithful redraw of the capture: two ink rows on one ground */
+.old { background: #f3f3f3; color: #1b1f24; }
+.old .r1 { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; font-size: 12px; }
+.old .r1 .ic { width: 16px; height: 16px; background: #1456a0; border-radius: 2px; flex: none; }
+.old .r2 { display: flex; align-items: center; gap: 26px; height: 35px; padding: 0 13px; font-size: 12px; }
+.old .empty {
+  flex: 1 1 auto; height: 22px; margin-inline-start: 26px;
+  background: repeating-linear-gradient(135deg, #e3e3e3 0 4px, #f3f3f3 4px 8px);
+}
+.old .body { height: 40px; background: #fafafa; border-top: 1px solid #ececec; }
+.old .ind { width: 104px; height: 2px; margin: 10px 0 0 90px; background: #0b5fd0; }
+
+/* a redraw of the new band at the same scale */
+.neu { background: var(--chrome); color: var(--text); }
+.neu .r1 { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 4px; font-size: 12px; }
+.neu .r1 .ic { width: 16px; height: 16px; background: var(--accent); border-radius: 2px; flex: none; margin-inline-end: 6px; }
+.neu .r1 .m { padding: 0 6px; }
+.neu .pill {
+  margin-inline: auto; display: flex; gap: 6px; align-items: center; height: 24px;
+  padding: 0 10px; border-radius: 4px; background: var(--ground); font-size: 11px; color: var(--text-muted);
+}
+.neu .pill b { color: var(--text); }
+.neu .wc { display: flex; gap: 14px; color: var(--text-muted); padding-inline-start: 12px; }
+.neu .body { height: 75px; background: var(--ground); border-top: 1px solid var(--chrome-border); }
+.neu .ind { width: 104px; height: 2px; margin: 10px 0 0 90px; background: var(--accent); }
+
+.ruler { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font-size: 11px; }
+.ruler .bar { height: 8px; border-radius: 2px; }
+.ruler .b-old { background: var(--bad); }
+.ruler .b-new { background: var(--ok); }
+
+.note { border-inline-start: 2px solid var(--border-strong); padding-inline-start: var(--sp-3); margin-bottom: var(--sp-3); }
+.note b { font-weight: 600; color: var(--text); }
+.quote { font-style: italic; color: var(--text-muted); max-width: 72ch; margin: 0 0 var(--sp-2); }
+.kbd {
+  display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid var(--border-strong);
+  border-bottom-width: 2px; border-radius: 3px; background: var(--surface);
+  font: 11px var(--mono); text-align: center; color: var(--text);
+}
+
+/* ---------------------------------------------------- compact behaviour ---- */
+/* These three thresholds are this surface's own. docs/adaptive-pane-ux.md
+   governs the ten dockable panes and does not reach window chrome. */
+@container shell (max-width: 1100px) {
+  .doc .path { display: none; }
+  .doc { max-width: 260px; }
+}
+@container shell (max-width: 820px) {
+  .menubar { display: none; }
+  .mcompact { display: grid; place-items: center; width: 32px; height: 26px; border: 0; border-radius: var(--r-ctl); background: none; cursor: default; }
+  .mcompact:hover { background: var(--chrome-hover); }
+  .mcompact[aria-expanded="true"] { background: var(--chrome-press); }
+  .mcompact svg { width: 15px; height: 15px; display: block; }
+}
+@container shell (max-width: 620px) {
+  .docwrap { display: none; }
+  .statusbar .opt { display: none; }
+}
+@container shell (max-height: 420px) {
+  .railgroup.bottom .optr { display: none; }
+}
+/* recovery: below this there is no room for chrome affordances at all */
+@container shell (max-width: 239px), shell (max-height: 119px) {
+  .rail, .tabs, .statusbar { display: none; }
+  .titlebar { padding-inline-end: 0; }
+  .wco { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell" id="shell" data-alt="off">
+
+  <header class="titlebar" id="titlebar">
+    <div class="appmark" id="appmark" aria-hidden="true"></div>
+    <button class="mcompact" id="mcompact" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Application menu"></button>
+    <nav class="menubar" id="menubar" role="menubar" aria-label="Application"></nav>
+    <div class="docwrap">
+      <button class="doc" id="doc" type="button" aria-haspopup="dialog" title="Open the command palette"></button>
+    </div>
+    <div class="wco" id="wco" aria-hidden="true"></div>
+  </header>
+
+  <div class="midrow">
+    <nav class="rail" id="rail" aria-label="Panes"></nav>
+    <div class="stage">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open documents"></div>
+      <div class="sheet od-scroll" id="sheet" role="tabpanel" tabindex="0" aria-labelledby="tab-0">
+        <div class="measure">
+
+<h1>Axiom window chrome</h1>
+<p class="lede">One band instead of two. The menus, the document and the native caption buttons share a 36 pixel title bar. The panes move to a rail. The window reports itself in a 22 pixel status bar. Nothing about which commands exist, how they are grouped or what they are called has changed.</p>
+
+<h2>What the capture measures</h2>
+<p>Every number below was read out of the attached screenshot of Axiom, row by row, in device pixels.</p>
+<table class="tbl">
+  <thead><tr><th>Region</th><th>Rows</th><th class="n">Device px</th></tr></thead>
+  <tbody>
+    <tr><td>Inset above the title ink</td><td>y 0 to 9</td><td class="n">10</td></tr>
+    <tr><td>Title ink: app icon, title string, caption buttons</td><td>y 10 to 43</td><td class="n">34</td></tr>
+    <tr><td>Empty gutter between the two ink rows</td><td>y 44 to 72</td><td class="n">29</td></tr>
+    <tr><td>Menu ink: the eight labels</td><td>y 73 to 94</td><td class="n">22</td></tr>
+    <tr><td>Ground below the menu ink</td><td>y 95 to 105</td><td class="n">11</td></tr>
+    <tr><td><b>Chrome above the content</b></td><td>y 0 to 105</td><td class="n"><b>106</b></td></tr>
+  </tbody>
+</table>
+<p>The two rows sit on one unbroken ground. Every row from 0 to 105 has the same modal colour, <code>#f3f3f3</code>, and the content ground <code>#fafafa</code> begins at row 106. There is no rule, no shade change and no border anywhere between the title bar and the menu bar. They already look like one band, because they already are one band. <b>29 of those 106 rows, 27% of the chrome, is the blank gutter between two rows of text printed on the same colour.</b></p>
+
+<h2>The menu band is three quarters empty</h2>
+<table class="tbl">
+  <thead><tr><th>Label</th><th class="n">x from</th><th class="n">x to</th><th class="n">Ink width</th></tr></thead>
+  <tbody>
+    <tr><td>File</td><td class="n">19</td><td class="n">50</td><td class="n">32</td></tr>
+    <tr><td>Edit</td><td class="n">90</td><td class="n">126</td><td class="n">37</td></tr>
+    <tr><td>View</td><td class="n">164</td><td class="n">211</td><td class="n">48</td></tr>
+    <tr><td>Tools</td><td class="n">249</td><td class="n">300</td><td class="n">52</td></tr>
+    <tr><td>Graph</td><td class="n">339</td><td class="n">398</td><td class="n">60</td></tr>
+    <tr><td>Query</td><td class="n">438</td><td class="n">498</td><td class="n">61</td></tr>
+    <tr><td>Window</td><td class="n">536</td><td class="n">619</td><td class="n">84</td></tr>
+    <tr><td>Help</td><td class="n">659</td><td class="n">703</td><td class="n">45</td></tr>
+  </tbody>
+</table>
+<p>The band is 2,867 device pixels wide. The last label ends at 703. <b>2,163 pixels, 75.4% of a full width band, carries nothing</b>, and the eight labels themselves are 419 pixels of ink. This is the same defect the Ontology Quality settings region has, where a flexible spacer pushes the primary action 1,520 pixels across an empty row. Here it is not one row that is mostly empty. It is a whole band.</p>
+
+<h2>Before and after, drawn at the same scale</h2>
+<div class="exhibit">
+  <div class="spec">
+    <div class="cap"><b>Now.</b> Two bands, 106 device px above the content.</div>
+    <div class="frame old">
+      <div class="r1"><span class="ic"></span><span>Axiom | C:\Users\Craig\Desktop\<b>Ontology.axiom</b></span></div>
+      <div class="r2"><span>File</span><span>Edit</span><span>View</span><span>Tools</span><span>Graph</span><span>Query</span><span>Window</span><span>Help</span><span class="empty"></span></div>
+      <div class="body"><div class="ind"></div></div>
+    </div>
+  </div>
+  <div class="spec">
+    <div class="cap"><b>Proposed.</b> One band, 36 CSS px.</div>
+    <div class="frame neu">
+      <div class="r1">
+        <span class="ic"></span>
+        <span class="m">File</span><span class="m">Edit</span><span class="m">View</span><span class="m">Tools</span><span class="m">Graph</span><span class="m">Query</span><span class="m">Window</span><span class="m">Help</span>
+        <span class="pill"><b>Ontology.axiom</b> C:\Users\Craig\Desktop</span>
+        <span class="wc"><span>_</span><span>&#9633;</span><span>&#10005;</span></span>
+      </div>
+      <div class="body"><div class="ind"></div></div>
+    </div>
+  </div>
+</div>
+<p>Both frames are 111 pixels tall. The second one gives 35 of them back to the ontology.</p>
+<div class="ruler">
+  <span class="bar b-old" style="width:71px"></span><span>71 CSS px of chrome now, reading the capture at 150% scaling</span>
+</div>
+<div class="ruler">
+  <span class="bar b-new" style="width:36px"></span><span>36 CSS px proposed</span>
+</div>
+<p>The capture does not record its display scaling, and the evidence in it is split: a 16 pixel title icon drawn at 34 device pixels argues for 200%, while the text metrics argue for 150% with a 14 pixel font. So the 106 rows are either 71 or 53 CSS pixels. The new band is 36 under either reading, which is why the comparison is safe to make and the exact scale is not worth guessing at.</p>
+
+<h2>Where each thing went</h2>
+<table class="tbl">
+  <thead><tr><th>Thing</th><th>Was</th><th>Is now</th></tr></thead>
+  <tbody>
+    <tr><td>The eight menus</td><td>A dedicated full width band</td><td>Inline in the title band, each at its own width</td></tr>
+    <tr><td>The document</td><td>A static title string</td><td>A pill naming the file and its folder, which opens the command palette</td></tr>
+    <tr><td>Minimize, maximize, close</td><td>Native, far right</td><td>Still native, in a 138 pixel region the band reserves and never draws into</td></tr>
+    <tr><td>Reaching a pane</td><td>The View menu, 20 entries deep</td><td>The rail, one click, with View kept whole as the keyboard route</td></tr>
+    <tr><td>Save state</td><td>An asterisk in the title string</td><td>The asterisk, plus a status bar segment that says which state it is in</td></tr>
+  </tbody>
+</table>
+
+<h2>The rail is why the View menu can stay long</h2>
+<p>Axiom has at least fourteen panes with a View entry: Find, Details, Source, Individuals, Text Analysis, Add entity, Suggestions, Suggestion runs, Touchpoints, Sparsity, Ontology Quality, Tab History, Error log and the command palette. A View menu that lists all of them is correct, and unusable as the only pointer route to any of them. The rail carries the ten you move between, one click each, with a badge when a pane has something waiting, and scrolls rather than hiding one if the window is too short for all ten. View stays complete for the keyboard and the palette. Neither one is a worse version of the other.</p>
+
+<h2>Menu contents are unchanged</h2>
+<p>Grouping, counts, submenus and access keys come from <code>docs/menu-ux.md</code>. The Window menu is that document's list verbatim, Move pane submenu included. Show instances carries its count and would disable itself at zero, per the counts rule. Separators mark the groups, which is what that document recommends first and cascades second. Redo is rendered disabled and still focusable, as the W3C pattern requires.</p>
+<table class="tbl">
+  <thead><tr><th>Menu</th><th>Source of its contents</th></tr></thead>
+  <tbody>
+    <tr><td>Window</td><td>Documented in full and reproduced verbatim</td></tr>
+    <tr><td>File, Edit, View</td><td>Documented item by item across the docs tree</td></tr>
+    <tr><td>Graph</td><td>Top level documented. Layout and Pan and zoom are named as existing submenus but their items are not enumerated anywhere, so the items shown are a placeholder</td></tr>
+    <tr><td>Tools</td><td>Only Check ontology is documented. The second entry is inferred</td></tr>
+    <tr><td>Query</td><td>Inferred from the query history and SPARQL editor documents</td></tr>
+    <tr><td>Help</td><td>Not enumerated anywhere in the docs tree</td></tr>
+  </tbody>
+</table>
+
+<h2>Wiring it in Electron</h2>
+<table class="tbl">
+  <tbody>
+    <tr><td><code>titleBarStyle</code></td><td>Set to <code>hidden</code> so the frame stops drawing its own caption</td></tr>
+    <tr><td><code>titleBarOverlay</code></td><td>Give it <code>color</code>, <code>symbolColor</code> and <code>height: 36</code>. Windows then draws the three caption buttons itself, inside the band</td></tr>
+    <tr><td>Drag region</td><td>The header is <code>-webkit-app-region: drag</code>. Every control inside it sets <code>no-drag</code>. Miss one and it stops responding to the pointer</td></tr>
+    <tr><td>Reserved width</td><td><code>--w-wco</code> is 138px, the Windows default for three buttons. Read <code>env(titlebar-area-width)</code> if you want the real figure at runtime</td></tr>
+    <tr><td>The glyphs here</td><td>Placeholders, drawn so the reservation is visible. Delete them: they are not yours to draw</td></tr>
+    <tr><td>Theme</td><td>Update <code>titleBarOverlay</code> through <code>setTitleBarOverlay</code> when the theme changes, or the caption buttons keep the old colour</td></tr>
+  </tbody>
+</table>
+
+<h2>What this supersedes, and what it does not</h2>
+<div class="note">
+  <p class="quote">"The duplicate filename and command palette icon have been removed."</p>
+  <p><b>Superseded, narrowly.</b> From <code>docs/workbench-controls.md</code>. There is still no duplicate filename: the pill is the only place the document is named. But the pill does open the palette from the chrome, which that sentence removed. The difference from what was taken out is that this is the document itself, not an icon sitting beside it.</p>
+</div>
+<div class="note">
+  <p class="quote">"Windows retains the native minimize, maximize and close controls."</p>
+  <p><b>Not superseded.</b> The overlay is drawn by Windows, so the controls stay native, keep their snap layouts flyout on hover, and keep their accessibility. This is the whole reason to use the overlay rather than draw three buttons.</p>
+</div>
+<div class="note">
+  <p class="quote">"The Windows title bar shows Axiom | absolute path, with the filename in bold. An asterisk indicates unsaved changes."</p>
+  <p><b>Kept.</b> The pill shows the filename in bold with its folder beside it and the asterisk when there are unsaved changes. The window title property should keep carrying the full string for the taskbar and for screen readers.</p>
+</div>
+
+<h2>Two decisions worth not undoing</h2>
+<div class="note">
+  <p><b>The status bar is one left aligned row.</b> VS Code splits its status bar and pushes a group to the far right. At 2,867 pixels that puts a clickable item most of a screen away from the thing it describes, which is the defect this whole file is about. Every segment sits in reading order from the left, and the empty width after the last one is correct rather than unfinished.</p>
+</div>
+<div class="note">
+  <p><b>A badge is a count capped at 999 plus.</b> Ontology Quality has 6,844 findings. A 48 pixel rail cannot print that, and widening the rail to fit a number is the same mistake one scale down. A count of zero renders no badge at all, because a badge reading zero is a notification that nothing happened.</p>
+</div>
+
+<h2>Thresholds</h2>
+<p>Three, each stated once, as container queries against the shell rectangle. <code>docs/adaptive-pane-ux.md</code> governs the ten dockable panes at 600 and 400, and does not reach window chrome, so these are this surface's own numbers rather than a contradiction of that policy.</p>
+<table class="tbl">
+  <thead><tr><th class="n">Width</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td class="n">1100</td><td>The pill drops the folder and keeps the filename</td></tr>
+    <tr><td class="n">820</td><td>The eight triggers fold into one button whose popup carries all eight menus</td></tr>
+    <tr><td class="n">620</td><td>The pill withdraws. The status bar sheds its counts and keeps save state</td></tr>
+    <tr><td class="n">239</td><td>Recovery. The rail, tabs and status bar withdraw and the band is the whole chrome</td></tr>
+  </tbody>
+</table>
+
+<h2>Keyboard</h2>
+<table class="tbl">
+  <tbody>
+    <tr><td><span class="kbd">Alt</span></td><td>Reveals the access key underlines and moves focus to File</td></tr>
+    <tr><td><span class="kbd">Alt</span> plus a letter</td><td>Opens that menu directly</td></tr>
+    <tr><td><span class="kbd">Left</span> <span class="kbd">Right</span></td><td>Moves between menus. Inside a submenu, Left closes it and returns focus to its parent</td></tr>
+    <tr><td><span class="kbd">Up</span> <span class="kbd">Down</span> <span class="kbd">Home</span> <span class="kbd">End</span></td><td>Moves through items. Disabled items take focus and do not run</td></tr>
+    <tr><td>A letter</td><td>Runs the item carrying that access key</td></tr>
+    <tr><td><span class="kbd">Esc</span></td><td>Closes the current level and returns focus to what opened it</td></tr>
+    <tr><td><span class="kbd">Tab</span></td><td>Leaves the menu entirely rather than moving within it</td></tr>
+    <tr><td><span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">P</span></td><td>Opens the command palette, which searches every leaf command in all eight menus</td></tr>
+  </tbody>
+</table>
+
+<h2>What is live here</h2>
+<p>All eight menus open and navigate. Theme and Workbench arrangement are real radio groups. Save clears the unsaved marker in the pill and the status bar, and Undo sets it again. The rail switches panes and drives the tab strip and the status bar. The palette searches the real menu model and runs what it finds. The sheet you are reading is a placeholder for the pane content, not a proposed view.</p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="statusbar" id="statusbar"></footer>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <input id="pq" type="text" role="combobox" placeholder="Type a command" autocomplete="off" spellcheck="false" aria-label="Command palette" aria-controls="plist" aria-expanded="true" aria-autocomplete="list">
+    <div class="plist" id="plist" role="listbox" aria-label="Commands"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------ icons ---- */
+  var I = {
+    hierarchy: '<path d="M4 3h6v4H4z"/><path d="M14 10h6v4h-6z"/><path d="M14 17h6v4h-6z"/><path d="M7 7v12M7 12h7M7 19h7"/>',
+    graph: '<circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="5" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7.2 7.3 10.2 15.9M16.9 6.6 13.7 15.8M7.4 5.6 16.6 5.1"/>',
+    find: '<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20.5 20.5"/>',
+    grid: '<path d="M3 5h18v14H3z"/><path d="M3 10h18M3 15h18M9 5v14"/>',
+    panel: '<path d="M4 4h16v16H4z"/><path d="M4 8.5h16M8 12.5h8M8 16.5h5"/>',
+    code: '<path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>',
+    text: '<path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5M8 13h8M8 17h5"/>',
+    bulb: '<path d="M9 18.5h6M10 21.5h4"/><path d="M12 2.5a6 6 0 0 0-3.5 10.9c.6.5.9 1.2.9 1.9v.2h5.2v-.2c0-.7.3-1.4.9-1.9A6 6 0 0 0 12 2.5z"/>',
+    shield: '<path d="M12 2.5 20 6v6c0 4.5-3.2 8.3-8 9.5C7.2 20.3 4 16.5 4 12V6z"/><path d="M8.5 12.2 11 14.7l4.5-5"/>',
+    terminal: '<path d="M3 4h18v16H3z"/><path d="M7 9.5 10 12.5 7 15.5M13 15.5h4"/>',
+    warn: '<path d="M12 3.4 22 20.6H2z"/><path d="M12 10v4.6M12 17.6v.1"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>',
+    chev: '<path d="M9 5l7 7-7 7"/>',
+    tick: '<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+    burger: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    save: '<path d="M4 4h12l4 4v12H4z"/><path d="M8 4v5h7M8 14h8v6H8z"/>'
+  };
+  function svg(n, cls) {
+    return '<svg class="' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+      I[n] + '</svg>';
+  }
+
+  /* ------------------------------------------------------------- state --- */
+  var S = {
+    pane: "hierarchy",
+    tab: 0,
+    dirty: true,
+    theme: "auto",
+    arrange: "automatic",
+    layout: "force",
+    staleScan: true,
+    alt: false,
+    openMenu: null,
+    stack: [],
+    returnFocus: null
+  };
+
+  var FILE = "Ontology.axiom";
+  var FOLDER = "C:\\Users\\Craig\\Desktop";
+
+  /* ------------------------------------------------------------- menus --- */
+  /* Contents follow docs/menu-ux.md and the surrounding docs tree. This file
+     changes where the menu bar sits, never what is in it. */
+  var MENUS = [
+    { id: "file", label: "File", key: "F", items: [
+      { l: "New window", k: "N" },
+      { sep: 1 },
+      { l: "Open", k: "O", sub: [
+        { l: "Workspace...", k: "W", s: "Ctrl+O" },
+        /* Windows numbers a recent list, so the access key is in the label */
+        { l: "Recent", k: "R", sub: [
+          { l: "1 C:\\Users\\Craig\\Desktop\\Ontology.axiom", k: "1" },
+          { l: "2 C:\\Users\\Craig\\AppData\\Local\\Temp\\schools.ttl", k: "2" },
+          { l: "3 C:\\Users\\Craig\\Documents\\fashion.axiom", k: "3" },
+          { l: "4 C:\\Users\\Craig\\Documents\\pizza.ttl", k: "4" }
+        ] },
+        { l: "Examples", k: "E", sub: [ { l: "Pizza", k: "P" } ] }
+      ] },
+      { l: "Save", k: "S", s: "Ctrl+S", act: "save" },
+      { l: "Save as...", k: "A" },
+      { sep: 1 },
+      { l: "Import ontology", k: "I" },
+      { l: "Export ontology", k: "E" },
+      { sep: 1 },
+      { l: "Exit", k: "x" }
+    ] },
+
+    { id: "edit", label: "Edit", key: "E", items: [
+      { l: "Undo", k: "U", s: "Ctrl+Z", act: "undo" },
+      { l: "Redo", k: "R", s: "Ctrl+Y", dis: 1 },
+      { sep: 1 },
+      { l: "Find...", k: "F", s: "Ctrl+F", pane: "find" },
+      { sep: 1 },
+      { l: "New class", k: "C" },
+      { l: "New individual", k: "I" },
+      { l: "Show instances", k: "S", count: 527 },
+      { sep: 1 },
+      { l: "Settings", k: "T", sub: [
+        { l: "Graph appearance", k: "G" },
+        { l: "Tab history", k: "T" },
+        { l: "Warnings", k: "W" },
+        { sep: 1 },
+        { l: "Clear model cache", k: "M" },
+        { l: "Clear Wikipedia cache", k: "K" }
+      ] },
+      { l: "Keyboard shortcuts", k: "K" }
+    ] },
+
+    { id: "view", label: "View", key: "V", items: [
+      { l: "Command palette", k: "P", s: "Ctrl+Shift+P", act: "palette" },
+      { sep: 1 },
+      { l: "Hierarchy", k: "H", pane: "hierarchy" },
+      { l: "Graph", k: "G", pane: "graph" },
+      { l: "Details", k: "D", s: "Ctrl+8", pane: "details" },
+      { l: "Source", k: "S", s: "Ctrl+7", pane: "source" },
+      { l: "Individuals", k: "I", pane: "individuals" },
+      { sep: 1 },
+      { l: "Find", k: "F", pane: "find" },
+      { l: "Add entity", k: "A" },
+      { l: "Suggestions", k: "U", pane: "suggestions" },
+      { l: "Suggestion runs", k: "R" },
+      { l: "Touchpoints", k: "O" },
+      { sep: 1 },
+      { l: "Text Analysis", k: "T", pane: "text" },
+      { l: "Sparsity", k: "Y" },
+      { l: "Ontology Quality", k: "Q", pane: "quality" },
+      { sep: 1 },
+      { l: "Tab History", k: "B" },
+      { l: "Error log", k: "E", pane: "errors" },
+      { sep: 1 },
+      { l: "Workbench arrangement", k: "W", sub: [
+        { l: "Automatic", k: "A", radio: "arrange", val: "automatic" },
+        { l: "Standard", k: "S", radio: "arrange", val: "standard" },
+        { l: "Widescreen", k: "W", radio: "arrange", val: "widescreen" }
+      ] },
+      { l: "Theme", k: "M", sub: [
+        { l: "System", k: "S", radio: "theme", val: "auto" },
+        { l: "Light", k: "L", radio: "theme", val: "light" },
+        { l: "Dark", k: "D", radio: "theme", val: "dark" }
+      ] },
+      { sep: 1 },
+      { l: "Zoom in", k: "N", s: "Ctrl+Plus" },
+      { l: "Zoom out", k: "Z", s: "Ctrl+Minus" }
+    ] },
+
+    { id: "tools", label: "Tools", key: "T", items: [
+      { l: "Check ontology", k: "C", pane: "quality", act: "scan" },
+      { l: "Sparsity report", k: "S" }
+    ] },
+
+    { id: "graph", label: "Graph", key: "G", items: [
+      { l: "Expand", k: "E" },
+      { l: "Collapse", k: "C" },
+      { sep: 1 },
+      { l: "Edges", k: "D", sub: [ { l: "Connect nodes", k: "C", s: "C" } ] },
+      { l: "Edit graph stylesheet", k: "S" },
+      { sep: 1 },
+      { l: "Layout", k: "L", sub: [
+        { l: "Force directed", k: "F", radio: "layout", val: "force" },
+        { l: "Hierarchical", k: "H", radio: "layout", val: "hier" },
+        { l: "Radial", k: "R", radio: "layout", val: "radial" }
+      ] },
+      { l: "Pan and zoom", k: "P", sub: [
+        { l: "Zoom to fit", k: "F" },
+        { l: "Zoom to selection", k: "S" },
+        { l: "Reset zoom", k: "R" }
+      ] }
+    ] },
+
+    { id: "query", label: "Query", key: "Q", items: [
+      { l: "New query", k: "N", pane: "query" },
+      { l: "Run query", k: "R", s: "Ctrl+Enter" },
+      { sep: 1 },
+      { l: "Query history", k: "H" },
+      { l: "Open query", k: "O" }
+    ] },
+
+    { id: "window", label: "Window", key: "W", items: [
+      { l: "Next pane", k: "N" },
+      { l: "Previous pane", k: "P" },
+      { l: "Next tab", k: "T" },
+      { l: "Previous tab", k: "R" },
+      { sep: 1 },
+      { l: "Move pane", k: "M", sub: [
+        { l: "Left", k: "L" }, { l: "Right", k: "R" },
+        { l: "Top", k: "T" }, { l: "Bottom", k: "B" }
+      ] },
+      { l: "Group pane with graph", k: "G" },
+      { l: "Make pane wider", k: "W" },
+      { l: "Make pane narrower", k: "A" },
+      { sep: 1 },
+      { l: "Maximise pane", k: "X" },
+      { l: "Float pane", k: "F" },
+      { l: "Detach pane to window", k: "D" },
+      { l: "Return all panes to main window", k: "E" },
+      { l: "Close pane", k: "C" }
+    ] },
+
+    { id: "help", label: "Help", key: "H", items: [
+      { l: "Documentation", k: "D" },
+      { l: "Release notes", k: "R" },
+      { sep: 1 },
+      { l: "About Axiom", k: "A" }
+    ] }
+  ];
+
+  var PANES = [
+    { id: "hierarchy",   label: "Hierarchy",        icon: "hierarchy" },
+    { id: "graph",       label: "Graph",            icon: "graph" },
+    { id: "details",     label: "Details",          icon: "panel" },
+    { id: "source",      label: "Source",           icon: "code" },
+    { id: "individuals", label: "Individuals",      icon: "grid" },
+    { id: "find",        label: "Find",             icon: "find" },
+    { id: "text",        label: "Text Analysis",    icon: "text" },
+    { id: "suggestions", label: "Suggestions",      icon: "bulb",   badge: 10 },
+    { id: "quality",     label: "Ontology Quality", icon: "shield", badge: 6844, warn: 1 },
+    { id: "query",       label: "Query",            icon: "terminal" }
+  ];
+  var BOTTOM = [
+    { id: "errors",   label: "Error log", icon: "warn", badge: 0, opt: 1 },
+    { id: "settings", label: "Settings",  icon: "gear" }
+  ];
+  var TABS = [
+    { label: "Ontology.axiom" },
+    { label: "schools.ttl" },
+    { label: "instances.rq" }
+  ];
+
+  /* ------------------------------------------------------------- utils --- */
+  var $ = function (s) { return document.querySelector(s); };
+  function esc(t) {
+    return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function num(n) { return n.toLocaleString("en-US"); }
+  function badgeText(n) { return n > 999 ? "999+" : String(n); }
+  /* underline the first occurrence of the access key */
+  function withKey(label, k) {
+    if (!k) return esc(label);
+    var i = label.toLowerCase().indexOf(String(k).toLowerCase());
+    if (i < 0) return esc(label);
+    return esc(label.slice(0, i)) + "<u>" + esc(label.slice(i, i + 1)) + "</u>" + esc(label.slice(i + 1));
+  }
+  function itemLabel(it) {
+    return typeof it.count === "number" ? it.l + " (" + num(it.count) + ")" : it.l;
+  }
+  function isDisabled(it) {
+    return !!it.dis || (typeof it.count === "number" && it.count === 0);
+  }
+  /* drop leading, trailing and consecutive separators after any filtering */
+  function normalize(items) {
+    var out = [], i, prevSep = true;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].sep) { if (!prevSep) { out.push(items[i]); prevSep = true; } }
+      else { out.push(items[i]); prevSep = false; }
+    }
+    while (out.length && out[out.length - 1].sep) out.pop();
+    return out;
+  }
+  function checkedState(it) {
+    if (!it.radio) return false;
+    return S[it.radio] === it.val;
+  }
+
+  /* -------------------------------------------------------- menu popups -- */
+  function closeFrom(level, restore) {
+    while (S.stack.length > level) {
+      var f = S.stack.pop();
+      if (f.el && f.el.parentNode) f.el.parentNode.removeChild(f.el);
+      if (f.owner) f.owner.setAttribute("aria-expanded", "false");
+    }
+    if (level === 0) {
+      S.openMenu = null;
+      var t = document.querySelectorAll(".mtrigger[aria-expanded=\"true\"], .mcompact[aria-expanded=\"true\"]");
+      for (var i = 0; i < t.length; i++) t[i].setAttribute("aria-expanded", "false");
+      if (restore && S.returnFocus) { S.returnFocus.focus(); }
+      S.returnFocus = null;
+      setAlt(false);
+    }
+  }
+
+  function buildMenu(items, level, owner) {
+    var el = document.createElement("div");
+    el.className = "menu";
+    el.setAttribute("role", "menu");
+    el.tabIndex = -1;
+    var list = normalize(items);
+    list.forEach(function (it) {
+      if (it.sep) {
+        var sp = document.createElement("div");
+        sp.className = "msep";
+        sp.setAttribute("role", "separator");
+        el.appendChild(sp);
+        return;
+      }
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "mi";
+      b.tabIndex = -1;
+      b.setAttribute("role", it.radio ? "menuitemradio" : "menuitem");
+      if (it.radio) b.setAttribute("aria-checked", checkedState(it) ? "true" : "false");
+      if (isDisabled(it)) b.setAttribute("aria-disabled", "true");
+      if (it.sub) { b.setAttribute("aria-haspopup", "true"); b.setAttribute("aria-expanded", "false"); }
+      var html = "";
+      if (checkedState(it)) html += svg("tick", "tick");
+      html += '<span class="lab">' + withKey(itemLabel(it), it.k) + "</span>";
+      if (it.s) html += '<span class="acc">' + esc(it.s) + "</span>";
+      if (it.sub) html += svg("chev", "chev");
+      b.innerHTML = html;
+      b._it = it;
+      b._level = level;
+      el.appendChild(b);
+    });
+    document.body.appendChild(el);
+    el.addEventListener("keydown", onMenuKey);
+    el.addEventListener("mouseover", onMenuHover);
+    el.addEventListener("click", onMenuClick);
+    S.stack.push({ el: el, owner: owner, level: level });
+    return el;
+  }
+
+  function place(el, rect, side) {
+    var m = 4, vw = window.innerWidth, vh = window.innerHeight;
+    var w = el.offsetWidth, h = el.offsetHeight, x, y;
+    if (side === "below") {
+      x = rect.left; y = rect.bottom;
+      if (x + w > vw - m) x = Math.max(m, vw - m - w);
+    } else {
+      x = rect.right - 2; y = rect.top - 4;
+      if (x + w > vw - m) x = Math.max(m, rect.left - w + 2);
+    }
+    if (y + h > vh - m) y = Math.max(m, vh - m - h);
+    el.style.left = Math.max(m, x) + "px";
+    el.style.top = y + "px";
+  }
+
+  function items(el) {
+    return Array.prototype.slice.call(el.querySelectorAll(".mi"));
+  }
+  function focusItem(el, i) {
+    var list = items(el);
+    if (!list.length) return;
+    var n = ((i % list.length) + list.length) % list.length;
+    list.forEach(function (b) { b.removeAttribute("data-active"); });
+    list[n].setAttribute("data-active", "true");
+    list[n].focus();
+  }
+  function activeIndex(el) {
+    var list = items(el);
+    for (var i = 0; i < list.length; i++) if (list[i] === document.activeElement) return i;
+    return -1;
+  }
+
+  function openTop(menu, trigger, focusFirst) {
+    closeFrom(0, false);
+    S.openMenu = menu.id;
+    S.returnFocus = trigger;
+    trigger.setAttribute("aria-expanded", "true");
+    var el = buildMenu(menu.items, 0, trigger);
+    place(el, trigger.getBoundingClientRect(), "below");
+    if (focusFirst) focusItem(el, 0); else el.focus();
+  }
+
+  function openSub(btn) {
+    while (S.stack.length - 1 > btn._level) closeFrom(btn._level + 1, false);
+    if (!S.stack[btn._level]) return null;
+    var el = buildMenu(btn._it.sub, btn._level + 1, btn);
+    btn.setAttribute("aria-expanded", "true");
+    place(el, btn.getBoundingClientRect(), "side");
+    return el;
+  }
+
+  function run(it, btn) {
+    if (isDisabled(it)) return;
+    if (it.sub) return;
+    closeFrom(0, true);
+    if (it.radio) { S[it.radio] = it.val; if (it.radio === "theme") applyTheme(); render(); return; }
+    if (it.act === "save") { S.dirty = false; render(); return; }
+    if (it.act === "undo") { S.dirty = true; render(); return; }
+    if (it.act === "scan") { S.staleScan = false; S.pane = "quality"; render(); return; }
+    if (it.act === "palette") { openPalette(); return; }
+    if (it.pane) { S.pane = it.pane; render(); return; }
+  }
+
+  function onMenuClick(e) {
+    var b = e.target.closest ? e.target.closest(".mi") : null;
+    if (!b) return;
+    e.preventDefault();
+    if (b.getAttribute("aria-disabled") === "true") { b.focus(); return; }
+    if (b._it.sub) { var el = openSub(b); if (el) focusItem(el, 0); return; }
+    run(b._it, b);
+  }
+
+  function onMenuHover(e) {
+    var b = e.target.closest ? e.target.closest(".mi") : null;
+    if (!b) return;
+    var list = items(b.parentNode);
+    list.forEach(function (x) { x.removeAttribute("data-active"); });
+    b.setAttribute("data-active", "true");
+    b.focus();
+    if (S.stack.length - 1 > b._level) closeFrom(b._level + 1, false);
+    if (b._it.sub) openSub(b);
+  }
+
+  function onMenuKey(e) {
+    var el = e.currentTarget, k = e.key;
+    var list = items(el), i = activeIndex(el);
+    /* take the level from the popup the key arrived in, not from the top of the
+       stack: a submenu can be open while focus sits in its parent */
+    var frame = null;
+    for (var fi = 0; fi < S.stack.length; fi++) if (S.stack[fi].el === el) frame = S.stack[fi];
+    var level = frame ? frame.level : 0;
+
+    if (k === "Escape") {
+      e.preventDefault();
+      if (level === 0) closeFrom(0, true);
+      else { var owner = frame.owner; closeFrom(level, false); if (owner) owner.focus(); }
+      return;
+    }
+    if (k === "Tab") { closeFrom(0, true); return; }
+    if (k === "ArrowDown") { e.preventDefault(); focusItem(el, i < 0 ? 0 : i + 1); return; }
+    if (k === "ArrowUp") { e.preventDefault(); focusItem(el, i < 0 ? list.length - 1 : i - 1); return; }
+    if (k === "Home") { e.preventDefault(); focusItem(el, 0); return; }
+    if (k === "End") { e.preventDefault(); focusItem(el, list.length - 1); return; }
+    if (k === "ArrowRight") {
+      e.preventDefault();
+      var cur = list[i];
+      if (cur && cur._it.sub) { var s = openSub(cur); if (s) focusItem(s, 0); }
+      else stepTop(1);
+      return;
+    }
+    if (k === "ArrowLeft") {
+      e.preventDefault();
+      if (level > 0) { var ow = frame.owner; closeFrom(level, false); if (ow) ow.focus(); }
+      else stepTop(-1);
+      return;
+    }
+    if (k === "Enter" || k === " ") {
+      e.preventDefault();
+      var c = list[i];
+      if (!c) return;
+      if (c.getAttribute("aria-disabled") === "true") return;
+      if (c._it.sub) { var s2 = openSub(c); if (s2) focusItem(s2, 0); return; }
+      run(c._it, c);
+      return;
+    }
+    if (k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      var hit = null;
+      for (var n = 0; n < list.length; n++) {
+        var kk = list[n]._it.k;
+        if (kk && kk.toLowerCase() === k.toLowerCase()) { hit = list[n]; break; }
+      }
+      if (hit) {
+        e.preventDefault();
+        if (hit.getAttribute("aria-disabled") === "true") { hit.focus(); return; }
+        if (hit._it.sub) { var s3 = openSub(hit); if (s3) focusItem(s3, 0); return; }
+        run(hit._it, hit);
+      }
+    }
+  }
+
+  function stepTop(dir) {
+    if ($("#menubar").offsetParent === null) return;
+    var idx = -1;
+    for (var i = 0; i < MENUS.length; i++) if (MENUS[i].id === S.openMenu) idx = i;
+    if (idx < 0) return;
+    var next = MENUS[(idx + dir + MENUS.length) % MENUS.length];
+    var trig = document.getElementById("mt-" + next.id);
+    if (trig) openTop(next, trig, true);
+  }
+
+  /* ---------------------------------------------------------- alt state -- */
+  function setAlt(on) {
+    S.alt = on;
+    $("#shell").setAttribute("data-alt", on ? "on" : "off");
+  }
+
+  /* ----------------------------------------------------------- palette --- */
+  function leaves() {
+    var out = [];
+    MENUS.forEach(function (m) {
+      (function walk(list, path) {
+        list.forEach(function (it) {
+          if (it.sep) return;
+          if (it.sub) { walk(it.sub, path.concat(it.l)); return; }
+          out.push({ it: it, path: path.join(" > "), label: itemLabel(it) });
+        });
+      })(m.items, [m.label]);
+    });
+    return out;
+  }
+  var PAL = { list: [], rows: [], i: 0, opener: null };
+  function openPalette() {
+    PAL.list = leaves();
+    PAL.i = 0;
+    PAL.opener = $("#doc");
+    $("#scrim").hidden = false;
+    $("#pq").value = "";
+    paintPalette();
+    $("#pq").focus();
+  }
+  function closePalette() {
+    $("#scrim").hidden = true;
+    if (PAL.opener) PAL.opener.focus();
+  }
+  function paintPalette() {
+    var q = $("#pq").value.trim().toLowerCase();
+    var rows = PAL.list.filter(function (r) {
+      if (!q) return true;
+      return (r.label + " " + r.path).toLowerCase().indexOf(q) >= 0;
+    }).slice(0, 60);
+    PAL.rows = rows;
+    if (PAL.i >= rows.length) PAL.i = 0;
+    if (!rows.length) {
+      $("#plist").innerHTML = '<div class="pempty">No command matches that text.</div>';
+      $("#pq").removeAttribute("aria-activedescendant");
+      return;
+    }
+    $("#pq").setAttribute("aria-activedescendant", "pi-" + PAL.i);
+    $("#plist").innerHTML = rows.map(function (r, n) {
+      return '<button type="button" class="pi" role="option" id="pi-' + n + '" data-n="' + n + '"' +
+        (n === PAL.i ? ' data-active="true" aria-selected="true"' : ' aria-selected="false"') +
+        (isDisabled(r.it) ? ' aria-disabled="true"' : "") + ">" +
+        "<span>" + esc(r.label) + "</span>" +
+        '<span class="ppath">' + esc(r.path) + "</span>" +
+        (r.it.s ? '<span class="pacc">' + esc(r.it.s) + "</span>" : "") +
+        "</button>";
+    }).join("");
+  }
+  function runPalette(n) {
+    var r = PAL.rows && PAL.rows[n];
+    if (!r || isDisabled(r.it)) return;
+    $("#scrim").hidden = true;
+    run(r.it, null);
+  }
+
+  /* ------------------------------------------------------------ render --- */
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", S.theme);
+  }
+
+  /* mounted once: nothing in here depends on state, and rebuilding it would
+     throw away the focus the menu just handed back */
+  function mountChrome() {
+    $("#appmark").innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+      '<rect x="2" y="2" width="20" height="20" rx="4" fill="var(--accent)"/>' +
+      '<path d="M7.6 17.4 12 6.6l4.4 10.8M9.3 14.1h5.4" fill="none" stroke="#ffffff" ' +
+      'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    $("#mcompact").innerHTML = svg("burger");
+
+    $("#menubar").innerHTML = MENUS.map(function (m) {
+      return '<button type="button" class="mtrigger" id="mt-' + m.id + '" role="menuitem" ' +
+        'aria-haspopup="true" aria-expanded="false" tabindex="-1">' + withKey(m.label, m.key) + "</button>";
+    }).join("");
+    $("#menubar").querySelector(".mtrigger").tabIndex = 0;
+
+    $("#wco").innerHTML = [
+      '<span><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M0 5h10"/></svg></span>',
+      '<span><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M.5.5h9v9h-9z"/></svg></span>',
+      '<span><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M.6.6l8.8 8.8M9.4.6.6 9.4"/></svg></span>'
+    ].join("");
+  }
+
+  function renderDoc() {
+    $("#doc").innerHTML =
+      svg("find") +
+      '<span class="name">' + esc(FILE) + "</span>" +
+      (S.dirty ? '<span class="dirty" title="Unsaved changes">*</span>' : "") +
+      '<span class="path od-truncate">' + esc(FOLDER) + "</span>";
+    $("#doc").setAttribute("aria-label",
+      "Axiom. " + FILE + (S.dirty ? ", unsaved changes" : "") + ". " + FOLDER + ". Open the command palette");
+
+    /* the window title keeps carrying the documented string for the taskbar
+       and for screen readers, whatever the band chooses to draw */
+    document.title = "Axiom | " + FOLDER + "\\" + FILE + (S.dirty ? " *" : "");
+  }
+
+  function railButton(p) {
+    var cur = S.pane === p.id;
+    var b = '<button type="button" class="ri' + (p.opt ? " optr" : "") + '" data-pane="' + p.id + '" ' +
+      'title="' + esc(p.label) + '" aria-label="' + esc(p.label) +
+      (p.badge ? ", " + num(p.badge) + " waiting" : "") + '"' +
+      (cur ? ' aria-current="true"' : "") + ">" + svg(p.icon);
+    if (p.badge > 0) b += '<span class="badge' + (p.warn ? " warn" : "") + '">' + badgeText(p.badge) + "</span>";
+    return b + "</button>";
+  }
+
+  function renderRail() {
+    $("#rail").innerHTML =
+      '<div class="railgroup">' + PANES.map(railButton).join("") + "</div>" +
+      '<div class="railgroup bottom">' + BOTTOM.map(railButton).join("") + "</div>";
+  }
+
+  function renderTabs() {
+    $("#tabs").innerHTML = TABS.map(function (t, i) {
+      return '<button type="button" class="tab" role="tab" id="tab-' + i + '" data-tab="' + i + '" ' +
+        'aria-controls="sheet" aria-selected="' + (i === S.tab ? "true" : "false") +
+        '" tabindex="' + (i === S.tab ? "0" : "-1") + '">' +
+        '<span class="lab">' + esc(t.label) + (i === 0 && S.dirty ? " *" : "") + "</span></button>";
+    }).join("");
+    $("#sheet").setAttribute("aria-labelledby", "tab-" + S.tab);
+  }
+
+  function pane() {
+    var all = PANES.concat(BOTTOM), i;
+    for (i = 0; i < all.length; i++) if (all[i].id === S.pane) return all[i];
+    return { id: S.pane, label: S.pane, icon: "grid" };
+  }
+
+  /* The status bar is one left aligned row. Nothing is pushed to the far edge:
+     a control 2,000 pixels from its context is the defect this file argues
+     against, and a status bar is no exception. */
+  function renderStatus() {
+    var p = pane(), html = "";
+    html += '<span class="si">' + svg(p.icon) + "<span>" + esc(p.label) + "</span></span>";
+    html += '<span class="si opt"><span class="num">6,172</span> classes</span>';
+    html += '<span class="si opt"><span class="num">21,461</span> individuals</span>';
+    html += '<span class="si opt">revision <span class="num">4,812</span></span>';
+    if (S.staleScan) {
+      html += '<button type="button" class="si warnink" data-act="scan">' + svg("warn") +
+        "<span>Quality scan out of date</span></button>";
+    } else {
+      html += '<span class="si okink">' + svg("shield") + "<span>Scan current</span></span>";
+    }
+    html += S.dirty
+      ? '<span class="si warnink">' + svg("save") + "<span>Unsaved changes</span></span>"
+      : '<span class="si">' + svg("save") + "<span>Saved</span></span>";
+    $("#statusbar").innerHTML = html;
+  }
+
+  function render() {
+    renderDoc();
+    renderRail();
+    renderTabs();
+    renderStatus();
+  }
+
+  /* ------------------------------------------------------------- wiring -- */
+  function menuById(id) {
+    for (var i = 0; i < MENUS.length; i++) if (MENUS[i].id === id) return MENUS[i];
+    return null;
+  }
+
+  document.addEventListener("pointerdown", function (e) {
+    if (e.target.closest && (e.target.closest(".menu") || e.target.closest(".mtrigger") || e.target.closest(".mcompact"))) return;
+    if (S.stack.length) closeFrom(0, false);
+  });
+
+  $("#menubar").addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest(".mtrigger") : null;
+    if (!t) return;
+    var id = t.id.slice(3);
+    if (S.openMenu === id) { closeFrom(0, true); return; }
+    openTop(menuById(id), t, false);
+  });
+  $("#menubar").addEventListener("mouseover", function (e) {
+    if (!S.stack.length) return;
+    var t = e.target.closest ? e.target.closest(".mtrigger") : null;
+    if (!t) return;
+    var id = t.id.slice(3);
+    if (S.openMenu !== id) openTop(menuById(id), t, false);
+  });
+
+  $("#mcompact").addEventListener("click", function (e) {
+    var t = e.currentTarget;
+    if (S.openMenu === "compact") { closeFrom(0, true); return; }
+    closeFrom(0, false);
+    S.openMenu = "compact";
+    S.returnFocus = t;
+    t.setAttribute("aria-expanded", "true");
+    var top = MENUS.map(function (m) { return { l: m.label, k: m.key, sub: m.items }; });
+    var el = buildMenu(top, 0, t);
+    place(el, t.getBoundingClientRect(), "below");
+    el.focus();
+  });
+
+  $("#doc").addEventListener("click", function () { S.returnFocus = $("#doc"); openPalette(); });
+
+  $("#rail").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".ri") : null;
+    if (!b) return;
+    S.pane = b.getAttribute("data-pane");
+    render();
+    var again = $("#rail").querySelector('[data-pane="' + S.pane + '"]');
+    if (again) again.focus();
+  });
+
+  $("#tabs").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".tab") : null;
+    if (!b) return;
+    S.tab = parseInt(b.getAttribute("data-tab"), 10);
+    renderTabs();
+  });
+  $("#tabs").addEventListener("keydown", function (e) {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault();
+    var n = TABS.length;
+    if (e.key === "Home") S.tab = 0;
+    else if (e.key === "End") S.tab = n - 1;
+    else S.tab = ((S.tab + (e.key === "ArrowRight" ? 1 : -1)) % n + n) % n;
+    renderTabs();
+    document.getElementById("tab-" + S.tab).focus();
+  });
+
+  $("#statusbar").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-act]") : null;
+    if (!b) return;
+    S.staleScan = false;
+    render();
+  });
+
+  $("#pq").addEventListener("input", paintPalette);
+  $("#plist").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".pi") : null;
+    if (!b) return;
+    runPalette(parseInt(b.getAttribute("data-n"), 10));
+  });
+  $("#scrim").addEventListener("pointerdown", function (e) {
+    if (e.target === $("#scrim")) closePalette();
+  });
+  $("#pq").addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { e.preventDefault(); closePalette(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); PAL.i = Math.min((PAL.rows || []).length - 1, PAL.i + 1); paintPalette(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); PAL.i = Math.max(0, PAL.i - 1); paintPalette(); return; }
+    if (e.key === "Enter") { e.preventDefault(); runPalette(PAL.i); return; }
+  });
+
+  /* Alt reveals the access keys and opens the menu bar. A bare Alt press and
+     release toggles; Alt plus a letter opens that menu directly. */
+  var altAlone = false;
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Alt") { altAlone = true; return; }
+    if (e.altKey && e.key.length === 1) {
+      var letter = e.key.toLowerCase(), m = null;
+      for (var i = 0; i < MENUS.length; i++) if (MENUS[i].key.toLowerCase() === letter) m = MENUS[i];
+      if (m) {
+        e.preventDefault();
+        altAlone = false;
+        var trig = document.getElementById("mt-" + m.id);
+        if (trig && trig.offsetParent !== null) openTop(m, trig, true);
+        else $("#mcompact").click();
+        setAlt(true);   /* after openTop, which clears it on the way in */
+      }
+      return;
+    }
+    altAlone = false;
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+      e.preventDefault(); S.returnFocus = $("#doc"); openPalette(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "s") {
+      e.preventDefault(); S.dirty = false; render(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault(); S.dirty = true; render(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "f") {
+      e.preventDefault(); S.pane = "find"; render(); return;
+    }
+    if (e.key === "Escape" && !$("#scrim").hidden) { closePalette(); }
+  });
+  document.addEventListener("keyup", function (e) {
+    if (e.key !== "Alt") return;
+    if (!altAlone) return;
+    altAlone = false;
+    if (S.stack.length) { closeFrom(0, true); return; }
+    setAlt(!S.alt);
+    if (S.alt) {
+      var first = document.getElementById("mt-file");
+      if (first && first.offsetParent !== null) first.focus();
+      else $("#mcompact").focus();
+    }
+  });
+
+  /* the menu bar itself is a roving tabstop: one Tab reaches it, arrows move */
+  $("#menubar").addEventListener("keydown", function (e) {
+    var t = e.target.closest ? e.target.closest(".mtrigger") : null;
+    if (!t) return;
+    var ids = MENUS.map(function (m) { return "mt-" + m.id; });
+    var i = ids.indexOf(t.id);
+    if (e.key === "ArrowRight") { e.preventDefault(); document.getElementById(ids[(i + 1) % ids.length]).focus(); return; }
+    if (e.key === "ArrowLeft") { e.preventDefault(); document.getElementById(ids[(i - 1 + ids.length) % ids.length]).focus(); return; }
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault(); openTop(menuById(t.id.slice(3)), t, true); return;
+    }
+    if (e.key === "Escape") { setAlt(false); $("#sheet").focus(); }
+  });
+  /* exactly one trigger is in the tab order at a time, and it is the last one
+     that held focus, so returning by Tab lands where you left */
+  $("#menubar").addEventListener("focusin", function (e) {
+    var t = e.target.closest ? e.target.closest(".mtrigger") : null;
+    if (!t) return;
+    var all = $("#menubar").querySelectorAll(".mtrigger");
+    for (var i = 0; i < all.length; i++) all[i].tabIndex = -1;
+    t.tabIndex = 0;
+  });
+
+  applyTheme();
+  mountChrome();
+  render();
+})();
+</script>
+</body>
+</html>
