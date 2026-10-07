@@ -112,6 +112,16 @@ export function readPreferences(input: unknown): Preferences {
     out["sparsity.view"] = readSparsityOptions(s["sparsity.view"]);
   if (object(s["quality.options"]))
     out["quality.options"] = readQualityOptions(s["quality.options"]);
+  const rails = s["quality.rails"];
+  if (object(rails))
+    out["quality.rails"] = Object.fromEntries(
+      ["scope", "kinds", "checks", "vocabulary"].flatMap((key) => {
+        const left = rails[key];
+        return typeof left === "number" && Number.isFinite(left) && left >= 0
+          ? [[key, left]]
+          : [];
+      }),
+    );
   if (Array.isArray(s["quality.exceptions"]))
     out["quality.exceptions"] = readQualityExceptions(s["quality.exceptions"]);
   if (object(s["find.view"]))

@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import "./quality.css";
+import { QualitySettings } from "./QualitySettings";
 import { NS, kindLabel, humanise, shorten, type Kind } from "../domain/model";
 import { identifierParts } from "../domain/rdf-model";
 import {
@@ -19,13 +20,10 @@ import {
   qualityAdmitted,
   qualityCorrection,
   qualityDefaultSeverity,
-  qualityEnabledChecks,
   qualityGroupLabel,
   qualityGroups,
-  qualityKinds,
   qualityRules,
   qualitySuppression,
-  qualityVocabularies,
   qualityWithdrawn,
   readQualityExceptions,
   readQualityOptions,
@@ -78,22 +76,6 @@ import { QualityToolbar, type QualityCommand } from "./QualityToolbar";
 const PAGE = 40;
 const severities: QualitySeverity[] = ["Violation", "Warning", "Information"];
 const ruleOf = (id: string) => qualityRules.find((r) => r.id === id)!;
-const kindPlural: Partial<Record<Kind, string>> = {
-  Class: "Classes",
-  Defined: "Defined classes",
-  Individual: "Individuals",
-  ObjectProperty: "Object properties",
-  DataProperty: "Data properties",
-  AnnotationProperty: "Annotation properties",
-  Resource: "Other resources",
-  Datatype: "Datatypes",
-};
-const coreKinds: Kind[] = [
-  "Class",
-  "Individual",
-  "ObjectProperty",
-  "DataProperty",
-];
 const kindName = (kind: string) =>
   kind === "Ontology" ? "Ontology" : kindLabel(kind as Kind);
 const aliasPredicates = [
@@ -669,26 +651,6 @@ export function QualityPanel() {
   // ---------------------------------------------------------------- settings
   const knownCensus = census?.census ?? {};
   const withdrawn = census ? qualityWithdrawn(knownCensus) : [];
-  // The hint counts checks these settings would run but the census withdrew.
-  const withdrawnEnabled = withdrawn.filter(
-    (id) =>
-      options.rules[id] !== "Off" && options.groups.includes(ruleOf(id).group),
-  ).length;
-  const enabledChecks = qualityEnabledChecks(options, knownCensus).length;
-  const offeredGroups = qualityGroups.filter((g) =>
-    qualityRules.some(
-      (r) =>
-        r.group === g &&
-        options.rules[r.id] !== "Off" &&
-        !withdrawn.includes(r.id),
-    ),
-  );
-  const offeredKinds = qualityKinds.filter(
-    (k) =>
-      (coreKinds.includes(k) || (census?.kinds[k] ?? 0) > 0) &&
-      !(k === "Resource" && !(census?.kinds[k] ?? 0)),
-  );
-
   // ---------------------------------------------------------------- actions
   const navigate = (iri: string) =>
     void action(async () => {
@@ -1035,134 +997,18 @@ export function QualityPanel() {
       </div>
     );
   };
-  const vocabulary = () => {
-    const present = qualityVocabularies.filter((v) => knownCensus[v]);
-    const absent = qualityVocabularies.filter((v) => !knownCensus[v]);
-    return (
-      <div className="srow at-tall">
-        <span className="k">{t("vocab.label")}</span>
-        {present.map((v) => (
-          <span
-            key={v}
-            className="tagf"
-            title={knownCensus[v]!.slice(0, 12).map(shorten).join(", ")}
-          >
-            {v}
-          </span>
-        ))}
-        <span className="hint">
-          {absent.length
-            ? withdrawnEnabled
-              ? tn("vocab.absent", withdrawnEnabled, {
-                  list: absent.join(", "),
-                })
-              : t("vocab.absent.none", { list: absent.join(", ") })
-            : t("vocab.allPresent")}
-        </span>
-      </div>
-    );
-  };
   const settings = () => (
-    <div className="settings">
-      <div className="srow">
-        <span className="k">{t("scope.label")}</span>
-        <select
-          className="sel"
-          aria-label={t("scope.label")}
-          value={options.scope}
-          disabled={busy}
-          onChange={(e) =>
-            change({ scope: e.target.value as QualityOptions["scope"] })
-          }
-        >
-          <option value="ontology">{t("scope.ontology")}</option>
-          <option value="namespace">{t("scope.namespace")}</option>
-          <option value="branch">{t("scope.branch")}</option>
-        </select>
-        {options.scope === "namespace" && (
-          <input
-            className="txt"
-            aria-label={t("scope.namespace")}
-            value={options.namespace}
-            placeholder={base}
-            disabled={busy}
-            onChange={(e) => change({ namespace: e.target.value })}
-          />
-        )}
-        {options.scope === "branch" && (
-          <select
-            className="sel"
-            aria-label={t("scope.root")}
-            value={options.root}
-            disabled={busy}
-            onChange={(e) => change({ root: e.target.value })}
-          >
-            <option value="">{t("scope.chooseRoot")}</option>
-            {snapshot.entities
-              .filter(
-                (e) =>
-                  ["Class", "Defined"].includes(e.kind) &&
-                  !e.iri.startsWith("_:"),
-              )
-              .map((e) => (
-                <option key={e.iri} value={e.iri} title={e.iri}>
-                  {e.label ?? humanise(e.name)}
-                </option>
-              ))}
-          </select>
-        )}
-        {scopeProblem && <span className="hint">{t(scopeProblem)}</span>}
-        <span className="fill"></span>
-        <button
-          className="btn primary"
-          disabled={busy || unresolved}
-          onClick={run}
-        >
-          <Play />
-          {t("run")}
-        </button>
-      </div>
-      <div className="srow at-tall">
-        <span className="k">{t("kinds.label")}</span>
-        {offeredKinds.map((k) => (
-          <button
-            key={k}
-            className="chip"
-            aria-pressed={options.kinds.includes(k)}
-            disabled={busy}
-            onClick={() => change({ kinds: toggle(options.kinds, k) })}
-          >
-            {kindPlural[k] + " "}
-            <span className="n">
-              {(census?.kinds[k] ?? 0).toLocaleString("en-US")}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="srow at-tall">
-        <span className="k">{t("checks.label")}</span>
-        {offeredGroups.map((g) => (
-          <button
-            key={g}
-            className="chip"
-            aria-pressed={options.groups.includes(g)}
-            disabled={busy}
-            onClick={() => change({ groups: toggle(options.groups, g) })}
-          >
-            {qualityGroupLabel(g)}
-          </button>
-        ))}
-        <span className="hint">{tn("checks.hint", enabledChecks)}</span>
-        <button
-          className="btn"
-          aria-pressed={mode === "rules"}
-          onClick={() => setMode(mode === "rules" ? "results" : "rules")}
-        >
-          {t("rules.open")}
-        </button>
-      </div>
-      {vocabulary()}
-    </div>
+    <QualitySettings
+      options={options}
+      census={census}
+      snapshot={snapshot}
+      busy={busy}
+      problem={scopeProblem ? t(scopeProblem) : undefined}
+      change={change}
+      run={run}
+      rules={() => setMode(mode === "rules" ? "results" : "rules")}
+      announce={setAnnounce}
+    />
   );
   // Partial findings from a canceled scan keep their filters reachable; only a
   // complete report has a coverage view and an export.
@@ -2350,15 +2196,79 @@ export function QualityPanel() {
 
   const reviewing =
     mode === "review" || mode === "preview" || mode === "rejected";
+  const prescan = mode === "results" && !shown && job?.state !== "canceled";
+  const count = (n: number) => n.toLocaleString("en-US");
+  const named = census?.kinds.Class ?? 0,
+    defined = census?.kinds.Defined ?? 0;
   return (
     <section
       ref={root}
-      className="quality-panel"
+      className={"quality-panel" + (prescan ? " qss-prescan" : "")}
       data-panel="quality"
       aria-label={t("title")}
       onKeyDown={onKeyDown}
     >
-      {reviewing ? (
+      {prescan ? (
+        <>
+          <div className="cbar bar">
+            <span className="t">{t("title")}</span>
+            <span className="sum">
+              {busy
+                ? t("running.progress", {
+                    scanned: job?.scanned ?? 0,
+                    total: job?.total ?? 0,
+                  })
+                : job?.state === "failed"
+                  ? t("failed.state")
+                  : t("idle.summary")}
+            </span>
+            {busy && (
+              <button
+                className="btn"
+                onClick={() => void action(cancelQuality)}
+              >
+                {t("cancel")}
+              </button>
+            )}
+          </div>
+          <div className="pbody" ref={bodyRef}>
+            <div className="headline">
+              {busy
+                ? t("running.state")
+                : job?.state === "failed"
+                  ? t("settings.failed")
+                  : t("idle.headline")}
+            </div>
+            <p className="m15 state-copy">
+              {busy
+                ? t("running.body")
+                : job?.state === "failed"
+                  ? job.error || t("failed.fallback")
+                  : t("idle.body")}
+            </p>
+            {error && <p role="alert">{error}</p>}
+            {settings()}
+            <p className="limits m125">{t("settings.limits")}</p>
+          </div>
+          <div className="statusline">
+            <span>
+              {t("settings.classes", {
+                total: count(named + defined),
+                named: count(named),
+                defined: count(defined),
+              })}
+            </span>
+            <span>
+              {t("settings.individuals", {
+                n: count(census?.kinds.Individual ?? 0),
+              })}
+            </span>
+            <span>
+              {t("settings.triples", { n: count(snapshot.tripleCount) })}
+            </span>
+          </div>
+        </>
+      ) : reviewing ? (
         mode === "review" ? (
           reviewPane()
         ) : mode === "preview" ? (
@@ -2369,7 +2279,6 @@ export function QualityPanel() {
       ) : (
         <>
           {commandBar()}
-          {settingsOpen && !busy && settings()}
           {shown && mode === "results" && tools()}
           <div
             className="body"
@@ -2387,10 +2296,11 @@ export function QualityPanel() {
                 {error}
               </div>
             )}
+            {settingsOpen && settings()}
             {body()}
           </div>
           <div className="limits">
-            <span>{t("limits")}</span>
+            <span>{t("settings.limits")}</span>
           </div>
           {mode === "results" && footer()}
         </>

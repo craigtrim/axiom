@@ -172,7 +172,9 @@ test("finding navigation keeps exact identity across equal local names", async (
     .poll(async () => (await state()).selected)
     .toBe(base + "Industrial_Safety");
   await expect(
-    page.getByRole("textbox", { name: "Entity label", exact: true }),
+    page.locator(
+      '[data-panel="details"][data-entity-iri="' + base + 'Industrial_Safety"]',
+    ),
   ).toBeVisible();
 });
 test("reviewed batch adds labels without renaming placeholder identifiers and supports Undo and Redo", async () => {
@@ -272,7 +274,10 @@ test("a rejected finding correction stays open with its reason", async () => {
     const original = (ipcMain as any)._invokeHandlers.get("domain:request");
     ipcMain.removeHandler("domain:request");
     ipcMain.handle("domain:request", (event, method, args) => {
-      if (method === "qualityApplyFinding") throw new Error("quality-reject:invalid::A primary label already exists. Review it in Details.");
+      if (method === "qualityApplyFinding")
+        throw new Error(
+          "quality-reject:invalid::A primary label already exists. Review it in Details.",
+        );
       return original(event, method, args);
     });
   });
@@ -496,7 +501,7 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
   await pane()
     .getByRole("combobox", { name: "Scope", exact: true })
     .selectOption("branch");
-  await expect(pane().locator(".settings")).toContainText(
+  await expect(pane().locator(".quality-settings")).toContainText(
     "Choose a named class as the branch root.",
   );
   await expect(
@@ -510,12 +515,11 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     .getByRole("textbox", { name: "Primary label predicates" })
     .fill("not an iri");
   await pane().getByRole("button", { name: "Run scan", exact: true }).click();
-  await expect(pane().locator(".bar.alert-bad")).toContainText(
-    "Configure absolute predicate IRIs and at least one primary-label predicate. Partial results are not shown.",
+  await expect(pane()).toContainText(
+    "Configure absolute predicate IRIs and at least one primary-label predicate.",
   );
-  await expect(pane()).toContainText("The scan did not finish");
-  // The settings that failed stay reachable from the failed state.
-  await pane().getByRole("button", { name: "Change" }).click();
+  await expect(pane()).toContainText("The scan failed");
+  // The failed state keeps its settings and Run scan action visible.
   await expect(
     pane().locator(".settings").getByRole("button", { name: "Rules" }),
   ).toBeVisible();
@@ -534,7 +538,7 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     .fill("http://www.w3.org/2000/01/rdf-schema#label");
   await pane().getByRole("button", { name: "Done" }).click();
   await pane()
-    .locator(".settings")
+    .locator(".quality-settings")
     .getByRole("button", { name: "Run scan", exact: true })
     .click();
   // Let the scan reach past one page of findings before canceling it.
@@ -583,8 +587,8 @@ test("a settings change blocks label additions, marks exports stale, and an unre
   await scan();
   await pane().getByRole("button", { name: "Change" }).click();
   await pane()
-    .locator(".settings .chip")
-    .filter({ hasText: "Data properties" })
+    .locator(".settings .chipc")
+    .filter({ hasText: /^✓?Classes/ })
     .click();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "The scan settings changed",
@@ -611,13 +615,13 @@ test("a settings change blocks label additions, marks exports stale, and an unre
   await pane()
     .getByRole("combobox", { name: "Scope", exact: true })
     .selectOption("namespace");
-  await expect(pane().locator(".settings")).toContainText(
+  await expect(pane().locator(".quality-settings")).toContainText(
     "Enter a namespace to scan.",
   );
   // Escape keeps unresolved settings, and their reason, in view.
   await pane().getByRole("combobox", { name: "Scope", exact: true }).focus();
   await page.keyboard.press("Escape");
-  await expect(pane().locator(".settings")).toContainText(
+  await expect(pane().locator(".quality-settings")).toContainText(
     "Enter a namespace to scan.",
   );
   for (const name of ["Run scan", "Rerun scan"])
@@ -672,8 +676,8 @@ test("a canceled report pages its findings from any view and goes stale like a c
   await menu("view.quality");
   await menu("tools.quality");
   await pane()
-    .locator(".settings .chip")
-    .filter({ hasText: "Data properties" })
+    .locator(".settings .chipc")
+    .filter({ hasText: /^✓?Classes/ })
     .click();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "The scan settings changed",
@@ -721,8 +725,8 @@ test("recovery and narrow-and-shallow never strand or overstate a result", async
   await size(1300, 600);
   await pane().getByRole("button", { name: "Change" }).click();
   await pane()
-    .locator(".settings .chip")
-    .filter({ hasText: "Data properties" })
+    .locator(".settings .chipc")
+    .filter({ hasText: /^✓?Classes/ })
     .click();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "The scan settings changed",
@@ -758,7 +762,7 @@ test("the scope guard holds before the census answers", async () => {
       .getByRole("button", { name: "Run scan", exact: true })
       .isDisabled(),
   ).toBe(true);
-  await expect(pane().locator(".settings")).toContainText(
+  await expect(pane().locator(".quality-settings")).toContainText(
     "Enter a namespace to scan.",
   );
 });
@@ -791,10 +795,14 @@ test("no enabled checks is reported as nothing tested, never as clean", async ()
     "Publication metadata",
     "Text Analysis",
   ]) {
-    const chip = pane().locator(".settings .chip").filter({ hasText: name });
-    if (await chip.count()) await chip.click();
+    const chip = pane().locator(".settings .chipc").filter({ hasText: name });
+    if (
+      (await chip.count()) &&
+      (await chip.getAttribute("aria-pressed")) === "true"
+    )
+      await chip.click();
   }
-  await expect(pane().locator(".settings")).toContainText("0 checks.");
+  await expect(pane().locator(".settings")).toContainText("0 checks");
   await scan();
   await expect(summary()).toContainText("0 checks");
   await expect(pane()).toContainText("No checks are enabled");
@@ -829,10 +837,8 @@ test("the census withdraws checks for vocabularies the ontology does not use", a
   );
   await openFile();
   const settings = pane().locator(".settings");
-  await expect(settings).toContainText(
-    "Not used here: SKOS, owl:deprecated, Dublin Core, IAO. 6 checks are withdrawn.",
-  );
-  await expect(settings.locator(".chip")).not.toContainText([
+  await expect(settings).toContainText("6 withdrawn");
+  await expect(settings.locator(".chipc")).not.toContainText([
     "Retired entities",
   ]);
   await expect(settings).not.toContainText("SKOS concepts");
@@ -912,6 +918,11 @@ test("View restores filters, expanded bands and the page after the quality tab i
       el.scrollTop = 180;
     });
   await pane().getByRole("button", { name: "Change", exact: true }).click();
+  await expect(pane().locator(".settings")).toBeVisible();
+  // Expanding settings above the findings keeps the visible finding anchored.
+  const restoredTop = await pane()
+    .locator(".body")
+    .evaluate((el) => el.scrollTop);
   await pane().getByRole("button", { name: "Rules", exact: true }).click();
   await pane().getByRole("button", { name: "Done", exact: true }).click();
   await expect
@@ -920,7 +931,7 @@ test("View restores filters, expanded bands and the page after the quality tab i
         .locator(".body")
         .evaluate((el) => el.scrollTop),
     )
-    .toBe(180);
+    .toBe(restoredTop);
   await pane().getByRole("searchbox", { name: "Filter findings" }).focus();
   await menu("pane.close");
   await expect(pane()).toHaveCount(0);
@@ -942,7 +953,7 @@ test("View restores filters, expanded bands and the page after the quality tab i
         .locator(".body")
         .evaluate((el) => el.scrollTop),
     )
-    .toBe(180);
+    .toBe(restoredTop);
 });
 
 test("a rejected duplicate label selection identifies the full entity without writing statements", async () => {

@@ -7,6 +7,22 @@ export const qly = {
     "Choose a scope and the checks above, then run the scan. Scanning reads the ontology and changes nothing.",
   "idle.summary": "No scan has been run.",
   "correction.apply": "Apply",
+  "settings.name": "Scan settings",
+  "settings.branch": "Branch: {name} and descendants",
+  "settings.empty": "{name}, none in this ontology, unavailable",
+  "settings.checks": "{n} checks",
+  "settings.withdrawn": "{n} withdrawn",
+  "settings.withdrawnTitle": "Withdrawn checks",
+  "settings.withdrawnRow": "{check}, because {vocabulary} is not used here",
+  "settings.noneWithdrawn":
+    "Every vocabulary the catalog knows about is in use",
+  "settings.limits":
+    "Reads what is asserted. No reasoning, no definition judgement, no remote links, no unresolved imports.",
+  "settings.failed": "The scan failed",
+  "settings.classes":
+    "{total} classes of which {named} named and {defined} defined",
+  "settings.individuals": "{n} individuals",
+  "settings.triples": "{n} triples",
   run: "Run scan",
   rerun: "Rerun scan",
   "rerun.short": "Rerun",

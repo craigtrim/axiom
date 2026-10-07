@@ -1,0 +1,442 @@
+/* Issue 65: styles transcribed from the pinned settings reference. */
+.quality-panel:is(.qss-prescan),
+.quality-panel .quality-settings {
+  color-scheme: light;
+  --ground: #ffffff;
+  --surface: #f6f7f9;
+  --raised: #ffffff;
+  --sunken: #f0f2f5;
+  --border: #e1e4e8;
+  --border-strong: #d0d7de;
+  --text: #1b1f24;
+  --text-muted: #57606a;
+  --accent: #0b5fd0;
+  --accent-hover: #0a52b4;
+  --accent-fg: #ffffff;
+  --accent-soft: #eaf2fd;
+  --accent-tint: #f4f8fe;
+  --ok: #0a7a3d;
+  --ok-bg: #e8f5ed;
+  --ok-border: #a9d8bd;
+  --warn: #8a6116;
+  --warn-bg: #fdf5e3;
+  --warn-border: #e6cf95;
+  --bad: #a4201a;
+  --bad-bg: #fdecea;
+  --bad-border: #e4a9a4;
+  --idle: #57606a;
+  --idle-border: #c6cbd1;
+  --row-hover: #f6f7f9;
+  --row-selected: #eaf2fd;
+  --focus: #0b5fd0;
+  --shadow-pop: 0 8px 24px rgba(27, 31, 36, 0.18);
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --r-ctl: 4px;
+  --r-panel: 6px;
+  --r-card: 8px;
+  --r-pill: 999px;
+  --font:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+[data-theme="dark"] .quality-panel.qss-prescan,
+[data-theme="dark"] .quality-panel .quality-settings {
+  color-scheme: dark;
+  --ground: #0d1117;
+  --surface: #161b22;
+  --raised: #1c2128;
+  --sunken: #10151c;
+  --border: #30363d;
+  --border-strong: #3d444d;
+  --text: #e6edf3;
+  --text-muted: #9ba7b4;
+  --accent: #4c9aff;
+  --accent-hover: #6aabff;
+  --accent-fg: #06192e;
+  --accent-soft: #12243a;
+  --accent-tint: #0f1a28;
+  --ok: #4ade80;
+  --ok-bg: #0f2a1b;
+  --ok-border: #1d5233;
+  --warn: #e3b341;
+  --warn-bg: #2b2211;
+  --warn-border: #5a4718;
+  --bad: #ff8d81;
+  --bad-bg: #3a1a17;
+  --bad-border: #7a3630;
+  --idle: #9ba7b4;
+  --idle-border: #454c54;
+  --row-hover: #161b22;
+  --row-selected: #12243a;
+  --focus: #6aabff;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+.quality-panel.qss-prescan,
+.quality-panel .quality-settings {
+  font: 14px/1.6 var(--font);
+  color: var(--text);
+  background: var(--ground);
+}
+.quality-panel.qss-prescan {
+  color-scheme: light;
+}
+[data-theme="dark"] .quality-panel.qss-prescan {
+  color-scheme: dark;
+}
+.quality-panel
+  .quality-settings
+  :where(
+    .settings,
+    .srow,
+    .rail,
+    .actline,
+    .chipc,
+    .tagf,
+    .hint,
+    .sel,
+    .btn,
+    .pop,
+    .mk,
+    .n,
+    .k
+  ) {
+  all: revert;
+  box-sizing: border-box;
+}
+.quality-panel.qss-prescan p,
+.quality-panel .quality-settings p {
+  margin: 0 0 var(--sp-3);
+  max-width: 460px;
+}
+.quality-panel.qss-prescan .bar {
+  all: revert;
+  box-sizing: border-box;
+}
+.quality-panel .quality-settings .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  min-height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quality-panel .quality-settings .btn:hover {
+  background: var(--row-hover);
+}
+.quality-panel .quality-settings .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+.quality-panel .quality-settings .btn.tiny {
+  min-height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.quality-panel .quality-settings .sel {
+  min-height: 26px;
+  padding: 0 var(--sp-1);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+}
+.quality-panel
+  .quality-settings
+  :is(.btn, .sel, .chipc, button, select, a):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: var(--r-ctl);
+}
+.quality-panel.qss-prescan .cbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.quality-panel.qss-prescan .cbar .t {
+  font-weight: 600;
+  font-size: 13px;
+}
+.quality-panel.qss-prescan .cbar .sum {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.quality-panel.qss-prescan .pbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-3);
+}
+.quality-panel .quality-settings .settings {
+  max-width: 1040px;
+  display: grid;
+  gap: 0;
+}
+.quality-panel .quality-settings .srow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  height: 32px;
+}
+.quality-panel .quality-settings .srow > .k {
+  flex: none;
+  width: 90px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.quality-panel .quality-settings .rail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding-inline-end: var(--sp-4);
+  scroll-padding-inline: var(--sp-2);
+}
+.quality-panel .quality-settings .rail::-webkit-scrollbar {
+  display: none;
+}
+.quality-panel .quality-settings .rail > * {
+  flex: none;
+  scroll-snap-align: start;
+}
+.quality-panel .quality-settings .actline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  height: 36px;
+  max-width: 1040px;
+}
+.quality-panel .quality-settings .chipc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.quality-panel .quality-settings .chipc .n {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.quality-panel .quality-settings .chipc:hover {
+  background: var(--row-hover);
+}
+.quality-panel .quality-settings .chipc[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.quality-panel .quality-settings .chipc[aria-pressed="true"] .n {
+  color: var(--text);
+}
+.quality-panel .quality-settings .chipc[aria-disabled="true"] {
+  background: var(--sunken);
+  border-style: dashed;
+  color: var(--text-muted);
+  cursor: default;
+}
+.quality-panel .quality-settings .chipc .mk {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.quality-panel .quality-settings .tagf {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--sunken);
+  border-radius: var(--r-ctl);
+}
+.quality-panel .quality-settings .hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: none;
+}
+.quality-panel.qss-prescan .m125 {
+  max-width: 440px;
+  font-size: 12.5px;
+}
+.quality-panel.qss-prescan .m15 {
+  max-width: 530px;
+  font-size: 15px;
+}
+.quality-panel.qss-prescan .nomeasure {
+  font-size: 12.5px;
+}
+.quality-panel.qss-prescan .limits {
+  color: var(--text-muted);
+  padding-top: var(--sp-2);
+}
+.quality-panel.qss-prescan .statusline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+.quality-panel.qss-prescan .headline {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 var(--sp-1);
+}
+.quality-panel .quality-settings .pop {
+  margin-top: var(--sp-2);
+  max-width: 460px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  background: var(--raised);
+  padding: var(--sp-2);
+}
+.quality-panel .quality-settings .pop h4 {
+  margin: 0 0 var(--sp-1);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.quality-panel .quality-settings .pop ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+.quality-panel .quality-settings .pop li {
+  font-size: 12.5px;
+  padding: 2px var(--sp-1);
+  border-radius: var(--r-ctl);
+}
+.quality-panel .quality-settings .pop li:nth-child(odd) {
+  background: var(--sunken);
+}
+.quality-panel.qss-prescan .state-copy {
+  color: var(--text-muted);
+  margin-bottom: var(--sp-4);
+  max-width: 530px;
+}
+.quality-panel.qss-prescan .limits {
+  display: block;
+  min-height: 0;
+  border: 0;
+  flex: none;
+  padding: 8px 0 0;
+  margin: 0 0 12px;
+  max-width: 440px;
+  white-space: normal;
+  line-height: 1.6;
+  background: transparent;
+  color: var(--text-muted);
+}
+.quality-panel.qss-prescan .cbar .sum {
+  flex: initial;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.quality-panel.qss-prescan .pbody {
+  scrollbar-width: none;
+}
+.quality-panel .quality-settings .srow {
+  flex-wrap: nowrap;
+  padding: 0;
+  border: 0;
+}
+.quality-panel .quality-settings .settings {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.quality-panel .quality-settings .rail::-webkit-scrollbar {
+  display: none;
+}
+.quality-panel .quality-settings :is(button, select, input):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: var(--r-ctl);
+}
+.quality-panel .quality-settings .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.quality-panel .quality-settings .pop h4 {
+  margin: 0 0 var(--sp-1);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.adaptive-pane[data-pane-id="quality"][data-pane-narrow="true"]
+  .quality-settings
+  .srow
+  > .k {
+  width: 72px;
+}
+.adaptive-pane[data-pane-id="quality"][data-pane-narrow="true"]
+  .quality-settings
+  :is(.settings, .actline),
+.adaptive-pane[data-pane-id="quality"][data-pane-narrow="true"]
+  .qss-prescan
+  :is(.m125, .m15) {
+  max-width: none;
+}
+.adaptive-pane[data-pane-id="quality"][data-pane-shallow="true"]
+  .qss-prescan
+  .limits {
+  display: none;
+}
+.quality-panel > .body > .quality-settings {
+  padding: 12px;
+}
+.quality-panel :is(.state-body p, .note, .guard, .rcfg > p) {
+  max-width: 460px;
+}
+.quality-panel:not(.qss-prescan) > .limits {
+  white-space: normal;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 8px 10px;
+}
+.quality-panel:not(.qss-prescan) > .limits > span {
+  max-width: 440px;
+}
