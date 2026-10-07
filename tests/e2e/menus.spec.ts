@@ -18,6 +18,7 @@ let app: ElectronApplication,
   visited = new Set<string>();
 // The appearance workflows live in their own desktop suite.
 const coverage: Record<string, string[]> = {
+  "Independent windows (tests/e2e/multi-instance.spec.ts)": ["file.newWindow"],
   "Ontology quality scan (tests/e2e/ontology-quality.spec.ts)": [
     "tools.quality",
     "view.quality",
