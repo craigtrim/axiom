@@ -7,7 +7,7 @@ export const tabTypes: Record<string, string> = {
   individuals: "Individuals",
   query: "Query",
   queryResults: "Query results",
-  touchpoints: "Find Touchpoints",
+  touchpoints: "Touchpoints",
   taxonomy: "Suggestions",
   suggestionruns: "Suggestion runs",
   sparsity: "Sparsity",

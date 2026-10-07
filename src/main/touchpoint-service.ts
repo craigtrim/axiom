@@ -38,6 +38,7 @@ export class TouchpointService {
       refresh: input.refresh === true,
     });
     let candidates = result.candidates;
+    let ranking: "model" | "wikipedia" = "wikipedia";
     if (this.compare && candidates.length) {
       try {
         const scores = await this.compare(
@@ -51,17 +52,20 @@ export class TouchpointService {
         if (
           scores.length === candidates.length &&
           scores.every(Number.isFinite)
-        )
+        ) {
+          ranking = "model";
           candidates = candidates
             .map((c, i) => ({ c, score: scores[i] }))
             .sort((a, b) => b.score - a.score || a.c.rank - b.c.rank)
             .map((r) => r.c);
+        }
       } catch {
         /* Missing or unavailable local inference preserves provider order. */
       }
     }
     const response: TouchpointResponse = {
       ...result,
+      ranking,
       candidates,
       context,
       query: input.query,

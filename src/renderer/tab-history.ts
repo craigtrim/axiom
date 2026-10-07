@@ -48,7 +48,8 @@ export function ensureTabMetadata(model: Model, n: TabNode) {
   const history = tabHistory();
   const saved = history.entries.find((t) => t.id === n.getId());
   const sequence = (history.counters[type] = (history.counters[type] ?? 0) + 1);
-  const defaultName = defaultTabName(type, sequence);
+  const defaultName =
+    type === "touchpoints" ? n.getName() : defaultTabName(type, sequence);
   model.doAction(
     Actions.updateNodeAttributes(n.getId(), {
       name: saved?.name ?? defaultName,

@@ -42,7 +42,9 @@ export function touchpointContext(
       ),
     ].sort(),
     links: statements
-      .filter((t) => !t.object.literal)
+      .filter(
+        (t) => !t.object.literal || t.object.datatype === NS.xsd + "anyURI",
+      )
       .map((t) => ({ predicate: t.predicate, iri: t.object.value })),
   };
 }

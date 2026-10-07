@@ -133,7 +133,7 @@ const names: Record<string, string> = {
   details: "Details",
   individuals: "Individuals",
   query: "Query",
-  touchpoints: "Find Touchpoints",
+  touchpoints: "Touchpoints",
   taxonomy: "Suggestions",
   suggestionruns: "Suggestion runs",
   errorlog: "Error log",
@@ -153,12 +153,26 @@ const tab = (id: string) => ({
     ? "graph"
     : id.startsWith("taxonomy:")
       ? "taxonomy"
-      : id,
+      : id.startsWith("touchpoints:")
+        ? "touchpoints"
+        : id,
   name: id.startsWith("graph:")
     ? "Graph " + (Object.keys(state?.graphs ?? {}).indexOf(id) + 1)
     : id.startsWith("taxonomy:")
       ? "Suggestions"
-      : names[id],
+      : id.startsWith("touchpoints:")
+        ? "Touchpoints · " +
+          (state?.entities.find(
+            (e) => e.iri === decodeURIComponent(id.slice(12)),
+          )?.label ??
+            state?.entities.find(
+              (e) => e.iri === decodeURIComponent(id.slice(12)),
+            )?.name ??
+            decodeURIComponent(id.slice(12)))
+        : names[id],
+  ...(id.startsWith("touchpoints:")
+    ? { config: { subject: decodeURIComponent(id.slice(12)) } }
+    : {}),
 });
 
 export function defaultLayout(
@@ -192,7 +206,7 @@ export function defaultLayout(
         type: "tabset" as const,
         id: "inspector-group",
         weight: profile === "wide" ? 18 : 22,
-        children: [tab("inspector"), tab("touchpoints")],
+        children: [tab("inspector")],
       },
     ],
   };
@@ -322,6 +336,12 @@ export function restoreLayout(value: unknown): Model {
           /^taxonomy(?::[a-f0-9-]{36})?$/.test(n.getId())
         )
           return;
+        if (id === "touchpoints" && typeof n.getConfig()?.subject === "string")
+          return;
+        if (id === "touchpoints") {
+          staleGraphs.push(n);
+          return;
+        }
         if (!names[id] || seen.has(id)) throw Error();
         seen.add(id);
       }
@@ -595,6 +615,17 @@ export function App() {
     saveLayout(m);
   };
   const show = (id: string, focusPanel = true) => {
+    if (id === "touchpoints") {
+      if (!state?.selected || state.selected.startsWith("_:")) return;
+      id = "touchpoints:" + encodeURIComponent(state.selected);
+      const subject = state.selected;
+      report(
+        "Opened Touchpoints · " +
+          (state.entities.find((e) => e.iri === subject)?.label ??
+            state.entities.find((e) => e.iri === subject)?.name ??
+            subject),
+      );
+    }
     if (id === "graph") id = state?.activeGraphId ?? "graph";
     const m = modelRef.current;
     let n = m.getNodeById(id);
@@ -638,7 +669,7 @@ export function App() {
           ? (m.getNodeById("graph")?.getParent() ??
             m.getNodeById("hierarchy")?.getParent() ??
             m.getRootRow()!)
-          : id === "touchpoints"
+          : id.startsWith("touchpoints:")
             ? (m.getNodeById("inspector")?.getParent() ?? m.getRootRow()!)
             : m.getRootRow()!);
       m.doAction(
@@ -655,7 +686,7 @@ export function App() {
             id === "taxonomy" ||
             id === "suggestionruns" ||
             id.startsWith("taxonomy:") ||
-            id === "touchpoints" ||
+            id.startsWith("touchpoints:") ||
             id === "provenance" ||
             id === "source" ||
             id === "details"
@@ -1360,7 +1391,12 @@ export function App() {
                   hierarchy: <HierarchyPanel />,
                   graph: <GraphPanel graphId={n.getId()} />,
                   inspector: <InspectorPanel />,
-                  touchpoints: <TouchpointsPanel />,
+                  touchpoints: (
+                    <TouchpointsPanel
+                      subject={n.getConfig()?.subject}
+                      panelId={n.getId()}
+                    />
+                  ),
                   taxonomy: <SuggestionsPanel paneId={n.getId()} />,
                   suggestionruns: <SuggestionRunsPanel />,
                   errorlog: <ErrorLogPanel />,

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { NS, shorten } from "../domain/model";
 import {
   suggestedTouchpointPredicate,
-  touchpointObject,
   touchpointPredicates,
   type TouchpointContext,
   type TouchpointObject,
@@ -10,10 +9,18 @@ import {
   type TouchpointSelection,
 } from "../shared/touchpoints";
 import { request, useSnapshot } from "./client";
-import "./touchpoints.css";
+import { IndividualPaneHeader, LinkedPill } from "./IndividualsChrome";
+import { entityNamespace } from "../shared/terms";
 
-export function TouchpointsPanel() {
+export function TouchpointsPanel({
+  subject,
+  panelId = "touchpoints",
+}: {
+  subject?: string;
+  panelId?: string;
+}) {
   const snapshot = useSnapshot()!;
+  const [pinned] = useState(subject ?? snapshot.selected);
   const [context, setContext] = useState<TouchpointContext>();
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<TouchpointResponse>();
@@ -33,13 +40,14 @@ export function TouchpointsPanel() {
     setQuery("");
     setResponse(undefined);
     setSelected({});
+    setChoices({});
     setError("");
     setMessage("");
     setBusy(false);
     setApplying(false);
-    if (!snapshot.selected) return;
+    if (!pinned) return;
     void request<TouchpointContext>("touchpointContext", {
-      iri: snapshot.selected,
+      iri: pinned,
     })
       .then((value) => {
         if (ticket.current !== current) return;
@@ -52,7 +60,7 @@ export function TouchpointsPanel() {
     return () => {
       ++ticket.current;
     };
-  }, [snapshot.selected, snapshot.datasetEpoch]);
+  }, [pinned, snapshot.datasetEpoch]);
   const stale =
     !!response &&
     (response.context.version !== snapshot.version ||
@@ -65,6 +73,7 @@ export function TouchpointsPanel() {
     setError("");
     setMessage("");
     setSelected({});
+    setChoices({});
     try {
       const value = await window.axiom.touchpoints.search({
         iri: context.iri,
@@ -101,7 +110,6 @@ export function TouchpointsPanel() {
       });
       if (ticket.current !== current) return;
       setContext(next);
-      setResponse(response);
       setSelected({});
       setMessage(
         `Added ${count} ${count === 1 ? "touchpoint" : "touchpoints"}. Undo removes this batch.`,
@@ -116,155 +124,196 @@ export function TouchpointsPanel() {
     }
   };
   const disabled = busy || applying;
+  const linkedTo = (
+    candidate: NonNullable<typeof response>["candidates"][number],
+  ) =>
+    context?.links.find((link) =>
+      [candidate.iri, candidate.url, candidate.wikidataIri].includes(link.iri),
+    );
+  const age = () => {
+    const seconds = Math.max(
+      0,
+      Math.floor((Date.now() - Date.parse(response?.fetchedAt ?? "")) / 1000),
+    );
+    const days = Math.floor(seconds / 86400),
+      hours = Math.floor(seconds / 3600),
+      minutes = Math.floor(seconds / 60);
+    return days
+      ? `${days} ${days === 1 ? "day" : "days"} ago`
+      : hours
+        ? `${hours} ${hours === 1 ? "hour" : "hours"} ago`
+        : minutes
+          ? `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`
+          : "just now";
+  };
+  const [choices, setChoices] = useState<Record<string, TouchpointSelection>>(
+    {},
+  );
+  const count = Object.keys(selected).length;
+  const namespace = entityNamespace(
+    context?.iri ?? "",
+    snapshot.ontology.namespace,
+  );
+  const localName = context?.iri.startsWith(namespace)
+    ? ":" + context.iri.slice(namespace.length)
+    : shorten(context?.iri ?? "");
   return (
     <section
-      className="panel touchpoints-panel"
-      data-panel="touchpoints"
-      aria-label="Find Touchpoints"
+      className="individuals-surface pane"
+      data-panel={panelId}
+      aria-label="Touchpoints"
     >
+      <IndividualPaneHeader>
+        <span className="name">Touchpoints</span>
+        <span className="state">
+          {response?.fetchedAt && <span className="word">Fetched {age()}</span>}
+          <button
+            className="btn"
+            disabled={!context || !query.trim() || disabled}
+            onClick={() => void run(true)}
+          >
+            Refresh
+          </button>
+        </span>
+      </IndividualPaneHeader>
+      <div className="tpbar">
+        <span className="pin">{context?.label}</span>
+        <span className="dot">·</span>
+        <span>{localName}</span>
+        <span className="dot">·</span>
+        <span>pinned to this subject</span>
+        {response?.ranking === "wikipedia" && (
+          <>
+            <span className="dot">·</span>
+            <span>Ranked by Wikipedia. The local model is unavailable.</span>
+          </>
+        )}
+      </div>
       <form
-        className="panel-toolbar touchpoints-toolbar"
+        className="tpq"
         onSubmit={(e) => {
           e.preventDefault();
+          setChoices({});
           void run();
         }}
       >
-        <label>
-          Wikipedia search
-          <input
-            type="search"
-            value={query}
-            maxLength={500}
-            disabled={!context || disabled}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <label
+          htmlFor={panelId + "-query"}
+          style={{ fontSize: 12, color: "var(--text-muted)" }}
+        >
+          Query
         </label>
-        <button type="submit" disabled={!context || !query.trim() || disabled}>
+        <input
+          id={panelId + "-query"}
+          className="fld"
+          aria-label="Query"
+          value={query}
+          style={{ maxWidth: 360 }}
+          maxLength={500}
+          disabled={!context || disabled}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button
+          className="btn"
+          disabled={!context || !query.trim() || disabled}
+        >
           Search
         </button>
-        <button
-          type="button"
-          disabled={!context || !query.trim() || disabled}
-          onClick={() => void run(true)}
-        >
-          Refresh
-        </button>
+        <span className="flex" />
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {response?.candidates.length ?? 0} candidates
+        </span>
       </form>
-      <div className="touchpoints-summary">
-        {context ? (
-          <p>
-            Find external concepts for <strong>{context.label}</strong>.
-          </p>
-        ) : (
-          <p>Select an entity to find touchpoints.</p>
-        )}
-        {response && (
-          <p>
-            Results for <strong>{response.query}</strong>.
-          </p>
-        )}
-        {response?.fetchedAt && (
-          <p className="muted">
-            {response.cached
-              ? response.stale
-                ? "Saved results"
-                : "Cached results"
-              : "Results"}{" "}
-            fetched {new Date(response.fetchedAt).toLocaleString()}.
-          </p>
-        )}
+      <div className="pbody" aria-busy={busy}>
         {busy && <p role="status">Searching Wikipedia…</p>}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
+        {error && <p role="alert">{error}</p>}
         {stale && (
           <p role="status">
-            The ontology changed since this search. Search again before applying
-            touchpoints.
+            The ontology changed. Search again before applying.
           </p>
         )}
         {message && <p role="status">{message}</p>}
-      </div>
-      <div className="touchpoints-results" aria-busy={busy}>
         {response &&
           !response.candidates.length &&
           !busy &&
-          !response.error && <p>No Wikipedia concepts matched this query.</p>}
+          !response.error && <p>No candidate was returned for this query.</p>}
+        {response &&
+          response.candidates.length > 0 &&
+          response.candidates.every(linkedTo) && (
+            <p>Every candidate is already linked.</p>
+          )}
         {response?.candidates.map((candidate) => {
-          const choice = selected[candidate.id];
-          const linked = context?.links.some((link) =>
-            [candidate.iri, candidate.url, candidate.wikidataIri].includes(
-              link.iri,
-            ),
-          );
-          const change = (value: Partial<TouchpointSelection>) =>
-            setSelected((old) => ({
-              ...old,
-              [candidate.id]: { ...old[candidate.id], ...value },
-            }));
-          const object = touchpointObject(
-            candidate,
-            choice?.object ?? "dbpedia",
-          );
+          const linked = linkedTo(candidate),
+            choice = choices[candidate.id] ??
+              selected[candidate.id] ?? {
+                id: candidate.id,
+                predicate: suggestedTouchpointPredicate(
+                  response.context,
+                  candidate,
+                ),
+                object: "dbpedia" as TouchpointObject,
+              };
+          const change = (update: Partial<TouchpointSelection>) => {
+            const next = { ...choice, ...update };
+            setChoices((old) => ({ ...old, [candidate.id]: next }));
+            if (selected[candidate.id])
+              setSelected((old) => ({ ...old, [candidate.id]: next }));
+          };
           return (
-            <article
-              className="touchpoint-row"
+            <div
+              className={"cand" + (linked ? " linked" : "")}
               key={candidate.id}
               aria-label={candidate.label}
+              role="article"
             >
-              <div className="touchpoint-title">
-                <label>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${candidate.label}`}
-                    checked={!!choice}
-                    disabled={
-                      disabled || stale || candidate.disambiguation || linked
-                    }
-                    onChange={(e) =>
-                      setSelected((old) => {
-                        const next = { ...old };
-                        if (e.target.checked)
-                          next[candidate.id] = {
-                            id: candidate.id,
-                            predicate: suggestedTouchpointPredicate(
-                              response.context,
-                              candidate,
-                            ),
-                            object: "dbpedia",
-                          };
-                        else delete next[candidate.id];
-                        return next;
-                      })
-                    }
-                  />
-                  <strong>{candidate.label}</strong>
-                </label>
-                {candidate.disambiguation && <span>Disambiguation page</span>}
-                {linked && <span>Linked</span>}
-                <button
-                  type="button"
-                  onClick={() =>
-                    void window.axiom.touchpoints
-                      .open(candidate.url)
-                      .catch((e) => setError((e as Error).message))
+              {linked ? (
+                <span className="pill no2">✓</span>
+              ) : candidate.disambiguation ? (
+                <span className="pill no2">×</span>
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={!!selected[candidate.id]}
+                  aria-label={`Select ${candidate.label}`}
+                  disabled={disabled || stale}
+                  onChange={(e) =>
+                    setSelected((old) => {
+                      const next = { ...old };
+                      if (e.target.checked) next[candidate.id] = choice;
+                      else delete next[candidate.id];
+                      return next;
+                    })
                   }
-                >
-                  Open Wikipedia page
-                  <span className="sr-only"> for {candidate.label}</span>
-                </button>
-              </div>
-              <p>
-                {candidate.description || "No short description available."}
-              </p>
-              <p className="touchpoint-iri">{object}</p>
-              {choice && (
-                <div className="touchpoint-options">
-                  <label>
-                    Relationship
+                />
+              )}
+              <span>
+                <span className="ttl2">{candidate.label}</span>
+                <br />
+                <span className="ds">{candidate.description}</span>
+              </span>
+              {linked ? (
+                <>
+                  <span>
+                    <LinkedPill />
+                  </span>
+                  <span className="iri2">
+                    {linked.iri.replace(/^https?:\/\/(www\.)?/, "")}
+                  </span>
+                </>
+              ) : candidate.disambiguation ? (
+                <>
+                  <span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      not selectable
+                    </span>
+                  </span>
+                  <span className="iri2" />
+                </>
+              ) : (
+                <>
+                  <span>
                     <select
+                      className="sel"
                       aria-label={`Relationship for ${candidate.label}`}
                       value={choice.predicate}
                       disabled={disabled || stale}
@@ -279,49 +328,55 @@ export function TouchpointsPanel() {
                       }
                     >
                       {[
-                        ...touchpointPredicates,
+                        ...[...touchpointPredicates].sort(),
                         NS.rdfs + "seeAlso",
                         ...(context?.kind === "Individual"
                           ? [NS.owl + "sameAs"]
                           : []),
-                      ].map((predicate) => (
-                        <option key={predicate} value={predicate}>
-                          {shorten(predicate)}
+                      ].map((p) => (
+                        <option key={p} value={p}>
+                          {shorten(p)}
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label>
-                    Link target
+                  </span>
+                  <span>
                     <select
-                      aria-label={`Link target for ${candidate.label}`}
+                      className="sel"
+                      aria-label={`Target for ${candidate.label}`}
                       value={choice.object}
                       disabled={disabled || stale}
                       onChange={(e) =>
                         change({ object: e.target.value as TouchpointObject })
                       }
                     >
-                      <option value="dbpedia">DBpedia resource</option>
-                      {candidate.wikidataIri && (
-                        <option value="wikidata">Wikidata entity</option>
-                      )}
-                      <option value="wikipedia">Wikipedia page</option>
+                      <option value="dbpedia">DBpedia</option>
+                      <option
+                        value="wikidata"
+                        disabled={!candidate.wikidataIri}
+                      >
+                        Wikidata
+                      </option>
+                      <option value="wikipedia">Wikipedia</option>
                     </select>
-                  </label>
-                </div>
+                  </span>
+                </>
               )}
-            </article>
+            </div>
           );
         })}
       </div>
-      <div className="panel-toolbar touchpoints-footer">
-        <span>{Object.keys(selected).length} selected</span>
+      <div className="tpfoot">
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {count} selected. Applying adds it as one Undo operation.
+        </span>
+        <span className="flex" />
         <button
-          type="button"
-          disabled={disabled || stale || !Object.keys(selected).length}
+          className="btn primary"
+          disabled={disabled || stale || !count}
           onClick={() => void apply()}
         >
-          {applying ? "Applying…" : "Apply selected touchpoints"}
+          Apply selected touchpoints
         </button>
       </div>
     </section>

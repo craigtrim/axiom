@@ -91,6 +91,7 @@ export interface TouchpointSelection {
   object: TouchpointObject;
 }
 export interface TouchpointResponse extends TouchpointSearchResult {
+  ranking?: "model" | "wikipedia";
   token: string;
   query: string;
   context: TouchpointContext;
