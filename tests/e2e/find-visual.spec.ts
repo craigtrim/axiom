@@ -268,7 +268,7 @@ test.beforeEach(async ({}, info) => {
   }, reference);
   specimen = await opened;
   await specimen.locator("#fr-zero .pane").waitFor();
-  // #49 amends only results scaffolding; the byte-pinned #34 HTML stays intact.
+  // Row-extension amendments affect results scaffolding; the #34 HTML stays intact.
   await specimen.evaluate(() => {
     const style = document.createElement("style");
     style.textContent = `.res .extend-column { width:148px; }
@@ -276,7 +276,7 @@ test.beforeEach(async ({}, info) => {
         .res col.col-type { width:min(120px, calc((100% - 148px - 80px) * .4)) !important; }
         .res col.col-syn { width:min(180px, calc((100% - 148px - 80px) * .6)) !important; }
       }
-      @container pane (max-width:599px) { .res .extend-column { width:44px; } }`;
+      @container pane (max-width:599px) { .res .extend-column { width:148px; } }`;
     document.head.append(style);
     document.querySelectorAll("table.res").forEach((table) => {
       table.querySelectorAll(".addsyn").forEach((button) => button.remove());

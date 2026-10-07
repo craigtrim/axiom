@@ -22,10 +22,24 @@ async function menu(id: string) {
   await app.evaluate(({ Menu, BrowserWindow }, id) => {
     const w =
       BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (id === "file.open")
+      (globalThis as any).__openingFileMenu = Menu.getApplicationMenu();
     Menu.getApplicationMenu()!
       .getMenuItemById(id)!
       .click({} as never, w, w.webContents as never);
   }, id);
+  // RDF becomes visible before the workspace reset and session checkpoint finish.
+  // File > Recent is rebuilt at completion; waiting for it avoids starting the
+  // next file operation or quick Find while the previous import still resets UI.
+  if (id === "file.open")
+    await expect
+      .poll(() =>
+        app.evaluate(
+          ({ Menu }) =>
+            Menu.getApplicationMenu() !== (globalThis as any).__openingFileMenu,
+        ),
+      )
+      .toBe(true);
 }
 async function launch(modelDirectory?: string) {
   const env = {
@@ -448,6 +462,8 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   await first.press("Space");
   await expect(page.getByRole("menuitem").first()).toBeFocused();
   await page.getByRole("menuitem").first().press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
+  await page.getByRole("menuitem", { name: /^Subclass/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Sibling/ })).toBeFocused();
   await page.getByRole("menuitem", { name: /^Sibling/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Instance/ })).toBeFocused();
@@ -496,7 +512,7 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   await expect(label).toHaveValue("Retained class draft");
 });
 
-test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations", async () => {
+test("the narrow split reserves 148 pixels and lists Synonym before relations", async () => {
   await openExtendFixture();
   await page.locator('[data-pane-id="find"]').evaluate((el) =>
     Object.assign((el as HTMLElement).style, {
@@ -515,9 +531,11 @@ test("#49 the narrow fold reserves 44 pixels and lists Synonym before relations"
       async () =>
         (await row.locator(".find-extend-column").boundingBox())!.width,
     )
-    .toBe(44);
+    .toBe(148);
   const trigger = await extendMenu("Psychology");
-  await expect(trigger).toHaveText("+");
+  await expect(trigger).toHaveText("v");
+  await expect(row.locator(".ext-main")).toHaveText("+ Synonym");
+  await expect(row.locator(".ext-main")).toBeEnabled();
   await expect(page.getByRole("menuitem")).toHaveText([
     "Synonymrdfs:seeAlso",
     "Subclassrdfs:subClassOf",
@@ -697,10 +715,7 @@ for (const mode of ["expanded", "narrow", "constrained"] as const) {
     await trigger.press("Escape");
     await trigger.press("Enter");
     await expect(page.getByRole("menuitem").first()).toBeFocused();
-    const order =
-      mode === "expanded"
-        ? ["Sibling", "Subclass", "Sibling"]
-        : ["Subclass", "Sibling", "Synonym", "Subclass"];
+    const order = ["Subclass", "Sibling", "Synonym", "Subclass"];
     for (const item of order) {
       await page.keyboard.press("s");
       await expect(
@@ -719,6 +734,7 @@ test("#55 owl:Thing offers Subclass and Instance without Sibling", async () => {
   );
   await extendMenu("Thing");
   await expect(page.getByRole("menuitem")).toHaveText([
+    "Synonymrdfs:seeAlso",
     "Subclassrdfs:subClassOf",
     "Instancerdf:type",
   ]);

@@ -1,4 +1,10 @@
-# Find entity extension visual contract — revisions 1 and 2
+# Find entity extension visual contract
+
+The current contract is revision 3: see `README-v3.md` for the user-approved
+remembered-action split and the narrow layout amendment. `visual-reference-v3.html`
+and `v3-light.json` / `v3-dark.json` are its independent source and expected images.
+Current evidence goes to `artifacts/remembered-extend`. The history below describes
+the preserved revision 1 and revision 2 artifacts.
 
 `visual-reference.html` preserves the original issue 49 reference byte for byte.
 Its SHA-256 is `ccf5025880e27b2536c483574d533b5e58d3f2a032c59d84a95963d0ee55a881`.

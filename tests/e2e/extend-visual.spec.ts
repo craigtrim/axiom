@@ -14,10 +14,10 @@ import { extendOntology } from "../fixtures/extend-visual/ontology";
 import type { Snapshot } from "../../src/shared/protocol";
 
 const reference = path.resolve(
-  "tests/fixtures/extend-visual/visual-reference-v2.html",
+  "tests/fixtures/extend-visual/visual-reference-v3.html",
 );
 const referenceHash =
-  "e7dda85e59b560b5cb6879120d1fdfd9e2ae35a1efcb0dd97b28e747284bfaa8";
+  "e70c7d9b72ca40bc5de6812d26a9cd4af97bc1ac378d632d1a62a28bd8e62502";
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
 const row = (name = "Psychology") =>
@@ -290,7 +290,7 @@ for (const theme of ["light", "dark"] as const)
         .digest("hex"),
     ).toBe("ccf5025880e27b2536c483574d533b5e58d3f2a032c59d84a95963d0ee55a881");
     await mkdir("artifacts/testing", { recursive: true });
-    await mkdir("artifacts/issue-56/visual", { recursive: true });
+    await mkdir("artifacts/remembered-extend/visual", { recursive: true });
     const profile = await mkdtemp(
       path.resolve("artifacts/testing/extend-visual-"),
     );
@@ -368,7 +368,7 @@ for (const theme of ["light", "dark"] as const)
       }, reference);
       specimen = await referenceWindow;
       const baselinePath = path.resolve(
-        `tests/fixtures/extend-visual/${theme}.json`,
+        `tests/fixtures/extend-visual/v3-${theme}.json`,
       );
       const generated: Record<string, string> = {};
       const savedBaseline =
@@ -388,11 +388,11 @@ for (const theme of ["light", "dark"] as const)
         const actual = await capture(actualControl, page, pad);
         generated[name] = expected.toString("base64");
         await writeFile(
-          `artifacts/issue-56/visual/${theme}-${name}-expected.png`,
+          `artifacts/remembered-extend/visual/${theme}-${name}-expected.png`,
           expected,
         );
         await writeFile(
-          `artifacts/issue-56/visual/${theme}-${name}-actual.png`,
+          `artifacts/remembered-extend/visual/${theme}-${name}-actual.png`,
           actual,
         );
         const differences = await app.evaluate(
@@ -445,7 +445,7 @@ for (const theme of ["light", "dark"] as const)
             }),
           );
         await writeFile(
-          `artifacts/issue-56/visual/${theme}-${name}-metrics.json`,
+          `artifacts/remembered-extend/visual/${theme}-${name}-metrics.json`,
           JSON.stringify(
             {
               differences,
@@ -619,7 +619,12 @@ for (const theme of ["light", "dark"] as const)
       await row().focus();
       await compare(
         "shallow-split",
-        await referenceControl("#a figure:nth-child(2) .rowact.show", theme),
+        await referenceControl(
+          "#a figure:nth-child(2) .rowact.show",
+          theme,
+          760,
+          [["Synonym", "Instance"]],
+        ),
         row().locator(".entity-extend"),
       );
       await resize(500);
@@ -630,19 +635,20 @@ for (const theme of ["light", "dark"] as const)
           async () =>
             (await row().locator(".find-extend-column").boundingBox())!.width,
         )
-        .toBe(44);
+        .toBe(148);
       await compare(
-        "folded",
+        "narrow-split",
         await referenceControl(
-          "#e figure:first-child tr:first-child .ra-main",
+          "#e figure:first-child tr:first-child .rowact",
           theme,
           420,
+          [["Synonym", "Instance"]],
         ),
-        row().locator(".ext-action"),
+        row().locator(".entity-extend"),
       );
       await openMenu();
       await compare(
-        "folded-menu",
+        "narrow-menu",
         await referenceControl("#e figure:nth-child(2) .ramenu", theme, 420),
         page.getByRole("menu"),
       );
@@ -651,22 +657,18 @@ for (const theme of ["light", "dark"] as const)
       await expect(pane()).toHaveAttribute("data-layout", "constrained");
       await row().focus();
       await compare(
-        "constrained-folded",
+        "constrained-split",
         await referenceControl(
-          "#e figure:first-child tr:first-child .ra-main",
+          "#e figure:first-child tr:first-child .rowact",
           theme,
           420,
+          [["Synonym", "Instance"]],
         ),
-        row().locator(".ext-action"),
+        row().locator(".entity-extend"),
       );
       await resize(760);
-      await row().focus();
-      await row()
-        .getByRole("button", {
-          name: "Add Psy as a synonym of Psychology",
-          exact: true,
-        })
-        .click();
+      await openMenu();
+      await page.getByRole("menuitem", { name: /^Synonym/ }).click();
       await expect(pane().locator(".extend-confirmation")).toHaveText(
         "Psy added to Psychology",
       );
