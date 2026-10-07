@@ -201,7 +201,7 @@ export function ContextMenu({
           "entity-context-menu" +
           (appearance === "chrome" ? " chrome-menu menu" : "")
         }
-        tabIndex={-1}
+        tabIndex={appearance === "chrome" ? -1 : undefined}
         ref={ref}
         style={{
           left: x,

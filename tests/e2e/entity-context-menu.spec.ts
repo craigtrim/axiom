@@ -306,11 +306,14 @@ for (const surface of ["hierarchy", "graph"] as const) {
     const find = await child(menu, "f", "Find");
     await find.press("t");
     const pane = page.getByRole("region", {
-      name: "Find Touchpoints",
+      name: "Touchpoints",
       exact: true,
     });
-    await expect(pane.getByRole("searchbox")).toHaveValue("Root");
-    await expect(pane.locator(".touchpoint-row")).toHaveCount(0);
+    await expect(
+      pane.getByRole("textbox", { name: "Query", exact: true }),
+    ).toHaveValue("Root");
+    await expect(pane.locator(".cand")).toHaveCount(0);
+    await expect(pane.locator(".tpq")).toContainText("0 candidates");
     await expect(page.getByRole("menu")).toHaveCount(0);
     await expect(page.locator(".inline-rename")).toHaveCount(0);
   });
