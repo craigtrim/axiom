@@ -724,7 +724,7 @@ test("a seeAlso synonym added beside an empty Details row matches immediately, c
   await synonym.press("Tab");
   await expect(chip("phlebotomy")).toBeAttached({ timeout: 20000 });
   await expect(details().locator('tr[data-predicate=""]')).toHaveCount(1);
-  await expect(details().locator(".entity-save-status")).toHaveText("Saved");
+  await expect(details().locator(".phead .state.clean")).toHaveText("Saved");
   const savedSynonyms = () =>
     page.evaluate(async (iri) => {
       const doc = await window.axiom.request<
@@ -2840,15 +2840,14 @@ test("letter access keys also work in the entity source editor", async () => {
   await enter("canine");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await selectSummaryEntity("dog");
-  await details().getByText("Source", { exact: true }).click();
+
   const input = details().getByRole("textbox", {
-    name: "Entity source",
-    exact: true,
+    name: /^Source for /,
   });
   await input.focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.press("Shift+F10");
-  const popup = page.locator(".monaco-menu [role=menu]");
+  const popup = page.getByRole("menu", { name: "Source editing" });
   await expect(popup.locator('[data-menu-key="C"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(input).toBeFocused();

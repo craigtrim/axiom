@@ -33,21 +33,18 @@ for (const [kind, relations] of matrix) {
       expect(control.synonym).toBe(false);
       expect(control.form).toBe(relations.length ? "folded" : "empty");
     });
-    it.each(["label", "exists", undefined] as const)(
-      `${kind} narrow=${narrow} withdraws %s synonyms`,
+    it.each(["label", "exists", "available"] as const)(
+      `${kind} narrow=${narrow} keeps %s synonyms available`,
       (status) => {
         expect(extendControl(kind, "new term", status, narrow).form).toBe(
-          relations.length ? "folded" : "empty",
+          narrow ? "folded" : relations.length ? "split" : "main",
         );
       },
     );
-    it(`${kind} narrow=${narrow} shows the right form before and after adding`, () => {
-      expect(extendControl(kind, " new term ", "available", narrow).form).toBe(
-        narrow ? "folded" : relations.length ? "split" : "main",
+    it(`${kind} narrow=${narrow} withholds editing when the subject is unavailable`, () => {
+      expect(extendControl(kind, "new term", undefined, narrow).form).toBe(
+        relations.length ? "folded" : "empty",
       );
-      expect(
-        extendControl(kind, "new term", "available", narrow, true).form,
-      ).toBe(relations.length ? "folded" : "empty");
     });
   }
 }

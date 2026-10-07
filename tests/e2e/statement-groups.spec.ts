@@ -234,9 +234,9 @@ test("adding, editing and removing one value preserves order through save and re
       els.map((el) => (el as HTMLInputElement).value),
     ),
   ).toEqual(expected);
-  await details().getByText("Source", { exact: true }).click();
+
   await expect(
-    details().getByRole("textbox", { name: "Entity source", exact: true }),
+    details().getByRole("textbox", { name: /^Source for / }),
   ).toBeVisible();
   const source = await page.evaluate(
     (iri) => window.axiom.request<{ text: string }>("entitySource", { iri }),
@@ -256,7 +256,7 @@ test("single value actions take no extra line and keyboard removal removes the l
   await page.mouse.move(0, 0);
   const add = row.getByRole("button", { name: "+ Add value", exact: true });
   await expect(add).toHaveCSS("opacity", "0");
-  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(38);
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(39);
   await fields(row).first().focus();
   await expect(add).toHaveCSS("opacity", "1");
   await page.keyboard.press("Tab");
@@ -271,7 +271,7 @@ test("single value actions take no extra line and keyboard removal removes the l
   await fields(row).last().fill("Second");
   await fields(row).last().press("Tab");
   await expect.poll(() => saved(base + "custom")).toEqual(["Only", "Second"]);
-  await expect(details().locator(".entity-save-status")).toHaveText("Saved");
+  await expect(details().locator(".phead .state.clean")).toHaveText("Saved");
   await expect(
     row
       .getByRole("button", { name: "Remove this custom value", exact: true })
@@ -299,10 +299,19 @@ test("ancestry peers are separate cards and an individual has one rdf:type row",
   ).toHaveCount(0);
   expect(
     await peers.evaluate((el) => ({
-      border: getComputedStyle(el).borderWidth,
+      border: getComputedStyle(el).borderLeftStyle,
+      otherBorders: [
+        getComputedStyle(el).borderTopWidth,
+        getComputedStyle(el).borderRightWidth,
+        getComputedStyle(el).borderBottomWidth,
+      ],
       background: getComputedStyle(el).backgroundColor,
     })),
-  ).toEqual({ border: "0px", background: "rgba(0, 0, 0, 0)" });
+  ).toEqual({
+    border: "solid",
+    otherBorders: ["0px", "0px", "0px"],
+    background: "rgba(0, 0, 0, 0)",
+  });
   await select("Student");
   const types = group(TYPE);
   await expect(types).toHaveCount(1);

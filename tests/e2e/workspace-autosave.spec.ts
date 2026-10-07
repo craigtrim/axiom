@@ -186,10 +186,9 @@ test("unapplied entity source survives close and restart and only changes the on
   await request("select", { iri });
   await menu("view.details");
   const details = page.getByRole("region", { name: "Details", exact: true });
-  await details.locator(".entity-source > summary").click();
+
   const source = details.getByRole("textbox", {
-    name: "Entity source",
-    exact: true,
+    name: /^Source for /,
   });
   await expect(source).toBeEnabled();
   const text =
@@ -223,6 +222,49 @@ test("unapplied entity source survives close and restart and only changes the on
     )
     .toBe(true);
 });
+for (const draftState of ["invalid", "stale"] as const)
+  test(`${draftState} entity source retains its text and validation state after restart`, async () => {
+    const iri = await create();
+    await request("select", { iri });
+    await menu("view.details");
+    const pane = () =>
+      page.getByRole("region", { name: "Details", exact: true });
+    const editor = () => pane().getByRole("textbox", { name: /^Source for / });
+    await expect(editor()).toBeEnabled();
+    const text =
+      draftState === "invalid"
+        ? "invalid rdf {"
+        : (await editor().inputValue()).replace('"Alpha"', '"Draft alpha"');
+    await editor().fill(text);
+    if (draftState === "stale")
+      await request("rename", { iri, name: "Newer alpha" });
+    await pane()
+      .getByRole("button", { name: "Save source", exact: true })
+      .click();
+    await expect(pane().locator(".state." + draftState)).toBeVisible();
+    await close();
+    const saved = (await stored()).editorDrafts.entitySources[0];
+    expect(saved.text).toContain(text);
+    if (draftState === "invalid") expect(saved.error).toContain("line 1");
+    else expect(saved.stale).toBe(true);
+    await launch();
+    await expect(pane().locator(".state." + draftState)).toBeVisible();
+    await expect(editor()).toHaveValue(text);
+    expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
+      draftState === "invalid" ? "Alpha" : "Newer alpha",
+    );
+    await pane()
+      .getByRole("button", {
+        name:
+          draftState === "invalid"
+            ? "Discard draft"
+            : "Discard draft and reload",
+        exact: true,
+      })
+      .click();
+    await expect(pane().locator(".state.clean")).toHaveText("Saved");
+  });
+
 test("a failed final save keeps the window open, preserves recovery and exposes an audit log", async () => {
   const iri = await create();
   const folder = path.join(profile, "destination");
@@ -318,7 +360,7 @@ test("an unfinished statement row survives closing without becoming an invalid o
   await menu("view.details");
   const details = page.getByRole("region", { name: "Details", exact: true });
   const before = await state();
-  await details.getByRole("button", { name: "Add row", exact: true }).click();
+  await details.getByRole("button", { name: "+ Add row", exact: true }).click();
   await expect(
     details.getByRole("combobox", { name: /^Predicate / }).last(),
   ).toHaveValue("");

@@ -140,7 +140,7 @@ test.beforeEach(async () => {
   await expect(ancestry()).toBeVisible();
   await ancestry().getByRole("button").first().focus();
   await menu("pane.maximise");
-  await expect(ancestry()).toHaveAttribute("data-orientation", "horizontal");
+  await expect(ancestry()).toHaveAttribute("data-orientation", "vertical");
 });
 test.afterEach(async ({}, info) => {
   if (info.status !== info.expectedStatus && page && !page.isClosed())
@@ -151,7 +151,7 @@ test.afterEach(async ({}, info) => {
   await app.close();
   expect(errors).toEqual([]);
 });
-test("shows Basic English once in a right-to-left trail with English and Language grouped", async () => {
+test("shows Basic English once in a vertical trail with English and Language grouped", async () => {
   await select("BasicEnglish");
   await expect(ancestry().locator("ol")).toHaveCount(1);
   await expect(ancestry().locator('[aria-current="page"]')).toHaveCount(1);
@@ -170,14 +170,8 @@ test("shows Basic English once in a right-to-left trail with English and Languag
     (await stages.all()).map((stage) => stage.boundingBox()),
   );
   for (let i = 1; i < positions.length; i++) {
-    expect(positions[i - 1]!.x).toBeGreaterThan(positions[i]!.x);
-    const previous = positions[i - 1]!,
-      current = positions[i]!;
-    expect(
-      Math.abs(
-        previous.y + previous.height / 2 - current.y - current.height / 2,
-      ),
-    ).toBeLessThan(2);
+    expect(positions[i]!.y).toBeGreaterThan(positions[i - 1]!.y);
+    expect(positions[i]!.x).toBe(positions[i - 1]!.x);
   }
   await expect(ancestry()).not.toContainText("Cycle in ancestry");
   await expect(ancestry()).not.toContainText("paths");
@@ -213,7 +207,7 @@ test("shows Basic English once in a right-to-left trail with English and Languag
   ).toEqual([]);
 });
 
-test("turns vertical in a tall detached pane and remains usable after resizing", async () => {
+test("stays vertical in a tall detached pane and remains usable after resizing", async () => {
   await select("BasicEnglish");
   await ancestry().getByRole("button").first().focus();
   await menu("pane.detach");
@@ -243,10 +237,7 @@ test("turns vertical in a tall detached pane and remains usable after resizing",
   await (
     await app.browserWindow(child)
   ).evaluate((w) => w.setContentSize(1100, 650));
-  await expect(ancestry(child)).toHaveAttribute(
-    "data-orientation",
-    "horizontal",
-  );
+  await expect(ancestry(child)).toHaveAttribute("data-orientation", "vertical");
   await ancestry(child)
     .getByRole("button", { name: "View English details", exact: true })
     .click();
@@ -289,11 +280,14 @@ test("retains exact instance and definition relationships without changing RDF o
   await expect(ancestry().locator(".ancestry-stage")).toHaveCount(2);
   await expect(ancestry().locator('[data-root="true"]')).toHaveCount(0);
   await select("Knowledge");
-  await expect(ancestry()).toContainText("Root class");
+  await expect(ancestry()).not.toContainText("Root class");
+  await expect(ancestry().locator(".ancestry-current")).toContainText(
+    "Selected class",
+  );
   await expect(ancestry().getByRole("button")).toHaveCount(0);
 });
 
-test("folds a deep trail, reveals every stage and keeps the selected entity on the right", async () => {
+test("folds a deep trail, reveals every stage and keeps the selected entity at the top", async () => {
   await select("Deep8");
   await expect(ancestry().locator(".ancestry-trail > li")).toHaveCount(5);
   await ancestry()
@@ -302,8 +296,8 @@ test("folds a deep trail, reveals every stage and keeps the selected entity on t
   await expect(ancestry().locator(".ancestry-stage")).toHaveCount(9);
   await expect(ancestry().locator('[aria-current="page"]')).toBeInViewport();
   const stages = ancestry().locator(".ancestry-stage");
-  expect((await stages.first().boundingBox())!.x).toBeGreaterThan(
-    (await stages.last().boundingBox())!.x,
+  expect((await stages.first().boundingBox())!.y).toBeLessThan(
+    (await stages.last().boundingBox())!.y,
   );
   await ancestry()
     .getByRole("button", { name: "View Deep 0 details", exact: true })
@@ -431,9 +425,19 @@ async function showTaxonomy() {
 }
 async function alignmentError(name: string, p = page, centered = false) {
   const row = (await treeRow(name).boundingBox())!;
-  const anchor = centered
-    ? (await tree().boundingBox())!
+  const viewport = (await tree().boundingBox())!;
+  let anchor = centered
+    ? viewport
     : (await ancestry(p).locator('[aria-current="page"]').boundingBox())!;
+  // The reference's shorter header puts the selected card above the first
+  // usable tree row in some dock arrangements. That uses the documented
+  // viewport-center fallback, just like a stacked or detached Details pane.
+  const center = anchor.y + anchor.height / 2;
+  if (
+    center < viewport.y + row.height / 2 ||
+    center > viewport.y + viewport.height - row.height / 2
+  )
+    anchor = viewport;
   return Math.abs(row.y + row.height / 2 - anchor.y - anchor.height / 2);
 }
 async function expectStableScroll(
@@ -495,7 +499,7 @@ test("hierarchy clicks keep rows under the mouse while external selection of the
   await showTaxonomy();
   await select("A490");
   await expect.poll(() => alignmentError("A490")).toBeLessThan(2);
-  for (const name of ["A495", "A496", "A497"]) {
+  for (const name of ["A491", "A492", "A493"]) {
     await expect(treeRow(name)).toBeInViewport();
     const before = await tree().evaluate((el) => el.scrollTop);
     const position = (await treeRow(name).boundingBox())!;
@@ -508,11 +512,11 @@ test("hierarchy clicks keep rows under the mouse while external selection of the
     expect((await treeRow(name).boundingBox())!.y).toBe(position.y);
   }
   // The pointer remains over Hierarchy; selection origin controls centering.
-  await select("A497");
-  await expect.poll(() => alignmentError("A497")).toBeLessThan(2);
+  await select("A493");
+  await expect.poll(() => alignmentError("A493")).toBeLessThan(2);
   await details().getByRole("button", { name: "Back", exact: true }).click();
-  await expect(details()).toHaveAttribute("data-entity-iri", base + "A496");
-  await expect.poll(() => alignmentError("A496")).toBeLessThan(2);
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "A492");
+  await expect.poll(() => alignmentError("A492")).toBeLessThan(2);
 });
 
 test("hierarchy property clicks retain the filter and scroll position", async () => {
@@ -734,7 +738,8 @@ test("ancestry navigation aligns the taxonomy row with the selected card and res
   });
   await treeRow("A003").click();
   await expect(details()).toHaveAttribute("data-entity-iri", base + "A003");
-  await expect(ancestry()).toContainText("Root class");
+  await expect(ancestry()).not.toContainText("Root class");
+  await expect(ancestry().locator(".ancestry-current")).toContainText("A003");
   await expect(treeRow("A003")).toBeInViewport();
   await treeRow("A500").scrollIntoViewIfNeeded();
   const before = await tree().evaluate((el) => el.scrollTop);

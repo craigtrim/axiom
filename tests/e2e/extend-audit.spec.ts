@@ -319,7 +319,7 @@ for (const [name, folded] of [
   ["PSY 101 Fall 2026", false],
   ["PSY 101 Fall 2026", true],
 ] as const)
-  test(`#56 synonym withdrawal retains row focus: ${name}, folded=${folded}`, async () => {
+  test(`#56 synonym addition retains row focus and remains available: ${name}, folded=${folded}`, async () => {
     if (folded) await size(500, 558);
     await row(name).focus();
     let action = row(name).getByRole("button", {
@@ -348,7 +348,7 @@ for (const [name, folded] of [
     ).toHaveLength(1);
     if (name === "Psychology") {
       await row(name).press("Tab");
-      await expect(trigger(name)).toBeFocused();
+      await expect(action).toBeFocused();
     }
     await capture(
       `focus-after-synonym-${folded ? "folded" : name === "Psychology" ? "class" : "individual"}`,

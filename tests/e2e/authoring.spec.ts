@@ -13,6 +13,7 @@ const errors: string[] = [];
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 async function menu(id: string) {
+  const epoch = id === "file.new" ? (await state()).datasetEpoch : undefined;
   await expect
     .poll(() =>
       app.evaluate(
@@ -29,6 +30,10 @@ async function menu(id: string) {
       .getMenuItemById(id)!
       .click({} as never, w, w.webContents as never);
   }, id);
+  if (epoch !== undefined)
+    await expect
+      .poll(async () => (await state()).datasetEpoch)
+      .toBeGreaterThan(epoch);
 }
 test.beforeEach(async () => {
   errors.length = 0;
@@ -46,6 +51,10 @@ test.beforeEach(async () => {
     env,
   });
   page = await app.firstWindow();
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (
+      await app.browserWindow(page)
+    ).evaluate((win) => win.setFocusable(false));
   page.on("pageerror", (e) => errors.push(e.message));
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
   await app.evaluate(({ dialog }) => {
@@ -90,7 +99,7 @@ test("natural labels create in the taxonomy and full entity details open beside 
     page.getByRole("tab", { name: "Graph", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await editor.getByRole("button", { name: "Add row", exact: true }).click();
+  await editor.getByRole("button", { name: "+ Add row", exact: true }).click();
   await editor
     .locator("tbody tr")
     .last()
@@ -339,12 +348,17 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   );
   await page.locator(":focus").blur();
   await expect(editor.getByRole("alert").first()).toContainText(
-    "changed since",
+    "changed in rdfs:label",
   );
   expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
     "An intervening change",
   );
-  await editor.getByRole("button", { name: "More entity actions" }).click();
+  const more = editor.getByRole("button", { name: "More entity actions" });
+  if (!(await more.isVisible())) {
+    await editor.locator(".phead .name").click();
+    await menu("pane.maximise");
+  }
+  await more.click();
   await editor.getByRole("button", { name: "Reload", exact: true }).click();
   await expect(
     editor.getByRole("textbox", { name: "Entity label", exact: true }),
@@ -463,10 +477,9 @@ test("changing an entity IRI keeps its editor, pinned graph position and incomin
   await menu("entity.edit");
   const editor = page.getByRole("region", { name: "Details" });
   const newIri = "https://example.org/CourseCredit";
-  await editor.locator(".entity-source > summary").click();
+
   const source = editor.getByRole("textbox", {
-    name: "Entity source",
-    exact: true,
+    name: /^Source for /,
   });
   await expect(source).toBeEnabled();
   const local = oldIri.slice(

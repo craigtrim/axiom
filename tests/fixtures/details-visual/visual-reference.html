@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom: Details</title>
+<style>
+/* ============================================================================
+   DETAILS PANE
+
+   The change this file exists for is the source region. It used to be a
+   bordered card carrying three bands of chrome before any source: a twisty, a
+   format band with two standing buttons, and then a fixed height editor that
+   left three hundred pixels of nothing below four lines of Turtle.
+
+   It is now a region rather than a card. Its presence is decided by the pane's
+   own rectangle, so there is no twisty. It is sized by its content, so four
+   lines of Turtle is four lines. And the two draft actions appear only while a
+   draft exists, in the header slot that already reports save state, so the pane
+   carries one save status line instead of two.
+
+   What did NOT change is the draft model, which docs/source-and-files.md
+   specifies and its tests cover: typing never updates the ontology, a draft is
+   retained across closing the pane and across a workspace save, invalid text
+   stays with its error rather than reverting, and a draft cannot overwrite an
+   ontology that moved underneath it. Those buttons are that model's commit, not
+   decoration, so they are relocated rather than removed.
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Tokens carried unchanged from find.html. The three --bad values are the only
+   addition: an unparseable draft is an error, and the sheet had warn and ok but
+   nothing for error. */
+:root {
+  color-scheme: light;
+
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+
+  --accent:        #0b5fd0;
+  --accent-hover:  #0a52b4;
+  --accent-fg:     #ffffff;
+  --accent-soft:   #eaf2fd;
+  --accent-tint:   #f4f8fe;
+
+  --ok:            #0a7a3d;
+  --ok-bg:         #e8f5ed;
+  --ok-border:     #a9d8bd;
+
+  --warn:          #8a6116;
+  --warn-bg:       #fdf5e3;
+  --warn-border:   #e6cf95;
+
+  --bad:           #a4201a;
+  --bad-bg:        #fdecea;
+  --bad-border:    #e4a9a4;
+
+  --idle:          #57606a;
+  --idle-border:   #c6cbd1;
+
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --r-ctl: 4px;
+  --r-panel: 6px;
+  --r-card: 8px;
+  --r-pill: 999px;
+
+  --t-fast: 120ms;
+  --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+/* Dark is measured against #0d1117. It is not an inversion of light. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-hover: #6aabff; --accent-fg: #06192e;
+  --accent-soft: #12243a; --accent-tint: #0f1a28;
+  --ok: #4ade80; --ok-bg: #0f2a1b; --ok-border: #1d5233;
+  --warn: #e3b341; --warn-bg: #2b2211; --warn-border: #5a4718;
+  --bad: #ff8d81; --bad-bg: #3a1a17; --bad-border: #7a3630;
+  --idle: #9ba7b4; --idle-border: #454c54;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-hover: #6aabff; --accent-fg: #06192e;
+    --accent-soft: #12243a; --accent-tint: #0f1a28;
+    --ok: #4ade80; --ok-bg: #0f2a1b; --ok-border: #1d5233;
+    --warn: #e3b341; --warn-bg: #2b2211; --warn-border: #5a4718;
+    --bad: #ff8d81; --bad-bg: #3a1a17; --bad-border: #7a3630;
+    --idle: #9ba7b4; --idle-border: #454c54;
+    --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  }
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0; font: 14px/1.5 var(--font);
+  background: var(--surface); color: var(--text);
+  display: flex; flex-direction: column;
+}
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------------------------------------------------------- host chrome */
+.tabs {
+  display: flex; align-items: stretch; gap: 0; flex: none;
+  padding: 0 var(--sp-2); background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); min-height: 36px;
+  font: inherit; font-size: 13px; color: var(--text-muted);
+  background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  color: var(--text); font-weight: 600;
+  background: var(--ground); border-bottom-color: var(--accent);
+}
+.trail { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+
+.ib {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 28px; height: 28px; border: 1px solid transparent; border-radius: var(--r-ctl);
+  background: none; color: var(--text-muted); cursor: pointer;
+}
+.ib:hover { background: var(--row-hover); color: var(--text); }
+.ib:focus-visible, .btn:focus-visible, .sel:focus-visible,
+.val:focus-visible, .src:focus-visible, .tab:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 1px;
+}
+svg { width: 15px; height: 15px; flex: none; }
+
+/* ------------------------------------------------------------- the pane */
+.frame { flex: 1 1 auto; min-height: 0; padding: var(--sp-2); }
+.pane {
+  container-type: size; container-name: pane;
+  height: 100%; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--ground); border: 1px solid var(--border);
+  border-radius: var(--r-panel); overflow: hidden;
+}
+
+/* band 1: header. 40px. Carries the ONE save status line for the pane. */
+.phead {
+  display: flex; align-items: center; gap: var(--sp-2); flex: none;
+  min-height: 40px; padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.phead .name { font-weight: 600; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  min-height: 26px; padding: 0 9px; font: inherit; font-size: 12.5px;
+  color: var(--text); background: var(--raised);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl); cursor: pointer;
+}
+.btn:hover { background: var(--row-hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent);
+  color: var(--accent-fg); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.quiet { background: none; border-color: transparent; color: var(--text-muted); }
+.btn.quiet:hover { background: var(--row-hover); color: var(--text); }
+
+/* The save status slot. Clean is one muted word; a draft brings its actions
+   with it. This is the only place in the pane that reports save state, which
+   is what makes withdrawing the source region below safe: the draft stays
+   visible even when its text does not. */
+.state { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; flex: none; }
+.state .word { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+.state.pending .word { color: var(--accent); font-weight: 600; }
+.state.invalid .word { color: var(--bad); font-weight: 600; }
+.state.stale   .word { color: var(--warn); font-weight: 600; }
+
+.pbody { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+/* ------------------------------------------- band 2: ancestry. 34px a tier */
+/* No heading band: a chain of linked cards does not need a label reading
+   ANCESTRY above it. The accent treatment appears once in this pane, on the
+   selected card, and nowhere else. */
+.anc { padding: var(--sp-3) var(--sp-3) var(--sp-2); display: grid; gap: 0; }
+.card {
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-height: 34px; padding: 0 var(--sp-3);
+  background: var(--raised); border: 1px solid var(--border);
+  border-radius: var(--r-card); font-size: 14px;
+}
+.card.sel {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
+  display: grid; gap: 0; align-content: center; padding: var(--sp-2) var(--sp-3);
+}
+.card.sel .cap { font-size: 11.5px; opacity: .85; }
+.card.sel .nm { font-weight: 600; }
+.card .glyph { flex: none; width: 14px; height: 14px; border-radius: 50%;
+  border: 1.5px solid var(--idle-border); }
+.card .glyph.root { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); }
+.card.sel .glyph { border-color: currentColor; box-shadow: inset 0 0 0 3px currentColor; }
+
+/* One connector that fans to the siblings of a tier. No sub card wraps them:
+   two parents at one tier are two cards at one indent, not a box. */
+.join { height: var(--sp-3); margin-left: 17px; border-left: 1px solid var(--border-strong); }
+.fan { margin-left: 17px; padding-left: var(--sp-3);
+  border-left: 1px solid var(--border-strong); display: grid; gap: var(--sp-1); }
+.fan > .card { position: relative; }
+.fan > .card::before {
+  content: ""; position: absolute; inset-inline-start: calc(var(--sp-3) * -1);
+  top: 50%; width: var(--sp-3); border-top: 1px solid var(--border-strong);
+}
+
+/* ------------------------------------- band 3: statements. 30px a statement */
+.scount {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size: 12.5px; color: var(--text-muted);
+}
+table.st { width: 100%; border-collapse: collapse; }
+table.st th {
+  padding: 4px var(--sp-3); text-align: start; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted);
+  font-weight: 600; border-bottom: 1px solid var(--border);
+}
+table.st td { padding: 4px var(--sp-3); border-bottom: 1px solid var(--border);
+  vertical-align: top; }
+table.st tr:last-child td { border-bottom: 0; }
+.c-pred { width: 160px; }
+
+.pred { display: flex; align-items: center; gap: 4px; min-height: 30px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.pred .n { font-family: var(--font); font-size: 11.5px; color: var(--text-muted); }
+.chev { flex: none; width: 20px; height: 20px; display: inline-flex;
+  align-items: center; justify-content: center; border: 0; border-radius: var(--r-ctl);
+  background: none; color: var(--text-muted); cursor: pointer; }
+.chev:hover { background: var(--row-hover); color: var(--text); }
+
+.vstack { display: grid; gap: var(--sp-1); }
+.vrow { display: flex; align-items: center; gap: var(--sp-1); }
+.val {
+  flex: 1 1 auto; min-width: 0; max-width: 320px; min-height: 30px;
+  padding: 0 var(--sp-2); font: inherit; font-size: 13.5px; color: var(--text);
+  background: var(--raised); border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+}
+.val[readonly] { background: none; border-color: transparent; padding-inline-start: 0; }
+.vact { flex: none; display: flex; gap: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .vact { visibility: hidden; }
+  .vrow:hover .vact, .vrow:focus-within .vact { visibility: visible; }
+}
+.vtools { display: flex; align-items: center; gap: var(--sp-3); padding-top: 2px; }
+.lnk { font: inherit; font-size: 12.5px; color: var(--accent); background: none;
+  border: 0; padding: 0; cursor: pointer; }
+.lnk:hover { text-decoration: underline; }
+.lnk.muted { color: var(--text-muted); }
+
+.addrow { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+
+/* ======================================================================
+   band 4: SOURCE. Not a card. One hairline, one quiet line carrying the
+   format, then the text. Nothing else stands here.
+   ====================================================================== */
+.srcwrap {
+  border-top: 1px solid var(--border);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  display: grid; gap: var(--sp-1);
+}
+/* 22px, not a band: the format name and nothing else when the draft is clean. */
+.srcline { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px; }
+.fmt {
+  font: inherit; font-size: 11.5px; color: var(--text-muted);
+  background: none; border: 1px solid transparent; border-radius: var(--r-ctl);
+  padding: 1px 2px; cursor: pointer;
+}
+.fmt:hover { border-color: var(--border-strong); color: var(--text); }
+.srcnote { font-size: 11.5px; color: var(--text-muted); }
+
+/* The editor is sized by its content. rows is set from the line count, so four
+   lines of Turtle is four lines and the pane keeps the rest. */
+.src {
+  display: block; width: 100%; max-width: 620px; resize: none;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  color: var(--text); background: var(--sunken);
+  border: 0; border-inline-start: 2px solid var(--border-strong);
+  border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+  overflow-y: auto;
+}
+/* The draft is legible on the region itself, so the state reads without
+   consulting the header. */
+.srcwrap.pending .src { border-inline-start-color: var(--accent); background: var(--accent-tint); }
+.srcwrap.invalid .src { border-inline-start-color: var(--bad); background: var(--bad-bg); }
+.srcwrap.stale   .src { border-inline-start-color: var(--warn); background: var(--warn-bg); }
+
+.srcerr {
+  display: flex; gap: var(--sp-2); align-items: baseline; max-width: 620px;
+  font-size: 12.5px; color: var(--bad);
+}
+.srcerr .ln { font-family: var(--mono); font-size: 11.5px; flex: none; }
+.srcwarn { max-width: 620px; font-size: 12.5px; color: var(--warn); }
+
+/* -------------------------------------------------------- the status foot */
+.pfoot {
+  display: flex; align-items: center; gap: var(--sp-2); flex: none;
+  min-height: 28px; padding: 0 var(--sp-3);
+  border-top: 1px solid var(--border); background: var(--surface);
+  font-size: 11.5px; color: var(--text-muted);
+}
+.od-fill { flex: 1 1 auto; min-width: 0; }
+
+/* ======================================================================
+   PRESENTATIONS. Only the published 600 and 400 appear.
+   The source region is the thing that withdraws when the pane is shallow,
+   which is what lets the twisty go: available space decides, not a toggle.
+   ====================================================================== */
+@container pane (max-height: 399px) {
+  .srcwrap { display: none; }
+  .pfoot { display: none; }
+}
+@container pane (max-width: 599px) {
+  .c-pred { width: 128px; }
+  .val { max-width: none; }
+  .src { max-width: none; }
+  .phead .more { display: none; }
+}
+@container pane (max-width: 239px), pane (max-height: 119px) {
+  .pbody, .pfoot { display: none; }
+  .phead { border-bottom: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="tabs" role="tablist" aria-label="Open views">
+  <button class="tab" role="tab" aria-selected="false" type="button">Hierarchy</button>
+  <button class="tab" role="tab" aria-selected="true" aria-controls="pane" type="button">Details</button>
+  <div class="trail">
+    <button class="ib" type="button" id="themeBtn" aria-label="Cycle theme" title="Theme"></button>
+    <button class="ib" type="button" aria-label="Pop out pane" title="Pop out"></button>
+    <button class="ib" type="button" aria-label="Maximize pane" title="Maximize"></button>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="pane" id="pane" role="tabpanel" aria-label="Details" tabindex="0"></div>
+</div>
+
+<p class="vh" aria-live="polite" id="live"></p>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ icons */
+function ico(d) {
+  return '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+}
+var I = {
+  back:  ico('<path d="M9.5 3.5 5 8l4.5 4.5"/>'),
+  chev:  ico('<path d="M4 6.2 8 10l4-3.8"/>'),
+  x:     ico('<path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/>'),
+  plus:  ico('<path d="M8 3.5v9M3.5 8h9"/>'),
+  theme: ico('<circle cx="8" cy="8" r="4.2"/><path d="M8 1.4v1.6M8 13v1.6M1.4 8h1.6M13 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1"/>'),
+  pop:   ico('<path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9"/>'),
+  max:   ico('<path d="M3.5 6V3.5H6M10 3.5h2.5V6M12.5 10v2.5H10M6 12.5H3.5V10"/>')
+};
+
+/* ------------------------------------------------------- the sample store */
+/* Technical Algebra, exactly the entity in the capture this redesign came
+   from, including the two parents at one tier that the old ancestry card
+   wrapped in a sub card. */
+var STORE = {
+  subject: "TechnicalAlgebra",
+  iri: "http://devry.edu/courses#TechnicalAlgebra",
+  type: "owl:Class",
+  /* Ordered. Insertion order is retained so the serialization is stable, and
+     it carries no meaning: RDF does not order the objects of a predicate. */
+  statements: [
+    { pred: "rdf:type",        fixed: true,  values: ["owl:Class"] },
+    { pred: "rdfs:label",      fixed: false, values: ["Technical Algebra"] },
+    { pred: "rdfs:subClassOf", fixed: false, values: ["Algebra"] },
+    { pred: "rdfs:seeAlso",    fixed: false, values: ["Algebra Tech", "TECH ALG"] }
+  ],
+  /* Tiers from the selected class upward. A tier holding two entries is two
+     siblings, drawn at one indent under one connector. */
+  ancestry: [["Algebra"], ["Math", "Pure Mathematics"], ["Course"]],
+  revision: 118
+};
+
+var FORMATS = ["Turtle", "RDF/XML", "JSON-LD", "N-Triples", "N-Quads", "TriG"];
+var EXT = { "Turtle": ".ttl", "RDF/XML": ".rdf", "JSON-LD": ".jsonld",
+            "N-Triples": ".nt", "N-Quads": ".nq", "TriG": ".trig" };
+var MAX_SRC_ROWS = 14;   /* the editor grows to here, then scrolls */
+
+var S = {
+  format: "Turtle",
+  draft: null,            /* null when clean, else the pending text */
+  error: null,            /* { line, message } when the draft will not parse */
+  stale: false,           /* the ontology moved under a pending draft */
+  openPred: null,
+  caret: null
+};
+
+/* --------------------------------------------------------------- helpers */
+function $(s) { return document.querySelector(s); }
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function say(m) { $("#live").textContent = m; }
+
+/* The snippet starts with the entity's statements. Prefix declarations and the
+   document wrapper are hidden here and retained with the draft, so namespace
+   resolution survives an edit. No note says so (craigtrim/axiom#58). */
+function serialize() {
+  var lines = [];
+  var head = ":" + STORE.subject + " a " + STORE.type;
+  var rest = [];
+  STORE.statements.forEach(function (st) {
+    if (st.pred === "rdf:type") return;
+    st.values.forEach(function (v) {
+      if (!String(v).trim()) return;
+      rest.push("    " + st.pred + " " + lit(st.pred, v));
+    });
+  });
+  if (!rest.length) return head + " .";
+  lines.push(head + " ;");
+  rest.forEach(function (r, i) { lines.push(r + (i === rest.length - 1 ? " ." : " ;")); });
+  return lines.join("\n");
+}
+function lit(pred, v) {
+  /* subClassOf takes a resource; everything else here is a plain literal. */
+  return pred === "rdfs:subClassOf" ? ":" + String(v).replace(/\s+/g, "") : '"' + v + '"';
+}
+
+/* A small reader for the subset this snippet emits. Enough that Save source is
+   a real apply rather than a gesture: it parses, it reports the line that
+   failed, and it rewrites the statement table on success. */
+function parse(text) {
+  var raw = text.split("\n");
+  var out = [];
+  var sawHead = false;
+  for (var i = 0; i < raw.length; i++) {
+    var line = raw[i].trim();
+    if (!line) continue;
+    var n = i + 1;
+    if (!sawHead) {
+      var h = line.match(/^:(\S+)\s+a\s+(\S+?)\s*[;.]$/);
+      if (!h) return { error: { line: n, message: "Expected the subject and its type, as :Subject a owl:Class ;" } };
+      sawHead = true;
+      out.push({ pred: "rdf:type", fixed: true, values: [h[2]] });
+      continue;
+    }
+    var m = line.match(/^(\S+:\S+)\s+(.+?)\s*[;.]$/);
+    if (!m) return { error: { line: n, message: "Expected a predicate and a value, ending in a semicolon or a period" } };
+    var pred = m[1], val = m[2].trim();
+    if (val.charAt(0) === '"') {
+      var q = val.match(/^"([^"]*)"$/);
+      if (!q) return { error: { line: n, message: "A quoted value is not closed" } };
+      val = q[1];
+    } else if (val.charAt(0) === ":") {
+      val = val.slice(1);
+    } else {
+      return { error: { line: n, message: "A value must be a quoted literal or a :Reference" } };
+    }
+    var slot = null;
+    for (var k = 0; k < out.length; k++) { if (out[k].pred === pred) { slot = out[k]; break; } }
+    if (slot) slot.values.push(val);
+    else out.push({ pred: pred, fixed: false, values: [val] });
+  }
+  if (!sawHead) return { error: { line: 1, message: "The snippet is empty" } };
+  return { statements: out };
+}
+
+function sourceText() { return S.draft === null ? serialize() : S.draft; }
+function lineCount(t) { return Math.max(1, t.split("\n").length); }
+
+/* --------------------------------------------------------------- renderers */
+function renderState() {
+  var cls = "state", word = "Saved", actions = "";
+  if (S.error) {
+    cls = "state invalid"; word = "Source will not parse";
+    actions = '<button type="button" class="btn" data-act="discard">Discard draft</button>';
+  } else if (S.stale) {
+    cls = "state stale"; word = "Draft is behind the ontology";
+    actions = '<button type="button" class="btn" data-act="reload">Discard draft and reload</button>';
+  } else if (S.draft !== null) {
+    cls = "state pending"; word = "Source draft";
+    actions = '<button type="button" class="btn" data-act="discard">Discard</button>'
+            + '<button type="button" class="btn primary" data-act="save">Save source</button>';
+  }
+  return '<span class="' + cls + '"><span class="word">' + word + "</span>" + actions + "</span>";
+}
+
+function renderHead() {
+  return '<div class="phead">'
+    + '<button type="button" class="btn quiet" data-act="back">' + I.back + "Back</button>"
+    + '<span class="name">Technical Algebra</span>'
+    + renderState()
+    + '<button type="button" class="btn more" data-act="more">More</button>'
+    + "</div>";
+}
+
+function renderAncestry() {
+  var h = '<div class="anc">'
+    + '<div class="card sel"><span class="cap">Selected class</span>'
+    + '<span class="nm">Technical Algebra</span></div>';
+  STORE.ancestry.forEach(function (tier, i) {
+    var last = i === STORE.ancestry.length - 1;
+    if (tier.length === 1) {
+      h += '<div class="join"></div>'
+        + '<div class="card"><span class="glyph' + (last ? " root" : "") + '"></span>'
+        + esc(tier[0]) + "</div>";
+    } else {
+      /* Siblings at a shared indent under one connector that fans to them.
+         No sub card: a box around two parents says nothing the indent does
+         not already say. */
+      h += '<div class="join"></div><div class="fan">'
+        + tier.map(function (p) {
+            return '<div class="card"><span class="glyph"></span>' + esc(p) + "</div>";
+          }).join("")
+        + "</div>";
+    }
+  });
+  return h + "</div>";
+}
+
+function renderStatements() {
+  var n = STORE.statements.reduce(function (a, st) { return a + st.values.length; }, 0);
+  var rows = STORE.statements.map(function (st, si) {
+    var open = S.openPred === st.pred;
+    var shown = st.values.length > 3 && !open ? st.values.slice(0, 3) : st.values;
+    var hidden = st.values.length - shown.length;
+
+    var predCell = '<span class="pred">' + esc(st.pred)
+      + (hidden ? '<span class="n">' + st.values.length + "</span>" : "")
+      + (st.fixed ? "" : '<button type="button" class="chev" aria-label="Change the predicate on ' + esc(st.pred) + '">' + I.chev + "</button>")
+      + "</span>";
+
+    var vals = shown.map(function (v, vi) {
+      return '<span class="vrow">'
+        + '<input class="val" type="text" value="' + esc(v) + '"'
+        + (st.fixed ? " readonly" : "")
+        + ' data-si="' + si + '" data-vi="' + vi + '"'
+        + ' aria-label="' + esc(st.pred) + ' value ' + (vi + 1) + '">'
+        + (st.fixed ? "" :
+            '<span class="vact"><button type="button" class="chev" data-rm="' + si + ':' + vi + '" '
+            + 'aria-label="Remove this ' + esc(st.pred) + ' value">' + I.x + "</button></span>")
+        + "</span>";
+    }).join("");
+
+    /* A tools line only once a predicate carries more than one value. Four
+       single valued statements must not spend four bands advertising it. */
+    var tools = "";
+    if (!st.fixed && st.values.length > 1) {
+      tools = '<span class="vtools">'
+        + '<button type="button" class="lnk" data-addval="' + si + '">+ Add value</button>'
+        + (hidden ? '<button type="button" class="lnk muted" data-expand="' + esc(st.pred) + '">' + hidden + " more</button>" : "")
+        + (open && st.values.length > 3 ? '<button type="button" class="lnk muted" data-expand="">Show fewer</button>' : "")
+        + "</span>";
+    }
+
+    return "<tr><td class='c-pred'>" + predCell + "</td>"
+      + '<td><span class="vstack">' + vals + tools + "</span></td></tr>";
+  }).join("");
+
+  return '<div class="scount">' + n + " statement" + (n === 1 ? "" : "s") + "</div>"
+    + '<table class="st"><thead><tr><th class="c-pred">Predicate</th><th>Value</th></tr></thead>'
+    + "<tbody>" + rows + "</tbody></table>"
+    + '<div class="addrow"><button type="button" class="lnk" data-act="addrow">+ Add row</button></div>';
+}
+
+function renderSource() {
+  var text = sourceText();
+  var rows = Math.min(lineCount(text), MAX_SRC_ROWS);
+  var cls = "srcwrap" + (S.error ? " invalid" : S.stale ? " stale" : S.draft !== null ? " pending" : "");
+
+  var h = '<div class="' + cls + '">'
+    + '<div class="srcline">'
+    +   '<select class="fmt" data-set="format" aria-label="Source format">'
+    +     FORMATS.map(function (f) {
+            return '<option' + (f === S.format ? " selected" : "") + ">" + f + "</option>";
+          }).join("")
+    +   "</select>"
+    +   '<span class="srcnote">' + EXT[S.format] + "</span>"
+    +   '<span class="od-fill"></span>'
+    + "</div>"
+    + '<textarea class="src" id="src" rows="' + rows + '" spellcheck="false" '
+    + 'aria-label="Source for Technical Algebra, ' + S.format + '">' + esc(text) + "</textarea>";
+
+  if (S.error) {
+    h += '<p class="srcerr"><span class="ln">line ' + S.error.line + "</span>"
+      + "<span>" + esc(S.error.message) + ". The ontology is unchanged.</span></p>";
+  } else if (S.stale) {
+    h += '<p class="srcwarn">The ontology changed in another view while this draft was open. '
+      + "The draft is kept and cannot overwrite the newer version. Copy anything you want, "
+      + "then discard and reload.</p>";
+  }
+  if (S.draft !== null) {
+    h += '<p class="srcnote">Kept if you close this pane or save the workspace.</p>';
+  }
+  return h + "</div>";
+}
+
+function renderFoot() {
+  return '<div class="pfoot"><span>' + esc(STORE.iri) + "</span>"
+    + '<span class="od-fill"></span>'
+    + "<span>revision " + STORE.revision + "</span></div>";
+}
+
+function render() {
+  var src = $("#src");
+  var sel = src && document.activeElement === src
+    ? { s: src.selectionStart, e: src.selectionEnd } : null;
+
+  $("#pane").innerHTML = renderHead()
+    + '<div class="pbody">' + renderAncestry() + renderStatements() + renderSource() + "</div>"
+    + renderFoot();
+
+  if (sel) {
+    var again = $("#src");
+    if (again) { again.focus(); again.setSelectionRange(sel.s, sel.e); }
+  }
+}
+
+/* ------------------------------------------------------------- behaviour */
+function applyDraft() {
+  var box = $("#src");
+  var text = box ? box.value : S.draft;
+  var r = parse(text);
+  if (r.error) {
+    S.draft = text; S.error = r.error;
+    render();
+    say("Source will not parse at line " + r.error.line + ". The ontology is unchanged.");
+    return;
+  }
+  if (S.stale) {
+    render();
+    say("The ontology moved under this draft. Discard and reload to work from it.");
+    return;
+  }
+  STORE.statements = r.statements;
+  STORE.revision += 1;
+  S.draft = null; S.error = null;
+  render();
+  say("Source applied. One undoable edit.");
+}
+
+function discardDraft(reload) {
+  S.draft = null; S.error = null;
+  if (reload) S.stale = false;
+  render();
+  say(reload ? "Draft discarded and reloaded from the ontology." : "Draft discarded.");
+}
+
+document.getElementById("pane").addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (!b) return;
+
+  var act = b.getAttribute("data-act");
+  if (act === "save")    { applyDraft(); return; }
+  if (act === "discard") { discardDraft(false); return; }
+  if (act === "reload")  { discardDraft(true); return; }
+  if (act === "back")    { say("Returns to the previous entity."); return; }
+  if (act === "more")    { say("Opens the entity overflow menu."); return; }
+  if (act === "addrow")  {
+    STORE.statements.push({ pred: "rdfs:comment", fixed: false, values: [""] });
+    S.draft = null; S.error = null;
+    render();
+    say("Row added. Choose its predicate with the chevron.");
+    return;
+  }
+
+  var rm = b.getAttribute("data-rm");
+  if (rm) {
+    var p = rm.split(":"), si = +p[0], vi = +p[1];
+    var st = STORE.statements[si];
+    st.values.splice(vi, 1);
+    /* Removing the last value removes the statement, predicate and all. */
+    if (!st.values.length) STORE.statements.splice(si, 1);
+    S.draft = null; S.error = null;
+    render(); return;
+  }
+
+  var addval = b.getAttribute("data-addval");
+  if (addval !== null) {
+    STORE.statements[+addval].values.push("");
+    S.draft = null; S.error = null;
+    render();
+    var inputs = document.querySelectorAll('[data-si="' + addval + '"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+    return;
+  }
+
+  var ex = b.getAttribute("data-expand");
+  if (ex !== null) { S.openPred = ex || null; render(); return; }
+});
+
+/* Editing a value in the table updates the source with no commit step: the
+   table and the source are two views of one set of triples, not two editors. */
+document.getElementById("pane").addEventListener("input", function (e) {
+  var t = e.target;
+  if (t.classList.contains("val")) {
+    var st = STORE.statements[+t.getAttribute("data-si")];
+    st.values[+t.getAttribute("data-vi")] = t.value;
+    var box = $("#src");
+    if (box && S.draft === null) {
+      box.value = serialize();
+      box.rows = Math.min(lineCount(box.value), MAX_SRC_ROWS);
+    }
+    return;
+  }
+  /* Typing in the source never updates the ontology. It opens a draft, and the
+     draft is applied only by Save source. */
+  if (t.id === "src") {
+    var clean = t.value === serialize();
+    var was = S.draft !== null || S.error !== null;
+    S.draft = clean ? null : t.value;
+    if (S.error) S.error = null;
+    t.rows = Math.min(lineCount(t.value), MAX_SRC_ROWS);
+    if (was !== (S.draft !== null)) render();
+    else {
+      /* Only the header slot and the region tint change, so repaint those
+         rather than the whole pane while the author is typing. */
+      var head = $(".phead .state");
+      if (head) head.outerHTML = renderState();
+      var wrap = $(".srcwrap");
+      if (wrap) {
+        wrap.className = "srcwrap"
+          + (S.error ? " invalid" : S.stale ? " stale" : S.draft !== null ? " pending" : "");
+      }
+    }
+  }
+});
+
+document.getElementById("pane").addEventListener("change", function (e) {
+  if (e.target.getAttribute("data-set") === "format") {
+    /* Choosing another format first applies a valid draft, then renders the
+       ontology in the selected format. */
+    if (S.draft !== null && !S.error) applyDraft();
+    if (S.error) { say("Fix or discard the draft before changing format."); render(); return; }
+    S.format = e.target.value;
+    render();
+    say("Format is now " + S.format + ".");
+  }
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && (S.draft !== null || S.error)) {
+    discardDraft(false); e.stopPropagation();
+  }
+});
+
+/* Theme cycles auto, light, dark. */
+document.getElementById("themeBtn").innerHTML = I.theme;
+document.getElementById("themeBtn").addEventListener("click", function () {
+  var order = ["auto", "light", "dark"];
+  var cur = document.documentElement.getAttribute("data-theme");
+  var next = order[(order.indexOf(cur) + 1) % order.length];
+  document.documentElement.setAttribute("data-theme", next);
+  say("Theme: " + next);
+});
+var trail = document.querySelectorAll(".tabs .trail .ib");
+trail[1].innerHTML = I.pop;
+trail[2].innerHTML = I.max;
+
+/* Three of the four draft states are reachable by typing in the source: clean,
+   pending, and invalid. Stale is not, because it needs another view to move the
+   ontology underneath this one, and a product control that staled your own
+   draft on purpose would be a designer control in shipped UI. It stays
+   reachable for inspection, referenced by no element in the pane:
+     axiomDetails.stale()
+*/
+window.axiomDetails = {
+  stale: function () {
+    if (S.draft === null) S.draft = serialize() + '\n    rdfs:comment "Edited here" .';
+    STORE.revision += 1;
+    S.stale = true; S.error = null;
+    render();
+  }
+};
+
+render();
+</script>
+</body>
+</html>

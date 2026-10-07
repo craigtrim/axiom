@@ -22,8 +22,7 @@ const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 const details = () =>
   page.getByRole("region", { name: "Details", exact: true });
-const source = () =>
-  details().getByRole("textbox", { name: "Entity source", exact: true });
+const source = () => details().getByRole("textbox", { name: /^Source for / });
 async function sourceText() {
   const marker = "axiom-copy-" + Date.now();
   await app.evaluate(
@@ -41,21 +40,13 @@ async function sourceText() {
     "\n",
   );
 }
-async function expectSyntaxColors() {
-  await expect
-    .poll(async () =>
-      details()
-        .locator(".monaco-editor .view-line span")
-        .evaluateAll(
-          (spans) =>
-            new Set(
-              spans
-                .filter((s) => s.textContent?.trim())
-                .map((s) => getComputedStyle(s).color),
-            ).size,
-        ),
-    )
-    .toBeGreaterThan(2);
+async function expectPlainSource() {
+  await expect(details().locator(".monaco-editor,.line-numbers")).toHaveCount(
+    0,
+  );
+  expect(await source().evaluate((el) => getComputedStyle(el).fontSize)).toBe(
+    "12.5px",
+  );
 }
 async function setSource(text: string) {
   await app.evaluate(({ clipboard }, text) => clipboard.writeText(text), text);
@@ -67,8 +58,222 @@ const label = () =>
   details().getByRole("textbox", { name: "Entity label", exact: true });
 const comment = () =>
   details().getByRole("textbox", { name: "Entity comment", exact: true });
+
+test("Details format conversion applies a valid draft once, rejects invalid text and preserves the native format", async () => {
+  await openSource();
+  const native = (await state()).ontology.source?.format;
+  await setSource((await sourceText()).replace('"Alpha"', '"Converted"'));
+  const format = details().getByRole("combobox", {
+    name: "Source format",
+    exact: true,
+  });
+  await format.selectOption("jsonld");
+  await expect(format).toHaveValue("jsonld");
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Format is now JSON-LD.",
+  );
+  await expect(label()).toHaveValue("Converted");
+  await details().locator(".phead .name").click();
+  await menu("edit.undo");
+  await expect(label()).toHaveValue("Alpha");
+  for (const id of ["rdfxml", "ntriples", "nquads", "trig", "turtle"]) {
+    await format.selectOption(id);
+    await expect(format).toHaveValue(id);
+    await expect(source()).toBeEnabled();
+    expect((await state()).ontology.source?.format).toBe(native);
+  }
+  await setSource("invalid rdf {");
+  await format.selectOption("jsonld");
+  await expect(format).toHaveValue("turtle");
+  await expect(details().locator(".state.invalid")).toContainText(
+    "Source will not parse",
+  );
+  await expect(source()).toHaveValue("invalid rdf {");
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Fix or discard the draft before changing format.",
+  );
+  await select(base + "Beta");
+  await select(base + "Alpha");
+  await expect(details().locator(".state.invalid")).toContainText(
+    "Source will not parse",
+  );
+  await expect(source()).toHaveValue("invalid rdf {");
+});
+
+test("source keeps local clipboard Undo, Redo and Find; Escape only discards inside source", async () => {
+  await openSource();
+  const original = await sourceText();
+  await setSource(original.replace('"Alpha"', '"Local draft"'));
+  await source().press("Control+z");
+  await expect(source()).toHaveValue(original);
+  await source().press("Control+y");
+  await expect(source()).toHaveValue(/Local draft/);
+  await source().press("Control+f");
+  const find = details().getByRole("textbox", {
+    name: "Find in source",
+    exact: true,
+  });
+  await expect(find).toBeFocused();
+  await find.fill("Local draft");
+  await find.press("Enter");
+  expect(
+    await source().evaluate((el: HTMLTextAreaElement) =>
+      el.value.slice(el.selectionStart, el.selectionEnd),
+    ),
+  ).toBe("Local draft");
+  await source().press("Escape");
+  await expect(find).toHaveCount(0);
+  await expect(details().locator(".state.pending")).toBeVisible();
+  const resource = row(NS.rdfs + "subClassOf").getByRole("combobox", {
+    name: /Value/,
+  });
+  const previous = await resource.inputValue();
+  await resource.fill("temporary resource text");
+  await resource.press("Escape");
+  await expect(resource).toHaveValue(previous);
+  await expect(details().locator(".state.pending")).toBeVisible();
+  await source().press("Escape");
+  await expect(details().locator(".state.clean")).toHaveText("Saved");
+  await expect(source()).toHaveValue(original);
+  await expect(details().locator(".phead .vh")).toHaveText("Draft discarded.");
+});
+
+test("measured presentations retain source text and header actions through shallow and recovery", async () => {
+  await openSource();
+  await setSource((await sourceText()).replace('"Alpha"', '"Resize draft"'));
+  const text = await sourceText();
+  const host = page.locator('.adaptive-pane[data-pane-id="details"]');
+  const size = async (width: number, height: number) =>
+    host.evaluate(
+      (el, size) =>
+        Object.assign((el as HTMLElement).style, {
+          position: "fixed",
+          left: "20px",
+          top: "80px",
+          zIndex: "1000",
+          width: size.width + "px",
+          height: size.height + "px",
+        }),
+      { width, height },
+    );
+  await size(700, 500);
+  await expect(source()).toBeVisible();
+  await size(599, 399);
+  await expect(host).toHaveAttribute("data-pane-narrow", "true");
+  await expect(host).toHaveAttribute("data-pane-shallow", "true");
+  await expect(source()).toBeHidden();
+  await expect(
+    details().getByRole("button", { name: "Save source", exact: true }),
+  ).toBeVisible();
+  await size(610, 410);
+  await expect(host).toHaveAttribute("data-pane-narrow", "true");
+  await expect(host).toHaveAttribute("data-pane-shallow", "true");
+  await size(616, 416);
+  await expect(host).toHaveAttribute("data-pane-narrow", "false");
+  await expect(host).toHaveAttribute("data-pane-shallow", "false");
+  await expect(source()).toHaveValue(text);
+  await size(700, 119);
+  await expect(host).toHaveAttribute("data-pane-recovery", "true");
+  const recovery = host.locator(".pane-recovery");
+  await expect(recovery.locator(".state.pending")).toContainText(
+    "Source draft",
+  );
+  await recovery
+    .getByRole("button", { name: "Save source", exact: true })
+    .click();
+  await expect(recovery.locator(".state.clean")).toHaveText("Saved");
+  await size(700, 500);
+  await expect(label()).toHaveValue("Resize draft");
+  await expect(source()).toHaveValue(/Resize draft/);
+});
 const row = (predicate: string) =>
   details().locator('tbody tr[data-predicate="' + predicate + '"]');
+
+test("source context-menu access keys preserve selection and edit the local draft", async () => {
+  await openSource();
+  const original = await source().inputValue();
+  const popup = page.getByRole("menu", { name: "Source editing", exact: true });
+  const invoke = async (key: string) => {
+    await source().press("Shift+F10");
+    await expect(popup).toBeVisible();
+    await page.keyboard.press(key);
+    await expect(popup).toHaveCount(0);
+  };
+  await source().focus();
+  await invoke("a");
+  await invoke("c");
+  expect(
+    (await app.evaluate(({ clipboard }) => clipboard.readText())).replace(
+      /\r\n/g,
+      "\n",
+    ),
+  ).toBe(original);
+  await app.evaluate(({ clipboard }) => clipboard.writeText("context draft"));
+  await invoke("p");
+  await expect(source()).toHaveValue("context draft");
+  await expect(source()).toBeFocused();
+  await expect(label()).toHaveValue("Alpha");
+  await invoke("u");
+  await expect(source()).toHaveValue(original);
+  await invoke("r");
+  await expect(source()).toHaveValue("context draft");
+  await invoke("a");
+  await invoke("t");
+  await expect(source()).toHaveValue("");
+  expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
+    "context draft",
+  );
+  await source().press("Escape");
+  await expect(source()).toHaveValue(original);
+});
+
+test("source grows with its content up to fourteen rows and scrolls beyond that cap", async () => {
+  await openSource();
+  const version = (await state()).version;
+  let previous = 0;
+  for (const lines of [1, 5, 14, 20]) {
+    await source().fill(
+      Array.from({ length: lines }, (_, i) => "# line " + i).join("\n"),
+    );
+    const metrics = await source().evaluate((el: HTMLTextAreaElement) => ({
+      rows: el.rows,
+      height: el.getBoundingClientRect().height,
+      scroll: el.scrollHeight,
+      client: el.clientHeight,
+    }));
+    expect(metrics.rows).toBe(Math.min(lines, 14));
+    if (lines <= 14) expect(metrics.height).toBeGreaterThan(previous);
+    else {
+      expect(metrics.height).toBe(previous);
+      expect(metrics.scroll).toBeGreaterThan(metrics.client);
+    }
+    previous = metrics.height;
+    expect((await state()).version).toBe(version);
+  }
+});
+
+test("source format choices prevent losing named graphs and retain the native format", async () => {
+  await importText(
+    `@prefix : <${base}> . @prefix owl: <${NS.owl}> . @prefix rdfs: <${NS.rdfs}> . :g { :Alpha a owl:Class; rdfs:label "Alpha" . }`,
+    "graphs.trig",
+  );
+  await menu("view.details");
+  await openSource();
+  const format = details().getByRole("combobox", {
+    name: "Source format",
+    exact: true,
+  });
+  for (const id of ["turtle", "rdfxml", "ntriples"])
+    await expect(format.locator(`option[value="${id}"]`)).toBeDisabled();
+  for (const id of ["nquads", "jsonld", "trig"]) {
+    await format.selectOption(id);
+    await expect(format).toHaveValue(id);
+    await expect(source()).toBeEnabled();
+    const text = await source().inputValue();
+    expect(text).toContain(id === "trig" ? ":g" : base + "g");
+    expect((await state()).ontology.source?.format).toBe("trig");
+  }
+});
 async function menu(id: string) {
   await app.evaluate(({ Menu, BrowserWindow }, id) => {
     const win =
@@ -82,12 +287,10 @@ async function select(iri: string) {
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
 }
 async function openSource() {
-  if (
-    !(await details()
-      .locator(".entity-source")
-      .evaluate((el) => (el as HTMLDetailsElement).open))
-  )
-    await details().locator(".entity-source > summary").click();
+  if (!(await source().isVisible())) {
+    await details().locator(".phead .name").click();
+    await menu("pane.maximise");
+  }
   await expect(source()).toBeEnabled();
 }
 async function importText(text = ttl, fileName = "details.ttl") {
@@ -168,7 +371,7 @@ test("two-column grid uses predicates, commits cell edits, preserves language an
     .toBe("Alpha updated");
   await openSource();
   await expect.poll(sourceText).toMatch(/Alpha updated/);
-  await expectSyntaxColors();
+  await expectPlainSource();
   await comment().fill("Changed in grid");
   await comment().press("Enter");
   await expect.poll(sourceText).toMatch(/Changed in grid/);
@@ -208,6 +411,9 @@ test("Source saves only explicitly, updates the grid and graph, validates syntax
     .getByRole("button", { name: "Save source", exact: true })
     .click();
   await expect(label()).toHaveValue("From source");
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Source applied. One undoable edit.",
+  );
   await expect
     .poll(
       async () =>
@@ -222,6 +428,9 @@ test("Source saves only explicitly, updates the grid and graph, validates syntax
     .click();
   await expect(details().getByRole("alert")).toBeVisible();
   await expect(details().getByRole("alert")).toContainText("line 1");
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Source will not parse at line 1. The ontology is unchanged.",
+  );
   await expect.poll(sourceText).toMatch("invalid rdf {");
   await expect(label()).toHaveValue("Alpha");
   await menu("view.source");
@@ -250,12 +459,30 @@ test("source drafts survive navigation and reject overwriting later grid edits",
   await details()
     .getByRole("button", { name: "Save source", exact: true })
     .click();
-  await expect(details().getByRole("alert")).toContainText("changed");
+  await expect(details().locator(".state.stale")).toContainText(
+    "Draft is behind the ontology",
+  );
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "The ontology moved under this draft. Discard and reload to work from it.",
+  );
+  const format = details().getByRole("combobox", {
+    name: "Source format",
+    exact: true,
+  });
+  await format.selectOption("jsonld");
+  await expect(format).toHaveValue("turtle");
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Fix or discard the draft before changing format.",
+  );
+  await expect(source()).toHaveValue(/Source draft/);
   await expect(label()).toHaveValue("Grid wins");
   await details()
-    .getByRole("button", { name: "Discard source edits", exact: true })
+    .getByRole("button", { name: "Discard draft and reload", exact: true })
     .click();
   await expect.poll(sourceText).toMatch(/Grid wins/);
+  await expect(details().locator(".phead .vh")).toHaveText(
+    "Draft discarded and reloaded from the ontology.",
+  );
 });
 test("native RDF/XML source preserves an OWL intersection through editing", async () => {
   const xml = await writeRdf(
@@ -275,7 +502,7 @@ test("native RDF/XML source preserves an OWL intersection through editing", asyn
   await openSource();
   await expect.poll(sourceText).toMatch(/^\s*<rdf:Description/);
   expect(await sourceText()).not.toMatch(/<\?xml|<\/?rdf:RDF/);
-  await expectSyntaxColors();
+  await expectPlainSource();
   const before = (await state()).entities.find(
     (e) => e.iri === base + "Combined",
   )!.classExpressions;
@@ -477,8 +704,9 @@ test("class declaration is fixed; recognized prefixes and instance types stay di
   const first = details().locator("tbody tr").first();
   await expect(first).toHaveAttribute("data-readonly", "true");
   await expect(first).toContainText("rdf:type");
-  await expect(first).toContainText("owl:Class");
-  await expect(first.locator("input, textarea, select")).toHaveCount(0);
+  await expect(first.locator("input")).toHaveValue("owl:Class");
+  await expect(first.locator("input")).toHaveAttribute("readonly", "");
+  await expect(first.locator("textarea, select")).toHaveCount(0);
   await expect(
     first.getByRole("button", { name: /^Remove this .* value$/ }),
   ).toHaveCount(0);
@@ -560,7 +788,7 @@ test("indexed parent choices edit ordinary subclass statements and support Escap
   ).toBe(false);
   await openSource();
   await expect.poll(sourceText).not.toMatch(/intersectionOf/);
-  await details().locator(".panel-toolbar strong").first().click();
+  await details().locator(".phead .name").first().click();
   await menu("edit.undo");
   await expect(
     parents().getByRole("combobox", { name: /Value/ }).nth(0),
@@ -609,11 +837,7 @@ test("resource rows have no open button and Ancestry opens the parent's scoped s
     .getByRole("button", { name: "View Beta details", exact: true })
     .click();
   await expect(label()).toHaveValue("Beta");
-  expect(
-    await details()
-      .locator(".entity-source")
-      .evaluate((el) => (el as HTMLDetailsElement).open),
-  ).toBe(false);
+  await expect(details().locator(".details-source")).toBeVisible();
   await openSource();
   await expect.poll(sourceText).toMatch(/:Beta/);
   await expect.poll(sourceText).not.toMatch(/:Alpha|:Combined|:Gamma/);
@@ -694,7 +918,7 @@ test("resource search supports mouse selection in detached Details", async () =>
         (await state()).entities.find((e) => e.iri === base + "Alpha")?.parents,
     )
     .toEqual([base + "Gamma"]);
-  const toolbar = await pane.locator(".statement-grid-toolbar").boundingBox();
+  const toolbar = await pane.locator(".scount").boundingBox();
   const table = await pane
     .getByRole("table", { name: "Entity statements" })
     .boundingBox();
@@ -854,7 +1078,7 @@ test("a pending comment merges with another view adding a parent and Undo retain
     (await state()).entities.find((e) => e.iri === base + "Alpha")?.parents,
   ).toEqual([base + "Beta", base + "Gamma"]);
   await expect(details().getByRole("alert")).toHaveCount(0);
-  await details().locator(".panel-toolbar strong").first().click();
+  await details().locator(".phead .name").first().click();
   await menu("edit.undo");
   await expect(comment()).toHaveValue("Original comment");
   expect(

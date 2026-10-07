@@ -14,6 +14,74 @@ const make = async () =>
   storeFromRdf((await parseRdf(ttl, "source.ttl", base)).triples, "Source");
 describe("entity source snippets", () => {
   it.each(sourceFormats)(
+    "presents $id without changing the native serialization or ontology",
+    async ({ id }) => {
+      const store = await make();
+      store.ontology.source = {
+        fileName: "original.owl",
+        format: "rdfxml",
+        baseIRI: base,
+        importedAt: "test",
+      };
+      const before = structuredClone(store.tbox),
+        version = store.version;
+      const doc = await entitySource(store, 1, base + "A", id);
+      expect(doc.format).toBe(id);
+      expect(
+        (await parseRdf(doc.text, "entity", base, id)).triples.length,
+      ).toBe(doc.original.length);
+      expect(store.ontology.source.format).toBe("rdfxml");
+      expect(store.tbox).toEqual(before);
+      expect(store.version).toBe(version);
+    },
+  );
+  it("disables lossy named-graph formats at the domain boundary", async () => {
+    const store = storeFromRdf(
+      (
+        await parseRdf(
+          `@prefix : <${base}> . :graph { :A a <${NS.owl}Class> . }`,
+          "test.trig",
+          base,
+          "trig",
+        )
+      ).triples,
+      "Graphs",
+    );
+    for (const format of sourceFormats) {
+      if (format.graphs) {
+        const doc = await entitySource(store, 1, base + "A", format.id);
+        expect(doc.namedGraphs).toBe(true);
+        expect(
+          (await parseRdf(doc.text, "entity", base, format.id)).triples[0]
+            .graph,
+        ).toBe(base + "graph");
+      } else
+        await expect(
+          entitySource(store, 1, base + "A", format.id),
+        ).rejects.toThrow("cannot preserve named graphs");
+    }
+    await expect(entitySource(store, 1, base + "A", "bogus")).rejects.toThrow(
+      "supported RDF format",
+    );
+  });
+  it("renders flat Turtle one statement per line with safe RDF escaping", async () => {
+    const original = `@prefix : <${base}> . @prefix owl: <${NS.owl}> . @prefix rdfs: <${NS.rdfs}> .
+      :A a owl:Class; rdfs:label "Alpha"; rdfs:seeAlso "quote \\" and newline\\n", "a comma, a semicolon; a period." .`;
+    const store = storeFromRdf(
+      (await parseRdf(original, "flat.ttl", base)).triples,
+      "Flat",
+    );
+    const doc = await entitySource(store, 1, base + "A", "turtle");
+    const body = doc.text.slice(doc.text.indexOf(":A a"));
+    expect(body.split("\n")).toHaveLength(4);
+    expect(body).toContain(
+      '    rdfs:seeAlso "a comma, a semicolon; a period." .',
+    );
+    expect((await parseRdf(doc.text, "flat.ttl", base)).triples).toEqual(
+      doc.original,
+    );
+  });
+  it.each(sourceFormats)(
     "edits $id snippets without changing unrelated entities or blank-node references",
     async ({ id }) => {
       const store = await make();

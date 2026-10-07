@@ -110,7 +110,9 @@ async function openDetails() {
 }
 async function incompleteRow() {
   await openDetails();
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
+  await details()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
   const predicate = details()
     .getByRole("combobox", { name: /^Predicate / })
     .last();
@@ -258,10 +260,9 @@ for (const valid of [true, false])
   test(`${valid ? "valid" : "invalid"} Details source does not block or change export`, async () => {
     const before = await sourceDocument();
     await openDetails();
-    await details().locator(".entity-source > summary").click();
+
     const editor = details().getByRole("textbox", {
-      name: "Entity source",
-      exact: true,
+      name: /^Source for /,
     });
     await expect(editor).toBeEnabled();
     await editor.focus();
@@ -279,8 +280,8 @@ for (const valid of [true, false])
     await exportMatches(before);
     expect(await history()).toEqual(original);
     await expect(save).toBeEnabled();
-    await expect(details().locator(".monaco-editor")).toContainText(
-      valid ? "Entity source draft" : "broken entity source",
+    await expect(editor).toHaveValue(
+      new RegExp(valid ? "Entity source draft" : "broken entity source"),
     );
   });
 

@@ -303,17 +303,18 @@ test("Entity statements and query results retain their working content when resi
     await resize(child, width, height, mode);
     await expect(label).toHaveValue("Retained statement draft");
     await child
-      .getByRole("button", { name: "Add row", exact: true })
+      .getByRole("button", { name: "+ Add row", exact: true })
       .scrollIntoViewIfNeeded();
     await fits(
       child.locator(".adaptive-pane"),
-      child.getByRole("button", { name: "Add row", exact: true }),
+      child.getByRole("button", { name: "+ Add row", exact: true }),
     );
     expect(
       await child
         .locator(".entity-editor-content")
         .evaluate((el) => el.scrollWidth > el.clientWidth),
-    ).toBe(false);
+      // Issue 57 follows the reference's intrinsic narrow table widths.
+    ).toBe(mode === "narrow");
   }
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
