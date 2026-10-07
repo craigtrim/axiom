@@ -81,7 +81,7 @@ it("filters only shown fields, including every alias value when enabled", () => 
   const normal = individualGridPage(store, {
     query: "higher education institution",
   });
-  expect(normal.total).toBe(1271);
+  expect(normal.total).toBe(3147);
   const { columns, rows } = individualCensus(store);
   const shown = defaultIndividualColumns(columns, rows.length).visible.filter(
     (k) => k !== NS.rdfs + "comment",
@@ -89,7 +89,7 @@ it("filters only shown fields, including every alias value when enabled", () => 
   expect(
     individualGridPage(store, { query: "higher education institution", shown })
       .total,
-  ).toBe(2);
+  ).toBe(578);
   expect(
     individualGridPage(store, {
       query: "Q736674",
@@ -145,7 +145,7 @@ it("serializes per-class layouts and filters through the workspace preference bo
     "table.individuals.scope": base + "School",
     "table.individuals.query": "Colorado",
     "table.individuals.page": 2,
-    "table.individuals.sort": { key: "subject", direction: -1 },
+    "table.individuals.sort": { key: "subject", direction: -1, explicit: true },
     ["table.individuals.scroll." + base + "School"]: { top: 120, left: 80 },
   };
   expect(readPreferences({ version: 1, panelState }).panelState).toMatchObject(

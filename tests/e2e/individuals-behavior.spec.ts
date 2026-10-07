@@ -15,7 +15,7 @@ const fixture =
   Array.from(
     { length: 205 },
     (_, i) =>
-      `:S${i} a :School; rdfs:label "School ${String(i).padStart(3, "0")}"; rdfs:comment "Description ${i % 7}"; rdfs:seeAlso "Alias ${i}", "Other ${i}"; :establishedYear ${1900 + i}; :hasCountry "Q${i % 3}" .`,
+      `:S${i} a :School; rdfs:label "School ${String(i).padStart(3, "0")}"; rdfs:comment "Description ${i % 7}"; rdfs:seeAlso "${i === 204 ? "Hiddennickname" : "Alias " + i}", "Other ${i}"; :establishedYear ${1900 + i}; :hasCountry "Q${i % 3}" .`,
   ).join("\n");
 const grid = (d: Desktop) =>
   d.page.getByRole("region", { name: "Individuals panel", exact: true });
@@ -115,6 +115,17 @@ test("column visibility, order and widths persist per class through close and wo
   await expect
     .poll(async () => (await d.request<Snapshot>("state")).classCount)
     .toBe(1);
+  // The worker publishes the new graph before the main process finishes its
+  // workspace checkpoint. Wait for that transition before issuing File > Open.
+  const blankName = (await d.request<Snapshot>("state")).ontology.name;
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(
+          await readFile(path.join(d.profile, "last-session.json"), "utf8"),
+        ).workspace.ontology.name,
+    )
+    .toBe(blankName);
   await d.menu("file.open");
   await expect
     .poll(async () => (await d.request<Snapshot>("state")).individualCount)
@@ -137,8 +148,8 @@ test("shown fields control filtering, multivalues open accessibly, and keyboard 
     .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
     .uncheck();
   await d.page.keyboard.press("Escape");
-  await filter.fill("Alias 204");
-  await expect(grid(d)).toContainText('No individual matches "Alias 204"');
+  await filter.fill("Hiddennickname");
+  await expect(grid(d)).toContainText('No individual matches "Hiddennickname"');
   const chooser = await columns(d);
   await chooser
     .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })

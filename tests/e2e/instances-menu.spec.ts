@@ -11,6 +11,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { NS, THING } from "../../src/domain/model";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
+import type { FindResults } from "../../src/shared/find";
 let app: ElectronApplication, page: Page;
 const errors: string[] = [];
 const state = () =>
@@ -21,6 +22,24 @@ const request = (method: DomainMethod, args: Record<string, unknown> = {}) =>
     args,
   });
 const report = () => page.getByRole("region", { name: "Instances report" });
+async function expectRankedInstances(
+  query: string,
+  iri = NS.pizza + "Giardiniera",
+) {
+  const matches = (await request("find", {
+    text: query,
+    kinds: ["individuals"],
+    instanceOf: iri,
+    limit: 100,
+  })) as FindResults;
+  await expect(report().locator("tbody tr")).toHaveCount(matches.rows.length);
+  await expect(report().locator("tbody button").first()).toHaveText(
+    matches.rows[0].name,
+  );
+  await expect(report().getByRole("status")).toContainText(
+    `${matches.total.toLocaleString("en-GB")} matching`,
+  );
+}
 const graphKeys = (s: Snapshot) => ({
   nodes: s.graph.nodes.map((n) => n.iri).sort(),
   edges: s.graph.edges
@@ -55,8 +74,16 @@ async function hierarchyReport(iri = NS.pizza + "Giardiniera") {
       exact: true,
     })
     .click();
-  await expect(report()).toBeVisible();
-  await expect(report().getByRole("status")).not.toContainText("Loading");
+  if ((await state()).ontology.example) {
+    await expect(report()).toBeVisible();
+    await expect(report().getByRole("status")).not.toContainText("Loading");
+  } else {
+    await expect(
+      page
+        .locator('[data-panel="individuals"]')
+        .getByRole("combobox", { name: "Filter by class" }),
+    ).toHaveValue(iri);
+  }
 }
 async function graphMenu(iri: string) {
   await request("seed", { iris: [iri], expand: false });
@@ -74,6 +101,7 @@ test.beforeEach(async () => {
     ...process.env,
     AXIOM_CACHE_HOME: path.join(profile, "cache"),
     AXIOM_USER_DATA: profile,
+    AXIOM_EMBEDDING_MODEL_DIR: path.join(profile, "missing-model"),
   } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
@@ -133,8 +161,7 @@ test("hierarchy report matches 527 instances, pages, filters, and never expands 
     .getByRole("button")
     .innerText();
   await report().getByRole("textbox", { name: "Filter instances" }).fill(name);
-  await expect(report().locator("tbody tr")).toHaveCount(1);
-  await expect(report().getByRole("status")).toContainText("1 matching");
+  await expectRankedInstances(name);
   await report().locator("tbody tr").first().getByRole("button").click();
   expect(graphKeys(await state())).toEqual(before);
 });
@@ -170,8 +197,7 @@ test("instance filtering retains rows, counts and paging through delayed replies
     "Controlled preview failure",
   );
   await releaseRequests(app);
-  await expect(report().locator("tbody tr")).toHaveCount(1);
-  await expect(report().getByRole("status")).toContainText("1 matching");
+  await expectRankedInstances(first);
   await expect(report().getByRole("alert")).toHaveCount(0);
 });
 
@@ -185,8 +211,76 @@ test("an older instance filter response cannot overwrite the latest query", asyn
   await filter.fill(first);
   await waitForHeld(app, 2);
   await releaseRequests(app, { reverse: true });
-  await expect(report().locator("tbody tr")).toHaveCount(1);
-  await expect(report().locator("tbody button")).toHaveText(first);
+  await expectRankedInstances(first);
+  await expect(report().locator("tbody button").first()).toHaveText(first);
+});
+
+test("instance report finds aliases, typos and reordered words only among the class's direct members", async () => {
+  const school = (await request("createClass", {
+    name: "School",
+    parent: THING,
+  })) as string;
+  const hospital = (await request("createClass", {
+    name: "Hospital",
+    parent: THING,
+  })) as string;
+  for (const [name, type] of [
+    ["Hamburger University", school],
+    ["Mercy Hospital", hospital],
+  ]) {
+    const iri = (await request("createIndividual", { name, type })) as string;
+    const doc = (await request("entityDocument", { iri })) as any;
+    await request("updateEntity", {
+      iri,
+      nextIri: iri,
+      version: doc.version,
+      datasetEpoch: doc.datasetEpoch,
+      statements: [
+        ...doc.statements,
+        {
+          subject: iri,
+          predicate: NS.rdfs + "seeAlso",
+          object: {
+            literal: true,
+            value: "McDonald's University",
+            language: "en",
+          },
+        },
+      ],
+    });
+  }
+  await hierarchyReport(school);
+  const filter = report().getByRole("textbox", { name: "Filter instances" });
+  for (const query of [
+    "McDonald's",
+    "hamburgr university",
+    "university hamburger",
+    "",
+  ]) {
+    await filter.fill(query);
+    await expect(report().locator("tbody tr")).toHaveCount(1);
+    await expect(report().locator("tbody button")).toHaveText(
+      "Hamburger University",
+    );
+    if (query)
+      await expect(report().getByRole("status")).toContainText("1 matching");
+  }
+  await holdRequests(app, ["instancesSemantic"]);
+  await filter.fill("McDonald's");
+  await waitForHeld(app);
+  await filter.fill("zzqvopaque");
+  await expect(report()).toContainText("No instances match");
+  await waitForHeld(app, 2);
+  await releaseRequests(app, { reverse: true });
+  await expect(report()).toContainText("No instances match");
+  await expect(filter).toBeFocused();
+  await menu("view.hierarchy");
+  await page
+    .getByRole("textbox", { name: "Filter hierarchy" })
+    .fill("Hamburger");
+  await expect(
+    page.locator(".tree-row").filter({ hasText: "Hamburger University" }),
+  ).toHaveCount(0);
 });
 
 test("hierarchy count, graph menu, graph action, and existing class filter open the same report", async () => {
@@ -236,7 +330,7 @@ test("hierarchy count, graph menu, graph action, and existing class filter open 
   await report().screenshot({ path: "artifacts/testing/instances-report.png" });
 });
 
-test("Inspector usage opens the report and its class survives selection changes and pane reopening", async () => {
+test("Inspector shows the count and the report's class survives selection changes and pane reopening", async () => {
   const iri = NS.pizza + "Giardiniera";
   await hierarchyReport(iri);
   const before = graphKeys(await state());
@@ -255,13 +349,10 @@ test("Inspector usage opens the report and its class survives selection changes 
   await request("select", { iri });
   await menu("view.inspector");
   const inspector = page.locator('[data-panel="inspector"]');
-  const shortcut = inspector.getByRole("button", {
-    name: "Show instances (527) of Giardiniera",
-    exact: true,
-  });
-  if (!(await shortcut.isVisible()))
-    await inspector.getByText("Usage", { exact: true }).click();
-  await shortcut.click();
+  await expect(
+    inspector.locator(".usage .u").filter({ hasText: "Direct instances" }),
+  ).toHaveText("Direct instances 527");
+  await menu("entity.showInstances");
   await expect(report().getByRole("status")).toContainText(
     "527 direct instances",
   );
@@ -282,16 +373,15 @@ test("named instances, empty classes and workspace changes use direct membership
   await request("createIndividual", { name: "A vehicle", type: parent });
   await request("createIndividual", { name: "A car", type: child });
   await hierarchyReport(parent);
-  await expect(report().getByRole("status")).toContainText("1 direct instance");
-  await expect(report().locator("tbody")).toContainText("A vehicle");
-  await expect(report().locator("tbody")).not.toContainText("A car");
-  await report().getByRole("button", { name: "All individuals" }).click();
+  const grid = page.locator('[data-panel="individuals"]');
+  await expect(grid.locator("tbody tr[data-iri]")).toHaveCount(1);
+  await expect(grid.locator("tbody")).toContainText("A vehicle");
+  await expect(grid.locator("tbody")).not.toContainText("A car");
   const filter = page.getByRole("combobox", { name: "Filter by class" });
-  if (!(await filter.isVisible()))
-    await page.getByRole("button", { name: "More individual actions" }).click();
   await filter.selectOption(child);
-  await expect(report().getByRole("heading")).toHaveText("Instances of Car");
-  await expect(report().locator("tbody")).toContainText("A car");
+  await expect(grid.locator("tbody tr[data-iri]")).toHaveCount(1);
+  await expect(grid.locator("tbody")).toContainText("A car");
+  await expect(grid.locator("tbody")).not.toContainText("A vehicle");
   await menu("view.hierarchy");
   await (await row(THING)).click({ button: "right" });
   await expect(
@@ -558,13 +648,9 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   await page.keyboard.press("Escape");
   await menu("view.inspector");
   const inspector = page.locator('[data-panel="inspector"]');
-  const usage = inspector.getByRole("button", {
-    name: "Show instances (0) of Cheesy Pizza",
-    exact: true,
-  });
-  if (!(await usage.isVisible()))
-    await inspector.getByText("Usage", { exact: true }).click();
-  await expect(usage).toBeDisabled();
+  await expect(
+    inspector.locator(".usage .u").filter({ hasText: "Direct instances" }),
+  ).toHaveText("Direct instances 0");
   await menu("palette");
   await page
     .getByRole("textbox", { name: "Find a command" })
@@ -672,7 +758,7 @@ test("palette and class pickers show the same counts as the report", async () =>
   ).toHaveText("Cheesy Pizza (0)");
   await expect(
     named.locator('option[value="' + NS.pizza + 'CheesyPizza"]'),
-  ).toBeDisabled();
+  ).toHaveJSProperty("disabled", true);
 });
 
 test("known-empty graph operations are disabled consistently with the native menu", async () => {

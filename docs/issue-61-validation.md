@@ -8,6 +8,8 @@ The visual reference remains byte-for-byte unchanged: 71,021 bytes, SHA-256 `a33
 
 The compressed census expands to 9,809,917 bytes with SHA-256 `5d7423ebf20410a24c27b005bc73561ebd52c21fbcd7b77776bd5cf7da193c63`. It contains 21,461 individuals and 231,619 triples. The computed chooser has 15 columns and the required five defaults. Census tests check every fill, distinct count, identifier tag and default, including the three corrected distinct counts. They also check a second `rdf:type` becoming eligible and search results of 1,271 with the default fields and 2 without comments.
 
+Subsequent issue #59 replaces that phrase-preferred filter with Find's shared partial-token retrieval. The same query now matches 3,147 rows with the default fields and 578 without comments. The historical counts above describe #61's original validation; the visible-field boundary, census statistics, defaults and visual reference remain unchanged.
+
 The eleven-row fixture comes from the reference's `ROWS`. The Inspector fixture uses the census's 29 aliases, ordered as drawn, including the reference's U+2010 hyphen. Wikipedia responses are recorded fixtures; visual tests disable the local model and make no live Wikipedia requests.
 
 ## Visual comparisons

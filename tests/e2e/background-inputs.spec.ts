@@ -246,6 +246,92 @@ test("Individuals keeps rows while filtering and ignores older shown-column resp
   await expect(filter).toBeFocused();
 });
 
+test("Individuals uses ranked Find matches only in shown columns and scopes aliases in place", async ({
+  desktop: d,
+}) => {
+  await d.load(
+    `@prefix : <${base}> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:Q1000206 a :School; rdfs:label "Hamburger University"; rdfs:seeAlso "Hamburger College", "McDonald's University" .
+:Q2 a :Hospital; rdfs:label "Mercy Hospital"; rdfs:seeAlso "McDonald's University" .
+:Q3 a :School; rdfs:label "A campus annex"; rdfs:seeAlso "Hamburger University annex" .`,
+    "schools.ttl",
+  );
+  await d.menu("view.individuals");
+  const pane = d.page.locator('[data-panel="individuals"]');
+  const filter = pane.getByRole("textbox", { name: "Filter individuals" });
+  await pane.getByRole("button", { name: /^Columns/ }).click();
+  await pane.getByRole("button", { name: "None", exact: true }).click();
+  await d.page.keyboard.press("Escape");
+  await filter.fill("McDonald's");
+  await expect(pane).toContainText('No individual matches "McDonald');
+  await pane.getByRole("button", { name: /^Columns/ }).click();
+  await pane
+    .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+    .check();
+  await d.page.keyboard.press("Escape");
+  const rows = pane.locator("tbody tr[data-iri]");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: "Hamburger University" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "Mercy Hospital" })).toHaveCount(1);
+  await filter.fill("hamburgr university");
+  await expect(rows.first()).toHaveAttribute("data-iri", base + "Q1000206");
+  await expect(pane.locator("th[aria-sort]")).toHaveCount(0);
+  await filter.fill("university for hamburger");
+  await expect(rows.first()).toHaveAttribute("data-iri", base + "Q1000206");
+  await expect(filter).toBeFocused();
+  await pane.getByRole("button", { name: /^Individual/ }).click();
+  await expect(rows.first()).toHaveAttribute("data-iri", base + "Q3");
+  await expect(pane.locator('th[aria-sort="ascending"]')).toHaveCount(1);
+  await pane
+    .getByRole("combobox", { name: "Filter by class" })
+    .selectOption(base + "School");
+  await filter.fill("McDonald's");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toHaveAttribute("data-iri", base + "Q1000206");
+  await filter.fill("");
+  await expect(rows).toHaveCount(2);
+});
+
+test("Individuals cancels delayed semantic requests when the query or dataset changes", async ({
+  desktop: d,
+}) => {
+  await d.load(
+    `@prefix : <${base}> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:One a :School; rdfs:label "First school" . :Two a :School; rdfs:label "Second academy" .`,
+    "semantic-inputs.ttl",
+  );
+  await d.menu("view.individuals");
+  const pane = d.page.locator('[data-panel="individuals"]');
+  const filter = pane.getByRole("textbox", { name: "Filter individuals" });
+  await holdRequests(d.app, ["individualGridSemantic"]);
+  await filter.fill("First");
+  await waitForHeld(d.app);
+  await expect(pane.locator("tbody tr[data-iri]")).toHaveCount(1);
+  await filter.fill("Second");
+  await expect(pane.locator("tbody tr[data-iri]")).toHaveAttribute(
+    "data-iri",
+    base + "Two",
+  );
+  await waitForHeld(d.app, 2);
+  await releaseRequests(d.app, { reverse: true });
+  await expect(filter).toBeFocused();
+  await expect(pane.locator("tbody tr[data-iri]")).toHaveAttribute(
+    "data-iri",
+    base + "Two",
+  );
+  const before = await d.request<Snapshot>("state");
+  await d.menu("file.new");
+  expect(
+    await d.request("individualGridSemantic", {
+      query: "First",
+      consumer: "obsolete",
+      searchId: "obsolete",
+      datasetEpoch: before.datasetEpoch,
+      version: before.version,
+    }),
+  ).toBeUndefined();
+});
+
 test("stylesheet validation waits for a pause and keeps the footer fixed", async ({
   desktop: d,
 }) => {

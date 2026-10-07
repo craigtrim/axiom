@@ -10,6 +10,10 @@ npm run test:search:functional
 
 Vitest writes the named results to `artifacts/search-functional.json`. The same tests also run under `npm test`. They require no model files, inference service, network connection, or downloaded ontology. Semantic tests supply explicit scores so a failing result has a reproducible cause.
 
+Issue #59 adds `tests/domain/individual-search.test.ts` for the Individuals grid and instance report: the school alias fixture, typos, reordered and partial words, relevance with distractors, direct-class eligibility, hidden fields, local names, semantic admission, paging and index invalidation. `tests/domain/progressive-search.test.ts` covers cancellation and missing-model behavior for both consumers. Desktop cases in `background-inputs.spec.ts` and `instances-menu.spec.ts` cover the visible filters, scope, explicit sorting, retained rows and late replies.
+
+After `npm run build`, run `node --import tsx tests/performance/individual-search-worker.ts` to exercise the actual worker. It always verifies the missing-model path and, when the local model is installed, verifies that `car` finds `Automobile` through MPNet in both filters. It also checks cancellation and dataset invalidation. Results are written to `artifacts/issue-59-worker/results.json`.
+
 ## Coverage inventory
 
 | File under `tests/domain/`             |     Cases | Behavior checked                                                                                                                              |

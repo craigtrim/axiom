@@ -66,7 +66,8 @@ it("filters by name and identifier, retains the original total, and clamps an ob
   expect(page.filtered).toBe(1);
   expect(page.start).toBe(0);
   expect(page.rows[0].iri).toBe(id);
-  expect(instancePage(store, iri, id).filtered).toBe(1);
+  // Shared Find retrieves partial namespace matches too, with the full IRI first.
+  expect(instancePage(store, iri, id).rows[0].iri).toBe(id);
   expect(instancePage(store, iri, "no match")).toMatchObject({
     total: 2,
     filtered: 0,

@@ -1,6 +1,6 @@
 # Find and resource search
 
-Use Edit > Find (Ctrl+F) for type-ahead, or View > Find for the full search pane. Names, aliases and IRIs appear immediately. When the local MPNet model is installed, search adds meaning-based results after typing pauses. There is no match-mode selector. Details resource inputs use the same search index and ranking.
+Use Edit > Find (Ctrl+F) for type-ahead, or View > Find for the full search pane. Names, aliases and IRIs appear immediately. When the local MPNet model is installed, search adds meaning-based results after typing pauses. There is no match-mode selector. Details resource inputs, the Individuals filter and class instance reports use the same search engine. Individuals searches only shown columns plus the local name; class scopes restrict eligibility before lexical ranking and semantic admission. An explicit Individuals column sort overrides relevance order.
 
 Find keeps completed results visible while a new search runs. Those retained results cannot be selected, added as synonyms or sent to a graph until the current search completes. Pressing Enter in quick Find waits for that query's fresh result; changing the query cancels the pending selection. An empty result replaces the previous list after completion, and changing ontologies discards results from the previous dataset. Search failures remain visible until a successful search replaces them. The busy announcement appears only when a request lasts at least 300 milliseconds.
 
