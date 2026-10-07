@@ -23,7 +23,6 @@ export function EntityExtend({
   narrow,
   ready,
   pending,
-  added,
   open,
   setOpen,
   synonym,
@@ -34,14 +33,13 @@ export function EntityExtend({
   narrow: boolean;
   ready: boolean;
   pending: boolean;
-  added: boolean;
   open: boolean;
   setOpen(open: boolean): void;
   synonym(): void;
   create(relation: ExtendRelation, trigger: HTMLButtonElement): void;
 }) {
   const layout = usePaneLayout();
-  const control = extendControl(row.kind, query, row.synonym, narrow, added);
+  const control = extendControl(row.kind, query, row.synonym, narrow);
   const relations = control.relations.filter(
     (relation) => relation.door !== "sibling" || row.iri !== THING,
   );
@@ -57,8 +55,8 @@ export function EntityExtend({
   };
   const recordSynonym = () => {
     const cluster = root.current;
-    // The main action (or an individual's entire cluster) disappears after the
-    // write. Keep keyboard focus on the stable row before that can happen.
+    // Keep focus on the stable row while the action is briefly disabled during
+    // saving. The action remains available after a successful write.
     if (cluster?.contains(cluster.ownerDocument.activeElement))
       cluster.parentElement
         ?.closest<HTMLElement>("[tabindex]")

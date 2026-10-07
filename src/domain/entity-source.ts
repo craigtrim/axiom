@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { parseRdf, writeRdf } from "./rdf-io";
 import type { Store } from "./store";
 import type { Triple } from "./model";
+import { sourceFormat } from "./source";
 import {
   sourceFormats,
   sourcePrefixes,
@@ -42,15 +43,26 @@ export async function entitySource(
   store: Store,
   datasetEpoch: number,
   iri: string,
+  requested?: unknown,
 ): Promise<EntitySourceDocument> {
   const original = entitySourceStatements(store, iri);
+  const requestedFormat =
+    requested === undefined ? undefined : sourceFormat(requested);
   const namedGraphs = original.some((t) => !!t.graph);
   const native = store.ontology.source?.format;
-  const format: SourceFormat = sourceFormats.some((f) => f.id === native)
-    ? (native as SourceFormat)
-    : namedGraphs
-      ? "trig"
-      : "turtle";
+  if (
+    requestedFormat &&
+    namedGraphs &&
+    !sourceFormats.find((f) => f.id === requestedFormat)!.graphs
+  )
+    throw Error("This format cannot preserve named graphs.");
+  const format: SourceFormat =
+    requestedFormat ??
+    (sourceFormats.some((f) => f.id === native)
+      ? (native as SourceFormat)
+      : namedGraphs
+        ? "trig"
+        : "turtle");
   const chosen =
     namedGraphs && !sourceFormats.find((f) => f.id === format)!.graphs
       ? "trig"

@@ -100,6 +100,38 @@ export async function writeTurtleSnippet(
       })),
     );
   };
+  // Flat entity snippets follow the statement grid: one statement per line,
+  // including repeated predicates. N3 still escapes every RDF term. Avoid the
+  // serializer's trailing blank rows, which otherwise consume editor height.
+  if (
+    subjects.size === 1 &&
+    !triples.some(
+      (t) => t.graph || (!t.object.literal && t.object.value.startsWith("_:")),
+    )
+  ) {
+    const rows = [...triples].sort(
+      (a, b) => Number(b.predicate === TYPE) - Number(a.predicate === TYPE),
+    );
+    const lines = rows.map((t, i) => {
+      const quad = writer.quadToString(
+        node(t.subject),
+        DataFactory.namedNode(t.predicate),
+        value(t, new Set([t.subject])),
+      );
+      const boundary = quad.indexOf(" ");
+      let tail = quad.slice(boundary + 1, -3);
+      if (t.predicate === TYPE) tail = "a" + tail.slice(tail.indexOf(" "));
+      return (
+        (i ? "    " : quad.slice(0, boundary + 1)) +
+        tail +
+        (i === rows.length - 1 ? " ." : " ;")
+      );
+    });
+    const header = await new Promise<string>((resolve, reject) =>
+      writer.end((error, text) => (error ? reject(error) : resolve(text))),
+    );
+    return header + lines.join("\n");
+  }
   // Start at the selected subject, then preserve any explicit shared structures.
   const ordered = [...subjects.keys()].sort(
     (a, b) =>

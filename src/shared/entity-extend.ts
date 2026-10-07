@@ -50,9 +50,8 @@ export function extendControl(
   query: string,
   status: FindSynonymStatus | undefined,
   narrow: boolean,
-  added = false,
 ) {
-  const synonym = !!findSynonymText(query) && status === "available" && !added;
+  const synonym = !!findSynonymText(query) && status !== undefined;
   const relations = extendRelations(kind);
   const form =
     !synonym && !relations.length

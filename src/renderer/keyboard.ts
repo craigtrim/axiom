@@ -127,14 +127,16 @@ export function installKeyboard(doc: Document) {
       command("textanalysis.details");
     else if (
       match.command === "entity.search" &&
-      doc.activeElement?.closest(".monaco-editor")
+      doc.activeElement?.closest(".monaco-editor,.details-source-text")
     )
       command(
-        doc.activeElement?.closest('[data-panel="source"]')
-          ? "source.find"
-          : doc.activeElement?.closest('[data-panel="textanalysis"]')
-            ? "textanalysis.find"
-            : "query.find",
+        doc.activeElement?.closest(".details-source-text")
+          ? "details.find"
+          : doc.activeElement?.closest('[data-panel="source"]')
+            ? "source.find"
+            : doc.activeElement?.closest('[data-panel="textanalysis"]')
+              ? "textanalysis.find"
+              : "query.find",
       );
     else if (match.command === "edit.undo" || match.command === "edit.redo")
       command(match.command);

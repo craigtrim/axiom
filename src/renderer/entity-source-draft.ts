@@ -1,10 +1,7 @@
 import { useSyncExternalStore } from "react";
-import type { EntitySourceDocument } from "../shared/source";
+import type { EntitySourceDraft } from "../shared/editor-state";
 import { rememberDocumentDraft } from "./editor-drafts";
-export interface EntitySourceDraft {
-  loaded: EntitySourceDocument;
-  text: string;
-}
+export type { EntitySourceDraft } from "../shared/editor-state";
 const drafts = new Map<string, EntitySourceDraft>();
 export const entitySourceDraftSnapshot = () =>
   structuredClone([...drafts.values()]);

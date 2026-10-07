@@ -3,6 +3,7 @@ import { TYPE } from "../domain/model";
 import { orderPredicates, type PredicateUsage } from "../shared/predicates";
 import { request, useSnapshot } from "./client";
 import { compactIri } from "../shared/terms";
+import { DetailsGlyph } from "./DetailsGlyph";
 
 let prior: { iri: string; datasetEpoch: number } | undefined;
 const listeners = new Set<() => void>();
@@ -50,6 +51,7 @@ export function PredicateSelect({
   label,
   disabled,
   change,
+  quiet = false,
 }: {
   value: string;
   options: string[];
@@ -57,8 +59,9 @@ export function PredicateSelect({
   label: string;
   disabled?: boolean;
   change: (iri: string) => void;
+  quiet?: boolean;
 }) {
-  return (
+  const select = (
     <select
       aria-label={label}
       title={value}
@@ -79,5 +82,18 @@ export function PredicateSelect({
           </option>
         ))}
     </select>
+  );
+  return quiet ? (
+    <span className="details-predicate-select">
+      <span aria-hidden="true">
+        {value ? compactIri(value, namespace) : "Choose predicate"}
+      </span>
+      <span className="chev" aria-hidden="true">
+        <DetailsGlyph kind="chevron" />
+      </span>
+      {select}
+    </span>
+  ) : (
+    select
   );
 }

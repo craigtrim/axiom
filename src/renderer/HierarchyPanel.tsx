@@ -190,11 +190,16 @@ export function HierarchyPanel() {
   const visibleIds = useMemo(() => rows.map((r) => r.iri), [rows]);
   useEffect(() => {
     // External navigation can select a hidden node before the ancestry-opening
-    // effect runs. Keep that selection until the next render reveals it.
+    // effect runs, including a property before the tab switches. Keep that
+    // selection until the next render reveals it.
     if (
       selectionFromHierarchy ||
       !s.selected ||
-      !entities.some((e) => e.iri === s.selected)
+      !s.entities.some(
+        (e) =>
+          e.iri === s.selected &&
+          (namedClass(e) || e.kind.endsWith("Property")),
+      )
     )
       updateSelection(
         pruneHierarchySelection(selectionRef.current, visibleIds),

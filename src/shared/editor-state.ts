@@ -30,6 +30,8 @@ export interface SourceDraft {
 export interface EntitySourceDraft {
   loaded: EntitySourceDocument;
   text: string;
+  error?: string;
+  stale?: boolean;
 }
 export interface SavedEditorDrafts {
   version: 1;
@@ -84,7 +86,12 @@ export function readEditorDrafts(
     !Array.isArray(d.entitySources) ||
     d.entitySources.length > 1000 ||
     !d.entitySources.every(
-      (e) => source(e) && text(e.loaded.iri) && triples(e.loaded.original),
+      (e) =>
+        source(e) &&
+        text(e.loaded.iri) &&
+        triples(e.loaded.original) &&
+        (e.error === undefined || text(e.error)) &&
+        (e.stale === undefined || typeof e.stale === "boolean"),
     ) ||
     JSON.stringify(d).length > 128 * 1024 * 1024
   )
