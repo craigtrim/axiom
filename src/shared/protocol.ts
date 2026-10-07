@@ -227,7 +227,8 @@ export interface AxiomBridge {
       fileName: string;
       dirty: boolean;
     }>;
-    menu(id: string, x: number, y: number): Promise<void>;
+    menus(): Promise<import("./window-chrome").ChromeMenuItem[]>;
+    execute(id: string, label: string): Promise<void>;
   };
   suggestions: {
     batches(): Promise<import("./suggestion-batches").SuggestionBatch[]>;
@@ -286,7 +287,7 @@ export interface AxiomBridge {
   };
   keyboard: {
     modal(active: boolean): void;
-    menu(): void;
+    menu(owner?: string): void;
     save(
       settings: import("./shortcuts").KeyboardSettings,
     ): Promise<import("./shortcuts").KeyboardSettings>;

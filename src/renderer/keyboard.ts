@@ -61,7 +61,7 @@ export function installKeyboard(doc: Document) {
     ) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      (win.axiom ?? window.axiom).keyboard.menu();
+      (win.axiom ?? window.axiom).keyboard.menu(doc.location.href);
       return;
     }
     const stroke = eventStroke(e);

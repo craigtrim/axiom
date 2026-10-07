@@ -2,6 +2,7 @@ import { TextAnalysisService } from "./text-analysis-service";
 import { mutatocExecutable } from "./mutatoc-client";
 import type { TextAnalysisContext } from "../shared/text-analysis";
 import { randomUUID } from "node:crypto";
+import type { ChromeMenuItem } from "../shared/window-chrome";
 import { WorkspaceFiles } from "./workspace-files";
 import { selectInstanceProfile, isSlotProbe } from "./instance-profile";
 import { InstanceRegistry } from "./instance-registry";
@@ -1158,6 +1159,38 @@ function installMenu() {
   if (process.platform === "win32") mainWindow?.setMenuBarVisibility(false);
   refreshMenu();
 }
+const chromeLabel = (label: string) =>
+  label
+    .split("\t")[0]
+    .replace(/&&/g, "\u0000")
+    .replace(/&/g, "")
+    .replace(/\u0000/g, "&");
+function chromeMenus(menu = Menu.getApplicationMenu()): ChromeMenuItem[] {
+  return (
+    menu?.items.map((item) => ({
+      id: item.id,
+      label: chromeLabel(item.label),
+      key: /(?:^|[^&])&([^&])/.exec(item.label)?.[1].toUpperCase() ?? "",
+      enabled: item.enabled,
+      visible: item.visible,
+      ...(item.type === "separator" ? { separator: true } : {}),
+      ...(["checkbox", "radio"].includes(item.type)
+        ? { checked: item.checked, radio: item.type === "radio" }
+        : {}),
+      accelerator: item.label.split("\t")[1] ?? item.accelerator ?? "",
+      ...(item.submenu ? { children: chromeMenus(item.submenu) } : {}),
+    })) ?? []
+  );
+}
+const chromeOverlay = () => ({
+  color: nativeTheme.shouldUseDarkColors ? "#11161d" : "#eceff3",
+  symbolColor: nativeTheme.shouldUseDarkColors ? "#9ba7b4" : "#57606a",
+  height: 36,
+});
+nativeTheme.on("updated", () => {
+  if (process.platform === "win32" && mainWindow && !mainWindow.isDestroyed())
+    mainWindow.setTitleBarOverlay(chromeOverlay());
+});
 app.whenReady().then(async () => {
   if (launchFile?.toLowerCase().endsWith(".axiom")) {
     launchLease = await workspaceOwnership.claim(launchFile);
@@ -1315,11 +1348,7 @@ app.whenReady().then(async () => {
     ...(process.platform === "win32"
       ? {
           titleBarStyle: "hidden" as const,
-          titleBarOverlay: {
-            color: "#f3f3f3",
-            symbolColor: "#202020",
-            height: 32,
-          },
+          titleBarOverlay: chromeOverlay(),
         }
       : {}),
     icon: path.join(__dirname, "../assets/axiom.ico"),
@@ -1368,17 +1397,7 @@ app.whenReady().then(async () => {
       );
       if (!item || typeof item === "string") return;
       event.preventDefault();
-      Menu.getApplicationMenu()
-        ?.getMenuItemById(item.id)
-        ?.submenu?.popup({
-          window: w,
-          x: 0,
-          y: 60,
-          sourceType: "keyboard",
-          callback: () => {
-            if (!w.isDestroyed()) w.webContents.focus();
-          },
-        });
+      w.webContents.send("command", "menu.open:" + item.id);
     });
     w.webContents.on("will-navigate", (event, url) => {
       if (!url.startsWith("app://axiom/")) event.preventDefault();
@@ -1560,27 +1579,39 @@ app.whenReady().then(async () => {
   });
   handle("chrome:info", (event) => {
     authorised(event);
-    return windowTitleInfo();
+    return {
+      ...windowTitleInfo(),
+      custom:
+        process.platform === "win32" &&
+        event.sender === mainWindow?.webContents,
+    };
   });
-  handle("chrome:menu", (event, id, x, y) => {
+  handle("chrome:menus", (event) => {
+    authorised(event);
+    refreshMenu();
+    return chromeMenus();
+  });
+  handle("chrome:execute", (event, id, label) => {
     authorised(event);
     if (
-      !menuTree.some((m) => m && typeof m !== "string" && m.id === id) ||
-      !Number.isFinite(x) ||
-      !Number.isFinite(y)
+      modalWindows.size ||
+      typeof id !== "string" ||
+      typeof label !== "string"
     )
-      throw Error("Unknown application menu.");
+      return;
+    refreshMenu();
+    const item = Menu.getApplicationMenu()?.getMenuItemById(id);
+    // Recent-file slots must never open a different file after a list update.
+    if (
+      !item ||
+      !item.enabled ||
+      !item.visible ||
+      item.submenu ||
+      chromeLabel(item.label) !== label
+    )
+      return;
     const owner = BrowserWindow.fromWebContents(event.sender)!;
-    Menu.getApplicationMenu()
-      ?.getMenuItemById(id)
-      ?.submenu?.popup({
-        window: owner,
-        x: Math.max(0, Math.round(x)),
-        y: Math.max(0, Math.round(y)),
-        callback: () => {
-          if (!owner.isDestroyed()) owner.webContents.focus();
-        },
-      });
+    item.click(item, owner, owner.webContents);
   });
   handle("suggestions:batches", (event) => {
     authorised(event);
@@ -1733,10 +1764,24 @@ app.whenReady().then(async () => {
       throw Error("Only HTTPS links are supported.");
     return shell.openExternal(parsed.href);
   });
-  ipcMain.on("keyboard:menu", (event) => {
+  ipcMain.on("keyboard:menu", (event, ownerUrl) => {
     authorised(event);
     if (modalWindows.size) return;
-    const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow!;
+    // FlexLayout popouts share the main renderer's bridge. Preserve the
+    // invoking document rather than mistaking that IPC sender for the owner.
+    const detached =
+      typeof ownerUrl === "string" &&
+      /^app:\/\/axiom\/popout\.html(?:\?id=[a-f0-9-]{36})?$/.test(ownerUrl)
+        ? BrowserWindow.getAllWindows().find(
+            (win) => win.webContents.getURL() === ownerUrl,
+          )
+        : undefined;
+    const owner =
+      detached ?? BrowserWindow.fromWebContents(event.sender) ?? mainWindow!;
+    if (process.platform === "win32" && owner === mainWindow) {
+      owner.webContents.send("command", "menu.focus");
+      return;
+    }
     Menu.getApplicationMenu()?.popup({
       window: owner,
       x: 0,

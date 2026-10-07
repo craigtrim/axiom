@@ -3597,54 +3597,6 @@ a {
   padding: 12px;
 }
 
-.window-titlebar {
-  height: 32px;
-  min-height: 32px;
-  padding: 0 150px 0 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f3f3f3;
-  color: #202020;
-  app-region: drag;
-  -webkit-app-region: drag;
-  user-select: none;
-}
-.window-app-icon {
-  display: grid;
-  place-items: center;
-  width: 19px;
-  height: 19px;
-  border-radius: 4px;
-  background: #086bbb;
-  color: white;
-  font-weight: 700;
-}
-.window-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-}
-.window-menubar {
-  display: flex;
-  padding: 0 4px;
-  min-height: 28px;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-}
-.window-menubar button {
-  border: 0;
-  border-radius: 3px;
-  padding: 3px 10px;
-  min-height: 28px;
-  background: transparent;
-}
-.window-menubar button:hover {
-  background: var(--accent-soft, #e5edf5);
-}
-
 /* Find uses a small launcher and a persistent results pane. */
 .quick-find > input {
   width: 100%;

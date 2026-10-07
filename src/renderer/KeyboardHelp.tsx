@@ -15,10 +15,11 @@ export function KeyboardHelp({
     <Modal title="Keyboard shortcuts" close={close}>
       <div className="keyboard-settings">
         <p>
-          Press Alt to use the menu bar, or F10 to open the application menu,
-          then press its underlined letters. Use Tab and Shift+Tab between
-          controls, arrows within lists, Enter or Space to activate, and Escape
-          to dismiss. Shift+F10 opens a selected entity's context menu.
+          Press Alt or F10 to focus the menu bar, then press its underlined
+          letters. F10 opens the application menu in a detached window. Use Tab
+          and Shift+Tab between controls, arrows within lists, Enter or Space to
+          activate, and Escape to dismiss. Shift+F10 opens a selected entity's
+          context menu.
         </p>
         <input
           aria-label="Filter shortcut reference"

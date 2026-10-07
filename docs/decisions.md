@@ -4,7 +4,7 @@ The user authorized a complete Electron rewrite and archival of the previous app
 
 ## Desktop architecture
 
-Electron owns the Windows frame, menu bar, native file dialogs, clipboard and application lifecycle. React and FlexLayout provide the movable workbench. Monaco supplies the query editor; AG Grid Community supplies the virtualized tables. The application uses no paid grid features.
+Electron owns the Windows frame, native caption buttons, command-menu model, native file dialogs, clipboard and application lifecycle. React draws the 36 pixel Windows title band and its in-page menu popups from that command model. React and FlexLayout provide the movable workbench. Monaco supplies the query editor; AG Grid Community supplies the virtualized tables. The application uses no paid grid features.
 
 The main process handles operating-system integration. A Node worker thread owns the Store, query engine and graph simulation. The sandboxed renderer receives bounded table and query pages and graph snapshots over a typed, allowlisted bridge. It has no Node.js access. Documents are parsed and validated as data; application resources come from the local app protocol. Arbitrary navigation, popup destinations and permission requests are blocked.
 
@@ -68,7 +68,7 @@ Automatic workbench arrangement depends on the available viewport width and aspe
 
 Application menus, direct shortcuts, the palette and the keyboard editor share one command registry. Electron displays the configured accelerator while the renderer resolves application and pane scopes, including two-stroke chords. Default text-editing shortcuts remain local to the focused control to avoid asynchronous selection races. Detached panes use the owning workbench's bridge and keyboard settings.
 
-The editor saves versioned personal overrides after conflict validation. Keyboard preferences are excluded from workspace exports and preserved when opening a workspace. Context menus and dialogs have local access letters and suspend application menus while active. F10 explicitly opens an Electron application-menu popup; Alt uses the menu bar.
+The editor saves versioned personal overrides after conflict validation. Keyboard preferences are excluded from workspace exports and preserved when opening a workspace. Object context menus and dialogs have local access letters and suspend application menus while active. On Windows, bare Alt and F10 focus the in-page menu bar; Alt plus an access key opens the matching popup beneath its trigger. Detached panes retain the Electron application-menu popup through F10. Application popups use the same checked, disabled and accelerator state as the native command model.
 
 ## Inline authoring, RDF and export
 

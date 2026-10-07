@@ -177,7 +177,7 @@ The minimum verification for a revision is keyboard-only operation, checked/disa
 
 ## Implementation choice
 
-Axiom uses Electron menus for the menu bar and a custom React popup for these object menus. [Electron's Menu API](https://www.electronjs.org/docs/latest/api/menu) supports popup menus and submenus, but documents Chromium-like presentation on Windows. Switching to it would not by itself guarantee the exact WinUI or Explorer appearance.
+Axiom's Windows title band and its application-menu popups are rendered in the page using the shared React ContextMenu component, following Craig's issue #66 shell reference. Electron still builds the authoritative command menu: the bridge reads its labels, access keys, enabled/checked state and accelerators, and validates the selected item again before invoking it. This preserves the existing command registry, native roles and dynamic Recent entries. Detached panes keep Electron's F10 popup.
 
 The shared React component now renders separators and checked options. The Show in graph cascade extends this component and preserves detached-window ownership and local UI actions. A shared typed menu description should distinguish commands, separators, checked options and submenu parents whichever renderer is chosen.
 

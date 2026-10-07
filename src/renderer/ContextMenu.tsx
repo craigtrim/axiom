@@ -5,6 +5,9 @@ export interface ContextAction {
   label: string;
   title?: string;
   key: string;
+  accessKey?: string;
+  accelerator?: string;
+  radio?: boolean;
   enabled?: boolean;
   visible?: boolean;
   checked?: boolean;
@@ -44,6 +47,9 @@ export function ContextMenu({
   parentRect,
   trigger,
   onTabOut,
+  appearance,
+  initialFocus = "first",
+  onNextMenu,
 }: {
   actions: (ContextAction | null)[];
   document: Document;
@@ -56,6 +62,9 @@ export function ContextMenu({
   parentRect?: DOMRect;
   trigger?: HTMLButtonElement;
   onTabOut?: (backwards: boolean) => void;
+  appearance?: "chrome";
+  initialFocus?: "first" | "last" | "menu";
+  onNextMenu?: (direction: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -95,7 +104,7 @@ export function ContextMenu({
   useEffect(() => {
     const m = ref.current!,
       win = doc.defaultView!,
-      resume = suspendMenus(doc);
+      resume = appearance === "chrome" ? () => {} : suspendMenus(doc);
     restore.current = trigger ?? (doc.activeElement as HTMLElement | null);
     const position = () => {
       const r = m.getBoundingClientRect();
@@ -113,7 +122,13 @@ export function ContextMenu({
         Math.max(4, Math.min(y, win.innerHeight - r.height - 4)) + "px";
     };
     position();
-    m.querySelector<HTMLButtonElement>("button")?.focus();
+    const buttons = m.querySelectorAll<HTMLButtonElement>("button");
+    (initialFocus === "menu"
+      ? m
+      : initialFocus === "last"
+        ? buttons[buttons.length - 1]
+        : buttons[0]
+    )?.focus();
     const outside = (e: PointerEvent) => {
       if (
         (e.target as HTMLElement)
@@ -182,9 +197,24 @@ export function ContextMenu({
         data-menu-owner={ownerId}
         role="menu"
         aria-label={label}
-        className="entity-context-menu"
+        className={
+          "entity-context-menu" +
+          (appearance === "chrome" ? " chrome-menu menu" : "")
+        }
+        tabIndex={-1}
         ref={ref}
-        style={{ left: x, top: y }}
+        style={{
+          left: x,
+          top: y,
+          ...(appearance === "chrome"
+            ? {
+                maxHeight: Math.max(
+                  26,
+                  doc.defaultView!.innerHeight - (parentRect ? 8 : y + 4),
+                ),
+              }
+            : {}),
+        }}
         onPointerLeave={() => clearTimeout(hoverTimer.current)}
         onKeyDown={(e) => {
           e.stopPropagation();
@@ -208,11 +238,17 @@ export function ContextMenu({
             if (a?.children) {
               e.preventDefault();
               openSubmenu(a);
+            } else if (!parentRect && onNextMenu) {
+              e.preventDefault();
+              onNextMenu(1);
             }
           }
           if (e.key === "ArrowLeft" && parentRect) {
             e.preventDefault();
             close();
+          } else if (e.key === "ArrowLeft" && onNextMenu) {
+            e.preventDefault();
+            onNextMenu(-1);
           }
           if (e.key === "Escape") {
             e.preventDefault();
@@ -229,9 +265,15 @@ export function ContextMenu({
             e.key.length === 1 &&
             e.key !== " "
           ) {
-            const a = items.find((a) => a?.key === e.key.toUpperCase());
+            const a = items.find(
+              (a) => a && (a.accessKey ?? a.key) === e.key.toUpperCase(),
+            );
             if (a) {
               e.preventDefault();
+              if (a.enabled === false)
+                buttons
+                  .find((button) => button.dataset.menuKey === a.key)
+                  ?.focus();
               invoke(a);
             }
           }
@@ -243,20 +285,36 @@ export function ContextMenu({
               key={"separator-" + i}
               role="separator"
               aria-orientation="horizontal"
-              className="menu-separator"
+              className={
+                appearance === "chrome"
+                  ? "menu-separator msep"
+                  : "menu-separator"
+              }
             />
           ) : (
             <button
               key={a.key}
+              className={appearance === "chrome" ? "mi" : undefined}
               data-menu-key={a.key}
+              data-active={focusedKey === a.key ? "true" : undefined}
               aria-haspopup={a.children ? "menu" : undefined}
               aria-expanded={
                 a.children ? submenu?.action.key === a.key : undefined
               }
-              role={a.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+              role={
+                a.checked === undefined
+                  ? "menuitem"
+                  : a.radio
+                    ? "menuitemradio"
+                    : "menuitemcheckbox"
+              }
               aria-checked={a.checked}
               aria-disabled={a.enabled === false || undefined}
-              aria-keyshortcuts={"Alt+" + a.key}
+              aria-keyshortcuts={
+                (a.accessKey ?? a.key)
+                  ? "Alt+" + (a.accessKey ?? a.key)
+                  : undefined
+              }
               title={a.title}
               tabIndex={
                 focusedKey === a.key || (!focusedKey && i === 0) ? 0 : -1
@@ -273,17 +331,65 @@ export function ContextMenu({
               }}
               onClick={() => invoke(a)}
             >
-              <span className="menu-check" aria-hidden="true">
-                {a.checked ? "✓" : ""}
-              </span>
-              <span>
-                <AccessLabel label={a.label} letter={a.key} />
-                {a.children && (
-                  <span className="menu-submenu-arrow" aria-hidden="true">
-                    ›
+              {appearance === "chrome" ? (
+                <>
+                  {a.checked && (
+                    <svg
+                      className="tick"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
+                    </svg>
+                  )}
+                  <span className="lab">
+                    {a.accessKey ? (
+                      <AccessLabel label={a.label} letter={a.accessKey} />
+                    ) : (
+                      a.label
+                    )}
                   </span>
-                )}
-              </span>
+                  {a.accelerator && (
+                    <span className="acc">{a.accelerator}</span>
+                  )}
+                  {a.children && (
+                    <svg
+                      className="chev"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="menu-check" aria-hidden="true">
+                    {a.checked ? "✓" : ""}
+                  </span>
+                  <span>
+                    <AccessLabel
+                      label={a.label}
+                      letter={a.accessKey ?? a.key}
+                    />
+                    {a.children && (
+                      <span className="menu-submenu-arrow" aria-hidden="true">
+                        ›
+                      </span>
+                    )}
+                  </span>
+                </>
+              )}
             </button>
           ),
         )}
@@ -297,6 +403,7 @@ export function ContextMenu({
           parentRect={submenu.rect}
           trigger={submenu.trigger}
           onTabOut={tabOut}
+          appearance={appearance}
           owner={ownerId}
           dismiss={dismiss ?? close}
           close={() => setSubmenu(null)}

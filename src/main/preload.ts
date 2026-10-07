@@ -21,7 +21,8 @@ const bridge: AxiomBridge = {
   textAnalysis: { parse: (input) => invoke("textAnalysis:parse", input) },
   chrome: {
     info: () => invoke("chrome:info"),
-    menu: (id, x, y) => invoke("chrome:menu", id, x, y),
+    menus: () => invoke("chrome:menus"),
+    execute: (id, label) => invoke("chrome:execute", id, label),
   },
   suggestions: {
     batches: () => invoke("suggestions:batches"),
@@ -64,7 +65,7 @@ const bridge: AxiomBridge = {
   },
   keyboard: {
     modal: (active) => ipcRenderer.send("keyboard:modal", active),
-    menu: () => ipcRenderer.send("keyboard:menu"),
+    menu: (owner) => ipcRenderer.send("keyboard:menu", owner),
     save: (settings) => invoke("keyboard:save", settings),
     import: () => invoke("keyboard:import"),
     export: (settings) => invoke("keyboard:export", settings),
