@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { workspaceFilePath } from "./workspace-ownership";
 // Save beside the destination and replace it only after the complete write succeeds.
 export class WorkspaceFiles {
   private previous = new Map<string, { digest: string; modified: number }>();
   async write(file: string, text: string, createDirectory = false) {
+    // Keep writes and ownership on the same target when a workspace is opened
+    // through a filesystem alias. Replacing the alias would change its identity.
+    file = workspaceFilePath(file);
     const digest = createHash("sha256").update(text).digest("hex");
     const previous = this.previous.get(file);
     if (previous?.digest === digest) {
