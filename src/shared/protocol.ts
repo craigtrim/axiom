@@ -64,6 +64,7 @@ export interface EdgeDocument {
   version: number;
 }
 export interface InspectorData {
+  referencedBy: number;
   entity: Entity;
   instances: number;
   descendants: number;
@@ -140,6 +141,7 @@ export type DomainMethod =
   | "graphInteraction"
   | "routeEdge"
   | "inspector"
+  | "individualGrid"
   | "instances"
   | "table"
   | "tableGraph"

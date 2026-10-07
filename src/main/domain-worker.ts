@@ -1,6 +1,7 @@
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
+import { individualGridPage } from "../domain/individual-columns";
 import {
   textAnalysisDraft,
   planTextAnalysisHierarchy,
@@ -1059,8 +1060,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "synonymContext":
       return synonymContext(store, string(a, "iri", 10000), datasetEpoch);
     case "seeAlsoMatches":
-      if (a.datasetEpoch !== datasetEpoch)
-        return { total: 0, entities: [] };
+      if (a.datasetEpoch !== datasetEpoch) return { total: 0, entities: [] };
       return seeAlsoMatches(store, string(a, "iri", 10000), {
         literal: a.literal === true,
         value: string(a, "value", 100000),
@@ -1719,12 +1719,17 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         origin: a.origin === "hierarchy" ? "hierarchy" : undefined,
       });
       return true;
+    case "individualGrid":
+      return individualGridPage(store, a);
     case "inspector": {
       const iri = string(a, "iri"),
         e = store.resolve(iri);
       if (!e) return null;
       const order = store.individualIndex.get(iri);
       const data: InspectorData = {
+        referencedBy: [
+          ...store.scan(undefined, undefined, { literal: false, value: iri }),
+        ].filter((t) => t.subject !== iri).length,
         entity: e,
         instances: store.instanceCount(iri),
         descendants: store.descendantCount(iri),

@@ -177,6 +177,7 @@ const methods = new Set<DomainMethod>([
   "graphInteraction",
   "routeEdge",
   "inspector",
+  "individualGrid",
   "instances",
   "table",
   "tableGraph",

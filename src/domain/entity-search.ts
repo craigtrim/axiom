@@ -247,6 +247,55 @@ export class EntitySearchIndex {
       ),
     ].filter((f) => this.indexedFields.has(f));
   }
+  /** Individuals searches only visible predicates, its displayed name and the
+   * local identifier. In particular, hidden aliases must not leak through the
+   * shared Names and aliases facet. The filter requires every query token. */
+  individualMatches(text: string, shown: string[]): Set<string> {
+    const fields = shown
+      .flatMap((f) =>
+        f === "subject" ? [labelField] : f === "iri" ? [iriField] : [f],
+      )
+      .filter((f) => this.indexedFields.has(f));
+    const query = queryText(text);
+    if (!query) return new Set();
+    const hits = this.engine.search(query, {
+      fields,
+      fuzzy,
+      combineWith: "AND",
+    });
+    const eligible = hits.filter(
+      (h) => this.rows[h.id].category === "individuals",
+    );
+    // Preserve literal phrases when present; token-prefix/fuzzy expansion is
+    // the fallback for a query with no direct phrase in the shown field set.
+    const phrase = normalize(text);
+    const literal = eligible.filter((h) =>
+      fields.some((f) =>
+        this.rows[h.id].values
+          .get(f)
+          ?.some((v) => v.toLowerCase().includes(text.trim().toLowerCase())),
+      ),
+    );
+    const exact = eligible.filter((h) =>
+      fields.some((f) =>
+        this.rows[h.id].values
+          .get(f)
+          ?.some((v) => normalize(v).includes(phrase)),
+      ),
+    );
+    const iris = new Set(
+      (literal.length ? literal : exact.length ? exact : eligible).map(
+        (h) => this.rows[h.id].iri,
+      ),
+    );
+    for (const row of this.rows)
+      if (
+        row.category === "individuals" &&
+        normalize(local(row.iri)).includes(normalize(text))
+      )
+        iris.add(row.iri);
+    return iris;
+  }
   semanticTexts(fields: string[]): string[] {
     const selected = this.selectedFields(fields).sort(),
       key = JSON.stringify(selected);

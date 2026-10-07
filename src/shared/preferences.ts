@@ -4,6 +4,7 @@ import { extendPreferencesKey, readExtendPreferences } from "./entity-extend";
 import { readSparsityOptions } from "./sparsity";
 import { readQualityOptions, readQualityExceptions } from "./ontology-quality";
 import { readFindOptions } from "./find";
+import { readIndividualLayouts } from "./individual-columns";
 import { MAX_VISIBLE_NODES, MIN_GRAPH_ZOOM } from "./graph-limits";
 import { readKeyboardSettings } from "./shortcuts";
 import { parseGraphStyle } from "../domain/graph-style";
@@ -178,6 +179,33 @@ export function readPreferences(input: unknown): Preferences {
     out["table.accessible"] = s["table.accessible"];
   if (number(s["table.scroll"], 0, 1000000))
     out["table.scroll"] = Math.floor(s["table.scroll"]);
+  if (object(s["table.individuals.layouts"]))
+    out["table.individuals.layouts"] = readIndividualLayouts(
+      s["table.individuals.layouts"],
+    );
+  for (const key of ["table.individuals.scope", "table.individuals.query"])
+    if (typeof s[key] === "string" && s[key].length < 10000) out[key] = s[key];
+  if (number(s["table.individuals.page"], 1, 100000000))
+    out["table.individuals.page"] = Math.floor(s["table.individuals.page"]);
+  const individualSort = s["table.individuals.sort"];
+  if (
+    object(individualSort) &&
+    typeof individualSort.key === "string" &&
+    individualSort.key.length < 10000
+  )
+    out["table.individuals.sort"] = {
+      key: individualSort.key,
+      direction: individualSort.direction === -1 ? -1 : 1,
+    };
+  for (const [key, scroll] of Object.entries(s))
+    if (
+      key.startsWith("table.individuals.scroll.") &&
+      key.length < 10050 &&
+      object(scroll) &&
+      number(scroll.top, 0, 1000000) &&
+      number(scroll.left, 0, 1000000)
+    )
+      out[key] = { top: scroll.top, left: scroll.left };
   if (typeof s["query.text"] === "string" && s["query.text"].length <= 100000)
     out["query.text"] = s["query.text"];
   if (number(s["query.example"], 0, 6))
