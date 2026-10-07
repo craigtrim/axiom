@@ -74,7 +74,7 @@ App.tsx declares eighteen dockable component types. The per-view policies below 
 | --- | --- | --- | --- | --- |
 | Touchpoints | Search and ranked candidates | Wrapped rows and relationship controls | Compact actions above results | Query, candidate attribution and explicit Apply |
 | Inspector | Fields, relationships and usage | Name, label, common edits; secondary disclosures | Editable identity beside the active details section | Dirty draft, validation and Apply changes |
-| Details | Predicate and Value table | Searchable resource cells and scoped Source | Header actions above the statement table | Language, datatype, graph identifiers and source drafts |
+| Details | Vertical ancestry, statement table, content-sized source and IRI/revision footer | 128 px predicate column, uncapped values/source, More hidden | Source and footer withdraw; draft state/actions stay in header | Draft text, validation, language, datatype and graph identifiers |
 | Find | Persistent scope rail; one query row; Entity, Type and Synonym columns | Options shows scope ratios; synonyms fold into Entity; condensed pager and one inspector line | Options replaces the body; rows take priority over header, pager and inspector | Query, scope, sort, page, selected result, scroll and creation draft |
 | Hierarchy | Tree, filter and creation actions | Same tree; secondary action overflow | Filter/action row above tree viewport | Hierarchy, expansion and keyboard navigation |
 | Individuals | Grid and filters | Compact filters; column access and deliberate horizontal scrolling | Compact actions/filters; maximum row area | Sort, filters, selection, values and virtualization |
@@ -106,6 +106,8 @@ The results header owns Open results in new graph and leaves that slot empty wit
 From the query, Down enters the results, Escape clears the query (then enters results on the next press), and Alt+Down opens Recent searches. Rows use Up/Down, Home/End and Page Up/Page Down; Up from the first row returns to the query. Space selects without navigation; Enter opens Details. Page changes initiated from rows focus the first current result once it arrives. Ctrl+F retains the workbench's compact Find modal.
 
 ## Implementation
+
+Details enters recovery below 240 px wide or 120 px tall and shows only its header band, including retained source-draft actions. Its measurement uses the shared 600/616 px narrow and 400/416 px shallow hysteresis.
 
 [AdaptivePane.tsx](../src/renderer/AdaptivePane.tsx) wraps each view at the FlexLayout factory boundary. It measures the content rectangle in its owner document. PaneToolbar keeps primary commands visible and moves secondary controls into a native popover. PaneDetails preserves explicit disclosure choices and keeps focused fields accessible across a mode change. Each view declares its commands and content-specific layout.
 
