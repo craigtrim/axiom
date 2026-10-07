@@ -1,4 +1,4 @@
-// Desktop behaviour of the rebuilt Ontology Quality pane (craigtrim/axiom#42, craigtrim/axiom#44).
+// Desktop behaviour of the rebuilt Ontology Quality pane (craigtrim/axiom#42, craigtrim/axiom#44, craigtrim/axiom#62).
 import {
   test,
   expect,
@@ -224,9 +224,19 @@ test("reviewed batch adds labels without renaming placeholder identifiers and su
     )
     .toBe("A deliberate name");
   await scan();
+  await expect(band("Missing explicit primary label")).toHaveCount(0);
+});
+test("rules that found nothing get no band, and Coverage still lists them", async () => {
+  await scan();
+  await expect(band("Missing explicit primary label")).toHaveCount(1);
+  await expect(band("Conflicting SKOS label roles")).toHaveCount(0);
   await expect(
-    band("Missing explicit primary label").locator(".ct"),
-  ).toHaveText("0");
+    pane().locator("button.rule .ct").filter({ hasText: /^0$/ }),
+  ).toHaveCount(0);
+  await pane().getByRole("button", { name: "Coverage", exact: true }).click();
+  await expect(pane().locator(".cov")).toContainText(
+    "Disjoint SKOS label roles",
+  );
 });
 test("an intervening edit invalidates a label preview before anything is written", async () => {
   await scan();
@@ -781,7 +791,7 @@ test("the census withdraws checks for vocabularies the ontology does not use", a
 });
 test("filters that match nothing say so, and findings group by entity", async () => {
   await scan();
-  // Severity chips alone can hide every finding while passing rules keep bands.
+  // Severity chips alone can hide every finding.
   for (const s of ["Warning", "Information"])
     await pane().locator(".tools .chip").filter({ hasText: s }).click();
   await expect(pane()).toContainText("No findings match the current filter.");
