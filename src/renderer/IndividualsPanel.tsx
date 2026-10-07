@@ -1,9 +1,8 @@
 import { countLabel, instanceAction } from "../shared/action-state";
+import { OntologyIndividualsPanel } from "./OntologyIndividualsPanel";
 import { InstanceReport } from "./InstanceReport";
 import { showInstances, useInstanceTarget } from "./instance-report";
-import { displayName } from "../domain/rdf-model";
 import { PaneToolbar } from "./AdaptivePane";
-import { EditableEntityName } from "./InlineRename";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
@@ -30,7 +29,6 @@ import {
   humanise,
   local,
   type Individual,
-  type Entity,
   type TableFilter,
 } from "../domain/model";
 import { validatePrice } from "../domain/store";
@@ -59,14 +57,8 @@ export function IndividualsPanel() {
   useEffect(() => {
     if (!s.ontology.example) setNamed(false);
   }, [s.datasetEpoch]);
-  if (target?.datasetEpoch === s.datasetEpoch)
-    return (
-      <InstanceReport
-        key={s.datasetEpoch + ":" + target.iri}
-        iri={target.iri}
-      />
-    );
   if (!s.ontology.example) return <OntologyIndividualsPanel />;
+  if (target && !named) return <InstanceReport iri={target.iri} />;
   return (
     <div className="individuals-mode">
       <div className="panel-toolbar">
@@ -476,156 +468,6 @@ function ExampleIndividualsPanel() {
       <p role="status" className="validation-error table-edit-error">
         {editError}
       </p>
-    </section>
-  );
-}
-
-function OntologyIndividualsPanel() {
-  const s = useSnapshot()!,
-    [query, setQuery] = useState(""),
-    api = useRef<GridApi<Entity> | null>(null);
-  const rows = useMemo(
-    () =>
-      s.entities.filter(
-        (e) =>
-          e.kind === "Individual" &&
-          (
-            e.name +
-            " " +
-            e.iri +
-            " " +
-            e.types
-              .map((t) => s.entities.find((x) => x.iri === t)?.name ?? t)
-              .join(" ")
-          )
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ),
-    [s.entities, query],
-  );
-  const columns = useMemo<ColDef<Entity>[]>(
-    () => [
-      {
-        headerName: "Individual",
-        field: "name",
-        flex: 1,
-        suppressKeyboardEvent: (p) =>
-          !!(p.event.target as HTMLElement).closest("[data-inline-rename]"),
-        cellRenderer: ({ data }: { data: Entity }) => (
-          <EditableEntityName iri={data.iri} name={data.name}>
-            <button
-              className="entity-link"
-              onClick={() => void act("select", { iri: data.iri })}
-            >
-              {data.name}
-            </button>
-          </EditableEntityName>
-        ),
-      },
-      {
-        headerName: "Class",
-        flex: 1,
-        valueGetter: (p) =>
-          p.data?.types
-            .map((t) => s.entities.find((e) => e.iri === t)?.name ?? local(t))
-            .join(", "),
-      },
-      { headerName: "IRI", field: "iri", flex: 2 },
-    ],
-    [s.entities],
-  );
-  useEffect(
-    () =>
-      api.current?.forEachNode((n) =>
-        n.setSelected(n.data?.iri === s.selected),
-      ),
-    [s.selected, rows],
-  );
-  return (
-    <section
-      className="panel"
-      data-panel="individuals"
-      aria-label="Individuals panel"
-    >
-      <PaneToolbar
-        label="Individual actions"
-        secondary={
-          <>
-            <select
-              aria-label="Filter by class"
-              value=""
-              onChange={(e) => {
-                if (e.target.value) showInstances(e.target.value);
-              }}
-            >
-              <option value="">All classes</option>
-              {s.entities
-                .filter((e) => ["Class", "Defined"].includes(e.kind))
-                .map((e) => (
-                  <option
-                    key={e.iri}
-                    value={e.iri}
-                    disabled={!instanceAction(e).enabled}
-                  >
-                    {countLabel(displayName(e), e.instances)}
-                  </option>
-                ))}
-            </select>
-            <button onClick={() => setQuery("")}>Reset</button>
-
-            <button
-              disabled={!rows.length}
-              onClick={() => {
-                void act("seed", {
-                  iris: rows.slice(0, s.graph.budget).map((e) => e.iri),
-                  expand: false,
-                }).then(() => command("graph.fit"));
-                command("view.graph");
-              }}
-            >
-              Send to graph
-            </button>
-          </>
-        }
-      >
-        <input
-          aria-label="Filter individuals"
-          placeholder="Filter individuals"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button onClick={() => command("entity.createIndividual")}>
-          New individual
-        </button>
-      </PaneToolbar>
-      <div className="table-summary">
-        {rows.length} rows / {s.individualCount} individuals
-      </div>
-      <div className="grid-host">
-        <AgGridReact<Entity>
-          theme={gridTheme(document.documentElement.dataset.theme === "dark")}
-          rowData={rows}
-          columnDefs={columns}
-          defaultColDef={{ sortable: true, resizable: true }}
-          getRowId={(p) => p.data.iri}
-          rowSelection={{
-            mode: "singleRow",
-            checkboxes: false,
-            enableClickSelection: true,
-          }}
-          onRowClicked={(e) =>
-            e.data && void act("select", { iri: e.data.iri })
-          }
-          onGridReady={(e) => {
-            api.current = e.api;
-          }}
-          pagination
-          paginationPageSize={100}
-          paginationPageSizeSelector={false}
-          ensureDomOrder
-          overlayNoRowsTemplate="No individuals. Use New individual to create one."
-        />
-      </div>
     </section>
   );
 }

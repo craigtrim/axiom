@@ -90,7 +90,7 @@ export function AdaptivePane({
   const recover = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [layout, setLayout] = useState(initial);
-  const own = recoveries.get(paneId);
+  const own = recoveries.get(paneId) ?? recoveries.get(paneId.split(":")[0]);
   useLayoutEffect(() => {
     const host = root.current!;
     const win = host.ownerDocument.defaultView!;
@@ -113,7 +113,8 @@ export function AdaptivePane({
         // Text Entities keeps its action footer usable while the form scrolls.
         if (visual || paneId === "textentities") next.recovery = false;
         // Ontology Quality renders working content down to 120 tall (craigtrim/axiom#44).
-        const own = recoveries.get(paneId);
+        const own =
+          recoveries.get(paneId) ?? recoveries.get(paneId.split(":")[0]);
         if (own && !visual)
           next.recovery =
             Math.round(width) < 240 || Math.round(height) < own.height;

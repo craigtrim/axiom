@@ -4,6 +4,7 @@ import {
 } from "../shared/statement-values";
 import { editorDraftChanged } from "../shared/editor-state";
 import { mergeEntityStatements } from "../domain/entity-merge";
+import { compactIri } from "../shared/terms";
 import { request, onCommand, report, state } from "./client";
 import type { Triple } from "../domain/model";
 import type { DocumentData, EditorDraft } from "../shared/editor-state";
@@ -125,18 +126,17 @@ async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
     if (!preserveSelection) discardEditorDraft(d.iri, d.loaded.datasetEpoch);
     return d.iri;
   }
-  if (
-    d.statements.some(
-      (t) =>
-        !completeEditorStatement(
-          t,
-          d.loaded.statements,
-          state?.entities.find((e) => e.iri === t.predicate)?.kind,
-        ),
-    )
-  )
+  const incomplete = d.statements.find(
+    (t) =>
+      !completeEditorStatement(
+        t,
+        d.loaded.statements,
+        state?.entities.find((e) => e.iri === t.predicate)?.kind,
+      ),
+  );
+  if (incomplete)
     throw Error(
-      "Finish or remove the incomplete row in Details before saving. Resource values need a matching entity or an IRI.",
+      `Finish or remove the incomplete ${compactIri(incomplete.predicate, state?.ontology.namespace ?? "")} row before saving. Resource values need a matching entity or an IRI.`,
     );
   const { iri: result, document: loaded } = await request<{
     iri: string;

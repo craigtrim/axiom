@@ -20,7 +20,11 @@ import {
 
 // Both entity views edit the same retained draft. Register changes synchronously
 // so switching selection or saving the workspace cannot lose the last keystroke.
-export function useEntityEditor(iri: string, automatic = false) {
+export function useEntityEditor(
+  iri: string,
+  automatic = false,
+  allowTypingDuringSave = false,
+) {
   const s = useSnapshot()!,
     [draft, setDraft] = useState<EditorDraft | null>(null),
     [error, setError] = useState(""),
@@ -103,7 +107,8 @@ export function useEntityEditor(iri: string, automatic = false) {
     void reload();
   }, [s.version]);
   const update = (change: (d: EditorDraft) => EditorDraft) => {
-    if (!current.current || (saving && !automatic)) return;
+    if (!current.current || (saving && !automatic && !allowTypingDuringSave))
+      return;
     ++generation.current;
     const next = normalize(change(current.current));
     accept(next);

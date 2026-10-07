@@ -19,6 +19,7 @@ export function StatementGroupRow<Value>({
   remove,
   removable = () => true,
   details = false,
+  inspector = false,
 }: {
   group: StatementGroup<Value>;
   name: string;
@@ -29,6 +30,7 @@ export function StatementGroupRow<Value>({
   remove(value: Value, index: number): void;
   removable?: (value: Value) => boolean;
   details?: boolean;
+  inspector?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const row = useRef<HTMLTableRowElement>(null);
@@ -40,7 +42,7 @@ export function StatementGroupRow<Value>({
   useLayoutEffect(() => {
     if (pendingFocus.current === null) return;
     const fields = row.current?.querySelectorAll<HTMLElement>(
-      ".statement-value-line",
+      ".statement-value-line, .inspector-value",
     );
     const field =
       fields?.[Math.min(pendingFocus.current.index, fields.length - 1)];
@@ -64,6 +66,68 @@ export function StatementGroupRow<Value>({
       >
         + Add value
       </button>
+    );
+  if (inspector)
+    return (
+      <tr ref={row} data-predicate={group.predicate}>
+        <td>
+          <div className="pred">{predicate}</div>
+        </td>
+        <td>
+          <div className="vals" id={id}>
+            {shown.map((value, index) => (
+              <div className="inspector-value" key={valueKey(value, index)}>
+                {renderValue(value, index)}
+                {removable(value) && (
+                  <button
+                    type="button"
+                    className="ib row-remove"
+                    aria-label={`Remove this ${name} value`}
+                    onClick={() => remove(value, index)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            {group.values.length > 3 ? (
+              <div
+                style={{ display: "flex", gap: "var(--sp-2)", paddingTop: 2 }}
+              >
+                {add && (
+                  <button
+                    type="button"
+                    className="btn tiny quiet"
+                    onClick={addValue}
+                  >
+                    Add value
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn tiny quiet"
+                  aria-expanded={expanded}
+                  aria-controls={id}
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expanded ? "Show fewer" : `${hidden} more`}
+                </button>
+              </div>
+            ) : (
+              add && (
+                <button
+                  type="button"
+                  className="btn tiny quiet single-add"
+                  aria-label={`Add value for ${name}`}
+                  onClick={addValue}
+                >
+                  Add value
+                </button>
+              )
+            )}
+          </div>
+        </td>
+      </tr>
     );
   return (
     <tr
