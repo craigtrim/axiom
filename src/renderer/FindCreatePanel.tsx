@@ -29,6 +29,7 @@ import { useRetainedPreview } from "./use-retained-preview";
 import { FindGlyph } from "./FindGlyph";
 import { groupStatements } from "./statement-groups";
 import { StatementGroupRow } from "./StatementGroupRow";
+import { SeeAlsoWarning } from "./SeeAlsoWarning";
 
 export function FindCreatePanel({
   reveal,
@@ -537,7 +538,7 @@ export function FindCreatePanel({
                   </span>
                 }
                 renderValue={({ text, index }) => (
-                  <>
+                  <span className="seealso-value">
                     <input
                       className="w-comment"
                       aria-label={`Value ${index + 1}`}
@@ -550,7 +551,13 @@ export function FindCreatePanel({
                       aria-describedby={`${id}-statement-${index}`}
                     />
                     {fieldError(`statement-${index}`)}
-                  </>
+                    {group.predicate === NS.rdfs + "seeAlso" && (
+                      <SeeAlsoWarning
+                        subject={iri}
+                        term={{ literal: true, value: text }}
+                      />
+                    )}
+                  </span>
                 )}
               />
             ))}

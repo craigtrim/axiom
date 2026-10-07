@@ -15,6 +15,7 @@ import { qualityCensus } from "../domain/ontology-quality";
 const qualityJobs = new QualityJobs();
 import { synonymContext, validateSynonyms } from "../domain/synonyms";
 import { addFindSynonym } from "../domain/find-synonyms";
+import { seeAlsoMatches } from "../domain/seealso-warnings";
 import { parseSuggestionValues } from "../shared/suggestions";
 import { synonymDefinition } from "../shared/synonyms";
 import {
@@ -777,7 +778,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "predicateOptions":
       return predicateOptions(store);
     case "entitySource":
-      return entitySource(store, datasetEpoch, string(a, "iri"));
+      return entitySource(store, datasetEpoch, string(a, "iri"), a.format);
     case "applyEntitySource": {
       const epoch = datasetEpoch;
       const iri = string(a, "iri");
@@ -1057,6 +1058,13 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
     case "synonymContext":
       return synonymContext(store, string(a, "iri", 10000), datasetEpoch);
+    case "seeAlsoMatches":
+      if (a.datasetEpoch !== datasetEpoch)
+        return { total: 0, entities: [] };
+      return seeAlsoMatches(store, string(a, "iri", 10000), {
+        literal: a.literal === true,
+        value: string(a, "value", 100000),
+      });
     case "addFindSynonym": {
       if (a.datasetEpoch !== datasetEpoch)
         throw Error(

@@ -244,6 +244,7 @@ const methods = new Set<DomainMethod>([
   "cancelLayout",
   "queryContext",
   "synonymContext",
+  "seeAlsoMatches",
   "addFindSynonym",
   "validateSynonyms",
   "semanticSimilarity",
@@ -680,7 +681,14 @@ async function writeWorkspace(
       destination,
       JSON.stringify({
         ...document,
-        workbench: { ...preferences, keyboard: undefined },
+        workbench: {
+          ...preferences,
+          keyboard: undefined,
+          panelState: {
+            ...preferences.panelState,
+            "warnings.seeAlso": undefined,
+          },
+        },
         editorDrafts,
       }),
       !file,
@@ -747,7 +755,10 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
     ...data.workbench,
     version: 1,
     layout: data.workbench?.layout,
-    panelState: data.workbench?.panelState ?? {},
+    panelState: {
+      ...data.workbench?.panelState,
+      "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
+    },
     tabHistory: data.workbench?.tabHistory,
     keyboard: preferences.keyboard,
     tabSavePolicy: preferences.tabSavePolicy,
@@ -1122,6 +1133,10 @@ app.whenReady().then(async () => {
     await request("load", { document: session.workspace });
     preferences = readPreferences({
       ...session.workbench,
+      panelState: {
+        ...session.workbench.panelState,
+        "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
+      },
       keyboard: preferences.keyboard,
       tabSavePolicy: preferences.tabSavePolicy,
     });

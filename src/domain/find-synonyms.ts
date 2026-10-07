@@ -40,7 +40,20 @@ export function addFindSynonym(
   if (!value) throw Error("Enter plain text to add as a synonym.");
   const status = findSynonymStatus(store, iri, value);
   if (!status) throw Error("This entity is no longer available for editing.");
-  if (status !== "available") return { added: false, value };
+  // Names and aliases are allowed to overlap. Only an identical RDF literal
+  // is already recorded; a repeated click must not create a spurious Undo.
+  if (
+    [...store.scan(iri)].some(
+      (t) =>
+        t.predicate === synonymDefinition.predicate &&
+        t.object.literal &&
+        t.object.value === value &&
+        !t.object.language &&
+        (!t.object.datatype || t.object.datatype === NS.xsd + "string"),
+    )
+  )
+    return { added: false, value };
+  const version = store.version;
   store.addSynonym(iri, value, synonymDefinition.predicate);
-  return { added: true, value };
+  return { added: store.version !== version, value };
 }

@@ -5,6 +5,7 @@ import type { ResourceMatch } from "../domain/resource-search";
 import { compactIri, expandIri } from "../shared/terms";
 import { displayName } from "../domain/rdf-model";
 import { progressiveSearch } from "./progressive-search";
+import { SeeAlsoWarning } from "./SeeAlsoWarning";
 export function ResourceInput({
   value,
   namespace,
@@ -16,6 +17,7 @@ export function ResourceInput({
   textValue = false,
   commitOnBlur = true,
   useText,
+  seeAlsoSubject,
 }: {
   value: string;
   namespace: string;
@@ -27,6 +29,7 @@ export function ResourceInput({
   textValue?: boolean;
   commitOnBlur?: boolean;
   useText?(value: string): void;
+  seeAlsoSubject?: string;
 }) {
   const s = useSnapshot()!;
   const name = (iri: string) => {
@@ -367,6 +370,18 @@ export function ResourceInput({
           }
         }}
       />
+      {seeAlsoSubject && (
+        <SeeAlsoWarning
+          subject={seeAlsoSubject}
+          term={{
+            literal:
+              text === shown
+                ? textValue
+                : !!useText && !/^[a-z][a-z0-9+.-]*:/iu.test(text.trim()),
+            value: text === shown ? value : text,
+          }}
+        />
+      )}
       {error && (
         <small role="alert" id={id + "-error"}>
           {error}

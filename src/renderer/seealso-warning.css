@@ -1,0 +1,128 @@
+/* No extra box or spacing when a field has no advisory. */
+.seealso-value {
+  display: contents;
+}
+:is(.resource-input, .seealso-value) {
+  --seealso-outline: #946200;
+  --seealso-ink: #805300;
+}
+[data-theme="dark"] :is(.resource-input, .seealso-value) {
+  --seealso-outline: #e8b84b;
+  --seealso-ink: #f0c564;
+}
+.resource-input:has(> .seealso-warning),
+.seealso-value:has(> .seealso-warning),
+.details-pane.details-pane
+  .statement-value-cell
+  .resource-input:has(> .seealso-warning) {
+  display: inline-flex;
+  position: relative;
+  min-width: 0;
+  max-width: 320px;
+  flex: 1;
+}
+.seealso-value:has(> .seealso-warning) {
+  max-width: none;
+  width: 100%;
+}
+.adaptive-pane[data-pane-id="details"][data-pane-narrow="true"]
+  .details-pane.details-pane
+  .statement-value-cell
+  .resource-input:has(> .seealso-warning) {
+  max-width: none;
+}
+.resource-input:has(> .seealso-warning) > input,
+.seealso-value:has(> .seealso-warning) > input,
+.details-pane.details-pane
+  .statement-value-cell
+  .resource-input:has(> .seealso-warning)
+  > input {
+  width: 100%;
+  min-width: 0;
+  padding-right: 32px;
+  border-color: var(--seealso-outline);
+  box-shadow: inset 0 0 0 1px var(--seealso-outline);
+}
+.seealso-warning {
+  color: var(--seealso-ink);
+}
+.seealso-warning button.seealso-warning-trigger {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--seealso-ink);
+  cursor: pointer;
+}
+button.seealso-warning-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.seealso-warning-popup {
+  box-sizing: border-box;
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-primary, var(--text));
+  background: var(--bg-panel, #fff);
+  box-shadow: 0 6px 24px #0003;
+  font:
+    13px/1.5 "Segoe UI",
+    sans-serif;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+[data-theme="dark"] .seealso-warning-popup {
+  background: #1d232d;
+  color: #e6edf3;
+}
+.seealso-warning-popup p {
+  margin: 8px 0;
+}
+.seealso-warning-popup ul {
+  padding-left: 18px;
+  max-height: 130px;
+  overflow: auto;
+}
+.seealso-warning-popup small {
+  display: block;
+  color: var(--text-secondary);
+}
+.seealso-warning-note {
+  font-size: 12px;
+}
+.seealso-warning-actions {
+  display: grid;
+  gap: 6px;
+}
+.seealso-warning .seealso-warning-popup .seealso-warning-actions button {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  white-space: normal;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid var(--border, var(--stroke));
+  border-radius: 4px;
+  color: inherit;
+  background: var(--raised, var(--surface));
+}
+.modal label.seealso-warning-setting {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.seealso-warning-setting input {
+  flex: none;
+}

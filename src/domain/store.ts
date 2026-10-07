@@ -1517,6 +1517,9 @@ export class Store {
         (t) =>
           t.subject === iri &&
           t.predicate === predicate &&
+          t.object.literal &&
+          !t.object.language &&
+          (!t.object.datatype || t.object.datatype === NS.xsd + "string") &&
           t.object.value === label,
       )
     )

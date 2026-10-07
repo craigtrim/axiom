@@ -182,6 +182,7 @@ export type DomainMethod =
   | "cancelLayout"
   | "queryContext"
   | "synonymContext"
+  | "seeAlsoMatches"
   | "addFindSynonym"
   | "validateSynonyms"
   | "taxonomyContext"

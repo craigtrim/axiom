@@ -342,7 +342,6 @@ export function FindPanel() {
   const synonymText = findSynonymText(options.text);
   const [addingSynonym, setAddingSynonym] = useState("");
   const synonymPending = useRef(false);
-  const [addedSynonyms, setAddedSynonyms] = useState(new Set<string>());
   const graphPending = useRef(false);
   const rows = data?.rows ?? [];
   const createOverlay = createOpen && (layout.shallow || rows.length > 0);
@@ -619,31 +618,12 @@ export function FindPanel() {
   useEffect(() => {
     setActionError("");
     setMessage("");
-    setAddedSynonyms(new Set());
   }, [snapshot.datasetEpoch]);
-  useEffect(() => {
-    setAddedSynonyms(new Set());
-  }, [options.text]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 4500);
     return () => clearTimeout(timer);
   }, [message]);
-  useEffect(() => {
-    // Undo or an edit in another view can make a recently added term available.
-    if (data)
-      setAddedSynonyms(
-        (previous) =>
-          new Set(
-            [...previous].filter(
-              (iri) =>
-                !data.rows.some(
-                  (row) => row.iri === iri && row.synonym === "available",
-                ),
-            ),
-          ),
-      );
-  }, [data]);
   useEffect(() => {
     root.current?.querySelector(".find-results-scroll")?.scrollTo({ top: 0 });
   }, [
@@ -698,7 +678,7 @@ export function FindPanel() {
     if (
       !synonymText ||
       !ready ||
-      row.synonym !== "available" ||
+      row.synonym === undefined ||
       synonymPending.current
     )
       return;
@@ -718,7 +698,6 @@ export function FindPanel() {
           findState().options.text.trim() !== text
         )
           return;
-        setAddedSynonyms((previous) => new Set([...previous, row.iri]));
         setMessage(
           result.added
             ? `${result.value} added to ${row.name}`
@@ -1394,7 +1373,6 @@ export function FindPanel() {
                           narrow={layout.narrow}
                           ready={ready}
                           pending={!!addingSynonym}
-                          added={addedSynonyms.has(row.iri)}
                           open={extendOpen === row.iri}
                           setOpen={(open) =>
                             setExtendOpen((previous) =>

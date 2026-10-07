@@ -98,6 +98,7 @@ export const menuTree: MenuDefinition[] = [
     menu("menu.settings", "Settings", "S", [
       c("graph.appearance", "Graph appearance...", "Edit > Settings"),
       c("tabs.settings", "Tab history...", "Edit > Settings"),
+      c("warnings.settings", "Warnings...", "Edit > Settings"),
       c("cache.clearWikipedia", "Clear Wikipedia cache", "Edit > Settings"),
       c("cache.clearModel", "Clear model cache", "Edit > Settings"),
     ]),

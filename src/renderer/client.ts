@@ -70,6 +70,7 @@ export const request = <T = unknown>(
     "findSemantic",
     "cancelSearch",
     "resourceSuggestions",
+    "seeAlsoMatches",
     "resourceSuggestionsSemantic",
     "analyzeSparsity",
     // Read-only census for the Ontology Quality settings (craigtrim/axiom#44).

@@ -1,4 +1,5 @@
 import { readTabHistory } from "./tab-history";
+import { readSeeAlsoWarnings } from "./seealso-warnings";
 import { readSparsityOptions } from "./sparsity";
 import { readQualityOptions, readQualityExceptions } from "./ontology-quality";
 import { readFindOptions } from "./find";
@@ -47,6 +48,8 @@ export function readPreferences(input: unknown): Preferences {
     p.bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
   const s = object(input.panelState) ? input.panelState : {},
     out = p.panelState!;
+  if (object(s["warnings.seeAlso"]))
+    out["warnings.seeAlso"] = readSeeAlsoWarnings(s["warnings.seeAlso"]);
   for (const [key, value] of Object.entries(s)) {
     if (
       key.startsWith("pane.zoom.") &&
@@ -63,8 +66,12 @@ export function readPreferences(input: unknown): Preferences {
   }
   if (["codex", "claude"].includes(String(s["assistant.provider"])))
     out["assistant.provider"] = s["assistant.provider"];
-  if (typeof s["details.source.open"] === "boolean")
-    out["details.source.open"] = s["details.source.open"];
+  if (
+    ["turtle", "rdfxml", "jsonld", "ntriples", "nquads", "trig"].includes(
+      String(s["details.source.format"]),
+    )
+  )
+    out["details.source.format"] = s["details.source.format"];
   for (const [key, target] of Object.entries(s)) {
     if (!/^taxonomy(?::[a-f0-9-]{36})?\.target$/.test(key)) continue;
     if (
