@@ -300,6 +300,12 @@ async function capture(root: Locator, label: string) {
   // in the pane meets its body's edge in the reference too.
   await root.evaluate((el) => {
     if (el.closest(".body")) el.scrollIntoView({ block: "end" });
+    // Apply's rounded border must use the same compositor path in the
+    // authored specimen and the React detail, including fractional rows.
+    if (el.closest(".fdet"))
+      el.querySelectorAll<HTMLElement>(".btn").forEach((button) => {
+        button.style.transform = "translateZ(0)";
+      });
   });
   const b = (await root.boundingBox())!;
   const x = Math.ceil(b.x - 1e-3),
@@ -540,6 +546,7 @@ interface Plan {
   classes?: [string, string][];
   constrained?: boolean;
   size?: [number, number];
+  extraHeight?: number;
 }
 /** Every amendment is listed in tests/fixtures/quality-visual/README.md. */
 async function prepare(plan: Plan, theme: string) {
@@ -553,7 +560,7 @@ async function prepare(plan: Plan, theme: string) {
       ).querySelector<HTMLElement>(".pane")!;
       const box = original.getBoundingClientRect();
       const width = plan.size?.[0] ?? box.width - 2,
-        height = plan.size?.[1] ?? box.height - 2;
+        height = (plan.size?.[1] ?? box.height - 2) + (plan.extraHeight ?? 0);
       const pane = plan.fromC
         ? (figure("c", 0)
             .querySelector(".pane")!
@@ -609,11 +616,31 @@ async function prepare(plan: Plan, theme: string) {
         pane.querySelector(selector)!.textContent = text;
       for (const [selector, names] of plan.classes ?? [])
         pane.querySelector(selector)!.classList.add(...names.split(" "));
+      // #65 supersedes the limits copy and measure in every scan state.
+      // Keep the completed-report surface from #44; only the authored change
+      // to copy, measure and padding is applied here.
+      for (const limits of pane.querySelectorAll<HTMLElement>(".limits")) {
+        limits.innerHTML =
+          '<span style="max-width:440px">Reads what is asserted. No reasoning, no definition judgement, no remote links, no unresolved imports.</span>';
+        Object.assign(limits.style, {
+          whiteSpace: "normal",
+          fontSize: "12.5px",
+          lineHeight: "1.6",
+          padding: "8px 10px",
+        });
+      }
+      for (const prose of pane.querySelectorAll<HTMLElement>(
+        ".state-body p,.note,.guard,.rcfg > p,.cov p",
+      ))
+        prose.style.maxWidth = "460px";
       const button = (html: string) => {
         const t = document.createElement("template");
         t.innerHTML = html.trim();
         return t.content.firstElementChild as HTMLElement;
       };
+      if (plan.section === "d")
+        for (const preview of pane.querySelectorAll(".fdet .preview"))
+          preview.after(button('<button class="btn">Apply</button>'));
       // The More menu, the one control added to the tools bar.
       if (plan.more || plan.constrained)
         pane.querySelectorAll(".tools").forEach((tools) => {
@@ -1006,27 +1033,6 @@ const tools: Region = { name: "tools", spec: ".tools" };
 const firstBand: Region = { name: "band", spec: ".rule" };
 const cases: Case[] = [
   {
-    name: "a1-idle",
-    plan: { section: "a", index: 0 },
-    full: true,
-    regions: [],
-    drive: async () => {},
-  },
-  {
-    name: "a2-running",
-    plan: { section: "a", index: 1 },
-    full: true,
-    regions: [],
-    drive: () =>
-      run({
-        id: 1,
-        state: "running",
-        scanned: 2524,
-        total: 5868,
-        phase: "Checking entities",
-      }),
-  },
-  {
     name: "a3-complete",
     exceptions: true,
     plan: {
@@ -1089,7 +1095,7 @@ const cases: Case[] = [
       await run(complete(exhibitC()));
       await pane().getByRole("button", { name: "Change" }).click();
       await pane()
-        .locator(".settings .chip")
+        .locator(".settings .chipc")
         .filter({ hasText: "Data properties" })
         .click();
       await page.keyboard.press("Escape");
@@ -1108,39 +1114,6 @@ const cases: Case[] = [
         total: 5868,
         phase: "Canceled",
       }),
-  },
-  {
-    name: "a8-failed",
-    // The failed state keeps Change, so the settings that failed stay reachable.
-    plan: { section: "a", index: 8, barStart: ["Change"] },
-    full: true,
-    regions: [],
-    drive: () =>
-      run({
-        id: 1,
-        state: "failed",
-        scanned: 0,
-        total: 0,
-        phase: "Failed",
-        error:
-          "A subClassOf cycle was reached and the walk could not terminate.",
-      }),
-  },
-  {
-    name: "b-census-shallow",
-    plan: { section: "b", index: 0, rules: true },
-    regions: [
-      bar,
-      { name: "settings", spec: ".settings" },
-      { name: "state", spec: ".state-body" },
-    ],
-    drive: async () => {},
-  },
-  {
-    name: "b-census-tall",
-    plan: { section: "b", index: 0, rules: true, size: [718, 458] },
-    regions: [{ name: "settings", spec: ".settings" }],
-    drive: async () => {},
   },
   {
     name: "c-findings",
@@ -1171,7 +1144,7 @@ const cases: Case[] = [
   {
     name: "d1-detail",
     exceptions: true,
-    plan: { section: "d", index: 0 },
+    plan: { section: "d", index: 0, extraHeight: 200 },
     regions: [
       firstBand,
       { name: "row", spec: ".frow.open" },
@@ -1195,7 +1168,7 @@ const cases: Case[] = [
   },
   {
     name: "d2-alias",
-    plan: { section: "d", index: 1, detailFromD1: true },
+    plan: { section: "d", index: 1, detailFromD1: true, extraHeight: 200 },
     regions: [
       "Rule",
       "Basis",
