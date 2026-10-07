@@ -6,6 +6,8 @@ Each snapshot includes the ontology, every graph's nodes and coordinates, pins, 
 
 Unnamed workspaces recover from the last-session copy in Axiom's application data. Closing or switching away also retains a separate .axiom copy in that profile's workspaces directory, available through File > Open > Recent. Importing an OWL or RDF file does not make autosave overwrite the original source file. File > Save as chooses a user-managed workspace location.
 
+Each running instance uses its own profile and last-session copy. A named workspace has one owning instance: Open, Recent and Save As raise that owner instead of sharing a save destination. If a restored session names a workspace already in use, its saved contents and drafts resume as an unnamed recovery copy. See [Independent instances](multiple-instances.md).
+
 Unapplied source edits and unfinished grid rows survive as drafts. Autosave does not apply source text. After reopening, use Save source in Details or Apply changes in Source. A draft whose underlying ontology changed remains stale after restart.
 
 Writes use a temporary file before replacing the destination and retain a previous copy. If a final save fails, Axiom stays open and offers error details. Periodic failures appear in the Error log and are retried at the next interval. The recovery copy is written before the named file so a missing destination does not erase the current session.

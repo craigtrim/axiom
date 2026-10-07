@@ -27,9 +27,15 @@ that is no longer registered.
 ## Updates
 
 Axiom checks GitHub Releases at startup, downloads a newer version in the background and
-installs it when you next quit, so an update never interrupts an editing session. A check
+installs it after the last instance from that installation closes. Quitting one window
+keeps the other instances running. The completed download is shared, so the last instance
+can install it even if the instance that downloaded it has already exited. A check
 that fails, which usually means no network rather than a defect, is logged to the console
 and otherwise ignored.
+
+Each plain launch opens an independent instance. Double-clicking a workspace already
+open raises its owning window; an unopened workspace starts in a free instance slot.
+See [Independent instances](multiple-instances.md) for profiles and file ownership.
 
 ## Signing
 
