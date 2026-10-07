@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Individuals, Inspector and Touchpoints: visual reference</title>
+<style>
+/* ============================================================================
+   VISUAL REFERENCE for specs/individuals/README.md
+
+   A picture, not a specification. Where this file and README.md disagree, the
+   README wins. Every exhibit cites the requirements it renders, and every
+   requirement identifier used here resolves against that document.
+
+   Self contained apart from the two captures in screenshots/, which are
+   referenced relatively, so this file renders its images only from inside its
+   own folder.
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  color-scheme: light;
+  --ground:#ffffff; --surface:#f6f7f9; --raised:#ffffff; --sunken:#f0f2f5;
+  --border:#e1e4e8; --border-strong:#d0d7de;
+  --text:#1b1f24; --text-muted:#57606a;
+  --accent:#0b5fd0; --accent-hover:#0a52b4; --accent-fg:#ffffff;
+  --accent-soft:#eaf2fd; --accent-tint:#f4f8fe;
+  --ok:#0a7a3d; --ok-bg:#e8f5ed; --ok-border:#a9d8bd;
+  --warn:#8a6116; --warn-bg:#fdf5e3; --warn-border:#e6cf95;
+  --bad:#a4201a; --bad-bg:#fdecea; --bad-border:#e4a9a4;
+  --idle:#57606a; --idle-border:#c6cbd1;
+  --row-hover:#f6f7f9; --row-selected:#eaf2fd;
+  --focus:#0b5fd0; --shadow-pop:0 8px 24px rgba(27,31,36,.18);
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --r-ctl:4px; --r-panel:6px; --r-card:8px; --r-pill:999px;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;
+}
+/* Dark is measured against #0d1117 and is not an inversion of light. The same
+   block is used by the page theme and by the scoped .dk wrapper, so the two
+   themes can be shown side by side and audited against each other. */
+:root[data-theme="dark"], .dk {
+  color-scheme: dark;
+  --ground:#0d1117; --surface:#161b22; --raised:#1c2128; --sunken:#10151c;
+  --border:#30363d; --border-strong:#3d444d;
+  --text:#e6edf3; --text-muted:#9ba7b4;
+  --accent:#4c9aff; --accent-hover:#6aabff; --accent-fg:#06192e;
+  --accent-soft:#12243a; --accent-tint:#0f1a28;
+  --ok:#4ade80; --ok-bg:#0f2a1b; --ok-border:#1d5233;
+  --warn:#e3b341; --warn-bg:#2b2211; --warn-border:#5a4718;
+  --bad:#ff8d81; --bad-bg:#3a1a17; --bad-border:#7a3630;
+  --idle:#9ba7b4; --idle-border:#454c54;
+  --row-hover:#161b22; --row-selected:#12243a;
+  --focus:#6aabff; --shadow-pop:0 8px 24px rgba(0,0,0,.55);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground:#0d1117; --surface:#161b22; --raised:#1c2128; --sunken:#10151c;
+    --border:#30363d; --border-strong:#3d444d;
+    --text:#e6edf3; --text-muted:#9ba7b4;
+    --accent:#4c9aff; --accent-hover:#6aabff; --accent-fg:#06192e;
+    --accent-soft:#12243a; --accent-tint:#0f1a28;
+    --ok:#4ade80; --ok-bg:#0f2a1b; --ok-border:#1d5233;
+    --warn:#e3b341; --warn-bg:#2b2211; --warn-border:#5a4718;
+    --bad:#ff8d81; --bad-bg:#3a1a17; --bad-border:#7a3630;
+    --idle:#9ba7b4; --idle-border:#454c54;
+    --row-hover:#161b22; --row-selected:#12243a;
+    --focus:#6aabff; --shadow-pop:0 8px 24px rgba(0,0,0,.55);
+  }
+}
+.dk { background: var(--ground); color: var(--text); }
+
+html { scroll-behavior: smooth; }
+body { margin:0; font:14px/1.6 var(--font); background:var(--surface); color:var(--text); }
+.vh { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap; }
+svg { width:15px; height:15px; flex:none; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-8); }
+h1 { font-size: 26px; margin: 0 0 var(--sp-2); letter-spacing: -.01em; }
+h2 { font-size: 18px; margin: var(--sp-8) 0 var(--sp-2); padding-top: var(--sp-4);
+  border-top: 2px solid var(--border-strong); }
+h3 { font-size: 14px; margin: var(--sp-5) 0 var(--sp-2); }
+p  { margin: 0 0 var(--sp-3); max-width: 76ch; }
+.lede { color: var(--text-muted); max-width: 86ch; }
+.req { display:inline-block; font-family:var(--mono); font-size:11.5px; color:var(--text-muted);
+  border:1px solid var(--border-strong); border-radius:var(--r-ctl); padding:0 5px;
+  background:var(--sunken); white-space:nowrap; }
+.reqs { margin: 0 0 var(--sp-3); display:flex; flex-wrap:wrap; gap:4px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--sunken);
+  border-radius: 3px; padding: 0 4px; }
+
+table.doc { border-collapse: collapse; width: 100%; margin: 0 0 var(--sp-4); font-size: 13px; }
+table.doc th, table.doc td { border: 1px solid var(--border); padding: 5px var(--sp-2);
+  text-align: start; vertical-align: top; }
+table.doc th { background: var(--surface); font-weight: 600; font-size: 12px; }
+table.doc td.n { text-align: end; font-variant-numeric: tabular-nums; }
+tr.off td { color: var(--text-muted); }
+tr.on td { background: var(--accent-tint); }
+
+.note { border-inline-start: 3px solid var(--border-strong); background: var(--sunken);
+  padding: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-4); font-size: 13px; max-width: 86ch; }
+.note.bad { border-inline-start-color: var(--bad); background: var(--bad-bg); }
+.note.ok  { border-inline-start-color: var(--ok); background: var(--ok-bg); }
+
+figure { margin: 0 0 var(--sp-4); }
+figcaption { font-size: 12px; color: var(--text-muted); margin-top: var(--sp-1); }
+img.shot { display:block; width:100%; height:auto; border:1px solid var(--border-strong);
+  border-radius: var(--r-panel); }
+
+.pair { display:grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+
+/* ------------------------------------------------------- the pane specimen */
+.pane {
+  container-type: size; container-name: pane;
+  display:flex; flex-direction:column; min-width:0; min-height:0;
+  background:var(--ground); color:var(--text);
+  border:1px solid var(--border-strong); border-radius:var(--r-panel); overflow:hidden;
+}
+.frame { position: relative; resize: both; overflow: hidden; min-width: 200px; min-height: 110px;
+  border-radius: var(--r-panel); margin-bottom: var(--sp-1); }
+.frame > .pane { height: 100%; }
+.sizecap { font-size:11.5px; color:var(--text-muted); font-family:var(--mono); margin-bottom: var(--sp-4); }
+
+.btn { display:inline-flex; align-items:center; gap:5px; flex:none; min-height:26px; padding:0 9px;
+  font:inherit; font-size:12.5px; color:var(--text); background:var(--raised);
+  border:1px solid var(--border-strong); border-radius:var(--r-ctl); cursor:pointer; white-space:nowrap; }
+.btn:hover { background: var(--row-hover); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600; }
+.btn.quiet { background:none; border-color:transparent; color:var(--text-muted); }
+.btn.tiny { min-height:22px; padding:0 6px; font-size:12px; }
+.btn:disabled { opacity:.5; cursor:default; }
+.ib { display:inline-flex; align-items:center; justify-content:center; flex:none; width:26px; height:26px;
+  border:1px solid transparent; border-radius:var(--r-ctl); background:none; color:var(--text-muted); cursor:pointer; }
+.ib:hover { background: var(--row-hover); color: var(--text); }
+.sel { min-height:24px; padding:0 var(--sp-1); font:inherit; font-size:12px; color:var(--text);
+  background:var(--raised); border:1px solid var(--border-strong); border-radius:var(--r-ctl); }
+:is(.btn,.ib,.sel,.fld,.hlab,.rz,.lnk,input,select,button,a):focus-visible {
+  outline:2px solid var(--focus); outline-offset:1px; border-radius:var(--r-ctl); }
+.lnk { background:none; border:0; padding:0; font:inherit; color:var(--accent); cursor:pointer; text-align:start; }
+.lnk:hover { text-decoration: underline; }
+
+.tbar { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:36px;
+  padding:var(--sp-1) var(--sp-2); border-bottom:1px solid var(--border); }
+.tbar .ttl { font-weight:600; font-size:13px; flex:none; }
+.fwrap { position:relative; flex:1 1 auto; min-width:70px; max-width:300px; display:flex; align-items:center; }
+.fld { width:100%; min-height:26px; padding:0 var(--sp-2); font:inherit; font-size:12.5px; color:var(--text);
+  background:var(--raised); border:1px solid var(--border-strong); border-radius:var(--r-ctl); }
+.gstat { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:24px; padding:0 var(--sp-3);
+  font-size:12px; color:var(--text-muted); border-bottom:1px solid var(--border); }
+.gstat b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+.gwrap { flex:1 1 auto; min-height:0; overflow:auto; }
+.gfoot { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:30px;
+  padding:0 var(--sp-3); border-top:1px solid var(--border); font-size:12px; color:var(--text-muted); }
+
+table.g { border-collapse:separate; border-spacing:0; table-layout:fixed; }
+table.g th, table.g td { padding:0 var(--sp-2); height:30px; text-align:start; font-weight:400;
+  border-bottom:1px solid var(--border); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+table.g thead th { position:sticky; top:0; z-index:2; height:28px; background:var(--surface); padding:0;
+  font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); font-weight:600;
+  border-bottom:1px solid var(--border-strong); }
+table.g th.pin, table.g td.pin { position:sticky; inset-inline-start:0; background:var(--ground);
+  border-inline-end:1px solid var(--idle-border); z-index:1; }
+table.g thead th.pin { z-index:3; background:var(--surface); }
+table.g tbody tr:hover td, table.g tbody tr:hover td.pin { background:var(--row-hover); }
+table.g tbody tr[aria-selected="true"] td, table.g tbody tr[aria-selected="true"] td.pin { background:var(--row-selected); }
+table.g td.num { text-align:end; font-variant-numeric:tabular-nums; }
+table.g td.mono { font-family:var(--mono); font-size:12px; }
+
+.hcell { display:flex; align-items:stretch; height:28px; position:relative; }
+.hlab { display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; padding:0 var(--sp-2);
+  font:inherit; font-size:11px; text-transform:uppercase; letter-spacing:.04em; font-weight:600;
+  color:var(--text-muted); background:none; border:0; cursor:pointer; text-align:start; }
+.hlab:hover { color:var(--text); background:var(--row-hover); }
+.hlab .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hlab .sg { flex:none; width:11px; height:11px; opacity:0; }
+.hlab[data-dir] .sg { opacity:1; }
+.hlab[data-dir] { color:var(--text); }
+.rz { flex:none; width:9px; margin-inline-end:-4px; padding:0; background:none; border:0;
+  cursor:col-resize; position:relative; z-index:5; }
+.rz::after { content:""; position:absolute; inset-block:5px; inset-inline-start:4px; width:1px;
+  background:var(--border-strong); }
+.rz:hover::after, .rz:focus-visible::after, .rz.live::after { inset-block:0; width:2px; background:var(--accent); }
+body.resizing { cursor:col-resize; user-select:none; }
+
+.idc { display:flex; align-items:center; gap:6px; min-width:0; }
+.idc .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.idc .nm.anon { font-family:var(--mono); font-size:12px; }
+.tagid { flex:none; font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--text-muted); border:1px solid var(--border-strong); border-radius:var(--r-ctl); padding:0 3px; }
+.plus { flex:none; min-height:18px; padding:0 5px; font:inherit; font-size:11px; font-variant-numeric:tabular-nums;
+  color:var(--text-muted); background:var(--sunken); border:1px solid var(--border-strong);
+  border-radius:var(--r-pill); cursor:pointer; }
+.plus:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--text); }
+.cellwrap { display:flex; align-items:center; gap:6px; min-width:0; }
+.cellwrap .tx { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ------------------------------------------------------------- the chooser */
+.chooser { border:1px solid var(--border-strong); border-radius:var(--r-panel); background:var(--raised);
+  max-width:408px; overflow:hidden; }
+.chooser .ph { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3);
+  border-bottom:1px solid var(--border); }
+.chooser .ph .t { font-weight:600; font-size:13px; }
+.chooser .pb { max-height:430px; overflow:auto; padding:var(--sp-1) 0; }
+.chooser .pf { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3);
+  border-top:1px solid var(--border); font-size:11.5px; color:var(--text-muted); }
+.crow { display:flex; align-items:center; gap:var(--sp-2); min-height:30px; padding:0 var(--sp-3); }
+.crow:hover { background:var(--row-hover); }
+.crow > label { display:flex; align-items:center; gap:var(--sp-2); flex:1 1 auto; min-width:0; cursor:pointer; }
+.crow .cn { font-family:var(--mono); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.crow .cn.plain { font-family:var(--font); font-size:13px; }
+.crow input[type="checkbox"] { flex:none; width:14px; height:14px; accent-color:var(--accent); margin:0; }
+.fillbar { flex:none; width:36px; height:5px; border-radius:var(--r-pill); background:var(--sunken); overflow:hidden; }
+.fillbar > i { display:block; height:100%; background:var(--text-muted); }
+.nums { flex:none; display:flex; align-items:baseline; gap:var(--sp-2); font-size:11.5px;
+  color:var(--text-muted); font-variant-numeric:tabular-nums; }
+.nums .f { width:48px; text-align:end; }
+.nums .d { width:48px; text-align:end; }
+.why { flex:none; font-size:10.5px; color:var(--text-muted); border:1px solid var(--border);
+  border-radius:var(--r-ctl); padding:0 4px; background:var(--sunken); white-space:nowrap; }
+.why.warnish { color:var(--warn); border-color:var(--warn-border); background:var(--warn-bg); }
+.flex { flex: 1 1 auto; min-width: 0; }
+
+/* ----------------------------------------------------------- the inspector */
+.phead { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:36px;
+  padding:0 var(--sp-2) 0 var(--sp-3); border-bottom:1px solid var(--border); }
+.phead .name { font-weight:600; font-size:14px; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+.state { display:flex; align-items:center; gap:var(--sp-2); margin-left:auto; flex:none; }
+.state .word { font-size:12.5px; color:var(--text-muted); white-space:nowrap; }
+.state.pending .word { color:var(--accent); font-weight:600; }
+.ident { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:26px;
+  padding:var(--sp-1) var(--sp-3); font-size:12px; color:var(--text-muted);
+  border-bottom:1px solid var(--border); background:var(--sunken); }
+.ident .kind { font-weight:600; color:var(--text); flex:none; }
+.ident .qid { font-family:var(--mono); color:var(--text); flex:none; }
+.ident .iri { font-family:var(--mono); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dot { flex:none; color:var(--border-strong); }
+.pbody { flex:1 1 auto; min-height:0; overflow:auto; }
+.scount { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size:12.5px; color:var(--text-muted); min-height:26px; }
+table.st { width:100%; border-collapse:collapse; table-layout:fixed; }
+table.st th { padding:4px var(--sp-3); text-align:start; font-size:11px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); }
+table.st td { padding:3px var(--sp-3); border-bottom:1px solid var(--border); vertical-align:top; }
+table.st tr:last-child td { border-bottom:0; }
+.c-pred { width:158px; }
+.pred { display:flex; align-items:center; gap:4px; min-height:28px; font-family:var(--mono);
+  font-size:12.5px; color:var(--text); }
+.pred .inf { font-family:var(--font); font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  text-transform:uppercase; color:var(--warn); border:1px solid var(--warn-border);
+  background:var(--warn-bg); border-radius:var(--r-ctl); padding:0 4px; }
+.vals { display:grid; gap:3px; max-width:560px; }
+.val { display:block; width:100%; min-height:28px; padding:3px var(--sp-2); font:inherit; font-size:13px;
+  color:var(--text); background:var(--raised); border:1px solid var(--border-strong); border-radius:var(--r-ctl); }
+.val[readonly] { background:var(--sunken); color:var(--text-muted); }
+.usage { display:flex; align-items:center; flex-wrap:wrap; gap:var(--sp-1) var(--sp-3);
+  padding:var(--sp-2) var(--sp-3); border-top:1px solid var(--border); font-size:12.5px; color:var(--text-muted); }
+.usage .u { display:inline-flex; align-items:baseline; gap:5px; }
+.usage .u b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+.gone { text-decoration: line-through; opacity:.55; }
+
+/* ---------------------------------------------------------- touchpoints */
+.ptabs { display:flex; align-items:stretch; flex:none; min-height:32px; background:var(--surface);
+  border-bottom:1px solid var(--border); overflow-x:auto; scrollbar-width:none; }
+.ptabs::-webkit-scrollbar { display:none; }
+.tab { display:inline-flex; align-items:center; gap:6px; flex:none; padding:0 var(--sp-3); min-height:32px;
+  max-width:260px; font:inherit; font-size:12.5px; color:var(--text-muted); background:none; border:0;
+  border-bottom:2px solid transparent; cursor:pointer; }
+.tab > .tt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tab[aria-selected="true"] { color:var(--text); font-weight:600; background:var(--ground);
+  border-bottom-color:var(--accent); }
+.tpbar { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:28px; padding:0 var(--sp-3);
+  font-size:12px; color:var(--text-muted); background:var(--sunken); border-bottom:1px solid var(--border); }
+.tpbar .pin { display:inline-flex; align-items:center; gap:4px; flex:none; color:var(--text); font-weight:600; }
+.tpq { display:flex; align-items:center; gap:var(--sp-2); flex:none; padding:var(--sp-2) var(--sp-3);
+  border-bottom:1px solid var(--border); }
+.cand { display:grid; grid-template-columns:20px minmax(0,1fr) 150px 110px; gap:var(--sp-2);
+  align-items:center; padding:var(--sp-2) var(--sp-3); border-bottom:1px solid var(--border); font-size:13px; }
+.cand .ttl2 { font-weight:600; }
+.cand .ds { font-size:11.5px; color:var(--text-muted); }
+.cand .iri2 { font-family:var(--mono); font-size:11px; color:var(--text-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cand.linked { background:var(--sunken); }
+.pill { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase; border-radius:var(--r-ctl); padding:0 5px; }
+.pill.ok2 { color:var(--ok); background:var(--ok-bg); border:1px solid var(--ok-border); }
+.pill.no2 { color:var(--text-muted); background:var(--sunken); border:1px solid var(--border-strong); }
+.tpfoot { display:flex; align-items:center; gap:var(--sp-2); flex:none; min-height:36px;
+  padding:0 var(--sp-3); border-top:1px solid var(--border); }
+
+.legend { display:flex; flex-wrap:wrap; gap:var(--sp-2); padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--r-panel); background:var(--ground); }
+
+.toc { display:grid; gap:2px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  margin:0 0 var(--sp-6); padding:var(--sp-3); border:1px solid var(--border);
+  border-radius:var(--r-panel); background:var(--ground); }
+.toc a { color:var(--accent); text-decoration:none; font-size:13px; padding:2px 0; }
+.toc a:hover { text-decoration:underline; }
+
+.themebtn { position:fixed; inset-block-start:10px; inset-inline-end:10px; z-index:40; }
+
+/* ======================================================================== */
+/* Presentation. Container queries against each frame's own rectangle, at the
+   published 600 and 400 with the 239 and 119 recovery. Defaults are declared
+   above this block so that a query always wins over the value it replaces.  */
+/* ======================================================================== */
+@container pane (max-height: 399px) {
+  .gstat { display:none; }
+  .usage { display:none; }
+}
+@container pane (max-width: 599px) {
+  .tbar .wide { display:none; }
+  .fwrap { max-width:none; }
+  .c-pred { width:118px; }
+  .vals { max-width:none; }
+  .ident .iri { display:none; }
+  .cand { grid-template-columns:20px minmax(0,1fr) 110px; }
+  .cand .iri2 { display:none; }
+}
+@container pane (max-width: 239px), pane (max-height: 119px) {
+  .pbody, .gwrap, .tbar, .gfoot, .gstat, .ident, .usage, .tpbar, .tpq, .tpfoot { display:none; }
+  .phead { border-bottom:0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior:auto; }
+  *, *::before, *::after { transition-duration:1ms !important; animation-duration:1ms !important; }
+}
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<button type="button" class="btn themebtn" id="themeBtn">Theme: follow system</button>
+<div class="wrap">
+
+<h1>Individuals, Inspector and Touchpoints</h1>
+<p class="lede">Visual reference for <code>specs/individuals/README.md</code>. A picture, not a specification: where this file and the README disagree, the README wins. Every exhibit names the requirements it renders. Frames with a resize grip in the corner re tier off their own rectangle, not off the window.</p>
+
+<nav class="toc" aria-label="Exhibits">
+  <a href="#x0">0. What the capture costs</a>
+  <a href="#xa">A. The column chooser</a>
+  <a href="#xb">B. Default visibility, worked</a>
+  <a href="#xc">C. The grid, live</a>
+  <a href="#xd">D. Cell treatments</a>
+  <a href="#xe">E. The usage gate</a>
+  <a href="#xf">F. What the Inspector lost</a>
+  <a href="#xg">G. Touchpoints, detached</a>
+  <a href="#xh">H. The presentation ladder</a>
+  <a href="#xi">I. Both themes</a>
+</nav>
+
+<h2 id="x0">Exhibit 0. What the capture costs</h2>
+<div class="reqs"><span class="req">IND-26</span><span class="req">IND-36</span><span class="req">IND-84</span><span class="req">IND-123</span></div>
+<figure>
+  <img class="shot" src="screenshots/01-window-grid-and-inspector.png"
+    alt="The Axiom window showing the Hierarchy rail, the default Inspector on an individual, and the Individuals grid with three columns.">
+  <figcaption>screenshots/01-window-grid-and-inspector.png. The capture this specification was written from.</figcaption>
+</figure>
+<table class="doc">
+  <thead><tr><th>What the capture shows</th><th>Why it is a defect</th><th>Forbidden by</th></tr></thead>
+  <tbody>
+    <tr><td>Three grid columns: <code>Individual</code>, <code>Class</code>, <code>IRI</code></td><td><code>Class</code> holds one distinct value across 21,461 rows and <code>IRI</code> is the namespace plus <code>:hasQID</code>. One informative column of three, with eleven predicates unreachable.</td><td><span class="req">IND-36</span></td></tr>
+    <tr><td>A tab strip, a toolbar and a count line before the column header</td><td>Three bands for controls that fit in one.</td><td><span class="req">IND-26</span></td></tr>
+    <tr><td><code>21461 rows / 21461 individuals</code></td><td>The same number twice in four words.</td><td><span class="req">IND-24</span></td></tr>
+    <tr><td><code>Usage</code>: Subclasses 0, Descendants 0, Direct instances 0</td><td>Three facts that are structurally zero for every individual and can never be anything else.</td><td><span class="req">IND-86</span></td></tr>
+    <tr><td><code>More properties</code>, collapsed</td><td>Nine of the subject's twelve statements are behind it.</td><td><span class="req">IND-95</span></td></tr>
+    <tr><td><code>12 statements describe this entity</code> with <code>Open source editor</code></td><td>A count where the content belongs, and a trip to another surface to read it.</td><td><span class="req">IND-94</span></td></tr>
+    <tr><td><code>Types</code> with <code>Add</code> and <code>Remove</code> at the far edge</td><td>Controls roughly a thousand pixels from the field they operate on.</td><td><span class="req">IND-91</span></td></tr>
+    <tr><td><code>Find Touchpoints</code> inside the Inspector and <code>Find Touchpoints_2</code> beside it</td><td>One feature twice, the second copy carrying a disambiguating counter.</td><td><span class="req">IND-121</span> <span class="req">IND-124</span></td></tr>
+  </tbody>
+</table>
+
+<h2 id="xa">A. The column chooser</h2>
+<div class="reqs"><span class="req">IND-37</span><span class="req">IND-38</span><span class="req">IND-39</span><span class="req">IND-41</span><span class="req">IND-51</span><span class="req">IND-52</span></div>
+<p>Fill and distinct are measured over the whole of <code>schools.ttl</code>. Toggling a box here changes the live grid in exhibit C, and the reorder is the keyboard route of <span class="req">IND-60</span>.</p>
+<div class="pair">
+  <div class="chooser" id="chooser">
+    <div class="ph"><span class="t">Columns</span><span id="chCount" style="font-size:12px;color:var(--text-muted)"></span>
+      <span class="flex"></span>
+      <button type="button" class="btn tiny" data-all="1">All</button>
+      <button type="button" class="btn tiny" data-none="1">None</button>
+      <button type="button" class="btn tiny" data-reset="1">Reset</button></div>
+    <div class="pb" id="chBody"></div>
+    <div class="pf"><span class="flex">Fill is how many rows carry a value. Distinct is how many differ.</span></div>
+  </div>
+  <div>
+    <div class="note"><b>Why two numbers.</b> Fill answers whether there is data. Distinct answers whether the column discriminates. <code>:hasType</code> is filled on every one of 21,461 rows and carries 323 distinct values, so it is a real facet. <code>rdf:type</code> is filled on every row and carries one, so it sorts nothing and filters nothing. Fill alone cannot tell those two apart.</div>
+    <div class="note"><b>Why <code>unique per row</code> needs both conditions.</b> <code>:hasWebsite</code> has 16,117 distinct values over 16,286 filled rows: almost every value differs, yet a quarter of the ontology has no website. It is not an identifier, and <span class="req">IND-42</span> keeps the tag off it. <code>:hasQID</code> is filled on every row with every value different, and carries the tag.</div>
+  </div>
+</div>
+
+<h2 id="xb">B. Default visibility, worked</h2>
+<div class="reqs"><span class="req">IND-44</span><span class="req">IND-45</span><span class="req">IND-46</span><span class="req">IND-47</span><span class="req">IND-48</span></div>
+<p>The algorithm run against the measured statistics of <code>schools.ttl</code>. Shaded rows are the four eligible columns it selects, beside the always present subject column.</p>
+<table class="doc" id="algo">
+  <thead><tr><th>Column</th><th class="n">Fill</th><th class="n">Fill %</th><th class="n">Distinct</th><th>Eligible</th><th>Why not</th><th class="n">Rank</th><th>Default</th></tr></thead>
+  <tbody></tbody>
+</table>
+<div class="note ok"><b>The test that the defaults are derived.</b> Give <code>rdf:type</code> a second distinct value and it becomes eligible with no user action and no code change. An implementation that cannot pass that test has hardcoded a list and failed <span class="req">IND-44</span>.</div>
+
+<h2 id="xc">C. The grid, live</h2>
+<div class="reqs"><span class="req">IND-54</span><span class="req">IND-55</span><span class="req">IND-56</span><span class="req">IND-58</span><span class="req">IND-64</span><span class="req">IND-66</span><span class="req">IND-67</span><span class="req">IND-76</span></div>
+<p>Drag any separator between two column headers. Double click a separator to fit the column to its widest value. Focus a separator and use the arrow keys, Enter to autofit, Home to restore. Click a header to sort and watch the blank rows stay at the bottom in both directions.</p>
+<div class="frame" style="width:100%;max-width:1180px;height:330px">
+  <section class="pane" aria-label="Individuals, expanded">
+    <div class="tbar">
+      <span class="ttl">Individuals</span>
+      <span class="fwrap"><input class="fld" id="gq" placeholder="Filter individuals" aria-label="Filter individuals"></span>
+      <button type="button" class="btn" id="colsBtn">Columns</button>
+      <label class="wide" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)">Class
+        <select class="sel" id="clsSel" aria-label="Filter by class">
+          <option value="School">School (11)</option>
+          <option value="Thing" disabled>Thing (0)</option>
+          <option value="all">All classes</option>
+        </select></label>
+      <button type="button" class="btn wide" disabled>New individual</button>
+    </div>
+    <div class="gstat" id="gstat"></div>
+    <div class="gwrap">
+      <table class="g" id="gtab"><colgroup id="gcols"></colgroup><thead><tr id="ghead"></tr></thead><tbody id="gbody"></tbody></table>
+    </div>
+  </section>
+</div>
+<div class="sizecap">Drag the corner. Below 600 wide the class choice and the creation action fold away and the grid scrolls horizontally rather than dropping a column <span class="req">IND-157</span>. Below 400 tall the status line withdraws and the rows keep their area <span class="req">IND-158</span>.</div>
+
+<h2 id="xd">D. Cell treatments</h2>
+<div class="reqs"><span class="req">IND-64</span><span class="req">IND-65</span><span class="req">IND-66</span><span class="req">IND-67</span><span class="req">IND-68</span><span class="req">IND-69</span></div>
+<table class="doc">
+  <thead><tr><th>Content</th><th>Treatment</th><th>Rendered</th></tr></thead>
+  <tbody>
+    <tr><td>One value</td><td>The value, truncating at the column width</td><td><span class="cellwrap"><span class="tx">University of Colorado Boulder</span></span></td></tr>
+    <tr><td>29 values of <code>rdfs:seeAlso</code></td><td>First value and a control reporting the remainder. Never a delimiter, never a taller row.</td><td><span class="cellwrap"><span class="tx">CU Boulder</span><button type="button" class="plus" data-demo="1" aria-label="28 more values of rdfs:seeAlso">+28</button></span></td></tr>
+    <tr><td>No <code>rdfs:label</code></td><td>Local name, marked as an identifier. 944 rows of this ontology.</td><td><span class="idc"><span class="nm anon">Q10357800</span><span class="tagid">id</span></span></td></tr>
+    <tr><td>No value</td><td>Empty. Not a dash, a zero, an <code>N/A</code> or a word.</td><td><span style="color:var(--text-muted);font-size:12px">(this cell renders nothing)</span></td></tr>
+    <tr><td>A year</td><td>Aligned to the cell end, tabular figures</td><td><span style="display:block;text-align:end;font-variant-numeric:tabular-nums;width:90px">1961</span></td></tr>
+    <tr><td>Coordinates, IRIs, identifiers</td><td>Monospace, so a transposed character is visible</td><td><span style="font-family:var(--mono);font-size:12px">40.00745,-105.26596</span></td></tr>
+  </tbody>
+</table>
+<div class="note bad"><b>Why a delimiter is forbidden outright.</b> <span class="req">IND-65</span>. The first value containing the delimiter breaks the rendering, and the reader cannot tell one value containing a comma from two values. This ontology already carries values with inner quotation marks, and 74 lines of it would be misread by a parser that split on them.</div>
+
+<h2 id="xe">E. The usage gate</h2>
+<div class="reqs"><span class="req">IND-85</span><span class="req">IND-86</span><span class="req">IND-87</span><span class="req">IND-88</span><span class="req">IND-89</span><span class="req">IND-90</span></div>
+<p>The same Inspector on two kinds. On the left, three usage facts are withdrawn because an individual cannot have them. On the right the same three are rendered, two of them as zero, because a class can.</p>
+<div class="pair">
+  <div>
+    <div class="frame" style="height:356px">
+      <section class="pane" aria-label="Inspector on an individual">
+        <div class="phead"><span class="name">University of Colorado Boulder</span>
+          <span class="state"><span class="word">Saved</span></span>
+          <button type="button" class="ib" aria-label="More actions">&#183;&#183;&#183;</button></div>
+        <div class="ident"><span class="kind">Individual</span><span class="dot">&#183;</span>
+          <button type="button" class="lnk">School</button><span class="dot">&#183;</span>
+          <span class="qid">:Q736674</span><span class="dot">&#183;</span>
+          <span class="iri">http://devry.edu/school-names#Q736674</span></div>
+        <div class="pbody">
+          <div class="scount"><span><b>11</b> asserted</span><span class="dot">&#183;</span><span>1 inferred</span>
+            <span class="flex"></span><button type="button" class="btn tiny">Add row</button></div>
+          <table class="st"><colgroup><col class="c-pred"><col></colgroup>
+            <thead><tr><th>Predicate</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td><div class="pred">rdf:type</div></td><td><div class="vals"><input class="val" value="School"></div></td></tr>
+              <tr><td><div class="pred">rdfs:label</div></td><td><div class="vals"><input class="val" value="University of Colorado Boulder"></div></td></tr>
+              <tr><td><div class="pred">rdfs:seeAlso</div></td><td><div class="vals">
+                <input class="val" value="CU Boulder"><input class="val" value="University of Colorado at Boulder"><input class="val" value="CU&#8208;Boulder">
+                <div style="display:flex;gap:var(--sp-2);padding-top:2px">
+                  <button type="button" class="btn tiny quiet">Add value</button>
+                  <button type="button" class="btn tiny quiet">26 more</button></div></div></td></tr>
+              <tr><td><div class="pred">rdf:type<span class="inf">inferred</span></div></td>
+                  <td><div class="vals"><input class="val" value="owl:Thing" readonly></div></td></tr>
+            </tbody></table>
+        </div>
+        <div class="usage">
+          <span class="u">Referenced by <b>0</b></span>
+          <span class="u">Inferred axioms <b>1</b></span>
+          <span class="u">Revision <b>4,812</b></span>
+        </div>
+      </section>
+    </div>
+    <div class="sizecap">Individual. <span class="req">IND-89</span></div>
+  </div>
+  <div>
+    <div class="frame" style="height:356px">
+      <section class="pane" aria-label="Inspector on a class">
+        <div class="phead"><span class="name">School</span>
+          <span class="state pending"><span class="word">Draft</span>
+            <button type="button" class="btn">Discard</button>
+            <button type="button" class="btn primary">Apply changes</button></span></div>
+        <div class="ident"><span class="kind">Class</span><span class="dot">&#183;</span>
+          <button type="button" class="lnk">owl:Thing</button><span class="dot">&#183;</span>
+          <span class="qid">:School</span><span class="dot">&#183;</span>
+          <span class="iri">http://devry.edu/school-names#School</span></div>
+        <div class="pbody">
+          <div class="scount"><span><b>2</b> asserted</span><span class="dot">&#183;</span><span>1 inferred</span>
+            <span class="flex"></span><button type="button" class="btn tiny">Add row</button></div>
+          <table class="st"><colgroup><col class="c-pred"><col></colgroup>
+            <thead><tr><th>Predicate</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td><div class="pred">rdf:type</div></td><td><div class="vals"><input class="val" value="owl:Class"></div></td></tr>
+              <tr><td><div class="pred">rdfs:label</div></td><td><div class="vals"><input class="val" value="School (edited)"></div></td></tr>
+              <tr><td><div class="pred">rdfs:subClassOf<span class="inf">inferred</span></div></td>
+                  <td><div class="vals"><input class="val" value="owl:Thing" readonly></div></td></tr>
+            </tbody></table>
+        </div>
+        <div class="usage">
+          <span class="u">Subclasses <b>0</b></span>
+          <span class="u">Descendants <b>0</b></span>
+          <span class="u">Direct instances <b>21,461</b></span>
+          <span class="u">Referenced by <b>21,461</b></span>
+          <span class="u">Inferred axioms <b>1</b></span>
+        </div>
+      </section>
+    </div>
+    <div class="sizecap">Class, with a draft pending. <span class="req">IND-89</span> <span class="req">IND-113</span></div>
+  </div>
+</div>
+<div class="note"><b>The distinction, in one sentence.</b> A withdrawn fact is one the kind cannot have. A zero is one the kind can have and does not. Rendering the first as the second produced the three dead rows in the capture, and <span class="req">IND-88</span> is the requirement that keeps them apart.</div>
+
+<h2 id="xf">F. What the Inspector lost</h2>
+<div class="reqs"><span class="req">IND-91</span><span class="req">IND-94</span><span class="req">IND-95</span><span class="req">IND-105</span><span class="req">IND-113</span></div>
+<table class="doc">
+  <thead><tr><th>Removed</th><th>Replaced by</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td><span class="gone">Usage: Subclasses 0, Descendants 0, Direct instances 0</span></td><td>Usage facts the kind can actually have. The three return as real numbers on a class.</td><td><span class="req">IND-86</span></td></tr>
+    <tr><td><span class="gone">More properties</span></td><td>Nothing. Every asserted statement is in the table.</td><td><span class="req">IND-95</span></td></tr>
+    <tr><td><span class="gone">12 statements describe this entity</span><br><span class="gone">Open source editor</span></td><td>The statements, and a count line that also carries Add row.</td><td><span class="req">IND-94</span> <span class="req">IND-99</span></td></tr>
+    <tr><td><span class="gone">Types, with Add and Remove at the pane edge</span></td><td>Nothing. <code>rdf:type</code> is a predicate like any other and the statement table already adds and removes values of a predicate.</td><td><span class="req">IND-91</span> <span class="req">IND-92</span></td></tr>
+    <tr><td><span class="gone">Name, Label, Full identifier (IRI) as three bands</span></td><td>One identity line carrying kind, class, local name and IRI, each once.</td><td><span class="req">IND-105</span></td></tr>
+    <tr><td><span class="gone">Apply changes / Reload / Saved, standing permanently</span></td><td>One save state slot in the header. No draft, no actions.</td><td><span class="req">IND-113</span></td></tr>
+  </tbody>
+</table>
+<figure>
+  <img class="shot" src="screenshots/02-details-statement-table.png"
+    alt="The Details view showing a predicate and value statement table with twelve statements and a Turtle source region.">
+  <figcaption>screenshots/02-details-statement-table.png. The idiom the Inspector's statement region conforms to <span class="req">IND-96</span>.</figcaption>
+</figure>
+
+<h2 id="xg">G. Touchpoints, detached</h2>
+<div class="reqs"><span class="req">IND-119</span><span class="req">IND-121</span><span class="req">IND-124</span><span class="req">IND-126</span><span class="req">IND-134</span><span class="req">IND-137</span><span class="req">IND-140</span><span class="req">IND-152</span></div>
+<p>The feature <code>docs/touchpoints.md</code> describes: a Wikipedia search producing candidates, each reviewed for a relationship and a target before one batched apply. Not the sharing of predicate values.</p>
+<div class="frame" style="width:100%;max-width:1180px;height:400px">
+  <section class="pane" aria-label="Touchpoints">
+    <div class="ptabs" role="tablist">
+      <button type="button" class="tab" role="tab" aria-selected="false"><span class="tt">Inspector</span></button>
+      <button type="button" class="tab" role="tab" aria-selected="true"><span class="tt">Touchpoints &#183; University of Colorado Boulder</span></button>
+      <button type="button" class="tab" role="tab" aria-selected="false"><span class="tt">Touchpoints &#183; Florida State University</span></button>
+    </div>
+    <div class="phead"><span class="name">Touchpoints</span>
+      <span class="state"><span class="word">Fetched 2 days ago</span><button type="button" class="btn">Refresh</button></span></div>
+    <div class="tpbar"><span class="pin">University of Colorado Boulder</span>
+      <span class="dot">&#183;</span><span>:Q736674</span>
+      <span class="dot">&#183;</span><span>pinned to this subject</span>
+      <span class="dot">&#183;</span><span>Ranked by Wikipedia. The local model is unavailable.</span></div>
+    <div class="tpq">
+      <label for="tpq" style="font-size:12px;color:var(--text-muted)">Query</label>
+      <input class="fld" id="tpq" value="University of Colorado Boulder" style="max-width:360px">
+      <button type="button" class="btn">Search</button>
+      <span class="flex"></span>
+      <span style="font-size:12px;color:var(--text-muted)">4 candidates</span>
+    </div>
+    <div class="pbody">
+      <div class="cand linked">
+        <span class="pill no2">&#10003;</span>
+        <span><span class="ttl2">University of Colorado Boulder</span><br><span class="ds">public research university in Boulder, Colorado</span></span>
+        <span><span class="pill ok2">Linked</span></span>
+        <span class="iri2">wikidata.org/entity/Q736674</span>
+      </div>
+      <div class="cand">
+        <input type="checkbox" checked aria-label="Select University of Colorado">
+        <span><span class="ttl2">University of Colorado</span><br><span class="ds">university system in Colorado, United States</span></span>
+        <span><select class="sel" aria-label="Relationship for University of Colorado">
+          <option>skos:broadMatch</option><option selected>skos:closeMatch</option><option>skos:exactMatch</option>
+          <option>skos:narrowMatch</option><option>skos:relatedMatch</option><option>rdfs:seeAlso</option><option>owl:sameAs</option>
+        </select></span>
+        <span><select class="sel" aria-label="Target for University of Colorado">
+          <option selected>DBpedia</option><option>Wikidata</option><option>Wikipedia</option></select></span>
+      </div>
+      <div class="cand">
+        <input type="checkbox" aria-label="Select CU Boulder">
+        <span><span class="ttl2">CU Boulder</span><br><span class="ds">redirect of University of Colorado Boulder</span></span>
+        <span><select class="sel" aria-label="Relationship for CU Boulder">
+          <option>skos:broadMatch</option><option>skos:closeMatch</option><option selected>skos:exactMatch</option>
+          <option>skos:narrowMatch</option><option>skos:relatedMatch</option><option>rdfs:seeAlso</option><option>owl:sameAs</option>
+        </select></span>
+        <span><select class="sel" aria-label="Target for CU Boulder">
+          <option selected>DBpedia</option><option>Wikidata</option><option>Wikipedia</option></select></span>
+      </div>
+      <div class="cand">
+        <span class="pill no2">&#215;</span>
+        <span><span class="ttl2">Colorado (disambiguation)</span><br><span class="ds">Wikimedia disambiguation page, not selectable</span></span>
+        <span><span style="font-size:12px;color:var(--text-muted)">not selectable</span></span>
+        <span class="iri2"></span>
+      </div>
+    </div>
+    <div class="tpfoot">
+      <span style="font-size:12px;color:var(--text-muted)">1 selected. Applying adds it as one Undo operation.</span>
+      <span class="flex"></span>
+      <button type="button" class="btn primary">Apply selected touchpoints</button>
+    </div>
+  </section>
+</div>
+<div class="sizecap">Three facts rendered here that the prototype does not implement: an exact match default on a redirect <span class="req">IND-139</span>, <code>owl:sameAs</code> offered because the subject is an individual <span class="req">IND-140</span>, and a disambiguation page that cannot be selected <span class="req">IND-136</span>.</div>
+<div class="note"><b>Why no counter is ever needed.</b> The tab strip above carries two touchpoint panes. They are titled by their subjects, so they differ without a number, and <code>Find Touchpoints_2</code> becomes impossible rather than merely discouraged. <span class="req">IND-124</span> <span class="req">IND-173</span></div>
+<div class="note bad"><b>What this ontology does to the feature.</b> Every one of the 21,461 individuals already carries <code>owl:sameAs http://www.wikidata.org/entity/{QID}</code>. Under <span class="req">IND-137</span> a candidate resolving to that item is already linked, so on <code>schools.ttl</code> the first row above is the normal result and the pane is close to a no operation. <span class="req">IND-152</span> requires the pane to say so rather than offer twenty rows that cannot be applied.</div>
+
+<h2 id="xh">H. The presentation ladder</h2>
+<div class="reqs"><span class="req">IND-154</span><span class="req">IND-155</span><span class="req">IND-156</span><span class="req">IND-157</span><span class="req">IND-158</span><span class="req">IND-161</span></div>
+<p>Four frames at four sizes. Each one measures itself, not the window. Drag any corner across 600 wide or 400 tall and watch it change presentation; the published 16 pixel hysteresis means it changes back at 616 and 416.</p>
+<div class="pair">
+  <div><div class="frame" id="f1" style="width:100%;height:300px"><div class="pane" id="p1"></div></div>
+    <div class="sizecap">Expanded. Toolbar, status line, grid.</div></div>
+  <div><div class="frame" id="f2" style="width:420px;max-width:100%;height:300px"><div class="pane" id="p2"></div></div>
+    <div class="sizecap">Narrow, below 600 wide. The class choice and the creation action fold away. Columns scroll rather than disappear.</div></div>
+  <div><div class="frame" id="f3" style="width:100%;height:220px"><div class="pane" id="p3"></div></div>
+    <div class="sizecap">Shallow, below 400 tall. The status line withdraws and the rows keep their area.</div></div>
+  <div><div class="frame" id="f4" style="width:210px;height:220px"><div class="pane" id="p4"></div></div>
+    <div class="sizecap">Recovery, below 240 wide. The pane states what it is.</div></div>
+</div>
+
+<h2 id="xi">I. Both themes</h2>
+<div class="reqs"><span class="req">IND-43</span><span class="req">IND-102</span><span class="req">IND-166</span><span class="req">IND-167</span><span class="req">IND-168</span></div>
+<p>Every tag and state side by side. Light and dark are authored as independent token blocks and are audited against their own backgrounds; neither is derived from the other. No tag here is carried by colour alone.</p>
+<div class="pair">
+  <div class="legend" id="legLight"></div>
+  <div class="legend dk" id="legDark"></div>
+</div>
+
+<h2>Divergence summary</h2>
+<p class="lede">The full list is Appendix B.1 of the README. The two rows below are the ones that are decisions of this document rather than implementation gaps, and both are recorded in Appendix B.2 with the superseded sentence quoted.</p>
+<table class="doc">
+  <thead><tr><th>Superseded</th><th>By</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>Inspector submits through an Apply button in the fixed footer</td><td><span class="req">IND-118</span></td><td>The header already reports <code>Saved</code>. A footer Apply gives the pane two save status regions.</td></tr>
+    <tr><td>The Inspector's narrow presentation keeps secondary disclosures</td><td><span class="req">IND-160</span></td><td>The disclosure in the shipped build hides nine of twelve statements. Narrowing the predicate column saves the same space without hiding content.</td></tr>
+  </tbody>
+</table>
+
+</div>
+<script>
+"use strict";
+
+/* The full ontology census, measured from schools.ttl. These are the numbers
+   the README cites and the numbers the chooser reports. */
+var ROWS_TOTAL = 21461;
+var COLS = [
+  { key:"subject",          label:"Individual",       w:260, kind:"subject", locked:true,  fill:21461, dis:21461 },
+  { key:"rdf:type",         label:"rdf:type",         w:110, kind:"text",                  fill:21461, dis:1 },
+  { key:":hasType",         label:":hasType",         w:118, kind:"text",                  fill:21461, dis:323 },
+  { key:"rdfs:label",       label:"rdfs:label",       w:240, kind:"text", derived:"shown as Individual", fill:20517, dis:20273 },
+  { key:"rdfs:comment",     label:"rdfs:comment",     w:280, kind:"text",                  fill:17517, dis:11597 },
+  { key:"rdfs:seeAlso",     label:"rdfs:seeAlso",     w:200, kind:"text",                  fill:10281, dis:20200, maxv:29 },
+  { key:":establishedYear", label:":establishedYear", w:122, kind:"num",                   fill:17589, dis:499 },
+  { key:":hasCountry",      label:":hasCountry",      w:114, kind:"text",                  fill:20470, dis:289, codes:true },
+  { key:":locatedIn",       label:":locatedIn",       w:114, kind:"text",                  fill:17118, dis:7144, codes:true },
+  { key:":hasCoordinates",  label:":hasCoordinates",  w:176, kind:"mono",                  fill:14534, dis:14337 },
+  { key:":hasWebsite",      label:":hasWebsite",      w:260, kind:"text",                  fill:16286, dis:16117 },
+  { key:":hasLanguage",     label:":hasLanguage",     w:120, kind:"text",                  fill:61,    dis:13, codes:true },
+  { key:":hasQID",          label:":hasQID",          w:118, kind:"mono",                  fill:21461, dis:21461 },
+  { key:"owl:sameAs",       label:"owl:sameAs",       w:260, kind:"text",                  fill:21461, dis:21461 },
+  { key:"iri",              label:"IRI",              w:300, kind:"mono", derived:"prefix plus :hasQID", fill:21461, dis:21461 }
+];
+var BYKEY = {};
+COLS.forEach(function (c) { BYKEY[c.key] = c; });
+
+/* Eleven individuals taken verbatim from schools.ttl, chosen to carry every
+   cell treatment: a 29 value predicate, two subjects with no label, rows with
+   a missing comment and a missing website. */
+var ROWS = [
+  {"id":"Q10357800","p":{":hasCountry":["Q45"],":hasQID":["Q10357800"],":hasType":["Q917182"],"owl:sameAs":["http://www.wikidata.org/entity/Q10357800"]}},
+  {"id":"Q100606019","p":{":hasCountry":["Q414"],":hasQID":["Q100606019"],":hasType":["Q917182"],"owl:sameAs":["http://www.wikidata.org/entity/Q100606019"]}},
+  {"id":"Q736674","p":{"rdfs:label":["University of Colorado Boulder"],":establishedYear":["1876"],":hasCoordinates":["40.006666666667,-105.26722222222"],":hasCountry":["Q30"],":hasQID":["Q736674"],":hasType":["Q875538"],":hasWebsite":["https://www.colorado.edu/"],":locatedIn":["Q192517"],"rdfs:comment":["public university in Boulder, Colorado, USA and flagship of the University of Colorado System"],"rdfs:seeAlso":["Boulder","Buffaloes","Buffalos","Buffs","C.U. Boulder","CU","CU Boulder","CU at Boulder","CU-Boulder","CUB","Colo","Colorado","Colorado University","Golden Buffs","U of CO","U of Colo","U of Colorado","U.C.B.","UC Boulder","UCB","Univ of CO","Univ of Colo","Univ of Colorado","University of CO","University of Colo","University of Colorado","University of Colorado at Boulder","University of Colorado, Boulder","colorado.edu"],"owl:sameAs":["http://www.wikidata.org/entity/Q736674"]}},
+  {"id":"Q861548","p":{"rdfs:label":["Florida State University"],":establishedYear":["1851"],":hasCoordinates":["30.441666666666666,-84.295"],":hasCountry":["Q30"],":hasQID":["Q861548"],":hasType":["Q875538"],":hasWebsite":["https://fsu.edu"],":locatedIn":["Q37043"],"rdfs:comment":["public university in Tallahassee, Florida, United States"],"rdfs:seeAlso":["F. S. U.","F.S.U.","FL State","FL State University","FSU","Fl State","Fl State University","Fl. State","Fl. State University","Fla. State","Fla. State Univ.","Fla. State University","Florda State University","Flordia State University","Florida State","Florida State Seminoles","Florida State Univerisity","Florida State University Seminoles","Florida State Unversity","Floridia State University","Noles","Seminoles","The Florida State University","fsu.edu"],"owl:sameAs":["http://www.wikidata.org/entity/Q861548"]}},
+  {"id":"Q107717874","p":{"rdfs:label":["Atiba University"],":establishedYear":["2017"],":hasCoordinates":["7.852296751247184,3.914718969317426"],":hasCountry":["Q1033"],":hasLanguage":["Q1860"],":hasQID":["Q107717874"],":hasType":["Q3918"],":hasWebsite":["https://www.atibauniversity.edu.ng"],":locatedIn":["Q503905"],"rdfs:comment":["Established in 2017, Atiba University is a private higher education institution located in the city of Oyo Town , Oyo."],"owl:sameAs":["http://www.wikidata.org/entity/Q107717874"]}},
+  {"id":"Q17929189","p":{"rdfs:label":["Federal University Gashua"],":establishedYear":["2013"],":hasCoordinates":["12.881298679947918,11.00464723525888"],":hasCountry":["Q1033"],":hasQID":["Q17929189"],":hasType":["Q3918"],":hasWebsite":["https://www.fugashua.edu.ng"],":locatedIn":["Q682777"],"rdfs:comment":["university in Yobe Sate, Nigeria"],"rdfs:seeAlso":["FUGashua"],"owl:sameAs":["http://www.wikidata.org/entity/Q17929189"]}},
+  {"id":"Q5589058","p":{"rdfs:label":["Government Polytechnic Solapur"],":establishedYear":["1956"],":hasCoordinates":["17.67185595851009,75.92291186281906"],":hasCountry":["Q668"],":hasQID":["Q5589058"],":hasType":["Q3918"],":hasWebsite":["http://gpsolapur.ac.in"],":locatedIn":["Q237847"],"rdfs:comment":["government polytechnic college in Solapur, Maharashtra, India"],"rdfs:seeAlso":["Polytechnic College Solapur"],"owl:sameAs":["http://www.wikidata.org/entity/Q5589058"]}},
+  {"id":"Q4881219","p":{"rdfs:label":["Beijing Wuzi University"],":establishedYear":["1980"],":hasCoordinates":["39.929,116.6388"],":hasCountry":["Q148"],":hasQID":["Q4881219"],":hasType":["Q3918"],":hasWebsite":["http://www.bwu.edu.cn/"],":locatedIn":["Q956"],"rdfs:comment":["university in Beijing, China"],"rdfs:seeAlso":["Wuzi University"],"owl:sameAs":["http://www.wikidata.org/entity/Q4881219"]}},
+  {"id":"Q1987511","p":{"rdfs:label":["Sevastopol State University"],":establishedYear":["1951"],":hasCoordinates":["44.5945,33.477"],":hasCountry":["Q159"],":hasQID":["Q1987511"],":hasType":["Q3918"],":hasWebsite":["http://sevsu.ru/"],":locatedIn":["Q7525"],"rdfs:comment":["university in Sevastopol, Crimea"],"rdfs:seeAlso":["Sevastopol National Technical University"],"owl:sameAs":["http://www.wikidata.org/entity/Q1987511"]}},
+  {"id":"Q7707454","p":{"rdfs:label":["Texas A&M College of Liberal Arts"],":hasCoordinates":["30.610278,-96.343611"],":hasCountry":["Q30"],":hasQID":["Q7707454"],":hasType":["Q3918"],"owl:sameAs":["http://www.wikidata.org/entity/Q7707454"]}},
+  {"id":"Q6954319","p":{"rdfs:label":["NIILM CMS"],":establishedYear":["1996"],":hasCountry":["Q668"],":hasQID":["Q6954319"],":hasType":["Q3918"],":hasWebsite":["http://www.niilm-cms.edu.in/"],"owl:sameAs":["http://www.wikidata.org/entity/Q6954319"]}}
+];
+
+var NS = "http://devry.edu/school-names#";
+function labelOf(r) { var l = r.p["rdfs:label"]; return (l && l[0]) ? l[0] : r.id; }
+function hasLabel(r) { return !!(r.p["rdfs:label"] && r.p["rdfs:label"][0]); }
+function cellValues(r, c) {
+  if (c.key === "subject") return [labelOf(r)];
+  if (c.key === "iri") return [NS + r.id];
+  if (c.key === "rdf:type") return ["School"];
+  var v = r.p[c.key];
+  return v ? v : [];
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function nf(n) { return n.toLocaleString("en-US"); }
+function pc(a, b) { return Math.round(a / b * 1000) / 10; }
+function $(id) { return document.getElementById(id); }
+
+/* IND-41. Each tag reports one stated condition. */
+function reasonsFor(c) {
+  var out = [];
+  if (c.locked) out.push({ t: "always shown" });
+  if (c.derived) out.push({ t: c.derived });
+  if (c.fill === 0) out.push({ t: "no values", warn: true });
+  else if (c.dis === 1) out.push({ t: "one value", warn: true });
+  else if (c.fill === ROWS_TOTAL && c.dis === ROWS_TOTAL) out.push({ t: "unique per row", warn: true });
+  if (c.fill > 0 && c.fill / ROWS_TOTAL < 0.05) out.push({ t: "sparse", warn: true });
+  if (c.codes) out.push({ t: "identifiers" });
+  if (c.maxv > 1) out.push({ t: c.maxv + " values deep" });
+  return out;
+}
+/* IND-45. The algorithm, run against the measured statistics. */
+function eligibility(c) {
+  if (c.locked) return "subject column";
+  if (c.derived) return "derived";
+  if (c.fill / ROWS_TOTAL < 0.05) return "sparse";
+  if (c.dis <= 1) return "one value";
+  if (c.fill === ROWS_TOTAL && c.dis === ROWS_TOTAL) return "unique per row";
+  return null;
+}
+function defaultVisible() {
+  var on = { subject: true };
+  var elig = COLS.filter(function (c) { return eligibility(c) === null; });
+  elig.sort(function (a, b) {
+    var ac = a.codes ? 1 : 0, bc = b.codes ? 1 : 0;
+    if (ac !== bc) return ac - bc;
+    return b.fill - a.fill;
+  });
+  elig.slice(0, 4).forEach(function (c) { on[c.key] = true; });
+  return { on: on, order: elig };
+}
+var DEF = defaultVisible();
+var VIS = {};
+Object.keys(DEF.on).forEach(function (k) { VIS[k] = true; });
+var ORDER = COLS.map(function (c) { return c.key; });
+var W = {};
+COLS.forEach(function (c) { W[c.key] = c.w; });
+var SORT = { key: "subject", dir: 1 };
+
+function shown() {
+  return ORDER.map(function (k) { return BYKEY[k]; }).filter(function (c) { return c && VIS[c.key]; });
+}
+
+/* ------------------------------------------------------------ the chooser */
+function renderChooser() {
+  var html = "";
+  ORDER.map(function (k) { return BYKEY[k]; }).forEach(function (c) {
+    var rs = reasonsFor(c);
+    html += '<div class="crow">' +
+      "<label>" +
+        '<input type="checkbox" value="' + esc(c.key) + '"' +
+        (VIS[c.key] ? " checked" : "") + (c.locked ? " disabled" : "") + ">" +
+        '<span class="cn' + (c.key === "subject" || c.key === "iri" ? " plain" : "") + '">' + esc(c.label) + "</span>" +
+      "</label>" +
+      rs.map(function (r) { return '<span class="why' + (r.warn ? " warnish" : "") + '">' + esc(r.t) + "</span>"; }).join("") +
+      '<span class="fillbar"><i style="width:' + pc(c.fill, ROWS_TOTAL) + '%"></i></span>' +
+      '<span class="nums"><span class="f">' + nf(c.fill) + '</span><span class="d">' + nf(c.dis) + "</span></span>" +
+      "</div>";
+  });
+  $("chBody").innerHTML = html;
+  $("chCount").textContent = shown().length + " of " + COLS.length + " shown";
+}
+$("chooser").addEventListener("change", function (e) {
+  var cb = e.target.closest("input[type=checkbox]");
+  if (!cb) return;
+  VIS[cb.value] = cb.checked;
+  renderGrid();
+  renderChooser();
+});
+$("chooser").addEventListener("click", function (e) {
+  if (e.target.closest("[data-all]")) { COLS.forEach(function (c) { VIS[c.key] = true; }); }
+  else if (e.target.closest("[data-none]")) { COLS.forEach(function (c) { VIS[c.key] = !!c.locked; }); }
+  else if (e.target.closest("[data-reset]")) {
+    VIS = {};
+    Object.keys(DEF.on).forEach(function (k) { VIS[k] = true; });
+    ORDER = COLS.map(function (c) { return c.key; });
+    COLS.forEach(function (c) { W[c.key] = c.w; });
+  } else return;
+  renderGrid();
+  renderChooser();
+});
+$("colsBtn").addEventListener("click", function () {
+  $("chooser").scrollIntoView({ block: "center" });
+  var first = $("chBody").querySelector("input:not([disabled])");
+  if (first) first.focus();
+});
+
+/* ------------------------------------------------------ the worked algorithm */
+function renderAlgo() {
+  var ranked = DEF.order;
+  var body = "";
+  COLS.forEach(function (c) {
+    var why = eligibility(c);
+    var rank = ranked.indexOf(c) >= 0 ? ranked.indexOf(c) + 1 : "";
+    var on = !!DEF.on[c.key];
+    body += '<tr class="' + (on ? "on" : (why ? "off" : "")) + '">' +
+      "<td><code>" + esc(c.label) + "</code></td>" +
+      '<td class="n">' + nf(c.fill) + "</td>" +
+      '<td class="n">' + pc(c.fill, ROWS_TOTAL).toFixed(1) + "</td>" +
+      '<td class="n">' + nf(c.dis) + "</td>" +
+      "<td>" + (why ? "no" : "yes") + "</td>" +
+      "<td>" + (why ? esc(why) : (c.codes ? "eligible, ranked after readable values" : "")) + "</td>" +
+      '<td class="n">' + rank + "</td>" +
+      "<td>" + (c.locked ? "always on" : (on ? "on" : "off")) + "</td></tr>";
+  });
+  $("algo").querySelector("tbody").innerHTML = body;
+}
+
+/* ----------------------------------------------------------- the live grid */
+function sortVal(r, c) {
+  var vs = cellValues(r, c);
+  if (!vs.length) return null;
+  if (c.kind === "num") { var n = parseFloat(vs[0]); return isNaN(n) ? null : n; }
+  return String(vs[0]).toLowerCase();
+}
+function sorted(q) {
+  var c = BYKEY[SORT.key] || BYKEY.subject;
+  var cols = shown();
+  var out = ROWS.filter(function (r) {
+    if (!q) return true;
+    var t = q.toLowerCase();
+    for (var i = 0; i < cols.length; i++) {
+      var vs = cellValues(r, cols[i]);
+      for (var j = 0; j < vs.length; j++) if (String(vs[j]).toLowerCase().indexOf(t) !== -1) return true;
+    }
+    return r.id.toLowerCase().indexOf(t) !== -1;
+  });
+  /* IND-76. Blanks last in both directions. */
+  out.sort(function (a, b) {
+    var av = sortVal(a, c), bv = sortVal(b, c);
+    if (av === null && bv === null) return a.id < b.id ? -1 : 1;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    if (av < bv) return -1 * SORT.dir;
+    if (av > bv) return 1 * SORT.dir;
+    return a.id < b.id ? -1 : 1;
+  });
+  return out;
+}
+function cellHtml(r, c) {
+  var vs = cellValues(r, c);
+  if (!vs.length) return "";
+  if (c.key === "subject") {
+    var anon = !hasLabel(r);
+    return '<span class="idc"><span class="nm' + (anon ? " anon" : "") + '">' + esc(vs[0]) + "</span>" +
+      (anon ? '<span class="tagid">id</span>' : "") + "</span>";
+  }
+  var first = '<span class="tx">' + esc(vs[0]) + "</span>";
+  if (vs.length === 1) return '<span class="cellwrap">' + first + "</span>";
+  return '<span class="cellwrap">' + first + '<button type="button" class="plus" aria-label="' +
+    (vs.length - 1) + ' more values of ' + esc(c.label) + '">+' + (vs.length - 1) + "</button></span>";
+}
+function renderGrid() {
+  var cols = shown(), q = $("gq").value.trim();
+  var view = sorted(q);
+  var ch = "", hh = "", total = 0;
+  cols.forEach(function (c, i) {
+    var w = W[c.key];
+    total += w;
+    ch += '<col style="width:' + w + 'px">';
+    var dir = (SORT.key === c.key) ? (SORT.dir === 1 ? "asc" : "desc") : "";
+    hh += '<th scope="col"' + (i === 0 ? ' class="pin"' : "") +
+      (dir ? ' aria-sort="' + (dir === "asc" ? "ascending" : "descending") + '"' : "") + ">" +
+      '<div class="hcell">' +
+      '<button type="button" class="hlab" data-sort="' + esc(c.key) + '"' + (dir ? ' data-dir="' + dir + '"' : "") + ">" +
+      '<span class="t">' + esc(c.label) + '</span><span class="sg">' + (dir === "desc" ? "&#8595;" : "&#8593;") + "</span></button>" +
+      '<button type="button" class="rz" data-rz="' + esc(c.key) + '" role="separator" tabindex="0"' +
+      ' aria-orientation="vertical" aria-valuemin="56" aria-valuemax="720" aria-valuenow="' + w + '"' +
+      ' aria-label="Width of ' + esc(c.label) + '"></button></div></th>';
+  });
+  $("gcols").innerHTML = ch;
+  $("ghead").innerHTML = hh;
+  $("gtab").style.width = total + "px";
+  var body = "";
+  view.forEach(function (r) {
+    body += '<tr role="row">';
+    cols.forEach(function (c, i) {
+      var cl = [];
+      if (i === 0) cl.push("pin");
+      if (c.kind === "num") cl.push("num");
+      if (c.kind === "mono") cl.push("mono");
+      body += "<td" + (cl.length ? ' class="' + cl.join(" ") + '"' : "") + ">" + cellHtml(r, c) + "</td>";
+    });
+    body += "</tr>";
+  });
+  $("gbody").innerHTML = body;
+  /* IND-27, IND-72. The count once, and the search scope stated. */
+  $("gstat").innerHTML = q
+    ? "<b>" + view.length + "</b> of " + ROWS.length + " individuals match across " + cols.length +
+      " shown column" + (cols.length === 1 ? "" : "s")
+    : "<b>" + ROWS.length + "</b> individuals<span class=\"dot\">&#183;</span>" +
+      cols.length + " of " + COLS.length + " columns shown";
+}
+
+/* IND-54 to IND-58. Resize is live, autofit measures text, keyboard adjusts. */
+var MC = null;
+function measure(text, mono) {
+  if (!MC) MC = document.createElement("canvas").getContext("2d");
+  var cs = getComputedStyle(document.body);
+  MC.font = mono ? '12px ' + cs.getPropertyValue("--mono") : '13px ' + cs.getPropertyValue("--font");
+  return MC.measureText(text).width;
+}
+function setWidth(key, w, announce) {
+  w = Math.max(56, Math.min(720, Math.round(w)));
+  W[key] = w;
+  var cols = shown(), i = -1;
+  cols.forEach(function (c, n) { if (c.key === key) i = n; });
+  if (i < 0) return;
+  var colEl = $("gcols").children[i];
+  if (colEl) colEl.style.width = w + "px";
+  var total = 0;
+  cols.forEach(function (c) { total += W[c.key]; });
+  $("gtab").style.width = total + "px";
+  var h = $("ghead").querySelector('[data-rz="' + CSS.escape(key) + '"]');
+  if (h) h.setAttribute("aria-valuenow", String(w));
+  if (announce) say(BYKEY[key].label + " is " + w + " pixels wide");
+}
+function autofit(key) {
+  var c = BYKEY[key], mono = c.kind === "mono";
+  var max = measure(c.label.toUpperCase(), false) + 46;
+  ROWS.forEach(function (r) {
+    var vs = cellValues(r, c);
+    if (!vs.length) return;
+    var w = measure(String(vs[0]), mono) + 22;
+    if (vs.length > 1) w += 36;
+    if (c.key === "subject" && !hasLabel(r)) w += 28;
+    if (w > max) max = w;
+  });
+  setWidth(key, Math.ceil(max), true);
+}
+function say(m) { var l = $("live"); if (l) l.textContent = m; }
+
+var RZ = null;
+$("ghead").addEventListener("pointerdown", function (e) {
+  var h = e.target.closest(".rz");
+  if (!h) return;
+  RZ = { key: h.dataset.rz, x0: e.clientX, w0: W[h.dataset.rz], el: h };
+  h.setPointerCapture(e.pointerId);
+  h.classList.add("live");
+  document.body.classList.add("resizing");
+  e.preventDefault();
+});
+$("ghead").addEventListener("pointermove", function (e) {
+  if (RZ) setWidth(RZ.key, RZ.w0 + (e.clientX - RZ.x0));
+});
+$("ghead").addEventListener("pointerup", function () {
+  if (!RZ) return;
+  RZ.el.classList.remove("live");
+  document.body.classList.remove("resizing");
+  say(BYKEY[RZ.key].label + " is " + W[RZ.key] + " pixels wide");
+  RZ = null;
+});
+$("ghead").addEventListener("dblclick", function (e) {
+  var h = e.target.closest(".rz");
+  if (h) { e.preventDefault(); autofit(h.dataset.rz); }
+});
+$("ghead").addEventListener("keydown", function (e) {
+  var h = e.target.closest(".rz");
+  if (!h) return;
+  var k = h.dataset.rz, w = W[k], step = e.shiftKey ? 32 : 8;
+  if (e.key === "ArrowLeft") { setWidth(k, w - step, true); e.preventDefault(); }
+  else if (e.key === "ArrowRight") { setWidth(k, w + step, true); e.preventDefault(); }
+  else if (e.key === "Enter" || e.key === " ") { autofit(k); e.preventDefault(); }
+  else if (e.key === "Home") { setWidth(k, BYKEY[k].w, true); e.preventDefault(); }
+});
+$("ghead").addEventListener("click", function (e) {
+  var lab = e.target.closest(".hlab");
+  if (!lab) return;
+  var k = lab.dataset.sort;
+  if (SORT.key === k) SORT.dir = -SORT.dir; else { SORT.key = k; SORT.dir = 1; }
+  renderGrid();
+  say("Sorted by " + BYKEY[k].label + ", " + (SORT.dir === 1 ? "ascending" : "descending"));
+});
+$("gq").addEventListener("input", renderGrid);
+$("clsSel").addEventListener("change", renderGrid);
+
+/* --------------------------------------------------- the presentation ladder */
+function ladderPane(showFoot) {
+  var cols = [BYKEY.subject, BYKEY[":establishedYear"], BYKEY["rdfs:comment"], BYKEY[":hasWebsite"]];
+  var head = "", body = "", colg = "";
+  cols.forEach(function (c, i) {
+    colg += '<col style="width:' + (i === 0 ? 200 : c.w) + 'px">';
+    head += '<th scope="col"' + (i === 0 ? ' class="pin"' : "") + '><div class="hcell">' +
+      '<span class="hlab"><span class="t">' + esc(c.label) + "</span></span>" +
+      '<span class="rz" aria-hidden="true"></span></div></th>';
+  });
+  ROWS.slice(0, 7).forEach(function (r) {
+    body += "<tr>";
+    cols.forEach(function (c, i) {
+      var cl = [];
+      if (i === 0) cl.push("pin");
+      if (c.kind === "num") cl.push("num");
+      body += "<td" + (cl.length ? ' class="' + cl.join(" ") + '"' : "") + ">" + cellHtml(r, c) + "</td>";
+    });
+    body += "</tr>";
+  });
+  return '<div class="tbar"><span class="ttl">Individuals</span>' +
+    '<span class="fwrap"><input class="fld" placeholder="Filter individuals" aria-label="Filter individuals"></span>' +
+    '<button type="button" class="btn">Columns 5 of 15</button>' +
+    '<label class="wide" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)">Class' +
+    '<select class="sel" aria-label="Filter by class"><option>School (21,461)</option></select></label>' +
+    '<button type="button" class="btn wide">New individual</button></div>' +
+    '<div class="gstat"><b>21,461</b> individuals<span class="dot">&#183;</span>5 of 15 columns shown</div>' +
+    '<div class="gwrap"><table class="g" style="width:' + (200 + 122 + 280 + 260) + 'px"><colgroup>' + colg +
+    "</colgroup><thead><tr>" + head + "</tr></thead><tbody>" + body + "</tbody></table></div>" +
+    (showFoot ? '<div class="gfoot"><span>Rows 1 to 100</span></div>' : "");
+}
+["p1", "p2", "p3", "p4"].forEach(function (id, i) {
+  $(id).innerHTML = '<div class="phead"><span class="name">Individuals</span></div>' + ladderPane(i === 0);
+});
+
+/* ------------------------------------------------------------- the legend */
+function legendHtml() {
+  var items = [
+    '<span class="why">always shown</span>',
+    '<span class="why">shown as Individual</span>',
+    '<span class="why">prefix plus :hasQID</span>',
+    '<span class="why warnish">no values</span>',
+    '<span class="why warnish">one value</span>',
+    '<span class="why warnish">unique per row</span>',
+    '<span class="why warnish">sparse</span>',
+    '<span class="why">identifiers</span>',
+    '<span class="why">29 values deep</span>',
+    '<span class="tagid">id</span>',
+    '<button type="button" class="plus">+28</button>',
+    '<span class="pred" style="display:inline-flex">rdf:type<span class="inf">inferred</span></span>',
+    '<span class="pill ok2">Linked</span>',
+    '<span class="state"><span class="word">Saved</span></span>',
+    '<span class="state pending"><span class="word">Draft</span></span>',
+    '<button type="button" class="btn">Discard</button>',
+    '<button type="button" class="btn primary">Apply changes</button>'
+  ];
+  return items.join("");
+}
+$("legLight").innerHTML = legendHtml();
+$("legDark").innerHTML = legendHtml();
+
+/* ------------------------------------------------------------------ theme */
+var THEMES = ["auto", "light", "dark"];
+var WORD = { auto: "follow system", light: "light", dark: "dark" };
+var t = 0;
+$("themeBtn").addEventListener("click", function () {
+  t = (t + 1) % 3;
+  document.documentElement.setAttribute("data-theme", THEMES[t]);
+  this.textContent = "Theme: " + WORD[THEMES[t]];
+});
+
+renderChooser();
+renderAlgo();
+renderGrid();
+</script>
+<div id="live" class="vh" role="status" aria-live="polite"></div>
+</body>
+</html>

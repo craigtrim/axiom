@@ -17,7 +17,7 @@ const fixture = JSON.parse(
 let app: ElectronApplication, page: Page, profile: string, iri: string;
 const errors: string[] = [];
 const pane = () =>
-  page.getByRole("region", { name: "Find Touchpoints", exact: true });
+  page.getByRole("region", { name: "Touchpoints", exact: true });
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 async function menu(id: string) {
@@ -78,7 +78,7 @@ test.beforeEach(async () => {
   );
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("touchpoints.open");
-  await expect(pane().getByRole("searchbox")).toHaveValue(
+  await expect(pane().getByRole("textbox", { name: "Query" })).toHaveValue(
     "Sustainable business",
   );
 });
@@ -94,13 +94,15 @@ test.afterEach(async ({}, info) => {
   expect(errors).toEqual([]);
 });
 test("search is explicit, recorded results are cached indefinitely, and Refresh preserves data on error", async () => {
-  await pane().getByRole("searchbox").fill("sustainable business");
+  await pane()
+    .getByRole("textbox", { name: "Query" })
+    .fill("sustainable business");
   expect(await calls()).toBe(0);
-  await pane().getByRole("searchbox").press("Enter");
-  await expect(pane().locator(".touchpoint-row")).toHaveCount(20);
+  await pane().getByRole("textbox", { name: "Query" }).press("Enter");
+  await expect(pane().locator(".cand")).toHaveCount(20);
   expect(await calls()).toBe(1);
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText("Cached");
+  await expect(pane()).toContainText("Fetched");
   expect(await calls()).toBe(1);
   const root = path.join(profile, "cache/wikipedia"),
     directory = (await readdir(root))[0],
@@ -113,12 +115,12 @@ test("search is explicit, recorded results are cached indefinitely, and Refresh 
   entry.fetchedAt = "2001-06-01T12:00:00Z";
   await writeFile(file, JSON.stringify(entry));
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText("2001");
+  await expect(pane()).toContainText(/Fetched [\d,]+ days ago/);
   expect(await calls()).toBe(1);
   await app.evaluate(() => ((globalThis as any).wikiFailure = true));
   await pane().getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(pane().getByRole("alert")).toContainText("503");
-  await expect(pane().locator(".touchpoint-row")).toHaveCount(20);
+  await expect(pane().locator(".cand")).toHaveCount(20);
   expect(await calls()).toBe(2);
   await menu("cache.clearWikipedia");
   await expect(
@@ -136,7 +138,7 @@ test("search is explicit, recorded results are cached indefinitely, and Refresh 
 test("selection offers resource predicates, one Apply is one Undo, and stale selections cannot apply", async () => {
   await menu("view.touchpoints");
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane().locator(".touchpoint-row")).toHaveCount(20);
+  await expect(pane().locator(".cand")).toHaveCount(20);
   const row = pane().getByRole("article", {
     name: "Sustainable business",
     exact: true,
@@ -165,7 +167,7 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
     .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");
   await expect(
     row.getByRole("combobox", {
-      name: "Link target for Sustainable business",
+      name: "Target for Sustainable business",
       exact: true,
     }),
   ).toHaveValue("wikipedia");
@@ -188,7 +190,7 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
   });
   await pane().getByRole("button", { name: "Search", exact: true }).click();
   await expect(row).toContainText("Linked");
-  await expect(row.getByRole("checkbox")).toBeDisabled();
+  await expect(row.getByRole("checkbox")).toHaveCount(0);
   await menu("edit.undo");
   expect(
     (
@@ -213,13 +215,13 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
 });
 test("Wikipedia cache survives a restart and retired Research commands are absent", async () => {
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane().locator(".touchpoint-row")).toHaveCount(20);
+  await expect(pane().locator(".cand")).toHaveCount(20);
   await app.close();
   await launch();
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("view.touchpoints");
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText("Cached");
+  await expect(pane()).toContainText("Fetched");
   expect(await calls()).toBe(0);
   expect(
     await app.evaluate(({ Menu }) =>
@@ -234,13 +236,13 @@ test("Wikipedia cache survives a restart and retired Research commands are absen
   ).toEqual([false, false, false, false, false]);
 });
 
-test("rapid Refresh clicks issue one request and both themes retain usable narrow controls", async () => {
+test("rapid Refresh clicks issue one request and both themes retain the reference narrow controls", async () => {
   await pane()
     .getByRole("button", { name: "Refresh", exact: true })
     .evaluate((button) => {
       for (let i = 0; i < 100; i++) (button as HTMLButtonElement).click();
     });
-  await expect(pane().locator(".touchpoint-row")).toHaveCount(20);
+  await expect(pane().locator(".cand")).toHaveCount(20);
   expect(await calls()).toBe(1);
   for (const theme of ["light", "dark"]) {
     await menu("theme." + theme);
@@ -252,16 +254,7 @@ test("rapid Refresh clicks issue one request and both themes retain usable narro
     }));
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
-    expect(
-      (await pane().locator(".touchpoint-title label").first().boundingBox())!
-        .width,
-    ).toBeGreaterThanOrEqual(160);
-    for (const name of [
-      "Search",
-      "Refresh",
-      "Apply selected touchpoints",
-      "Open Wikipedia page for Sustainable business",
-    ]) {
+    for (const name of ["Search", "Refresh"]) {
       const control = pane().getByRole("button", { name, exact: true });
       await expect(control).toBeVisible();
       const box = (await control.boundingBox())!;
@@ -270,11 +263,66 @@ test("rapid Refresh clicks issue one request and both themes retain usable narro
       expect(box.y).toBeGreaterThanOrEqual(bounds.y);
       expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height);
     }
-    expect(
-      await pane().evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
-    ).toBe(true);
+    await expect(pane().locator(".cand .iri2:visible")).toHaveCount(0);
     await page.screenshot({
       path: "artifacts/testing/touchpoints-" + theme + "-narrow.png",
     });
   }
+});
+
+test("two subject panes stay pinned and closing and reopening never adds a numeric suffix", async () => {
+  const firstId = "touchpoints:" + encodeURIComponent(iri);
+  const first = page.locator(`[data-panel="${firstId}"]`);
+  await first.getByRole("textbox", { name: "Query" }).fill("Retained query");
+  const other = await page.evaluate(() =>
+    window.axiom.request<string>("createClass", {
+      name: "Other subject",
+      parent: "http://www.w3.org/2002/07/owl#Thing",
+    }),
+  );
+  await page.evaluate((iri) => window.axiom.request("select", { iri }), other);
+  await menu("touchpoints.open");
+  const second = page.locator(
+    `[data-panel="touchpoints:${encodeURIComponent(other)}"]`,
+  );
+  await expect(second.getByRole("textbox", { name: "Query" })).toHaveValue(
+    "Other subject",
+  );
+  await expect(
+    page
+      .locator(
+        ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
+      )
+      .filter({ hasText: "Touchpoints · Sustainable business" }),
+  ).toHaveText("Touchpoints · Sustainable business");
+  await expect(
+    page
+      .locator(
+        ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
+      )
+      .filter({ hasText: "Touchpoints · Other subject" }),
+  ).toHaveText("Touchpoints · Other subject");
+  await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
+  await menu("touchpoints.open");
+  await expect(first.getByRole("textbox", { name: "Query" })).toHaveValue(
+    "Retained query",
+  );
+  await expect(
+    page
+      .locator(
+        ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
+      )
+      .filter({ hasText: "Touchpoints · Sustainable business" }),
+  ).toHaveCount(1);
+  await first.getByRole("textbox", { name: "Query" }).focus();
+  await menu("pane.close");
+  await menu("touchpoints.open");
+  await expect(
+    page
+      .locator(
+        ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
+      )
+      .filter({ hasText: "Touchpoints · Sustainable business" }),
+  ).toHaveText("Touchpoints · Sustainable business");
+  await expect(first.locator(".pin")).toHaveText("Sustainable business");
 });

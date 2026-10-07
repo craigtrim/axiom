@@ -221,6 +221,31 @@ test("Example orders retains loaded rows and counts and discards an older filter
   await expect(panel.locator(".table-summary > span")).toHaveText(summary);
 });
 
+test("Individuals keeps rows while filtering and ignores older shown-column responses", async ({
+  desktop: d,
+}) => {
+  await d.load(
+    `@prefix : <${base}> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:One a :School; rdfs:label "First school"; rdfs:seeAlso "Hidden alias" .
+:Two a :School; rdfs:label "Second school" .`,
+    "individuals.ttl",
+  );
+  await d.menu("view.individuals");
+  const pane = d.page.locator('[data-panel="individuals"]'),
+    filter = pane.getByRole("textbox", { name: "Filter individuals" });
+  await expect(pane.getByRole("row").nth(1)).toContainText("First school");
+  await holdRequests(d.app, ["individualGrid"]);
+  await filter.fill("no-such-school");
+  await waitForHeld(d.app);
+  await expect(pane.getByRole("row").nth(1)).toContainText("First school");
+  await filter.fill("Second");
+  await waitForHeld(d.app, 2);
+  await releaseRequests(d.app, { reverse: true });
+  await expect(pane.getByRole("row").nth(1)).toContainText("Second school");
+  await expect(filter).toHaveValue("Second");
+  await expect(filter).toBeFocused();
+});
+
 test("stylesheet validation waits for a pause and keeps the footer fixed", async ({
   desktop: d,
 }) => {

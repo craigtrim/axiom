@@ -62,8 +62,7 @@ test.afterEach(async () => {
 
 const inspector = () =>
   page.getByRole("region", { name: "Entity inspector", exact: true });
-const fields = () =>
-  inspector().getByRole("form", { name: "Edit entity properties" });
+const fields = inspector;
 const select = (iri: string) =>
   page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
 async function prepare() {
@@ -128,12 +127,12 @@ async function prepare() {
   });
   await menu("graph.fit");
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Alpha");
   return ids;
 }
 
-test("inspector edits identifier, label, comment and parent together while preserving RDF metadata and references", async () => {
+test("inspector edits label, comment and parent together while preserving RDF metadata and references", async () => {
   const { a, b, child, g, ns } = await prepare();
   const bend = { x: -220, y: 80 };
   await page.evaluate(
@@ -154,25 +153,19 @@ test("inspector edits identifier, label, comment and parent together while prese
     { a, child, ns, bend },
   );
   await fields()
-    .getByRole("textbox", { name: "Entity name", exact: true })
-    .fill("CourseCredit");
-  await fields()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Course credit");
   await fields()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Credits awarded for a course.");
   await fields()
-    .getByRole("combobox", { name: "Subclass of 1", exact: true })
-    .selectOption(b);
+    .getByRole("textbox", { name: "rdfs:subClassOf value 1", exact: true })
+    .fill(b);
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  const next = a.replace(/Alpha$/, "CourseCredit");
+  const next = a;
   await expect.poll(async () => (await state()).selected).toBe(next);
-  await expect(
-    fields().getByRole("textbox", { name: "Entity name", exact: true }),
-  ).toHaveValue("CourseCredit");
   const result = await state(),
     entity = result.entities.find((e) => e.iri === next)!;
   expect(entity.label).toBe("Course credit");
@@ -235,11 +228,9 @@ test("inspector edits identifier, label, comment and parent together while prese
 test("inspector and details share drafts across selection changes, reject conflicts and include drafts in workspace Save", async () => {
   const { a, b } = await prepare();
   await fields()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Shared label");
-  await inspector()
-    .getByRole("button", { name: "Details", exact: true })
-    .click();
+  await menu("view.details");
   const editor = page.getByRole("region", {
     name: "Details",
     exact: true,
@@ -251,15 +242,18 @@ test("inspector and details share drafts across selection changes, reject confli
     .getByRole("textbox", { name: "Entity comment", exact: true })
     .fill("Shared comment");
   await expect(
-    fields().getByRole("textbox", { name: "Entity comment", exact: true }),
+    fields().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Shared comment");
   await select(b);
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Beta");
   await select(a);
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Shared label");
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -268,7 +262,7 @@ test("inspector and details share drafts across selection changes, reject confli
     editor.getByRole("button", { name: "Apply changes", exact: true }),
   ).toHaveCount(0);
   await fields()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Pending label");
   await page.evaluate(
     (iri) => window.axiom.request("rename", { iri, name: "Graph change" }),
@@ -277,18 +271,20 @@ test("inspector and details share drafts across selection changes, reject confli
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  await expect(inspector().getByRole("alert")).toContainText("changed since");
+  await expect(inspector().getByRole("alert")).toContainText(
+    "changed in rdfs:label",
+  );
   expect((await state()).entities.find((e) => e.iri === a)!.label).toBe(
     "Graph change",
   );
   await inspector()
-    .getByRole("button", { name: "Reload", exact: true })
+    .getByRole("button", { name: "Discard", exact: true })
     .click();
   await expect(
     editor.getByRole("textbox", { name: "Entity label", exact: true }),
   ).toHaveValue("Graph change");
   await fields()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Saved from the inspector draft");
   await select(b);
   const file = path.resolve("artifacts/testing/inspector-draft.axiom");
@@ -325,16 +321,21 @@ async function nodePoint(iri: string, target = page, size?: number) {
 async function clickLabel(iri: string, target = page, size?: number) {
   const canvas = target.getByTestId("graph-canvas");
   let p = await nodePoint(iri, target, size);
-  // Camera preferences are saved after the fit animation. Wait for the pointer
-  // to land on visible text, using the rendered label's text cursor as evidence.
+  // Wait for the saved camera and the graph's hit test to agree after Fit.
+  const label = (await state()).entities.find((e) => e.iri === iri)!.label!;
   await expect
     .poll(async () => {
       p = await nodePoint(iri, target, size);
       await canvas.hover({ position: { x: p.x, y: p.labelY } });
-      return canvas.evaluate((el) => el.style.cursor);
+      return canvas.getAttribute("title");
     })
-    .toBe("text");
+    .toContain(label + " ·");
+  const alreadySelected = (await state()).selected === iri;
   await canvas.click({ position: { x: p.x, y: p.labelY } });
+  if (!alreadySelected) {
+    await expect.poll(async () => (await state()).selected).toBe(iri);
+    await canvas.click({ position: { x: p.x, y: p.labelY } });
+  }
   return p;
 }
 
@@ -343,6 +344,13 @@ test("one click on a graph label edits it; node selection, Enter, blur, Escape a
     canvas = page.getByTestId("graph-canvas");
   await select(b);
   let p = await nodePoint(a);
+  await expect
+    .poll(async () => {
+      p = await nodePoint(a);
+      await canvas.hover({ position: { x: p.x, y: p.y } });
+      return canvas.getAttribute("title");
+    })
+    .toContain("Alpha ·");
   await canvas.click({ position: { x: p.x, y: p.y } });
   await expect.poll(async () => (await state()).selected).toBe(a);
   const input = page
@@ -358,7 +366,7 @@ test("one click on a graph label edits it; node selection, Enter, blur, Escape a
     .poll(async () => (await state()).entities.find((e) => e.iri === a)!.label)
     .toBe("Typed immediately");
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Typed immediately");
   await page.evaluate(() =>
     window.axiom.request("stylesheet", {
@@ -411,19 +419,25 @@ test("property domain, range and inverse are editable in the inspector", async (
     return { p, q };
   });
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Teaches");
   for (const [name, iri] of [
-    ["Domain", a],
-    ["Range", b],
-    ["Inverse", ids.q],
+    ["rdfs:domain", a],
+    ["rdfs:range", b],
+    ["owl:inverseOf", ids.q],
   ]) {
-    await fields()
-      .getByRole("button", { name: "Add " + name, exact: true })
+    await inspector()
+      .getByRole("button", { name: "Add row", exact: true })
       .click();
-    await fields()
-      .getByRole("combobox", { name: name + " 1", exact: true })
-      .selectOption(iri);
+    await inspector()
+      .getByRole("textbox", { name: "Predicate for new row" })
+      .fill(name);
+    await inspector()
+      .getByRole("textbox", { name: "Predicate for new row" })
+      .press("Enter");
+    await inspector()
+      .getByRole("textbox", { name: name + " value 1", exact: true })
+      .fill(iri);
   }
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -437,8 +451,9 @@ test("property domain, range and inverse are editable in the inspector", async (
   const e = (await state()).entities.find((e) => e.iri === ids.p)!;
   expect(e.domain).toBe(a);
   expect(e.range).toBe(b);
+  await fields().getByRole("textbox", { name: "rdfs:range value 1" }).focus();
   await fields()
-    .getByRole("button", { name: "Remove Range 1", exact: true })
+    .getByRole("button", { name: "Remove this rdfs:range value", exact: true })
     .click();
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -467,7 +482,7 @@ test("single-click label editing also works in a detached graph", async () => {
   await child.keyboard.type("Detached label");
   await input.press("Enter");
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Detached label");
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
@@ -485,19 +500,11 @@ test("default identifiers follow label drafts in both editors and become stable 
     }),
   );
   const label = fields().getByRole("textbox", {
-    name: "Entity label",
+    name: "rdfs:label value 1",
     exact: true,
   });
-  const name = fields().getByRole("textbox", {
-    name: "Entity name",
-    exact: true,
-  });
-  await expect(name).toHaveValue("NewClass");
   await label.fill("Alpha Beta !! Gamma");
-  await expect(name).toHaveValue("AlphaBetaGamma");
-  await inspector()
-    .getByRole("button", { name: "Details", exact: true })
-    .click();
+  await menu("view.details");
   const details = page.getByRole("region", {
     name: "Details",
     exact: true,
@@ -508,7 +515,6 @@ test("default identifiers follow label drafts in both editors and become stable 
   await details
     .getByRole("textbox", { name: "Entity label", exact: true })
     .fill("Course Credit");
-  await expect(name).toHaveValue("CourseCredit");
   await details
     .getByRole("textbox", { name: "Entity label", exact: true })
     .press("Tab");
@@ -516,7 +522,6 @@ test("default identifiers follow label drafts in both editors and become stable 
   await expect.poll(async () => (await state()).selected).toBe(next);
   await expect(details).toHaveAttribute("data-entity-iri", next);
   await label.fill("Credit hours");
-  await expect(name).toHaveValue("CourseCredit");
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
@@ -544,11 +549,8 @@ test("a saved placeholder mismatch is recognized by its spelling and its repair 
   }, source);
   await menu("file.open");
   await expect(
-    fields().getByRole("textbox", { name: "Entity label", exact: true }),
+    fields().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Course Credit");
-  await expect(
-    fields().getByRole("textbox", { name: "Entity name", exact: true }),
-  ).toHaveValue("CourseCredit");
   await expect(
     inspector().getByRole("button", { name: "Apply changes", exact: true }),
   ).toBeEnabled();
@@ -589,18 +591,12 @@ test("workspace Save promotes related default nodes together and resolves a labe
   });
   await select(a);
   await fields()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Course Credit");
-  await expect(
-    fields().getByRole("textbox", { name: "Entity name", exact: true }),
-  ).toHaveValue("CourseCredit2");
   await select(b);
   await fields()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Advanced Credit");
-  await expect(
-    fields().getByRole("textbox", { name: "Entity name", exact: true }),
-  ).toHaveValue("AdvancedCredit");
   const file = path.resolve("artifacts/testing/related-renames.axiom");
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });

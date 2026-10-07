@@ -1,0 +1,114 @@
+@prefix : <http://devry.edu/school-names#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+:Q10357800 a :School ;
+:hasCountry "Q45" ;
+:hasQID "Q10357800" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10357800"^^xsd:anyURI .
+:Q100606019 a :School ;
+:hasCountry "Q414" ;
+:hasQID "Q100606019" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100606019"^^xsd:anyURI .
+:Q736674 a :School ;
+rdfs:label "University of Colorado Boulder" ;
+:establishedYear "1876" ;
+:hasCoordinates "40.006666666667,-105.26722222222" ;
+:hasCountry "Q30" ;
+:hasQID "Q736674" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.colorado.edu/" ;
+:locatedIn "Q192517" ;
+rdfs:comment "public university in Boulder, Colorado, USA and flagship of the University of Colorado System" ;
+rdfs:seeAlso "Boulder", "Buffaloes", "Buffalos", "Buffs", "C.U. Boulder", "CU", "CU Boulder", "CU at Boulder", "CU-Boulder", "CUB", "Colo", "Colorado", "Colorado University", "Golden Buffs", "U of CO", "U of Colo", "U of Colorado", "U.C.B.", "UC Boulder", "UCB", "Univ of CO", "Univ of Colo", "Univ of Colorado", "University of CO", "University of Colo", "University of Colorado", "University of Colorado at Boulder", "University of Colorado, Boulder", "colorado.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q736674"^^xsd:anyURI .
+:Q861548 a :School ;
+rdfs:label "Florida State University" ;
+:establishedYear "1851" ;
+:hasCoordinates "30.441666666666666,-84.295" ;
+:hasCountry "Q30" ;
+:hasQID "Q861548" ;
+:hasType "Q875538" ;
+:hasWebsite "https://fsu.edu" ;
+:locatedIn "Q37043" ;
+rdfs:comment "public university in Tallahassee, Florida, United States" ;
+rdfs:seeAlso "F. S. U.", "F.S.U.", "FL State", "FL State University", "FSU", "Fl State", "Fl State University", "Fl. State", "Fl. State University", "Fla. State", "Fla. State Univ.", "Fla. State University", "Florda State University", "Flordia State University", "Florida State", "Florida State Seminoles", "Florida State Univerisity", "Florida State University Seminoles", "Florida State Unversity", "Floridia State University", "Noles", "Seminoles", "The Florida State University", "fsu.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q861548"^^xsd:anyURI .
+:Q107717874 a :School ;
+rdfs:label "Atiba University" ;
+:establishedYear "2017" ;
+:hasCoordinates "7.852296751247184,3.914718969317426" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107717874" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.atibauniversity.edu.ng" ;
+:locatedIn "Q503905" ;
+rdfs:comment "Established in 2017, Atiba University is a private higher education institution located in the city of Oyo Town , Oyo." ;
+owl:sameAs "http://www.wikidata.org/entity/Q107717874"^^xsd:anyURI .
+:Q17929189 a :School ;
+rdfs:label "Federal University Gashua" ;
+:establishedYear "2013" ;
+:hasCoordinates "12.881298679947918,11.00464723525888" ;
+:hasCountry "Q1033" ;
+:hasQID "Q17929189" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.fugashua.edu.ng" ;
+:locatedIn "Q682777" ;
+rdfs:comment "university in Yobe Sate, Nigeria" ;
+rdfs:seeAlso "FUGashua" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17929189"^^xsd:anyURI .
+:Q5589058 a :School ;
+rdfs:label "Government Polytechnic Solapur" ;
+:establishedYear "1956" ;
+:hasCoordinates "17.67185595851009,75.92291186281906" ;
+:hasCountry "Q668" ;
+:hasQID "Q5589058" ;
+:hasType "Q3918" ;
+:hasWebsite "http://gpsolapur.ac.in" ;
+:locatedIn "Q237847" ;
+rdfs:comment "government polytechnic college in Solapur, Maharashtra, India" ;
+rdfs:seeAlso "Polytechnic College Solapur" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5589058"^^xsd:anyURI .
+:Q4881219 a :School ;
+rdfs:label "Beijing Wuzi University" ;
+:establishedYear "1980" ;
+:hasCoordinates "39.929,116.6388" ;
+:hasCountry "Q148" ;
+:hasQID "Q4881219" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bwu.edu.cn/" ;
+:locatedIn "Q956" ;
+rdfs:comment "university in Beijing, China" ;
+rdfs:seeAlso "Wuzi University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4881219"^^xsd:anyURI .
+:Q1987511 a :School ;
+rdfs:label "Sevastopol State University" ;
+:establishedYear "1951" ;
+:hasCoordinates "44.5945,33.477" ;
+:hasCountry "Q159" ;
+:hasQID "Q1987511" ;
+:hasType "Q3918" ;
+:hasWebsite "http://sevsu.ru/" ;
+:locatedIn "Q7525" ;
+rdfs:comment "university in Sevastopol, Crimea" ;
+rdfs:seeAlso "Sevastopol National Technical University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1987511"^^xsd:anyURI .
+:Q7707454 a :School ;
+rdfs:label "Texas A&M College of Liberal Arts" ;
+:hasCoordinates "30.610278,-96.343611" ;
+:hasCountry "Q30" ;
+:hasQID "Q7707454" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7707454"^^xsd:anyURI .
+:Q6954319 a :School ;
+rdfs:label "NIILM CMS" ;
+:establishedYear "1996" ;
+:hasCountry "Q668" ;
+:hasQID "Q6954319" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.niilm-cms.edu.in/" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6954319"^^xsd:anyURI .

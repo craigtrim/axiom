@@ -246,7 +246,15 @@ it("serializes different queries and coalesces simultaneous identical misses", a
   ]);
   expect(maximum).toBe(1);
   expect(fetch).toHaveBeenCalledTimes(2);
-  expect(results[1].cached).toBe(true);
+  // Concurrent disk lookups may finish in either order. Exactly one of the
+  // identical requests fetches; the other consumes that cached response.
+  expect(
+    results
+      .slice(0, 2)
+      .map((result) => result.cached)
+      .sort(),
+  ).toEqual([false, true]);
+  expect(results[2].cached).toBe(false);
 });
 it.each([null, "7", "Wed, 01 Jan 2025 00:00:09 GMT"])(
   "holds the shared queue for Retry-After %s and doubles consecutive throttles",

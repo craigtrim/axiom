@@ -9,3 +9,4 @@ tests/fixtures/extend-visual/visual-reference-v2.html -text
 tests/fixtures/extend-visual/visual-reference-v3.html -text
 # Craig's Details reference, hash-pinned (craigtrim/axiom#57).
 tests/fixtures/details-visual/visual-reference.html -text
+tests/fixtures/individuals-visual/visual-reference.html -text
