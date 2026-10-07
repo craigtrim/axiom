@@ -52,6 +52,7 @@ function menu(
 export const menuTree: MenuDefinition[] = [
   menu("menu.file", "File", "F", [
     c("file.new", "New workspace", "File", app("Ctrl+N")),
+    c("file.newWindow", "New window", "File"),
     menu("menu.file.open", "Open", "O", [
       c("file.open", "Workspace...", "File > Open", app("Ctrl+O")),
       menu("menu.file.recent", "Recent", "R", []),

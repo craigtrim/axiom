@@ -3,6 +3,10 @@ import { mutatocExecutable } from "./mutatoc-client";
 import type { TextAnalysisContext } from "../shared/text-analysis";
 import { randomUUID } from "node:crypto";
 import { WorkspaceFiles } from "./workspace-files";
+import { selectInstanceProfile, isSlotProbe } from "./instance-profile";
+import { InstanceRegistry } from "./instance-registry";
+import { WorkspaceOwnership, type WorkspaceLease } from "./workspace-ownership";
+import { spawn } from "node:child_process";
 import {
   readEditorDrafts,
   type SavedEditorDrafts,
@@ -84,14 +88,32 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
-if (process.env.AXIOM_USER_DATA)
-  app.setPath("userData", path.resolve(process.env.AXIOM_USER_DATA));
 app.setName("Axiom");
 app.setAppUserModelId("com.craigtrim.axiom");
-// craigtrim/axiom#1: a second launch hands its argv to the running instance instead of
-// starting a rival process that would contend for the session file and the autosave.
-const hasInstanceLock = app.requestSingleInstanceLock();
-if (!hasInstanceLock) app.quit();
+// AXIOM_INSTANCE_ROOT exercises real slot selection against a disposable test root.
+const instanceRoot = path.resolve(
+  process.env.AXIOM_INSTANCE_ROOT ??
+    (process.env.AXIOM_USER_DATA && !app.isPackaged
+      ? process.env.AXIOM_USER_DATA
+      : path.join(app.getPath("appData"), "Axiom")),
+);
+const instanceProfile = selectInstanceProfile(
+  app,
+  instanceRoot,
+  process.env.AXIOM_USER_DATA,
+);
+if (!instanceProfile) app.exit(0);
+let instanceRegistry: InstanceRegistry;
+try {
+  instanceRegistry = new InstanceRegistry(
+    instanceRoot,
+    process.execPath,
+    instanceProfile!,
+  );
+} catch (error) {
+  dialog.showErrorBox("Axiom could not start", cleanErrorMessage(error));
+  app.exit(1);
+}
 let mainWindow: BrowserWindow | null = null,
   worker: Worker,
   sequence = 0,
@@ -101,6 +123,24 @@ let mainWindow: BrowserWindow | null = null,
   closing = false;
 let launchFile: string | undefined,
   launchReady = false;
+let workspaceLease: WorkspaceLease | undefined;
+let launchLease: WorkspaceLease | undefined;
+let focusRequested = false;
+function focusInstance() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    focusRequested = true;
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+const workspaceOwnership = new WorkspaceOwnership(focusInstance);
+function setWorkspacePath(file?: string, lease?: WorkspaceLease) {
+  workspaceLease?.release();
+  workspaceLease = lease;
+  workspacePath = file;
+}
 function resolveLaunchPath(argv: readonly string[], cwd: string) {
   // An argument that exists wins over one that only looks like a path, which separates
   // a real file from the application id a handover can carry.
@@ -130,11 +170,9 @@ async function openLaunchFile(file: string, atStartup = false) {
   await command("file.open", file, atStartup);
 }
 launchFile = resolveLaunchPath(process.argv, process.cwd());
-app.on("second-instance", (_event, argv, cwd) => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
+app.on("second-instance", (_event, argv, cwd, data) => {
+  if (isSlotProbe(data)) return;
+  focusInstance();
   const file = resolveLaunchPath(argv, cwd);
   if (!file) return;
   if (launchReady) void openLaunchFile(file);
@@ -480,6 +518,7 @@ let closePending = false;
 let workspaceSwitching = false;
 let closeAfterWorkspaceChange = false;
 let autosaveTimer: ReturnType<typeof setInterval> | undefined;
+let updates: ReturnType<typeof startUpdates> | undefined;
 const AUTOSAVE_INTERVAL = 30_000;
 async function checkpointSession(capture = true) {
   if (capture) await capturePreferences();
@@ -572,8 +611,7 @@ async function flushEditors() {
 }
 async function saveBeforeWorkspaceChange(capture = true) {
   if (saving) await saving;
-  await saveWorkspace(false, true, true, capture);
-  return true;
+  return saveWorkspace(false, true, true, capture);
 }
 let saving: Promise<boolean> | undefined;
 function saveWorkspace(
@@ -635,78 +673,106 @@ async function writeWorkspace(
     if (r.canceled || !r.filePath) return false;
     file = r.filePath;
   }
-  if (!automatic) await flushEditors();
-  if (capture) await capturePreferences();
-  const document = await request<
-    Workspace & {
-      storeVersion: number;
-      datasetEpoch: number;
-      workspaceRevision: number;
-    }
-  >("serialize");
-  const editorDrafts = capturedDrafts && {
-    ...capturedDrafts,
-    storeVersion: document.storeVersion,
-  };
-  // Unnamed workspaces keep an independent copy when closing or changing workspaces.
-  // The single last-session checkpoint can then safely move to the next workspace.
-  if (
-    !file &&
-    archive &&
-    (lastState?.dirty ||
-      editorDrafts ||
-      lastState?.ontology.source ||
-      lastState?.ontology.example ||
-      lastState?.graph.nodes.length)
-  ) {
-    recoveryPath ??= path.join(
-      app.getPath("userData"),
-      "workspaces",
-      randomUUID() + ".axiom",
-    );
+  let lease = file ? await workspaceOwnership.claim(file) : undefined;
+  if (file && !lease) {
+    if (automatic)
+      throw Error(
+        "This workspace is open in another Axiom window. Save it under a different name.",
+      );
+    return false;
   }
-  const destination = file ?? recoveryPath;
-  const session: SavedSession = {
-    format: "axiom-session",
-    version: 1,
-    workspace: document,
-    workspacePath,
-    recoveryPath,
-    workbench: preferences,
-    editorDrafts,
-  };
-  // Save recovery first, including when a named destination is unavailable.
-  await sessions.save(session);
-  if (destination) {
-    await workspaceFiles.write(
-      destination,
-      JSON.stringify({
-        ...document,
-        workbench: {
-          ...preferences,
-          keyboard: undefined,
-          panelState: {
-            ...preferences.panelState,
-            "warnings.seeAlso": undefined,
-            "find.extendActions": undefined,
+  let committed = false;
+  try {
+    if (!automatic) await flushEditors();
+    if (capture) await capturePreferences();
+    const document = await request<
+      Workspace & {
+        storeVersion: number;
+        datasetEpoch: number;
+        workspaceRevision: number;
+      }
+    >("serialize");
+    const editorDrafts = capturedDrafts && {
+      ...capturedDrafts,
+      storeVersion: document.storeVersion,
+    };
+    // Unnamed workspaces keep an independent copy when closing or changing workspaces.
+    // The single last-session checkpoint can then safely move to the next workspace.
+    if (
+      !file &&
+      archive &&
+      (lastState?.dirty ||
+        editorDrafts ||
+        lastState?.ontology.source ||
+        lastState?.ontology.example ||
+        lastState?.graph.nodes.length)
+    ) {
+      recoveryPath ??= path.join(
+        app.getPath("userData"),
+        "workspaces",
+        randomUUID() + ".axiom",
+      );
+    }
+    if (!file && recoveryPath) {
+      lease = await workspaceOwnership.claim(recoveryPath, false);
+      if (!lease) {
+        // A recovery copy can be explicitly opened in another instance too.
+        recoveryPath = path.join(
+          app.getPath("userData"),
+          "workspaces",
+          randomUUID() + ".axiom",
+        );
+        lease = await workspaceOwnership.claim(recoveryPath, false);
+        if (!lease)
+          throw Error("The recovery workspace could not be reserved.");
+      }
+    }
+    const destination = file ?? recoveryPath;
+    const session: SavedSession = {
+      format: "axiom-session",
+      version: 1,
+      workspace: document,
+      workspacePath,
+      recoveryPath,
+      workbench: preferences,
+      editorDrafts,
+    };
+    // Save recovery first, including when a named destination is unavailable.
+    await sessions.save(session);
+    if (destination) {
+      await workspaceFiles.write(
+        destination,
+        JSON.stringify({
+          ...document,
+          workbench: {
+            ...preferences,
+            keyboard: undefined,
+            panelState: {
+              ...preferences.panelState,
+              "warnings.seeAlso": undefined,
+              "find.extendActions": undefined,
+            },
           },
-        },
-        editorDrafts,
-      }),
-      !file,
-    );
-    if (file && workspacePath !== file) {
-      workspacePath = file;
-      await sessions.save({ ...session, workspacePath: file });
+          editorDrafts,
+        }),
+        !file,
+      );
+      if (file && workspacePath !== file) {
+        setWorkspacePath(file, lease);
+        committed = true;
+        await sessions.save({ ...session, workspacePath: file });
+      }
+      await request("markSaved", {
+        version: document.storeVersion,
+        epoch: document.datasetEpoch,
+        revision: document.workspaceRevision,
+      });
+      if (!automatic || archive) await rememberFile(destination);
     }
-    await request("markSaved", {
-      version: document.storeVersion,
-      epoch: document.datasetEpoch,
-      revision: document.workspaceRevision,
-    });
-    if (!automatic || archive) await rememberFile(destination);
+    return true;
+  } finally {
+    if (!committed) lease?.release();
   }
-  return true;
 }
 async function autosave() {
   if (
@@ -731,7 +797,6 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
   // A launch path arrives before the workbench mounts, so there is no view state to
   // capture and no listener to answer the request. The archive still runs, so an
   // unsaved workspace restored from the last session keeps its recovery copy.
-  if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
   let file = recentFile;
   if (!file) {
     const r = await dialog.showOpenDialog(mainWindow!, {
@@ -746,40 +811,50 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
     file = r.filePaths[0];
   }
   if (!file.toLowerCase().endsWith(".axiom")) {
+    if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
     await importOntologyFile(file);
     return;
   }
-  if ((await stat(file)).size > 256 * 1024 * 1024)
-    throw Error("Workspace exceeds the 256 MB limit.");
-  const data = JSON.parse(await readFile(file, "utf8"));
-  const restored = readPreferences({
-    ...preferences,
-    ...data.workbench,
-    version: 1,
-    layout: data.workbench?.layout,
-    panelState: {
-      ...data.workbench?.panelState,
-      "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
-      "find.extendActions": preferences.panelState?.["find.extendActions"],
-    },
-    tabHistory: data.workbench?.tabHistory,
-    keyboard: preferences.keyboard,
-    tabSavePolicy: preferences.tabSavePolicy,
-  });
-  await request("load", { document: data });
-  workspacePath = file;
-  recoveryPath = undefined;
-  restoredDrafts = readEditorDrafts(data.editorDrafts);
-  send("workspace.drafts");
-  updateWindowTitle();
-  if (restored) {
-    await savePreferences(restored);
-    nativeTheme.themeSource = preferences.theme;
-    installMenu();
-    send("workspace.preferences");
+  const lease = await workspaceOwnership.claim(file);
+  if (!lease) return;
+  let committed = false;
+  try {
+    if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
+    if ((await stat(file)).size > 256 * 1024 * 1024)
+      throw Error("Workspace exceeds the 256 MB limit.");
+    const data = JSON.parse(await readFile(file, "utf8"));
+    const restored = readPreferences({
+      ...preferences,
+      ...data.workbench,
+      version: 1,
+      layout: data.workbench?.layout,
+      panelState: {
+        ...data.workbench?.panelState,
+        "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
+        "find.extendActions": preferences.panelState?.["find.extendActions"],
+      },
+      tabHistory: data.workbench?.tabHistory,
+      keyboard: preferences.keyboard,
+      tabSavePolicy: preferences.tabSavePolicy,
+    });
+    await request("load", { document: data });
+    setWorkspacePath(file, lease);
+    committed = true;
+    recoveryPath = undefined;
+    restoredDrafts = readEditorDrafts(data.editorDrafts);
+    send("workspace.drafts");
+    updateWindowTitle();
+    if (restored) {
+      await savePreferences(restored);
+      nativeTheme.themeSource = preferences.theme;
+      installMenu();
+      send("workspace.preferences");
+    }
+    await checkpointSession();
+    await rememberFile(file);
+  } finally {
+    if (!committed) lease.release();
   }
-  await checkpointSession();
-  await rememberFile(file);
 }
 async function command(id: string, recentFile?: string, atStartup = false) {
   const changesWorkspace = [
@@ -803,6 +878,30 @@ async function command(id: string, recentFile?: string, atStartup = false) {
           return;
         }
         switch (id) {
+          case "file.newWindow": {
+            const env = { ...process.env };
+            // An explicit profile remains pinned for normal launches. New window is
+            // an explicit request for another slot in the same profile family.
+            delete env.AXIOM_USER_DATA;
+            delete env.ELECTRON_RUN_AS_NODE;
+            env.AXIOM_INSTANCE_ROOT = instanceRoot;
+            const child = spawn(
+              process.execPath,
+              app.isPackaged ? [] : [app.getAppPath()],
+              {
+                env,
+                detached: true,
+                stdio: "ignore",
+                windowsHide: true,
+              },
+            );
+            await new Promise<void>((resolve, reject) => {
+              child.once("spawn", resolve);
+              child.once("error", reject);
+            });
+            child.unref();
+            break;
+          }
           case "cache.clearWikipedia":
             await wikipedia.clear();
             send("cache.wikipedia.cleared");
@@ -822,7 +921,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
             break;
           case "file.close":
             if (await saveBeforeWorkspaceChange()) {
-              workspacePath = undefined;
+              setWorkspacePath();
               recoveryPath = undefined;
               restoredDrafts = undefined;
               await request("new", { blank: true });
@@ -841,7 +940,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
             break;
           case "file.example":
             if (await saveBeforeWorkspaceChange()) {
-              workspacePath = undefined;
+              setWorkspacePath();
               recoveryPath = undefined;
               restoredDrafts = undefined;
               await request("example");
@@ -851,7 +950,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
             break;
           case "file.new":
             if (await saveBeforeWorkspaceChange()) {
-              workspacePath = undefined;
+              setWorkspacePath();
               recoveryPath = undefined;
               restoredDrafts = undefined;
               await request("new");
@@ -1057,7 +1156,13 @@ function installMenu() {
   refreshMenu();
 }
 app.whenReady().then(async () => {
-  if (!hasInstanceLock) return;
+  if (launchFile?.toLowerCase().endsWith(".axiom")) {
+    launchLease = await workspaceOwnership.claim(launchFile);
+    if (!launchLease) {
+      app.quit();
+      return;
+    }
+  }
   try {
     const p = JSON.parse(await readFile(settingsPath(), "utf8"));
     preferences = readPreferences(p);
@@ -1133,7 +1238,17 @@ app.whenReady().then(async () => {
   });
   await recentFiles.load();
   const restoredSession = await sessions.restore(async (session) => {
-    await request("load", { document: session.workspace });
+    // A different slot may have opened this session's named workspace since its
+    // last run. Restore its snapshot as an unnamed recovery, never a second writer.
+    const lease = session.workspacePath
+      ? await workspaceOwnership.claim(session.workspacePath, false)
+      : undefined;
+    try {
+      await request("load", { document: session.workspace });
+    } catch (error) {
+      lease?.release();
+      throw error;
+    }
     preferences = readPreferences({
       ...session.workbench,
       panelState: {
@@ -1144,7 +1259,7 @@ app.whenReady().then(async () => {
       keyboard: preferences.keyboard,
       tabSavePolicy: preferences.tabSavePolicy,
     });
-    workspacePath = session.workspacePath;
+    setWorkspacePath(lease ? session.workspacePath : undefined, lease);
     recoveryPath =
       session.recoveryPath &&
       path.dirname(session.recoveryPath) ===
@@ -1856,6 +1971,7 @@ app.whenReady().then(async () => {
       .run("Save workspace on close", errorContext(), async () => {
         if (saving) await saving;
         await saveWorkspace(false, true, true);
+        await updates?.prepareForQuit();
         closing = true;
         clearInterval(autosaveTimer);
         mainWindow?.close();
@@ -1886,13 +2002,27 @@ app.whenReady().then(async () => {
     });
   refreshMenu();
   launchReady = true;
-  if (launchFile) await openLaunchFile(launchFile, true);
+  try {
+    if (launchFile) await openLaunchFile(launchFile, true);
+  } finally {
+    launchLease?.release();
+    launchLease = undefined;
+  }
   if (preferences.maximized) mainWindow.maximize();
-  startUpdates((message) => console.warn(message));
+  if (focusRequested) {
+    focusRequested = false;
+    focusInstance();
+  }
+  updates = startUpdates((message) => console.warn(message), instanceRegistry);
   autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
   autosaveTimer.unref();
 });
 app.on("window-all-closed", () => app.quit());
+app.on("will-quit", () => {
+  workspaceLease?.release();
+  launchLease?.release();
+  instanceRegistry.leave();
+});
 app.on("before-quit", () => {
   suggestionBatches.close();
   textAnalysis.close();
@@ -1912,7 +2042,7 @@ async function importOntologyFile(file: string) {
     fileName: path.basename(file),
     baseIRI: pathToFileURL(file).href,
   });
-  workspacePath = undefined;
+  setWorkspacePath();
   recoveryPath = undefined;
   restoredDrafts = undefined;
   updateWindowTitle();
