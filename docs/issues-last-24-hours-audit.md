@@ -1,5 +1,7 @@
 # Audit of the preceding 24 hours
 
+Follow-up: `audit-followup-repairs.md` records the subsequent fixes to the Details visual gate, batch persistence and four desktop test failures. This audit preserves the findings as they stood when reviewed.
+
 Craig requested this audit after the incomplete #66 delivery. The fixed review window is **2026-10-07 01:31:44 UTC through 2026-10-08 01:31:44 UTC**, measured from that request, not from the end of the repair. It includes issues created, updated or closed in the window. GitHub returned 14 issues: **#1, #6, #17, #20, #44, #57, #58, #59, #60, #61, #62, #63, #65 and #66**. #64 is a pull request, not an additional issue.
 
 The source records are `artifacts/issues-last-24-hours.json`, `artifacts/audit-issue-<number>.md` and the corresponding comment JSON files. This review compares the issue requirements and subsequent overrides with the implementation, checked-in tests and actual validation records. An old passing report is identified as historical evidence, not a fresh test run or proof of every requirement.

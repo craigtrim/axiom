@@ -1,5 +1,7 @@
 # Issue 57: Details reference implementation
 
+Historical validation below describes the original implementation. The stale reference hash and 2/255 pixel tolerance are superseded by `audit-followup-repairs.md`, which records the #58-amended pin and exact raw-pixel comparisons.
+
 Details now uses the reference's header, vertical ancestry, statement table, content-sized source region, and IRI/revision footer. The authoritative HTML is preserved unchanged at `tests/fixtures/details-visual/visual-reference.html`; every visual run verifies SHA-256 `3387b593125c5ba95e338c3dbdd6e0f8775b4ecf390eebd829d3401476e67e90`.
 
 ## Requirement accounting
