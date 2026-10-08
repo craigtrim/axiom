@@ -1258,7 +1258,10 @@ app.whenReady().then(async () => {
     pending.delete(packet.id);
     if (packet.error)
       p.reject(
-        new Error(packet.error + (packet.hint ? " " + packet.hint : "")),
+        Object.assign(
+          new Error(packet.error + (packet.hint ? " " + packet.hint : "")),
+          { stale: packet.stale === true },
+        ),
       );
     else p.resolve(packet.value);
   });

@@ -146,6 +146,7 @@ export class AuditLog {
       try {
         return await work();
       } catch (error) {
+        if ((error as { stale?: unknown } | null)?.stale === true) throw error;
         record.completedAt = new Date().toISOString();
         record.message = cleanErrorMessage(error);
         record.outcome = /cancelled|canceled/i.test(record.message)

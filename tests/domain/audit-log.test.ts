@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
   AuditLog,
   auditDetail,
+  auditFailureId,
   auditId,
   auditStep,
 } from "../../src/main/audit-log";
@@ -120,6 +121,57 @@ it("isolates overlapping operations and preserves only failed operations", async
     expect((await audit.read(item.id)).details.response).toBe(item.operation);
   expect(auditId()).toBeUndefined();
 });
+
+it("rethrows stale guards without saving or notifying, including nested audit runs", async () => {
+  const notify = vi.fn();
+  const directory = path.join(root, "logs");
+  const audit = new AuditLog(directory, notify);
+  const error = Object.assign(
+    Error("The ontology changed. Review the draft before adding it."),
+    { stale: true },
+  );
+  await expect(
+    audit.run("Outer operation", {}, () =>
+      audit.run("Ontology: findCreatePreview", {}, () => {
+        throw error;
+      }),
+    ),
+  ).rejects.toBe(error);
+  expect(error.message).toBe(
+    "The ontology changed. Review the draft before adding it.",
+  );
+  expect(await audit.list()).toEqual([]);
+  expect(await readdir(directory)).toEqual([]);
+  expect(notify).not.toHaveBeenCalled();
+  expect(auditFailureId(error)).toBeUndefined();
+});
+
+it.each([undefined, false, "true"])(
+  "records ordinary errors even with stale wording and a %s marker",
+  async (stale) => {
+    const notify = vi.fn();
+    const audit = new AuditLog(path.join(root, "logs"), notify);
+    const error = Object.assign(Error("The ontology changed."), { stale });
+    await expect(
+      audit.run("Ordinary failure", {}, () => {
+        throw error;
+      }),
+    ).rejects.toBe(error);
+    expect(await audit.list()).toHaveLength(1);
+    expect(notify).toHaveBeenCalledOnce();
+    expect(auditFailureId(error)).toBeDefined();
+    const original = await audit.list();
+    await expect(
+      audit.run("Stale guard", {}, () => {
+        throw Object.assign(Error("Changed again."), { stale: true });
+      }),
+    ).rejects.toThrow("Changed again.");
+    expect(await new AuditLog(path.join(root, "logs")).list()).toEqual(
+      original,
+    );
+    expect(notify).toHaveBeenCalledOnce();
+  },
+);
 
 it("redacts recognized credentials in files, summaries and copied reports, and marks truncated output", async () => {
   const audit = new AuditLog(path.join(root, "logs"));

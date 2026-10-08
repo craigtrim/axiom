@@ -702,6 +702,8 @@ const string = (a: Record<string, unknown>, key: string, max = 200000) => {
     throw Error("Invalid " + key + ".");
   return a[key] as string;
 };
+const staleError = (message: string) =>
+  Object.assign(Error(message), { stale: true });
 const number = (
   a: Record<string, unknown>,
   key: string,
@@ -816,7 +818,9 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         a.datasetEpoch !== datasetEpoch ||
         (!Array.isArray(a.original) && a.version !== store.version)
       )
-        throw Error("The ontology changed. Reload this editor before saving.");
+        throw staleError(
+          "The ontology changed. Reload this editor before saving.",
+        );
       const iri = string(a, "iri"),
         next = typeof a.nextIri === "string" ? a.nextIri : iri;
       validateStatement({
@@ -967,7 +971,9 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "findCreatePreview":
     case "findCreate": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error("The ontology changed. Review the draft before adding it.");
+        throw staleError(
+          "The ontology changed. Review the draft before adding it.",
+        );
       if (method === "findCreatePreview")
         return previewFindCreation(store, a.creation, datasetEpoch);
       selected = createFindEntity(store, a.creation, datasetEpoch);
@@ -978,7 +984,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "textAnalysisCreatePreview":
     case "textAnalysisCreate": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error(
+        throw staleError(
           "The ontology changed. Refresh the selected phrase before adding it.",
         );
       if (method === "textAnalysisCreatePreview")
@@ -1084,7 +1090,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "validateSynonyms":
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error("The ontology changed. Start a new synonym run.");
+        throw staleError("The ontology changed. Start a new synonym run.");
       return validateSynonyms(
         store,
         string(a, "iri", 10000),
@@ -1104,7 +1110,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "validateTaxonomySuggestions":
     case "applyTaxonomySuggestions": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error(
+        throw staleError(
           "The ontology changed. Find suggestions again before adding them.",
         );
       const iri = string(a, "iri", 10000),
@@ -1130,7 +1136,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return touchpointContext(store, string(a, "iri", 10000), datasetEpoch);
     case "applyTouchpoints": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error(
+        throw staleError(
           "The ontology changed since this search. Search again before applying touchpoints.",
         );
       const count = applyTouchpoints(
@@ -1150,7 +1156,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       };
     case "applySubclassSuggestions": {
       if (a.version !== store.version || a.datasetEpoch !== datasetEpoch)
-        throw Error("The ontology changed. Find suggestions again.");
+        throw staleError("The ontology changed. Find suggestions again.");
       const iri = string(a, "iri", 10000);
       if (
         !Array.isArray(a.parents) ||
@@ -1171,7 +1177,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       };
     case "applyIntersection": {
       if (a.version !== store.version || a.datasetEpoch !== datasetEpoch)
-        throw Error("The ontology changed. Find suggestions again.");
+        throw staleError("The ontology changed. Find suggestions again.");
       const iri = string(a, "iri", 10000);
       if (a.predicate === SUBCLASS)
         store.addClassParents(iri, a.members as string[]);
@@ -1195,14 +1201,14 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         a.find !== undefined &&
         (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
       )
-        throw Error(
+        throw staleError(
           "The ontology changed. Wait for Find to refresh and try again.",
         );
       if (
         a.textAnalysis !== undefined &&
         (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
       )
-        throw Error(
+        throw staleError(
           "The ontology changed. Wait for Text Analysis to refresh and try again.",
         );
       // Resolve and validate the complete result graph before changing any view.
@@ -1535,7 +1541,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "createEdge": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error("The ontology changed. Start the connection again.");
+        throw staleError("The ontology changed. Start the connection again.");
       const bends = a.bends === undefined ? [] : edgeBends(a.bends);
       const statement = a.statement as Triple;
       validateStatement(statement);
@@ -1582,7 +1588,9 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "editEdge": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error("The ontology changed. Reload the edge before saving.");
+        throw staleError(
+          "The ontology changed. Reload the edge before saving.",
+        );
       const key = string(a, "key", 40000),
         edge = view.edges.get(key);
       if (!edge) throw Error("This edge is no longer visible.");
@@ -1728,7 +1736,9 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch) ||
         (a.version !== undefined && a.version !== store.version)
       )
-        throw Error("The ontology changed. Select the current match again.");
+        throw staleError(
+          "The ontology changed. Select the current match again.",
+        );
       selected = a.iri === null ? null : string(a, "iri");
       if (selected && !store.exists(selected))
         throw Error("This entity is no longer in the Store.");
@@ -1753,7 +1763,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         (a.datasetEpoch !== undefined && a.datasetEpoch !== datasetEpoch) ||
         (a.version !== undefined && a.version !== store.version)
       )
-        throw Error(
+        throw staleError(
           "The ontology changed. Filter the current individuals again.",
         );
       beginSearch(a);
@@ -1786,7 +1796,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       if (a.datasetEpoch !== datasetEpoch)
         throw Error("The workspace changed. Open the instance report again.");
       if (a.version !== undefined && a.version !== store.version)
-        throw Error(
+        throw staleError(
           "The ontology changed. Filter the current instances again.",
         );
       const iri = string(a, "iri"),
@@ -2021,7 +2031,7 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     }
     case "moveClass": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
-        throw Error("The ontology changed. Drag the class again.");
+        throw staleError("The ontology changed. Drag the class again.");
       const iri = string(a, "iri"),
         parent = string(a, "parent");
       const fromParent = a.fromParent === null ? null : string(a, "fromParent");
@@ -2355,6 +2365,7 @@ parentPort!.on(
         id,
         error: e instanceof Error ? e.message : String(e),
         hint: (e as { hint?: string }).hint,
+        stale: (e as { stale?: boolean }).stale,
       });
     }
   },
