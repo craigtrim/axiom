@@ -9,6 +9,7 @@ import {
 } from "@playwright/test";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import path from "node:path";
+import type { Snapshot } from "../../src/shared/protocol";
 let application: ElectronApplication, page: Page;
 let errors: string[] = [];
 async function menu(label: string) {
@@ -78,7 +79,15 @@ test("native menus, fixture, table and query", async () => {
       Menu.getApplicationMenu()!.items.map((i) => i.label.replaceAll("&", "")),
     ),
   ).toEqual(["File", "Edit", "View", "Graph", "Query", "Window", "Help"]);
-  await expect(page.locator(".status-counts")).toContainText("87,379 triples");
+  // The reference status bar displays classes and individuals. Keep the
+  // fixture's triple census assertion against the actual Store snapshot.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () => (await window.axiom.request<Snapshot>("state")).tripleCount,
+      ),
+    )
+    .toBe(87379);
   await expect(page.locator(".individual-cell").first()).toContainText(
     "Pizza_000001",
   );
@@ -156,11 +165,17 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
     .fill("ElectronTestPizza");
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator(".status-counts")).toContainText("96 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("96 classes");
   await menu("Undo");
-  await expect(page.locator(".status-counts")).toContainText("95 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("95 classes");
   await menu("Redo");
-  await expect(page.locator(".status-counts")).toContainText("96 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("96 classes");
   const price = page.locator(
     '[data-panel="individuals"] .ag-row[row-index="0"] [col-id="price"]',
   );
@@ -194,7 +209,9 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
     });
   });
   await menu("New workspace");
-  await expect(page.locator(".status-counts")).toContainText("1 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("1 classes");
   await application.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -202,7 +219,9 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
     });
   }, file);
   await menu("Workspace...");
-  await expect(page.locator(".status-counts")).toContainText("96 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("96 classes");
   await expect(
     page.locator(
       '[data-panel="individuals"] .ag-row[row-index="0"] [col-id="price"]',
@@ -483,13 +502,13 @@ test("create an individual with validation and undo, and delete a class with und
   await label.fill("A new named individual");
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator(".status-counts")).toContainText(
-    "13,506 individuals",
-  );
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("13,506 individuals");
   await menu("Undo");
-  await expect(page.locator(".status-counts")).toContainText(
-    "13,505 individuals",
-  );
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("13,505 individuals");
   await page
     .getByRole("button", { name: "New class", exact: true })
     .first()
@@ -502,13 +521,19 @@ test("create an individual with validation and undo, and delete a class with und
     .getByRole("textbox", { name: "New entity label", exact: true })
     .press("Enter");
   await expect(create).toHaveCount(0);
-  await expect(page.locator(".status-counts")).toContainText("96 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("96 classes");
   await menu("Delete class...");
   const deletion = page.getByRole("dialog", { name: "Delete class" });
   await deletion.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.locator(".status-counts")).toContainText("95 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("95 classes");
   await menu("Undo");
-  await expect(page.locator(".status-counts")).toContainText("96 classes");
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toContainText("96 classes");
 });
 
 test("a detached inspector renames in place and restores GPU context", async () => {
@@ -597,7 +622,13 @@ test("a running query can be cancelled and followed by a fresh query", async () 
     .getByRole("dialog", { name: "Regenerate dataset" })
     .getByRole("button", { name: "Regenerate", exact: true })
     .click();
-  await expect(page.locator(".status-counts")).toContainText("725,379 triples");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () => (await window.axiom.request<Snapshot>("state")).tripleCount,
+      ),
+    )
+    .toBe(725379);
   await menu("Query");
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+A");

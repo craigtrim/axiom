@@ -45,7 +45,9 @@ async function launch(file?: string) {
       checkboxChecked: false,
     });
   });
-  await expect(page.locator(".status-counts")).toBeVisible();
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toBeVisible();
 }
 async function menu(id: string) {
   await app!.evaluate(({ Menu, BrowserWindow }, id) => {
