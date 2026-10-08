@@ -32,7 +32,15 @@ const toggle = <T,>(values: T[], value: T) =>
     ? values.filter((v) => v !== value)
     : [...values, value];
 const scrollPositions = new Map<string, number>();
-function Rail({ name, children }: { name: string; children: ReactNode }) {
+function Rail({
+  name,
+  children,
+  announce,
+}: {
+  name: string;
+  children: ReactNode;
+  announce: (text: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const restore = useRef(
     scrollPositions.get(name) ??
@@ -64,6 +72,7 @@ function Rail({ name, children }: { name: string; children: ReactNode }) {
         )
           return;
         scrollPositions.set(name, e.currentTarget.scrollLeft);
+        announce(name + " row scrolled.");
         savePanel(
           "quality.rails",
           { ...panel("quality.rails", {}), [name]: e.currentTarget.scrollLeft },
@@ -185,7 +194,7 @@ export function QualitySettings({
       <div className="settings">
         <div className="srow" role="group" aria-label={t("scope.label")}>
           <span className="k">{t("scope.label")}</span>
-          <Rail name="scope">
+          <Rail announce={announce} name="scope">
             <select
               className="sel"
               tabIndex={0}
@@ -249,7 +258,7 @@ export function QualitySettings({
         </div>
         <div className="srow" role="group" aria-label={t("kinds.label")}>
           <span className="k">{t("kinds.label")}</span>
-          <Rail name="kinds">
+          <Rail announce={announce} name="kinds">
             {kinds.map((k) =>
               chip(
                 names[k],
@@ -262,7 +271,7 @@ export function QualitySettings({
         </div>
         <div className="srow" role="group" aria-label={t("checks.label")}>
           <span className="k">{t("checks.label")}</span>
-          <Rail name="checks">
+          <Rail announce={announce} name="checks">
             {groups.map((g) => {
               const admitted = qualityRules.filter(
                 (r) => r.group === g && !withdrawn.includes(r.id),
@@ -307,7 +316,7 @@ export function QualitySettings({
         </div>
         <div className="srow" role="group" aria-label={t("vocab.label")}>
           <span className="k">{t("vocab.label")}</span>
-          <Rail name="vocabulary">
+          <Rail announce={announce} name="vocabulary">
             {qualityVocabularies
               .filter((v) => known[v])
               .map((v) => (

@@ -256,6 +256,7 @@ test("settings rails retain their position, running keeps four unavailable rows,
     .poll(() => kinds.evaluate((el) => el.scrollLeft))
     .toBeGreaterThan(0);
   expect(await body.evaluate((el) => el.scrollTop)).toBe(beforeTop);
+  await expect(pane().locator(".sr")).toContainText("kinds row scrolled.");
   const left = await kinds.evaluate((el) => el.scrollLeft);
   await expect
     .poll(() =>
