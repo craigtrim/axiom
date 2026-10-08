@@ -34,17 +34,23 @@ for (const size of ["default", "short", "narrow"] as const) {
         name: item.title,
         exact: true,
       });
-      const input = dialog.getByRole("textbox", {
-        name: item.field,
-        exact: true,
-      });
+      const input = dialog.getByRole(
+        item.command === "palette" ? "combobox" : "textbox",
+        {
+          name: item.field,
+          exact: true,
+        },
+      );
       const original = await box(dialog),
         inputBox = await box(input);
       for (const text of ["Find", "NoSuchCommandzzzzz", ""]) {
         await input.fill(text);
         await fixedBox(dialog, original);
         await fixedBox(input, inputBox);
-        await bounds(dialog);
+        await bounds(
+          dialog,
+          item.command === "palette" ? ".plist" : ".modal-body",
+        );
         await expect(input).toBeFocused();
       }
       if (item.command === "keyboard.settings") {

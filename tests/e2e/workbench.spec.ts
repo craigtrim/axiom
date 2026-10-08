@@ -333,10 +333,8 @@ test("keyboard commands, themes and accessible controls", async () => {
   await expect(
     page.getByRole("dialog", { name: "Command palette" }),
   ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Find a command" })
-    .fill("dark theme");
-  await page.getByRole("textbox", { name: "Find a command" }).press("Enter");
+  await page.getByRole("combobox", { name: "Find a command" }).fill("Dark");
+  await page.getByRole("combobox", { name: "Find a command" }).press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+Enter");
   await expect(

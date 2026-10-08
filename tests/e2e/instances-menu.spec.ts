@@ -653,11 +653,10 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   ).toHaveText("Direct instances 0");
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Find a command" })
     .fill("Show instances");
   const option = page.getByRole("option", {
-    name: "Edit: Show instances (0)",
-    exact: true,
+    name: /^Show instances \(0\)(?:\s|$)/,
   });
   await expect(option).toBeDisabled();
   await page.keyboard.press("Enter");
@@ -721,12 +720,11 @@ test("palette and class pickers show the same counts as the report", async () =>
     .toEqual({ label: "Show instances (527)", enabled: true });
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Find a command" })
     .fill("Show instances");
   await expect(
     page.getByRole("option", {
-      name: "Edit: Show instances (527)",
-      exact: true,
+      name: /^Show instances \(527\)(?:\s|$)/,
     }),
   ).toBeEnabled();
   await page.keyboard.press("Enter");
@@ -785,11 +783,11 @@ test("known-empty graph operations are disabled consistently with the native men
   expect(enabled).toEqual([false, false]);
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Find a command" })
     .fill("Collapse selected node");
   await expect(
     page.getByRole("option", {
-      name: /^Graph: Collapse selected node/,
+      name: /^Collapse selected node(?:\s|$)/,
     }),
   ).toBeDisabled();
 });

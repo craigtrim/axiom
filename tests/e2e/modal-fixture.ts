@@ -137,11 +137,11 @@ export async function fixedBox(
   expect(current.y).toBeCloseTo(original.y, 1);
   expect(current.width).toBeCloseTo(original.width, 1);
 }
-export async function bounds(dialog: Locator) {
-  const result = await dialog.evaluate((d) => {
+export async function bounds(dialog: Locator, bodySelector = ".modal-body") {
+  const result = await dialog.evaluate((d, bodySelector) => {
     const r = d.getBoundingClientRect(),
       win = d.ownerDocument.defaultView!;
-    const body = d.querySelector(".modal-body")!;
+    const body = d.querySelector(bodySelector)!;
     return {
       top: r.top,
       left: r.left,
@@ -152,7 +152,7 @@ export async function bounds(dialog: Locator) {
       horizontal: body.scrollWidth > body.clientWidth + 1,
       outer: d.scrollHeight > d.clientHeight + 1,
     };
-  });
+  }, bodySelector);
   expect(result.top).toBeGreaterThanOrEqual(0);
   expect(result.left).toBeGreaterThanOrEqual(0);
   expect(result.right).toBeLessThanOrEqual(result.width + 1);

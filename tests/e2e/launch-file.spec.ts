@@ -111,7 +111,9 @@ test("a workspace path on the command line opens that workspace", async () => {
   await launch(file);
   await expect.poll(async () => (await state()).classCount).toBe(3);
   expect((await state()).dirty).toBe(false);
-  await expect(page.locator(".window-title")).toContainText("Courses.axiom");
+  await expect(
+    page.getByTestId("window-titlebar").locator("strong"),
+  ).toHaveText("Courses.axiom");
   await page.screenshot({ path: "artifacts/testing/launch-workspace.png" });
 });
 
