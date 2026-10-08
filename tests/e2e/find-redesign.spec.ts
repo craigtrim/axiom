@@ -269,7 +269,10 @@ test("inline create saves custom IRI, parents and annotations, selects it, and u
     .fill('A < B & "quoted"');
   const parent = create().getByRole("combobox", { name: "Parent classes" });
   await parent.fill("Foundation");
-  await page.getByRole("option", { name: /Foundation/ }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes" })
+    .getByRole("option", { name: /Foundation/ })
+    .click();
   await create()
     .getByRole("button", { name: /Add row/ })
     .click();
@@ -341,7 +344,10 @@ test("flat editor follows parent selection, label edits and statement removal", 
   await expect(ancestry.locator(".entity-ancestry-card")).toHaveCount(0);
   await expect(count).toHaveText("4 statements");
   await parent.fill("Foundation");
-  await page.getByRole("option", { name: /Foundation/ }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes" })
+    .getByRole("option", { name: /Foundation/ })
+    .click();
   await expect(parent).toHaveValue("Foundation");
   await expect(ancestry.locator(".entity-ancestry-card .nn")).toHaveText([
     "New Course",
