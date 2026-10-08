@@ -761,12 +761,23 @@ test("palette and class pickers show the same counts as the report", async () =>
 
 test("known-empty graph operations are disabled consistently with the native menu", async () => {
   await menu("file.new");
+  await expect.poll(async () => (await state()).ontology.example).toBe(false);
   const context = await graphMenu(THING);
+  // A seeded root can already be expanded. The context command follows that
+  // state, while both native operations remain disabled for a degree-zero node.
+  const node = (await state()).graph.nodes.find((n) => n.iri === THING)!;
+  expect(node.degree).toBe(0);
   await expect(
-    context.getByRole("menuitem", { name: "Expand", exact: true }),
+    context.getByRole("menuitem", {
+      name: node.expanded ? "Collapse" : "Expand",
+      exact: true,
+    }),
   ).toBeDisabled();
   await expect(
-    context.getByRole("menuitem", { name: "Collapse", exact: true }),
+    context.getByRole("menuitem", {
+      name: node.expanded ? "Expand" : "Collapse",
+      exact: true,
+    }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   for (const name of ["Expand", "Collapse"])
