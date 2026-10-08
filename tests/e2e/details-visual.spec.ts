@@ -1,4 +1,4 @@
-// Whole-pane pixels from Craig's unchanged reference, never an app baseline.
+// Whole-pane pixels from Craig's reference, with only #58's authorized copy edit.
 import {
   test,
   expect,
@@ -15,7 +15,7 @@ import type { Snapshot } from "../../src/shared/protocol";
 const reference = path.resolve(
   "tests/fixtures/details-visual/visual-reference.html",
 );
-const hash = "3387b593125c5ba95e338c3dbdd6e0f8775b4ecf390eebd829d3401476e67e90";
+const hash = "0cdd5cc4925e8e808eb1b81ddcc1da9d9dd6ed6d55cde1905a8420c58ecff95c";
 const base = "http://devry.edu/courses#";
 const ontology = `@prefix : <${base}> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
@@ -168,10 +168,30 @@ async function resize(width: number, height: number) {
     .toBe(height);
 }
 async function capture(root: Locator) {
-  // Give each specimen the same compositing boundary; no geometry or visual styles change.
-  await root.evaluate(
-    (el) => ((el as HTMLElement).style.transform = "translateZ(0)"),
-  );
+  // Match the pane and rounded body controls' compositing boundaries. Otherwise
+  // Chromium rasterizes fractional corners against different ancestor layers.
+  // This changes neither geometry nor reference colors, and applies to both sides.
+  await root.evaluate(async (el) => {
+    for (const node of [el, ...el.querySelectorAll("*")]) {
+      (node as HTMLElement).style.removeProperty("transform");
+      (node as HTMLElement).style.removeProperty("will-change");
+    }
+    // Discard cached layers from the preceding size/state before promoting the
+    // new presentation. React retains nodes while the reference recreates them.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+    for (const node of [el, ...el.querySelectorAll("*")]) {
+      if (
+        node === el ||
+        (!node.closest(".phead") &&
+          getComputedStyle(node).borderRadius !== "0px")
+      ) {
+        (node as HTMLElement).style.transform = "translateZ(0)";
+        (node as HTMLElement).style.willChange = "transform";
+      }
+    }
+  });
   const b = (await root.boundingBox())!;
   await root.page().mouse.move(1, 1);
   await root
@@ -230,7 +250,6 @@ async function compare(name: string) {
         q = b.toBitmap();
       if (p.length !== q.length) throw Error("Image dimensions differ");
       let pixels = 0,
-        aboveRounding = 0,
         maxChannelDifference = 0;
       const rows: Record<number, number> = {};
       const boxes: number[][] = [];
@@ -243,14 +262,12 @@ async function compare(name: string) {
             ),
           );
           maxChannelDifference = Math.max(maxChannelDifference, delta);
-          if (delta > 2) aboveRounding++;
           const y = Math.floor(i / 4 / a.getSize().width);
           rows[y] = (rows[y] ?? 0) + 1;
           boxes.push([(i / 4) % a.getSize().width, y]);
         }
       return {
         pixels,
-        aboveRounding,
         maxChannelDifference,
         rows,
         boxes: boxes.slice(0, 200),
@@ -266,12 +283,7 @@ async function compare(name: string) {
       2,
     ),
   );
-  // Independent Chromium surfaces can round antialiased corners by 1–2 RGB
-  // levels. No masks, pixel-count budget, or perceptual threshold: every channel
-  // of every pixel must agree within that rounding, and geometry/styles are exact.
-  expect
-    .soft(differences.aboveRounding, name + " pixels beyond 2/255 rounding")
-    .toBe(0);
+  expect.soft(differences.pixels, name + " differing raw pixels").toBe(0);
   expect
     .soft(
       appLayout.map((entry) => entry.slice(2)),
