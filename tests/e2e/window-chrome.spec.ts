@@ -201,7 +201,7 @@ async function compare(name: string, selector: ".titlebar" | ".menu") {
     const box = (await loc.boundingBox())!;
     return page.screenshot({ clip: box, animations: "disabled", scale: "css" });
   };
-  await page.mouse.move(2, 400);
+  await page.mouse.move(2, 10);
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
   await shoot(true);
   await shoot(false);

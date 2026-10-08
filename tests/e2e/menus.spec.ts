@@ -380,11 +380,11 @@ journey(
       "find",
     ]) {
       await menu("view." + id);
-      await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
+      await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
       await menu("pane.close");
       await expect(page.locator('[data-panel="' + id + '"]')).toHaveCount(0);
       await menu("view." + id);
-      await expect(page.locator('[data-pane-id="' + id + '"]')).toBeVisible();
+      await expect(page.locator('[data-panel="' + id + '"]')).toBeVisible();
     }
     await menu("view.graph");
     await menu("view.inspector");
@@ -408,9 +408,9 @@ journey(
       .toBe(true);
     await menu("palette");
     await page
-      .getByRole("textbox", { name: "Find a command" })
-      .fill("View: Query");
-    await page.getByRole("textbox", { name: "Find a command" }).press("Enter");
+      .getByRole("combobox", { name: "Find a command" })
+      .fill("Query View");
+    await page.getByRole("combobox", { name: "Find a command" }).press("Enter");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator('[data-panel="query"]')).toBeVisible();
   },

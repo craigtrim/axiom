@@ -97,6 +97,36 @@ async function scan(p = page) {
   await run.click();
   await expect(summary(p)).toContainText("scanned");
 }
+// Trigger the real Cancel button in the same renderer turn that publishes
+// partial progress. A protocol round trip can otherwise let this short scan
+// finish between observing its progress and sending the click.
+async function cancelAfterProgress() {
+  return pane().evaluateHandle((element) => ({
+    done: new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const scanned = Number(
+          element
+            .querySelector(".bar .sum")
+            ?.textContent?.match(/^([\d,]+) of/)?.[1]
+            .replaceAll(",", "") ?? 0,
+        );
+        const button = [
+          ...element.querySelectorAll<HTMLButtonElement>("button"),
+        ].find((button) => button.textContent?.trim() === "Cancel");
+        if (scanned >= 128 && button && !button.disabled) {
+          observer.disconnect();
+          button.click();
+          resolve();
+        }
+      });
+      observer.observe(element, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+    }),
+  }));
+}
 test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
@@ -231,6 +261,21 @@ test("reviewed batch adds labels without renaming placeholder identifiers and su
 
 test("Would add applies successive corrections, keeps the report current, focuses the next row and supports individual Undo", async () => {
   await scan();
+  const shellStatus = page.getByRole("contentinfo", {
+    name: "Workbench status",
+  });
+  await expect(shellStatus).toContainText("Scan current");
+  await shellStatus.evaluate((element) => {
+    const observer = new MutationObserver(() => {
+      if (element.textContent?.includes("Quality scan out of date"))
+        element.setAttribute("data-observed-stale", "true");
+    });
+    observer.observe(element, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
   await band("Missing explicit primary label").click();
   await row("Industrial Safety").click();
   const before = await state();
@@ -253,7 +298,10 @@ test("Would add applies successive corrections, keeps the report current, focuse
   await row("Synonym Only").click();
   await detail().getByRole("button", { name: "Apply", exact: true }).click();
   await expect(band("Missing explicit primary label")).toHaveCount(0);
+  await expect(shellStatus).toContainText("Scan current");
+  await expect(shellStatus).not.toHaveAttribute("data-observed-stale", "true");
   await menu("edit.undo");
+  await expect(shellStatus).toContainText("Quality scan out of date");
   await expect
     .poll(
       async () =>
@@ -537,21 +585,13 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     .getByRole("textbox", { name: "Primary label predicates" })
     .fill("http://www.w3.org/2000/01/rdf-schema#label");
   await pane().getByRole("button", { name: "Done" }).click();
+  const cancellation = await cancelAfterProgress();
   await pane()
     .locator(".quality-settings")
     .getByRole("button", { name: "Run scan", exact: true })
     .click();
-  // Let the scan reach past one page of findings before canceling it.
-  await expect
-    .poll(async () =>
-      Number(
-        (await summary().textContent())
-          ?.match(/^([\d,]+) of/)?.[1]
-          .replace(/,/g, "") ?? 0,
-      ),
-    )
-    .toBeGreaterThanOrEqual(128);
-  await pane().getByRole("button", { name: "Cancel", exact: true }).click();
+  await cancellation.evaluate((value) => value.done);
+  await cancellation.dispose();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
   );
@@ -643,17 +683,10 @@ test("a canceled report pages its findings from any view and goes stale like a c
     .getByRole("searchbox", { name: "Filter findings" })
     .fill("no such entity");
   await pane().getByRole("button", { name: "Coverage", exact: true }).click();
+  const cancellation = await cancelAfterProgress();
   await pane().getByRole("button", { name: "Rerun" }).click();
-  await expect
-    .poll(async () =>
-      Number(
-        (await summary().textContent())
-          ?.match(/^([\d,]+) of/)?.[1]
-          .replace(/,/g, "") ?? 0,
-      ),
-    )
-    .toBeGreaterThanOrEqual(128);
-  await pane().getByRole("button", { name: "Cancel", exact: true }).click();
+  await cancellation.evaluate((value) => value.done);
+  await cancellation.dispose();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
   );

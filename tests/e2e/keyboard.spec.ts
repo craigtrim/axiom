@@ -357,7 +357,9 @@ test("keyboard help and palette show current shortcuts and pane navigation works
   await page.screenshot({ path: "artifacts/testing/keyboard-settings.png" });
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("textbox", { name: "Find a command" }).fill("query run");
+  await page
+    .getByRole("combobox", { name: "Find a command" })
+    .fill("Run query");
   await expect(
     page.getByRole("dialog", { name: "Command palette" }),
   ).toContainText("Ctrl+Shift+J");
