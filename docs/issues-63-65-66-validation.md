@@ -1,5 +1,7 @@
 # Issues 63, 65 and 66: final Windows validation
 
+**Historical record:** #66 was subsequently reopened because this delivery omitted the full reference shell. See `docs/issue-66-full-shell-validation.md` for the correction and `docs/issues-last-24-hours-audit.md` for the retrospective findings. The graph-command race listed below is corrected in that later delivery.
+
 Validated on Windows on 7 October 2026. The final package was built at `2026-10-07T21:45:37.618Z` and includes the entity-menu focus correction in `bedefad`.
 
 - Executable: `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`.

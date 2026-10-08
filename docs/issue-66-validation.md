@@ -1,5 +1,7 @@
 # Issue 66: one Windows title band
 
+**Superseded as a completion claim.** This records the earlier title-band-only delivery. Craig required the complete supplied shell, including the rail, document tabs, status bar and palette. The correction is recorded in `docs/issue-66-full-shell-validation.md`; the omissions audit is in `docs/issues-last-24-hours-audit.md`.
+
 Windows now uses the reference's 36 CSS pixel band: app mark, eight naturally sized menu triggers and a document pill. Native caption controls retain their real environment-variable reservation. Light, Dark and System changes update the overlay color and symbols alongside the renderer.
 
 The in-page popups use ContextMenu and read the installed Electron menu's labels, access keys, enabled and checked states, recent files and accelerators. Invocation rechecks the current item and its label before execution. Long popups scroll within the viewport. The folder, full menu bar and pill withdraw at 1100, 820 and 620 CSS pixels respectively. The minimum window remains 840×600; actual Electron zoom commands reach the compact states.
