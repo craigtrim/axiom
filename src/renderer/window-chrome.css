@@ -1,5 +1,6 @@
 /* Issue 66: window chrome from the pinned shell reference. */
 .window-chrome,
+.shell-surface,
 .entity-context-menu.chrome-menu {
   color-scheme: light;
 
@@ -67,6 +68,7 @@
   /* three native caption buttons, Windows default */
 }
 [data-theme="dark"] .window-chrome,
+[data-theme="dark"] .shell-surface,
 [data-theme="dark"] .entity-context-menu.chrome-menu {
   color-scheme: dark;
   --ground: #0d1117;

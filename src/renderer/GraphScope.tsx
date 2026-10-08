@@ -2,6 +2,17 @@ import { createContext, useContext, useMemo } from "react";
 import * as client from "./client";
 import type { GraphSnapshot, Snapshot, DomainMethod } from "../shared/protocol";
 export const GraphScope = createContext("graph");
+const readyGraphs = new Set<string>();
+export const graphCommandsReady = (id: string) => readyGraphs.has(id);
+export function suspendGraphCommands(id: string) {
+  const suspended = readyGraphs.delete(id);
+  return () => {
+    if (suspended) {
+      readyGraphs.add(id);
+      client.command("graph.ready:" + id);
+    }
+  };
+}
 export function useGraphScope() {
   const id = useContext(GraphScope);
   return useMemo(() => {
@@ -44,14 +55,22 @@ export function useGraphScope() {
     ) => client.request<T>(method, { ...args, graphId: id });
     const act = (method: DomainMethod, args?: Record<string, unknown>) =>
       client.act(method, { ...args, graphId: id });
-    const onCommand = (fn: (id: string) => void) =>
-      client.onCommand((command) => {
+    const onCommand = (fn: (id: string) => void) => {
+      const off = client.onCommand((command) => {
         if (
-          (client.state?.activeGraphId ?? "graph") === id ||
+          (readyGraphs.has(id) &&
+            (client.state?.activeGraphId ?? "graph") === id) ||
           (!command.startsWith("graph.") && !command.startsWith("edge."))
         )
           fn(command);
       });
+      readyGraphs.add(id);
+      client.command("graph.ready:" + id);
+      return () => {
+        readyGraphs.delete(id);
+        off();
+      };
+    };
     const useSnapshot = () => {
       client.useSnapshot();
       return {

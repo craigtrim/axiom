@@ -40,13 +40,19 @@ import { captureWorkspaceDrafts } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
 import { WindowChrome } from "./WindowChrome";
+import {
+  DocumentTabs,
+  PaneRail,
+  WorkbenchStatus,
+  useShellBadges,
+} from "./WorkbenchShell";
+import { ChromePalette } from "./ChromePalette";
+import { graphCommandsReady, suspendGraphCommands } from "./GraphScope";
 import { ErrorLogPanel } from "./ErrorLogPanel";
-import { ErrorDetailsButton } from "./ErrorNotice";
 import { selectAudit } from "./audit-state";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 import { openTaxonomy, suggestionStarts } from "./taxonomy-view";
 import { SuggestionRunsPanel } from "./SuggestionRunsPanel";
-import { instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
   AssistantTabActivity,
@@ -67,8 +73,6 @@ import { startInlineRename } from "./InlineRename";
 import { StylesDialog } from "./StylesDialog";
 import { TouchpointsPanel } from "./TouchpointsPanel";
 import { layoutOptions } from "../shared/layout-options";
-import { commandDefinitions } from "../shared/commands";
-import { shortcutText } from "../shared/shortcuts";
 import { installKeyboard, keyHint } from "./keyboard";
 import { KeyboardDialog } from "./KeyboardDialog";
 import { KeyboardHelp } from "./KeyboardHelp";
@@ -103,11 +107,10 @@ const QueryResultsPanel = lazy(() =>
 const QueryPanel = lazy(() =>
   import("./QueryPanel").then((m) => ({ default: m.QueryPanel })),
 );
-import { EditDialog, Modal, Palette, type EntityDialog } from "./Dialogs";
+import { EditDialog, Modal, type EntityDialog } from "./Dialogs";
 import {
   useSnapshot,
   state,
-  useNotice,
   preferences,
   persist,
   savePanel,
@@ -430,29 +433,7 @@ export function applyTheme(doc: Document = document) {
 }
 export function App() {
   useAssistantActivityPolling();
-  const items = commandDefinitions.map((c) => {
-    const action =
-      c.id === "entity.showInstances"
-        ? instanceAction(state?.entities.find((e) => e.iri === state?.selected))
-        : undefined;
-    return {
-      id: c.id,
-      label: c.group + ": " + (action?.label ?? c.label),
-      enabled:
-        action?.enabled ??
-        (c.id === "graph.expand"
-          ? !!state?.graph.nodes.find((n) => n.iri === state?.selected)
-              ?.degree || !!state?.graph.selectedEdge
-          : c.id === "graph.collapse"
-            ? !!state?.graph.nodes.find((n) => n.iri === state?.selected)
-                ?.shownDegree
-            : undefined),
-      title: action?.title,
-      shortcut: shortcutText(c.id, preferences.keyboard),
-    };
-  });
   const s = useSnapshot()!,
-    notice = useNotice(),
     [model, setModel] = useState(() => restoreLayout(preferences.layout)),
     modelRef = useRef(model),
     [edit, setEdit] = useState<EntityDialog | null>(null),
@@ -475,11 +456,16 @@ export function App() {
     tabOperations = useRef(new Set<Promise<unknown>>()),
     [regenerate, setRegenerate] = useState<number | null>(null),
     [themeVersion, setThemeVersion] = useState(0),
+    [shellPane, setShellPane] = useState("graph"),
+    [, setShellRevision] = useState(0),
+    pendingGraphCommands = useRef<string[]>([]),
     active = useRef("graph"),
     pendingLayout = useRef<unknown>(null);
+  const shellBadges = useShellBadges(s);
   modelRef.current = model;
   useEffect(() => installTextEntitySplitter(model, document), [model]);
   useEffect(() => {
+    pendingGraphCommands.current = [];
     syncEditorEpoch(s.datasetEpoch);
     syncFindEpoch(s.datasetEpoch);
     suggestionStarts.clearOtherEpochs(s.datasetEpoch);
@@ -495,6 +481,9 @@ export function App() {
       valid = n instanceof TabNode,
       parent = n?.getParent(),
       resize = valid && !!widthRow(n) && !m.getMaximizedTabset(n.getLayoutId());
+    const selected = valid ? n : m.getActiveTabset()?.getSelectedNode();
+    if (selected instanceof TabNode)
+      setShellPane(selected.getComponent() ?? "graph");
     const count = [...documents]
       .flatMap((d) => [...d.querySelectorAll<HTMLElement>("[data-panel]")])
       .filter(
@@ -527,6 +516,7 @@ export function App() {
     });
   };
   const saveLayout = (m: Model) => {
+    setShellRevision((revision) => revision + 1);
     syncTabHistory(m);
     if (pendingLayout.current) {
       preferences.arrangement = "custom";
@@ -551,11 +541,17 @@ export function App() {
     captureTab(node);
     const operation = (async () => {
       if (node.getComponent() === "graph") {
-        await request("graphArchive", {
-          id,
-          retain: tabHistory().entries.some((t) => t.id === id),
-          datasetEpoch: epoch,
-        });
+        const resume = suspendGraphCommands(id);
+        try {
+          await request("graphArchive", {
+            id,
+            retain: tabHistory().entries.some((t) => t.id === id),
+            datasetEpoch: epoch,
+          });
+        } catch (error) {
+          resume();
+          throw error;
+        }
         setState(await request<Snapshot>("state"));
       }
       if (state?.datasetEpoch !== epoch) return;
@@ -568,14 +564,18 @@ export function App() {
       .finally(() => tabOperations.current.delete(operation));
     return operation;
   };
-  const openSavedTab = async (saved: SavedTab, restore = true) => {
+  const openSavedTab = async (
+    saved: SavedTab,
+    restore = true,
+    focusPanel = true,
+  ) => {
     const m = modelRef.current;
     if (m.getNodeById(saved.id)) {
       if (saved.type === "graph") {
         await request("graphActivate", { id: saved.id });
         setState(await request<Snapshot>("state"));
       }
-      show(saved.id);
+      show(saved.id, focusPanel, true);
       return;
     }
     if (saved.type === "graph") {
@@ -611,10 +611,10 @@ export function App() {
         -1,
       ),
     );
-    show(saved.id);
+    show(saved.id, focusPanel, true);
     saveLayout(m);
   };
-  const show = (id: string, focusPanel = true) => {
+  const show = (id: string, focusPanel = true, activate = focusPanel) => {
     if (id === "touchpoints") {
       if (!state?.selected || state.selected.startsWith("_:")) return;
       id = "touchpoints:" + encodeURIComponent(state.selected);
@@ -642,7 +642,9 @@ export function App() {
     if (!n) {
       const saved = tabHistory().entries.find((t) => t.id === id);
       if (saved) {
-        void openSavedTab(saved, false).catch((e) => report(e.message, true));
+        void openSavedTab(saved, false, focusPanel).catch((e) =>
+          report(e.message, true),
+        );
         return;
       }
       const dataSibling = id.startsWith("graph:")
@@ -707,6 +709,7 @@ export function App() {
         m.doAction(Actions.maximizeToggle(maximised.getId(), n.getLayoutId()));
       if (focusPanel) n.getWindow()?.focus();
       m.doAction(Actions.selectTab(n.getId()));
+      if (activate) active.current = id;
       if (!focusPanel) {
         saveLayout(m);
         return;
@@ -963,6 +966,16 @@ export function App() {
   useEffect(() => {
     const initialMenuTimer = setTimeout(updatePaneMenu, 100);
     const off = onCommand((id) => {
+      if (id.startsWith("graph.ready:")) {
+        // Restoring a saved graph is asynchronous. Replay only once its real
+        // command listener is installed, rather than guessing a mount delay.
+        queueMicrotask(() => {
+          if (!graphCommandsReady(state?.activeGraphId ?? "graph")) return;
+          const pending = pendingGraphCommands.current.splice(0);
+          for (const next of pending) command(next);
+        });
+        return;
+      }
       const hierarchyTree = focusedDocument().activeElement?.closest(
         '[role="tree"][aria-multiselectable="true"]',
       );
@@ -980,12 +993,22 @@ export function App() {
         return;
       if (id === "cache.wikipedia.cleared") report("Wikipedia cache cleared.");
       if (id === "cache.model.cleared") report("Model cache cleared.");
+      if (id.startsWith("graph.") && tabOperations.current.size) {
+        pendingGraphCommands.current.push(id);
+        void Promise.allSettled([...tabOperations.current]).then(() => {
+          if (graphCommandsReady(state?.activeGraphId ?? "graph")) {
+            for (const next of pendingGraphCommands.current.splice(0))
+              command(next);
+          } else show("graph");
+        });
+        return;
+      }
       if (
         id.startsWith("graph.") &&
-        ![...documents].some((d) => d.querySelector('[data-panel="graph"]'))
+        !graphCommandsReady(state?.activeGraphId ?? "graph")
       ) {
+        pendingGraphCommands.current.push(id);
         show("graph");
-        setTimeout(() => command(id), 40);
         return;
       }
       if (id.startsWith("audit.open:")) {
@@ -1287,7 +1310,6 @@ export function App() {
       window.removeEventListener("beforeunload", flush);
     };
   }, []);
-  const run = (id: string) => window.axiom.command(id);
   return (
     <main
       className="workbench"
@@ -1310,241 +1332,269 @@ export function App() {
       }}
     >
       <WindowChrome />
-      {s.ontology.example && (
-        <div className="command-bar">
-          <label className="dataset-label">
-            Dataset{" "}
-            <select
-              aria-label="Dataset size"
-              disabled={!s.ontology.example}
-              value={s.orderCount}
-              onChange={(e) => setRegenerate(+e.target.value)}
-            >
-              {[1000, 12000, 50000, 100000].map((n) => (
-                <option key={n} value={n}>
-                  {n.toLocaleString("en-GB")} orders
-                </option>
-              ))}
-              {![1000, 12000, 50000, 100000].includes(s.orderCount) && (
-                <option value={s.orderCount}>
-                  {s.orderCount.toLocaleString("en-GB")} orders
-                </option>
-              )}
-            </select>
-          </label>
-        </div>
-      )}
-      <div className="docking-workspace">
-        <Layout
-          model={model}
-          onContextMenu={(node, e) => {
-            if (!(node instanceof TabNode)) return;
-            e.preventDefault();
-            setTabMenu({
-              id: node.getId(),
-              document: (e.target as HTMLElement).ownerDocument,
-              x: e.clientX,
-              y: e.clientY,
-            });
-          }}
-          onRenderTab={(node, values) => {
-            values.leading = <AssistantTabActivity paneId={node.getId()} />;
-          }}
-          factory={(n) => (
-            <AdaptivePane
-              name={n.getName()}
-              paneId={n.getId()}
-              visual={n.getComponent() === "graph"}
-              maximize={() => {
-                const owner = n.getWindow();
-                if (owner && owner !== window) {
-                  void window.axiom
-                    .maximizeWindow(owner.location.href)
-                    .catch((error) => report(error.message, true));
-                  return;
-                }
-                const parent = n.getParent();
-                if (parent instanceof TabSetNode) {
-                  model.doAction(
-                    Actions.maximizeToggle(
-                      parent.getId(),
-                      parent.getLayoutId(),
-                    ),
-                  );
-                  saveLayout(model);
-                }
-              }}
-            >
-              {
-                {
-                  provenance: <ProvenancePanel />,
-                  source: (
-                    <Suspense
-                      fallback={
-                        <div className="startup">Opening source editor...</div>
-                      }
-                    >
-                      <SourcePanel />
-                    </Suspense>
-                  ),
-                  details: <DetailsPanel panelId={n.getId()} />,
-                  hierarchy: <HierarchyPanel />,
-                  graph: <GraphPanel graphId={n.getId()} />,
-                  inspector: <InspectorPanel />,
-                  touchpoints: (
-                    <TouchpointsPanel
-                      subject={n.getConfig()?.subject}
-                      panelId={n.getId()}
-                    />
-                  ),
-                  taxonomy: <SuggestionsPanel paneId={n.getId()} />,
-                  suggestionruns: <SuggestionRunsPanel />,
-                  errorlog: <ErrorLogPanel />,
-                  find: <FindPanel />,
-                  tabhistory: (
-                    <TabHistoryPanel
-                      open={openSavedTab}
-                      openIds={() => {
-                        const ids = new Set<string>();
-                        modelRef.current.visitNodes((n) => {
-                          if (n instanceof TabNode) ids.add(n.getId());
-                        });
-                        return ids;
-                      }}
-                    />
-                  ),
-                  sparsity: <SparsityPanel />,
-                  quality: <QualityPanel />,
-                  textanalysis: (
-                    <Suspense
-                      fallback={
-                        <div className="startup">Opening Text Analysis...</div>
-                      }
-                    >
-                      <TextAnalysisPanel />
-                    </Suspense>
-                  ),
-                  textentities: (
-                    <Suspense
-                      fallback={
-                        <div className="startup">Opening Add entity...</div>
-                      }
-                    >
-                      <TextEntitiesPanel />
-                    </Suspense>
-                  ),
-                  individuals: <IndividualsPanel />,
-                  queryResults: (
-                    <Suspense
-                      fallback={
-                        <div className="startup">Opening query results...</div>
-                      }
-                    >
-                      <QueryResultsPanel
-                        resultId={n.getConfig()?.resultId ?? ""}
-                        panelId={n.getId()}
-                      />
-                    </Suspense>
-                  ),
-                  query: (
-                    <Suspense
-                      fallback={
-                        <div className="startup">Opening query editor...</div>
-                      }
-                    >
-                      <QueryPanel />
-                    </Suspense>
-                  ),
-                }[n.getComponent() ?? "graph"]
-              }
-            </AdaptivePane>
-          )}
-          onModelChange={saveLayout}
-          supportsPopout={true}
-          popoutURL="app://axiom/popout.html"
-          popoutWindowName="Axiom pane"
-          realtimeResize={true}
-          invalidateTabContentOnParentRender={true}
-          onPopoutOpen={(_m, _w, d) => {
-            documents.add(d);
-            d.defaultView?.addEventListener("focus", () => rememberDocument(d));
-            applyTheme(d);
-            const remove = installKeyboard(d);
-            d.defaultView?.addEventListener("unload", remove, { once: true });
-            const removeSplit = installTextEntitySplitter(modelRef.current, d);
-            d.defaultView?.addEventListener("unload", removeSplit, {
-              once: true,
-            });
-          }}
-          onPopoutClose={(_m, _w, d) => {
-            documents.delete(d);
-            updatePaneMenu();
-            setTimeout(updatePaneMenu, 0);
-          }}
-          onAction={(a) => {
-            if (a.type === Actions.ADJUST_WEIGHTS) {
-              const split = textEntitySplit(modelRef.current);
-              if (split && split.row.getId() === a.data.nodeId) {
-                const weights = a.data.weights as number[];
-                const total = weights[split.index - 1] + weights[split.index];
-                a.data.weights = textEntityWeights(
-                  modelRef.current,
-                  (weights[split.index] / total) * 100,
-                  weights,
-                );
-              }
-            }
-            if (a.type === Actions.RENAME_TAB) {
-              const name = String(a.data.text);
-              if (!name.trim()) return undefined;
-              if (name.trim().length > 120) {
-                // Finish the inline Enter event before opening a new dialog.
-                setTimeout(() => setTabRename({ id: a.data.node, name }), 0);
-                return undefined;
-              }
-              try {
-                renameTab(modelRef.current, a.data.node, name);
-              } catch (e) {
-                report((e as Error).message, true);
-              }
-              return undefined;
-            }
-            if (a.type === Actions.DELETE_TAB) {
-              void closeTab(a.data.node);
-              return undefined;
-            }
-            if (
-              ![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(a.type)
-            )
-              pendingLayout.current ??= {
-                layout: modelRef.current.toJson(),
-                arrangement: preferences.arrangement ?? "auto",
-              };
-            if (a.type === Actions.SELECT_TAB) {
-              active.current = a.data.tabNode;
-              const n = modelRef.current.getNodeById(a.data.tabNode);
-              if (n instanceof TabNode && n.getComponent() === "graph")
-                void act("graphActivate", { id: n.getId() });
-            }
-            return a;
-          }}
+      <div className="workbench-midrow">
+        <PaneRail
+          active={shellPane}
+          badges={shellBadges}
+          open={(id) => show(id, false, true)}
         />
+        <div className="workbench-stage">
+          <DocumentTabs
+            snapshot={s}
+            active={shellPane}
+            sourceOpen={!!model.getNodeById("source")}
+            queryOpen={!!model.getNodeById("query")}
+            open={(id) => show(id, false, true)}
+          />
+          {s.ontology.example && (
+            <div className="command-bar">
+              <label className="dataset-label">
+                Dataset{" "}
+                <select
+                  aria-label="Dataset size"
+                  disabled={!s.ontology.example}
+                  value={s.orderCount}
+                  onChange={(e) => setRegenerate(+e.target.value)}
+                >
+                  {[1000, 12000, 50000, 100000].map((n) => (
+                    <option key={n} value={n}>
+                      {n.toLocaleString("en-GB")} orders
+                    </option>
+                  ))}
+                  {![1000, 12000, 50000, 100000].includes(s.orderCount) && (
+                    <option value={s.orderCount}>
+                      {s.orderCount.toLocaleString("en-GB")} orders
+                    </option>
+                  )}
+                </select>
+              </label>
+            </div>
+          )}
+          <div
+            className="docking-workspace"
+            id="workbench-document"
+            role="tabpanel"
+            aria-label="Document workbench"
+          >
+            <Layout
+              model={model}
+              onContextMenu={(node, e) => {
+                if (!(node instanceof TabNode)) return;
+                e.preventDefault();
+                setTabMenu({
+                  id: node.getId(),
+                  document: (e.target as HTMLElement).ownerDocument,
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              }}
+              onRenderTab={(node, values) => {
+                values.leading = <AssistantTabActivity paneId={node.getId()} />;
+              }}
+              factory={(n) => (
+                <AdaptivePane
+                  name={n.getName()}
+                  paneId={n.getId()}
+                  visual={n.getComponent() === "graph"}
+                  maximize={() => {
+                    const owner = n.getWindow();
+                    if (owner && owner !== window) {
+                      void window.axiom
+                        .maximizeWindow(owner.location.href)
+                        .catch((error) => report(error.message, true));
+                      return;
+                    }
+                    const parent = n.getParent();
+                    if (parent instanceof TabSetNode) {
+                      model.doAction(
+                        Actions.maximizeToggle(
+                          parent.getId(),
+                          parent.getLayoutId(),
+                        ),
+                      );
+                      saveLayout(model);
+                    }
+                  }}
+                >
+                  {
+                    {
+                      provenance: <ProvenancePanel />,
+                      source: (
+                        <Suspense
+                          fallback={
+                            <div className="startup">
+                              Opening source editor...
+                            </div>
+                          }
+                        >
+                          <SourcePanel />
+                        </Suspense>
+                      ),
+                      details: <DetailsPanel panelId={n.getId()} />,
+                      hierarchy: <HierarchyPanel />,
+                      graph: <GraphPanel graphId={n.getId()} />,
+                      inspector: <InspectorPanel />,
+                      touchpoints: (
+                        <TouchpointsPanel
+                          subject={n.getConfig()?.subject}
+                          panelId={n.getId()}
+                        />
+                      ),
+                      taxonomy: <SuggestionsPanel paneId={n.getId()} />,
+                      suggestionruns: <SuggestionRunsPanel />,
+                      errorlog: <ErrorLogPanel />,
+                      find: <FindPanel />,
+                      tabhistory: (
+                        <TabHistoryPanel
+                          open={openSavedTab}
+                          openIds={() => {
+                            const ids = new Set<string>();
+                            modelRef.current.visitNodes((n) => {
+                              if (n instanceof TabNode) ids.add(n.getId());
+                            });
+                            return ids;
+                          }}
+                        />
+                      ),
+                      sparsity: <SparsityPanel />,
+                      quality: <QualityPanel />,
+                      textanalysis: (
+                        <Suspense
+                          fallback={
+                            <div className="startup">
+                              Opening Text Analysis...
+                            </div>
+                          }
+                        >
+                          <TextAnalysisPanel />
+                        </Suspense>
+                      ),
+                      textentities: (
+                        <Suspense
+                          fallback={
+                            <div className="startup">Opening Add entity...</div>
+                          }
+                        >
+                          <TextEntitiesPanel />
+                        </Suspense>
+                      ),
+                      individuals: <IndividualsPanel />,
+                      queryResults: (
+                        <Suspense
+                          fallback={
+                            <div className="startup">
+                              Opening query results...
+                            </div>
+                          }
+                        >
+                          <QueryResultsPanel
+                            resultId={n.getConfig()?.resultId ?? ""}
+                            panelId={n.getId()}
+                          />
+                        </Suspense>
+                      ),
+                      query: (
+                        <Suspense
+                          fallback={
+                            <div className="startup">
+                              Opening query editor...
+                            </div>
+                          }
+                        >
+                          <QueryPanel />
+                        </Suspense>
+                      ),
+                    }[n.getComponent() ?? "graph"]
+                  }
+                </AdaptivePane>
+              )}
+              onModelChange={saveLayout}
+              supportsPopout={true}
+              popoutURL="app://axiom/popout.html"
+              popoutWindowName="Axiom pane"
+              realtimeResize={true}
+              invalidateTabContentOnParentRender={true}
+              onPopoutOpen={(_m, _w, d) => {
+                documents.add(d);
+                d.defaultView?.addEventListener("focus", () =>
+                  rememberDocument(d),
+                );
+                applyTheme(d);
+                const remove = installKeyboard(d);
+                d.defaultView?.addEventListener("unload", remove, {
+                  once: true,
+                });
+                const removeSplit = installTextEntitySplitter(
+                  modelRef.current,
+                  d,
+                );
+                d.defaultView?.addEventListener("unload", removeSplit, {
+                  once: true,
+                });
+              }}
+              onPopoutClose={(_m, _w, d) => {
+                documents.delete(d);
+                updatePaneMenu();
+                setTimeout(updatePaneMenu, 0);
+              }}
+              onAction={(a) => {
+                if (a.type === Actions.ADJUST_WEIGHTS) {
+                  const split = textEntitySplit(modelRef.current);
+                  if (split && split.row.getId() === a.data.nodeId) {
+                    const weights = a.data.weights as number[];
+                    const total =
+                      weights[split.index - 1] + weights[split.index];
+                    a.data.weights = textEntityWeights(
+                      modelRef.current,
+                      (weights[split.index] / total) * 100,
+                      weights,
+                    );
+                  }
+                }
+                if (a.type === Actions.RENAME_TAB) {
+                  const name = String(a.data.text);
+                  if (!name.trim()) return undefined;
+                  if (name.trim().length > 120) {
+                    // Finish the inline Enter event before opening a new dialog.
+                    setTimeout(
+                      () => setTabRename({ id: a.data.node, name }),
+                      0,
+                    );
+                    return undefined;
+                  }
+                  try {
+                    renameTab(modelRef.current, a.data.node, name);
+                  } catch (e) {
+                    report((e as Error).message, true);
+                  }
+                  return undefined;
+                }
+                if (a.type === Actions.DELETE_TAB) {
+                  void closeTab(a.data.node);
+                  return undefined;
+                }
+                if (
+                  ![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(
+                    a.type,
+                  )
+                )
+                  pendingLayout.current ??= {
+                    layout: modelRef.current.toJson(),
+                    arrangement: preferences.arrangement ?? "auto",
+                  };
+                if (a.type === Actions.SELECT_TAB) {
+                  active.current = a.data.tabNode;
+                  const n = modelRef.current.getNodeById(a.data.tabNode);
+                  if (n instanceof TabNode && n.getComponent() === "graph")
+                    void act("graphActivate", { id: n.getId() });
+                }
+                return a;
+              }}
+            />
+          </div>
+        </div>
       </div>
-      <footer className={"status-bar" + (notice.error ? " error" : "")}>
-        <span className="status-counts">
-          {s.classCount} classes · {s.individualCount.toLocaleString("en-GB")}{" "}
-          individuals · {s.tripleCount.toLocaleString("en-GB")} triples
-        </span>
-        <span
-          className="status-message"
-          role={notice.error ? "alert" : "status"}
-          title={notice.text}
-        >
-          {notice.text}
-        </span>
-        {notice.error && <ErrorDetailsButton error={notice.text} />}
-        <button onClick={() => command("help.shortcuts")}>Shortcuts</button>
-      </footer>
+      <WorkbenchStatus snapshot={s} active={shellPane} />
       {styles && (
         <StylesDialog
           advanced={styles === "advanced"}
@@ -1553,9 +1603,7 @@ export function App() {
       )}
       {edit && <EditDialog kind={edit} close={() => setEdit(null)} />}
       {search && <FindDialog close={() => setSearch(false)} />}
-      {palette && (
-        <Palette items={items} close={() => setPalette(false)} run={run} />
-      )}
+      {palette && <ChromePalette close={() => setPalette(false)} />}
       {tabMenu && (
         <ContextMenu
           label="Tab actions"
