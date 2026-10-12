@@ -250,7 +250,13 @@ async function serviceFixture(
     if (method === "synonymContext")
       return synonymContext(store, String(args?.iri), epoch, () => 0) as T;
     if (method === "validateSynonyms" || method === "updateEntity") {
-      if (args?.version !== store.version || args.datasetEpoch !== epoch)
+      // Issue #68: generation checks current data; edits retain version checks.
+      if (
+        !args ||
+        args.datasetEpoch !== epoch ||
+        ((method === "updateEntity" || args.version !== undefined) &&
+          args.version !== store.version)
+      )
         throw Error("The ontology changed.");
       if (method === "validateSynonyms")
         return validateSynonyms(
@@ -398,10 +404,39 @@ it("accepts empty results and retains malformed responses as failed runs", async
   expect(invalid.changes).toBe(0);
 });
 
-it("rejects ontology edits made while the assistant is running and retains the failed run", async () => {
+it("validates returned synonyms against edits made while the assistant is running", async () => {
   const f = await serviceFixture();
+  const iri = base + "BasicEnglish";
   const service = new SuggestionService(f.root, f.request, async () => {
     f.store.createClass("Another English class", base + "English");
+    f.store.updateEntity(iri, [
+      ...f.store.entityStatements(iri),
+      {
+        subject: iri,
+        predicate: NS.rdfs + "seeAlso",
+        object: { literal: true, value: "English Basics" },
+      },
+    ]);
+    return f.discover();
+  });
+  const run = await service.run({ iri, mode: "synonyms", provider: "codex" });
+  expect(run.state).toBe("completed");
+  expect(run.values.map((v) => v.value)).toEqual([
+    "Basic Engl.",
+    "Advanced English",
+    "English",
+    "Introductory English",
+  ]);
+  expect(run.excluded).toContainEqual({
+    value: "English Basics",
+    reason: "Already recorded for this entity.",
+  });
+  expect(f.changes).toBe(0);
+});
+it("rejects a workspace replacement while the assistant is running", async () => {
+  const f = await serviceFixture();
+  const service = new SuggestionService(f.root, f.request, async () => {
+    f.changeWorkspace();
     return f.discover();
   });
   await expect(
@@ -535,4 +570,45 @@ it("rechecks old selections for zero distance and case-insensitive duplicates be
   await restored.apply(run.id, [0, 1, 3, 4]);
   expect(f.changes).toBe(1);
   expect((await restored.history())[0].applied).toEqual([2, 5]);
+});
+
+// Issue #68: applying alongside generation must not allow overlapping edits.
+it("serializes applies and keeps new runs blocked until the apply finishes", async () => {
+  const f = await serviceFixture();
+  const run = await f.run();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let entered = false;
+  const request = async <T>(
+    method: DomainMethod,
+    args?: Record<string, unknown>,
+  ): Promise<T> => {
+    if (method === "updateEntity") {
+      entered = true;
+      await gate;
+    }
+    return f.request<T>(method, args);
+  };
+  const service = new SuggestionService(f.root, request, f.discover);
+  const applying = service.apply(run.id, [0]);
+  try {
+    await expect.poll(() => entered).toBe(true);
+    expect(service.busy()).toBe(true);
+    await expect(service.apply(run.id, [1])).rejects.toThrow(
+      "finish being added",
+    );
+    await expect(
+      service.run({ iri: base + "AdvancedEnglish", mode: "synonyms" }),
+    ).rejects.toThrow("Wait for the current suggestions to finish");
+  } finally {
+    release();
+    await applying;
+  }
+  expect(f.changes).toBe(1);
+  expect(service.busy()).toBe(false);
+  expect(
+    (await service.history()).find((r) => r.id === run.id)?.applied,
+  ).toEqual([0]);
 });

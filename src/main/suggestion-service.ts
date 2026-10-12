@@ -379,7 +379,7 @@ export class SuggestionService {
             {
               iri: input.iri,
               values,
-              version: document.version,
+              // Issue #68: validate against current data after other runs are applied.
               datasetEpoch: document.datasetEpoch,
             },
           );
@@ -423,8 +423,8 @@ export class SuggestionService {
   }
   async apply(id: string, indices: number[]) {
     await this.load();
-    if (this.active || this.applying)
-      throw Error("Wait for the current suggestions to finish.");
+    if (this.applying)
+      throw Error("Wait for the current suggestions to finish being added.");
     this.applying = true;
     try {
       const run = this.runs.get(id);
