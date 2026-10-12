@@ -1083,7 +1083,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return result;
     }
     case "validateSynonyms":
-      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      // Issue #68: generation uses current data; apply still checks its edit version.
+      if (
+        a.datasetEpoch !== datasetEpoch ||
+        (a.version !== undefined && a.version !== store.version)
+      )
         throw Error("The ontology changed. Start a new synonym run.");
       return validateSynonyms(
         store,

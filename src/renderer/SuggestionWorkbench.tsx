@@ -50,6 +50,7 @@ export type SuggestionWorkbenchProps<T extends SuggestionItem> = {
   loading: boolean;
   applying: boolean;
   activity: boolean;
+  selectionActivity?: boolean;
   waiting: boolean;
   targetExists: boolean;
   blocked: string;
@@ -148,7 +149,12 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
   const visibleSelected = visibleAvailable.filter((item) =>
     selected.has(item.id),
   );
-  const disabled = p.applying || p.activity || !!p.blocked || !p.targetExists;
+  // Issue #68: another node's run can block generation without blocking review.
+  const disabled =
+    p.applying ||
+    (p.selectionActivity ?? p.activity) ||
+    !!p.blocked ||
+    !p.targetExists;
   const assistant =
     (entry?.provider ?? p.provider) === "claude" ? "Claude" : "Codex";
   const legacyParents = p.mode === "parents" && !!entry && !entry.provider;
@@ -463,7 +469,10 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
           New run
         </button>
         {entry?.state === "completed" && (
-          <button disabled={disabled} onClick={() => void p.generate(true)}>
+          <button
+            disabled={disabled || p.activity}
+            onClick={() => void p.generate(true)}
+          >
             Run again
           </button>
         )}

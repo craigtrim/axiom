@@ -5,7 +5,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { NS } from "../../src/domain/model";
@@ -127,7 +127,10 @@ test.beforeEach(async () => {
       const synonym=prompt.startsWith("Suggest synonyms for"), parents=prompt.startsWith("Suggest parents for");
       const name=JSON.parse(prompt.match(/^Suggest (?:synonyms for|parents for|useful additional types of|real, named examples of) (".*?")\./)[1]);
       fs.appendFileSync(process.env.AXIOM_USER_DATA+"/calls.jsonl",JSON.stringify({name,synonym})+"\n");
-      setTimeout(()=>{
+      // Issue #68: hold a fixture reply until the test finishes applying and undoing.
+      setTimeout(async()=>{
+        while(fs.existsSync(process.env.AXIOM_USER_DATA+"/hold-"+name))
+          await new Promise(resolve=>setTimeout(resolve,25));
         if(name==="Gamma Subject"){console.error("Fixture assistant failure");process.exit(1);}
         const reply=parents?JSON.stringify({suggestions:[]}):synonym?JSON.stringify({suggestions:[{value:name+" Alias",reason:"An equivalent wording variant."}]}):
           "Summary: A direct child for this selected class.\nSuggestions:\n1. "+name+" Addition\nDescription: A distinct direct child.\nReason: Fits this selected class.";
@@ -375,6 +378,199 @@ test("Find Synonyms retains captured targets while selection changes and applies
     base + "Alpha",
     base + "Beta",
   ]);
+});
+
+// Issue #68: these actions must finish while Beta is still running.
+for (const undo of [false, true]) {
+  test(`completed synonyms can be applied during a batch${undo ? " and undone" : ""}`, async () => {
+    const hold = path.join(profile, "hold-Beta Subject");
+    await writeFile(hold, "hold");
+    try {
+      await start(["Alpha", "Beta", "Child"], "synonyms");
+      await expect
+        .poll(async () => (await batches())[0].runs.map((r) => r.state))
+        .toEqual(["completed", "running", "queued"]);
+      const batch = (await batches())[0];
+      await runs()
+        .getByRole("button", {
+          name: "Open run for Alpha Subject",
+          exact: true,
+        })
+        .click();
+      const checkbox = review().getByRole("checkbox", {
+        name: "Select Alpha Subject Alias",
+        exact: true,
+      });
+      await expect(checkbox).toBeEnabled();
+      await expect(
+        review().getByRole("button", { name: "New run", exact: true }),
+      ).toBeDisabled();
+      await expect(
+        review().getByRole("button", { name: "Run again", exact: true }),
+      ).toBeDisabled();
+      await review()
+        .getByRole("checkbox", { name: "Select all available suggestions" })
+        .check();
+      await expect(checkbox).toBeChecked();
+      await review()
+        .getByRole("button", { name: "Add 1 synonym", exact: true })
+        .click();
+      const aliases = async (id: string) =>
+        (await documentFor(id)).statements
+          .filter((t) => t.predicate === NS.rdfs + "seeAlso")
+          .map((t) => t.object.value);
+      await expect
+        .poll(() => aliases("Alpha"))
+        .toEqual(["Alpha Subject Alias"]);
+      expect(await aliases("Beta")).toEqual([]);
+      expect(await aliases("Child")).toEqual([]);
+      if (undo) {
+        await menu("edit.undo");
+        await expect.poll(() => aliases("Alpha")).toEqual([]);
+      }
+      expect((await batches())[0].runs.map((r) => r.state)).toEqual([
+        "completed",
+        "running",
+        "queued",
+      ]);
+      await unlink(hold);
+      await expect
+        .poll(async () => (await batches())[0].runs.map((r) => r.state))
+        .toEqual(["completed", "completed", "completed"]);
+      const history = await page.evaluate(() =>
+        window.axiom.suggestions.history(),
+      );
+      expect(
+        history
+          .find((r) => r.id === batch.runs[1].id)
+          ?.values.map((v) => v.value),
+      ).toEqual(["Beta Subject Alias"]);
+      expect(
+        history
+          .find((r) => r.id === batch.runs[2].id)
+          ?.values.map((v) => v.value),
+      ).toEqual(["Alpha Subject Child Alias"]);
+      expect(await aliases("Alpha")).toEqual(
+        undo ? [] : ["Alpha Subject Alias"],
+      );
+    } finally {
+      await unlink(hold).catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+    }
+  });
+}
+
+test("a run for the reviewed node explains why selection is blocked", async () => {
+  await start(["Alpha", "Beta"], "synonyms");
+  await expect
+    .poll(async () => (await batches())[0].runs.map((r) => r.state))
+    .toEqual(["completed", "completed"]);
+  const completed = (await batches())[0];
+  const hold = path.join(profile, "hold-Alpha Subject");
+  await writeFile(hold, "hold");
+  try {
+    await page.evaluate((iri) => {
+      void window.axiom.suggestions.run({
+        iri,
+        mode: "synonyms",
+        provider: "codex",
+        bypassCache: true,
+      });
+    }, base + "Alpha");
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => window.axiom.suggestions.status()))?.iri,
+      )
+      .toBe(base + "Alpha");
+    await runs()
+      .getByRole("button", { name: "Open run for Alpha Subject", exact: true })
+      .click();
+    await expect(
+      review().getByRole("combobox", { name: "Run history", exact: true }),
+    ).toHaveValue(completed.runs[0].id);
+    await expect(
+      review().getByRole("checkbox", {
+        name: "Select Alpha Subject Alias",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect(
+      review().getByText(
+        "Wait for the suggestions for Alpha Subject to finish before selecting values.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await unlink(hold);
+    await expect(
+      review().getByRole("checkbox", {
+        name: "Select Alpha Subject Alias",
+        exact: true,
+      }),
+    ).toBeEnabled();
+  } finally {
+    await unlink(hold).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
+});
+
+test("synonym validation reads current values while retaining edit and workspace guards", async () => {
+  const original = await documentFor("Beta");
+  const candidates = [
+    { value: "Beta Subject Alias", reason: "An equivalent wording variant." },
+  ];
+  await page.evaluate(
+    ({ iri, epoch }) =>
+      window.axiom.request("addFindSynonym", {
+        iri,
+        text: "Beta Subject Alias",
+        datasetEpoch: epoch,
+      }),
+    { iri: base + "Beta", epoch: original.datasetEpoch },
+  );
+  const result = await page.evaluate(
+    ({ iri, epoch, candidates }) =>
+      window.axiom.request("validateSynonyms", {
+        iri,
+        values: candidates,
+        datasetEpoch: epoch,
+      }),
+    { iri: base + "Beta", epoch: original.datasetEpoch, candidates },
+  );
+  expect(result).toEqual({
+    values: [],
+    excluded: [
+      {
+        value: "Beta Subject Alias",
+        reason: "Already recorded for this entity.",
+      },
+    ],
+  });
+  await expect(
+    page.evaluate(
+      ({ iri, doc, candidates }) =>
+        window.axiom.request("validateSynonyms", {
+          iri,
+          values: candidates,
+          datasetEpoch: doc.datasetEpoch,
+          version: doc.version,
+        }),
+      { iri: base + "Beta", doc: original, candidates },
+    ),
+  ).rejects.toThrow("The ontology changed");
+  await expect(
+    page.evaluate(
+      ({ iri, epoch, candidates }) =>
+        window.axiom.request("validateSynonyms", {
+          iri,
+          values: candidates,
+          datasetEpoch: epoch + 1,
+        }),
+      { iri: base + "Beta", epoch: original.datasetEpoch, candidates },
+    ),
+  ).rejects.toThrow("The ontology changed");
 });
 
 test("batch continues after a node fails and cancellation targets only unfinished runs", async () => {
