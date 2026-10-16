@@ -44,10 +44,10 @@ function aliases(store: Store) {
       triple.predicate.slice(triple.predicate.lastIndexOf("#") + 1) ===
         "inflection"
     ) {
-      // Commas separate aliases in Mutato. Plus rules describe a gapped match,
-      // not a literal class name, so do not treat them as duplicate names.
-      for (const alias of triple.object.value.split(","))
-        if (!alias.includes("+")) add(triple.subject, alias);
+      // craigtrim/axiom#76: each literal is one alias, including its commas.
+      // Plus rules describe gapped matches rather than literal class names.
+      const alias = triple.object.value;
+      if (!alias.includes("+")) add(triple.subject, alias);
     }
   }
   entry = { version: store.version, aliases: values };

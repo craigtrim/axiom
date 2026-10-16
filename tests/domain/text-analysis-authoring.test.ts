@@ -13,7 +13,7 @@ const base = "https://example.org/authoring#";
 const turtle = `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
 @prefix rdfs: <${NS.rdfs}> . @prefix skos: <${NS.skos}> .
 : a owl:Ontology .
-:Systems a owl:Class; rdfs:label "Systems"; skos:altLabel "platforms, frameworks" .
+:Systems a owl:Class; rdfs:label "Systems"; skos:altLabel "platforms", "frameworks" .
 :Electronic a owl:Class; rdfs:label "Electronic" .
 :Stem a owl:Class; rdfs:label "stem" .
 :System a owl:NamedIndividual; rdfs:label "Surveillance" .
@@ -24,6 +24,38 @@ const turtle = `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
 const fixture = async () =>
   storeFromRdf((await parseRdf(turtle, "test.ttl", base)).triples, "test");
 describe("create classes from selected text", () => {
+  // craigtrim/axiom#76: comma fragments must not become duplicate or parent aliases.
+  it.each(["rdfs:label", "rdfs:seeAlso", "skos:altLabel", ":inflection"])(
+    "indexes a whole comma-bearing %s literal without inventing fragment aliases",
+    async (predicate) => {
+      const source = `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
+@prefix rdfs: <${NS.rdfs}> . @prefix skos: <${NS.skos}> .
+:CultureAndMediaStudies a owl:Class; ${predicate} "Culture, Media Studies" .`;
+      const store = storeFromRdf(
+        (await parseRdf(source, "comma.ttl", base)).triples,
+        "comma",
+      );
+      const iri = base + "CultureAndMediaStudies";
+      for (const fragment of ["Culture", "Media Studies"]) {
+        expect(textAnalysisDraft(store, fragment, 1)).toMatchObject({
+          existing: [],
+          parents: [],
+          defaultParent: THING,
+        });
+        expect(
+          textAnalysisDraft(store, "Advanced " + fragment, 1).parents,
+        ).toEqual([]);
+      }
+      expect(
+        textAnalysisDraft(store, "Culture, Media Studies", 1).existing,
+      ).toEqual([{ iri, label: store.label(iri) }]);
+      expect(
+        textAnalysisDraft(store, "Advanced Culture, Media Studies", 1).parents,
+      ).toEqual([
+        { iri, label: store.label(iri), matchedText: "culture media studies" },
+      ]);
+    },
+  );
   it.each([
     ["Basic ENGLISH COMPOSITION", "Composition"],
     ["PERSONAL DIMENSIONS OF EDUCATION", "Education"],
