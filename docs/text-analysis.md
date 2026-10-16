@@ -1,6 +1,8 @@
 # Text Analysis
 
-Open **View > Text Analysis** and type or paste plain text. Matching runs automatically after a 60 ms typing pause. The editor stays responsive while matching runs. Only the newest pending edit is parsed, and results from older edits cannot replace current highlights.
+Open **View > Text Analysis** and type or paste plain text. **Live analysis** is on by default and runs matching after a 60 ms typing pause. Turn it off to edit without starting an analysis, then press **Analyze now** to update the matches. The button becomes available when the text changes, and the match count shows **out of date** until that text is analyzed. The last settled highlights move with the text while you edit. Turning Live analysis back on analyzes any outstanding edits immediately. The switch is available in the text presentation, supports Space, and retains its state across restarts.
+
+Opening Text Analysis with Live analysis off analyzes the saved text once. Later typing waits for Analyze now. Ontology edits still refresh matches in either mode, and View in Graph analyzes any outstanding text edits before building its graph. The editor stays responsive while matching runs. Only the newest pending edit is parsed, and results from older edits cannot replace current highlights.
 
 Matches use the currently open ontology, including unsaved changes already applied through Axiom's editors. Saving an RDF file is unnecessary. Editing the ontology triggers a new analysis of the same text. The last settled highlights, match count and Summary legend stay visible until that analysis completes, then update together. Named graphs contribute their union of asserted statements to matching; the original dataset remains unchanged.
 

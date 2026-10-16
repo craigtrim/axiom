@@ -354,6 +354,177 @@ async function highlighted(label: string) {
     .replace(/\u00a0/g, " ");
 }
 
+// craigtrim/axiom#73: exercise the switch against native parsing and tracked Monaco ranges.
+const liveSwitch = () =>
+  panel().getByRole("switch", { name: "Live analysis", exact: true });
+const analyzeNow = () =>
+  panel().getByRole("button", { name: "Analyze now", exact: true });
+test("#73 paused typing retains highlights until Analyze now and resuming runs immediately", async () => {
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "true");
+  await panel()
+    .getByRole("button", { name: "View Summary", exact: true })
+    .focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(liveSwitch()).toBeFocused();
+  expect(
+    await liveSwitch().evaluate(
+      (element) => getComputedStyle(element).outlineStyle,
+    ),
+  ).toBe("solid");
+  await page.keyboard.press("Space");
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
+  expect(
+    await liveSwitch()
+      .locator(".text-analysis-switch-track")
+      .evaluate((element) => getComputedStyle(element).backgroundColor),
+  ).not.toBe("rgba(0, 0, 0, 0)");
+  await expect(panel().locator(".text-analysis-hint")).toContainText(
+    "Press Analyze now",
+  );
+  await enter("canine");
+  await analyzeNow().click();
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await expect(analyzeNow()).toBeDisabled();
+  await holdRequests(app, [], "textAnalysis:parse");
+  await editor().focus();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" and Cat", { delay: 100 });
+  // Observe beyond the 60 ms debounce to detect any unwanted native request.
+  await page.waitForTimeout(250);
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  await expect.poll(() => highlighted("dog")).toBe("canine");
+  await expect(chip("cat")).toHaveCount(0);
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "1 match · out of date",
+  );
+  await page.screenshot({ path: "artifacts/testing/text-analysis-paused.png" });
+  await analyzeNow().click();
+  await expect(chip("cat")).toBeAttached();
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "2 matches",
+  );
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
+  await expect(analyzeNow()).toBeDisabled();
+  await editor().focus();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.insertText("Lion and ");
+  await expect.poll(() => highlighted("dog")).toBe("canine");
+  await liveSwitch().click();
+  await expect(chip("lion")).toBeAttached();
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "3 matches",
+  );
+  await expect(analyzeNow()).toHaveCount(0);
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(2);
+  await showSummary();
+  await expect(liveSwitch()).toHaveCount(0);
+});
+
+test("#73 paused analysis refreshes when a synonym is saved in Details", async () => {
+  await changeAnalysisSynonym("Cat", "", true);
+  await enter("canine and kitty");
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await liveSwitch().click();
+  await page.evaluate(
+    (iri) => window.axiom.request("select", { iri }),
+    base + "Cat",
+  );
+  await menu("view.details");
+  await expect(
+    details().getByRole("button", { name: "More entity actions", exact: true }),
+  ).toBeFocused();
+  const synonym = details().locator(
+    'tr[data-predicate="http://www.w3.org/2004/02/skos/core#altLabel"] input',
+  );
+  await synonym.fill("kitty");
+  await synonym.press("Tab");
+  await expect(chip("cat")).toBeAttached({ timeout: 20000 });
+  await showText();
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "2 matches",
+  );
+  await expect(analyzeNow()).toBeDisabled();
+});
+
+for (const initial of ["canine", "zzzx"]) {
+  test(`#73 paused View in Graph analyzes current text after ${initial}`, async () => {
+    await enter(initial);
+    await expect(panel().locator(".text-analysis-status")).toHaveText(
+      initial === "canine" ? "1 match" : "0 matches",
+      { timeout: 20000 },
+    );
+    await liveSwitch().click();
+    await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+    await enter("Cat");
+    const before = await page.evaluate(() =>
+      window.axiom.request<Snapshot>("state"),
+    );
+    await panel()
+      .getByRole("button", { name: "View in Graph", exact: true })
+      .click();
+    await waitForHeld(app);
+    expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
+    expect(
+      (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+        .activeGraphId,
+    ).toBe(before.activeGraphId);
+    await releaseRequests(app);
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+            .activeGraphId,
+      )
+      .not.toBe(before.activeGraphId);
+    const after = await page.evaluate(() =>
+      window.axiom.request<Snapshot>("state"),
+    );
+    expect(after.graph.nodes.map((node) => node.iri)).toContain(base + "Cat");
+    expect(after.graph.nodes.map((node) => node.iri)).not.toContain(
+      base + "Dog",
+    );
+  });
+}
+
+test("#73 manual mode survives restart and analyzes saved text when reopened", async () => {
+  await enter("canine");
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await liveSwitch().click();
+  await enter("Cat");
+  await expect
+    .poll(async () => {
+      const prefs = (await page.evaluate(() => window.axiom.preferences.load()))
+        .panelState;
+      return [prefs?.["textanalysis.live"], prefs?.["textanalysis.text"]];
+    })
+    .toEqual([false, "Cat"]);
+  await app.close();
+  await launch();
+  await showText();
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
+  await expect(chip("cat")).toBeAttached({ timeout: 20000 });
+  await expect(chip("dog")).toHaveCount(0);
+  await expect(analyzeNow()).toBeDisabled();
+  await holdRequests(app, [], "textAnalysis:parse");
+  await editor().focus();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText(" and Dog");
+  await page.waitForTimeout(250);
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "1 match · out of date",
+  );
+  await menu("pane.close");
+  await expect(panel()).toHaveCount(0);
+  await showText();
+  await expect(chip("dog")).toBeAttached();
+  await expect(panel().locator(".text-analysis-status")).toHaveText(
+    "2 matches",
+  );
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
+});
+
 test("background analysis retains moved highlights, status and legend until one replacement", async () => {
   await enter("canine");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
@@ -1312,6 +1483,7 @@ async function createParent(
     .getByRole("combobox", { name: "Parent classes", exact: true })
     .fill(label);
   await page
+    .getByRole("listbox", { name: "Parent classes", exact: true })
     .getByRole("option")
     .filter({ hasText: `Create “${label}” as a new parent` })
     .click();
@@ -1427,7 +1599,12 @@ async function chooseParent(
   await form
     .getByRole("combobox", { name: "Parent classes", exact: true })
     .fill(label);
-  await page.getByRole("option").filter({ hasText: label }).first().click();
+  await page
+    .getByRole("listbox", { name: "Parent classes", exact: true })
+    .getByRole("option")
+    .filter({ hasText: label })
+    .first()
+    .click();
   await expect(
     form.getByRole("button", { name: "Remove " + label, exact: true }),
   ).toBeVisible();
@@ -1655,7 +1832,11 @@ test("draft parent suggestions call Codex, expose the prompt and require the use
   await expect(
     form.getByRole("button", { name: "Remove Computing", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("option").filter({ hasText: "Computing" }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes", exact: true })
+    .getByRole("option")
+    .filter({ hasText: "Computing" })
+    .click();
   await expect(
     form.getByRole("button", { name: "Remove Computing", exact: true }),
   ).toBeVisible();
@@ -1750,7 +1931,11 @@ test("parent choices can be changed and cancelling a selected phrase leaves the 
   await expect(
     form.getByRole("button", { name: "Add class", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("option").filter({ hasText: "Animal" }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes", exact: true })
+    .getByRole("option")
+    .filter({ hasText: "Animal" })
+    .click();
   await expect(input).toBeFocused();
   await expect(input).toHaveValue("");
   await expect(
@@ -1786,9 +1971,16 @@ test("suggested parents are independently selected and all are asserted", async 
     page.getByRole("listbox", { name: "Parent classes" }),
   ).toContainText("From the phrase");
   await expect(
-    page.getByRole("option").filter({ hasText: "Computing" }),
+    page
+      .getByRole("listbox", { name: "Parent classes", exact: true })
+      .getByRole("option")
+      .filter({ hasText: "Computing" }),
   ).toHaveCount(0);
-  await page.getByRole("option").filter({ hasText: "Software" }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes", exact: true })
+    .getByRole("option")
+    .filter({ hasText: "Software" })
+    .click();
   await form
     .getByRole("button", { name: "Remove Software", exact: true })
     .click();
