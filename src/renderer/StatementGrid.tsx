@@ -343,6 +343,10 @@ export function StatementGrid({
                           label={label}
                           textValue={t.object.literal}
                           classesOnly={classEntity && t.predicate === SUBCLASS}
+                          // craigtrim/axiom#72: Details can create a missing named parent under owl:Thing.
+                          createMissingClass={
+                            classEntity && t.predicate === SUBCLASS
+                          }
                           exclude={
                             classEntity && t.predicate === SUBCLASS
                               ? [t.subject]

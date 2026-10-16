@@ -6,11 +6,13 @@ import { compactIri, expandIri } from "../shared/terms";
 import { displayName } from "../domain/rdf-model";
 import { progressiveSearch } from "./progressive-search";
 import { SeeAlsoWarning } from "./SeeAlsoWarning";
+import { THING } from "../domain/model";
 export function ResourceInput({
   value,
   namespace,
   label,
   classesOnly = false,
+  createMissingClass = false,
   exclude = [],
   disabled = false,
   change,
@@ -23,6 +25,7 @@ export function ResourceInput({
   namespace: string;
   label: string;
   classesOnly?: boolean;
+  createMissingClass?: boolean;
   exclude?: string[];
   disabled?: boolean;
   change(value: string): void;
@@ -47,6 +50,24 @@ export function ResourceInput({
     [items, setItems] = useState<ResourceMatch[]>([]),
     [active, setActive] = useState(-1),
     [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const creationPending = useRef(false);
+  // craigtrim/axiom#72: check every class, including matches outside the suggestion limit.
+  const exactClasses = createMissingClass
+    ? s.entities.filter(
+        (e) =>
+          ["Class", "Defined"].includes(e.kind) &&
+          [displayName(e), compactIri(e.iri, s.ontology.namespace), e.iri].some(
+            (name) =>
+              name.toLocaleLowerCase() === text.trim().toLocaleLowerCase(),
+          ),
+      )
+    : [];
+  const creationNote =
+    createMissingClass &&
+    text !== shown &&
+    !!text.trim() &&
+    !exactClasses.length;
   const [position, setPosition] = useState({
     left: 0,
     top: 0,
@@ -246,8 +267,50 @@ export function ResourceInput({
     useText?.(text);
     input.current?.blur();
   };
+  const currentCreation = useRef({ scope, change });
+  currentCreation.current = { scope, change };
+  const createParent = async () => {
+    if (creationPending.current || disabled) return;
+    creationPending.current = true;
+    setCreating(true);
+    setError("");
+    try {
+      const iri = await request<string>("createClass", {
+        name: text.trim(),
+        parent: THING,
+        datasetEpoch: s.datasetEpoch,
+        version: s.version,
+        preserveSelection: true,
+      });
+      if (!alive.current || currentCreation.current.scope !== scope) return;
+      skipBlur.current = true;
+      setText(text.trim());
+      setOpen(false);
+      currentCreation.current.change(iri);
+      input.current?.blur();
+    } catch (e) {
+      if (alive.current && currentCreation.current.scope === scope)
+        setError(
+          (e as Error).message.replace(
+            /^Error invoking remote method '[^']+': Error: /,
+            "",
+          ),
+        );
+    } finally {
+      creationPending.current = false;
+      if (alive.current) setCreating(false);
+    }
+  };
   const commit = () => {
+    if (creationPending.current) return;
     if (text === shown && (!textValue || useText)) return;
+    if (createMissingClass) {
+      if (exactClasses.length === 1 && !exclude.includes(exactClasses[0].iri))
+        choose(exactClasses[0].iri);
+      else if (creationNote) void createParent();
+      else setError("Choose a class from the matches.");
+      return;
+    }
     // A complete IRI remains a resource even if Enter/Tab beats the search
     // debounce. Plain annotation text still has an explicit literal option.
     if (
@@ -307,9 +370,11 @@ export function ResourceInput({
           open && active >= 0 ? id + "-" + active : undefined
         }
         aria-invalid={!!error}
-        aria-describedby={error ? id + "-error" : undefined}
+        aria-describedby={
+          error ? id + "-error" : creationNote ? id + "-create" : undefined
+        }
         value={text}
-        disabled={disabled}
+        disabled={disabled || creating}
         autoComplete="off"
         spellCheck={false}
         onFocus={(e) => {
@@ -322,6 +387,7 @@ export function ResourceInput({
         }}
         onChange={(e) => {
           setText(e.target.value);
+          setError("");
           // A keystroke drops any highlight, so Enter keeps the typed text.
           setActive(-1);
           setOpen(true);
@@ -385,6 +451,15 @@ export function ResourceInput({
       {error && (
         <small role="alert" id={id + "-error"}>
           {error}
+        </small>
+      )}
+      {creationNote && !error && (
+        <small
+          className="resource-create-note"
+          id={id + "-create"}
+          role="status"
+        >
+          “{text.trim()}” will be created as a new class.
         </small>
       )}
       {open &&

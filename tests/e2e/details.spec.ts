@@ -159,6 +159,145 @@ const details = (p = page) =>
 const identifier = (p = page) => details(p);
 const detailsTab = () => page.getByRole("tab", { name: /^Details(?:_\d+)?$/ });
 
+// craigtrim/axiom#72: typed parents create a class through the real Details editor.
+const parentField = () =>
+  details().locator(
+    'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#subClassOf"] input[role="combobox"]',
+  );
+for (const commit of ["Enter", "Tab"]) {
+  test(`Details creates a typed superclass on ${commit} and retains the child`, async () => {
+    const ids = await prepare();
+    await request("select", { iri: ids.a });
+    await menu("view.details");
+    await expect(
+      details().getByRole("button", {
+        name: "More entity actions",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await parentField().fill("Beta troubleshooting");
+    await expect(details().locator(".resource-create-note")).toContainText(
+      "“Beta troubleshooting” will be created as a new class.",
+    );
+    await parentField().press(commit);
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.find(
+            (e) => e.label === "Beta troubleshooting",
+          )?.parents,
+      )
+      .toEqual(["http://www.w3.org/2002/07/owl#Thing"]);
+    const created = (await state()).entities.find(
+      (e) => e.label === "Beta troubleshooting",
+    )!;
+    expect(created.iri).toMatch(/BetaTroubleshooting$/);
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+      )
+      .toEqual([created.iri]);
+    expect(
+      (await state()).entities.filter(
+        (e) => e.label === "Beta troubleshooting",
+      ),
+    ).toHaveLength(1);
+    await expect(details()).toHaveAttribute("data-entity-iri", ids.a);
+    await expect(parentField()).toHaveAttribute("title", created.iri);
+    await expect(
+      details().getByText("will be created as a new class.", { exact: false }),
+    ).toHaveCount(0);
+    await menu("edit.undo");
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+      )
+      .toEqual(["http://www.w3.org/2002/07/owl#Thing"]);
+    await menu("edit.undo");
+    await expect
+      .poll(async () =>
+        (await state()).entities.some((e) => e.iri === created.iri),
+      )
+      .toBe(false);
+  });
+}
+
+test("Details reuses exact and explicitly chosen parents and Escape cancels creation", async () => {
+  const ids = await prepare();
+  await request("select", { iri: ids.a });
+  await menu("view.details");
+  await expect(
+    details().getByRole("button", { name: "More entity actions", exact: true }),
+  ).toBeFocused();
+  const count = (await state()).classCount;
+  await parentField().fill("New parent");
+  await expect(
+    details().getByText("“New parent” will be created as a new class."),
+  ).toBeVisible();
+  await parentField().press("Escape");
+  await expect(parentField()).toHaveValue("owl:Thing");
+  await parentField().fill("Beta");
+  await expect(
+    details().getByText("will be created as a new class.", { exact: false }),
+  ).toHaveCount(0);
+  await parentField().press("Enter");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .toEqual([ids.b]);
+  await parentField().fill("Gamm");
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /Gamma/ })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .toEqual([ids.c]);
+  await parentField().fill("Bet");
+  await expect(
+    page.getByRole("listbox").getByRole("option", { name: /Beta/ }),
+  ).toBeVisible();
+  await parentField().press("ArrowDown");
+  await parentField().press("Enter");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .toEqual([ids.b]);
+  expect((await state()).classCount).toBe(count);
+});
+
+test("Details keeps invalid class names editable", async () => {
+  const ids = await prepare();
+  await request("select", { iri: ids.a });
+  await menu("view.details");
+  await expect(
+    details().getByRole("button", { name: "More entity actions", exact: true }),
+  ).toBeFocused();
+  await parentField().fill("B".repeat(257));
+  await parentField().press("Enter");
+  await expect(details().getByRole("alert")).toContainText(/name|256/i);
+  await expect(parentField()).toBeEnabled();
+  await parentField().fill("Gamma");
+  await expect(details().getByRole("alert")).toHaveCount(0);
+  await parentField().press("Enter");
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === ids.a)?.parents,
+    )
+    .toEqual([ids.c]);
+  expect((await state()).classCount).toBe(4);
+});
+
 test("Details opens explicitly from View, follows graph clicks and retains each entity draft", async () => {
   const ids = await prepare();
   await expect(detailsTab()).toHaveCount(0);
