@@ -4,6 +4,7 @@ import { textAnalysisContext } from "../../src/domain/text-analysis-context";
 import { NS } from "../../src/domain/model";
 import { expect, it } from "vitest";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { TextAnalysisService } from "../../src/main/text-analysis-service";
 import {
   MUTATOC_VERSION,
@@ -21,6 +22,54 @@ try {
   // The dedicated test:text-analysis command requires a runtime up front.
 }
 const available = !!executable;
+// craigtrim/axiom#76: native matching keeps a comma-bearing synonym whole.
+it.skipIf(!available)(
+  "matches a comma synonym once without creating fragment aliases",
+  async () => {
+    const source = await readFile(
+      "tests/fixtures/text-analysis/comma-synonym.ttl",
+      "utf8",
+    );
+    const store = storeFromRdf(
+      (await parseRdf(source, "comma.ttl", "https://example.org/comma#"))
+        .triples,
+      "comma",
+    );
+    const service = new TextAnalysisService(
+      () => executable,
+      () => textAnalysisContext(store, 1),
+    );
+    const parse = (text: string) =>
+      service.parse({ text, datasetEpoch: 1, version: store.version });
+    try {
+      for (const phrase of [
+        "Culture, Media Studies",
+        "CULTURE, MEDIA STUDIES",
+        "Culture ,  Media Studies",
+      ]) {
+        const text = "😀 " + phrase + "\n";
+        const result = await parse(text);
+        expect(result.entities).toMatchObject([
+          {
+            start: 3,
+            end: 3 + phrase.length,
+            label: "cultureandmediastudies",
+            source: "ontology",
+          },
+        ]);
+        expect(
+          result.concepts?.cultureandmediastudies?.map((entry) => entry.iri),
+        ).toEqual(["https://example.org/comma#CultureAndMediaStudies"]);
+      }
+      expect((await parse("Culture")).entities).toEqual([]);
+      expect((await parse("Media Studies")).entities).toMatchObject([
+        { start: 0, end: 13, label: "media_studies", source: "ontology" },
+      ]);
+    } finally {
+      service.close();
+    }
+  },
+);
 it.skipIf(!available)(
   "matches a newly added seeAlso literal in every case and removes the match on Undo",
   async () => {

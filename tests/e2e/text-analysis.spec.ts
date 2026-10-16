@@ -24,10 +24,10 @@ const home =
     : undefined) ??
   process.env.AXIOM_MUTATOC_HOME ??
   // craigtrim/axiom#40: highlights come from Mutatoc source offsets.
-  // craigtrim/axiom#52: the development fallback is the 0.5.1 runtime.
+  // craigtrim/axiom#76: the development fallback is the 0.5.2 runtime.
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.1"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.5.2"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run native matching desktop tests.",
@@ -188,6 +188,58 @@ test.afterEach(async ({}, info) => {
     });
   await app.close();
   expect(errors).toEqual([]);
+});
+
+// craigtrim/axiom#76: the packaged runtime must highlight a comma synonym as one entity.
+test("a pasted comma synonym has one complete highlight and opens its own entity", async () => {
+  const source = await readFile(
+    "tests/fixtures/text-analysis/comma-synonym.ttl",
+    "utf8",
+  );
+  await page.evaluate(async (text) => {
+    const document = await window.axiom.request<
+      import("../../src/shared/source").SourceDocument
+    >("sourceDocument", { format: "turtle" });
+    await window.axiom.request("applySource", { ...document, text });
+  }, source);
+  const text = "Culture, Media Studies";
+  const clipboardBefore = await app.evaluate(({ clipboard }) =>
+    clipboard.readText(),
+  );
+  try {
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.writeText(value),
+      text,
+    );
+    await editor().focus();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Control+V");
+  } finally {
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.writeText(value),
+      clipboardBefore,
+    );
+  }
+  await expect(chip("cultureandmediastudies")).toBeAttached();
+  await expect(summary().locator(".text-analysis-chip")).toHaveCount(1);
+  await expect(panel()).toContainText("1 match");
+  await expect.poll(() => highlighted("cultureandmediastudies")).toBe(text);
+  await page.screenshot({
+    path: "artifacts/testing/text-analysis-comma-synonym.png",
+  });
+  await selectSummaryEntity("cultureandmediastudies");
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    "https://example.org/comma#CultureAndMediaStudies",
+  );
+  await enter("Culture");
+  await expect(summary()).toContainText("No entities found.");
+  await expect(
+    panel().locator('.view-lines [class*="text-entity-"]'),
+  ).toHaveCount(0);
+  await enter("Media Studies");
+  await expect(chip("media_studies")).toBeAttached();
+  await expect(summary().locator(".text-analysis-chip")).toHaveCount(1);
 });
 
 test("typing and pasting highlight original text automatically with accessible colors", async () => {
