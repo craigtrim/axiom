@@ -12,7 +12,7 @@ const client = vi.hoisted(() => ({
     selected: null as string | null,
     graph: { selectedEdge: null },
   },
-  preferences: { panelState: {} },
+  preferences: { panelState: {} as Record<string, unknown> },
   command: vi.fn(),
   onCommand: vi.fn(),
   request: vi.fn(),
@@ -59,6 +59,10 @@ beforeEach(async () => {
   vi.useFakeTimers();
   vi.resetModules();
   vi.clearAllMocks();
+  client.preferences.panelState = {};
+  client.savePanel.mockImplementation((key, value) => {
+    client.preferences.panelState[key] = value;
+  });
   Object.assign(client.state, { datasetEpoch: 1, version: 1, selected: null });
   client.request.mockImplementation(async (_method, args) => {
     client.state.selected = args.iri;
@@ -66,7 +70,8 @@ beforeEach(async () => {
   parse = vi.fn(async (input: TextAnalysisInput) => parsed(input));
   vi.stubGlobal("window", { axiom: { textAnalysis: { parse } } });
   api = await import("../../src/renderer/text-analysis-state");
-  api.updateAnalysisText("Dog Cat");
+  api.ensureEntityDraft();
+  api.editAnalysisText(() => "Dog Cat");
   await vi.advanceTimersByTimeAsync(60);
   settled = (await api.textAnalysisSession.whenReady()) as TextAnalysisResult;
 });
@@ -133,8 +138,10 @@ it.each([
   const waiting = api.inspectTextEntity(settled.entities[0], "urn:dog");
   if (change === "dataset switch") {
     client.state.datasetEpoch = 2;
-    api.updateAnalysisText("Dog Cat");
-  } else if (change === "another edit") api.updateAnalysisText("Dog Cat again");
+    api.syncTextAnalysisContext();
+    api.editAnalysisText(() => "Dog Cat");
+  } else if (change === "another edit")
+    api.editAnalysisText(() => "Dog Cat again");
   await vi.advanceTimersByTimeAsync(60);
   await waiting;
   expect(client.request).not.toHaveBeenCalled();
@@ -164,5 +171,47 @@ it("graph waiting synchronizes a new version before consuming results", async ()
   await waiting;
   expect(consume).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ datasetEpoch: 1, version: 2 }),
+  );
+});
+
+// craigtrim/axiom#73: capture lazy manual text without losing saved unopened views.
+it("flushes the last manual edit synchronously for workspace capture", async () => {
+  api.setLiveTextAnalysis(false);
+  const read = vi.fn(() => "Last unsaved character");
+  api.editAnalysisText(read);
+  expect(read).not.toHaveBeenCalled();
+  const commandHandler = client.onCommand.mock.calls.at(-1)![0];
+  commandHandler("workspace.capture");
+  expect(client.preferences.panelState["textanalysis.text"]).toBe(
+    "Last unsaved character",
+  );
+  expect(read).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(parse).toHaveBeenCalledTimes(1);
+});
+
+it("saves a burst of manual edits after a pause", async () => {
+  api.setLiveTextAnalysis(false);
+  const read = vi.fn(() => "Latest text");
+  api.editAnalysisText(read);
+  await vi.advanceTimersByTimeAsync(200);
+  api.editAnalysisText(read);
+  await vi.advanceTimersByTimeAsync(200);
+  expect(read).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(50);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(client.preferences.panelState["textanalysis.text"]).toBe(
+    "Latest text",
+  );
+});
+
+it("preserves saved text when workspace capture happens before Text Analysis opens", async () => {
+  api.textAnalysisSession.dispose();
+  vi.resetModules();
+  client.preferences.panelState["textanalysis.text"] = "Saved unopened text";
+  api = await import("../../src/renderer/text-analysis-state");
+  api.flushAnalysisText();
+  expect(client.preferences.panelState["textanalysis.text"]).toBe(
+    "Saved unopened text",
   );
 });

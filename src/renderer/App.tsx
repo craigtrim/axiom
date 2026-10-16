@@ -31,6 +31,7 @@ import {
   syncTextAnalysisContext,
   ensureEntityDraft,
   textAnalysisSession,
+  flushAnalysisText,
 } from "./text-analysis-state";
 import { SparsityPanel } from "./SparsityPanel";
 import { QualityPanel } from "./QualityPanel";
@@ -547,6 +548,8 @@ export function App() {
       node = m.getNodeById(id),
       epoch = state!.datasetEpoch;
     if (!(node instanceof TabNode)) return;
+    // craigtrim/axiom#73: capture the last manual edit before saving a closed tab.
+    if (node.getComponent() === "textanalysis") flushAnalysisText();
     syncTabHistory(m);
     captureTab(node);
     const operation = (async () => {

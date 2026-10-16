@@ -51,6 +51,14 @@ export class LiveAnalysis {
     this.state = state;
     this.onState(state);
   }
+  // craigtrim/axiom#73: invalidate manual edits without reading or queuing text.
+  invalidate() {
+    if (this.disposed) return;
+    ++this.revision;
+    clearTimeout(this.timer);
+    this.latest = undefined;
+    this.publish({ status: "stale", result: analysisResult(this.state) });
+  }
   update(
     input: TextAnalysisInput,
     { schedule = true, immediate = false } = {},

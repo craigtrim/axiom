@@ -3,13 +3,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
 import "monaco-editor/editor/contrib/clipboard/browser/clipboard.js";
+import "monaco-editor/editor/contrib/wordOperations/browser/wordOperations.js";
 import "monaco-editor/editor/contrib/hover/browser/hoverContribution.js";
 import { onCommand, request, command, setState, state } from "./client";
 import "monaco-editor/editor/contrib/contextmenu/browser/contextmenu.js";
 import type { Snapshot } from "../shared/protocol";
 import {
   useTextAnalysis,
-  updateAnalysisText,
+  editAnalysisText,
+  flushAnalysisText,
+  analyzeTextNow,
   textAnalysisSession,
   attachTextEditor,
   inspectTextEntity,
@@ -45,11 +48,7 @@ export function TextAnalysisPanel() {
   const session = useTextAnalysis();
   const { snapshot, input, analysis, result, view, liveAnalysis } = session;
   const outOfDate = hasUnanalyzedText(session);
-  // craigtrim/axiom#73: reopening a paused editor analyzes its saved text once.
-  useEffect(() => {
-    if (!textAnalysisSession.getSnapshot().liveAnalysis)
-      textAnalysisSession.analyzeNow();
-  }, []);
+  // craigtrim/axiom#73: manual mode keeps ordinary editing separate from analysis.
   const text = input.text;
   const [selectedText, setSelectedText] = useState("");
   const addSelection = useRef<() => void>(() => {});
@@ -61,6 +60,7 @@ export function TextAnalysisPanel() {
   } | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const applyingText = useRef(false);
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(
     null,
   );
@@ -143,7 +143,7 @@ export function TextAnalysisPanel() {
       },
     });
     const change = instance.onDidChangeModelContent(() => {
-      updateAnalysisText(instance.getValue());
+      if (!applyingText.current) editAnalysisText(() => instance.getValue());
     });
     const showDetails = (offset: number, key?: string) => {
       const current = interaction.current;
@@ -179,6 +179,7 @@ export function TextAnalysisPanel() {
     const mouseUp = instance.onMouseUp((event) => {
       const start = down;
       down = undefined;
+      if (!textAnalysisSession.getSnapshot().liveAnalysis) return;
       if (
         !start ||
         !event.target.position ||
@@ -257,6 +258,7 @@ export function TextAnalysisPanel() {
       attributeFilter: ["data-theme"],
     });
     return () => {
+      flushAnalysisText();
       detach();
       observer.disconnect();
       commands();
@@ -276,9 +278,19 @@ export function TextAnalysisPanel() {
   }, []);
   useEffect(() => {
     const instance = editor.current;
-    const currentText = textAnalysisSession.getSnapshot().input.text;
-    if (instance && instance.getValue() !== currentText)
-      instance.setValue(currentText);
+    const current = textAnalysisSession.getSnapshot();
+    if (
+      instance &&
+      !current.editing &&
+      instance.getValue() !== current.input.text
+    ) {
+      applyingText.current = true;
+      try {
+        instance.setValue(current.input.text);
+      } finally {
+        applyingText.current = false;
+      }
+    }
     setGraphError("");
   }, [text, snapshot.datasetEpoch, snapshot.version]);
   addSelection.current = () => {
@@ -298,10 +310,21 @@ export function TextAnalysisPanel() {
   const entities = result?.entities ?? [];
   const legend = useMemo(() => textEntityGroups(result), [result]);
   const matchedIris = useMemo(() => matchedOntologyIris(result), [result]);
-  const canAnalyzeForGraph =
-    !liveAnalysis && outOfDate && !!text.trim() && analysis.status !== "error";
+  const graphNeedsAnalysis = !liveAnalysis && outOfDate;
+  const legendStyle = useMemo(
+    () =>
+      !liveAnalysis && view !== "summary"
+        ? ""
+        : legend
+            .map(({ entity }, i) => {
+              const hue = entityHue(entity.key);
+              return `.text-analysis-panel .text-entity-${i}{background:hsl(${hue} 75% 90%);color:#202020}[data-theme=dark] .text-analysis-panel .text-entity-${i}{background:hsl(${hue} 35% 27%);color:#fff}`;
+            })
+            .join("\n"),
+    [legend, liveAnalysis, view],
+  );
   const openGraph = async () => {
-    if ((!matchedIris.length && !canAnalyzeForGraph) || graphPending.current)
+    if (!matchedIris.length || graphNeedsAnalysis || graphPending.current)
       return;
     graphPending.current = true;
     setOpeningGraph(true);
@@ -334,7 +357,12 @@ export function TextAnalysisPanel() {
   };
   useLayoutEffect(() => {
     const model = editor.current?.getModel();
-    if (!model || !result || model.getValue() !== result.text) {
+    if (
+      !liveAnalysis ||
+      !model ||
+      !result ||
+      model.getValue() !== result.text
+    ) {
       decorations.current?.clear();
       interaction.current = null;
       return;
@@ -371,7 +399,7 @@ export function TextAnalysisPanel() {
         };
       }),
     );
-  }, [result, legend]);
+  }, [result, legend, liveAnalysis]);
   const status = !text.trim()
     ? "Type or paste text to begin."
     : analysis.status === "error"
@@ -380,7 +408,10 @@ export function TextAnalysisPanel() {
         ? ""
         : `${entities.length} ${entities.length === 1 ? "match" : "matches"}`;
   const shownStatus =
-    !liveAnalysis && outOfDate && text.trim() && analysis.status !== "error"
+    !liveAnalysis &&
+    outOfDate &&
+    (session.editing || text.trim()) &&
+    analysis.status !== "error"
       ? `${entities.length} ${entities.length === 1 ? "match" : "matches"} · out of date`
       : status;
   return (
@@ -389,14 +420,7 @@ export function TextAnalysisPanel() {
       data-panel="textanalysis"
       aria-label="Text Analysis"
     >
-      <style>
-        {legend
-          .map(({ entity }, i) => {
-            const hue = entityHue(entity.key);
-            return `.text-analysis-panel .text-entity-${i}{background:hsl(${hue} 75% 90%);color:#202020}[data-theme=dark] .text-analysis-panel .text-entity-${i}{background:hsl(${hue} 35% 27%);color:#fff}`;
-          })
-          .join("\n")}
-      </style>
+      <style>{legendStyle}</style>
       <div className="text-analysis-heading">
         <strong>Text Analysis</strong>
         <span className="text-analysis-ontology" title={snapshot.ontology.name}>
@@ -404,10 +428,12 @@ export function TextAnalysisPanel() {
         </span>
         <button
           className="text-analysis-graph"
-          disabled={
-            (!matchedIris.length && !canAnalyzeForGraph) || openingGraph
+          disabled={!matchedIris.length || graphNeedsAnalysis || openingGraph}
+          title={
+            graphNeedsAnalysis
+              ? "Press Analyze now before opening the current text in a graph"
+              : "Open all matched ontology entries and their ancestors in a new graph"
           }
-          title="Open all matched ontology entries and their ancestors in a new graph"
           onClick={() => void openGraph()}
         >
           {openingGraph ? "Opening..." : "View in Graph"}
@@ -427,7 +453,7 @@ export function TextAnalysisPanel() {
             {!liveAnalysis && (
               <button
                 disabled={!outOfDate || analysis.status === "pending"}
-                onClick={() => textAnalysisSession.analyzeNow()}
+                onClick={analyzeTextNow}
               >
                 Analyze now
               </button>
@@ -464,8 +490,8 @@ export function TextAnalysisPanel() {
         {liveAnalysis
           ? "Matches update automatically using the open ontology."
           : "Press Analyze now to update matches using the open ontology."}{" "}
-        Click a highlight to open the Details view. Select a new phrase and
-        choose Add entity, or press Alt+Enter.
+        {liveAnalysis && "Click a highlight to open the Details view. "}Select a
+        new phrase and choose Add entity, or press Alt+Enter.
       </p>
       {analysis.status === "error" && (
         <p role="alert" className="error text-analysis-error">
@@ -483,7 +509,7 @@ export function TextAnalysisPanel() {
         hidden={view !== "text"}
       />
       <div className="text-analysis-summary-host" hidden={view !== "summary"}>
-        <TextAnalysisSummary />
+        {(liveAnalysis || view === "summary") && <TextAnalysisSummary />}
       </div>
     </section>
   );
