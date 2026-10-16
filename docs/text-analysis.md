@@ -32,13 +32,13 @@ Parent search uses the same ranked search as Find, including prefixes, typo tole
 
 **Create new parent** opens a parent draft in the same view. Enter its name, select its parents, or create another parent from there. Each level offers the same suggestions and search. **Use new parent** returns to the child draft; **Edit** revisits a new parent's name, description and ancestry. If the name already identifies an existing class, **Use ... as parent** reuses that class. **Cancel parent**, or Escape inside a parent draft, discards that draft and returns to the child.
 
-No classes are created until **Add class** saves the original class and all its new ancestors together. One Undo removes that entire addition; Redo restores it. Every selected parent gets an asserted subclass relationship. Existing class names and aliases cannot be duplicated, and a class cannot be its own ancestor. An invalid choice anywhere in the addition leaves the ontology unchanged. The unsaved ontology change immediately triggers analysis, giving the new phrase its own highlight. Cancel leaves the ontology unchanged. Switching ontologies clears the form; a stale creation request cannot modify a different ontology or an older revision.
+No classes are created until **Add class** saves the original class and all its new ancestors together. One Undo removes that entire addition; Redo restores it. Every selected parent gets an asserted subclass relationship. Existing class names and aliases cannot be duplicated, and a class cannot be its own ancestor. An invalid choice anywhere in the addition leaves the ontology unchanged. With Live analysis on, the unsaved ontology change triggers analysis and gives the new phrase its own highlight. Manual mode waits for Analyze now. Cancel leaves the ontology unchanged. Switching ontologies clears the form; a stale creation request cannot modify a different ontology or an older revision.
 
 ## Viewing matches in the graph
 
 **View in Graph** opens a new graph containing every matched ontology entry and each direct parent path to its root. Repeated matches and shared ancestors appear once. All parent branches are retained when an entity has multiple parents. Existing graph views keep their contents. The graph includes the ancestor paths without expanding unrelated siblings or descendants.
 
-The action stays available during background analysis and waits for current matches before building the graph. Further text edits or ontology changes cancel a waiting action. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
+With Live analysis on, the action stays available during background analysis and waits for current matches before building the graph. In manual mode, analyze outdated text before using View in Graph. Further text edits or ontology changes cancel a waiting action. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
 
 Ontology IDs determine navigation, including when the matched text is a synonym. If multiple namespaces share the same canonical identifier, the Details tab lists the corresponding entries and the graph includes them. The graph button becomes available when at least one ontology entry is matched.
 
@@ -58,7 +58,7 @@ The default distance is four token positions. With ordinary words, zero to three
 
 Endpoints can be canonical names produced by earlier matches. Canonical names come from entity identifiers, so the class `:renal_trauma` with `kidney injury` as a synonym can use `renal_trauma+acute` to recognize `kidney injury blah acute`. Nested swap history supplies the complete original highlight. The original engine also generates spans for multiword canonical names such as `research_methods`.
 
-These semantics are checked against the original Python implementation, including its distance boundary, reverse order and nested swaps. For repeated endpoints, Mutatoc 0.5.1 uses the closest occurrence where the Python implementation used the last one. The view calls mutatoc's full parser automatically as text changes.
+These semantics are checked against the original Python implementation, including its distance boundary, reverse order and nested swaps. For repeated endpoints, Mutatoc 0.5.1 uses the closest occurrence where the Python implementation used the last one. The view calls mutatoc's full parser automatically with Live analysis on and through Analyze now in manual mode.
 
 ## Runtime
 
