@@ -22,6 +22,9 @@ let initialized = false;
 function initialize() {
   if (initialized || !state) return;
   initialized = true;
+  textAnalysisSession.setLiveAnalysis(
+    preferences.panelState?.["textanalysis.live"] !== false,
+  );
   textAnalysisSession.setView(
     preferences.panelState?.["textanalysis.view"] === "summary"
       ? "summary"
@@ -52,6 +55,11 @@ export function ensureEntityDraft() {
 export function setTextAnalysisView(view: "text" | "summary") {
   textAnalysisSession.setView(view);
   savePanel("textanalysis.view", view, false);
+}
+// craigtrim/axiom#73: preserve the typing mode beside the text and presentation.
+export function setLiveTextAnalysis(enabled: boolean) {
+  textAnalysisSession.setLiveAnalysis(enabled);
+  savePanel("textanalysis.live", enabled, false);
 }
 export function openClassDraft(
   draft: TextEntityClassDraft,
@@ -161,7 +169,9 @@ async function activateTextEntity(
     result.version !== state.version ||
     (selectText &&
       !editor &&
-      textAnalysisSession.getSnapshot().analysis.status === "pending")
+      ["pending", "stale"].includes(
+        textAnalysisSession.getSnapshot().analysis.status,
+      ))
   ) {
     // Synchronize before waiting, including a click before the view's effect ran.
     const fresh = await waitForCurrentTextAnalysis();
@@ -235,4 +245,9 @@ onCommand((id) => {
       datasetEpoch: state.datasetEpoch,
       version: state.version,
     });
+  textAnalysisSession.setLiveAnalysis(
+    preferences.panelState?.["textanalysis.live"] !== false,
+  );
+  if (!textAnalysisSession.getSnapshot().liveAnalysis)
+    textAnalysisSession.analyzeNow();
 });
