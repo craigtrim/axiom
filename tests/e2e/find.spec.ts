@@ -557,6 +557,61 @@ test("the narrow split reserves 148 pixels and lists Synonym before relations", 
   );
 });
 
+// #70: the sibling editor must save the generated Subject without recasing its label.
+test("#70 uppercase sibling label previews and saves a PascalCase ID", async () => {
+  await openExtendFixture();
+  await extendMenu("Clinical Psychology");
+  await page.getByRole("menuitem", { name: /^Sibling/ }).click();
+  const form = pane().getByRole("region", { name: "Add to the ontology" });
+  const label = form.getByRole("textbox", { name: "Class label", exact: true });
+  const subject = form.getByRole("textbox", {
+    name: "Subject IRI",
+    exact: true,
+  });
+  const iri = extendBase + "CreativeThinking";
+  for (const input of [
+    "creative thinking",
+    "Creative Thinking",
+    "CREATIVE THINKING",
+  ]) {
+    await label.fill(input);
+    await expect(subject).toHaveValue(iri);
+    await expect(
+      form.getByRole("button", { name: "Create class", exact: true }),
+    ).toBeEnabled();
+    await expect(label).toHaveValue(input);
+  }
+  await form.getByRole("button", { name: "Create class", exact: true }).click();
+  await expect
+    .poll(
+      async () => (await state()).entities.find((e) => e.iri === iri)?.label,
+    )
+    .toBe("CREATIVE THINKING");
+  const doc = await page.evaluate(
+    async (iri) => window.axiom.request<any>("entityDocument", { iri }),
+    iri,
+  );
+  expect(doc.statements).toContainEqual(
+    expect.objectContaining({
+      subject: iri,
+      predicate: NS.rdfs + "subClassOf",
+      object: expect.objectContaining({
+        value: extendBase + "Psychology",
+        literal: false,
+      }),
+    }),
+  );
+  await resultAction("Details");
+  await expect(page.locator('[data-panel="details"]')).toHaveAttribute(
+    "data-entity-iri",
+    iri,
+  );
+  await menu("edit.undo");
+  await expect
+    .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+    .toBe(false);
+});
+
 for (const count of [0, 1, 2]) {
   test(`#55 Sibling shares ${count} named parents in Details and undoes every statement`, async () => {
     await openExtendFixture(

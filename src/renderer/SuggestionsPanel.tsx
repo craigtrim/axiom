@@ -329,6 +329,20 @@ function SavedSuggestionView({
   const entity = s.entities.find((e) => e.iri === target?.iri),
     name = entity?.name ?? "the selected entity";
   const exists = !!entity && target.namespace === s.ontology.namespace;
+  // Issue #68: only a run for this node and mode blocks selecting saved values.
+  const activeForTarget =
+    !!active && active.iri === target.iri && active.mode === target.mode;
+  const selectionNotice = activeForTarget
+    ? "Wait for the suggestions for " +
+      name +
+      " to finish before selecting values."
+    : busy
+      ? applying
+        ? "Adding selected suggestions to " + name + "."
+        : "Preparing suggestions for " +
+          name +
+          ". Wait before selecting values."
+      : "";
   const refresh = async () => {
     const [runs, running] = await Promise.all([
       window.axiom.suggestions.history(),
@@ -491,7 +505,7 @@ function SavedSuggestionView({
     definition,
   ]);
   async function apply(indices: number[]) {
-    if (!entry || busy || active || stale || !exists) return;
+    if (!entry || busy || activeForTarget || stale || !exists) return;
     setBusy(true);
     setApplying(true);
     setError("");
@@ -552,6 +566,7 @@ function SavedSuggestionView({
         loading={!ready}
         applying={applying}
         activity={!!active || (busy && !applying)}
+        selectionActivity={activeForTarget || (busy && !applying)}
         waiting={!!start && !!active && !generating.current}
         targetExists={exists}
         blocked={
@@ -565,7 +580,16 @@ function SavedSuggestionView({
         error={error || entry?.error || ""}
         entities={s.entities}
         previewPrompt={parentPreview}
-        progress={progress}
+        progress={
+          <>
+            {progress}
+            {selectionNotice && (
+              <p role="status" className="ac-notice">
+                {selectionNotice}
+              </p>
+            )}
+          </>
+        }
         generate={generate}
         apply={apply}
         selectRun={(id) => {
@@ -657,6 +681,7 @@ function SavedSuggestionView({
         </label>
       </header>
       <div className="taxonomy-content">
+        {selectionNotice && <p role="status">{selectionNotice}</p>}
         <p className="muted">
           {parents
             ? "Find existing classes using shorter names formed by omitting words, in the same order. No assistant is used."
@@ -721,7 +746,13 @@ function SavedSuggestionView({
                     type="checkbox"
                     aria-label={"Add " + v.label}
                     checked={selected.includes(i) || entry.applied.includes(i)}
-                    disabled={busy || stale || entry.applied.includes(i)}
+                    disabled={
+                      busy ||
+                      activeForTarget ||
+                      stale ||
+                      !exists ||
+                      entry.applied.includes(i)
+                    }
                     onChange={(e) =>
                       setSelected((values) =>
                         e.target.checked
@@ -746,7 +777,9 @@ function SavedSuggestionView({
         <footer className="panel-toolbar taxonomy-footer">
           <button
             className="primary"
-            disabled={busy || stale || !selected.length}
+            disabled={
+              busy || activeForTarget || stale || !exists || !selected.length
+            }
             onClick={() => void apply(selected)}
           >
             Add selected{" "}

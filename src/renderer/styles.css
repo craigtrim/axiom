@@ -3321,6 +3321,10 @@ a {
   display: block;
   padding: 2px 4px;
 }
+/* craigtrim/axiom#72: creation is an informational note in the parent field. */
+.resource-input > .resource-create-note {
+  color: var(--text-secondary);
+}
 .resource-matches {
   position: fixed;
   z-index: 15000;

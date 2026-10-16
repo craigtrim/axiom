@@ -12,11 +12,14 @@ export function entityIdentifier(label: string) {
     label
       .trim()
       .normalize("NFKC")
+      // #70: retain camel-case word boundaries before normalizing ID casing.
+      .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
+      .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
       .match(/[\p{L}\p{N}\p{M}_]+/gu) ?? [];
   let name =
     words
       .map((w) => {
-        const [first, ...rest] = [...w];
+        const [first, ...rest] = [...w.toLowerCase()];
         return first.toUpperCase() + rest.join("");
       })
       .join("") || "Entity";

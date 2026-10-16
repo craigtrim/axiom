@@ -1089,7 +1089,11 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return result;
     }
     case "validateSynonyms":
-      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      // Issue #68: generation uses current data; apply still checks its edit version.
+      if (
+        a.datasetEpoch !== datasetEpoch ||
+        (a.version !== undefined && a.version !== store.version)
+      )
         throw staleError("The ontology changed. Start a new synonym run.");
       return validateSynonyms(
         store,
@@ -2046,16 +2050,21 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       return true;
     }
-    case "createClass":
+    case "createClass": {
       validateCreation(a);
-      selected = store.createClass(
+      // craigtrim/axiom#72: creating a Details parent must retain the edited child.
+      if (a.version !== undefined && a.version !== store.version)
+        throw Error("The ontology changed. Choose the parent again.");
+      const created = store.createClass(
         string(a, "name", 256),
         string(a, "parent"),
         typeof a.comment === "string" ? a.comment : "",
       );
+      if (!a.preserveSelection) selected = created;
       mutate("Class created.");
-      placeCreated(a);
-      return selected;
+      if (!a.preserveSelection) placeCreated(a);
+      return created;
+    }
     case "deleteClass": {
       const iri = string(a, "iri");
       store.deleteClass(iri);
