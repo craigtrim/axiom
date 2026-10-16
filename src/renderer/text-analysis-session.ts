@@ -38,6 +38,7 @@ export interface TextAnalysisSessionState {
   mode: "summary" | "add";
   view: "text" | "summary";
   liveAnalysis: boolean;
+  editing: boolean;
   details?: { entity: TextEntity; result: TextAnalysisResult };
   creation?: {
     phrase: string;
@@ -55,11 +56,12 @@ export class TextAnalysisSession {
     mode: "summary",
     view: "text",
     liveAnalysis: true,
+    editing: false,
   };
   private listeners = new Set<() => void>();
   private live: LiveAnalysis;
   private disposed = false;
-  private typingAnalysis = false;
+  private draftText?: () => string;
   constructor(
     parse: (input: TextAnalysisInput) => Promise<TextAnalysisResult>,
     delay = 60,
@@ -81,40 +83,71 @@ export class TextAnalysisSession {
     this.value = { ...this.value, ...change };
     for (const listener of this.listeners) listener();
   }
+  // craigtrim/axiom#73: manual keystrokes stay in Monaco until capture or an action.
+  edit(readText: () => string) {
+    if (this.disposed) return;
+    if (this.value.liveAnalysis) {
+      this.update({ ...this.value.input, text: readText() });
+      return;
+    }
+    this.draftText = readText;
+    if (this.value.editing) return;
+    this.value = {
+      ...this.value,
+      editing: true,
+      mode: "summary",
+      details: undefined,
+      creation: undefined,
+      created: undefined,
+    };
+    this.live.invalidate();
+  }
+  flushText() {
+    if (this.draftText) {
+      const text = this.draftText();
+      this.draftText = undefined;
+      this.update({ ...this.value.input, text });
+    }
+    return this.value.input.text;
+  }
   update(input: TextAnalysisInput) {
     if (this.disposed) return;
+    if (this.draftText) {
+      input = { ...input, text: this.draftText() };
+      this.draftText = undefined;
+    }
     const old = this.value.input;
     if (
       old.text === input.text &&
       old.datasetEpoch === input.datasetEpoch &&
-      old.version === input.version
+      old.version === input.version &&
+      !this.value.editing
     )
       return;
     const replace =
       old.text !== input.text || old.datasetEpoch !== input.datasetEpoch;
-    const contextChanged =
-      old.datasetEpoch !== input.datasetEpoch || old.version !== input.version;
-    this.typingAnalysis = !contextChanged;
     this.publish({
       input,
+      editing: false,
       analysis: pendingAnalysis(this.value.analysis, input),
       details: undefined,
       mode: replace ? "summary" : this.value.mode,
       ...(replace ? { creation: undefined, created: undefined } : {}),
     });
     this.live.update(input, {
-      schedule: this.value.liveAnalysis || contextChanged,
+      schedule: this.value.liveAnalysis,
     });
   }
-  // craigtrim/axiom#73: only typing pauses; ontology changes still refresh the current text.
   setLiveAnalysis(enabled: boolean) {
     if (this.disposed || enabled === this.value.liveAnalysis) return;
+    this.flushText();
     this.publish({ liveAnalysis: enabled });
     if (enabled) this.analyzeNow();
-    else if (this.typingAnalysis && this.value.analysis.status === "pending")
+    else if (this.value.analysis.status === "pending")
       this.live.update(this.value.input, { schedule: false });
   }
   analyzeNow() {
+    this.flushText();
     if (this.disposed || this.value.analysis.status === "pending") return;
     const result = analysisResult(this.value.analysis);
     if (
@@ -122,7 +155,6 @@ export class TextAnalysisSession {
       result?.text === this.value.input.text
     )
       return;
-    this.typingAnalysis = false;
     this.live.update(this.value.input, { immediate: true });
   }
   showDetails(entity: TextEntity) {
@@ -138,6 +170,7 @@ export class TextAnalysisSession {
   }
   create(phrase: string, start?: number) {
     if (!phrase.trim() || phrase.trim().length > 256) return;
+    this.flushText();
     this.publish({
       mode: "add",
       creation: {
@@ -202,18 +235,26 @@ export class TextAnalysisSession {
       created: { iri, label, parents, classes },
     });
   }
-  reset(input: TextAnalysisInput) {
+  reset(input: TextAnalysisInput, liveAnalysis = this.value.liveAnalysis) {
+    this.draftText = undefined;
+    this.live.invalidate();
     this.publish({
+      liveAnalysis,
+      editing: false,
       mode: "summary",
       details: undefined,
       creation: undefined,
       created: undefined,
     });
     this.update(input);
+    if (liveAnalysis && this.value.analysis.status === "stale")
+      this.analyzeNow();
   }
   /** An action may use retained UI, but must consume analysis of this exact input. */
   whenReady(): Promise<TextAnalysisResult | undefined> {
-    if (this.value.analysis.status === "stale") this.analyzeNow();
+    this.flushText();
+    if (this.value.liveAnalysis && this.value.analysis.status === "stale")
+      this.analyzeNow();
     const input = this.value.input;
     return new Promise((resolve) => {
       let unsubscribe = () => {};
@@ -238,6 +279,7 @@ export class TextAnalysisSession {
     });
   }
   dispose() {
+    this.draftText = undefined;
     this.disposed = true;
     this.live.dispose();
     for (const listener of this.listeners) listener();
@@ -246,7 +288,15 @@ export class TextAnalysisSession {
 }
 export function hasUnanalyzedText(value: TextAnalysisSessionState) {
   const result = analysisResult(value.analysis);
-  return result ? result.text !== value.input.text : !!value.input.text.trim();
+  return (
+    value.editing ||
+    value.analysis.status === "stale" ||
+    (result
+      ? result.text !== value.input.text ||
+        result.version !== value.input.version ||
+        result.datasetEpoch !== value.input.datasetEpoch
+      : !!value.input.text.trim())
+  );
 }
 export function textEntityGroups(result?: TextAnalysisResult) {
   const groups = new Map<string, { entity: TextEntity; count: number }>();

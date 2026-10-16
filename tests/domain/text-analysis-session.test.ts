@@ -75,35 +75,39 @@ describe("shared Text Analysis session", () => {
     expect(parse).toHaveBeenCalledTimes(3);
     session.dispose();
   });
-  it("analyzes the initial text and ontology changes while paused and clears other datasets", async () => {
+  it("waits for an explicit request after opening, ontology edits and dataset changes while paused", async () => {
     const { session, parse } = setup();
     session.setLiveAnalysis(false);
-    await ready(session);
+    session.update(input());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).not.toHaveBeenCalled();
+    session.analyzeNow();
+    await vi.advanceTimersByTimeAsync(0);
     session.update(input("Dog and Cat"));
     session.update(input("Dog and Cat", 2));
     await vi.advanceTimersByTimeAsync(60);
-    expect(parse.mock.calls.map(([args]) => args)).toEqual([
-      input(),
-      input("Dog and Cat", 2),
-    ]);
-    expect(hasUnanalyzedText(session.getSnapshot())).toBe(false);
+    expect(parse.mock.calls.map(([args]) => args)).toEqual([input()]);
+    expect(hasUnanalyzedText(session.getSnapshot())).toBe(true);
+    session.analyzeNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(parse).toHaveBeenLastCalledWith(input("Dog and Cat", 2));
     session.update(input("Cat", 1, 2));
     expect(session.getSnapshot().analysis).not.toHaveProperty("result");
     await vi.advanceTimersByTimeAsync(60);
-    expect(parse).toHaveBeenLastCalledWith(input("Cat", 1, 2));
+    expect(parse).toHaveBeenCalledTimes(2);
     session.dispose();
   });
-  it("starts current analysis for a waiting graph action while paused", async () => {
+  it("does not start an implicit analysis for a graph action while paused", async () => {
     const { session, parse } = setup();
     await ready(session);
     session.setLiveAnalysis(false);
     session.update(input("Cat"));
     const waiting = session.whenReady();
-    expect(parse).toHaveBeenCalledTimes(2);
-    expect(await waiting).toEqual(result(input("Cat")));
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(await waiting).toBeUndefined();
     session.dispose();
   });
-  it("cancels queued typing when paused but keeps an ontology refresh", async () => {
+  it("cancels queued typing and ontology refreshes when paused", async () => {
     const { session, parse } = setup();
     await ready(session);
     session.update(input("Cat"));
@@ -118,7 +122,6 @@ describe("shared Text Analysis session", () => {
     expect(parse.mock.calls.map(([args]) => args)).toEqual([
       input(),
       input("Cat"),
-      input("Cat", 2),
     ]);
     session.dispose();
   });
@@ -156,6 +159,76 @@ describe("shared Text Analysis session", () => {
     session.setLiveAnalysis(true);
     await vi.advanceTimersByTimeAsync(1000);
     expect(parse).toHaveBeenCalledTimes(1);
+    session.dispose();
+  });
+  it("keeps a burst of manual edits local and captures the latest text only on demand", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.setLiveAnalysis(false);
+    const subscriber = vi.fn();
+    session.subscribe(subscriber);
+    let text = "";
+    const readText = vi.fn(() => text);
+    for (const character of "Cat and Lion") {
+      text += character;
+      session.edit(readText);
+    }
+    expect(readText).not.toHaveBeenCalled();
+    expect(subscriber).toHaveBeenCalledTimes(1);
+    expect(hasUnanalyzedText(session.getSnapshot())).toBe(true);
+    session.analyzeNow();
+    expect(readText).toHaveBeenCalledTimes(1);
+    expect(parse).toHaveBeenLastCalledWith(input("Cat and Lion"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await session.whenReady()).toEqual(result(input("Cat and Lion")));
+    session.dispose();
+  });
+  it("invalidates a manual result immediately when the editor changes before capture", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.setLiveAnalysis(false);
+    let finish!: (value: TextAnalysisResult) => void;
+    parse.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    session.edit(() => "Cat");
+    session.analyzeNow();
+    session.edit(() => "Lion");
+    finish(result(input("Cat")));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.getSnapshot().analysis.status).toBe("stale");
+    expect(session.flushText()).toBe("Lion");
+    expect(await session.whenReady()).toBeUndefined();
+    expect(parse).toHaveBeenCalledTimes(2);
+    session.dispose();
+  });
+  it("captures a manual draft against a changed ontology and drops it on workspace reset", async () => {
+    const { session, parse } = setup();
+    session.setLiveAnalysis(false);
+    session.update(input());
+    session.edit(() => "Cat");
+    session.update(input("Dog", 2));
+    expect(session.getSnapshot().input).toEqual(input("Cat", 2));
+    expect(parse).not.toHaveBeenCalled();
+    session.edit(() => "Discard this old workspace text");
+    session.reset(input("Lion", 1, 2), false);
+    expect(session.flushText()).toBe("Lion");
+    expect(parse).not.toHaveBeenCalled();
+    session.dispose();
+  });
+  it("restoring manual mode cancels a queued analysis even when the input is unchanged", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.update(input("Cat"));
+    session.reset(input("Cat"), false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot().analysis.status).toBe("stale");
+    session.analyzeNow();
+    expect(parse).toHaveBeenLastCalledWith(input("Cat"));
     session.dispose();
   });
   it.each([true, false])("persists live analysis %s", (enabled) => {
