@@ -6,10 +6,13 @@ import {
 export type LiveAnalysisState =
   | { status: "idle" }
   | { status: "pending"; result?: TextAnalysisResult }
+  | { status: "stale"; result?: TextAnalysisResult }
   | { status: "ready"; result: TextAnalysisResult }
   | { status: "error"; message: string };
 export function analysisResult(state: LiveAnalysisState) {
-  return state.status === "ready" || state.status === "pending"
+  return state.status === "ready" ||
+    state.status === "pending" ||
+    state.status === "stale"
     ? state.result
     : undefined;
 }
@@ -48,13 +51,28 @@ export class LiveAnalysis {
     this.state = state;
     this.onState(state);
   }
-  update(input: TextAnalysisInput) {
+  update(
+    input: TextAnalysisInput,
+    { schedule = true, immediate = false } = {},
+  ) {
     if (this.disposed) return;
     const revision = ++this.revision;
     clearTimeout(this.timer);
     this.latest = undefined;
-    this.publish(pendingAnalysis(this.state, input));
+    const next = pendingAnalysis(this.state, input);
+    // craigtrim/axiom#73: paused edits invalidate queued and running results without parsing.
+    this.publish(
+      !schedule && next.status === "pending"
+        ? { ...next, status: "stale" }
+        : next,
+    );
+    if (!schedule) return;
     if (this.state.status !== "pending") return;
+    if (immediate) {
+      this.latest = { revision, input };
+      void this.run();
+      return;
+    }
     this.timer = setTimeout(() => {
       this.latest = { revision, input };
       void this.run();

@@ -37,6 +37,7 @@ export interface TextAnalysisSessionState {
   analysis: LiveAnalysisState;
   mode: "summary" | "add";
   view: "text" | "summary";
+  liveAnalysis: boolean;
   details?: { entity: TextEntity; result: TextAnalysisResult };
   creation?: {
     phrase: string;
@@ -53,10 +54,12 @@ export class TextAnalysisSession {
     analysis: { status: "idle" },
     mode: "summary",
     view: "text",
+    liveAnalysis: true,
   };
   private listeners = new Set<() => void>();
   private live: LiveAnalysis;
   private disposed = false;
+  private typingAnalysis = false;
   constructor(
     parse: (input: TextAnalysisInput) => Promise<TextAnalysisResult>,
     delay = 60,
@@ -89,6 +92,9 @@ export class TextAnalysisSession {
       return;
     const replace =
       old.text !== input.text || old.datasetEpoch !== input.datasetEpoch;
+    const contextChanged =
+      old.datasetEpoch !== input.datasetEpoch || old.version !== input.version;
+    this.typingAnalysis = !contextChanged;
     this.publish({
       input,
       analysis: pendingAnalysis(this.value.analysis, input),
@@ -96,7 +102,28 @@ export class TextAnalysisSession {
       mode: replace ? "summary" : this.value.mode,
       ...(replace ? { creation: undefined, created: undefined } : {}),
     });
-    this.live.update(input);
+    this.live.update(input, {
+      schedule: this.value.liveAnalysis || contextChanged,
+    });
+  }
+  // craigtrim/axiom#73: only typing pauses; ontology changes still refresh the current text.
+  setLiveAnalysis(enabled: boolean) {
+    if (this.disposed || enabled === this.value.liveAnalysis) return;
+    this.publish({ liveAnalysis: enabled });
+    if (enabled) this.analyzeNow();
+    else if (this.typingAnalysis && this.value.analysis.status === "pending")
+      this.live.update(this.value.input, { schedule: false });
+  }
+  analyzeNow() {
+    if (this.disposed || this.value.analysis.status === "pending") return;
+    const result = analysisResult(this.value.analysis);
+    if (
+      this.value.analysis.status === "ready" &&
+      result?.text === this.value.input.text
+    )
+      return;
+    this.typingAnalysis = false;
+    this.live.update(this.value.input, { immediate: true });
   }
   showDetails(entity: TextEntity) {
     const result = analysisResult(this.value.analysis);
@@ -186,6 +213,7 @@ export class TextAnalysisSession {
   }
   /** An action may use retained UI, but must consume analysis of this exact input. */
   whenReady(): Promise<TextAnalysisResult | undefined> {
+    if (this.value.analysis.status === "stale") this.analyzeNow();
     const input = this.value.input;
     return new Promise((resolve) => {
       let unsubscribe = () => {};
@@ -215,6 +243,10 @@ export class TextAnalysisSession {
     for (const listener of this.listeners) listener();
     this.listeners.clear();
   }
+}
+export function hasUnanalyzedText(value: TextAnalysisSessionState) {
+  const result = analysisResult(value.analysis);
+  return result ? result.text !== value.input.text : !!value.input.text.trim();
 }
 export function textEntityGroups(result?: TextAnalysisResult) {
   const groups = new Map<string, { entity: TextEntity; count: number }>();

@@ -15,9 +15,10 @@ import {
   inspectTextEntity,
   setTextAnalysisView,
   waitForCurrentTextAnalysis,
+  setLiveTextAnalysis,
 } from "./text-analysis-state";
 import { TextAnalysisSummary } from "./TextAnalysisSummary";
-import { textEntityGroups } from "./text-analysis-session";
+import { textEntityGroups, hasUnanalyzedText } from "./text-analysis-session";
 import {
   entityHue,
   type TextAnalysisResult,
@@ -41,7 +42,14 @@ function matchedOntologyIris(result?: TextAnalysisResult) {
 }
 
 export function TextAnalysisPanel() {
-  const { snapshot, input, analysis, result, view } = useTextAnalysis();
+  const session = useTextAnalysis();
+  const { snapshot, input, analysis, result, view, liveAnalysis } = session;
+  const outOfDate = hasUnanalyzedText(session);
+  // craigtrim/axiom#73: reopening a paused editor analyzes its saved text once.
+  useEffect(() => {
+    if (!textAnalysisSession.getSnapshot().liveAnalysis)
+      textAnalysisSession.analyzeNow();
+  }, []);
   const text = input.text;
   const [selectedText, setSelectedText] = useState("");
   const addSelection = useRef<() => void>(() => {});
@@ -290,8 +298,11 @@ export function TextAnalysisPanel() {
   const entities = result?.entities ?? [];
   const legend = useMemo(() => textEntityGroups(result), [result]);
   const matchedIris = useMemo(() => matchedOntologyIris(result), [result]);
+  const canAnalyzeForGraph =
+    !liveAnalysis && outOfDate && !!text.trim() && analysis.status !== "error";
   const openGraph = async () => {
-    if (!result || !matchedIris.length || graphPending.current) return;
+    if ((!matchedIris.length && !canAnalyzeForGraph) || graphPending.current)
+      return;
     graphPending.current = true;
     setOpeningGraph(true);
     setGraphError("");
@@ -368,6 +379,10 @@ export function TextAnalysisPanel() {
       : !result
         ? ""
         : `${entities.length} ${entities.length === 1 ? "match" : "matches"}`;
+  const shownStatus =
+    !liveAnalysis && outOfDate && text.trim() && analysis.status !== "error"
+      ? `${entities.length} ${entities.length === 1 ? "match" : "matches"} · out of date`
+      : status;
   return (
     <section
       className="panel text-analysis-panel"
@@ -389,20 +404,42 @@ export function TextAnalysisPanel() {
         </span>
         <button
           className="text-analysis-graph"
-          disabled={!matchedIris.length || openingGraph}
+          disabled={
+            (!matchedIris.length && !canAnalyzeForGraph) || openingGraph
+          }
           title="Open all matched ontology entries and their ancestors in a new graph"
           onClick={() => void openGraph()}
         >
           {openingGraph ? "Opening..." : "View in Graph"}
         </button>
         {view === "text" && (
-          <button
-            disabled={!selectedText || selectedText.length > 256}
-            title="Select a phrase of up to 256 characters, then add it to the taxonomy"
-            onClick={() => addSelection.current()}
-          >
-            Add entity
-          </button>
+          <>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={liveAnalysis}
+              className="text-analysis-switch"
+              onClick={() => setLiveTextAnalysis(!liveAnalysis)}
+            >
+              <span className="text-analysis-switch-track" aria-hidden="true" />
+              Live analysis
+            </button>
+            {!liveAnalysis && (
+              <button
+                disabled={!outOfDate || analysis.status === "pending"}
+                onClick={() => textAnalysisSession.analyzeNow()}
+              >
+                Analyze now
+              </button>
+            )}
+            <button
+              disabled={!selectedText || selectedText.length > 256}
+              title="Select a phrase of up to 256 characters, then add it to the taxonomy"
+              onClick={() => addSelection.current()}
+            >
+              Add entity
+            </button>
+          </>
         )}
         <button
           onClick={() => {
@@ -419,13 +456,16 @@ export function TextAnalysisPanel() {
           className="text-analysis-status"
           title={result ? `Analysis took ${result.milliseconds} ms` : undefined}
         >
-          {status}
+          {shownStatus}
         </span>
       </div>
       <p className="text-analysis-hint" hidden={view !== "text"}>
-        Type or paste plain text. Matches update automatically using the open
-        ontology. Click a highlight to open the Details view. Select a new
-        phrase and choose Add entity, or press Alt+Enter.
+        Type or paste plain text.{" "}
+        {liveAnalysis
+          ? "Matches update automatically using the open ontology."
+          : "Press Analyze now to update matches using the open ontology."}{" "}
+        Click a highlight to open the Details view. Select a new phrase and
+        choose Add entity, or press Alt+Enter.
       </p>
       {analysis.status === "error" && (
         <p role="alert" className="error text-analysis-error">

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TextAnalysisSession,
   textEntityGroups,
+  hasUnanalyzedText,
 } from "../../src/renderer/text-analysis-session";
 import { textEntityConcepts } from "../../src/shared/text-analysis";
 import { readPreferences } from "../../src/shared/preferences";
@@ -44,6 +45,138 @@ async function ready(session: TextAnalysisSession, args = input()) {
   return analysis.result;
 }
 describe("shared Text Analysis session", () => {
+  // craigtrim/axiom#73: manual mode keeps settled results but never queues typing.
+  it("pauses typing, analyzes once on demand and resumes outstanding edits immediately", async () => {
+    const { session, parse } = setup();
+    const settled = await ready(session);
+    session.setLiveAnalysis(false);
+    session.update(input("Dog and Cat"));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot().analysis).toEqual({
+      status: "stale",
+      result: settled,
+    });
+    expect(hasUnanalyzedText(session.getSnapshot())).toBe(true);
+    session.analyzeNow();
+    session.analyzeNow();
+    expect(parse).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await session.whenReady()).toEqual(result(input("Dog and Cat")));
+    expect(hasUnanalyzedText(session.getSnapshot())).toBe(false);
+    session.update(input("Cat"));
+    session.setLiveAnalysis(true);
+    expect(parse.mock.calls.map(([args]) => args.text)).toEqual([
+      "Dog",
+      "Dog and Cat",
+      "Cat",
+    ]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(3);
+    session.dispose();
+  });
+  it("analyzes the initial text and ontology changes while paused and clears other datasets", async () => {
+    const { session, parse } = setup();
+    session.setLiveAnalysis(false);
+    await ready(session);
+    session.update(input("Dog and Cat"));
+    session.update(input("Dog and Cat", 2));
+    await vi.advanceTimersByTimeAsync(60);
+    expect(parse.mock.calls.map(([args]) => args)).toEqual([
+      input(),
+      input("Dog and Cat", 2),
+    ]);
+    expect(hasUnanalyzedText(session.getSnapshot())).toBe(false);
+    session.update(input("Cat", 1, 2));
+    expect(session.getSnapshot().analysis).not.toHaveProperty("result");
+    await vi.advanceTimersByTimeAsync(60);
+    expect(parse).toHaveBeenLastCalledWith(input("Cat", 1, 2));
+    session.dispose();
+  });
+  it("starts current analysis for a waiting graph action while paused", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.setLiveAnalysis(false);
+    session.update(input("Cat"));
+    const waiting = session.whenReady();
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(await waiting).toEqual(result(input("Cat")));
+    session.dispose();
+  });
+  it("cancels queued typing when paused but keeps an ontology refresh", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.update(input("Cat"));
+    session.setLiveAnalysis(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(1);
+    session.setLiveAnalysis(true);
+    await vi.advanceTimersByTimeAsync(0);
+    session.update(input("Cat", 2));
+    session.setLiveAnalysis(false);
+    await vi.advanceTimersByTimeAsync(60);
+    expect(parse.mock.calls.map(([args]) => args)).toEqual([
+      input(),
+      input("Cat"),
+      input("Cat", 2),
+    ]);
+    session.dispose();
+  });
+  it("discards a running result after another paused edit without queuing a replacement", async () => {
+    const { session, parse } = setup();
+    const settled = await ready(session);
+    session.setLiveAnalysis(false);
+    let finish!: (value: TextAnalysisResult) => void;
+    parse.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    session.update(input("Cat"));
+    session.analyzeNow();
+    const waiting = session.whenReady();
+    session.update(input("Lion"));
+    finish(result(input("Cat")));
+    expect(await waiting).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(session.getSnapshot().analysis).toEqual({
+      status: "stale",
+      result: settled,
+    });
+    session.analyzeNow();
+    expect(await session.whenReady()).toEqual(result(input("Lion")));
+    session.dispose();
+  });
+  it("does not parse unchanged text when the switch is toggled", async () => {
+    const { session, parse } = setup();
+    await ready(session);
+    session.setLiveAnalysis(false);
+    session.setLiveAnalysis(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(parse).toHaveBeenCalledTimes(1);
+    session.dispose();
+  });
+  it.each([true, false])("persists live analysis %s", (enabled) => {
+    expect(
+      readPreferences({
+        version: 1,
+        panelState: { "textanalysis.live": enabled },
+      }).panelState?.["textanalysis.live"],
+    ).toBe(enabled);
+  });
+  it.each(["false", 0, null])(
+    "rejects an invalid live analysis preference %s",
+    (enabled) => {
+      expect(
+        readPreferences({
+          version: 1,
+          panelState: { "textanalysis.live": enabled },
+        }).panelState?.["textanalysis.live"],
+      ).toBeUndefined();
+    },
+  );
   it("switches text and Summary without reparsing or discarding nested creation drafts", async () => {
     const { session, parse } = setup();
     const result = await ready(session);

@@ -104,6 +104,9 @@ export function readPreferences(input: unknown): Preferences {
     out["textanalysis.entitiesView"] = true;
   if (["text", "summary"].includes(s["textanalysis.view"] as string))
     out["textanalysis.view"] = s["textanalysis.view"];
+  // craigtrim/axiom#73: manual analysis is an explicit boolean preference.
+  if (typeof s["textanalysis.live"] === "boolean")
+    out["textanalysis.live"] = s["textanalysis.live"];
   if (typeof s["textanalysis.pane.open"] === "boolean")
     out["textanalysis.pane.open"] = s["textanalysis.pane.open"];
   if (number(s["textanalysis.pane.size"], 15, 70))

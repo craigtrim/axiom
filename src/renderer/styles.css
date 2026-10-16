@@ -3979,6 +3979,37 @@ button.sparsity-link {
   gap: 8px 16px;
   padding: 10px 12px 4px;
 }
+/* craigtrim/axiom#73: show the live-analysis switch state and keyboard focus. */
+.text-analysis-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.text-analysis-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.text-analysis-switch-track {
+  width: 28px;
+  height: 16px;
+  border-radius: 9px;
+  background: var(--text-secondary);
+  padding: 2px;
+}
+.text-analysis-switch-track::after {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface, white);
+}
+.text-analysis-switch[aria-checked="true"] .text-analysis-switch-track {
+  background: var(--accent);
+}
+.text-analysis-switch[aria-checked="true"] .text-analysis-switch-track::after {
+  transform: translateX(12px);
+}
 .text-analysis-ontology {
   color: var(--muted);
   overflow: hidden;
