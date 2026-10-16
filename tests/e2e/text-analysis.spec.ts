@@ -354,12 +354,12 @@ async function highlighted(label: string) {
     .replace(/\u00a0/g, " ");
 }
 
-// craigtrim/axiom#73: exercise the switch against native parsing and tracked Monaco ranges.
+// craigtrim/axiom#73: manual editing uses native input without implicit analysis or navigation.
 const liveSwitch = () =>
   panel().getByRole("switch", { name: "Live analysis", exact: true });
 const analyzeNow = () =>
   panel().getByRole("button", { name: "Analyze now", exact: true });
-test("#73 paused typing retains highlights until Analyze now and resuming runs immediately", async () => {
+test("#73 manual typing stays plain until an explicit analysis and resuming runs immediately", async () => {
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "true");
   await panel()
     .getByRole("button", { name: "View Summary", exact: true })
@@ -383,7 +383,9 @@ test("#73 paused typing retains highlights until Analyze now and resuming runs i
   );
   await enter("canine");
   await analyzeNow().click();
-  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await expect(panel().locator(".text-analysis-status")).toHaveText("1 match", {
+    timeout: 20000,
+  });
   await expect(analyzeNow()).toBeDisabled();
   await holdRequests(app, [], "textAnalysis:parse");
   await editor().focus();
@@ -392,14 +394,15 @@ test("#73 paused typing retains highlights until Analyze now and resuming runs i
   // Observe beyond the 60 ms debounce to detect any unwanted native request.
   await page.waitForTimeout(250);
   expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
-  await expect.poll(() => highlighted("dog")).toBe("canine");
+  await expect(
+    panel().locator('.view-lines [class*="text-entity-"]'),
+  ).toHaveCount(0);
   await expect(chip("cat")).toHaveCount(0);
   await expect(panel().locator(".text-analysis-status")).toHaveText(
     "1 match · out of date",
   );
   await page.screenshot({ path: "artifacts/testing/text-analysis-paused.png" });
   await analyzeNow().click();
-  await expect(chip("cat")).toBeAttached();
   await expect(panel().locator(".text-analysis-status")).toHaveText(
     "2 matches",
   );
@@ -408,7 +411,9 @@ test("#73 paused typing retains highlights until Analyze now and resuming runs i
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.insertText("Lion and ");
-  await expect.poll(() => highlighted("dog")).toBe("canine");
+  await expect(
+    panel().locator('.view-lines [class*="text-entity-"]'),
+  ).toHaveCount(0);
   await liveSwitch().click();
   await expect(chip("lion")).toBeAttached();
   await expect(panel().locator(".text-analysis-status")).toHaveText(
@@ -420,11 +425,12 @@ test("#73 paused typing retains highlights until Analyze now and resuming runs i
   await expect(liveSwitch()).toHaveCount(0);
 });
 
-test("#73 paused analysis refreshes when a synonym is saved in Details", async () => {
+test("#73 ontology edits wait for Analyze now in manual mode", async () => {
   await changeAnalysisSynonym("Cat", "", true);
   await enter("canine and kitty");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await liveSwitch().click();
+  await holdRequests(app, [], "textAnalysis:parse");
   await page.evaluate(
     (iri) => window.axiom.request("select", { iri }),
     base + "Cat",
@@ -438,9 +444,11 @@ test("#73 paused analysis refreshes when a synonym is saved in Details", async (
   );
   await synonym.fill("kitty");
   await synonym.press("Tab");
-  await expect(chip("cat")).toBeAttached({ timeout: 20000 });
   await showText();
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
+  await expect(analyzeNow()).toBeEnabled();
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  await analyzeNow().click();
   await expect(panel().locator(".text-analysis-status")).toHaveText(
     "2 matches",
   );
@@ -448,7 +456,7 @@ test("#73 paused analysis refreshes when a synonym is saved in Details", async (
 });
 
 for (const initial of ["canine", "zzzx"]) {
-  test(`#73 paused View in Graph analyzes current text after ${initial}`, async () => {
+  test(`#73 manual View in Graph requires Analyze now after ${initial}`, async () => {
     await enter(initial);
     await expect(panel().locator(".text-analysis-status")).toHaveText(
       initial === "canine" ? "1 match" : "0 matches",
@@ -460,9 +468,14 @@ for (const initial of ["canine", "zzzx"]) {
     const before = await page.evaluate(() =>
       window.axiom.request<Snapshot>("state"),
     );
-    await panel()
-      .getByRole("button", { name: "View in Graph", exact: true })
-      .click();
+    const graphButton = panel().getByRole("button", {
+      name: "View in Graph",
+      exact: true,
+    });
+    await expect(graphButton).toBeDisabled();
+    await expect(graphButton).toHaveAttribute("title", /Press Analyze now/);
+    expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+    await analyzeNow().click();
     await waitForHeld(app);
     expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
     expect(
@@ -470,6 +483,8 @@ for (const initial of ["canine", "zzzx"]) {
         .activeGraphId,
     ).toBe(before.activeGraphId);
     await releaseRequests(app);
+    await expect(graphButton).toBeEnabled();
+    await graphButton.click();
     await expect
       .poll(
         async () =>
@@ -487,42 +502,127 @@ for (const initial of ["canine", "zzzx"]) {
   });
 }
 
-test("#73 manual mode survives restart and analyzes saved text when reopened", async () => {
+test("#73 manual mode captures the last edit on close and waits after restart or reopening", async () => {
   await enter("canine");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await liveSwitch().click();
   await enter("Cat");
-  await expect
-    .poll(async () => {
-      const prefs = (await page.evaluate(() => window.axiom.preferences.load()))
-        .panelState;
-      return [prefs?.["textanalysis.live"], prefs?.["textanalysis.text"]];
-    })
-    .toEqual([false, "Cat"]);
+  // Close before the deferred text capture; workspace capture must flush it.
   await app.close();
   await launch();
   await showText();
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
-  await expect(chip("cat")).toBeAttached({ timeout: 20000 });
+  await expect(panel().locator(".view-lines")).toContainText("Cat");
+  await expect(chip("cat")).toHaveCount(0);
   await expect(chip("dog")).toHaveCount(0);
-  await expect(analyzeNow()).toBeDisabled();
+  await expect(analyzeNow()).toBeEnabled();
   await holdRequests(app, [], "textAnalysis:parse");
+  await analyzeNow().click();
+  await expect(panel().locator(".text-analysis-status")).toHaveText("1 match");
   await editor().focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText(" and Dog");
   await page.waitForTimeout(250);
-  expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
   await expect(panel().locator(".text-analysis-status")).toHaveText(
     "1 match · out of date",
   );
   await menu("pane.close");
   await expect(panel()).toHaveCount(0);
   await showText();
-  await expect(chip("dog")).toBeAttached();
+  await expect(panel().locator(".view-lines")).toContainText("Cat and Dog");
+  await expect(analyzeNow()).toBeEnabled();
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
+  await analyzeNow().click();
   await expect(panel().locator(".text-analysis-status")).toHaveText(
     "2 matches",
   );
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(2);
+});
+
+test("#73 manual clicks and selection edit text without opening Details", async () => {
+  await enter("canine and Cat");
+  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
+  await liveSwitch().click();
+  await expect(
+    panel().locator('.view-lines [class*="text-entity-"]'),
+  ).toHaveCount(0);
+  await holdRequests(app, [], "textAnalysis:parse");
+  await panel()
+    .locator(".view-line")
+    .first()
+    .click({ position: { x: 15, y: 10 } });
+  await expect(
+    page.getByRole("region", { name: "Details view", exact: true }),
+  ).toHaveCount(0);
+  await editor().focus();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+Shift+ArrowRight");
+  await expect(
+    panel().getByRole("button", { name: "Add entity", exact: true }),
+  ).toBeEnabled();
+  await page.keyboard.type("Dog ");
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+y");
+  await expect(panel().locator(".view-lines")).toContainText("Dog and Cat");
+  expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  await showSummary();
+  await expect(chip("dog")).toBeVisible();
+  await showText();
+  await expect(panel().locator(".view-lines")).toContainText("Dog and Cat");
+});
+
+test("#73 editing during Analyze now invalidates the reply without scheduling another parse", async () => {
+  await liveSwitch().click();
+  await enter("Cat");
+  await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+  await analyzeNow().click();
+  await waitForHeld(app);
+  await enter("Lion");
+  await releaseRequests(app);
+  await expect(panel().locator(".text-analysis-status")).toContainText(
+    "out of date",
+  );
+  await expect(panel().locator(".view-lines")).toContainText("Lion");
   expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
+  await analyzeNow().click();
+  await expect(panel().locator(".text-analysis-status")).toHaveText("1 match");
+  await showSummary();
+  await expect(chip("lion")).toBeVisible();
+  await expect(chip("cat")).toHaveCount(0);
+});
+
+test("#73 native paste and drag selection remain ordinary manual editing", async () => {
+  await liveSwitch().click();
+  await holdRequests(app, [], "textAnalysis:parse");
+  const previous = await app.evaluate(({ clipboard }) => clipboard.readText());
+  try {
+    await app.evaluate(({ clipboard }) => clipboard.writeText("Dog and Cat"));
+    await editor().focus();
+    await page.keyboard.press("Control+V");
+    await expect(panel().locator(".view-lines")).toContainText("Dog and Cat");
+    const box = (await panel().locator(".view-line").first().boundingBox())!;
+    await page.mouse.move(box.x + 1, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 55, box.y + box.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect(
+      panel().getByRole("button", { name: "Add entity", exact: true }),
+    ).toBeEnabled();
+    await page.keyboard.press("Control+C");
+    const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
+    expect(copied.length).toBeGreaterThan(0);
+    expect("Dog and Cat").toContain(copied);
+    await expect(
+      page.getByRole("region", { name: "Details view", exact: true }),
+    ).toHaveCount(0);
+    expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
+  } finally {
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.writeText(value),
+      previous,
+    );
+  }
 });
 
 test("background analysis retains moved highlights, status and legend until one replacement", async () => {

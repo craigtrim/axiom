@@ -19,6 +19,25 @@ export const textAnalysisSession = new TextAnalysisSession((input) =>
   window.axiom.textAnalysis.parse(input),
 );
 let initialized = false;
+let textSaveTimer: ReturnType<typeof setTimeout> | undefined;
+// craigtrim/axiom#73: read manual text after a pause or before a workspace capture.
+export function flushAnalysisText() {
+  clearTimeout(textSaveTimer);
+  if (!initialized) return;
+  const text = textAnalysisSession.flushText();
+  if (preferences.panelState?.["textanalysis.text"] !== text)
+    savePanel("textanalysis.text", text, false);
+}
+export function editAnalysisText(readText: () => string) {
+  textAnalysisSession.edit(readText);
+  clearTimeout(textSaveTimer);
+  textSaveTimer = setTimeout(flushAnalysisText, 250);
+}
+export function analyzeTextNow() {
+  flushAnalysisText();
+  syncTextAnalysisContext();
+  textAnalysisSession.analyzeNow();
+}
 function initialize() {
   if (initialized || !state) return;
   initialized = true;
@@ -53,11 +72,13 @@ export function ensureEntityDraft() {
     });
 }
 export function setTextAnalysisView(view: "text" | "summary") {
+  flushAnalysisText();
   textAnalysisSession.setView(view);
   savePanel("textanalysis.view", view, false);
 }
 // craigtrim/axiom#73: preserve the typing mode beside the text and presentation.
 export function setLiveTextAnalysis(enabled: boolean) {
+  flushAnalysisText();
   textAnalysisSession.setLiveAnalysis(enabled);
   savePanel("textanalysis.live", enabled, false);
 }
@@ -102,17 +123,9 @@ export function useTextAnalysis() {
     retained?.datasetEpoch === snapshot.datasetEpoch ? retained : undefined;
   return { ...value, result, snapshot };
 }
-export function updateAnalysisText(text: string) {
-  if (!state) return;
-  textAnalysisSession.update({
-    text,
-    datasetEpoch: state.datasetEpoch,
-    version: state.version,
-  });
-  savePanel("textanalysis.text", text, false);
-}
 export function waitForCurrentTextAnalysis() {
   if (!state) return Promise.resolve(undefined);
+  flushAnalysisText();
   textAnalysisSession.update({
     text: textAnalysisSession.getSnapshot().input.text,
     datasetEpoch: state.datasetEpoch,
@@ -225,6 +238,7 @@ export function focusAnalysisText() {
   editor?.focus();
 }
 onCommand((id) => {
+  if (id === "workspace.capture" || id === "tabs.capture") flushAnalysisText();
   if (id === "textanalysis.reveal") setTextAnalysisView("text");
   if (id === "entity.edit") {
     ++inspectionTicket;
@@ -232,6 +246,7 @@ onCommand((id) => {
   }
   if (id === "selection.changed") textAnalysisSession.clearDetails();
   if (id !== "textanalysis.reset") return;
+  clearTimeout(textSaveTimer);
   ++inspectionTicket;
   reveal = undefined;
   textAnalysisSession.setView(
@@ -240,14 +255,12 @@ onCommand((id) => {
       : "text",
   );
   if (initialized && state)
-    textAnalysisSession.reset({
-      text: String(preferences.panelState?.["textanalysis.text"] ?? ""),
-      datasetEpoch: state.datasetEpoch,
-      version: state.version,
-    });
-  textAnalysisSession.setLiveAnalysis(
-    preferences.panelState?.["textanalysis.live"] !== false,
-  );
-  if (!textAnalysisSession.getSnapshot().liveAnalysis)
-    textAnalysisSession.analyzeNow();
+    textAnalysisSession.reset(
+      {
+        text: String(preferences.panelState?.["textanalysis.text"] ?? ""),
+        datasetEpoch: state.datasetEpoch,
+        version: state.version,
+      },
+      preferences.panelState?.["textanalysis.live"] !== false,
+    );
 });
