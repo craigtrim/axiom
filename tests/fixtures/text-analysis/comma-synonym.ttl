@@ -1,0 +1,10 @@
+# craigtrim/axiom#76: the full synonym competes with a separate shorter class.
+@prefix : <https://example.org/comma#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:CultureAndMediaStudies a owl:Class;
+    rdfs:label "Culture and Media Studies";
+    rdfs:subClassOf :Media_Studies;
+    rdfs:seeAlso "Culture, Media Studies" .
+:Media_Studies a owl:Class; rdfs:label "Media Studies" .
