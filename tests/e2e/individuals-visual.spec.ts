@@ -1,4 +1,4 @@
-// Reference-derived, raw bitmap comparisons. No app baselines or pixel budget.
+// Issue #86 compares both governing references as raw bitmaps, with zero differing pixels.
 import {
   test,
   expect,
@@ -35,6 +35,63 @@ const shapes = [
   ["recovery-width", 230, 660],
   ["recovery-height", 1100, 110],
 ] as const;
+const referenceV2 = path.resolve(
+  "tests/fixtures/individuals-visual/visual-reference-v2.html",
+);
+const referenceKeys = [
+  "subject",
+  "rdf:type",
+  ":hasType",
+  "rdfs:label",
+  "rdfs:comment",
+  "rdfs:seeAlso",
+  ":establishedYear",
+  ":hasCountry",
+  ":locatedIn",
+  ":hasCoordinates",
+  ":hasWebsite",
+  ":hasLanguage",
+  ":hasQID",
+  "owl:sameAs",
+  "iri",
+];
+const referenceWidths = [
+  260, 110, 118, 240, 280, 200, 122, 114, 114, 176, 260, 120, 118, 260, 300,
+];
+const referenceLayout = {
+  vis: {
+    subject: true,
+    ":hasType": true,
+    "rdfs:comment": true,
+    ":establishedYear": true,
+    ":hasWebsite": true,
+  },
+  order: referenceKeys,
+  w: Object.fromEntries(
+    referenceKeys.map((key, i) => [key, referenceWidths[i]]),
+  ),
+};
+const polytechnicOrder = JSON.parse(
+  await readFile(
+    "tests/fixtures/individuals-visual/polytechnic-order.json",
+    "utf8",
+  ),
+) as string[];
+// The issue's capture.js copies these specimen rules onto the older workbench.
+const specimenLook = `
+  body { line-height: 1.6; }
+  #gridPane { border-color: var(--border-strong); }
+  .fwrap { min-width: 70px; max-width: 300px; } .fwrap .mag { display: none; }
+  @container pane (max-width: 599px) { .fwrap { max-width: none; } .tbar { flex-wrap: wrap; row-gap: 4px; } }
+  .fld { min-height: 26px; padding: 0 var(--sp-2); font-size: 12.5px; }
+  #filter::-webkit-search-cancel-button { -webkit-appearance: none; }
+  #colsBtn svg { display: none; }
+  .sel { min-height: 24px; font-size: 12px; }
+  #gridMore { display: none; }
+  .gfoot { padding: 0 var(--sp-3); }
+  table.g td.num .cellwrap { justify-content: flex-end; }
+  .ib:disabled { opacity: .5; cursor: default; }
+`;
 let app: ElectronApplication,
   main: Page,
   page: Page,
@@ -63,6 +120,15 @@ async function launch(theme: "light" | "dark", file: string) {
       .update(await readFile(reference))
       .digest("hex"),
   ).toBe(hash);
+  expect(
+    createHash("sha256")
+      .update(
+        await readFile(
+          "tests/fixtures/individuals-visual/visual-reference-v2.html",
+        ),
+      )
+      .digest("hex"),
+  ).toBe("bd7108c30dced68c104ce221cfd46da1c724e9bb6185b9048021e5f9259f5900");
   await mkdir("artifacts/issue-61", { recursive: true });
   profile = await mkdtemp(path.resolve("artifacts/issue-61/profile-"));
   await writeFile(
@@ -130,6 +196,17 @@ async function launch(theme: "light" | "dark", file: string) {
     w.setContentSize(4000, 1000);
   }, reference);
   specimen = await opened;
+  // Decisions 2, 8, 9 and 10 correct the specimen's documented defects.
+  await specimen.addStyleTag({
+    content: `
+    table.g td.num .cellwrap { justify-content: flex-end; }
+    @container pane (max-width: 599px) { .tbar { flex-wrap: wrap; row-gap: 4px; } }
+    .nums .f { width: 34px; } .nums .d { width: 42px; }
+    .crow > label { flex: 1 0 auto; }
+    .crow .why { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .frame { resize: none; }
+  `,
+  });
   await specimen.evaluate(
     (theme) => (document.documentElement.dataset.theme = theme),
     theme,
@@ -211,29 +288,52 @@ async function resize(ref: Locator, width: number, height: number, extra = 0) {
     .poll(async () => (await pane().boundingBox())?.height)
     .toBe(height);
 }
-async function capture(root: Locator, crop?: "touchpoints") {
+async function capture(
+  root: Locator,
+  crop?: "touchpoints",
+  preserveInteraction = false,
+) {
+  const legend = await root.evaluate((el) => el.classList.contains("legend"));
+  await root.evaluate(async (el) => {
+    // Reused React nodes and rebuilt reference nodes need fresh compositor layers.
+    for (const node of [el.parentElement!, el, ...el.querySelectorAll("*")]) {
+      (node as HTMLElement).style.removeProperty("transform");
+      (node as HTMLElement).style.removeProperty("will-change");
+    }
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+  });
   // Match compositing boundaries, as Details and Extend do, so Chromium uses
   // the same fractional-edge rasterization. Geometry and reference tokens stay.
+  await root.evaluate((el, legend) => {
+    (el as HTMLElement).style.transform = "translateZ(0)";
+    if (!legend) (el as HTMLElement).style.willChange = "transform";
+  }, legend);
   if (await root.evaluate((el) => el.classList.contains("pane"))) {
-    await root
-      .locator("..")
-      .evaluate(
-        (el) => ((el as HTMLElement).style.transform = "translateZ(0)"),
-      );
-  } else
-    await root.evaluate(
-      (el) => ((el as HTMLElement).style.transform = "translateZ(0)"),
-    );
-  await root
-    .locator(".tbar, .tbar .btn, .tbar .fld, .pill")
-    .evaluateAll((els) => {
-      for (const el of els)
-        (el as HTMLElement).style.transform = "translateZ(0)";
+    await root.locator("..").evaluate((el) => {
+      (el as HTMLElement).style.transform = "translateZ(0)";
+      (el as HTMLElement).style.willChange = "transform";
     });
-  await root.page().mouse.move(1, 1);
+  }
   await root
-    .page()
-    .evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    .locator(
+      legend
+        ? ".tbar, .tbar .btn, .tbar .fld, .pill"
+        : ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat",
+    )
+    .evaluateAll((els, legend) => {
+      for (const el of els) {
+        (el as HTMLElement).style.transform = "translateZ(0)";
+        if (!legend) (el as HTMLElement).style.willChange = "transform";
+      }
+    }, legend);
+  if (!preserveInteraction) {
+    await root.page().mouse.move(1, 1);
+    await root
+      .page()
+      .evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  }
   const b = (await root.boundingBox())!;
   if (crop) {
     const top = (await root.locator(".phead:visible").boundingBox())!.y;
@@ -257,9 +357,10 @@ async function compare(
   actual: Locator,
   expected: Locator,
   crop?: "touchpoints",
+  preserveInteraction = false,
 ) {
-  const a = await capture(actual, crop),
-    b = await capture(expected, crop);
+  const a = await capture(actual, crop, preserveInteraction),
+    b = await capture(expected, crop, preserveInteraction);
   await writeFile(`artifacts/issue-61/${name}-app.png`, a);
   await writeFile(`artifacts/issue-61/${name}-reference.png`, b);
   const result = await app.evaluate(
@@ -314,7 +415,7 @@ async function compare(
       const o = el.getBoundingClientRect();
       return [
         ...el.querySelectorAll(
-          ".phead,.tbar,.gstat,.gwrap,.hcell,.hlab,.rz,.ident,.scount,.st th,.st td,.val,.usage,.tpbar,.tpq,.cand,.tpfoot,.chooser,.ph,.pb,.pf,.crow,.btn,.sel,.fld,.pill",
+          ".phead,.tbar,.gstat,.gstat b,.gwrap,.hcell,.hlab,.rz,.ident,.scount,.st th,.st td,.val,.usage,.tpbar,.tpq,.cand,.tpfoot,.chooser,.ph,.pb,.pf,.crow,.btn,.sel,.fld,.pill,.pgn,.vpop",
         ),
       ].map((e) => {
         const b = e.getBoundingClientRect(),
@@ -327,6 +428,7 @@ async function compare(
           color: c.color,
           background: c.backgroundColor,
           padding: c.padding,
+          text: e.matches(".gstat,.gstat b,.btn") ? e.textContent : undefined,
         };
       });
     });
@@ -350,6 +452,220 @@ test.afterEach(async () => {
   if (app) await app.close();
 });
 for (const theme of ["light", "dark"] as const) {
+  test(`Individuals supplementary reference ${theme}`, async () => {
+    test.setTimeout(240000);
+    await launch(
+      theme,
+      path.resolve("tests/fixtures/individuals-visual/five-hundred.ttl"),
+    );
+    await detach("individuals", ".fld");
+    await host().evaluate((el) =>
+      Object.assign((el as HTMLElement).style, {
+        position: "fixed",
+        left: "24px",
+        top: "24px",
+        width: "1100px",
+        height: "660px",
+        zIndex: "1000",
+      }),
+    );
+    await pane()
+      .getByRole("button", { name: /^Columns/ })
+      .click();
+    await pane().getByRole("button", { name: "None", exact: true }).click();
+    for (const name of [
+      ":hasType",
+      "rdfs:comment",
+      ":establishedYear",
+      ":hasWebsite",
+    ])
+      await pane().getByRole("checkbox", { name, exact: true }).check();
+    await page.keyboard.press("Escape");
+    await specimen.goto(pathToFileURL(referenceV2).href);
+    await specimen.addStyleTag({ content: specimenLook });
+    await specimen.evaluate(
+      ({ theme, layout, polytechnicOrder }) => {
+        document.documentElement.dataset.theme = theme;
+        const w = window as any;
+        w.S.layouts = { all: layout };
+        // Decision 4 keeps the application's locale order, including accented labels.
+        w.sorted = () => {
+          // Decision 6 retains #59's ranked order, recorded independently of UI captures.
+          if (w.S.q === "polytechnic")
+            return polytechnicOrder.map((id) =>
+              w.ROWS.find((r: any) => r.id === id),
+            );
+          const c = w.BYKEY[w.S.sortKey] || w.BYKEY.subject;
+          return w
+            .matched()
+            .slice()
+            .sort((a: any, b: any) => {
+              const x = w.sortVal(a, c),
+                y = w.sortVal(b, c);
+              if (x === null || y === null)
+                return (
+                  (x === null && y === null ? 0 : x === null ? 1 : -1) ||
+                  a.id.localeCompare(b.id)
+                );
+              return (
+                (c.kind === "num" ? x - y : x.localeCompare(y)) * w.S.sortDir ||
+                a.id.localeCompare(b.id)
+              );
+            });
+        };
+        w.renderGrid();
+        const grid = document.querySelector<HTMLElement>("#gridPane")!;
+        const frame = document.createElement("div");
+        const backdrop = document.createElement("div");
+        Object.assign(backdrop.style, {
+          position: "fixed",
+          left: "24px",
+          top: "24px",
+          width: "1100px",
+          height: "660px",
+          background: "var(--surface)",
+        });
+        document.body.append(backdrop);
+        backdrop.append(frame);
+        frame.append(grid);
+        Object.assign(frame.style, {
+          position: "relative",
+          left: "0",
+          top: "0",
+          width: "1100px",
+          height: "660px",
+          borderRadius: "6px",
+          overflow: "hidden",
+        });
+        Object.assign(grid.style, {
+          position: "relative",
+          left: "0",
+          top: "0",
+          width: "1100px",
+          height: "660px",
+          zIndex: "1000",
+        });
+        const select = document.querySelector<HTMLSelectElement>("#classSel")!;
+        select.innerHTML =
+          '<option value="School">School (500)</option><option value="Thing" disabled>Thing (0)</option><option value="all">All classes</option>';
+        select.value = "all";
+      },
+      { theme, layout: referenceLayout, polytechnicOrder },
+    );
+    const ref = specimen.locator("#gridPane");
+    const glyphs = () =>
+      specimen.locator("#ghead .hlab").evaluateAll((els) => {
+        for (const el of els) {
+          if ((window as any).S.q.trim()) {
+            el.removeAttribute("data-dir");
+            el.closest("th")?.removeAttribute("aria-sort");
+          }
+          el.querySelector(".sg")!.textContent =
+            (el as HTMLElement).dataset.dir === "desc" ? "↓" : "↑";
+        }
+      });
+    const frame = async (name: string, preserve = false) => {
+      await glyphs();
+      await compare(`${theme}-${name}`, pane(), ref, undefined, preserve);
+    };
+    await frame("12-many-rows");
+    for (const target of [pane(), ref])
+      await target
+        .getByRole("button", { name: "Last page", exact: true })
+        .click();
+    await expect(
+      pane().getByRole("textbox", { name: "Page number" }),
+    ).toHaveValue("5");
+    await frame("13-last-page");
+    for (const target of [pane(), ref])
+      await target
+        .getByRole("button", { name: "First page", exact: true })
+        .click();
+    await expect(
+      pane().getByRole("textbox", { name: "Page number" }),
+    ).toHaveValue("1");
+    for (const target of [pane(), ref])
+      await target
+        .locator("tbody tr")
+        .nth(2)
+        .click({ position: { x: 120, y: 15 } });
+    await frame("14-row-selected");
+    for (const target of [pane(), ref]) {
+      await target.page().mouse.move(1, 1);
+      await target.locator(".gwrap").focus();
+      await target.page().keyboard.press("Home");
+      await target.page().keyboard.press("ArrowDown");
+      await target.page().keyboard.press("ArrowDown");
+    }
+    await frame("15-keyboard-selection", true);
+    for (const target of [pane(), ref])
+      await target.locator(".fwrap input").fill("polytechnic");
+    await expect(pane().locator(".gstat")).toContainText("match");
+    await frame("16-filter-matches", true);
+    for (const target of [pane(), ref])
+      await target.locator(".fwrap input").fill("zzqx");
+    await expect(pane().locator(".empty")).toBeVisible();
+    await frame("17-filter-no-match");
+    for (const target of [pane(), ref])
+      await target.getByRole("button", { name: "Clear the filter" }).click();
+    await pane()
+      .getByRole("button", { name: /^Columns/ })
+      .click();
+    await pane()
+      .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+      .check();
+    await page.keyboard.press("Escape");
+    await ref.locator("#colsBtn").click();
+    await specimen.locator('.pop input[value="rdfs:seeAlso"]').check();
+    await specimen.keyboard.press("Escape");
+    for (const target of [pane(), ref])
+      await target.locator(".fwrap input").fill("colorado");
+    await expect(
+      pane().getByRole("button", { name: "28 more values of rdfs:seeAlso" }),
+    ).toBeVisible();
+    await pane()
+      .getByRole("button", { name: "28 more values of rdfs:seeAlso" })
+      .click();
+    await ref.locator('tr[data-id="Q736674"] .plus').click();
+    await frame("18-value-list");
+    await page.keyboard.press("Escape");
+    await specimen.keyboard.press("Escape");
+    for (const target of [pane(), ref])
+      await target.getByRole("button", { name: "Clear the filter" }).click();
+    await pane()
+      .getByRole("button", { name: /^Columns/ })
+      .click();
+    await pane()
+      .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+      .uncheck();
+    await page.keyboard.press("Escape");
+    await ref.locator("#colsBtn").click();
+    await specimen.locator('.pop input[value="rdfs:seeAlso"]').uncheck();
+    await specimen.keyboard.press("Escape");
+    await glyphs();
+    for (const target of [pane(), ref]) {
+      await target
+        .page()
+        .evaluate(() => (document.activeElement as HTMLElement)?.blur());
+      const source = (await target
+        .getByRole("button", { name: /^:hasWebsite/ })
+        .boundingBox())!;
+      const destination = (await target
+        .getByRole("button", { name: /^rdfs:comment/ })
+        .boundingBox())!;
+      await target.page().mouse.move(source.x + 30, source.y + 14);
+      await target.page().mouse.down();
+      await target
+        .page()
+        .mouse.move(source.x + 10, source.y + 14, { steps: 3 });
+      await target
+        .page()
+        .mouse.move(destination.x + 40, destination.y + 14, { steps: 8 });
+    }
+    await frame("19-reorder-drag", true);
+    await page.mouse.up();
+    await specimen.mouse.up();
+  });
   test(`Column chooser reference ${theme}`, async () => {
     test.setTimeout(180000);
     await mkdir("artifacts/issue-61", { recursive: true });
@@ -506,6 +822,69 @@ for (const theme of ["light", "dark"] as const) {
       await resize(ref, w, h);
       await compare(`${theme}-grid-${shape}`, pane(), ref);
     }
+    const ref = specimen.locator('section[aria-label="Individuals, expanded"]');
+    await resize(ref, 1100, 660);
+    for (const target of [pane(), ref]) {
+      await target.getByRole("button", { name: /^:establishedYear/ }).click();
+      await target.getByRole("button", { name: /^:establishedYear/ }).click();
+    }
+    await compare(`${theme}-08-year-descending`, pane(), ref);
+    for (const target of [pane(), ref])
+      await target.getByRole("button", { name: /^Individual/ }).click();
+    await pane()
+      .getByRole("button", { name: /^Columns/ })
+      .click();
+    await pane()
+      .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+      .check();
+    await page.keyboard.press("Escape");
+    await specimen.locator('#chooser input[value="rdfs:seeAlso"]').check();
+    await specimen
+      .locator("#colsBtn")
+      .evaluate((el) => (el.textContent = "Columns 6 of 15"));
+    await compare(`${theme}-09-multi-valued`, pane(), ref);
+    await pane()
+      .getByRole("button", { name: /^Columns/ })
+      .click();
+    await pane()
+      .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+      .uncheck();
+    await page.keyboard.press("Escape");
+    await specimen.locator('#chooser input[value="rdfs:seeAlso"]').uncheck();
+    await specimen
+      .locator("#colsBtn")
+      .evaluate((el) => (el.textContent = "Columns 5 of 15"));
+    for (const target of [pane(), ref]) {
+      await target.page().mouse.move(1, 1);
+      await target.getByRole("button", { name: /^rdfs:comment/ }).focus();
+      await target.page().keyboard.press("Tab");
+      await target.page().keyboard.press("ArrowRight");
+      await target.page().keyboard.press("ArrowRight");
+    }
+    await compare(
+      `${theme}-10-keyboard-separator`,
+      pane(),
+      ref,
+      undefined,
+      true,
+    );
+    for (const target of [pane(), ref]) {
+      const separator = target.getByRole("separator", {
+        name: "Width of rdfs:comment",
+        exact: true,
+      });
+      await separator.press("Home");
+      await target
+        .page()
+        .evaluate(() => (document.activeElement as HTMLElement)?.blur());
+      const box = (await separator.boundingBox())!;
+      await target.page().mouse.move(box.x + 4, box.y + 14);
+      await target.page().mouse.down();
+      await target.page().mouse.move(box.x + 84, box.y + 14, { steps: 8 });
+    }
+    await compare(`${theme}-11-resize-drag`, pane(), ref, undefined, true);
+    await page.mouse.up();
+    await specimen.mouse.up();
   });
   for (const kind of ["individual", "class"] as const)
     test(`Inspector ${kind} reference ${theme}`, async () => {

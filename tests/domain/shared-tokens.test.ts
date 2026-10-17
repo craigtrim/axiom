@@ -47,7 +47,7 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "entity-extend.css",
       ].includes(d.file),
   );
-  expect(prior).toHaveLength(211);
+  expect(prior).toHaveLength(199);
   expect(
     new Set(
       declarations
@@ -80,6 +80,14 @@ it("removes only equal duplicate declarations and retains deferred private palet
   ).toEqual(
     new Set(["--accent-hover", "--accent-tint", "--idle-border", "--r-card"]),
   );
+  // Issue #86 keeps only the Individuals warning and pinned-column tokens.
+  expect(
+    new Set(
+      declarations
+        .filter((d) => d.file === "individuals-reference.css")
+        .map((d) => d.name),
+    ),
+  ).toEqual(new Set(["--warn-bg", "--warn-border", "--idle-border"]));
   expect(new Set(prior.map((d) => d.name)).size).toBe(94);
   const shared = declarations.filter(
     (d) => sharedTokens.has(d.name.slice(2)) && d.file !== "styles.css",

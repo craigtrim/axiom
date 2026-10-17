@@ -1,18 +1,9 @@
-/* Craig's issue #61 reference. Tokens and pane primitives are deliberately
- * scoped; surrounding workbench chrome retains its own design. */
+/* Individuals uses the shared palette and the two governing references (#86). */
 .individuals-surface.individuals-surface {
   color-scheme: light;
-  --accent-hover: #0a52b4;
-  --accent-tint: #f4f8fe;
-  --ok-bg: #e8f5ed;
-  --ok-border: #a9d8bd;
-  --warn-bg: #fdf5e3;
+  --warn-bg: var(--warn-soft);
   --warn-border: #e6cf95;
-  --bad-bg: #fdecea;
-  --bad-border: #e4a9a4;
   --idle-border: #c6cbd1;
-  --sp-8: 32px;
-  --r-card: 8px;
   font: 14px/1.6 var(--font);
   color: var(--text);
   background: var(--ground);
@@ -276,8 +267,8 @@
     color: var(--text);
     background: var(--row-hover);
   }
-  .hlab[draggable="true"] {
-    -webkit-user-drag: element;
+  .hlab {
+    touch-action: none;
     user-select: none;
   }
   .hlab .t {
@@ -431,7 +422,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     min-width: 0;
     cursor: pointer;
   }
@@ -476,11 +467,11 @@
     font-variant-numeric: tabular-nums;
   }
   .nums .f {
-    width: 48px;
+    width: 34px;
     text-align: end;
   }
   .nums .d {
-    width: 48px;
+    width: 42px;
     text-align: end;
   }
   .why {
@@ -492,6 +483,12 @@
     padding: 0 4px;
     background: var(--sunken);
     white-space: nowrap;
+  }
+  .crow .why {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .why.warnish {
     color: var(--warn);
@@ -786,7 +783,7 @@
   }
   .pill.ok2 {
     color: var(--ok);
-    background: var(--ok-bg);
+    background: var(--ok-soft);
     border: 1px solid var(--ok-border);
   }
   .pill.no2 {
@@ -821,14 +818,8 @@
 [data-theme="dark"] .individuals-surface.individuals-surface,
 .individuals-surface.individuals-surface.dk {
   color-scheme: dark;
-  --accent-hover: #6aabff;
-  --accent-tint: #0f1a28;
-  --ok-bg: #0f2a1b;
-  --ok-border: #1d5233;
-  --warn-bg: #2b2211;
+  --warn-bg: var(--warn-soft);
   --warn-border: #5a4718;
-  --bad-bg: #3a1a17;
-  --bad-border: #7a3630;
   --idle-border: #454c54;
 }
 .individuals-surface.individuals-surface.pane {
@@ -845,7 +836,11 @@
   overflow: hidden;
 }
 [data-pane-narrow="true"] > .adaptive-pane-content .individuals-surface {
-  .tbar .wide {
+  .tbar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .tbar button.wide {
     display: none;
   }
   .fwrap {
@@ -881,11 +876,11 @@
   display: none;
 }
 .adaptive-pane:has(.individuals-surface) {
-  background: #f6f7f9;
+  background: var(--surface);
   color-scheme: light;
 }
 [data-theme="dark"] .adaptive-pane:has(.individuals-surface) {
-  background: #161b22;
+  background: var(--surface);
   color-scheme: dark;
 }
 .adaptive-pane:has(.individuals-surface) > .pane-recovery-own {
@@ -899,7 +894,6 @@
   > :is(.adaptive-pane-content, .pane-recovery-own) {
   border-radius: 6px;
   overflow: hidden;
-  resize: both;
 }
 .adaptive-pane:has(.individuals-surface) > .adaptive-pane-content {
   position: relative;
@@ -937,16 +931,30 @@
   }
   .grid-clear {
     position: absolute;
-    right: 4px;
+    right: 3px;
+    width: 22px;
+    height: 22px;
   }
   .gwrap:focus-visible {
     outline-offset: -2px;
   }
-  .drag-before {
-    box-shadow: inset 2px 0 var(--accent);
+  .hlab.dragsrc {
+    opacity: 0.45;
   }
-  .drag-after {
-    box-shadow: inset -2px 0 var(--accent);
+  .hcell.dropL::before,
+  .hcell.dropR::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: 2px;
+    background: var(--accent);
+    z-index: 6;
+  }
+  .hcell.dropL::before {
+    inset-inline-start: 0;
+  }
+  .hcell.dropR::before {
+    inset-inline-end: 0;
   }
   .individual-popover {
     visibility: visible;
@@ -960,8 +968,7 @@
     max-height: calc(100vh - 8px);
     overflow: auto;
   }
-  .individual-menu,
-  .individual-values {
+  .individual-menu {
     border: 1px solid var(--border-strong);
     border-radius: 6px;
     background: var(--raised);
@@ -975,13 +982,41 @@
     display: grid;
     gap: 4px;
   }
-  .individual-values {
-    max-width: 480px;
-    max-height: 360px;
+  .individual-popover.vpop {
+    width: max-content;
+    min-width: 200px;
+    max-width: min(420px, calc(100vw - 12px));
+    padding: var(--sp-2);
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow-pop);
+    max-height: min(320px, calc(100vh - 12px));
     overflow: auto;
+    white-space: normal;
   }
-  .individual-values p {
-    margin: 4px 0;
+  .vpop .vh2 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 var(--sp-1) var(--sp-1);
+  }
+  .vpop ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2px;
+  }
+  .vpop li {
+    padding: 3px var(--sp-1);
+    font-size: 13px;
+    border-radius: var(--r-ctl);
+  }
+  .vpop li:nth-child(odd) {
+    background: var(--sunken);
   }
   .inspector-value {
     position: relative;
@@ -1029,4 +1064,56 @@
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;
   }
+}
+
+.individuals-surface.individuals-surface {
+  table.g td.num .cellwrap {
+    justify-content: flex-end;
+  }
+  svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .ib:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .pg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-inline-start: auto;
+  }
+  .pgn {
+    width: 46px;
+    min-height: 22px;
+    padding: 0 4px;
+    text-align: center;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-ctl);
+  }
+  .empty {
+    padding: 24px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+}
+body.individuals-dragging,
+body.individuals-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+/* The reference keeps Chromium's native focus ring on selected rows (#86). */
+.individuals-surface table.g tbody tr:focus-visible {
+  outline: revert;
+  outline-offset: revert;
+  border-radius: revert;
 }
