@@ -34,6 +34,12 @@ const reference = path.resolve(
 );
 const referenceHash =
   "9eee75ead939e8c1e21a3bd9e23cf756091c57edc9006f1d0a239c58e4e79fe6";
+// Issue 84 pins the interactive prototype alongside the later metric specimen.
+const prototype = path.resolve(
+  "tests/fixtures/quality-visual/visual-reference-v2.html",
+);
+const prototypeHash =
+  "aecd9c2c159af2e120db07b906aff18cbb2e1fe1fc8f32c8783dad824d74e81b";
 const NSB = "http://devry.edu/courses#";
 const RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
   RDFS = "http://www.w3.org/2000/01/rdf-schema#",
@@ -385,6 +391,11 @@ async function launch(theme: "light" | "dark", exceptions: unknown[]) {
       .update(await readFile(reference))
       .digest("hex"),
   ).toBe(referenceHash);
+  expect(
+    createHash("sha256")
+      .update(await readFile(prototype))
+      .digest("hex"),
+  ).toBe(prototypeHash);
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(
     path.resolve("artifacts/testing/quality-visual-"),
@@ -547,6 +558,8 @@ interface Plan {
   constrained?: boolean;
   size?: [number, number];
   extraHeight?: number;
+  /** Issue 84: #44 scan contents in the #65 command-bar box. */
+  prescanBar?: boolean;
 }
 /** Every amendment is listed in tests/fixtures/quality-visual/README.md. */
 async function prepare(plan: Plan, theme: string) {
@@ -702,8 +715,62 @@ async function prepare(plan: Plan, theme: string) {
               '<button style="box-sizing:border-box;min-height:26px;padding:0 9px;font:inherit;font-size:12.5px;border:1px solid var(--line-2);border-radius:3px;background:var(--bg);color:var(--ink);cursor:pointer">Maximize pane</button>',
             ),
           );
+      // Issue 84, amendment 13: preserve #44 contents in #65's bar box.
+      if (plan.prescanBar) {
+        const bar = pane.querySelector<HTMLElement>(".bar")!;
+        const dark = theme === "dark";
+        Object.assign(bar.style, {
+          padding: "0 12px",
+          fontSize: "14px",
+          lineHeight: "1.6",
+          color: dark ? "#e6edf3" : "#1b1f24",
+          background: dark ? "#161b22" : "#f6f7f9",
+          borderBottomColor: dark ? "#30363d" : "#e1e4e8",
+        });
+        const title = bar.querySelector<HTMLElement>(".title");
+        if (title) title.style.fontSize = "13px";
+        Object.assign(bar.querySelector<HTMLElement>(".state")!.style, {
+          fontSize: "13px",
+          lineHeight: "1.5",
+        });
+        Object.assign(bar.querySelector<HTMLElement>(".sum")!.style, {
+          fontSize: "12.5px",
+          color: dark ? "#9ba7b4" : "#57606a",
+          flex: "initial",
+        });
+        const progress = bar.querySelector<HTMLElement>(".prog");
+        if (progress) progress.style.background = dark ? "#30363d" : "#e1e4e8";
+        if (bar.classList.contains("alert-bad")) {
+          bar.style.background = dark ? "#3a1a17" : "#fdecea";
+          bar.style.borderBottomColor = dark ? "#7a3630" : "#e4a9a4";
+          bar.querySelectorAll("button").forEach((button) => button.remove());
+        }
+      }
       // Only the exhibit frame changes: no border, no resize grip, same content box.
       pane.style.cssText = `position:relative;border:0;width:100%;height:100%;resize:none;overflow:hidden`;
+      // Amendment 14 uses the approved shared values, without importing app CSS.
+      const palette =
+        theme === "dark"
+          ? {
+              raised: "#1c2128",
+              sunken: "#10151c",
+              accent: "#4c9aff",
+              ok: "#4ade80",
+              warn: "#e3b341",
+              bad: "#ff8d81",
+              focus: "#6aabff",
+            }
+          : {
+              raised: "#ffffff",
+              sunken: "#f0f2f5",
+              accent: "#0b5fd0",
+              ok: "#0a7a3d",
+              warn: "#8a6116",
+              bad: "#a4201a",
+              focus: "#0b5fd0",
+            };
+      for (const [name, value] of Object.entries(palette))
+        pane.style.setProperty("--" + name, value);
       return {
         width,
         height,
@@ -1032,6 +1099,34 @@ const foot: Region = { name: "foot", spec: ".foot" };
 const tools: Region = { name: "tools", spec: ".tools" };
 const firstBand: Region = { name: "band", spec: ".rule" };
 const cases: Case[] = [
+  {
+    name: "a2-running-bar",
+    plan: { section: "a", index: 1, prescanBar: true },
+    regions: [bar],
+    drive: () =>
+      run({
+        id: 1,
+        state: "running",
+        scanned: 2524,
+        total: 5868,
+        phase: "Checking entities",
+      }),
+  },
+  {
+    name: "a8-failed-bar",
+    plan: { section: "a", index: 8, prescanBar: true },
+    regions: [bar],
+    drive: () =>
+      run({
+        id: 1,
+        state: "failed",
+        scanned: 2524,
+        total: 5868,
+        phase: "Failed",
+        error:
+          "A subClassOf cycle was reached and the walk could not terminate.",
+      }),
+  },
   {
     name: "a3-complete",
     exceptions: true,

@@ -295,7 +295,19 @@ test("settings rails retain their position, running keeps four unavailable rows,
   });
   await pane().getByRole("button", { name: "Run scan", exact: true }).click();
   await expect(pane().locator(".headline")).toHaveText("Scanning");
+  // Issue 84 restores the scan state above the unchanged settings body.
+  await expect(pane().locator(".cbar .state")).toHaveText("Scanning");
+  await expect(pane().locator(".cbar .state svg")).toBeVisible();
+  const progress = pane().getByRole("progressbar", { name: "Scanning" });
+  await expect(progress).toHaveAttribute("aria-valuemin", "0");
+  await expect(progress).toHaveAttribute("aria-valuemax", "100");
+  await expect(progress).toHaveAttribute("aria-valuenow", "12");
   await expect(pane().locator(".cbar")).toContainText("12 of 100 entities");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(progress.locator("i")).toHaveCSS("transition-property", "width");
+  await expect(progress.locator("i")).toHaveCSS("transition-duration", "0.14s");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(progress.locator("i")).toHaveCSS("transition-duration", "0s");
   await expect(pane().locator(".srow")).toHaveCount(4);
   for (const control of await pane()
     .locator(".quality-settings button,.quality-settings select")
@@ -312,6 +324,14 @@ test("settings rails retain their position, running keeps four unavailable rows,
     };
   });
   await expect(pane().locator(".headline")).toHaveText("The scan failed");
+  await expect(pane().locator(".cbar.alert-bad .state")).toHaveText(
+    "Scan failed",
+  );
+  await expect(pane().locator(".cbar.alert-bad .state svg")).toBeVisible();
+  await expect(pane().locator(".cbar.alert-bad .sum")).toHaveText(
+    "Fixture scan failure Partial results are not shown.",
+  );
+  await expect(pane().locator(".cbar button,.tools,.pager")).toHaveCount(0);
   await expect(pane()).toContainText("Fixture scan failure");
   await expect(pane().locator(".srow")).toHaveCount(4);
   await expect(

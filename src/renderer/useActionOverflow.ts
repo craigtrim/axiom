@@ -66,10 +66,9 @@ export function useActionOverflow(
       const id =
         command?.getAttribute(attribute) ??
         command?.getAttribute(overflowAttribute);
-      if (
-        (id && next.has(id) !== hidden.has(id)) ||
-        bar.querySelector(":popover-open")
-      ) {
+      // Issue 84: a new active-filter chip may change allocation while typing.
+      // Keep the open menu and caret unless the focused control itself moves.
+      if (id && next.has(id) !== hidden.has(id)) {
         bar
           .querySelectorAll<HTMLElement>(":popover-open")
           .forEach((p) => p.hidePopover());
