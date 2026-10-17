@@ -1,8 +1,25 @@
+// Issue 87 exposes in-flight corrections so the shell reports scan freshness accurately.
 import { useSyncExternalStore } from "react";
 import { request } from "./client";
 import type { QualityStatus } from "../shared/ontology-quality";
 let status: QualityStatus | undefined;
+let applying: QualityStatus | undefined;
 const listeners = new Set<() => void>();
+const applyingListeners = new Set<() => void>();
+function publishApplying(value: QualityStatus | undefined) {
+  applying = value;
+  for (const fn of applyingListeners) fn();
+}
+export const useQualityApplying = () =>
+  useSyncExternalStore(
+    (fn) => {
+      applyingListeners.add(fn);
+      return () => {
+        applyingListeners.delete(fn);
+      };
+    },
+    () => applying,
+  );
 function publish(value: QualityStatus) {
   status = value;
   for (const fn of listeners) fn();
@@ -11,14 +28,19 @@ export async function applyQualityFinding(findingId: string) {
   const job = status;
   if (!job?.report || job.state !== "complete")
     throw Error("Run the scan again before applying a correction.");
-  const next = await request<QualityStatus>("qualityApplyFinding", {
-    id: job.id,
-    findingId,
-    datasetEpoch: job.report.datasetEpoch,
-    version: job.report.version,
-  });
-  if (status?.id === job.id) publish(next);
-  return next;
+  publishApplying(job);
+  try {
+    const next = await request<QualityStatus>("qualityApplyFinding", {
+      id: job.id,
+      findingId,
+      datasetEpoch: job.report.datasetEpoch,
+      version: job.report.version,
+    });
+    if (status?.id === job.id) publish(next);
+    return next;
+  } finally {
+    publishApplying(undefined);
+  }
 }
 export const useQualityStatus = () =>
   useSyncExternalStore(

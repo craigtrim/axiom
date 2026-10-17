@@ -247,7 +247,7 @@ export function WindowChrome() {
         <nav
           className="menubar"
           role="menubar"
-          aria-label="Application menus"
+          aria-label="Application"
           onKeyDown={(e) => {
             const list = buttons(),
               at = list.indexOf(e.target as HTMLButtonElement);
@@ -326,7 +326,8 @@ export function WindowChrome() {
             className="doc"
             aria-haspopup="dialog"
             title="Open the command palette"
-            aria-label={`Axiom. ${info.fileName}${info.dirty ? ", unsaved changes" : ""}. ${folder}. Open the command palette`}
+            // Issue 87: unsaved documents have no empty folder sentence or gap.
+            aria-label={`Axiom. ${info.fileName}${info.dirty ? ", unsaved changes" : ""}. ${folder ? folder + ". " : ""}Open the command palette`}
             onClick={() => command("palette")}
           >
             <Glyph>
@@ -339,7 +340,7 @@ export function WindowChrome() {
                 *
               </span>
             )}
-            <span className="path">{folder}</span>
+            {folder && <span className="path">{folder}</span>}
           </button>
         </div>
       </header>
