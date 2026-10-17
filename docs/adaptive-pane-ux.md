@@ -107,6 +107,12 @@ From the query, Down enters the results, Escape clears the query (then enters re
 
 ## Implementation
 
+The 44 shared tokens live at the top of `src/renderer/styles.css`. `applyTheme` selects the theme without writing those names inline, including in detached windows. A view binds to the shared component set through `AdaptivePane`'s `shared` flag. The layer remains opt-in while the views migrate (craigtrim/axiom#81).
+
+Quality Settings retains thirteen declarations that shield it from the older palette on its Quality pane ancestor. Seven light values and six dark values still differ at that ancestor: `raised`, `sunken`, `accent`, `ok`, `warn`, `focus`, and light `bad`. Issue #84 removes those declarations with the older Quality palette. The shared layer therefore removes 210 redundant declarations and leaves 339 custom-property declarations of 116 names across the renderer stylesheets.
+
+Shared views use `SharedPane` for the body, optional footer and one transient status message. `SharedActionRow` keeps the primary command and More visible. It measures natural control widths at the pane's zoom, moves commands into More in descending priority order, and restores them in reverse. Only after every movable command has left may the state text truncate; its tooltip retains the full text. `SharedMenu` handles keyboard navigation, disabled reasons and focus return in the pane's owner document. The existing `PaneToolbar` remains available to views awaiting migration.
+
 Details enters recovery below 240 px wide or 120 px tall and shows only its header band, including retained source-draft actions. Its measurement uses the shared 600/616 px narrow and 400/416 px shallow hysteresis.
 
 [AdaptivePane.tsx](../src/renderer/AdaptivePane.tsx) wraps each view at the FlexLayout factory boundary. It measures the content rectangle in its owner document. PaneToolbar keeps primary commands visible and moves secondary controls into a native popover. PaneDetails preserves explicit disclosure choices and keeps focused fields accessible across a mode change. Each view declares its commands and content-specific layout.

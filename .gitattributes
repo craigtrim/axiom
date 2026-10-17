@@ -15,3 +15,5 @@ tests/fixtures/individuals-visual/visual-reference.html -text
 tests/fixtures/quality-settings-visual/README.md -text
 tests/fixtures/quality-settings-visual/visual-reference.html -text
 tests/fixtures/window-chrome-visual/shell.html -text
+# Preserve the reference bytes for craigtrim/axiom#81.
+tests/fixtures/design-system-visual/visual-reference.html -text

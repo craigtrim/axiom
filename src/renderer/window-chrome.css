@@ -3,62 +3,14 @@
 .entity-context-menu.chrome-menu {
   color-scheme: light;
 
-  --ground: #ffffff;
-  --surface: #f6f7f9;
-  --raised: #ffffff;
-  --sunken: #f0f2f5;
-
-  --border: #e1e4e8;
-  --border-strong: #d0d7de;
-
-  --text: #1b1f24;
-  --text-muted: #57606a;
-
-  --accent: #0b5fd0;
-  --accent-fg: #ffffff;
-
-  --ok: #0a7a3d;
-
-  --warn: #8a6116;
-
-  --bad: #a4201a;
-
-  --idle: #57606a;
-
-  --row-hover: #f6f7f9;
-  --row-selected: #eaf2fd;
-
-  --focus: #0b5fd0;
-  --shadow-pop: 0 8px 24px rgba(27, 31, 36, 0.18);
-
   /* chrome: the only tokens this surface adds */
-  --chrome: #eceff3;
-  --chrome-hover: #dfe4ea;
   --chrome-press: #d3d9e1;
-  --chrome-border: #d7dce2;
   --rail: #e6eaef;
   --rail-icon: #4a5560;
 
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
   --sp-8: 32px;
 
-  --r-ctl: 4px;
-  --r-panel: 6px;
   --r-card: 8px;
-  --r-pill: 999px;
-
-  --t-fast: 120ms;
-  --t-enter: 180ms;
-
-  --font:
-    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
-
   /* geometry. Provenance is in the Measurements panel. */
   --h-title: 36px;
   --h-tabs: 32px;
@@ -69,28 +21,7 @@
 [data-theme="dark"] .window-chrome,
 [data-theme="dark"] .entity-context-menu.chrome-menu {
   color-scheme: dark;
-  --ground: #0d1117;
-  --surface: #161b22;
-  --raised: #1c2128;
-  --sunken: #10151c;
-  --border: #30363d;
-  --border-strong: #3d444d;
-  --text: #e6edf3;
-  --text-muted: #9ba7b4;
-  --accent: #4c9aff;
-  --accent-fg: #06192e;
-  --ok: #4ade80;
-  --warn: #e3b341;
-  --bad: #ff8d81;
-  --idle: #9ba7b4;
-  --row-hover: #161b22;
-  --row-selected: #12243a;
-  --focus: #6aabff;
-  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
-  --chrome: #11161d;
-  --chrome-hover: #212831;
   --chrome-press: #2b333d;
-  --chrome-border: #272e37;
   --rail: #0f141a;
   --rail-icon: #9ba7b4;
 }

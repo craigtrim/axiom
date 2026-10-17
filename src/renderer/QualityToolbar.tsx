@@ -1,11 +1,5 @@
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
-import { qualityOverflow } from "./quality-overflow";
+import { useRef, type ReactNode, type RefObject } from "react";
+import { useActionOverflow } from "./useActionOverflow";
 
 export interface QualityCommand {
   id: string;
@@ -32,63 +26,8 @@ export function QualityToolbar({
   children: ReactNode;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
-  useLayoutEffect(() => {
-    const bar = root.current;
-    const trigger = more.current;
-    if (!bar || !trigger) return;
-    const win = bar.ownerDocument.defaultView!;
-    const slots = [
-      ...bar.querySelectorAll<HTMLElement>(":scope > [data-quality-command]"),
-    ];
-    const measure = () => {
-      const style = win.getComputedStyle(bar);
-      const scale = bar.getBoundingClientRect().width / parseFloat(style.width);
-      if (!Number.isFinite(scale) || !scale) return;
-      const gap = parseFloat(style.columnGap) || 0;
-      const next = qualityOverflow(
-        bar.getBoundingClientRect().width / scale,
-        parseFloat(style.paddingLeft) +
-          parseFloat(style.paddingRight) +
-          trigger.getBoundingClientRect().width / scale +
-          gap,
-        gap,
-        slots.map((slot) => ({
-          id: slot.dataset.qualityCommand!,
-          width: slot.getBoundingClientRect().width / scale,
-          priority: commands.find((c) => c.id === slot.dataset.qualityCommand)!
-            .priority,
-        })),
-      );
-      if (next.size === hidden.size && [...next].every((id) => hidden.has(id)))
-        return;
-      // A focused command must never become an invisible keyboard destination.
-      // Close a popup if its command is moving, then resume at the stable trigger.
-      const active = bar.ownerDocument.activeElement as HTMLElement | null;
-      const command = active?.closest<HTMLElement>(
-        "[data-quality-command], [data-quality-overflow]",
-      );
-      const id =
-        command?.dataset.qualityCommand ?? command?.dataset.qualityOverflow;
-      const moving = id && next.has(id) !== hidden.has(id);
-      const exportMenu = bar.querySelector<HTMLElement>(
-        ".quality-export-menu:popover-open",
-      );
-      if (moving || exportMenu) {
-        bar
-          .querySelectorAll<HTMLElement>(":popover-open")
-          .forEach((p) => p.hidePopover());
-        trigger.focus({ preventScroll: true });
-      }
-      setHidden(next);
-    };
-    measure();
-    const observer = new win.ResizeObserver(measure);
-    observer.observe(bar);
-    slots.forEach((slot) => observer.observe(slot));
-    observer.observe(trigger);
-    return () => observer.disconnect();
-  });
+  // Keep existing Quality behavior on the common measurement path (craigtrim/axiom#81).
+  const hidden = useActionOverflow(root, more, commands, "quality");
   const command = (item: QualityCommand) => (
     <div
       key={item.id}

@@ -16,6 +16,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
+      - run: npx playwright install chromium
       - run: npx playwright test
       - run: npm audit --audit-level=moderate
       - run: npm run package
