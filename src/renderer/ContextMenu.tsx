@@ -113,7 +113,7 @@ export function ContextMenu({
           4,
           Math.min(
             parentRect && x + r.width > win.innerWidth - 4
-              ? parentRect.left - r.width
+              ? parentRect.left - r.width + (appearance === "chrome" ? 2 : 0)
               : x,
             win.innerWidth - r.width - 4,
           ),
@@ -399,7 +399,8 @@ export function ContextMenu({
           actions={submenu.action.children!}
           document={doc}
           x={submenu.rect.right - 2}
-          y={submenu.rect.top}
+          // Issue 87: chrome cascades overlap by 2px and align their first row.
+          y={submenu.rect.top - (appearance === "chrome" ? 4 : 0)}
           parentRect={submenu.rect}
           trigger={submenu.trigger}
           onTabOut={tabOut}

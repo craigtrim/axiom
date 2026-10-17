@@ -1,3 +1,4 @@
+// Issue 87 retains the regression for published suggestion completion and saved metadata.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";

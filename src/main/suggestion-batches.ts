@@ -1,3 +1,4 @@
+// Issue 87 validation retains the existing fix for completion-before-persistence.
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";

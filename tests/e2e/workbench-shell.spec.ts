@@ -110,6 +110,7 @@ async function launch(theme = "light", classes = 4) {
     env,
   });
   page = await app.firstWindow();
+  await page.emulateMedia({ reducedMotion: "reduce" });
   page.on("pageerror", (error) => errors.push(error.message));
   await expect(rail()).toBeVisible();
   await app.evaluate(({ BrowserWindow, dialog }, file) => {
@@ -266,7 +267,7 @@ test("the reference palette searches the installed menus and invokes enabled com
   const opener = page.locator(".window-chrome .doc");
   await opener.click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
-  const input = palette.getByRole("combobox", { name: "Find a command" });
+  const input = palette.getByRole("combobox", { name: "Command palette" });
   await expect(input).toBeFocused();
   await input.fill("Cancel query");
   await expect(palette.getByRole("option")).toHaveAttribute(
@@ -418,7 +419,7 @@ async function mountReference(theme: string, paletteFilter?: string) {
       shadow.innerHTML =
         `<style>${data.css.replace(/:root(\[[^\]]+\])/g, ":host($1)").replaceAll(":root", ":host")}</style><style>.titlebar{padding-left:env(titlebar-area-x,0px);padding-right:calc(100% - env(titlebar-area-width,100%) - env(titlebar-area-x,0px))}.wco{display:none}.menu,.scrim{animation:none}input{caret-color:transparent}</style>` +
         (palette
-          ? `<div style="display:grid;justify-items:center;align-items:start;padding-top:72px">${data.palette}</div>`
+          ? `<div class="scrim">${data.palette}</div>`
           : `<div class="shell">${data.header}<div class="midrow">${data.rail}<div class="stage">${data.tabs}<div></div></div></div>${data.status}</div>`);
       (palette
         ? document.querySelector(".chrome-palette-shell")!
@@ -431,6 +432,7 @@ async function mountReference(theme: string, paletteFilter?: string) {
 async function compareRegion(
   name: string,
   selector: ".rail" | ".tabs" | ".statusbar" | ".palette",
+  focus?: string,
 ) {
   const actual = page.locator(
     selector === ".palette"
@@ -443,6 +445,10 @@ async function compareRegion(
       ({ reference, palette }) => {
         document.querySelector<HTMLElement>("#shell-reference")!.style.display =
           reference ? "block" : "none";
+        document.documentElement.classList.toggle(
+          "reference-palette",
+          reference && palette,
+        );
         if (palette)
           document.querySelector<HTMLElement>(
             ".chrome-palette-shell > .palette",
@@ -451,6 +457,22 @@ async function compareRegion(
       { reference, palette: selector === ".palette" },
     );
     const target = reference ? expected : actual;
+    if (focus) await target.locator(focus).focus();
+    if (focus) {
+      // Rebuild both compositor layers after selection changes tab widths.
+      await target.evaluate((el) => {
+        (el as HTMLElement).style.transform = "";
+        el.querySelectorAll<HTMLElement>("button").forEach((button) => {
+          button.style.transform = "";
+        });
+      });
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    }
     await target.evaluate(
       (el) => ((el as HTMLElement).style.transform = "translateZ(0)"),
     );
@@ -462,8 +484,59 @@ async function compareRegion(
         ),
       );
     if (selector === ".palette") await target.locator("input").focus();
+    if (focus) await target.locator(focus).focus();
+    if (selector === ".rail")
+      await target.evaluate(
+        (el, scroll) => {
+          el.scrollTop = scroll;
+        },
+        await actual.evaluate((el) => el.scrollTop),
+      );
+    if (focus)
+      await writeFile(
+        `artifacts/issue-66-full/${name}-${reference ? "expected" : "actual"}-layout.json`,
+        JSON.stringify(
+          await target.locator("button").evaluateAll((buttons) =>
+            buttons.map((el) => {
+              const rect = el.getBoundingClientRect();
+              const css = getComputedStyle(el);
+              const span = el.querySelector(".lab");
+              return {
+                text: el.textContent,
+                selected: el.getAttribute("aria-selected"),
+                x: rect.x,
+                width: rect.width,
+                color: css.color,
+                weight: css.fontWeight,
+                family: css.fontFamily,
+                lab: span
+                  ? {
+                      x: span.getBoundingClientRect().x,
+                      width: span.getBoundingClientRect().width,
+                      color: getComputedStyle(span).color,
+                      weight: getComputedStyle(span).fontWeight,
+                    }
+                  : null,
+              };
+            }),
+          ),
+          null,
+          2,
+        ),
+      );
+    const box = (await target.boundingBox())!;
+    // Issue 87: include the native backdrop and surrounding content in all palette states.
+    const clip =
+      selector === ".palette"
+        ? {
+            x: box.x - 40,
+            y: 0,
+            width: box.width + 80,
+            height: box.y + box.height + 40,
+          }
+        : box;
     return page.screenshot({
-      clip: (await target.boundingBox())!,
+      clip,
       animations: "disabled",
       caret: "hide",
       scale: "css",
@@ -471,11 +544,13 @@ async function compareRegion(
   };
   await page.mouse.move(2, 10);
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  if (focus) await page.keyboard.press("Shift");
   await capture(true);
   await capture(false);
   const actualImage = await capture(false),
     expectedImage = await capture(true);
   await page.evaluate(() => {
+    document.documentElement.classList.remove("reference-palette");
     document.querySelector<HTMLElement>("#shell-reference")!.style.display =
       "none";
     const palette = document.querySelector<HTMLElement>(
@@ -549,7 +624,46 @@ for (const theme of ["light", "dark"])
           selector,
         );
     }
+    await resize(1380, 420);
+    await rail().evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await mountReference(theme);
+    await compareRegion(`${theme}-short-rail-scrolled`, ".rail");
     await resize(1380, 800);
+    await rail().locator('[data-pane="graph"]').click();
+    await mountReference(theme);
+    await compareRegion(
+      `${theme}-graph-rail-focused`,
+      ".rail",
+      '[data-pane="graph"]',
+    );
+    await tabs().locator('[data-document-id="source"]').focus();
+    await tabs().locator('[data-document-id="source"]').press("Enter");
+    await expect(tabs().locator('[data-document-id="source"]')).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await mountReference(theme);
+    await compareRegion(
+      `${theme}-source-tab-focused`,
+      ".tabs",
+      '[data-tab="1"], [data-document-id="source"]',
+    );
+    await app.evaluate(
+      ({ dialog }, file) => {
+        dialog.showSaveDialog = async () => ({
+          canceled: false,
+          filePath: file,
+        });
+      },
+      path.join(profile, "saved.axiom"),
+    );
+    await menu("file.saveAs");
+    await expect(status()).toContainText("Saved");
+    await expect(status()).toContainText("Scan current");
+    await mountReference(theme);
+    await compareRegion(`${theme}-saved-current-status`, ".statusbar");
     await page.evaluate(() =>
       window.axiom.request("rename", {
         iri: "http://example.org/ontology#Topic0",
@@ -563,8 +677,12 @@ for (const theme of ["light", "dark"])
       path: `artifacts/issue-66-full/${theme}-full-window.png`,
       animations: "disabled",
     });
+    await page.addStyleTag({
+      content:
+        ".reference-palette .chrome-palette-shell::backdrop { background: transparent !important; }",
+    });
     await page.locator(".window-chrome .doc").click();
-    const input = page.getByRole("combobox", { name: "Find a command" });
+    const input = page.getByRole("combobox", { name: "Command palette" });
     for (const filter of ["", "Ontology Quality", "no matching command qqq"]) {
       await input.fill(filter);
       await mountReference(theme, filter);

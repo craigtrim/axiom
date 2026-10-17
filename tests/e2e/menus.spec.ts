@@ -17,7 +17,14 @@ let app: ElectronApplication,
   expected: string[] = [],
   visited = new Set<string>();
 // The appearance workflows live in their own desktop suite.
+// Issue 87: dataset commands are covered through their installed menu and confirmation.
 const coverage: Record<string, string[]> = {
+  "Dataset size (tests/e2e/shell-contracts.spec.ts)": [
+    "tools.dataset.1000",
+    "tools.dataset.12000",
+    "tools.dataset.50000",
+    "tools.dataset.100000",
+  ],
   "Independent windows (tests/e2e/multi-instance.spec.ts)": ["file.newWindow"],
   "Ontology quality scan (tests/e2e/ontology-quality.spec.ts)": [
     "tools.quality",
@@ -191,7 +198,7 @@ journey(
           BrowserWindow.getAllWindows()[0].getTitle(),
         ),
       )
-      .toBe("Untitled ontology | Axiom");
+      .toBe("Axiom | Untitled ontology");
     await createClass("Person");
     await menu("entity.rename");
     const rename = page.getByRole("textbox", {
@@ -233,7 +240,7 @@ journey(
     await expect(individual).toHaveCount(0);
     await expect.poll(async () => (await state()).individualCount).toBe(1);
     await expect(
-      page.locator('[data-panel="individuals"] .ag-row').first(),
+      page.locator('[data-panel="individuals"] tbody tr[data-iri]').first(),
     ).toContainText("Alice");
     await expect.poll(() => enabled("entity.delete")).toBe(false);
     const limit = page.getByRole("spinbutton", {
@@ -261,7 +268,7 @@ journey(
           BrowserWindow.getAllWindows()[0].getTitle(),
         ),
       )
-      .toBe(path.basename(first) + " | Axiom");
+      .toBe("Axiom | " + first);
     await createClass("Company");
     await menu("file.save");
     await expect
@@ -286,7 +293,7 @@ journey(
           BrowserWindow.getAllWindows()[0].getTitle(),
         ),
       )
-      .toBe(path.basename(second) + " | Axiom");
+      .toBe("Axiom | " + second);
     expect((await state()).ontology.example).toBe(false);
     await request("select", { iri: "http://example.org/ontology#Company" });
     await menu("entity.delete");
@@ -304,9 +311,7 @@ journey(
     });
     await menu("file.example");
     await expect.poll(async () => (await state()).classCount).toBe(95);
-    await expect(
-      page.getByRole("combobox", { name: "Dataset size" }),
-    ).toBeEnabled();
+    await expect.poll(() => enabled("menu.dataset")).toBe(true);
   },
 );
 
@@ -408,9 +413,11 @@ journey(
       .toBe(true);
     await menu("palette");
     await page
-      .getByRole("combobox", { name: "Find a command" })
+      .getByRole("combobox", { name: "Command palette" })
       .fill("Query View");
-    await page.getByRole("combobox", { name: "Find a command" }).press("Enter");
+    await page
+      .getByRole("combobox", { name: "Command palette" })
+      .press("Enter");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator('[data-panel="query"]')).toBeVisible();
   },
@@ -714,9 +721,13 @@ journey(
     await expect
       .poll(async () => (await state()).graph.nodes.length)
       .toBeGreaterThan(0);
+    await page.locator('[data-menu-id="menu.tools"]').click();
     await page
-      .getByRole("combobox", { name: "Dataset size" })
-      .selectOption("100000");
+      .getByRole("menuitem", { name: "Dataset size", exact: true })
+      .click();
+    await page
+      .getByRole("menuitemradio", { name: "100,000 orders", exact: true })
+      .click();
     await page
       .getByRole("dialog", { name: "Regenerate dataset" })
       .getByRole("button", { name: "Regenerate", exact: true })
@@ -1368,9 +1379,16 @@ journey(
         ),
       )
       .toBe(true);
+    // Tab navigation needs a second tab; Touchpoints is opened on demand.
+    await menu("view.touchpoints");
+    await expect(
+      page.getByRole("region", { name: "Touchpoints", exact: true }),
+    ).toBeVisible();
     await menu("view.inspector");
     await menu("pane.nextTab");
-    await expect(page.locator('[data-panel="touchpoints"]')).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Touchpoints", exact: true }),
+    ).toBeVisible();
     await menu("pane.previousTab");
     await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
     await menu("view.graph");

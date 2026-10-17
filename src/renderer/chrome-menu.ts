@@ -11,7 +11,8 @@ export function chromeActions(
       item.separator
         ? null
         : {
-            key: item.key,
+            // Issue 87: an access-key remap must not change a menu row's identity.
+            key: item.id,
             label: item.label,
             accessKey: item.key,
             accelerator: item.accelerator,

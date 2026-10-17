@@ -57,6 +57,7 @@ async function launch(theme: string) {
     env,
   });
   page = await app.firstWindow();
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(title()).toBeVisible();
   await expect(title().locator(".mtrigger")).toHaveCount(8);
   expect(
@@ -80,7 +81,13 @@ async function resize(width: number, height = 800) {
   );
   await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width);
 }
-async function mountReference(theme: string, popup?: "file" | "compact") {
+// Issue 87: render every installed popup and cascade with the pinned reference.
+async function mountReference(
+  theme: string,
+  popup?: string,
+  path: number[] = [],
+  alt = false,
+) {
   const native = await page.evaluate(() => window.axiom.chrome.menus());
   const info = await page.evaluate(() => window.axiom.chrome.info());
   const convert = (items: ChromeMenuItem[]): unknown[] =>
@@ -134,21 +141,28 @@ async function mountReference(theme: string, popup?: "file" | "compact") {
     )
     .replace("dirty: true", "dirty: " + info.dirty);
   const data = await app.evaluate(
-    async ({ BrowserWindow }, { html, popup }) => {
+    async ({ BrowserWindow }, { html, popup, path }) => {
       const w = new BrowserWindow({ show: false });
       await w.loadURL(
         "data:text/html;charset=utf-8," + encodeURIComponent(html),
       );
       const result = await w.webContents.executeJavaScript(
-        `(() => { ${popup ? `document.querySelector(".${popup === "file" ? "mtrigger" : "mcompact"}").click();` : ""} return {css:document.querySelector('style').textContent, header:document.querySelector('.titlebar').outerHTML, menu:document.querySelector('.menu')?.outerHTML} })()`,
+        `(() => {
+          ${popup ? `document.getElementById(${JSON.stringify(popup === "compact" ? "mcompact" : "mt-menu." + popup)}).click();` : ""}
+          for (const index of ${JSON.stringify(path)}) {
+            const popups = document.querySelectorAll('.menu');
+            const rows = popups[popups.length - 1].querySelectorAll('.mi'); rows.forEach(el => el.removeAttribute('data-active')); const row = rows[index]; row.click(); row.setAttribute('data-active', 'true');
+          }
+          return {css:document.querySelector('style').textContent, header:document.querySelector('.titlebar').outerHTML, menu:[...document.querySelectorAll('.menu')].map(el => el.outerHTML).join('')};
+        })()`,
       );
       w.destroy();
       return result;
     },
-    { html, popup },
+    { html, popup, path },
   );
   await page.evaluate(
-    ({ data, theme, compact }) => {
+    ({ data, theme, popup, path, alt }) => {
       document.querySelector("#chrome-reference")?.remove();
       const host = document.createElement("div");
       host.id = "chrome-reference";
@@ -157,26 +171,60 @@ async function mountReference(theme: string, popup?: "file" | "compact") {
         "all:initial;font:13px/1.45 var(--font);color:var(--text);-webkit-font-smoothing:antialiased;display:none;position:fixed;inset:0;width:100%;height:100%;z-index:99999;container-type:size;container-name:shell";
       const shadow = host.attachShadow({ mode: "open" });
       shadow.innerHTML = `<style>${data.css.replace(/:root(\[[^\]]+\])/g, ":host($1)").replaceAll(":root", ":host")}</style><style>.titlebar{padding-left:env(titlebar-area-x,0px);padding-right:calc(100% - env(titlebar-area-width,100%) - env(titlebar-area-x,0px))}.wco{display:none}.menu{animation:none}</style>${data.header}${data.menu ?? ""}`;
-      // The popup is under the actual trigger, independent of the hidden
-      // reference window's size. Native caption glyphs are outside our surface.
+      document.body.append(host);
+      host.style.display = "block";
+      // Position from reference row boxes, including the 4px inset and 2px overlap.
       const trigger = document
         .querySelector(
-          compact ? ".window-chrome .mcompact" : ".window-chrome .mtrigger",
+          popup === "compact"
+            ? ".window-chrome .mcompact"
+            : `[data-menu-id="menu.${popup ?? "file"}"]`,
         )!
         .getBoundingClientRect();
-      const popup = shadow.querySelector<HTMLElement>(".menu");
-      if (popup) {
-        popup.style.left = trigger.left + "px";
-        popup.style.top = trigger.bottom + "px";
-      }
-      document.body.append(host);
+      const popups = [...shadow.querySelectorAll<HTMLElement>(".menu")];
+      popups.forEach((menu, level) => {
+        const parent = level
+          ? popups[level - 1]
+              .querySelectorAll<HTMLElement>(".mi")
+              [path[level - 1]].getBoundingClientRect()
+          : trigger;
+        menu.style.maxHeight =
+          Math.max(26, innerHeight - (level ? 8 : trigger.bottom + 4)) + "px";
+        menu.style.overflowY = "auto";
+        const box = menu.getBoundingClientRect();
+        let x = level ? parent.right - 2 : parent.left;
+        if (x + box.width > innerWidth - 4)
+          x = level ? parent.left - box.width + 2 : innerWidth - box.width - 4;
+        menu.style.left = Math.max(4, x) + "px";
+        menu.style.top =
+          Math.max(
+            4,
+            Math.min(
+              level ? parent.top - 4 : parent.bottom,
+              innerHeight - box.height - 4,
+            ),
+          ) + "px";
+      });
+      const header = shadow.querySelector<HTMLElement>(".titlebar")!;
+      header.classList.add("shell");
+      header.style.display = "flex";
+      header.setAttribute("data-alt", alt ? "on" : "off");
+      host.style.display = "none";
     },
-    { data, theme, compact: popup === "compact" },
+    { data, theme, popup, path, alt },
   );
 }
-async function compare(name: string, selector: ".titlebar" | ".menu") {
-  const actual = selector === ".titlebar" ? title() : menus().first();
-  const expected = page.locator("#chrome-reference").locator(selector);
+async function compare(
+  name: string,
+  selector: ".titlebar" | ".menu",
+  level = 0,
+  focus?: number,
+) {
+  const actual = selector === ".titlebar" ? title() : menus().nth(level);
+  const expected = page
+    .locator("#chrome-reference")
+    .locator(selector)
+    .nth(level);
   const show = async (ref: boolean) =>
     page.evaluate((ref) => {
       document.querySelector<HTMLElement>("#chrome-reference")!.style.display =
@@ -190,6 +238,33 @@ async function compare(name: string, selector: ".titlebar" | ".menu") {
   const shoot = async (ref: boolean) => {
     await show(ref);
     const loc = ref ? expected : actual;
+    if (focus !== undefined) {
+      const row = loc
+        .locator(selector === ".menu" ? ".mi" : ".mtrigger")
+        .nth(focus);
+      await row.focus();
+      if (ref && selector === ".menu")
+        await loc.locator(".mi").evaluateAll(
+          (rows, focus) =>
+            rows.forEach((el, index) => {
+              if (index === focus) el.setAttribute("data-active", "true");
+              else el.removeAttribute("data-active");
+            }),
+          focus,
+        );
+      await loc.evaluate((el) => {
+        (el as HTMLElement).style.transform = "";
+        el.querySelectorAll<HTMLElement>("button").forEach((button) => {
+          button.style.transform = "";
+        });
+      });
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    }
     await loc.evaluate((el) => {
       (el as HTMLElement).style.transform = "translateZ(0)";
     });
@@ -198,16 +273,25 @@ async function compare(name: string, selector: ".titlebar" | ".menu") {
         (el as HTMLElement).style.transform = "translateZ(0)";
       }),
     );
+    if (focus !== undefined)
+      await loc
+        .locator(selector === ".menu" ? ".mi" : ".mtrigger")
+        .nth(focus)
+        .focus();
     const box = (await loc.boundingBox())!;
     return page.screenshot({ clip: box, animations: "disabled", scale: "css" });
   };
   await page.mouse.move(2, 10);
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  if (focus !== undefined) await page.keyboard.press("Shift");
   await shoot(true);
   await shoot(false);
   const a = await shoot(false),
     e = await shoot(true);
   await show(false);
+  if (selector === ".menu") await actual.focus();
+  else if (focus !== undefined)
+    await actual.locator(".mtrigger").nth(focus).focus();
   await writeFile(`artifacts/issue-66/${name}-actual.png`, a);
   await writeFile(`artifacts/issue-66/${name}-expected.png`, e);
   const result = await app.evaluate(
@@ -272,6 +356,103 @@ for (const theme of ["light", "dark"])
       await mountReference(theme, "compact");
       await compare(`${theme}-compact-${width}`, ".menu");
       await page.keyboard.press("Escape");
+    }
+    // The other seven popups, plus the four documented cascade routes.
+    await resize(1380);
+    for (const root of [
+      "edit",
+      "view",
+      "tools",
+      "graph",
+      "query",
+      "window",
+      "help",
+    ]) {
+      await title().locator(`[data-menu-id="menu.${root}"]`).click();
+      await mountReference(theme, root);
+      await compare(`${theme}-${root}`, ".menu");
+      await page.keyboard.press("Escape");
+    }
+    for (const [root, chain] of [
+      ["file", ["menu.file.open", "menu.file.recent"]],
+      ["view", ["menu.theme"]],
+      ["graph", ["menu.graphLayout"]],
+      ["window", ["menu.movePane"]],
+      ["compact", ["menu.file"]],
+    ] as const) {
+      await resize(root === "compact" ? 620 : 1380);
+      await title()
+        .locator(
+          root === "compact" ? ".mcompact" : `[data-menu-id="menu.${root}"]`,
+        )
+        .click();
+      const indices: number[] = [];
+      for (const id of chain) {
+        const popup = menus().nth(indices.length);
+        await expect(popup.locator(`[data-menu-key="${id}"]`)).toBeVisible();
+        const keys = await popup
+          .locator(".mi")
+          .evaluateAll((rows) =>
+            rows.map((row) => (row as HTMLElement).dataset.menuKey),
+          );
+        const at = keys.indexOf(id);
+        expect(at, id).toBeGreaterThanOrEqual(0);
+        indices.push(at);
+        await popup.locator(".mi").nth(at).focus();
+        await page.keyboard.press("ArrowRight");
+        await expect(menus()).toHaveCount(indices.length + 1);
+        const parent = (await popup.locator(".mi").nth(at).boundingBox())!;
+        const child = (await menus().last().boundingBox())!;
+        expect(child.y + 5).toBe(parent.y + 1);
+        expect(child.x).toBe(
+          child.x < parent.x
+            ? parent.x - child.width + 2
+            : parent.x + parent.width - 2,
+        );
+      }
+      await mountReference(theme, root, indices);
+      for (let level = 0; level <= indices.length; level++)
+        await compare(
+          `${theme}-${root}-cascade-${level}`,
+          ".menu",
+          level,
+          level === indices.length ? 0 : undefined,
+        );
+      for (let level = 0; level <= indices.length; level++)
+        await page.keyboard.press("Escape");
+    }
+    await resize(1380);
+    // Model a disabled native Redo row, as frame 04 does. Chrome reads this installed state.
+    await app.evaluate(({ Menu }) => {
+      Menu.getApplicationMenu()!.getMenuItemById("edit.redo")!.enabled = false;
+    });
+    await page.keyboard.press("Alt+e");
+    await expect(menus().locator('[data-menu-key="edit.undo"]')).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menus().locator('[data-menu-key="edit.redo"]')).toBeFocused();
+    await mountReference(theme, "edit", [], true);
+    await compare(`${theme}-disabled-redo-focused`, ".menu", 0, 1);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Alt");
+    await mountReference(theme, undefined, [], true);
+    await compare(`${theme}-bare-alt`, ".titlebar", 0, 0);
+    await page.keyboard.press("Escape");
+    for (const [width, height] of [
+      [239, 400],
+      [1380, 119],
+    ]) {
+      await resize(width, height);
+      await mountReference(theme);
+      await compare(`${theme}-recovery-${width}x${height}`, ".titlebar");
+      await expect(
+        page
+          .locator(
+            ".shell-surface.rail,.shell-surface.tabs,.shell-surface.statusbar",
+          )
+          .filter({ visible: true }),
+      ).toHaveCount(0);
+      const dock = (await page.locator(".docking-workspace").boundingBox())!;
+      expect(dock).toEqual({ x: 0, y: 36, width, height: height - 36 });
     }
   });
 test("menus share native state and support keyboard navigation, compact folds, scrolling and the palette", async () => {
@@ -517,6 +698,43 @@ test("chrome commands update native themes, document state, shortcuts and zoom w
   await child.getByTestId("graph-canvas").focus();
   await child.keyboard.press("F10");
   const childId = await (await app.browserWindow(child)).evaluate((w) => w.id);
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as any).__detachedMenu))
+    .toEqual({ id: childId, source: "keyboard" });
+  await child.keyboard.press("Control+Shift+P");
+  const palette = child.getByRole("dialog", { name: "Command palette" });
+  const input = palette.getByRole("combobox", { name: "Command palette" });
+  await expect(input).toBeFocused();
+  await expect(
+    page.getByRole("dialog", { name: "Command palette" }),
+  ).toHaveCount(0);
+  await app.evaluate(() => {
+    (globalThis as any).__detachedMenu = undefined;
+  });
+  await child.keyboard.press("F10");
+  await expect(input).toBeFocused();
+  expect(
+    await app.evaluate(() => (globalThis as any).__detachedMenu),
+  ).toBeUndefined();
+  const nextTheme =
+    (await child.locator("html").getAttribute("data-theme")) === "dark"
+      ? "light"
+      : "dark";
+  await input.fill(nextTheme);
+  await input.press("Enter");
+  await expect(palette).toHaveCount(0);
+  await expect(child.locator("html")).toHaveAttribute("data-theme", nextTheme);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", nextTheme);
+  // Theme changes reinstall the native menu; observe its new popup boundary.
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()!.popup = (options) => {
+      (globalThis as any).__detachedMenu = {
+        id: options?.window?.id,
+        source: options?.sourceType,
+      };
+    };
+  });
+  await child.keyboard.press("F10");
   await expect
     .poll(() => app.evaluate(() => (globalThis as any).__detachedMenu))
     .toEqual({ id: childId, source: "keyboard" });

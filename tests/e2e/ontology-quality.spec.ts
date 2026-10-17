@@ -1,3 +1,4 @@
+// Issue 87 keeps status freshness consistent with completed quality corrections.
 // Desktop behaviour of the rebuilt Ontology Quality pane (craigtrim/axiom#42, craigtrim/axiom#44, craigtrim/axiom#62).
 import {
   test,

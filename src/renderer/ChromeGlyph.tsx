@@ -1,3 +1,4 @@
+// Issue 87 keeps shell icons aligned with the pinned reference paths.
 // Geometry copied unchanged from the pinned shell reference.
 const icons = {
   hierarchy:

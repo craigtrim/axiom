@@ -230,12 +230,14 @@ export function DocumentTabs({
   active,
   sourceOpen,
   queryOpen,
+  labelPanel,
   open,
 }: {
   snapshot: Snapshot;
   active: string;
   sourceOpen: boolean;
   queryOpen: boolean;
+  labelPanel: (id: string) => void;
   open: (id: string) => void;
 }) {
   const info = useWindowDocument();
@@ -303,6 +305,11 @@ export function DocumentTabs({
   const current = tabs.some((tab) => tab.id === selected)
     ? selected
     : "workspace";
+  // Issue 87: assistive technology identifies the panel by its selected tab.
+  useEffect(
+    () => labelPanel("document-tab-" + encodeURIComponent(current)),
+    [current, labelPanel],
+  );
   const activate = (index: number, keyboard = false) => {
     tabs[index].open();
     if (keyboard)
@@ -341,6 +348,7 @@ export function DocumentTabs({
           className="tab"
           role="tab"
           key={tab.id}
+          id={"document-tab-" + encodeURIComponent(tab.id)}
           data-document-id={tab.id}
           aria-controls="workbench-document"
           aria-selected={tab.id === current}

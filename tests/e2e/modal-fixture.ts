@@ -1,3 +1,4 @@
+// Issue 87 replaces the obsolete census footer with the full shell.
 import {
   test as baseTest,
   expect,

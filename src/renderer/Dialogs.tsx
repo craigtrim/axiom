@@ -1,3 +1,4 @@
+// Issue 87 moves the installed-menu palette to ChromePalette; entity dialogs remain here.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { installDialogAccessKeys } from "./access-keys";
 import { createPortal } from "react-dom";

@@ -1,11 +1,11 @@
-/* The full shell uses the pinned reference's rail, tabs, status and palette. */
+/* Issue 87: the full shell uses the pinned reference's rail, tabs, status and palette. */
 .workbench {
   container-type: size;
   container-name: workbench-shell;
 }
 .workbench-midrow {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: var(--w-rail) minmax(0, 1fr);
   min-height: 0;
   flex: 1;
 }
@@ -125,7 +125,7 @@
 /* ----------------------------------------------------------------- tabs ---- */
 .shell-surface .stage {
   display: grid;
-  grid-template-rows: var(--h-tabs) minmax(0, 1fr);
+  grid-template-rows: var(--h-doc-tabs) minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
@@ -228,25 +228,6 @@
 }
 
 /* -------------------------------------------------------------- palette ---- */
-.shell-surface .scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  background: rgba(27, 31, 36, 0.28);
-  display: grid;
-  justify-items: center;
-  align-items: start;
-  padding-top: 72px;
-  animation: fade var(--t-enter) ease-out;
-}
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-}
-[data-theme="dark"] .shell-surface .scrim {
-  background: rgba(0, 0, 0, 0.55);
-}
 .shell-surface .palette {
   width: min(620px, 92vw);
   background: var(--raised);
@@ -306,8 +287,8 @@
 }
 
 .shell-surface.tabs {
-  height: var(--h-tabs);
-  min-height: var(--h-tabs);
+  height: var(--h-doc-tabs);
+  min-height: var(--h-doc-tabs);
   flex: none;
 }
 .shell-surface.rail .ri {
@@ -391,5 +372,22 @@
   }
   .workbench-midrow {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Animate the mounted dialog and its native top-layer backdrop together. */
+.chrome-palette-shell[open],
+.chrome-palette-shell[open]::backdrop {
+  animation: chrome-fade var(--t-enter) ease-out;
+}
+@keyframes chrome-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chrome-palette-shell[open],
+  .chrome-palette-shell[open]::backdrop {
+    animation: none;
   }
 }

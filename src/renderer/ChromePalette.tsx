@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChromeMenuItem } from "../shared/window-chrome";
 import { focusedDocument, report } from "./client";
+import { suspendMenus } from "./access-keys";
 
 interface Entry {
   item: ChromeMenuItem;
@@ -23,8 +24,10 @@ function leaves(
 }
 export function ChromePalette({ close }: { close: () => void }) {
   const [owner] = useState(focusedDocument);
+  const bridge = owner.defaultView?.axiom ?? window.axiom;
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const chosen = useRef<Entry | undefined>(undefined);
   const [items, setItems] = useState<Entry[]>([]);
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(0);
@@ -38,19 +41,19 @@ export function ChromePalette({ close }: { close: () => void }) {
     .slice(0, 60);
   const run = (entry: Entry) => {
     if (!entry.enabled) return;
+    chosen.current = entry;
     close();
-    void window.axiom.chrome
-      .execute(entry.item.id, entry.item.label)
-      .catch((error) => report(error.message, true));
   };
   useEffect(() => {
     let live = true;
     const previous = owner.activeElement as HTMLElement | null;
     const element = dialog.current!;
+    // Snapshot before suspending native menu entry points while the palette is modal.
+    const menus = bridge.chrome.menus();
+    const resume = suspendMenus(owner);
     element.showModal();
     input.current?.focus();
-    void window.axiom.chrome
-      .menus()
+    void menus
       .then((menus) => {
         if (live) setItems(leaves(menus));
       })
@@ -59,6 +62,14 @@ export function ChromePalette({ close }: { close: () => void }) {
       live = false;
       element.close();
       previous?.focus();
+      resume();
+      // Execute after releasing modal state so the native bridge can accept it.
+      const entry = chosen.current;
+      chosen.current = undefined;
+      if (entry)
+        void bridge.chrome
+          .execute(entry.item.id, entry.item.label)
+          .catch((error) => report(error.message, true));
     };
   }, []);
   useEffect(() => {
@@ -71,6 +82,7 @@ export function ChromePalette({ close }: { close: () => void }) {
       ref={dialog}
       className="shell-surface chrome-palette-shell"
       aria-label="Command palette"
+      aria-modal="true"
       onCancel={(event) => {
         event.preventDefault();
         close();
@@ -83,7 +95,8 @@ export function ChromePalette({ close }: { close: () => void }) {
         <input
           ref={input}
           role="combobox"
-          aria-label="Find a command"
+          // Issue 87: the reference names both the dialog and its combobox.
+          aria-label="Command palette"
           aria-controls={id}
           aria-expanded="true"
           aria-autocomplete="list"

@@ -1,3 +1,4 @@
+// Issue 87 reports restored workspaces through the full shell.
 import {
   test,
   expect,

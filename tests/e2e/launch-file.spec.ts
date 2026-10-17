@@ -1,3 +1,4 @@
+// Issue 87 reports loaded workspace counts in the shell status bar.
 // craigtrim/axiom#1
 import {
   test,

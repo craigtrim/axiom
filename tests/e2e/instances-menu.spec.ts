@@ -1,3 +1,4 @@
+// Issue 87 exercises instance commands through the installed-menu palette.
 import { launchExample } from "./example-fixture";
 import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
 import {
@@ -653,7 +654,7 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   ).toHaveText("Direct instances 0");
   await menu("palette");
   await page
-    .getByRole("combobox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Show instances");
   const option = page.getByRole("option", {
     name: /^Show instances \(0\)(?:\s|$)/,
@@ -720,7 +721,7 @@ test("palette and class pickers show the same counts as the report", async () =>
     .toEqual({ label: "Show instances (527)", enabled: true });
   await menu("palette");
   await page
-    .getByRole("combobox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Show instances");
   await expect(
     page.getByRole("option", {
@@ -794,7 +795,7 @@ test("known-empty graph operations are disabled consistently with the native men
   expect(enabled).toEqual([false, false]);
   await menu("palette");
   await page
-    .getByRole("combobox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Collapse selected node");
   await expect(
     page.getByRole("option", {

@@ -78,7 +78,16 @@ test("native menus, fixture, table and query", async () => {
     await application.evaluate(({ Menu }) =>
       Menu.getApplicationMenu()!.items.map((i) => i.label.replaceAll("&", "")),
     ),
-  ).toEqual(["File", "Edit", "View", "Graph", "Query", "Window", "Help"]);
+  ).toEqual([
+    "File",
+    "Edit",
+    "View",
+    "Tools",
+    "Graph",
+    "Query",
+    "Window",
+    "Help",
+  ]);
   // The reference status bar displays classes and individuals. Keep the
   // fixture's triple census assertion against the actual Store snapshot.
   await expect
@@ -333,8 +342,8 @@ test("keyboard commands, themes and accessible controls", async () => {
   await expect(
     page.getByRole("dialog", { name: "Command palette" }),
   ).toBeVisible();
-  await page.getByRole("combobox", { name: "Find a command" }).fill("Dark");
-  await page.getByRole("combobox", { name: "Find a command" }).press("Enter");
+  await page.getByRole("combobox", { name: "Command palette" }).fill("Dark");
+  await page.getByRole("combobox", { name: "Command palette" }).press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+Enter");
   await expect(
@@ -613,9 +622,14 @@ test("Monaco remains editable in a detached query pane", async () => {
 });
 
 test("a running query can be cancelled and followed by a fresh query", async () => {
+  // Issue 87: the example dataset is changed through Tools.
+  await page.locator('[data-menu-id="menu.tools"]').click();
   await page
-    .getByRole("combobox", { name: "Dataset size" })
-    .selectOption("100000");
+    .getByRole("menuitem", { name: "Dataset size", exact: true })
+    .click();
+  await page
+    .getByRole("menuitemradio", { name: "100,000 orders", exact: true })
+    .click();
   await page
     .getByRole("dialog", { name: "Regenerate dataset" })
     .getByRole("button", { name: "Regenerate", exact: true })

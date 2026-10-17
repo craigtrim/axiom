@@ -461,6 +461,7 @@ export function App() {
     [regenerate, setRegenerate] = useState<number | null>(null),
     [themeVersion, setThemeVersion] = useState(0),
     [shellPane, setShellPane] = useState("graph"),
+    [documentTab, setDocumentTab] = useState("document-tab-workspace"),
     [, setShellRevision] = useState(0),
     pendingGraphCommands = useRef<string[]>([]),
     active = useRef("graph"),
@@ -1027,6 +1028,9 @@ export function App() {
         ensureEntityDraft();
         showTextEntities(true);
       } else if (id.startsWith("view.")) show(id.slice(5));
+      // Issue 87: retain the regeneration confirmation through the Tools menu.
+      if (id.startsWith("tools.dataset.") && state?.ontology.example)
+        setRegenerate(Number(id.slice(14)));
       if (id === "tools.quality") {
         // Tools opens the settings expanded; View keeps the pane's state (craigtrim/axiom#44).
         requestQualitySettings();
@@ -1350,37 +1354,14 @@ export function App() {
             active={shellPane}
             sourceOpen={!!model.getNodeById("source")}
             queryOpen={!!model.getNodeById("query")}
+            labelPanel={setDocumentTab}
             open={(id) => show(id, false, true)}
           />
-          {s.ontology.example && (
-            <div className="command-bar">
-              <label className="dataset-label">
-                Dataset{" "}
-                <select
-                  aria-label="Dataset size"
-                  disabled={!s.ontology.example}
-                  value={s.orderCount}
-                  onChange={(e) => setRegenerate(+e.target.value)}
-                >
-                  {[1000, 12000, 50000, 100000].map((n) => (
-                    <option key={n} value={n}>
-                      {n.toLocaleString("en-GB")} orders
-                    </option>
-                  ))}
-                  {![1000, 12000, 50000, 100000].includes(s.orderCount) && (
-                    <option value={s.orderCount}>
-                      {s.orderCount.toLocaleString("en-GB")} orders
-                    </option>
-                  )}
-                </select>
-              </label>
-            </div>
-          )}
           <div
             className="docking-workspace"
             id="workbench-document"
             role="tabpanel"
-            aria-label="Document workbench"
+            aria-labelledby={documentTab}
           >
             <Layout
               model={model}
@@ -1401,8 +1382,8 @@ export function App() {
                 <AdaptivePane
                   name={n.getName()}
                   paneId={n.getId()}
-                  shared={n.getComponent() === "taxonomy"} // Suggestions uses shared recovery (craigtrim/axiom#82).
                   visual={n.getComponent() === "graph"}
+                  shared={n.getComponent() === "taxonomy"} // Suggestions uses shared recovery (craigtrim/axiom#82).
                   maximize={() => {
                     const owner = n.getWindow();
                     if (owner && owner !== window) {

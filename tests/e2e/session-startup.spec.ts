@@ -1,3 +1,4 @@
+// Issue 87 exposes restored document counts in the shell status.
 import {
   test,
   expect,

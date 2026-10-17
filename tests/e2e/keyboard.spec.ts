@@ -1,3 +1,4 @@
+// Issue 87 gives the palette combobox the reference accessible name.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -332,8 +333,25 @@ test("keyboard help and palette show current shortcuts and pane navigation works
       ),
     )
     .toBe("inspector");
+  // Open the second tab explicitly; Touchpoints is no longer in the default layout.
+  await menu("view.touchpoints");
+  await expect(
+    page.getByRole("region", { name: "Touchpoints", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Control+3");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.activeElement?.closest<HTMLElement>("[data-panel]")?.dataset
+            .panel,
+      ),
+    )
+    .toBe("inspector");
   await page.keyboard.press("Control+Tab");
-  await expect(page.locator('[data-panel="touchpoints"]')).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Touchpoints", exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Control+Shift+Tab");
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await page.keyboard.press("F6");
@@ -358,7 +376,7 @@ test("keyboard help and palette show current shortcuts and pane navigation works
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+Shift+P");
   await page
-    .getByRole("combobox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Run query");
   await expect(
     page.getByRole("dialog", { name: "Command palette" }),

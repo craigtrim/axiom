@@ -1,3 +1,4 @@
+// Issue 87 exposes in-flight corrections so the shell reports scan freshness accurately.
 import { useSyncExternalStore } from "react";
 import { request } from "./client";
 import type { QualityStatus } from "../shared/ontology-quality";

@@ -1,3 +1,4 @@
+// Issue 87 follows workspace recovery through the full document shell.
 import {
   test,
   expect,

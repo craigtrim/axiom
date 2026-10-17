@@ -1,3 +1,4 @@
+// Issue 87 checks each window through its live shell status.
 import {
   test,
   expect,

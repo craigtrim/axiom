@@ -1,4 +1,5 @@
-/* Issue 66: window chrome from the pinned shell reference. */
+/* Issue 87: shell-only tokens extend the shared palette. */
+.workbench,
 .window-chrome,
 .shell-surface,
 .entity-context-menu.chrome-menu {
@@ -9,16 +10,13 @@
   --rail: #e6eaef;
   --rail-icon: #4a5560;
 
-  --sp-8: 32px;
-
-  --r-card: 8px;
   /* geometry. Provenance is in the Measurements panel. */
   --h-title: 36px;
-  --h-tabs: 32px;
+  --h-doc-tabs: 32px;
   --h-status: 22px;
   --w-rail: 48px;
-  /* three native caption buttons, Windows default */
 }
+[data-theme="dark"] .workbench,
 [data-theme="dark"] .window-chrome,
 [data-theme="dark"] .shell-surface,
 [data-theme="dark"] .entity-context-menu.chrome-menu {
@@ -30,8 +28,8 @@
 .window-chrome {
   container-type: inline-size;
   container-name: axiom-shell;
-  height: 36px;
-  min-height: 36px;
+  height: var(--h-title);
+  min-height: var(--h-title);
   flex: none;
   width: 100%;
   font: 13px/1.45 var(--font);
@@ -250,8 +248,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.window-chrome[data-alt="on"] .mtrigger u,
-[data-menu-access="true"] .entity-context-menu.chrome-menu .mi u {
+.window-chrome[data-alt="on"] .mtrigger u {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -268,6 +265,11 @@
   border-radius: 0;
   min-height: 26px;
   flex: none;
+}
+.entity-context-menu.chrome-menu .mi:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 .entity-context-menu.chrome-menu .mi u {
   text-decoration: underline;
@@ -320,5 +322,20 @@
 @container axiom-shell (max-width:620px) {
   .window-chrome .docwrap {
     display: none;
+  }
+}
+
+.entity-context-menu.chrome-menu {
+  animation: chrome-pop var(--t-fast) ease-out;
+}
+@keyframes chrome-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .entity-context-menu.chrome-menu {
+    animation: none;
   }
 }

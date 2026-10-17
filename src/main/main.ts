@@ -42,7 +42,12 @@ import { TaxonomyAssistantService } from "./taxonomy-assistant-service";
 import { layoutOptions } from "../shared/layout-options";
 import { THING, type Triple } from "../domain/model";
 import { readPreferences } from "../shared/preferences";
-import { menuTree, commandById, type MenuDefinition } from "../shared/commands";
+import {
+  menuTree,
+  commandById,
+  datasetSizes,
+  type MenuDefinition,
+} from "../shared/commands";
 import {
   accessKey,
   mnemonicLabel,
@@ -862,6 +867,13 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
   }
 }
 async function command(id: string, recentFile?: string, atStartup = false) {
+  // Issue 87: dataset commands apply only to the current Pizza example.
+  if (
+    id.startsWith("tools.dataset.") &&
+    (!lastState?.ontology.example ||
+      !datasetSizes.includes(Number(id.slice(14))))
+  )
+    return;
   const changesWorkspace = [
     "file.new",
     "file.open",
@@ -1006,9 +1018,14 @@ let queryRunning = false,
 let paneMenuState: Record<string, boolean> = {};
 const modalWindows = new Map<number, number>();
 const modalTracked = new Set<number>();
+let datasetMenuSize: number | undefined;
 function refreshMenu() {
   const menu = Menu.getApplicationMenu();
   if (!menu) return;
+  if (datasetMenuSize !== lastState?.orderCount) {
+    installMenu();
+    return;
+  }
   for (const item of menu.items) item.enabled = modalWindows.size === 0;
   for (const [id, enabled] of Object.entries(paneMenuState)) {
     const item = menu.getMenuItemById(id);
@@ -1022,6 +1039,15 @@ function refreshMenu() {
     const item = menu.getMenuItemById(id);
     if (item) item.enabled = enabled;
   };
+  set("menu.dataset", !!lastState?.ontology.example);
+  for (const item of menu.getMenuItemById("menu.dataset")?.submenu?.items ??
+    []) {
+    item.enabled =
+      !!lastState?.ontology.example &&
+      datasetSizes.includes(Number(item.id.slice(14)));
+    if (Number(item.id.slice(14)) === lastState?.orderCount)
+      item.checked = true;
+  }
   set("entity.edit", !!selected || !!lastState?.graph.selectedEdge);
   set("entity.rename", !!selected && selected.iri !== THING);
   set(
@@ -1120,6 +1146,7 @@ function updateWindowTitle() {
   });
 }
 function installMenu() {
+  datasetMenuSize = lastState?.orderCount;
   const build = (
     nodes: (MenuDefinition | string | null)[],
   ): MenuItemConstructorOptions[] =>
@@ -1132,9 +1159,26 @@ function installMenu() {
           enabled:
             node.id !== "menu.file.recent" || recentFiles.list().length > 0,
           submenu:
-            node.id === "menu.file.recent"
-              ? recentMenu()
-              : build(node.children),
+            node.id === "menu.dataset"
+              ? [
+                  ...build(node.children),
+                  ...(datasetMenuSize !== undefined &&
+                  !datasetSizes.includes(datasetMenuSize)
+                    ? [
+                        {
+                          id: "tools.dataset." + datasetMenuSize,
+                          label:
+                            datasetMenuSize.toLocaleString("en-GB") + " orders",
+                          type: "radio" as const,
+                          checked: true,
+                          enabled: false,
+                        },
+                      ]
+                    : []),
+                ]
+              : node.id === "menu.file.recent"
+                ? recentMenu()
+                : build(node.children),
         };
       const c = commandById.get(node)!;
       const binding = effectiveBindings(node, preferences.keyboard)[0];
@@ -1150,6 +1194,11 @@ function installMenu() {
         click: () => void command(node),
       };
       if (c.role) item.role = c.role as MenuItemConstructorOptions["role"];
+      if (node.startsWith("tools.dataset.")) {
+        item.type = "radio";
+        item.checked = datasetMenuSize === Number(node.slice(14));
+        item.enabled = !!lastState?.ontology.example;
+      }
       if (node.startsWith("theme.")) {
         item.type = "radio";
         item.checked = preferences.theme === node.slice(6);

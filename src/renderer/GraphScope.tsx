@@ -1,3 +1,4 @@
+// Issue 87 waits for a mounted graph before replaying shell commands.
 import { createContext, useContext, useMemo } from "react";
 import * as client from "./client";
 import type { GraphSnapshot, Snapshot, DomainMethod } from "../shared/protocol";
