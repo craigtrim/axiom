@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom: Ontology Quality</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1 structure only: display, flex/grid, overflow, wrapping, ratio.
+   First layer so every product rule below always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Light tokens, carried unchanged from index.html and find.html. */
+:root {
+  --bg: #ffffff;
+  --sunken: #f4f4f4;
+  --raised: #fafafa;
+  --hover: #efefef;
+  --line: #e2e2e2;
+  --line-2: #c6c6c6;
+  --ink: #1b1b1b;
+  --ink-2: #585858;
+  --ink-3: #6a6a6a;
+  --accent: #0f5fa8;
+  --accent-2: #0b4a84;
+  --on-accent: #ffffff;
+  --tint: #eaf2fb;
+  --ok: #0b6b36;
+  --ok-tint: #e6f4ec;
+  --warn: #7d4a00;
+  --warn-tint: #fcf1df;
+  --warn-line: #d9a441;
+  --bad: #a8201a;
+  --bad-tint: #fbeae9;
+  --bad-line: #d4766f;
+  --focus: #0f5fa8;
+  --shadow: 0 2px 8px rgba(0,0,0,.14), 0 0 1px rgba(0,0,0,.24);
+}
+/* Dark tokens. Measured against #1e1e1e, not derived by inverting light. */
+:root[data-theme="dark"] {
+  --bg: #1e1e1e; --sunken: #161616; --raised: #272727; --hover: #323232;
+  --line: #3a3a3a; --line-2: #555555;
+  --ink: #f1f1f1; --ink-2: #c3c3c3; --ink-3: #a0a0a0;
+  --accent: #6cb4f5; --accent-2: #9acbf8; --on-accent: #0a1a28; --tint: #16293a;
+  --ok: #65d18f; --ok-tint: #11301e;
+  --warn: #e3a942; --warn-tint: #33260c; --warn-line: #6b5116;
+  --bad: #ff8d81; --bad-tint: #3a1a17; --bad-line: #7a3630;
+  --focus: #6cb4f5;
+  --shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 1px rgba(0,0,0,.7);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --bg: #1e1e1e; --sunken: #161616; --raised: #272727; --hover: #323232;
+    --line: #3a3a3a; --line-2: #555555;
+    --ink: #f1f1f1; --ink-2: #c3c3c3; --ink-3: #a0a0a0;
+    --accent: #6cb4f5; --accent-2: #9acbf8; --on-accent: #0a1a28; --tint: #16293a;
+    --ok: #65d18f; --ok-tint: #11301e;
+    --warn: #e3a942; --warn-tint: #33260c; --warn-line: #6b5116;
+    --bad: #ff8d81; --bad-tint: #3a1a17; --bad-line: #7a3630;
+    --focus: #6cb4f5;
+    --shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 1px rgba(0,0,0,.7);
+  }
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--sunken); color: var(--ink);
+  font: 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visually hidden but still announced. */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* ===== Window chrome, so the pane reads in its real context ===== */
+.app { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; background: var(--bg); }
+.tabs { display: flex; align-items: stretch; gap: 0; border-bottom: 1px solid var(--line); background: var(--raised); }
+.tab {
+  display: flex; align-items: center; gap: 8px; padding: 0 14px; min-height: 36px;
+  font: inherit; font-size: 13px; color: var(--ink-2); background: none;
+  border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); background: var(--bg); font-weight: 600; }
+.tab:hover { color: var(--ink); }
+.tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.tabs .trail { margin-left: auto; display: flex; align-items: center; gap: 2px; padding-right: 6px; }
+
+/* ===== The pane ===== */
+.frame { container-type: size; container-name: pane; min-height: 0; background: var(--bg); }
+.pane { height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+
+/* --- shared controls --- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font: inherit; font-size: 13px; padding: 4px 10px; min-height: 30px;
+  border: 1px solid var(--line-2); background: var(--bg); color: var(--ink);
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--hover); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.btn svg { width: 14px; height: 14px; flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn[disabled]:hover { background: var(--bg); }
+
+.ib {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; min-width: 24px; min-height: 24px;
+  border: 1px solid transparent; background: transparent; color: var(--ink-2);
+  border-radius: 4px; cursor: pointer; padding: 0;
+}
+.ib:hover { background: var(--hover); color: var(--ink); }
+.ib:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ib svg { width: 15px; height: 15px; }
+
+select.sel {
+  font: inherit; font-size: 13px; min-height: 30px; padding: 3px 6px; min-width: 0;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg); color: var(--ink);
+  max-width: 190px;
+}
+select.sel:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+input.txt {
+  font: inherit; font-size: 13px; min-height: 30px; padding: 3px 8px; min-width: 0;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg); color: var(--ink);
+}
+input.txt:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; border-color: var(--focus); }
+
+/* Toggle chip, used for entity kinds, check groups and severity filters. */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  font: inherit; font-size: 12px; padding: 3px 9px; min-height: 26px;
+  border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+  border-radius: 13px; cursor: pointer; white-space: nowrap;
+}
+.chip:hover { background: var(--hover); }
+.chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.chip .n { font-variant-numeric: tabular-nums; color: var(--ink-3); font-weight: 400; }
+.chip[aria-pressed="true"] .n { color: var(--ink-2); }
+.chip svg { width: 12px; height: 12px; flex: none; }
+
+/* --- band 1: scan state and settings --- */
+.bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; min-height: 34px; border-bottom: 1px solid var(--line); background: var(--raised);
+  font-size: 12px; color: var(--ink-2);
+}
+.bar .title { font-size: 13px; font-weight: 600; color: var(--ink); flex: none; }
+.bar .sum { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.bar.alert-warn { background: var(--warn-tint); color: var(--warn); border-bottom-color: var(--warn-line); }
+.bar.alert-bad  { background: var(--bad-tint);  color: var(--bad);  border-bottom-color: var(--bad-line); }
+.bar.alert-warn .btn, .bar.alert-bad .btn { background: var(--bg); }
+.bar .state { flex: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.bar .state svg { width: 14px; height: 14px; }
+
+/* Settings, shown only before the first scan or on Change. One level, no cards. */
+.settings { display: grid; gap: 8px; padding: 10px; border-bottom: 1px solid var(--line); }
+.srow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.srow > .k { flex: none; width: 92px; font-size: 12px; color: var(--ink-3); }
+.srow .hint { font-size: 12px; color: var(--ink-3); }
+
+/* progress */
+.prog { flex: 1 1 140px; max-width: 220px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.prog > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width 140ms linear; }
+@media (prefers-reduced-motion: reduce) { .prog > i { transition: none; } }
+
+/* --- band 2: view switch and filters --- */
+.tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 5px 10px; min-height: 40px; border-bottom: 1px solid var(--line); }
+.seg { display: inline-flex; flex: none; border: 1px solid var(--line-2); border-radius: 4px; overflow: hidden; }
+.seg button {
+  font: inherit; font-size: 12px; padding: 4px 11px; min-height: 28px;
+  background: var(--bg); color: var(--ink-2); border: 0; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line-2); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* --- band 3: body --- */
+.body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+/* Rule band. One bordered level inside the body and no deeper. */
+.rule {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 10px; min-height: 36px; text-align: left;
+  font: inherit; background: var(--bg); color: var(--ink);
+  border: 0; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.rule:hover { background: var(--hover); }
+.rule:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rule .tw { flex: none; width: 12px; color: var(--ink-3); transition: transform 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .rule .tw { transition: none; } }
+.rule[aria-expanded="true"] .tw { transform: rotate(90deg); }
+.rule .nm { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.rule .id { flex: none; font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; color: var(--ink-3); }
+.rule .ct { flex: none; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-2); min-width: 46px; text-align: right; }
+
+/* Severity mark. Shape plus word, never colour alone. */
+.sev { display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 11.5px; font-weight: 600; }
+.sev svg { width: 13px; height: 13px; flex: none; }
+.sev.violation { color: var(--bad); }
+.sev.warning   { color: var(--warn); }
+.sev.info      { color: var(--ink-2); }
+
+/* Finding rows live under their rule band, tied by one leading edge rule. */
+.flist { border-bottom: 1px solid var(--line); background: var(--raised); }
+.frow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 10px 3px 30px; min-height: 34px;
+  border-left: 2px solid var(--line-2); margin-left: 10px;
+}
+.frow:hover { background: var(--hover); }
+.frow.open { background: var(--tint); }
+.fname {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: baseline; gap: 8px;
+  font: inherit; font-size: 13px; background: none; border: 0; color: var(--ink);
+  text-align: left; cursor: pointer; padding: 0;
+}
+.fname:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fname .lbl { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.fname .kind { flex: none; font-size: 11.5px; color: var(--ink-3); }
+.fname .iri { flex: 1 1 auto; min-width: 0; font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fold { display: none; font-size: 11px; color: var(--ink-3); }
+.fact { flex: none; display: flex; align-items: center; gap: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .fact { visibility: hidden; }
+  .frow:hover .fact, .frow:focus-within .fact { visibility: visible; }
+}
+.frow.suppressed .fname .lbl { text-decoration: line-through; color: var(--ink-3); }
+
+/* Finding detail. Flat: labelled lines, one evidence block, one action row. */
+.fdet { padding: 8px 10px 12px 42px; border-left: 2px solid var(--line-2); margin-left: 10px;
+  display: grid; gap: 7px; max-width: 760px; }
+.fdet .kv { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.fdet .kv > .k { flex: none; width: 92px; color: var(--ink-3); }
+.fdet .kv > .v { flex: 1 1 0; min-width: 0; color: var(--ink-2); }
+.fdet .kv > .v b { color: var(--ink); font-weight: 600; }
+.fdet pre {
+  margin: 0; padding: 8px 10px; background: var(--sunken); border: 1px solid var(--line);
+  border-radius: 4px; overflow-x: auto; max-width: 560px;
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 11.5px; line-height: 1.55; color: var(--ink-2);
+}
+.fdet pre.preview { background: var(--ok-tint); border-color: var(--ok); color: var(--ok); }
+.fdet .acts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
+.tagf { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 1px 7px;
+  border-radius: 10px; background: var(--sunken); color: var(--ink-2); border: 1px solid var(--line); }
+
+/* Coverage. A table, not a strip of percentage tiles. */
+.cov { padding: 10px; display: grid; gap: 12px; max-width: 760px; }
+table.ct { width: 100%; border-collapse: collapse; }
+table.ct th, table.ct td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
+table.ct th { font-size: 11.5px; font-weight: 600; color: var(--ink-2); border-bottom-color: var(--line-2); }
+table.ct td.n, table.ct th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.ct td .sub { display: block; font-size: 11px; color: var(--ink-3); }
+.na { color: var(--ink-3); }
+
+/* Empty, canceled and failed bodies. */
+.state-body { padding: 16px 12px; display: grid; gap: 6px; max-width: 620px; }
+.state-body h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.state-body p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+/* --- band 4: the limits line, in the manner of the Sparsity pane --- */
+.limits { padding: 4px 10px; min-height: 24px; border-top: 1px solid var(--line);
+  font-size: 11.5px; color: var(--ink-3); display: flex; align-items: center; }
+.limits span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- band 5: footer --- */
+.foot { display: flex; align-items: center; gap: 6px; padding: 4px 10px; min-height: 32px;
+  border-top: 1px solid var(--line); background: var(--raised); font-size: 12px; color: var(--ink-2); }
+.foot .pg { font-variant-numeric: tabular-nums; padding: 0 4px; }
+.foot .at-full { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+
+/* Recovery, below 240 wide or 120 tall. The pane keeps its name and its last
+   result rather than presenting a crushed copy of a layout that cannot fit. */
+.recov { display: none; height: 100%; place-content: center; justify-items: center;
+  gap: 10px; padding: 12px; text-align: center; }
+.recov .id { font-size: 13px; font-weight: 600; }
+.recov p { margin: 0; font-size: 12px; color: var(--ink-3); }
+
+/* ===== Presentations. Only 600 and 400 appear, from docs/adaptive-pane-ux.md.
+   Defaults below are Narrow and shallow; each container query adds back.
+   .at-tall needs height, .at-wide needs width, .at-full needs both. ===== */
+.at-tall, .at-wide, .at-full { display: none; }
+.limits { display: none; }
+.fname .kind, .fname .iri { display: none; }
+.fold { display: block; }
+
+@container pane (min-height: 400px) {
+  .limits { display: flex; }
+  .at-tall { display: inline-flex; }
+  .settings .srow.at-tall { display: flex; }
+}
+@container pane (min-width: 600px) {
+  .at-wide { display: inline-flex; }
+  .fname .kind, .fname .iri { display: inline; }
+  .fold { display: none; }
+}
+@container pane (min-width: 600px) and (min-height: 400px) {
+  .at-full { display: inline; }
+  .foot .at-full { display: block; }
+}
+@container pane (max-width: 239px), pane (max-height: 119px) {
+  .bar, .settings, .body, .limits, .foot { display: none; }
+  .recov { display: grid; }
+}
+/* Below 600 wide the detail labels stack above their values. */
+@container pane (max-width: 599px) {
+  .fdet { padding-left: 30px; }
+  .fdet .kv { display: grid; gap: 1px; }
+  .fdet .kv > .k { width: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="tabs" role="tablist" aria-label="Open views">
+    <button class="tab" role="tab" aria-selected="false" type="button">Hierarchy</button>
+    <button class="tab" role="tab" aria-selected="true" aria-controls="pane" type="button">Ontology Quality</button>
+    <div class="trail">
+      <button class="ib" type="button" id="themeBtn" aria-label="Cycle theme" title="Theme"></button>
+      <button class="ib" type="button" aria-label="Pop out pane" title="Pop out"></button>
+      <button class="ib" type="button" aria-label="Maximize pane" title="Maximize"></button>
+    </div>
+  </div>
+
+  <div class="frame" id="frame">
+    <div class="pane" id="pane" role="tabpanel" aria-label="Ontology Quality" tabindex="0"></div>
+  </div>
+
+</div>
+
+<p class="vh" aria-live="polite" id="live"></p>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ icons */
+function ico(d) {
+  return '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+}
+var I = {
+  tw:      ico('<path d="M6 3.5 10.5 8 6 12.5"/>'),
+  run:     ico('<path d="M4.5 3.2 12.5 8l-8 4.8z"/>'),
+  rerun:   ico('<path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.2 2.6v2.8h-2.8"/>'),
+  stop:    ico('<rect x="4.5" y="4.5" width="7" height="7" rx="1"/>'),
+  open:    ico('<path d="M9.5 2.5H13v3.5"/><path d="M13 2.5 7.5 8"/><path d="M12 9.5v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3"/>'),
+  mute:    ico('<circle cx="8" cy="8" r="6"/><path d="M3.8 3.8l8.4 8.4"/>'),
+  unmute:  ico('<circle cx="8" cy="8" r="6"/><path d="M5.5 8h5"/>'),
+  export:  ico('<path d="M8 10.5V2.5"/><path d="M5 5.5 8 2.5l3 3"/><path d="M3 10v2.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V10"/>'),
+  theme:   ico('<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11" /><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none"/>'),
+  popout:  ico('<rect x="2.5" y="2.5" width="7" height="7" rx="1"/><path d="M6.5 6.5h7v7h-7z"/>'),
+  maxim:   ico('<path d="M2.5 5.5v-3h3M13.5 10.5v3h-3M13.5 5.5v-3h-3M2.5 10.5v3h3"/>'),
+  first:   ico('<path d="M10.5 4 6.5 8l4 4M4.5 4v8"/>'),
+  prev:    ico('<path d="M10 4 6 8l4 4"/>'),
+  next:    ico('<path d="M6 4l4 4-4 4"/>'),
+  last:    ico('<path d="M5.5 4 9.5 8l-4 4M11.5 4v8"/>'),
+  /* Severity glyphs are three distinct shapes so the level reads without colour. */
+  sevV:    ico('<path d="M5.6 1.8h4.8L13.8 5.2v4.8l-3.4 3.4H5.6L2.2 10V5.2z"/><path d="M8 4.8v3.4M8 10.6v.6"/>'),
+  sevW:    ico('<path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/>'),
+  sevI:    ico('<circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.6"/>'),
+  check:   ico('<path d="M3 8.5 6.4 12 13 4.8"/>'),
+  warnTri: ico('<path d="M8 2.2 14.5 13.3h-13z"/><path d="M8 6.3v3M8 11.4v.6"/>'),
+  fail:    ico('<circle cx="8" cy="8" r="6"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/>')
+};
+
+/* ------------------------------------------------------- the sample store */
+/* Modelled on the courses.owl shape described in craigtrim/axiom issue 42:
+   5,868 named classes, no individuals, and the Industrial Safety case. */
+var STORE = {
+  revision: 4812,
+  classes: 5868,
+  individuals: 0,
+  objectProps: 12,
+  dataProps: 4,
+  annotationProps: 9,
+  triples: 24444
+};
+
+/* ------------------------------------------------- the vocabulary census */
+/* Which vocabularies the loaded ontology actually uses. In the app this is a
+   predicate census taken during the load pass; here it is declared, because
+   the sample store is declared. A check that tests how a vocabulary is used
+   is withdrawn when that vocabulary is absent: it is not listed, not counted,
+   and not reported as passing. A check that tests for something missing is
+   not gated, because the thing it looks for is absent by definition. */
+var VOCAB = [
+  { id: "rdfs",       name: "RDFS",  terms: "rdfs:label, rdfs:comment, rdfs:subClassOf, rdfs:seeAlso", present: true },
+  { id: "owl",        name: "OWL",   terms: "owl:Class, owl:Ontology", present: true },
+  { id: "skos",       name: "SKOS",  terms: "skos:prefLabel, skos:altLabel, skos:definition, skos:Concept", present: false },
+  { id: "deprecated", name: "owl:deprecated", terms: "owl:deprecated", present: false },
+  { id: "dcterms",    name: "Dublin Core", terms: "dcterms:description, dcterms:license", present: false },
+  { id: "iao",        name: "IAO",   terms: "IAO:0000115", present: false }
+];
+var PRESENT = VOCAB.reduce(function (o, v) { o[v.id] = v.present; return o; }, {});
+function seen(id) { return !!PRESENT[id]; }
+function absentVocab() { return VOCAB.filter(function (v) { return !v.present; }); }
+
+/* Predicate lists quoted in rule copy name only vocabularies in use, so the
+   basis never points the reader at a property this ontology does not have. */
+function joinOr(list) {
+  return list.length < 2 ? (list[0] || "")
+    : list.slice(0, -1).join(", ") + " or " + list[list.length - 1];
+}
+function labelPredicates() {
+  return joinOr(["rdfs:label"].concat(seen("skos") ? ["skos:prefLabel"] : []));
+}
+function descriptionPredicates() {
+  return joinOr(["rdfs:comment"]
+    .concat(seen("skos")    ? ["skos:definition"]       : [])
+    .concat(seen("dcterms") ? ["dcterms:description"]   : [])
+    .concat(seen("iao")     ? ["IAO:0000115"]           : []));
+}
+
+/* Entity kinds offered for scoping. SKOS concepts appear only when SKOS does. */
+var KINDS = [
+  ["Class", "Classes", STORE.classes],
+  ["Individual", "Individuals", STORE.individuals],
+  ["ObjectProperty", "Object properties", STORE.objectProps],
+  ["DataProperty", "Data properties", STORE.dataProps],
+  ["AnnotationProperty", "Annotation properties", STORE.annotationProps]
+].concat(seen("skos") ? [["Concept", "SKOS concepts", 0]] : []);
+
+/* Deterministic sample names, so counts, paging and filters are all real. */
+var SUBJECTS = ["Technical Drawing","Welding Technology","Industrial Safety","Shop Class","Machine Tool",
+  "Applied Mathematics","Business Communication","Corporate Finance","Digital Imaging","Electrical Theory",
+  "Fluid Power","Health Information","Human Anatomy","Industrial Hygiene","Legal Environment",
+  "Marketing Research","Network Security","Operations Management","Precision Measurement","Quality Assurance",
+  "Refrigeration Systems","Software Engineering","Statistical Methods","Technical Writing","Thermodynamics",
+  "Vehicle Dynamics","Web Development","Workplace Ethics","Materials Science","Project Planning"];
+var QUALIFIERS = ["","Fundamentals","Laboratory","Seminar","Practicum","Advanced","Survey","Capstone",
+  "Workshop","Field Study","Clinical","Theory","Applications","Methods","Analysis"];
+
+function makeName(i) {
+  var s = SUBJECTS[i % SUBJECTS.length];
+  var q = QUALIFIERS[Math.floor(i / SUBJECTS.length) % QUALIFIERS.length];
+  var n = Math.floor(i / (SUBJECTS.length * QUALIFIERS.length));
+  return (q ? s + " " + q : s) + (n ? " " + (n + 1) : "");
+}
+function toLocal(name) { return name.replace(/\s+/g, "_"); }
+function iriOf(name) { return "http://devry.edu/courses#" + toLocal(name); }
+
+/* --------------------------------------------------------- the rule table */
+/* Representative rules, not the full catalog from the issue. The pane says so. */
+var ALL_GROUPS = [
+  { id: "completeness", name: "Completeness" },
+  { id: "naming",       name: "Naming" },
+  { id: "skos",         name: "SKOS integrity" },
+  { id: "structure",    name: "Structure" },
+  { id: "deprecated",   name: "Deprecated entities" },
+  { id: "meta",         name: "Ontology metadata" },
+  { id: "axiom",        name: "Axiom compatibility" }
+];
+
+var ALL_RULES = [
+  { id: "completeness.label.missing", group: "completeness", sev: "violation",
+    name: "Missing explicit label", total: 1284,
+    basis: "RDFS. A named class asserting no " + labelPredicates() + " has no asserted name.",
+    why: "Axiom derives a display name from the IRI, so the gap is invisible in ordinary browsing.",
+    fix: "Add rdfs:label carrying the name you want shown." },
+
+  { id: "completeness.description.missing", group: "completeness", sev: "warning",
+    name: "Missing description", total: 3907,
+    basis: "Review convention. Any of " + descriptionPredicates() + " satisfies this check.",
+    why: "Authors and downstream consumers have no statement of what the entity means.",
+    fix: "Author a definition. A scan cannot write one for you." },
+
+  { id: "completeness.description.repeats-label", group: "completeness", sev: "info",
+    name: "Description repeats the label", total: 412,
+    basis: "Review finding. RDFS does not forbid it.",
+    why: "The description carries no information the label did not already carry.",
+    fix: "Replace with a statement of what the entity is." },
+
+  { id: "naming.label.whitespace", group: "naming", sev: "warning",
+    name: "Label has leading or trailing whitespace", total: 6,
+    basis: "Review convention. The padded literal is valid RDF.",
+    why: "Matching, sorting and display all treat the padded literal as a different string.",
+    fix: "Trim the literal, preserving its language tag." },
+
+  { id: "naming.label.placeholder", group: "naming", sev: "warning",
+    name: "Suspicious placeholder name", total: 2,
+    basis: "Review convention. Pattern list including NewClass and Untitled.",
+    why: "A placeholder left in the store usually means an edit was abandoned part way.",
+    fix: "Name the entity or remove it." },
+
+  { id: "naming.label.duplicate", group: "naming", sev: "info",
+    name: "Duplicate label across entities", total: 58,
+    basis: "Review finding, grouped by language. Distinct entities may legitimately share a label.",
+    why: "Two entities displaying the same name are hard to tell apart when navigating.",
+    fix: "Disambiguate, or record an exception if the sharing is intended." },
+
+  { id: "skos.preflabel.cardinality", group: "skos", sev: "violation",
+    name: "More than one skos:prefLabel in a language", total: 0,
+    needsVocab: "skos",
+    basis: "SKOS reference, labelling integrity.",
+    why: "SKOS allows at most one preferred label per language.",
+    fix: "Move the extra values to skos:altLabel." },
+
+  { id: "structure.class.no-parent", group: "structure", sev: "info",
+    name: "Class has no explicit parent", total: 14,
+    basis: "Informational review. Root classes and intentional top level entities are legitimate.",
+    why: "The class is unreachable by walking down the taxonomy from a root.",
+    fix: "Assert rdfs:subClassOf, or record an exception if it is a root." },
+
+  { id: "structure.cycle", group: "structure", sev: "violation",
+    name: "Hierarchy cycle", total: 0,
+    basis: "Structural review. A subclass cycle implies equivalence; it is not an OWL inconsistency.",
+    why: "Traversals cannot order the entities involved.",
+    fix: "Break the cycle, or assert equivalence if that is what was meant." },
+
+  { id: "structure.unresolved-reference", group: "structure", sev: "warning",
+    name: "Referenced entity not in scan scope", total: 23,
+    basis: "Scope limitation, not a claim that the entity does not exist.",
+    why: "The referenced definition is not in the loaded data, so no check could run against it.",
+    fix: "Load the defining document, or narrow the scope deliberately." },
+
+  { id: "deprecated.reference", group: "deprecated", sev: "warning",
+    name: "Reference to a deprecated entity", total: 0,
+    needsVocab: "deprecated",
+    basis: "owl:deprecated annotations in the loaded data.",
+    why: "References to retired entities carry forward into exports and analysis.",
+    fix: "Point the reference at the stated replacement." },
+
+  { id: "meta.license.missing", group: "meta", sev: "warning",
+    name: "Ontology has no license statement", total: 1,
+    ontologyLevel: true,
+    basis: "Publication checklist. Describes the ontology as a whole, not every entity.",
+    why: "Consumers cannot tell what they are permitted to do with the data.",
+    fix: "Add dcterms:license to the ontology header." },
+
+  { id: "meta.version.missing", group: "meta", sev: "warning",
+    name: "No version identifier", total: 1,
+    ontologyLevel: true,
+    basis: "Publication checklist.",
+    why: "Two copies of the file cannot be distinguished by their contents.",
+    fix: "Add owl:versionIRI or owl:versionInfo to the ontology header." },
+
+  { id: "axiom.text-analysis.excluded", group: "axiom", sev: "warning",
+    name: "Excluded from the Text Analysis vocabulary", total: 30,
+    basis: "Axiom compatibility. The current matching logic is the source of truth for eligibility.",
+    why: "Text Analysis will never highlight this entity, whatever the surrounding text says.",
+    fix: "Add any supported naming annotation. A label is the usual one." },
+
+  { id: "axiom.seealso-as-synonym", group: "axiom", sev: "info",
+    name: "rdfs:seeAlso carries a synonym", total: 1106,
+    basis: "Compatibility convention. RDFS defines seeAlso as a reference to further information.",
+    why: "Axiom consumes these as synonyms today. skos:altLabel is the standard property for the purpose.",
+    fix: "Migration is a separately reviewed data change. This scan does not rewrite predicates." }
+];
+
+/* The catalog this ontology actually gets. A rule needing an absent vocabulary
+   is dropped here rather than rendered as passing or as not applicable, and a
+   group left with no rules disappears with them. */
+var RULES = ALL_RULES.filter(function (r) { return !r.needsVocab || seen(r.needsVocab); });
+var GROUPS = ALL_GROUPS.filter(function (g) {
+  return RULES.some(function (r) { return r.group === g.id; });
+});
+var WITHDRAWN = ALL_RULES.length - RULES.length;
+
+/* Seeded findings for the cases the issue names by hand. Everything after
+   these is generated so that counts, filters and paging are genuinely real. */
+var SEEDED = {
+  "completeness.label.missing": [
+    { label: "Industrial Safety", kind: "Class", iri: "http://devry.edu/courses#Industrial_Safety",
+      evidence: ":Industrial_Safety a owl:Class ;\n    rdfs:subClassOf :Shop_Class .",
+      note: "Axiom displays Industrial Safety, derived from the IRI fragment Industrial_Safety. No naming annotation is asserted.",
+      also: ["axiom.text-analysis.excluded"],
+      preview: ':Industrial_Safety rdfs:label "Industrial Safety"@en .' },
+    { label: "Welding Technology", kind: "Class", iri: "http://devry.edu/courses#Welding_Technology",
+      evidence: ":Welding_Technology a owl:Class ;\n    rdfs:subClassOf :Shop_Class ;\n    rdfs:seeAlso \"WELD TECH\" .",
+      note: "No primary label, but rdfs:seeAlso carries a supported synonym, so this entity is still eligible for Text Analysis. It does not appear under the exclusion rule.",
+      also: [],
+      preview: ':Welding_Technology rdfs:label "Welding Technology"@en .' }
+  ],
+  "axiom.text-analysis.excluded": [
+    { label: "Industrial Safety", kind: "Class", iri: "http://devry.edu/courses#Industrial_Safety",
+      evidence: ":Industrial_Safety a owl:Class ;\n    rdfs:subClassOf :Shop_Class .",
+      note: "No rdfs:label, skos:altLabel, rdfs:seeAlso or inflection value, so the entity is absent from the concept map.",
+      also: ["completeness.label.missing"],
+      preview: null }
+  ],
+  "naming.label.placeholder": [
+    { label: "NewClass", kind: "Class", iri: "http://devry.edu/courses#NewClass",
+      evidence: ':NewClass a owl:Class ;\n    rdfs:label "NewClass" ;\n    rdfs:subClassOf :Course .',
+      note: "Matches the placeholder pattern list.", also: [], preview: null }
+  ],
+  "naming.label.whitespace": [
+    { label: "Corporate Finance", kind: "Class", iri: "http://devry.edu/courses#Corporate_Finance",
+      evidence: ':Corporate_Finance rdfs:label " Corporate Finance " .',
+      note: "The literal carries a leading and a trailing space.", also: [],
+      preview: ':Corporate_Finance rdfs:label "Corporate Finance" .' }
+  ],
+  "meta.license.missing": [
+    { label: "courses.owl", kind: "Ontology", iri: "http://devry.edu/courses",
+      evidence: "<http://devry.edu/courses> a owl:Ontology .",
+      note: "The ontology header carries no dcterms:license statement.", also: [], preview: null }
+  ],
+  "meta.version.missing": [
+    { label: "courses.owl", kind: "Ontology", iri: "http://devry.edu/courses",
+      evidence: "<http://devry.edu/courses> a owl:Ontology .",
+      note: "No owl:versionIRI and no owl:versionInfo.", also: [], preview: null }
+  ]
+};
+
+/* Build the full finding set once. */
+var FINDINGS = {};
+(function build() {
+  RULES.forEach(function (r) {
+    var seeded = SEEDED[r.id] || [];
+    var out = seeded.map(function (s, i) {
+      return {
+        key: r.id + ":" + i, rule: r.id, label: s.label, kind: s.kind, iri: s.iri,
+        evidence: s.evidence, note: s.note, also: s.also || [], preview: s.preview
+      };
+    });
+    for (var i = out.length; i < r.total; i++) {
+      var nm = makeName(i * 7 + r.id.length);
+      out.push({
+        key: r.id + ":" + i, rule: r.id, label: nm, kind: "Class", iri: iriOf(nm),
+        evidence: ":" + toLocal(nm) + " a owl:Class ;\n    rdfs:subClassOf :Course .",
+        note: null, also: [], preview: r.id === "completeness.label.missing"
+          ? ":" + toLocal(nm) + ' rdfs:label "' + nm + '"@en .' : null
+      });
+    }
+    FINDINGS[r.id] = out;
+  });
+})();
+
+/* What the store holds, independent of what the last scan produced. A scan
+   reads from here, so a rerun always recovers the real findings. */
+var PRISTINE = {};
+RULES.forEach(function (r) { PRISTINE[r.id] = FINDINGS[r.id].slice(); });
+
+/* ------------------------------------------------------------------ state */
+var PAGE_SIZE = 40;   /* matches the Sparsity pane */
+
+var S = {
+  phase: "idle",          /* idle | running | complete | canceled | failed */
+  stale: null,            /* null | "config" | "store" */
+  view: "findings",       /* findings | coverage */
+  scope: "whole",
+  kinds: KINDS.reduce(function (o, k) { o[k[0]] = true; return o; }, {}),
+  groups: GROUPS.reduce(function (o, g) { o[g.id] = true; return o; }, {}),
+  groupBy: "rule",
+  sevFilter: { violation: true, warning: true, info: true },
+  showSuppressed: false,
+  text: "",
+  page: 1,
+  openRules: {},
+  openFinding: null,
+  suppressed: {},         /* key -> reason */
+  scanned: 0,
+  ranAt: null,
+  ranRevision: null,
+  ranScope: null,
+  ranChecks: null,
+  failure: null,
+  timer: null
+};
+
+var SCOPE_LABEL = { whole: "Whole ontology", ns: "Namespace devry.edu/courses", branch: "Branch: Shop Class and descendants" };
+var SEV_LABEL = { violation: "Violation", warning: "Warning", info: "Information" };
+var SEV_ICON = { violation: I.sevV, warning: I.sevW, info: I.sevI };
+
+/* ------------------------------------------------------------- selectors */
+function activeRules() {
+  return RULES.filter(function (r) {
+    return !!S.groups[r.group];
+  });
+}
+function matchesFilters(f, rule) {
+  if (!S.sevFilter[rule.sev]) return false;
+  var sup = Object.prototype.hasOwnProperty.call(S.suppressed, f.key);
+  if (S.showSuppressed !== sup) return false;
+  if (S.text) {
+    var q = S.text.toLowerCase();
+    if (f.label.toLowerCase().indexOf(q) < 0 && f.iri.toLowerCase().indexOf(q) < 0) return false;
+  }
+  return true;
+}
+function visibleFor(rule) {
+  return FINDINGS[rule.id].filter(function (f) { return matchesFilters(f, rule); });
+}
+function totals() {
+  var t = { violation: 0, warning: 0, info: 0, all: 0, suppressed: 0 };
+  activeRules().forEach(function (r) {
+    FINDINGS[r.id].forEach(function (f) {
+      if (Object.prototype.hasOwnProperty.call(S.suppressed, f.key)) { t.suppressed++; return; }
+      t[r.sev]++; t.all++;
+    });
+  });
+  return t;
+}
+/* The page window runs over the findings actually listed, which means the
+   findings of expanded rules that pass the filters. A collapsed rule lists
+   nothing, so it must contribute nothing to the pager either. */
+function expandedList() {
+  var out = [];
+  activeRules().forEach(function (rule) {
+    if (!S.openRules[rule.id]) return;
+    visibleFor(rule).forEach(function (f) { out.push({ rule: rule, f: f }); });
+  });
+  return out;
+}
+function filtering() {
+  return !!S.text || S.showSuppressed ||
+    !(S.sevFilter.violation && S.sevFilter.warning && S.sevFilter.info);
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function num(n) { return n.toLocaleString("en-US"); }
+
+/* --------------------------------------------------------------- renderers */
+function failureText() {
+  return S.failure || "The scan did not complete.";
+}
+function sevMark(sev) {
+  return '<span class="sev ' + sev + '">' + SEV_ICON[sev] + SEV_LABEL[sev] + '</span>';
+}
+
+function renderBar() {
+  if (S.phase === "idle") {
+    return '<div class="bar"><span class="title">Ontology Quality</span>' +
+           '<span class="sum">No scan has been run.</span></div>';
+  }
+  if (S.phase === "running") {
+    var pct = Math.round((S.scanned / STORE.classes) * 100);
+    return '<div class="bar"><span class="title">Ontology Quality</span>' +
+      '<span class="state">' + I.run + 'Scanning</span>' +
+      '<span class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></span>' +
+      '<span class="sum">' + num(S.scanned) + ' of ' + num(STORE.classes) + ' entities</span>' +
+      '<button type="button" class="btn" data-act="cancel">' + I.stop + 'Cancel</button></div>';
+  }
+
+  var sum = SCOPE_LABEL[S.ranScope] + " · " + num(S.ranChecks) + " checks · revision " +
+            S.ranRevision + " · " + num(S.scanned) + " scanned · " + S.ranAt;
+
+  if (S.phase === "failed") {
+    return '<div class="bar alert-bad"><span class="state">' + I.fail + 'Scan failed</span>' +
+      '<span class="sum">' + esc(failureText()) + ' Partial results are not shown.</span>' +
+      '<button type="button" class="btn" data-act="run">' + I.rerun + 'Run scan</button></div>';
+  }
+  if (S.phase === "canceled") {
+    return '<div class="bar alert-warn"><span class="state">' + I.warnTri + 'Canceled</span>' +
+      '<span class="sum">Stopped after ' + num(S.scanned) + ' of ' + num(STORE.classes) +
+      ' entities. These are partial results, not a complete scan.</span>' +
+      '<button type="button" class="btn" data-act="run">' + I.rerun + 'Run scan</button></div>';
+  }
+  if (S.stale) {
+    var why = S.stale === "store"
+      ? 'The ontology changed after this scan. Findings are from revision ' + S.ranRevision +
+        '; the store is now at ' + STORE.revision + '.'
+      : 'The scan settings changed. These findings came from ' + num(S.ranChecks) +
+        ' checks over ' + SCOPE_LABEL[S.ranScope] + '.';
+    return '<div class="bar alert-warn"><span class="state">' + I.warnTri + 'Out of date</span>' +
+      '<span class="sum">' + esc(why) + '</span>' +
+      '<button type="button" class="btn" data-act="run">' + I.rerun + 'Rerun scan</button></div>';
+  }
+  return '<div class="bar"><span class="title">Ontology Quality</span>' +
+    '<span class="sum">' + esc(sum) + '</span>' +
+    '<button type="button" class="btn" data-act="settings">Change</button>' +
+    '<button type="button" class="btn" data-act="run">' + I.rerun + 'Rerun</button></div>';
+}
+
+function renderSettings() {
+  if (S.phase !== "idle") return "";
+  var kindRow = KINDS.map(function (k) {
+      return '<button type="button" class="chip" data-kind="' + k[0] + '" aria-pressed="' + !!S.kinds[k[0]] + '">' +
+        k[1] + ' <span class="n">' + num(k[2]) + '</span></button>';
+    }).join("");
+
+  var groupRow = GROUPS.map(function (g) {
+    return '<button type="button" class="chip" data-group="' + g.id + '" aria-pressed="' + !!S.groups[g.id] + '">' + g.name + '</button>';
+  }).join("");
+
+  /* Detected vocabularies are stated, so a withdrawn check reads as a fact
+     about this ontology rather than as a check that quietly passed. */
+  var vocabRow = VOCAB.filter(function (v) { return v.present; }).map(function (v) {
+    return '<span class="tagf" title="' + esc(v.terms) + '">' + esc(v.name) + '</span>';
+  }).join(" ");
+  var gone = absentVocab().map(function (v) { return v.name; });
+  var vocabNote = gone.length
+    ? "Not used here: " + gone.join(", ") + ". " + WITHDRAWN +
+      (WITHDRAWN === 1 ? " check is withdrawn." : " checks are withdrawn.")
+    : "Every vocabulary the catalog knows about is in use.";
+
+  return '<div class="settings">' +
+    '<div class="srow"><span class="k">Scope</span>' +
+      '<select class="sel" data-set="scope" aria-label="Scan scope">' +
+        '<option value="whole"' + (S.scope === "whole" ? " selected" : "") + '>Whole ontology</option>' +
+        '<option value="ns"' + (S.scope === "ns" ? " selected" : "") + '>Namespace devry.edu/courses</option>' +
+        '<option value="branch"' + (S.scope === "branch" ? " selected" : "") + '>Branch: Shop Class and descendants</option>' +
+      '</select>' +
+      '<span class="od-fill"></span>' +
+      '<button type="button" class="btn primary" data-act="run">' + I.run + 'Run scan</button>' +
+    '</div>' +
+    '<div class="srow at-tall"><span class="k">Entity kinds</span>' + kindRow + '</div>' +
+    '<div class="srow at-tall"><span class="k">Checks</span>' + groupRow +
+      '<span class="hint">' + num(RULES.length) + ' checks. Representative rules per group, not the full catalog.</span></div>' +
+    '<div class="srow at-tall"><span class="k">Vocabulary</span>' + vocabRow +
+      '<span class="hint">' + esc(vocabNote) + '</span></div>' +
+  '</div>';
+}
+
+function renderTools() {
+  if (S.phase === "idle" || S.phase === "running") return "";
+  var t = totals();
+  var chips = ["violation", "warning", "info"].map(function (s) {
+    return '<button type="button" class="chip" data-sev="' + s + '" aria-pressed="' + !!S.sevFilter[s] + '">' +
+      '<span class="sev ' + s + '">' + SEV_ICON[s] + '</span>' + SEV_LABEL[s] +
+      ' <span class="n">' + num(t[s]) + '</span></button>';
+  }).join("");
+
+  return '<div class="tools">' +
+    '<div class="seg" role="group" aria-label="Result view">' +
+      '<button type="button" data-view="findings" aria-pressed="' + (S.view === "findings") + '">Findings</button>' +
+      '<button type="button" data-view="coverage" aria-pressed="' + (S.view === "coverage") + '">Coverage</button>' +
+    '</div>' +
+    (S.view === "findings" ? chips +
+      '<button type="button" class="chip" data-sup="1" aria-pressed="' + S.showSuppressed + '">' +
+        I.mute + 'Suppressed <span class="n">' + num(t.suppressed) + '</span></button>' +
+      '<span class="od-fill"></span>' +
+      '<select class="sel at-tall" data-set="groupBy" aria-label="Group findings by">' +
+        '<option value="rule"' + (S.groupBy === "rule" ? " selected" : "") + '>Group by rule</option>' +
+        '<option value="entity"' + (S.groupBy === "entity" ? " selected" : "") + '>Group by entity</option>' +
+      '</select>' +
+      '<input class="txt at-wide" type="search" data-set="text" value="' + esc(S.text) +
+        '" placeholder="Filter by name or IRI" aria-label="Filter findings" style="max-width:200px">'
+      : '<span class="od-fill"></span>') +
+    '<button type="button" class="btn" data-act="export" aria-label="Export findings">' + I.export + '<span class="at-full">Export</span></button>' +
+  '</div>';
+}
+
+function renderFindingDetail(f, rule) {
+  var sup = S.suppressed[f.key];
+  var also = (f.also || []).map(function (rid) {
+    var r2 = RULES.filter(function (x) { return x.id === rid; })[0];
+    return r2 ? '<span class="tagf">' + esc(r2.name) + '</span>' : "";
+  }).join(" ");
+
+  return '<div class="fdet">' +
+    '<div class="kv"><span class="k">Rule</span><span class="v"><b>' + esc(rule.name) + '</b> · ' +
+      SEV_LABEL[rule.sev] + ' · <span style="font-family:Consolas,monospace;font-size:11.5px">' + esc(rule.id) + '</span></span></div>' +
+    '<div class="kv"><span class="k">Basis</span><span class="v">' + esc(rule.basis) + '</span></div>' +
+    '<div class="kv"><span class="k">Entity</span><span class="v">' + esc(f.kind) + ' · ' +
+      '<span style="font-family:Consolas,monospace;font-size:11.5px">' + esc(f.iri) + '</span></span></div>' +
+    '<div class="kv"><span class="k">Evidence</span><span class="v"></span></div>' +
+    '<pre>' + esc(f.evidence) + '</pre>' +
+    (f.note ? '<div class="kv"><span class="k">Reading</span><span class="v">' + esc(f.note) + '</span></div>' : "") +
+    '<div class="kv"><span class="k">Consequence</span><span class="v">' + esc(rule.why) + '</span></div>' +
+    '<div class="kv"><span class="k">Correction</span><span class="v">' + esc(rule.fix) + '</span></div>' +
+    (f.preview ? '<div class="kv"><span class="k">Would add</span><span class="v">Preview only. Applying changes is not part of this pane.</span></div>' +
+      '<pre class="preview">' + esc(f.preview) + '</pre>' : "") +
+    (also ? '<div class="kv"><span class="k">Also under</span><span class="v">' + also + '</span></div>' : "") +
+    (sup ? '<div class="kv"><span class="k">Exception</span><span class="v">' + esc(sup) + '</span></div>' : "") +
+    '<div class="acts">' +
+      '<button type="button" class="btn" data-open="' + esc(f.key) + '">' + I.open + 'Open in Details</button>' +
+      '<button type="button" class="btn" data-sup-key="' + esc(f.key) + '">' +
+        (sup ? I.unmute + 'Remove exception' : I.mute + 'Record exception') + '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderFindings() {
+  var rules = activeRules();
+  var rows = [];
+  var start = (S.page - 1) * PAGE_SIZE;
+  var flat = expandedList();
+  var win = {};
+  flat.slice(start, start + PAGE_SIZE).forEach(function (x) { win[x.f.key] = true; });
+  var filt = filtering();
+
+  var matched = 0;
+  rules.forEach(function (rule) { matched += visibleFor(rule).length; });
+  if (filt && matched === 0) {
+    return '<div class="state-body"><h3>No findings match the current filter.</h3>' +
+      '<p>The scan itself completed and found ' + num(totals().all) +
+      '. Clear the severity or text filter to see them.</p></div>';
+  }
+
+  rules.forEach(function (rule) {
+    var vis = visibleFor(rule);
+    /* A rule that passes keeps its band, so the pass stays visible. A rule
+       emptied by a filter is withdrawn, because that zero is the filter's
+       and not the store's. */
+    if (!vis.length && filt) return;
+    var open = !!S.openRules[rule.id];
+    var count = num(vis.length);
+
+    rows.push('<button type="button" class="rule" data-rule="' + esc(rule.id) + '" aria-expanded="' + open + '">' +
+      '<span class="tw">' + I.tw + '</span>' +
+      sevMark(rule.sev) +
+      '<span class="nm">' + esc(rule.name) + '</span>' +
+      '<span class="id">' + esc(rule.id) + '</span>' +
+      '<span class="ct">' + count + '</span>' +
+    '</button>');
+
+    if (!open) return;
+
+    if (!vis.length) {
+      rows.push('<div class="flist"><div class="state-body" style="padding:10px 10px 10px 42px">' +
+        '<p>No findings match the current filter.</p></div></div>');
+      return;
+    }
+
+    var body = [];
+    vis.forEach(function (f) {
+      if (!win[f.key]) return;
+      var isOpen = S.openFinding === f.key;
+      var sup = Object.prototype.hasOwnProperty.call(S.suppressed, f.key);
+      body.push('<div class="frow' + (isOpen ? " open" : "") + (sup ? " suppressed" : "") + '">' +
+        '<button type="button" class="fname" data-find="' + esc(f.key) + '" aria-expanded="' + isOpen + '">' +
+          '<span class="lbl">' + esc(f.label) + '</span>' +
+          '<span class="kind">' + esc(f.kind) + '</span>' +
+          '<span class="iri">' + esc(f.iri) + '</span>' +
+          '<span class="fold">' + esc(f.kind) + ' · ' + esc(f.iri.split("#").pop()) + '</span>' +
+        '</button>' +
+        '<span class="fact">' +
+          '<button type="button" class="ib" data-open="' + esc(f.key) + '" aria-label="Open ' + esc(f.label) + ' in Details">' + I.open + '</button>' +
+          '<button type="button" class="ib" data-sup-key="' + esc(f.key) + '" aria-label="' +
+            (sup ? 'Remove exception for ' : 'Record exception for ') + esc(f.label) + '">' + (sup ? I.unmute : I.mute) + '</button>' +
+        '</span>' +
+      '</div>');
+      if (isOpen) body.push(renderFindingDetail(f, rule));
+    });
+    rows.push('<div class="flist">' + (body.length ? body.join("")
+      : '<div class="state-body" style="padding:10px 10px 10px 42px"><p>' +
+        num(vis.length) + ' findings, all of them on other pages.</p></div>') + '</div>');
+  });
+
+  if (!rows.length) {
+    return '<div class="state-body"><h3>No findings match the current filter.</h3>' +
+      '<p>The scan itself completed. Clear a severity or text filter to see the rest.</p></div>';
+  }
+  return rows.join("");
+}
+
+function renderCoverage() {
+  var rows = [
+    { check: "Explicit label", applicable: STORE.classes, have: STORE.classes - 1284, missing: 1284, suppressed: 0, note: labelPredicates() + " on a named class" },
+    { check: "Description", applicable: STORE.classes, have: STORE.classes - 3907, missing: 3907, suppressed: 0, note: descriptionPredicates() },
+    { check: "Explicit parent", applicable: STORE.classes, have: STORE.classes - 14, missing: 14, suppressed: 0, note: "rdfs:subClassOf asserted locally" },
+    { check: "Text Analysis eligibility", applicable: STORE.classes, have: STORE.classes - 30, missing: 30, suppressed: 0, note: "Any naming annotation the current matcher consumes" },
+    { check: "Individual type assertion", applicable: STORE.individuals, have: null, missing: null, suppressed: null, note: "rdf:type on a named individual. This ontology asserts no individuals" },
+    { check: "Property domain and range", applicable: STORE.objectProps + STORE.dataProps, have: 9, missing: 7, suppressed: 0, note: "Object and data properties only; annotation properties are exempt" },
+    { check: "Ontology metadata", applicable: 1, have: 0, missing: 2, suppressed: 0, note: "License and version identifier, counted per ontology" }
+  ];
+
+  var body = rows.map(function (r) {
+    if (r.applicable === 0) {
+      return '<tr><td>' + esc(r.check) + '<span class="sub">' + esc(r.note) + '</span></td>' +
+        '<td class="n na">0</td><td class="n na" colspan="3">not applicable</td></tr>';
+    }
+    var pct = Math.round((r.have / r.applicable) * 100);
+    return '<tr><td>' + esc(r.check) + '<span class="sub">' + esc(r.note) + '</span></td>' +
+      '<td class="n">' + num(r.applicable) + '</td>' +
+      '<td class="n">' + num(r.have) + ' <span class="na">(' + pct + '%)</span></td>' +
+      '<td class="n">' + num(r.missing) + '</td>' +
+      '<td class="n">' + num(r.suppressed) + '</td></tr>';
+  }).join("");
+
+  return '<div class="cov">' +
+    '<table class="ct"><thead><tr>' +
+      '<th>Check</th><th class="n">Applicable</th><th class="n">Present</th><th class="n">Missing</th><th class="n">Suppressed</th>' +
+    '</tr></thead><tbody>' + body + '</tbody></table>' +
+    '<p style="margin:0;font-size:12px;color:var(--ink-3)">Every percentage carries its denominator. ' +
+      'Not applicable means no entity in scope could be checked, which is a different fact from zero missing. ' +
+      'Checks for a vocabulary this ontology does not use are withdrawn from the table entirely, ' +
+      'rather than listed as passing.</p>' +
+  '</div>';
+}
+
+function renderBody() {
+  if (S.phase === "idle") {
+    return '<div class="state-body"><h3>Ready to scan</h3>' +
+      '<p>Choose a scope and the checks above, then run the scan. Scanning reads the ontology and changes nothing.</p></div>';
+  }
+  if (S.phase === "running") {
+    return '<div class="state-body"><h3>Scanning</h3>' +
+      '<p>Results appear when the scan completes. Canceling keeps whatever was found and says so.</p></div>';
+  }
+  if (S.phase === "failed") {
+    return '<div class="state-body"><h3>The scan did not finish</h3>' +
+      '<p>' + esc(failureText()) + '</p>' +
+      '<p>No findings are shown, because a partial rule pass cannot be distinguished from a clean one.</p></div>';
+  }
+  if (S.view === "coverage") return renderCoverage();
+
+  var t = totals();
+  if (t.all === 0 && t.suppressed === 0) {
+    var n = activeRules().length;
+    if (!n) {
+      return '<div class="state-body"><h3>No checks are enabled</h3>' +
+        '<p>Every check group is switched off, so the scan had nothing to test. ' +
+        'This is not a clean result. Turn a group back on under Change.</p></div>';
+    }
+    return '<div class="state-body"><h3>No findings</h3>' +
+      '<p>' + num(S.scanned) + ' entities were scanned and all ' + num(n) + ' enabled checks passed.</p>' +
+      '<p>This is a completed scan, not a canceled one.</p></div>';
+  }
+  return renderFindings();
+}
+
+function renderLimits() {
+  if (S.phase === "idle" || S.phase === "running") return "";
+  return '<div class="limits"><span>This scan checks what is asserted. It does not run OWL reasoning, ' +
+    'judge whether a definition is correct, follow remote links, or load unresolved imports. ' +
+    'Checks for a vocabulary the ontology does not use are withdrawn, never reported as passing.</span></div>';
+}
+
+function renderFoot() {
+  if (S.phase === "idle" || S.phase === "running") return '<div class="foot"></div>';
+  if (S.phase === "failed") return '<div class="foot"><span>Scan failed at revision ' + S.ranRevision + '</span>' +
+    '<span class="at-full">' + num(STORE.classes) + ' classes · ' + num(STORE.individuals) + ' individuals · ' + num(STORE.triples) + ' triples</span></div>';
+
+  if (S.view === "coverage") {
+    return '<div class="foot"><span>Coverage for ' + num(S.scanned) + ' scanned entities</span>' +
+      '<span class="at-full">' + num(STORE.classes) + ' classes · ' + num(STORE.individuals) + ' individuals · ' + num(STORE.triples) + ' triples</span></div>';
+  }
+
+  var t = totals();
+  var fc = expandedList().length;
+  var pages = Math.max(1, Math.ceil(fc / PAGE_SIZE));
+  if (S.page > pages) S.page = pages;
+  var pos = fc
+    ? num((S.page - 1) * PAGE_SIZE + 1) + ' to ' + num(Math.min(fc, S.page * PAGE_SIZE)) +
+      ' of ' + num(fc) + ' listed'
+    : 'No rule is expanded';
+
+  return '<div class="foot">' +
+    '<span>' + pos + ' · ' + num(t.all) + ' findings · ' + num(t.suppressed) + ' suppressed</span>' +
+    '<span class="od-fill"></span>' +
+    '<button type="button" class="ib" data-page="1" aria-label="First page"' + (S.page === 1 ? " disabled" : "") + '>' + I.first + '</button>' +
+    '<button type="button" class="ib" data-page="' + (S.page - 1) + '" aria-label="Previous page"' + (S.page === 1 ? " disabled" : "") + '>' + I.prev + '</button>' +
+    '<span class="pg">Page ' + S.page + ' of ' + pages + '</span>' +
+    '<button type="button" class="ib" data-page="' + (S.page + 1) + '" aria-label="Next page"' + (S.page >= pages ? " disabled" : "") + '>' + I.next + '</button>' +
+    '<button type="button" class="ib" data-page="' + pages + '" aria-label="Last page"' + (S.page >= pages ? " disabled" : "") + '>' + I.last + '</button>' +
+    '<span class="at-full">' + num(STORE.classes) + ' classes · ' + num(STORE.individuals) + ' individuals · ' + num(STORE.triples) + ' triples</span>' +
+  '</div>';
+}
+
+function render() {
+  document.getElementById("pane").innerHTML =
+    renderBar() + renderSettings() + '<div class="body">' + renderBody() + '</div>' +
+    renderLimits() + renderFoot() + renderRecovery();
+}
+
+/* Shown only under the recovery query. Present in every phase so the pane
+   never renders empty at a size where nothing else fits. */
+function renderRecovery() {
+  var line = S.phase === "complete" || S.phase === "canceled"
+    ? num(totals().all) + ' findings' + (S.stale ? ', stale' : '')
+    : S.phase === "running" ? 'Scanning'
+    : S.phase === "failed" ? 'Scan failed'
+    : 'No scan has been run';
+  return '<div class="recov"><span class="id">Quality</span>' +
+    '<p>' + line + '</p><p>Widen the pane to work with it.</p></div>';
+}
+
+/* ------------------------------------------------------------------ scan */
+function startScan() {
+  if (S.timer) clearInterval(S.timer);
+  S.phase = "running"; S.scanned = 0; S.stale = null; S.failure = null;
+  S.openRules = {}; S.openFinding = null; S.page = 1;
+  RULES.forEach(function (r) { FINDINGS[r.id] = PRISTINE[r.id].slice(); });
+  render();
+  S.timer = setInterval(function () {
+    S.scanned += Math.round(STORE.classes / 14);
+    if (S.scanned >= STORE.classes) {
+      S.scanned = STORE.classes;
+      clearInterval(S.timer); S.timer = null;
+      finishScan();
+    } else render();
+  }, 110);
+}
+function finishScan() {
+  S.phase = "complete";
+  S.ranAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  S.ranRevision = STORE.revision;
+  S.ranScope = S.scope; S.ranChecks = activeRules().length;
+  var t = totals();
+  say("Scan complete. " + num(t.all) + " findings across " + num(S.scanned) + " entities.");
+  render();
+}
+function cancelScan() {
+  if (S.timer) { clearInterval(S.timer); S.timer = null; }
+  S.phase = "canceled";
+  S.ranAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  S.ranRevision = STORE.revision;
+  S.ranScope = S.scope; S.ranChecks = activeRules().length;
+  say("Scan canceled after " + num(S.scanned) + " of " + num(STORE.classes) + " entities. Results are partial.");
+  render();
+}
+function say(msg) { document.getElementById("live").textContent = msg; }
+
+/* --------------------------------------------------------------- events */
+document.getElementById("pane").addEventListener("click", function (e) {
+  var el = e.target.closest("button");
+  if (!el) return;
+
+  var act = el.getAttribute("data-act");
+  if (act === "run")      { startScan(); return; }
+  if (act === "cancel")   { cancelScan(); return; }
+  if (act === "settings") { S.phase = "idle"; render(); return; }
+  if (act === "export")   { say("Export writes all " + num(totals().all) + " findings plus the scan configuration and revision. Paging does not truncate it."); return; }
+
+  var v = el.getAttribute("data-view");
+  if (v) { S.view = v; render(); return; }
+
+  var kind = el.getAttribute("data-kind");
+  if (kind) { S.kinds[kind] = !S.kinds[kind]; render(); return; }
+
+  var grp = el.getAttribute("data-group");
+  if (grp) { S.groups[grp] = !S.groups[grp]; markStale("config"); render(); return; }
+
+  var sev = el.getAttribute("data-sev");
+  if (sev) { S.sevFilter[sev] = !S.sevFilter[sev]; S.page = 1; render(); return; }
+
+  if (el.getAttribute("data-sup") === "1") { S.showSuppressed = !S.showSuppressed; S.page = 1; render(); return; }
+
+  var rule = el.getAttribute("data-rule");
+  if (rule) { S.openRules[rule] = !S.openRules[rule]; S.page = 1; render(); return; }
+
+  var find = el.getAttribute("data-find");
+  if (find) { S.openFinding = S.openFinding === find ? null : find; render(); return; }
+
+  var supKey = el.getAttribute("data-sup-key");
+  if (supKey) {
+    if (Object.prototype.hasOwnProperty.call(S.suppressed, supKey)) delete S.suppressed[supKey];
+    else S.suppressed[supKey] = "Intentional. Recorded " + new Date().toLocaleDateString("en-US") + ".";
+    render(); return;
+  }
+
+  var openKey = el.getAttribute("data-open");
+  if (openKey) { say("Opens " + (findByKey(openKey) || { label: "the entity" }).label + " in the Details pane."); return; }
+
+  var pg = el.getAttribute("data-page");
+  if (pg) { S.page = Math.max(1, parseInt(pg, 10)); render(); return; }
+});
+
+document.getElementById("pane").addEventListener("change", function (e) {
+  var k = e.target.getAttribute("data-set");
+  if (!k) return;
+  if (k === "scope")   { S.scope = e.target.value; markStale("config"); }
+  if (k === "groupBy") { S.groupBy = e.target.value; S.page = 1; }
+  render();
+});
+
+document.getElementById("pane").addEventListener("input", function (e) {
+  if (e.target.getAttribute("data-set") !== "text") return;
+  S.text = e.target.value; S.page = 1;
+  var pos = e.target.selectionStart;
+  render();
+  var again = document.querySelector('[data-set="text"]');
+  if (again) { again.focus(); again.setSelectionRange(pos, pos); }
+});
+
+/* A scope or check change invalidates a completed scan rather than
+   silently refiltering findings produced under different rules. */
+function markStale(why) {
+  if (S.phase === "complete" || S.phase === "canceled") S.stale = why;
+}
+
+/* Theme cycles auto, light, dark. */
+document.getElementById("themeBtn").innerHTML = I.theme;
+document.getElementById("themeBtn").addEventListener("click", function () {
+  var order = ["auto", "light", "dark"];
+  var cur = document.documentElement.getAttribute("data-theme");
+  var next = order[(order.indexOf(cur) + 1) % order.length];
+  document.documentElement.setAttribute("data-theme", next);
+  say("Theme: " + next);
+});
+document.querySelectorAll(".tabs .trail .ib")[1].innerHTML = I.popout;
+document.querySelectorAll(".tabs .trail .ib")[2].innerHTML = I.maxim;
+
+/* Lookup used by the Details handoff announcement. */
+function findByKey(key) {
+  var rid = key.split(":")[0];
+  return (FINDINGS[rid] || []).filter(function (f) { return f.key === key; })[0] || null;
+}
+
+/* Eight scan states ship here. Seven are reachable through the pane itself:
+   idle, running, canceled, complete, complete and stale, complete with no
+   findings (uncheck every check group and rerun), and filtered to empty.
+   A failure is not, because a product control that fails a scan on purpose
+   would be a designer control in shipped UI. It is reachable for inspection:
+     axiomQuality.fail()   axiomQuality.stale()   axiomQuality.clean()
+   Neither is referenced by any element in the pane. */
+window.axiomQuality = {
+  fail: function () {
+    S.phase = "failed"; S.stale = null;
+    S.failure = "The scan stopped at Industrial_Safety. A subClassOf cycle was reached and the walk could not terminate.";
+    render();
+  },
+  stale: function () { STORE.revision += 1; markStale("store"); render(); },
+  clean: function () {
+    /* Reversible: Run scan re-reads PRISTINE. */
+    RULES.forEach(function (r) { FINDINGS[r.id] = []; });
+    S.suppressed = {}; S.openRules = {}; S.openFinding = null; S.page = 1;
+    S.phase = "complete"; S.stale = null; render();
+  }
+};
+
+render();
+</script>
+</body>
+</html>

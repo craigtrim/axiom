@@ -54,7 +54,7 @@ async function openFile() {
   await expect(pane()).toBeVisible();
   await size(1300, 720);
 }
-async function launch() {
+async function launch(extraArgs: string[] = []) {
   const env = {
     ...process.env,
     AXIOM_USER_DATA: profile,
@@ -63,7 +63,7 @@ async function launch() {
   delete env.ELECTRON_RUN_AS_NODE;
   app = await _electron.launch({
     executablePath: process.env.AXIOM_TEST_EXE,
-    args: process.env.AXIOM_TEST_EXE ? [] : ["."],
+    args: [...(process.env.AXIOM_TEST_EXE ? [] : ["."]), ...extraArgs],
     env,
   });
   page = await app.firstWindow();
@@ -123,6 +123,16 @@ test("Tools opens the settings; a read-only scan reports Industrial Safety from 
   await expect(summary()).toHaveText("No scan has been run.");
   const before = await state();
   await scan();
+  // Issue 84: the announcement includes the same population as the report.
+  const total = (await pane().locator(".foot").textContent())!.match(
+    /([\d,]+) findings/,
+  )![1];
+  const scanned = (await summary().textContent())!.match(
+    /([\d,]+) scanned/,
+  )![1];
+  await expect(pane().locator('[aria-live="polite"]')).toHaveText(
+    `Scan complete. ${total} findings across ${scanned} entities.`,
+  );
   await expect(pane().locator(".settings")).toHaveCount(0);
   expect((await state()).version).toBe(before.version);
   expect((await state()).dirty).toBe(before.dirty);
@@ -519,6 +529,9 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     "Configure absolute predicate IRIs and at least one primary-label predicate.",
   );
   await expect(pane()).toContainText("The scan failed");
+  await expect(pane().locator('[aria-live="polite"]')).toHaveText(
+    "Scan failed.",
+  );
   // The failed state keeps its settings and Run scan action visible.
   await expect(
     pane().locator(".settings").getByRole("button", { name: "Rules" }),
@@ -554,6 +567,12 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
   await pane().getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
+  );
+  const counts = (await summary().textContent())!.match(
+    /Stopped after ([\d,]+) of ([\d,]+) entities/,
+  )!;
+  await expect(pane().locator('[aria-live="polite"]')).toHaveText(
+    `Scan canceled after ${counts[1]} of ${counts[2]} entities. Results are partial.`,
   );
   await expect(pane()).toContainText(
     "This report is incomplete and cannot be exported as complete.",
@@ -1299,4 +1318,118 @@ for (const theme of ["light", "dark"])
     await page.screenshot({
       path: `artifacts/testing/quality-overflow-${theme}-menu.png`,
     });
+  });
+
+// Issue 84: the prototype governs interaction states absent from the specimen.
+for (const theme of ["light", "dark"] as const)
+  test(`Quality focus, hover and motion follow the reference in ${theme}`, async () => {
+    // Measure exact CSS pixel offsets without the desktop's 150% rounding.
+    await app.close();
+    await launch(["--force-device-scale-factor=1"]);
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    await scan();
+    const contrast = await pane().evaluate((el) => {
+      const style = getComputedStyle(el);
+      const luminance = (token: string) => {
+        const hex = style.getPropertyValue(token).trim();
+        const rgb = [1, 3, 5]
+          .map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+          .map((value) =>
+            value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
+          );
+        return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      };
+      return [
+        ["--ok", "--ok-tint"],
+        ["--ink-3", "--sunken"],
+        ["--warn", "--warn-tint"],
+        ["--bad", "--bad-tint"],
+        ["--on-accent", "--accent"],
+        ["--focus", "--bg"],
+      ].map(([foreground, background]) => {
+        const a = luminance(foreground),
+          b = luminance(background);
+        return {
+          foreground,
+          background,
+          ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+        };
+      });
+    });
+    for (const pair of contrast)
+      expect(
+        pair.ratio,
+        `${pair.foreground} on ${pair.background}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    const rule = band("Missing explicit primary label");
+    await rule.click();
+    const name = row("Industrial Safety");
+    const finding = name.locator("..");
+    await page.keyboard.press("Tab");
+    for (const [width, height] of [
+      [1300, 720],
+      [420, 500],
+      [420, 300],
+    ]) {
+      await size(width, height);
+      await rule.focus();
+      await expect(rule).toHaveCSS("outline-offset", "-2px");
+      await expect(rule).toHaveCSS("outline-width", "2px");
+      await expect(rule).toHaveCSS("outline-style", "solid");
+      await pane().screenshot({
+        path: `artifacts/testing/quality-focus-${theme}-${width}x${height}.png`,
+      });
+      await expect(rule).toHaveCSS(
+        "outline-color",
+        theme === "dark" ? "rgb(106, 171, 255)" : "rgb(11, 95, 208)",
+      );
+    }
+    await size(1300, 720);
+    await name.focus();
+    await expect(name).toHaveCSS("outline-offset", "2px");
+    const filter = pane().getByRole("searchbox", { name: "Filter findings" });
+    await filter.focus();
+    await expect(filter).toHaveCSS("outline-offset", "-1px");
+    await expect(filter).toHaveCSS(
+      "border-top-color",
+      theme === "dark" ? "rgb(106, 171, 255)" : "rgb(11, 95, 208)",
+    );
+    for (const label of ["Findings", "Coverage"]) {
+      const segment = pane().getByRole("button", { name: label, exact: true });
+      await page.mouse.move(0, 0);
+      const before = await segment.evaluate((el) => [
+        getComputedStyle(el).backgroundColor,
+        getComputedStyle(el).color,
+      ]);
+      await segment.hover();
+      expect(
+        await segment.evaluate((el) => [
+          getComputedStyle(el).backgroundColor,
+          getComputedStyle(el).color,
+        ]),
+      ).toEqual(before);
+      await segment.focus();
+      await expect(segment).toHaveCSS("outline-offset", "-2px");
+    }
+    await name.hover();
+    await expect(finding).toHaveCSS(
+      "background-color",
+      theme === "dark" ? "rgb(50, 50, 50)" : "rgb(239, 239, 239)",
+    );
+    await expect(name).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const open = finding.getByRole("button", {
+      name: "Open Industrial Safety in Details",
+    });
+    await open.hover();
+    await expect(open).toHaveCSS(
+      "color",
+      theme === "dark" ? "rgb(241, 241, 241)" : "rgb(27, 27, 27)",
+    );
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(rule.locator(".tw")).toHaveCSS("transition-duration", "0.15s");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(rule.locator(".tw")).toHaveCSS("transition-duration", "0s");
   });

@@ -471,10 +471,13 @@ export function QualityPanel() {
       setAnnounce(
         t("announce.complete", {
           total,
-          checks: job.report!.enabledChecks,
+          scanned: job.scanned,
         }),
       );
-    else if (job?.state === "canceled") setAnnounce(t("announce.canceled"));
+    else if (job?.state === "canceled")
+      setAnnounce(
+        t("announce.canceled", { scanned: job.scanned, total: job.total }),
+      );
     else if (job?.state === "failed") setAnnounce(t("announce.failed"));
   }, [job?.id, job?.state]);
   useEffect(() => {
@@ -860,11 +863,12 @@ export function QualityPanel() {
       {s}
     </span>
   );
-  const commandBar = () => {
+  // Issue 84: share scan-state contents across settings and result presentations.
+  const commandBar = (prescan = false) => {
     if (job?.state === "running")
       return (
-        <div className="bar">
-          <span className="title">{t("title")}</span>
+        <div className={prescan ? "cbar bar" : "bar"}>
+          <span className={prescan ? "t" : "title"}>{t("title")}</span>
           <span className="state">
             <Play />
             {t("running.state")}
@@ -874,8 +878,14 @@ export function QualityPanel() {
             role="progressbar"
             aria-label={t("running.state")}
             aria-valuemin={0}
-            aria-valuemax={Math.max(1, job.total)}
-            aria-valuenow={job.scanned}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(
+              (job.scanned / Math.max(1, job.total)) * 100,
+            )}
+            aria-valuetext={t("running.progress", {
+              scanned: job.scanned,
+              total: job.total,
+            })}
           >
             <i
               style={{
@@ -895,7 +905,7 @@ export function QualityPanel() {
       );
     if (job?.state === "failed")
       return (
-        <div className="bar alert-bad">
+        <div className={(prescan ? "cbar " : "") + "bar alert-bad"}>
           <span className="state">
             <Failed />
             {t("failed.state")}
@@ -905,15 +915,17 @@ export function QualityPanel() {
               " " +
               t("failed.partial")}
           </span>
-          {/* The settings that failed must stay reachable to be corrected. */}
-          <button
-            className="btn"
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(!settingsOpen)}
-          >
-            {t("change")}
-          </button>
-          {!settingsOpen && (
+          {/* Pre-scan settings already expose the one Run scan action. */}
+          {!prescan && (
+            <button
+              className="btn"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen(!settingsOpen)}
+            >
+              {t("change")}
+            </button>
+          )}
+          {!prescan && !settingsOpen && (
             <button className="btn" disabled={busy || unresolved} onClick={run}>
               {t("run")}
             </button>
@@ -2210,27 +2222,14 @@ export function QualityPanel() {
     >
       {prescan ? (
         <>
-          <div className="cbar bar">
-            <span className="t">{t("title")}</span>
-            <span className="sum">
-              {busy
-                ? t("running.progress", {
-                    scanned: job?.scanned ?? 0,
-                    total: job?.total ?? 0,
-                  })
-                : job?.state === "failed"
-                  ? t("failed.state")
-                  : t("idle.summary")}
-            </span>
-            {busy && (
-              <button
-                className="btn"
-                onClick={() => void action(cancelQuality)}
-              >
-                {t("cancel")}
-              </button>
-            )}
-          </div>
+          {job?.state === "running" || job?.state === "failed" ? (
+            commandBar(true)
+          ) : (
+            <div className="cbar bar">
+              <span className="t">{t("title")}</span>
+              <span className="sum">{t("idle.summary")}</span>
+            </div>
+          )}
           <div className="pbody" ref={bodyRef}>
             <div className="headline">
               {busy

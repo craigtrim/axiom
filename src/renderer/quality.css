@@ -7,30 +7,23 @@
  * queries, so they keep the 616 and 416 pixel hysteresis.
  */
 
-/* Light tokens, carried unchanged from the reference. */
+/* Issue 84: shared names inherit the common palette; these 16 remain private. */
 .adaptive-pane[data-pane-id="quality"] {
   --bg: #ffffff;
-  --sunken: #f4f4f4;
-  --raised: #fafafa;
   --hover: #efefef;
   --line: #e2e2e2;
   --line-2: #c6c6c6;
   --ink: #1b1b1b;
   --ink-2: #585858;
   --ink-3: #6a6a6a;
-  --accent: #0f5fa8;
   --accent-2: #0b4a84;
   --on-accent: #ffffff;
   --tint: #eaf2fb;
-  --ok: #0b6b36;
   --ok-tint: #e6f4ec;
-  --warn: #7d4a00;
   --warn-tint: #fcf1df;
   --warn-line: #d9a441;
-  --bad: #a8201a;
   --bad-tint: #fbeae9;
   --bad-line: #d4766f;
-  --focus: #0f5fa8;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.24);
   overflow: hidden;
   background: var(--bg);
@@ -38,27 +31,20 @@
 /* Dark tokens. Measured against #1e1e1e, not derived by inverting light. */
 [data-theme="dark"] .adaptive-pane[data-pane-id="quality"] {
   --bg: #1e1e1e;
-  --sunken: #161616;
-  --raised: #272727;
   --hover: #323232;
   --line: #3a3a3a;
   --line-2: #555555;
   --ink: #f1f1f1;
   --ink-2: #c3c3c3;
   --ink-3: #a0a0a0;
-  --accent: #6cb4f5;
   --accent-2: #9acbf8;
   --on-accent: #0a1a28;
   --tint: #16293a;
-  --ok: #65d18f;
   --ok-tint: #11301e;
-  --warn: #e3a942;
   --warn-tint: #33260c;
   --warn-line: #6b5116;
-  --bad: #ff8d81;
   --bad-tint: #3a1a17;
   --bad-line: #7a3630;
-  --focus: #6cb4f5;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.7);
 }
 
@@ -164,6 +150,7 @@
   display: block;
   height: 100%;
   background: var(--accent);
+  transition: width 140ms linear;
 }
 
 .quality-panel .btn {
@@ -438,6 +425,9 @@
   margin-left: 10px;
   padding-right: 8px;
   border-left: 2px solid var(--line-2);
+}
+.quality-panel .frow:hover {
+  background: var(--hover);
 }
 .quality-panel .frow.open {
   background: var(--tint);
@@ -891,7 +881,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quality-panel .rule .tw {
+  .quality-panel .rule .tw,
+  .quality-panel .prog > i {
     transition: none;
   }
 }
@@ -1003,7 +994,7 @@
 }
 .quality-panel .ib:is(:hover, :active):not(:disabled) {
   background: var(--hover);
-  color: var(--ink-2);
+  color: var(--ink);
   border-color: transparent;
 }
 .quality-panel .chip:is(:hover, :active):not(:disabled) {
@@ -1017,7 +1008,7 @@
   border-color: var(--accent);
 }
 .quality-panel .seg > button:is(:hover, :active):not(:disabled) {
-  background: var(--hover);
+  background: var(--bg);
   color: var(--ink-2);
 }
 .quality-panel
@@ -1067,4 +1058,18 @@
 }
 .quality-panel input::placeholder {
   color: revert;
+}
+
+/* Issue 84: inset rings stay visible inside the full-width controls. */
+.quality-panel .rule:focus-visible,
+.quality-panel .seg > button:focus-visible {
+  outline-offset: -2px;
+}
+.quality-panel
+  input.txt:not([type="range"]):not([type="checkbox"]):focus-visible {
+  outline-offset: -1px;
+  border-color: var(--focus);
+}
+.quality-panel .fname:focus-visible {
+  outline-offset: 2px;
 }
