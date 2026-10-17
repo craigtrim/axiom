@@ -11,6 +11,8 @@ import type { DocumentData, EditorDraft } from "../shared/editor-state";
 export type { DocumentData, EditorDraft } from "../shared/editor-state";
 const drafts = new Map<string, EditorDraft>();
 const saving = new Map<string, Promise<string>>();
+// Issue 85: each queued cell commit owns its submitted values, not later typing.
+const submitted = new WeakMap<Promise<string>, EditorDraft>();
 export const editorDraftSnapshot = () => structuredClone([...drafts.values()]);
 const documentDrafts = new Map<string, { discard(): void }>();
 export function rememberDocumentDraft(
@@ -97,14 +99,26 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   const previous = saving.get(k);
   const operation = (
     previous ? previous.catch(() => undefined) : Promise.resolve()
-  ).then(() =>
-    previous && !getEditorDraft(d.iri, d.loaded.datasetEpoch)
-      ? previous
-      : applyDraftNow(
-          getEditorDraft(d.iri, d.loaded.datasetEpoch) ?? d,
-          preserveSelection,
-        ),
-  );
+  ).then(() => {
+    const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
+    if (previous && !latest) return previous;
+    // Rebase a queued commit onto the preceding result while retaining any
+    // fields or keystrokes added after this commit as an uncommitted draft.
+    const pending =
+      previous && latest
+        ? {
+            ...d,
+            loaded: latest.loaded,
+            statements: mergeEntityStatements(
+              editorStatements(submitted.get(previous)!.statements),
+              d.statements,
+              latest.loaded.statements,
+            ),
+          }
+        : d;
+    return applyDraftNow(pending, preserveSelection);
+  });
+  submitted.set(operation, d);
   saving.set(k, operation);
   void operation
     .finally(() => {
