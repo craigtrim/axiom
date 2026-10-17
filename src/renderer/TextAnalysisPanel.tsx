@@ -97,9 +97,6 @@ export function TextAnalysisPanel() {
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(
     null,
   );
-  const corners = useRef<monaco.editor.IEditorDecorationsCollection | null>(
-    null,
-  );
   const refreshCaretDecoration = useRef<() => void>(() => {});
   useLayoutEffect(() => {
     if (!host.current) return;
