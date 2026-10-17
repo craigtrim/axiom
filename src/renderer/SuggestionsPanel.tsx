@@ -1,3 +1,5 @@
+// Keep each view's sort through target/run remounts (craigtrim/axiom#82).
+import type { SuggestionSort } from "./suggestion-workbench-model";
 import { synonymDefinition } from "../shared/synonyms";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parentContext, buildParentPrompt } from "../shared/parent-suggestions";
@@ -57,7 +59,12 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
     setEditing(undefined);
     openTaxonomy(iri, value, undefined, paneId);
   };
+  const sorts = useMemo(
+    () => new Map<string, SuggestionSort>(),
+    [s.datasetEpoch],
+  );
   const navigation: SuggestionNavigation = {
+    sorts,
     modes,
     changeMode: switchMode,
     openAnother: () =>

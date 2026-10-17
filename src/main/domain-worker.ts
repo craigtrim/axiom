@@ -1107,7 +1107,13 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
     case "validateTaxonomySuggestions":
     case "applyTaxonomySuggestions": {
-      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+      // Generation may overlap another target's application (craigtrim/axiom#82, #68).
+      // Every mutation still requires an exact version; every read requires its workspace.
+      if (
+        a.datasetEpoch !== datasetEpoch ||
+        ((method === "applyTaxonomySuggestions" || a.version !== undefined) &&
+          a.version !== store.version)
+      )
         throw Error(
           "The ontology changed. Find suggestions again before adding them.",
         );

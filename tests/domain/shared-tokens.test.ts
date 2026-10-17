@@ -38,8 +38,27 @@ it("removes only equal duplicate declarations and retains deferred private palet
         });
       });
   }
-  expect(declarations).toHaveLength(339);
-  expect(new Set(declarations.map((d) => d.name)).size).toBe(116);
+  // Suggestions adds only its five private names (craigtrim/axiom#82).
+  const prior = declarations.filter(
+    (d) => d.file !== "suggestions-reference.css",
+  );
+  expect(prior).toHaveLength(339);
+  expect(
+    new Set(
+      declarations
+        .filter((d) => d.file === "suggestions-reference.css")
+        .map((d) => d.name),
+    ),
+  ).toEqual(
+    new Set([
+      "--accent-hover",
+      "--ok-border",
+      "--warn-border",
+      "--idle-border",
+      "--sp-8",
+    ]),
+  );
+  expect(new Set(prior.map((d) => d.name)).size).toBe(116);
   const shared = declarations.filter(
     (d) => sharedTokens.has(d.name.slice(2)) && d.file !== "styles.css",
   );

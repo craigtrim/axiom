@@ -1,3 +1,4 @@
+// Reference control names and retained review behavior (craigtrim/axiom#82).
 import AxeBuilder from "@axe-core/playwright";
 import { launchExample } from "./example-fixture";
 import {
@@ -66,7 +67,9 @@ async function open(mode = "children", keyboard = false, label = "Vehicle") {
   }
   const view = bridge.getByRole("region", { name: "Taxonomy suggestions" });
   await expect(view).toBeVisible();
-  await expect(view.getByRole("heading", { level: 2 })).toContainText(label);
+  await expect(
+    view.getByRole("heading", { level: mode === "instances" ? 2 : 1 }),
+  ).toContainText(label);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   return view;
 }
@@ -181,15 +184,15 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   expect((await state()).classCount).toBe(before.classCount);
   await dialog.getByRole("button", { name: "Context", exact: true }).click();
   await expect(
-    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+    bridge.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("Thing");
   await expect(
-    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+    bridge.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("Land vehicle");
   await expect(
-    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+    bridge.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("depth 2");
-  await bridge.getByRole("button", { name: "Close Context" }).click();
+  await bridge.keyboard.press("Escape");
   const prompt = await readFile(path.join(profile, "prompt.txt"), "utf8");
   expect(prompt).toContain("types that fit better inside an existing category");
   expect(prompt).not.toContain("parentIri");
@@ -293,6 +296,72 @@ test("blocks duplicates and preserves the right-clicked parent when selection ch
     (await state()).entities.find((e) => e.name === "Water vehicle")?.parents,
   ).toEqual([vehicle]);
 });
+test("read-only taxonomy validation accepts current data while application requires an exact edit version", async () => {
+  await ready();
+  const result = await bridge.evaluate(async (root) => {
+    const [run] = await window.axiom.taxonomyAssistant.history();
+    const { entry } = await window.axiom.taxonomyAssistant.read(run.id);
+    const args = {
+      iri: entry.context.selected.iri,
+      mode: entry.context.mode,
+      datasetEpoch: entry.context.datasetEpoch,
+      version: entry.context.version,
+      suggestions: entry.response!.result.suggestions,
+    };
+    await window.axiom.request("createClass", {
+      name: "Concurrent addition",
+      parent: root,
+    });
+    const before = await window.axiom.request<Snapshot>("state");
+    const invoke = async (
+      method: "validateTaxonomySuggestions" | "applyTaxonomySuggestions",
+      input: Record<string, unknown>,
+    ) => {
+      try {
+        return await window.axiom.request(method, input);
+      } catch (error) {
+        return { error: (error as Error).message };
+      }
+    };
+    const currentRead = await invoke("validateTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+    });
+    const staleRead = await invoke("validateTaxonomySuggestions", args);
+    const missingWrite = await invoke("applyTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+    });
+    const staleWrite = await invoke("applyTaxonomySuggestions", args);
+    const wrongWorkspace = await invoke("validateTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+      datasetEpoch: args.datasetEpoch + 1,
+    });
+    const after = await window.axiom.request<Snapshot>("state");
+    return {
+      currentRead,
+      staleRead,
+      missingWrite,
+      staleWrite,
+      wrongWorkspace,
+      before: before.classCount,
+      after: after.classCount,
+    };
+  }, THING);
+  expect(result.currentRead).toEqual([null, null]);
+  for (const rejected of [
+    result.staleRead,
+    result.missingWrite,
+    result.staleWrite,
+    result.wrongWorkspace,
+  ])
+    expect(rejected).toEqual({
+      error: expect.stringContaining("The ontology changed"),
+    });
+  expect(result.after).toBe(result.before);
+});
+
 test("survives unrelated edits, warns when the class moves, and retains the ontology when it changes during generation", async () => {
   const dialog = await ready();
   await dialog
@@ -364,7 +433,7 @@ test("survives unrelated edits, warns when the class moves, and retains the onto
     )
     .toBe(false);
   await menu("view.taxonomy");
-  await expect(dialog).toContainText("Right-click a class");
+  await expect(dialog).toContainText("Right-click an entity");
   expect((await state()).classCount).toBe(1);
 });
 test("cancels Codex, retries, and reports malformed responses without changing data", async () => {
@@ -473,6 +542,8 @@ test("keeps separate histories, opens the latest run, and browses an earlier run
     .inputValue();
   await writeFile(behavior, '{"empty":true}');
   await view.getByRole("button", { name: "New run" }).click();
+  await expect(view).toContainText("Cached result from");
+  await view.getByRole("button", { name: "Run again", exact: true }).click();
   await expect(view).toContainText("No new direct children suggested.");
   const second = await view
     .getByRole("combobox", { name: "Run history" })
@@ -494,7 +565,7 @@ test("keeps separate histories, opens the latest run, and browses an earlier run
   ).toBeDisabled();
   await expect(view.getByRole("searchbox")).toHaveValue("");
   await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
-  await expect(view.getByRole("heading", { level: 2 })).toContainText(
+  await expect(view.getByRole("heading", { level: 1 })).toContainText(
     "Vehicle",
   );
   await expect(
@@ -550,7 +621,7 @@ test("queues a different node automatically and reuses an already running reques
     "Vehicle",
   ]);
   await view.getByRole("button", { name: "Previous target" }).click();
-  await expect(view.getByRole("heading", { level: 2 })).toContainText(
+  await expect(view.getByRole("heading", { level: 1 })).toContainText(
     "Vehicle",
   );
   await expect(
@@ -882,7 +953,7 @@ test("sends only 20 sampled children and 20 sampled descendants and retains the 
   ).toBeEnabled();
   await view.getByRole("button", { name: "Context", exact: true }).click();
   await expect(
-    bridge.getByRole("dialog", { name: "Context sent to the assistant" }),
+    bridge.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("20 of 143 children · 20 of 372 descendants");
   const id = await view
     .getByRole("combobox", { name: "Run history" })
@@ -1005,7 +1076,7 @@ test("table filtering and sorting preserve hidden selections and scope select-al
   await expect(
     view.getByRole("checkbox", { name: "Car, Exists, cannot be added" }),
   ).toBeDisabled();
-  await view.getByRole("button", { name: "Details for Car" }).click();
+  await view.getByRole("button", { name: "Show details for Car" }).click();
   await expect(view).toContainText("It will not be duplicated or moved.");
   await expect(view.locator(".ac-identifiers")).toContainText(
     "Existing entity",
@@ -1031,8 +1102,12 @@ test("row details and a single commit retain the review while a new run resets i
   await writeFile(behavior, '{"duplicate":true}');
   const before = await state(),
     view = await ready();
-  const water = view.getByRole("button", { name: "Details for Water vehicle" });
-  const air = view.getByRole("button", { name: "Details for Air vehicle" });
+  const water = view.getByRole("button", {
+    name: /^(Show|Hide) details for Water vehicle$/,
+  });
+  const air = view.getByRole("button", {
+    name: /^(Show|Hide) details for Air vehicle$/,
+  });
   await water.focus();
   await page.keyboard.press("Enter");
   await air.click();
@@ -1040,7 +1115,7 @@ test("row details and a single commit retain the review while a new run resets i
   await expect(air).toHaveAttribute("aria-expanded", "true");
   const row = view.locator("tbody").filter({
     has: page.getByRole("button", {
-      name: "Details for Water vehicle",
+      name: "Hide details for Water vehicle",
       exact: true,
     }),
   });
@@ -1091,7 +1166,7 @@ test("row details and a single commit retain the review while a new run resets i
   await expect(view.locator(".ac-detail")).toHaveCount(0);
   await expect(
     view.getByRole("columnheader", { name: /Status/ }),
-  ).toHaveAttribute("aria-sort", "none");
+  ).toHaveAttribute("aria-sort", "ascending");
   await view.getByRole("combobox", { name: "Run history" }).selectOption(first);
   await expect(
     view.getByRole("button", { name: "Added 2", exact: true }),
@@ -1103,7 +1178,7 @@ test("row details and a single commit retain the review while a new run resets i
   ).toBeDisabled();
 });
 
-test("analysis and context overlays do not move rows and close with Escape, outside click and table scroll", async () => {
+test("analysis and context overlays do not move rows and close with Escape and outside click, and survive table scroll", async () => {
   await writeFile(
     behavior,
     JSON.stringify({
@@ -1115,31 +1190,32 @@ test("analysis and context overlays do not move rows and close with Escape, outs
   const first = await table.boundingBox();
   const analysis = view.getByRole("button", { name: "Analysis", exact: true });
   await analysis.click();
-  await expect(
-    page.getByRole("dialog", { name: "Why Codex proposed these" }),
-  ).toContainText("Proposals for review.");
+  await expect(page.getByRole("group", { name: "Run analysis" })).toContainText(
+    "Proposals for review.",
+  );
   expect(await table.boundingBox()).toEqual(first);
   await page.keyboard.press("Escape");
   await expect(analysis).toBeFocused();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".ac-popover")).toHaveCount(0);
   await analysis.click();
   await view.getByRole("button", { name: "Context", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(1);
-  await expect(page.getByRole("dialog")).toHaveAccessibleName(
+  await expect(page.locator(".ac-popover")).toHaveCount(1);
+  await expect(page.locator(".ac-popover")).toHaveAccessibleName(
     "Context sent to the assistant",
   );
   expect(await table.boundingBox()).toEqual(first);
-  await view.getByRole("heading", { level: 2 }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await view.getByRole("heading", { level: 1 }).click();
+  await expect(page.locator(".ac-popover")).toHaveCount(0);
   await analysis.click();
   await view.locator(".ac-scroll").evaluate((e) => (e.scrollTop = 200));
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Run analysis" })).toBeVisible();
+  await page.keyboard.press("Escape");
   const scrollBox = await view.locator(".ac-scroll").boundingBox();
   const head = await view.locator("thead th").first().boundingBox();
   expect(Math.abs(head!.y - scrollBox!.y)).toBeLessThan(2);
   await view.locator(".ac-scroll").evaluate((e) => (e.scrollTop = 0));
   await view
-    .getByRole("button", { name: "Details for Vehicle type 0" })
+    .getByRole("button", { name: "Show details for Vehicle type 0" })
     .click();
   await view
     .locator(".ac-row")
@@ -1147,7 +1223,7 @@ test("analysis and context overlays do not move rows and close with Escape, outs
     .getByText("Vehicle type 0", { exact: true })
     .click();
   await expect(
-    view.getByRole("button", { name: "Details for Vehicle type 0" }),
+    view.getByRole("button", { name: "Show details for Vehicle type 0" }),
   ).toHaveAttribute("aria-expanded", "false");
 });
 
@@ -1183,7 +1259,9 @@ test("compact review stays accessible in light and dark themes and at 375px in a
   ).toBeVisible();
   for (const theme of ["light", "dark"]) {
     await menu("theme." + theme);
-    await detached.getByRole("button", { name: "Details for Car" }).click();
+    await detached
+      .getByRole("button", { name: "Show details for Car" })
+      .click();
     await child.screenshot({
       path: `artifacts/testing/add-children-${theme}.png`,
     });
@@ -1193,7 +1271,9 @@ test("compact review stays accessible in light and dark themes and at 375px in a
       .withTags(["wcag2a", "wcag2aa"])
       .analyze();
     expect(audit.violations).toEqual([]);
-    await detached.getByRole("button", { name: "Details for Car" }).click();
+    await detached
+      .getByRole("button", { name: "Hide details for Car" })
+      .click();
   }
   await win.evaluate((w) => w.setContentSize(375, 720));
   await expect(
@@ -1212,7 +1292,7 @@ test("compact review stays accessible in light and dark themes and at 375px in a
     detached.getByRole("button", { name: "New run", exact: true }),
   ).toBeVisible();
   await detached.getByRole("button", { name: "Context", exact: true }).click();
-  const popover = child.getByRole("dialog", {
+  const popover = child.getByRole("group", {
     name: "Context sent to the assistant",
   });
   await expect(popover).toBeVisible();
@@ -1266,7 +1346,21 @@ test("compact review stays accessible in light and dark themes and at 375px in a
     const bounds = await control.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height + 1);
+    expect(
+      bounds!.y + bounds!.height,
+      JSON.stringify({
+        control:
+          (await control.getAttribute("aria-label")) ??
+          (await control.textContent()),
+        bounds,
+        bands: await detached.locator(".ac-band").evaluateAll((es) =>
+          es.map((e) => ({
+            class: e.className,
+            rect: e.getBoundingClientRect().toJSON(),
+          })),
+        ),
+      }),
+    ).toBeLessThanOrEqual(viewport.height + 1);
   }
   await child.screenshot({
     path: "artifacts/testing/add-children-375-zoom.png",

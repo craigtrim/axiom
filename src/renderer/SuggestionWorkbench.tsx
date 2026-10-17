@@ -6,7 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
+import { usePaneLayout } from "./AdaptivePane";
+import { SuggestionIcon } from "./SuggestionIcon";
+import "./suggestions-reference.css";
+
+// Match the Suggestions reference while retaining real runs and edits (craigtrim/axiom#82).
 import type { SuggestionRun } from "../shared/suggestions";
 import { ErrorNotice } from "./ErrorNotice";
 import {
@@ -22,6 +26,7 @@ export type SuggestionNavigation = {
   modes: { id: string; name: string }[];
   changeMode(mode: string): void;
   openAnother(): void;
+  sorts?: Map<string, SuggestionSort>;
 };
 export type SuggestionHistory = Pick<
   SuggestionRun,
@@ -100,10 +105,10 @@ const modeWording = {
   },
 };
 const statusMeta: Record<SuggestionStatus, { word: string; icon: string }> = {
-  available: { word: "Available", icon: "+" },
-  added: { word: "Added", icon: "✓" },
-  exists: { word: "Exists", icon: "⧉" },
-  unavailable: { word: "Unavailable", icon: "!" },
+  available: { word: "Available", icon: "plus" },
+  added: { word: "Added", icon: "check" },
+  exists: { word: "Exists", icon: "dup" },
+  unavailable: { word: "Unavailable", icon: "info" },
 };
 
 export function SuggestionWorkbench<T extends SuggestionItem>(
@@ -113,9 +118,16 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
     p.mode === "synonyms"
       ? { column: "distance", direction: "ascending" }
       : null;
+  const { recovery } = usePaneLayout();
+  const [folded, setFolded] = useState(false);
+  const search = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<SuggestionFilter>("all");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SuggestionSort>(defaultSort);
+  const [sort, setSort] = useState<SuggestionSort>(() =>
+    p.navigation?.sorts?.has(p.mode)
+      ? p.navigation.sorts.get(p.mode)!
+      : defaultSort,
+  );
   const [selected, setSelected] = useState(new Set<string>());
   const [expanded, setExpanded] = useState(new Set<string>());
   const [overlay, setOverlay] = useState<
@@ -126,6 +138,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
     left: 16,
     top: 16,
     maxHeight: 520,
+    width: 620,
   });
   const root = useRef<HTMLElement>(null),
     checkAll = useRef<HTMLInputElement>(null);
@@ -198,10 +211,26 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
     setExpanded(new Set());
     setFilter("all");
     setQuery("");
-    setSort(defaultSort);
     setOverlay(null);
     setToast("");
   }, [p.runId, p.targetIri, p.mode]);
+  useEffect(() => {
+    setSort(
+      p.navigation?.sorts?.has(p.mode)
+        ? p.navigation.sorts.get(p.mode)!
+        : defaultSort,
+    );
+  }, [p.mode]);
+  useLayoutEffect(() => {
+    const host = root.current!;
+    const observer = new host.ownerDocument.defaultView!.ResizeObserver(
+      (entries) => {
+        setFolded(entries[0].contentRect.width <= 900);
+      },
+    );
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     if (entry?.state === "running") requested.current = true;
     if (entry && ["failed", "cancelled", "interrupted"].includes(entry.state))
@@ -223,29 +252,36 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
         visibleSelected.length < visibleAvailable.length;
   }, [visibleSelected.length, visibleAvailable.length]);
   useLayoutEffect(() => {
-    if (!overlay) return;
+    if (!overlay || recovery) return;
     const trigger = overlayTrigger().current!;
     const doc = trigger.ownerDocument,
       win = doc.defaultView!;
     const place = () => {
       const r = trigger.getBoundingClientRect();
-      const width = Math.min(620, win.innerWidth - 32);
-      const below = win.innerHeight - r.bottom - 22;
+      const zoom =
+        root.current!.getBoundingClientRect().width /
+          root.current!.offsetWidth || 1;
+      const viewportWidth = win.innerWidth / zoom,
+        viewportHeight = win.innerHeight / zoom;
+      const right = r.right / zoom,
+        bottom = r.bottom / zoom,
+        top = r.top / zoom;
+      const width = Math.min(620, viewportWidth - 32);
+      const below = viewportHeight - bottom - 22;
       const maxHeight = Math.max(
         80,
-        Math.min(win.innerHeight * 0.6, 520, below >= 180 ? below : r.top - 22),
+        Math.min(viewportHeight * 0.6, 520, below >= 180 ? below : top - 22),
       );
       setPosition({
-        left: Math.max(
-          16,
-          Math.min(r.right - width, win.innerWidth - width - 16),
-        ),
-        top: below >= 180 ? r.bottom + 6 : Math.max(16, r.top - maxHeight - 6),
+        left: Math.max(16, Math.min(right - width, viewportWidth - width - 16)),
+        top: below >= 180 ? bottom + 6 : Math.max(16, top - maxHeight - 6),
         maxHeight,
+        width,
       });
     };
     place();
-    popover.current?.focus();
+    const panel = popover.current!;
+    panel.showPopover();
     const outside = (event: PointerEvent) => {
       const node = event.target as Node;
       if (
@@ -274,8 +310,10 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
       doc.removeEventListener("keydown", key, true);
       win.removeEventListener("resize", place);
       observer.disconnect();
+      if (panel.isConnected && panel.matches(":popover-open"))
+        panel.hidePopover();
     };
-  }, [overlay]);
+  }, [overlay, recovery]);
 
   const toggleRow = (key: string) =>
     setExpanded((previous) => {
@@ -285,13 +323,16 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
       return next;
     });
   const changeSort = (column: NonNullable<SuggestionSort>["column"]) =>
-    setSort((previous) =>
-      previous?.column !== column
-        ? { column, direction: "ascending" }
-        : previous.direction === "ascending"
-          ? { column, direction: "descending" }
-          : defaultSort,
-    );
+    setSort((previous) => {
+      const next: SuggestionSort =
+        previous?.column !== column
+          ? { column, direction: "ascending" }
+          : previous.direction === "ascending"
+            ? { column, direction: "descending" }
+            : null;
+      p.navigation?.sorts?.set(p.mode, next);
+      return next;
+    });
   async function add(indices: number[]) {
     const run = p.runId;
     const count = await p.apply(indices);
@@ -313,7 +354,9 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
   ) => (
     <th
       scope="col"
-      aria-sort={sort?.column === column ? sort.direction : "none"}
+      aria-sort={
+        sort?.column === column ? sort.direction : sort ? "none" : undefined
+      }
       className={
         column === "distance"
           ? "ac-distance-col"
@@ -346,18 +389,72 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
             <span className="ac-distance-short">Edits</span>
           </>
         ) : (
-          text
+          text + " "
         )}
-        <span aria-hidden="true">
-          {sort?.column === column
-            ? sort.direction === "ascending"
-              ? "↑"
-              : "↓"
-            : "↕"}
-        </span>
+        <SuggestionIcon name="sort" />
       </button>
     </th>
   );
+  function panelButton(
+    kind: "analysis" | "context" | "prompt",
+    label: string,
+    disabled: boolean,
+  ) {
+    const open = overlay === kind;
+    return (
+      <div className="ac-pop-host">
+        <button
+          className="ac-btn ac-pop-trigger"
+          ref={
+            kind === "analysis"
+              ? analysis
+              : kind === "context"
+                ? contextButton
+                : promptButton
+          }
+          aria-expanded={open}
+          aria-controls={id + "-" + kind}
+          disabled={disabled}
+          onClick={() => setOverlay(open ? null : kind)}
+        >
+          <SuggestionIcon name="chev" />
+          {label}
+        </button>
+        {open && (
+          <div
+            ref={popover}
+            id={id + "-" + kind}
+            popover="manual"
+            className="ac-popover"
+            role="group"
+            aria-label={kind === "analysis" ? "Run analysis" : overlayLabel}
+            style={position}
+          >
+            <p className="ac-pop-title">
+              {kind === "context" ? "Context sent" : overlayLabel}
+            </p>
+            <div className="ac-pop-body">
+              {kind === "analysis" ? (
+                <>
+                  {summary
+                    .split(/\n\s*\n/)
+                    .filter(Boolean)
+                    .map((paragraph, i) => (
+                      <p key={i}>{paragraph}</p>
+                    ))}
+                  {p.analysisContent}
+                </>
+              ) : kind === "prompt" ? (
+                p.prompt
+              ) : (
+                p.context
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <section
       ref={root}
@@ -373,7 +470,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
             disabled={p.applying || targetIndex <= 0}
             onClick={() => navigate(-1)}
           >
-            ‹
+            <SuggestionIcon name="chev" reverse />
           </button>
           <span aria-live="polite">
             {Math.max(0, targetIndex + 1)} / {targets.length}
@@ -388,69 +485,91 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
             }
             onClick={() => navigate(1)}
           >
-            ›
+            <SuggestionIcon name="chev" />
           </button>
         </div>
-        <label className="ac-kind">
-          <span className="ac-label">Suggest</span>
-          <select
-            aria-label="Suggestion type"
-            value={p.mode}
-            onChange={(e) => p.navigation?.changeMode(e.target.value)}
-          >
-            {(p.navigation?.modes ?? [{ id: p.mode, name: wording.label }]).map(
-              (mode) => (
-                <option key={mode.id} value={mode.id}>
-                  {mode.name}
-                </option>
-              ),
-            )}
-          </select>
+        <label className="ac-label" htmlFor={id + "-kind"}>
+          Suggest
         </label>
-        <label className="ac-assistant">
-          <span className="ac-label">Assistant</span>
-          <select
-            aria-label="Taxonomy assistant"
-            value={p.provider}
-            disabled={p.activity || p.applying}
-            onChange={(e) =>
-              p.setProvider(e.target.value as "claude" | "codex")
-            }
-          >
-            <option value="claude">Claude</option>
-            <option value="codex">Codex</option>
-          </select>
-        </label>
-        <label className="ac-history">
-          <span className="ac-label">Run</span>
-          <select
-            aria-label="Run history"
-            value={nodeHistory.some((h) => h.id === p.runId) ? p.runId : ""}
-            disabled={p.loading || p.applying}
-            onChange={(e) => p.selectRun(e.target.value)}
-          >
+        <select
+          id={id + "-kind"}
+          className="ac-ctl ac-kind"
+          value={p.mode}
+          onChange={(e) => p.navigation?.changeMode(e.target.value)}
+        >
+          {(p.navigation?.modes ?? [{ id: p.mode, name: wording.label }]).map(
+            (mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.name}
+              </option>
+            ),
+          )}
+        </select>
+
+        <select
+          aria-label="Assistant"
+          className="ac-ctl ac-assistant"
+          value={p.provider}
+          disabled={p.activity || p.applying}
+          onChange={(e) => p.setProvider(e.target.value as "claude" | "codex")}
+        >
+          <option value="claude">Claude</option>
+          <option value="codex">Codex</option>
+        </select>
+        <div className="ac-fill" />
+        <select
+          aria-label="Run history"
+          className="ac-ctl ac-history"
+          value={nodeHistory.some((h) => h.id === p.runId) ? p.runId : ""}
+          disabled={p.loading || p.applying}
+          onChange={(e) => p.selectRun(e.target.value)}
+        >
+          {!nodeHistory.some((h) => h.id === p.runId) && (
             <option value="">
               {p.loading ? "Loading history…" : "New run"}
             </option>
-            {nodeHistory.map((h) => (
-              <option key={h.id} value={h.id}>
-                {new Date(h.startedAt).toLocaleString()} ·{" "}
-                {h.provider === "claude"
-                  ? "Claude"
-                  : h.provider === "codex"
-                    ? "Codex"
-                    : "Local matching"}{" "}
-                ·{" "}
-                {h.state === "completed"
-                  ? h.count + " suggestions · " + h.applied + " added"
-                  : h.state}
-              </option>
-            ))}
-          </select>
-        </label>
+          )}
+          {nodeHistory.map((h) => (
+            <option key={h.id} value={h.id}>
+              {new Date(h.startedAt).toLocaleString()} ·{" "}
+              {h.provider === "claude"
+                ? "Claude"
+                : h.provider === "codex"
+                  ? "Codex"
+                  : "Local matching"}{" "}
+              ·{" "}
+              {h.state === "completed"
+                ? h.count + " suggestions, " + h.applied + " added"
+                : h.state}
+            </option>
+          ))}
+        </select>
+        {entry?.cache?.hit && (
+          <button
+            className="ac-btn"
+            disabled={disabled || p.activity}
+            onClick={() => {
+              requested.current = true;
+              void p.generate(true);
+            }}
+          >
+            Run again
+          </button>
+        )}
+        <button
+          className="ac-btn ac-primary ac-new"
+          disabled={p.loading || p.activity || p.applying || !p.targetExists}
+          onClick={() => {
+            requested.current = true;
+            void p.generate();
+          }}
+        >
+          <SuggestionIcon name="run" />
+          New run
+        </button>
         {p.navigation && (
           <button
-            className="ac-another"
+            className="ac-iconbtn ac-another"
             aria-label="Open another view"
             title="Open another view"
             onClick={p.navigation.openAnother}
@@ -458,78 +577,26 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
             ⧉
           </button>
         )}
-        <button
-          className="primary ac-new"
-          disabled={p.loading || p.activity || p.applying || !p.targetExists}
-          onClick={() => {
-            requested.current = true;
-            void p.generate();
-          }}
-        >
-          New run
-        </button>
-        {entry?.state === "completed" && (
-          <button
-            disabled={disabled || p.activity}
-            onClick={() => void p.generate(true)}
-          >
-            Run again
-          </button>
-        )}
       </div>
       <div className="ac-run ac-band">
-        <h2 title={p.targetIri}>
-          {wording.heading} <span>{p.name}</span>
-        </h2>
+        <h1 title={p.targetIri}>
+          {wording.heading + " "}
+          <span>{p.name}</span>
+        </h1>
         <p className="ac-peek" title={summary}>
-          {summary}
+          {summary.split(/\n\s*\n/)[0]}
         </p>
         {entry?.cache?.hit && (
-          <p role="status">
-            Cached result from{" "}
-            {new Date(entry.cache.completedAt).toLocaleString()} ·{" "}
-            {entry.cache.model ?? "Model not reported"}.
+          <p role="status" className="ac-cached">
+            {`Cached result from ${new Date(entry.cache.completedAt).toLocaleString()} · ${entry.cache.model ?? "Model not reported"}.`}
           </p>
         )}
-        <div className="ac-overlays">
-          {p.prompt && (
-            <button
-              ref={promptButton}
-              aria-expanded={overlay === "prompt"}
-              aria-controls={overlay === "prompt" ? id + "-overlay" : undefined}
-              onClick={() => setOverlay(overlay === "prompt" ? null : "prompt")}
-            >
-              Prompt
-            </button>
-          )}
-          <button
-            ref={analysis}
-            aria-expanded={overlay === "analysis"}
-            aria-controls={overlay === "analysis" ? id + "-overlay" : undefined}
-            disabled={!summary}
-            onClick={() =>
-              setOverlay(overlay === "analysis" ? null : "analysis")
-            }
-          >
-            Analysis
-          </button>
-          <button
-            ref={contextButton}
-            aria-expanded={overlay === "context"}
-            aria-controls={overlay === "context" ? id + "-overlay" : undefined}
-            disabled={!p.context}
-            onClick={() => setOverlay(overlay === "context" ? null : "context")}
-          >
-            Context
-          </button>
-        </div>
+        {p.prompt && panelButton("prompt", "Prompt", false)}
+        {panelButton("analysis", "Analysis", !summary)}
+        {panelButton("context", "Context", !p.context)}
       </div>
       <div className="ac-tools ac-band">
-        <div
-          className="ac-filters"
-          role="group"
-          aria-label="Suggestion status filters"
-        >
+        <div className="ac-filters" role="group" aria-label="Filter by status">
           {(
             [
               ["all", "All"],
@@ -549,17 +616,22 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
             </button>
           ))}
         </div>
-        <input
-          type="search"
-          className="ac-search"
-          aria-label={
-            "Filter suggestions by label or " +
-            wording.description.toLowerCase()
-          }
-          placeholder="Filter suggestions"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="ac-fill" />
+        <div className="ac-search">
+          <SuggestionIcon name="search" />
+          <input
+            ref={search}
+            type="search"
+            className="ac-ctl"
+            aria-label={
+              "Filter suggestions by label or " +
+              wording.description.toLowerCase()
+            }
+            placeholder="Filter suggestions"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
       </div>
       {p.progress}
       {p.waiting && (
@@ -586,10 +658,14 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
       )}
       <div
         className="ac-scroll"
-        onScroll={() => setOverlay(null)}
         aria-busy={p.loading || p.applying || entry?.state === "running"}
       >
-        <table className="ac-table" aria-label={wording.table}>
+        <table
+          className="ac-table"
+          data-mode={p.mode}
+          aria-label={wording.table}
+          hidden={!visible.length}
+        >
           <colgroup>
             <col className="ac-check-col" />
             <col className="ac-name-col" />
@@ -605,6 +681,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                 <input
                   ref={checkAll}
                   type="checkbox"
+                  className="ac-check"
                   aria-label="Select all available suggestions"
                   disabled={disabled || !visibleAvailable.length}
                   checked={
@@ -662,6 +739,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                   <td>
                     <input
                       type="checkbox"
+                      className="ac-check"
                       aria-label={
                         item.status === "available"
                           ? "Select " + item.label
@@ -713,7 +791,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                       aria-label={meta.word}
                       title={meta.word}
                     >
-                      <span aria-hidden="true">{meta.icon}</span>
+                      <SuggestionIcon name={meta.icon} />
                       <span className="ac-status-word" aria-hidden="true">
                         {meta.word}
                       </span>
@@ -722,18 +800,26 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                   <td>
                     <button
                       className="ac-expand"
-                      aria-label={"Details for " + item.label}
+                      aria-label={
+                        (isOpen ? "Hide" : "Show") +
+                        " details for " +
+                        item.label
+                      }
                       aria-expanded={isOpen}
                       aria-controls={isOpen ? detailId : undefined}
                       onClick={() => toggleRow(item.id)}
                     >
-                      <span aria-hidden="true">›</span>
+                      <SuggestionIcon name="chev" />
                     </button>
                   </td>
                 </tr>
                 {isOpen && (
                   <tr className="ac-detail-row">
-                    <td colSpan={p.mode === "synonyms" ? 7 : 5}>
+                    <td
+                      colSpan={
+                        (p.mode === "synonyms" ? 7 : 5) - (folded ? 1 : 0)
+                      }
+                    >
                       <div className="ac-detail" id={detailId}>
                         {item.reason && (
                           <div>
@@ -741,31 +827,31 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                               {item.reasonTitle ??
                                 (legacyParents
                                   ? "Why this parent matched"
-                                  : `Why ${assistant} proposed this`)}
+                                  : `Why ${assistant} proposed these`)}
                             </h3>
                             <p>{item.reason}</p>
                           </div>
                         )}
-                        {p.mode !== "synonyms" && (
-                          <div>
-                            <h3>Definition</h3>
-                            <p>{item.definition}</p>
-                          </div>
-                        )}
+                        <hr className="ac-rule" />
                         {p.renderDetails(item)}
                         {item.status !== "available" && (
                           <p className={"ac-status-note ac-" + item.status}>
-                            {item.status === "added"
-                              ? wording.added
-                              : item.issue}
+                            <SuggestionIcon name={meta.icon} />
+                            <span>
+                              {item.status === "added"
+                                ? wording.added
+                                : item.issue}
+                            </span>
                           </p>
                         )}
                         {item.status === "available" && (
                           <div>
                             <button
+                              className="ac-btn ac-primary"
                               disabled={disabled}
                               onClick={() => void add([item.index])}
                             >
+                              <SuggestionIcon name="plus" />
                               Add this {wording.singular}
                             </button>
                           </div>
@@ -780,19 +866,22 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
         </table>
         {!visible.length && (
           <div className="ac-empty" role="status">
+            <SuggestionIcon name="empty" />
             {entry?.state === "completed" ? (
               items.length ? (
                 <>
-                  <strong>No suggestions match this filter</strong>
+                  <h2>No suggestions match this filter</h2>
                   <p>
                     {query.trim()
                       ? `Nothing in this run matches "${query.trim()}" under the current status filter.`
                       : "Nothing in this run has that status."}
                   </p>
                   <button
+                    className="ac-btn"
                     onClick={() => {
                       setQuery("");
                       setFilter("all");
+                      search.current?.focus();
                     }}
                   >
                     Clear filter and search
@@ -800,7 +889,7 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
                 </>
               ) : (
                 <>
-                  <strong>{wording.empty}</strong>
+                  <h2>{wording.empty}</h2>
                   <p>No changes were made.</p>
                 </>
               )
@@ -820,21 +909,33 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
       </div>
       <footer className="ac-footer ac-band">
         <span className="ac-selection" role="status">
-          {selectedItems.length
-            ? `${selectedItems.length} of ${available.length} available selected`
-            : "No suggestions selected"}
+          {selectedItems.length ? (
+            <>
+              <b>{selectedItems.length}</b> of <b>{available.length}</b>{" "}
+              available selected
+            </>
+          ) : (
+            "No suggestions selected"
+          )}
         </span>
-        <span className="ac-toast" role="status">
-          {toast}
+        <span>
+          {toast && (
+            <span className="ac-toast" role="status">
+              <SuggestionIcon name="check" />
+              {toast}
+            </span>
+          )}
         </span>
+        <div className="ac-fill" />
         <button
+          className="ac-btn"
           disabled={!selectedItems.length || p.applying}
           onClick={() => setSelected(new Set())}
         >
           Clear selection
         </button>
         <button
-          className="primary"
+          className="ac-btn ac-primary ac-btn-lg"
           disabled={disabled || !selectedItems.length}
           onClick={() => void add(selectedItems.map((item) => item.index))}
         >
@@ -845,55 +946,6 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
               : `Add selected ${wording.plural}`}
         </button>
       </footer>
-      {overlay &&
-        root.current &&
-        createPortal(
-          <div
-            ref={popover}
-            tabIndex={-1}
-            id={id + "-overlay"}
-            className="ac-popover"
-            role="dialog"
-            aria-label={overlayLabel}
-            style={position}
-          >
-            <header>
-              <h3>{overlayLabel}</h3>
-              <button
-                aria-label={
-                  "Close " +
-                  (overlay === "analysis"
-                    ? "Analysis"
-                    : overlay === "prompt"
-                      ? "Prompt"
-                      : "Context")
-                }
-                onClick={() => {
-                  setOverlay(null);
-                  overlayTrigger().current?.focus();
-                }}
-              >
-                ×
-              </button>
-            </header>
-            {overlay === "analysis" ? (
-              <>
-                {summary
-                  .split(/\n\s*\n/)
-                  .filter(Boolean)
-                  .map((paragraph, i) => (
-                    <p key={i}>{paragraph}</p>
-                  ))}
-                {p.analysisContent}
-              </>
-            ) : overlay === "prompt" ? (
-              p.prompt
-            ) : (
-              p.context
-            )}
-          </div>,
-          root.current.ownerDocument.body,
-        )}
     </section>
   );
 }
