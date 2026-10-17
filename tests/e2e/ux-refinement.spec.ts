@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -139,19 +140,22 @@ test("Details shows compact statements and preserves language, datatype, and edi
     "Predicate",
     "Value",
   ]);
-  await expect(table.locator("tbody tr")).toHaveCount(8);
+  await expect(table.locator("tbody tr")).toHaveCount(6);
   const seeAlso = table.locator("tbody tr").filter({
     has: page.locator(
       'select[title="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
     ),
   });
-  await expect(seeAlso).toHaveCount(3);
+  await expect(seeAlso).toHaveCount(1);
+  await expect(
+    seeAlso.getByRole("combobox", { name: /rdfs:seeAlso value/ }),
+  ).toHaveCount(3);
   for (const row of await seeAlso.all()) await expect(row).toBeInViewport();
   await details()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Laser process");
   await details()
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .blur();
   await expect
     .poll(
@@ -167,16 +171,26 @@ test("Details shows compact statements and preserves language, datatype, and edi
       (t: any) => t.predicate === base + "score" && t.object.datatype,
     ),
   ).toBe(true);
-  await details().getByRole("button", { name: "Add row", exact: true }).click();
-  await table
-    .getByRole("combobox", { name: "Predicate 9", exact: true })
-    .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");
-  await table
-    .getByRole("combobox", { name: "Value 9", exact: true })
-    .fill("https://example.test/four");
-  await page.locator(":focus").blur();
-  await table.getByRole("combobox", { name: "Value 9", exact: true }).blur();
-  await expect(table.locator("tbody tr")).toHaveCount(9);
+  await seeAlso
+    .getByRole("button", { name: "+ Add value", exact: true })
+    .click();
+  const added = seeAlso.getByRole("combobox", {
+    name: "rdfs:seeAlso value 4",
+    exact: true,
+  });
+  await expect(added).toBeFocused();
+  await added.fill("https://example.test/four");
+  await added.press("Tab");
+  await expect(table.locator("tbody tr")).toHaveCount(6);
+  await expect
+    .poll(async () => {
+      const doc = (await request("entityDocument", { iri: target })) as any;
+      return doc.statements.filter(
+        (t: any) =>
+          t.predicate === "http://www.w3.org/2000/01/rdf-schema#seeAlso",
+      ).length;
+    })
+    .toBe(4);
   await page.screenshot({ path: "artifacts/testing/ux-compact-details.png" });
 });
 test("Find in taxonomy clears filters, reveals the row, and retains graph focus", async () => {

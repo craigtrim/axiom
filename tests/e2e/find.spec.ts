@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -654,6 +655,7 @@ for (const count of [0, 1, 2]) {
       form.getByRole("button", {
         name: "Remove this rdfs:subClassOf value",
         exact: true,
+        includeHidden: true,
       }),
     ).toHaveCount(count);
     const iri = extendBase + "Sibling";
@@ -682,7 +684,9 @@ for (const count of [0, 1, 2]) {
     const relations = details.locator(
       `tr[data-predicate="${NS.rdfs}subClassOf"]`,
     );
-    const parentFields = relations.getByRole("combobox", { name: /^Value / });
+    const parentFields = relations.getByRole("combobox", {
+      name: /^rdfs:subClassOf value \d+$/,
+    });
     await expect(parentFields).toHaveCount(count || 1);
     const values = await parentFields.evaluateAll((inputs) =>
       inputs.map((input) => (input as HTMLInputElement).value).sort(),
@@ -729,6 +733,10 @@ test("#55 Escape and Back to results preserve separate Sibling and Subclass draf
   const context = pane().locator(".extend-context");
   await page.getByRole("menuitem", { name: /^Sibling/ }).click();
   await label.fill("Retained sibling");
+  await pane()
+    .locator(`tr[data-predicate="${NS.rdfs}subClassOf"]`)
+    .getByRole("combobox", { name: "Parent classes", exact: true })
+    .focus();
   await pane()
     .getByRole("button", {
       name: "Remove this rdfs:subClassOf value",
@@ -987,7 +995,7 @@ test("Find adds its search text as a synonym without clearing results and refres
   const details = page.locator('[data-panel="details"]');
   const values = details
     .locator('tr[data-predicate="' + NS.rdfs + 'seeAlso"]')
-    .getByRole("combobox", { name: /Value/ });
+    .getByRole("combobox", { name: / value \d+$/ });
   await expect(values).toHaveValue("Developmental Psyc");
   await menu("view.find");
   await expect(p.locator(".find-results tbody tr")).toHaveCount(2);

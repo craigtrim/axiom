@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -145,7 +146,7 @@ test.afterEach(async ({}, info) => {
 });
 
 test("shared values stay editable; warnings explain the match, remain accessible, and never block saving or Undo", async () => {
-  const fields = row().getByRole("combobox", { name: /Value/ });
+  const fields = row().getByRole("combobox", { name: / value \d+$/ });
   await warning().click();
   await expect(popup()).toContainText("Second course");
   await expect(popup()).toContainText(base + "B");
@@ -201,11 +202,14 @@ test("instance dismissal is scoped and persisted; global opt-out survives restar
   await select("A");
   await expect(warning()).toHaveCount(0);
   await row()
-    .getByRole("combobox", { name: /Value/ })
+    .getByRole("combobox", { name: / value \d+$/ })
     .first()
     .fill("Another shared value");
   await expect(warning()).toHaveCount(1);
-  await row().getByRole("combobox", { name: /Value/ }).first().press("Escape");
+  await row()
+    .getByRole("combobox", { name: / value \d+$/ })
+    .first()
+    .press("Escape");
   await expect(warning()).toHaveCount(0);
   await app.evaluate(
     ({ dialog }, file) => {
@@ -397,7 +401,9 @@ test("warning popup fits a narrow detached pane at 150% zoom and keeps keyboard 
 
 test("late duplicate lookups cannot decorate a newer value and failures do not prevent a save", async () => {
   await holdRequests(app, ["seeAlsoMatches"]);
-  const field = row().getByRole("combobox", { name: /Value/ }).last();
+  const field = row()
+    .getByRole("combobox", { name: / value \d+$/ })
+    .last();
   await field.fill("Shared");
   await waitForHeld(app);
   await field.fill("Entirely different");

@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -362,7 +363,9 @@ test("an unfinished statement row survives closing without becoming an invalid o
   const before = await state();
   await details.getByRole("button", { name: "+ Add row", exact: true }).click();
   await expect(
-    details.getByRole("combobox", { name: /^Predicate / }).last(),
+    details
+      .getByRole("combobox", { name: "Choose predicate", exact: true })
+      .last(),
   ).toHaveValue("");
   await close();
   expect(
@@ -373,7 +376,7 @@ test("an unfinished statement row survives closing without becoming an invalid o
   await expect(
     page
       .getByRole("region", { name: "Details", exact: true })
-      .getByRole("combobox", { name: /^Predicate / })
+      .getByRole("combobox", { name: "Choose predicate", exact: true })
       .last(),
   ).toHaveValue("");
 });
