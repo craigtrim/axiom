@@ -74,12 +74,14 @@ export function AdaptivePane({
   name,
   paneId,
   visual = false,
+  shared = false,
   maximize,
 }: {
   children: ReactNode;
   name: string;
   paneId: string;
   visual?: boolean;
+  shared?: boolean;
   maximize: () => void;
 }) {
   const assistantKind = paneAssistant(paneId);
@@ -171,7 +173,8 @@ export function AdaptivePane({
     <PaneContext.Provider value={layout}>
       <div
         ref={root}
-        className="adaptive-pane"
+        // Views opt into the shared components independently (craigtrim/axiom#81).
+        className={"adaptive-pane" + (shared ? " shared-layer" : "")}
         style={visual ? undefined : { zoom }}
         data-pane-zoom={visual ? undefined : zoom}
         data-pane-layout={layout.mode}
@@ -202,7 +205,11 @@ export function AdaptivePane({
           {own ? (
             <own.Body
               maximize={
-                <button ref={recover} onClick={maximize}>
+                <button
+                  ref={recover}
+                  className={shared ? "btn primary" : undefined}
+                  onClick={maximize}
+                >
                   Maximize pane
                 </button>
               }
@@ -210,10 +217,15 @@ export function AdaptivePane({
           ) : (
             <>
               <strong>{name}</strong>
-              <button ref={recover} onClick={maximize}>
+              {shared && <span className="why">Your work is retained.</span>}
+              <button
+                ref={recover}
+                className={shared ? "btn primary" : undefined}
+                onClick={maximize}
+              >
                 Maximize pane
               </button>
-              <span className="muted">Your work is retained.</span>
+              {!shared && <span className="muted">Your work is retained.</span>}
             </>
           )}
         </div>
