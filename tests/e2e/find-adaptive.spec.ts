@@ -201,6 +201,10 @@ test.afterEach(async ({}, info) => {
 });
 
 test("control homes fit at 600 by 400 and More owns all four page sizes", async () => {
+  // Approach the entry threshold from Expanded; a pane already compact
+  // must first cross the 616/416 exit thresholds (#83).
+  await size(800, 600);
+  await expect(host()).toHaveAttribute("data-pane-layout", "expanded");
   await size(600, 400);
   await expect(host()).toHaveAttribute("data-pane-layout", "expanded");
   await expect(rows()).toHaveCount(0);
