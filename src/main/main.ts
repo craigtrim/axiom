@@ -1352,7 +1352,8 @@ app.whenReady().then(async () => {
         }
       : {}),
     icon: path.join(__dirname, "../assets/axiom.ico"),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#202020" : "#f3f3f3",
+    // Match the shared ground before the renderer paints (craigtrim/axiom#81).
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0d1117" : "#ffffff",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       nodeIntegration: false,
