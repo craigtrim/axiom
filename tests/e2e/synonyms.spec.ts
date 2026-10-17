@@ -1,3 +1,4 @@
+// Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
   test,
   expect,
@@ -102,7 +103,10 @@ async function suggest(name: string, action: string) {
     .click();
   await expect(view()).toBeVisible();
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue(
     action === "Add Children"
       ? "children"
@@ -173,8 +177,11 @@ test.afterEach(async ({}, info) => {
 test("cached synonym review survives restart and Run again explicitly bypasses it", async () => {
   await suggest("Basic English", "Find Synonyms");
   await expect(
+    view().getByRole("button", { name: "New run", exact: true }),
+  ).toBeEnabled();
+  await expect(
     view().getByRole("button", { name: "Run again", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   const first = await page.evaluate(
     async () => (await window.axiom.suggestions.history())[0],
   );
@@ -231,7 +238,7 @@ test("finds synonyms from hierarchy context, reviews literal edits, leaves synon
   const table = view().getByRole("table", { name: "Suggested synonyms" });
   const box = await table.boundingBox();
   await view().getByRole("button", { name: "Context", exact: true }).click();
-  const context = page.getByRole("dialog", {
+  const context = page.getByRole("group", {
     name: "Context sent to the assistant",
   });
   await context.getByText("Exact prompt", { exact: true }).click();
@@ -241,8 +248,8 @@ test("finds synonyms from hierarchy context, reviews literal edits, leaves synon
   expect(await table.boundingBox()).toEqual(box);
   await page.keyboard.press("Escape");
   await view().getByRole("button", { name: "Analysis", exact: true }).click();
-  const analysis = page.getByRole("dialog", {
-    name: "Why Codex proposed these",
+  const analysis = page.getByRole("group", {
+    name: "Run analysis",
   });
   await expect(analysis).toContainText("Choose the synonyms you want to add.");
   await page.keyboard.press("Escape");
@@ -309,13 +316,16 @@ test("retains synonym runs, independent views and mode through closing and reope
     async () => (await window.axiom.suggestions.history())[0],
   );
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("parents");
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("parents");
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("synonyms");
   await expect(
     view().getByRole("checkbox", {
@@ -341,11 +351,14 @@ test("retains synonym runs, independent views and mode through closing and reope
   const other = page.locator('.suggestions-view[data-panel^="taxonomy:"]');
   await expect(other).toBeVisible();
   await other
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("parents");
   await menu("view.taxonomy");
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("synonyms");
   await expect
     .poll(
@@ -359,7 +372,10 @@ test("retains synonym runs, independent views and mode through closing and reope
   await launch();
   await menu("view.taxonomy");
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("synonyms");
   await expect(
     view().getByRole("checkbox", {
@@ -546,12 +562,14 @@ test("restores formerly rejected Systems Administration synonyms and sorts dista
   await expect(
     view().getByRole("button", { name: "Available 3", exact: true }),
   ).toBeVisible();
-  await expect(header).toHaveAttribute("aria-sort", "ascending");
+  await expect(header).toHaveAttribute("aria-sort", "descending");
   expect(await view().locator(".ac-distance-cell").allTextContents()).toEqual([
-    "1",
-    "9",
     "10",
+    "9",
+    "1",
   ]);
+  // Third click restores original order; the next begins ascending again.
+  await sort.click();
   await sort.click();
   await view()
     .getByRole("combobox", { name: "Run history" })
@@ -708,7 +726,10 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
     .click();
   await page.getByRole("menuitem", { name: "Synonyms", exact: true }).click();
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("synonyms");
   await expect(
     view().getByRole("checkbox", {
@@ -757,9 +778,9 @@ test("reuses active synonyms and starts a queued parent search without a second 
   );
   await menu("view.taxonomy");
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("synonyms");
-  await expect(view().getByRole("heading", { level: 2 })).toHaveText(
+  await expect(view().getByRole("heading", { level: 1 })).toHaveText(
     "Find synonyms for Alpha Beta Gamma",
   );
   await expect(
@@ -796,7 +817,7 @@ for (const mode of ["parents", "synonyms"] as const) {
       parents ? "Add Parents" : "Find Synonyms",
     );
     await view()
-      .getByRole("button", { name: "Details for " + name, exact: true })
+      .getByRole("button", { name: "Show details for " + name, exact: true })
       .click();
     await view()
       .getByRole("button", {
@@ -811,7 +832,10 @@ for (const mode of ["parents", "synonyms"] as const) {
       }),
     ).toBeDisabled();
     await expect(
-      view().getByRole("button", { name: "Details for " + name, exact: true }),
+      view().getByRole("button", {
+        name: "Hide details for " + name,
+        exact: true,
+      }),
     ).toHaveAttribute("aria-expanded", "true");
     const waiting = app.waitForEvent("window");
     await menu("pane.detach");
@@ -855,7 +879,9 @@ for (const mode of ["parents", "synonyms"] as const) {
     await detached
       .getByRole("button", { name: "Context", exact: true })
       .click();
-    const popover = child.getByRole("dialog");
+    const popover = child.getByRole("group", {
+      name: "Context sent to the assistant",
+    });
     await expect(popover).toBeVisible();
     const box = await popover.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -876,11 +902,11 @@ test("assistant parent suggestions expose the exact prompt and can add parents w
     view().getByRole("checkbox", { name: "Select Sociology", exact: true }),
   ).toBeVisible();
   await expect(
-    view().getByRole("combobox", { name: "Taxonomy assistant" }),
+    view().getByRole("combobox", { name: "Assistant" }),
   ).toBeEnabled();
-  await expect(
-    view().getByRole("combobox", { name: "Taxonomy assistant" }),
-  ).toHaveValue("codex");
+  await expect(view().getByRole("combobox", { name: "Assistant" })).toHaveValue(
+    "codex",
+  );
   const [run] = await page.evaluate(() => window.axiom.suggestions.history());
   expect(run.provider).toBe("codex");
   expect(run.prompt).toContain("Complete class catalog");
@@ -895,7 +921,7 @@ test("assistant parent suggestions expose the exact prompt and can add parents w
   expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
     run.prompt,
   );
-  await page.getByRole("button", { name: "Close Prompt", exact: true }).click();
+  await page.keyboard.press("Escape");
   await view()
     .getByRole("checkbox", { name: "Select Sociology", exact: true })
     .check();
@@ -926,10 +952,13 @@ test("assistant parent suggestions expose the exact prompt and can add parents w
   await expect(
     page.getByRole("textbox", { name: "Parent prompt" }),
   ).toHaveValue(run.prompt);
-  await page.getByRole("button", { name: "Close Prompt", exact: true }).click();
-  await view().getByRole("combobox", { name: "Run history" }).selectOption("");
-  await view().getByRole("button", { name: "Prompt", exact: true }).click();
+  await page.keyboard.press("Escape");
   await expect(
-    page.getByRole("textbox", { name: "Parent prompt" }),
-  ).toContainText("Suggest parents for");
+    view().getByRole("button", { name: "Prompt", exact: true }),
+  ).toBeFocused();
+  await expect(
+    view()
+      .getByRole("combobox", { name: "Run history" })
+      .locator('option[value=""]'),
+  ).toHaveCount(0);
 });

@@ -69,6 +69,8 @@ export class TaxonomyAssistantService {
   private current: TaxonomyStatus = { running: false };
   private cancelled = false;
   private applying = false;
+  // Other targets may be reviewed while a request runs (craigtrim/axiom#82, #68).
+  private runningTarget?: Pick<TaxonomyRequest, "iri" | "mode">;
   private historyStore: TaxonomyHistory;
   private session = randomUUID();
   constructor(
@@ -77,6 +79,7 @@ export class TaxonomyAssistantService {
     private validate: (
       context: TaxonomyContext,
       suggestions: TaxonomySuggestion[],
+      checkVersion?: boolean,
     ) => Promise<(string | null)[]>,
     private insert: (
       context: TaxonomyContext,
@@ -133,6 +136,7 @@ export class TaxonomyAssistantService {
       startedAt: Date.now(),
       mode: input.mode,
     };
+    this.runningTarget = { iri: input.iri, mode: input.mode };
     this.cancelled = false;
     let entry: TaxonomyHistoryEntry | undefined;
     try {
@@ -210,7 +214,14 @@ export class TaxonomyAssistantService {
       auditStep("Parsing taxonomy proposal");
       const result = parseTaxonomyReply(completion.reply, context);
       auditStep("Validating taxonomy suggestions");
-      const issues = await this.validate(context, result.suggestions);
+      // A different completed target may have been added while this reply ran.
+      // Keep the recorded prompt, but validate against the current ontology (#82, #68).
+      const currentContext = await this.reviewContext(entry);
+      const issues = await this.validate(
+        currentContext,
+        result.suggestions,
+        false,
+      );
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       if (!hit) await this.cache.put(key, completion, () => this.cancelled);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
@@ -319,7 +330,7 @@ export class TaxonomyAssistantService {
     return { entry, blocked, drift };
   }
   async apply(id: string, indices: number[]) {
-    if (this.current.running || this.applying)
+    if (this.applying)
       throw Error("Wait for the current suggestions to finish.");
     this.applying = true;
     try {
@@ -330,6 +341,12 @@ export class TaxonomyAssistantService {
         throw Error(
           "These suggestions are no longer available. Start a new run.",
         );
+      if (
+        this.current.running &&
+        this.runningTarget?.iri === entry.context.selected.iri &&
+        this.runningTarget.mode === entry.context.mode
+      )
+        throw Error("Wait for the suggestions for this class to finish.");
       if (
         !Array.isArray(indices) ||
         !indices.length ||

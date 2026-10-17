@@ -68,10 +68,11 @@ The search field, Search and Refresh controls remain above the results scroller.
 
 ## Coverage across the current views
 
-App.tsx declares eighteen dockable component types. The per-view policies below cover twelve of them; Taxonomy assistance, Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
+App.tsx declares eighteen dockable component types. The per-view policies below cover thirteen of them; Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
+| Suggestions | Command bar, run bar and status filters above a five column table and the action bar; Analysis and Context float | Definition folds under the label at 900; Status words withdraw at 680; bands wrap rather than overflow | Bands stay; the table takes the remaining height | Target, run, chip, search, sort, selection, open rows, open panel and an active run |
 | Touchpoints | Pinned identity, query and ranked candidates | Target IRI withdraws; relationship column narrows | Header, query and footer remain around results | Pinned subject, query, candidates, choices and explicit Apply |
 | Inspector | Header save state, identity, grouped statements and usage | IRI withdraws; predicate column narrows to 118 px | Usage withdraws; header save state and statement table remain | Subject draft, validation, RDF metadata and Apply changes |
 | Details | Vertical ancestry, statement table, content-sized source and IRI/revision footer | 128 px predicate column, uncapped values/source, More hidden | Source and footer withdraw; draft state/actions stay in header | Draft text, validation, language, datatype and graph identifiers |
@@ -87,9 +88,13 @@ App.tsx declares eighteen dockable component types. The per-view policies below 
 
 For grids, a smaller width should not silently remove data columns or replace the grid with unbounded cards. Optional column presentation needs explicit access to hidden values. Tree indentation continues to represent hierarchy.
 
-Linked file previews preserve images, document pages and other visual content. Their metadata can use disclosures. Taxonomy assistance retains its modal review flow and footer actions. Export and style settings also remain dialogs. These tools are not independently dockable layouts.
+Linked file previews preserve images, document pages and other visual content. Their metadata can use disclosures. Suggestions follows the dockable review policy in the table above. Export and style settings remain dialogs.
 
 Graph is an explicit exception to content abbreviation. Its existing toolbar and canvas retain their behavior. Every pane shape keeps the visual workspace, camera and node budget.
+
+### Suggestions
+
+The view measures its root for the 1,100, 900 and 680 pixel tiers, including in detached windows. Only the table scrolls. Below 375 pixels it retains a 375 pixel table width inside that scroller. Shared recovery covers the view below 240 pixels wide or below the shared 210/180 pixel height limits without clearing review state. The reference's acknowledgement stays in the action bar for four seconds (craigtrim/axiom#82).
 
 ### Ontology Quality
 
@@ -109,7 +114,7 @@ From the query, Down enters the results, Escape clears the query (then enters re
 
 The 44 shared tokens live at the top of `src/renderer/styles.css`. `applyTheme` selects the theme without writing those names inline, including in detached windows. A view binds to the shared component set through `AdaptivePane`'s `shared` flag. The layer remains opt-in while the views migrate (craigtrim/axiom#81).
 
-Quality Settings retains thirteen declarations that shield it from the older palette on its Quality pane ancestor. Seven light values and six dark values still differ at that ancestor: `raised`, `sunken`, `accent`, `ok`, `warn`, `focus`, and light `bad`. Issue #84 removes those declarations with the older Quality palette. The shared layer therefore removes 210 redundant declarations and leaves 339 custom-property declarations of 116 names across the renderer stylesheets.
+Quality Settings retains thirteen declarations that shield it from the older palette on its Quality pane ancestor. Seven light values and six dark values still differ at that ancestor: `raised`, `sunken`, `accent`, `ok`, `warn`, `focus`, and light `bad`. Issue #84 removes those declarations with the older Quality palette. The shared layer therefore removes 210 redundant declarations and left 339 custom-property declarations of 116 names at that migration step. Suggestions adds only its five view-specific token names in #82; the shared palette remains declared once.
 
 Shared views use `SharedPane` for the body, optional footer and one transient status message. `SharedActionRow` keeps the primary command and More visible. It measures natural control widths at the pane's zoom, moves commands into More in descending priority order, and restores them in reverse. Only after every movable command has left may the state text truncate; its tooltip retains the full text. `SharedMenu` handles keyboard navigation, disabled reasons and focus return in the pane's owner document. The existing `PaneToolbar` remains available to views awaiting migration.
 
@@ -127,7 +132,7 @@ Ignore zero-size readings from inactive tabs. Keep mode changes stable around bo
 
 Prefer a content scroller bounded by actual header/footer rows over layers that cover content. Avoid several nested scroll areas for ordinary fields. Exceptionally small panes should surface the maximize recovery action without changing the task.
 
-Inspector applies its grouped statement draft from the header. Individuals, Inspector and Touchpoints register recovery below 240 pixels wide or 120 pixels tall: only their header remains, with no bottom rule. Their retained content and draft state survive recovery. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; taxonomy assistance remains a modal with its existing review footer.
+Inspector applies its grouped statement draft from the header. Individuals, Inspector and Touchpoints register recovery below 240 pixels wide or 120 pixels tall: only their header remains, with no bottom rule. Their retained content and draft state survive recovery. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; Suggestions follows the dockable review policy in the table above.
 
 ## Validation criteria
 

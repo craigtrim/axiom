@@ -1,0 +1,1521 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom: Ontology suggestions</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+  /* containers */
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+  /* stacked information: each piece is its own line, never sibling inline spans */
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+
+  /* media keeps its intrinsic ratio by default; never a distorted or cropped
+     cover by accident. height:auto lets the ratio win over an <img height="…">
+     attribute. Cropping to a uniform box is an explicit opt-in: set --od-ratio
+     AND add .od-media-cover together (per the core rule, only where a crop is
+     deliberate (tile thumbs, decorative fills), never on full-frame content). */
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+
+  /* data text only; authored copy is rewritten to its budget instead */
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }   /* block-level reservation for a shared baseline */
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+
+  /* screen skeleton (optional): bars take their own space, the middle scrolls, no padding guessed for chrome */
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+  /* horizontal rail: the next item peeks at the edge; trailing room survives overflow */
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+
+/* ============================================================
+   DESIGN TOKENS
+   Every colour, size, radius and duration used below lives here.
+   Map these onto Axiom's existing tokens when porting.
+   Light and dark are authored independently, never inverted.
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+
+  --accent:        #0b5fd0;
+  --accent-hover:  #0a52b4;
+  --accent-fg:     #ffffff;
+
+  --ok:            #0a7a3d;
+  --ok-bg:         #e8f5ed;
+  --ok-border:     #a9d8bd;
+
+  --warn:          #8a6116;
+  --warn-bg:       #fdf5e3;
+  --warn-border:   #e6cf95;
+
+  --idle:          #57606a;
+  --idle-border:   #c6cbd1;
+
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+
+  /* 4px rhythm, compact tier */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --r-ctl: 4px;
+  --r-panel: 6px;
+  --r-pill: 999px;
+
+  --t-fast: 120ms;
+  --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ground:        #0d1117;
+  --surface:       #161b22;
+  --raised:        #1c2128;
+  --sunken:        #10151c;
+
+  --border:        #30363d;
+  --border-strong: #3d444d;
+
+  --text:          #e6edf3;
+  --text-muted:    #9ba7b4;
+
+  --accent:        #4c9aff;
+  --accent-hover:  #6aabff;
+  --accent-fg:     #06192e;
+
+  --ok:            #4ade80;
+  --ok-bg:         #0f2a1b;
+  --ok-border:     #1d5233;
+
+  --warn:          #e3b341;
+  --warn-bg:       #2b2211;
+  --warn-border:   #5a4718;
+
+  --idle:          #9ba7b4;
+  --idle-border:   #454c54;
+
+  --row-hover:     #161b22;
+  --row-selected:  #12243a;
+
+  --focus:         #6aabff;
+  --shadow-pop:    0 8px 24px rgba(0, 0, 0, .55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+
+    --ground:        #0d1117;
+    --surface:       #161b22;
+    --raised:        #1c2128;
+    --sunken:        #10151c;
+
+    --border:        #30363d;
+    --border-strong: #3d444d;
+
+    --text:          #e6edf3;
+    --text-muted:    #9ba7b4;
+
+    --accent:        #4c9aff;
+    --accent-hover:  #6aabff;
+    --accent-fg:     #06192e;
+
+    --ok:            #4ade80;
+    --ok-bg:         #0f2a1b;
+    --ok-border:     #1d5233;
+
+    --warn:          #e3b341;
+    --warn-bg:       #2b2211;
+    --warn-border:   #5a4718;
+
+    --idle:          #9ba7b4;
+    --idle-border:   #454c54;
+
+    --row-hover:     #161b22;
+    --row-selected:  #12243a;
+
+    --focus:         #6aabff;
+    --shadow-pop:    0 8px 24px rgba(0, 0, 0, .55);
+  }
+}
+
+
+/* ============================================================
+   BASE
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(button, input, select, textarea) { font: inherit; color: inherit; }
+
+/* the layout primitives live in a cascade layer, so a layered `display:flex`
+   would otherwise beat the UA's [hidden] rule on .od-row elements */
+[hidden] { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: var(--r-ctl);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.icon { width: 16px; height: 16px; flex: none; display: block; }
+
+@keyframes fade-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+
+
+/* ============================================================
+   WINDOW SHELL
+   ============================================================ */
+.app { height: 100dvh; background: var(--ground); }
+.app-top { background: var(--ground); }
+
+.tabstrip {
+  --od-gap: 0;
+  padding: 0 var(--sp-2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px;
+  border: 0; background: none; cursor: pointer;
+  font-size: 15px; color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  border-radius: var(--r-ctl) var(--r-ctl) 0 0;
+  transition: color var(--t-fast) ease-out, background var(--t-fast) ease-out;
+}
+.tab:hover { color: var(--text); background: var(--row-hover); }
+.tab[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+
+.chrome-actions { --od-gap: 2px; padding-inline-end: var(--sp-1); }
+
+.iconbtn {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px;
+  border: 1px solid transparent; border-radius: var(--r-ctl);
+  background: none; color: var(--text-muted); cursor: pointer;
+  transition: background var(--t-fast) ease-out, color var(--t-fast) ease-out;
+}
+.iconbtn:hover { background: var(--row-hover); color: var(--text); border-color: var(--border); }
+.iconbtn[disabled] { opacity: .4; cursor: default; }
+.iconbtn[disabled]:hover { background: none; color: var(--text-muted); border-color: transparent; }
+
+
+/* ============================================================
+   COMMAND BAR: the whole old header stack, in one row
+   ============================================================ */
+.cmdbar {
+  --od-gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.cmd-label { font-size: 14px; color: var(--text-muted); white-space: nowrap; }
+
+select.ctl, input.ctl {
+  height: 30px;
+  padding: 0 var(--sp-2);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+  font-size: 14px;
+  transition: border-color var(--t-fast) ease-out;
+}
+select.ctl { padding-inline-end: var(--sp-5); cursor: pointer; max-width: 100%; }
+select.ctl:hover, input.ctl:hover { border-color: var(--text-muted); }
+select#runHistory { max-width: 360px; }
+
+.pager { --od-gap: 2px; }
+.pager-pos {
+  font-size: 14px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; padding: 0 var(--sp-1); white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctl);
+  background: var(--raised); color: var(--text);
+  font-size: 14px; cursor: pointer; white-space: nowrap;
+  transition: background var(--t-fast) ease-out, border-color var(--t-fast) ease-out;
+}
+.btn:hover { background: var(--row-hover); border-color: var(--text-muted); }
+.btn[disabled] { opacity: .45; cursor: default; }
+.btn[disabled]:hover { background: var(--raised); border-color: var(--border-strong); }
+
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary[disabled]:hover { background: var(--accent); border-color: var(--accent); }
+
+.btn-lg { height: 34px; padding: 0 var(--sp-4); font-size: 15px; }
+
+
+/* ============================================================
+   RUN BAR
+   One 40px row carrying the whole run identity. The timestamp is
+   not repeated here (the Run select already reads it out) and the
+   per status counts are not repeated here (the filter chips below
+   already carry them). The analysis peek fills leftover width, so
+   it costs no height at all.
+   ============================================================ */
+.runbar {
+  --od-gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.runbar h1 {
+  margin: 0; flex: 0 1 auto;
+  font-size: 18px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.runbar h1 .target { color: var(--accent); }
+
+.runpeek { font-size: 14px; color: var(--text-muted); }
+
+
+/* ============================================================
+   OVERLAY PANELS
+   Analysis and Context float above the page instead of pushing it
+   down. Closed, they cost one button of width and no height at
+   all; open, they never reflow the table underneath.
+   ============================================================ */
+.pop-host { position: relative; flex: none; }
+
+.pop-trigger .icon { transition: transform var(--t-enter) ease-out; }
+.pop-trigger[aria-expanded="true"] { background: var(--row-hover); border-color: var(--text-muted); }
+.pop-trigger[aria-expanded="true"] .icon { transform: rotate(90deg); }
+
+.pop-panel {
+  position: absolute; z-index: 30;
+  top: calc(100% + 6px); inset-inline-end: 0;
+  width: min(620px, calc(100vw - 2 * var(--sp-4)));
+  max-height: min(60vh, 520px); overflow-y: auto;
+  padding: var(--sp-3);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  animation: fade-in var(--t-enter) ease-out;
+}
+
+.pop-title {
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: var(--sp-2);
+}
+.pop-body p { margin: 0 0 var(--sp-2); font-size: 15px; line-height: 1.6; }
+.pop-body p:last-child { margin-bottom: 0; }
+
+.ctx-grid { --od-gap: var(--sp-3); --od-cols: 1; }
+.ctx-grid .od-field > dt { font-size: 13px; color: var(--text-muted); }
+.ctx-grid .od-field > dd { margin: 0; font-size: 15px; }
+.ctx-grid .od-field > dd b { font-variant-numeric: tabular-nums; }
+
+
+/* ============================================================
+   TABLE TOOLS: status filters and search
+   ============================================================ */
+.tools {
+  --od-gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong); border-radius: var(--r-pill);
+  background: var(--raised); color: var(--text-muted);
+  font-size: 14px; cursor: pointer; white-space: nowrap;
+  transition: background var(--t-fast) ease-out, color var(--t-fast) ease-out, border-color var(--t-fast) ease-out;
+}
+.chip:hover { color: var(--text); border-color: var(--text-muted); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.chip .n { font-variant-numeric: tabular-nums; opacity: .85; }
+.chip[aria-pressed="true"] .n { opacity: 1; }
+
+.search { position: relative; display: inline-flex; }
+.search .icon {
+  position: absolute; top: 7px; inset-inline-start: 8px;
+  color: var(--text-muted); pointer-events: none;
+}
+.search input.ctl { padding-inline-start: 30px; width: 240px; }
+
+
+/* ============================================================
+   SUGGESTIONS TABLE: the core of the redesign
+   ============================================================ */
+table.grid { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+
+table.grid thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-strong);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: start;
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  color: var(--text-muted); text-transform: uppercase;
+  white-space: nowrap;
+}
+table.grid thead th.c-check { padding-inline: var(--sp-4) 0; }
+
+.sortbtn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 0; background: none; cursor: pointer;
+  padding: 2px 4px; margin-inline-start: -4px;
+  border-radius: var(--r-ctl);
+  font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit;
+}
+.sortbtn:hover { color: var(--text); background: var(--border); }
+.sortbtn .icon { width: 12px; height: 12px; opacity: 0; transition: opacity var(--t-fast) ease-out; }
+th[aria-sort="ascending"] .sortbtn,
+th[aria-sort="descending"] .sortbtn { color: var(--text); }
+th[aria-sort="ascending"] .sortbtn .icon,
+th[aria-sort="descending"] .sortbtn .icon { opacity: 1; }
+th[aria-sort="descending"] .sortbtn .icon { transform: rotate(180deg); }
+
+tr.main > td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tr.main > td.c-check { padding-inline: var(--sp-4) 0; }
+tr.main > td.c-status, tr.main > td.c-open { white-space: nowrap; }
+
+tbody.row:hover tr.main > td { background: var(--row-hover); }
+tbody.row.is-selected tr.main > td { background: var(--row-selected); }
+tbody.row.is-open tr.main > td { border-bottom-color: transparent; }
+tbody.row tr.main { cursor: pointer; }
+
+input.check {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 3px 0 0;
+  border: 1.5px solid var(--border-strong); border-radius: 3px;
+  background: var(--raised); cursor: pointer; flex: none;
+  display: grid; place-content: center;
+  transition: background var(--t-fast) ease-out, border-color var(--t-fast) ease-out;
+}
+input.check:hover:not([disabled]) { border-color: var(--accent); }
+input.check:checked, input.check:indeterminate { background: var(--accent); border-color: var(--accent); }
+input.check:checked::after {
+  content: ""; width: 10px; height: 10px; background: var(--accent-fg);
+  clip-path: polygon(14% 47%, 0 60%, 39% 100%, 100% 22%, 86% 10%, 37% 72%);
+}
+input.check:indeterminate::after { content: ""; width: 9px; height: 2px; border-radius: 1px; background: var(--accent-fg); }
+input.check[disabled] {
+  cursor: default; opacity: 1;
+  background: var(--sunken); border-color: var(--border); border-style: dashed;
+}
+
+.name { font-size: 16px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.kind {
+  display: inline-block; margin-inline-start: 6px; padding: 0 6px;
+  font-size: 13px; font-weight: 500; line-height: 18px;
+  color: var(--text-muted); background: var(--sunken);
+  border: 1px solid var(--border); border-radius: 3px;
+  vertical-align: 2px; white-space: nowrap;
+}
+.def { font-size: 16px; line-height: 1.45; color: var(--text); }
+.def-inline { display: none; margin-top: 2px; font-size: 15px; line-height: 1.45; color: var(--text-muted); }
+
+/* status pill. Colour is never the only cue: icon shape, word, border style */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  border: 1px solid;
+}
+.pill .icon { width: 13px; height: 13px; }
+.pill-available { color: var(--idle); background: transparent;     border-color: var(--idle-border); border-style: dashed; }
+.pill-added     { color: var(--ok);   background: var(--ok-bg);    border-color: var(--ok-border); }
+.pill-exists    { color: var(--warn); background: var(--warn-bg);  border-color: var(--warn-border); }
+
+.expander {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; margin: 0 auto;
+  border: 0; border-radius: var(--r-ctl);
+  background: none; color: var(--text-muted); cursor: pointer;
+  transition: background var(--t-fast) ease-out, color var(--t-fast) ease-out;
+}
+.expander:hover { background: var(--border); color: var(--text); }
+.expander .icon { transition: transform var(--t-enter) ease-out; }
+.expander[aria-expanded="true"] .icon { transform: rotate(90deg); }
+
+
+/* ============================================================
+   DETAIL ROW: rationale and identifier/relationship, on demand
+   ============================================================ */
+tr.detail > td {
+  padding: 0 var(--sp-3) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--row-hover);
+}
+tbody.row.is-selected tr.detail > td { background: var(--row-selected); }
+
+.detail-panel {
+  --od-gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  background: var(--ground);
+  animation: fade-in var(--t-enter) ease-out;
+}
+
+.detail-label {
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
+}
+.rationale { font-size: 16px; line-height: 1.6; }
+
+.idgrid { --od-gap: var(--sp-3) var(--sp-6); --od-cols: 2; }
+.idgrid .od-field > dt { font-size: 13px; color: var(--text-muted); }
+.idgrid .od-field > dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.idgrid .od-field > dd.mono { font-family: var(--mono); font-size: 14px; }
+
+.statusnote {
+  --od-gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-ctl);
+  font-size: 15px; line-height: 1.45;
+}
+.statusnote-exists { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.statusnote-added  { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-border); }
+.statusnote .icon { margin-top: 3px; }
+
+.detail-actions { --od-gap: var(--sp-2); }
+hr.rule { border: 0; border-top: 1px solid var(--border); margin: 0; }
+
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty {
+  --od-gap: var(--sp-3);
+  align-items: center; text-align: center;
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--text-muted);
+}
+.empty .icon { width: 28px; height: 28px; }
+.empty h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.empty p { margin: 0; font-size: 16px; max-width: 48ch; }
+
+
+/* ============================================================
+   FOOTER ACTION BAR
+   ============================================================ */
+.actionbar {
+  --od-gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.selcount { font-size: 15px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.selcount b { color: var(--text); font-weight: 600; }
+.toast { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; color: var(--ok); font-weight: 600; animation: fade-in var(--t-enter) ease-out; }
+
+
+/* ============================================================
+   INDIVIDUALS PANEL: same primitives, no selection
+   ============================================================ */
+.panel-pad { padding: var(--sp-4); }
+table.grid.plain td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 16px; vertical-align: top;
+}
+table.grid.plain tbody tr:hover td { background: var(--row-hover); }
+.mono { font-family: var(--mono); font-size: 14px; }
+
+
+/* ============================================================
+   RESPONSIVE: definition folds under the label, never h-scroll
+   ============================================================ */
+@media (max-width: 1100px) {
+  /* the analysis peek is a bonus, not a band: it goes before anything
+     that carries a control, and its row keeps the same height */
+  .hide-md { display: none; }
+}
+@media (max-width: 900px) {
+  .c-def { display: none; }
+  /* -webkit-box, not block: the clamp primitive is layered and would otherwise lose */
+  .def-inline { display: -webkit-box; }
+  .cmdbar { flex-wrap: wrap; }
+}
+@media (max-width: 680px) {
+  .pill-text { display: none; }
+  .pill { padding: 0 6px; }
+  .search input.ctl { width: 150px; }
+  .runbar h1 { font-size: 16px; }
+  .tools { flex-wrap: wrap; }
+  .idgrid { --od-cols: 1; }
+  .hide-sm { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+</style>
+</head>
+<body>
+
+<svg class="sr-only" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 11.7 13 4.9"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></symbol>
+  <symbol id="i-dup" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5"/><path d="M5.5 13.5h6a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3 3"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5v-9M4.5 7 8 3.5 11.5 7"/></symbol>
+  <symbol id="i-theme" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-run" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 9.4 6l3.8 1.4L9.4 8.8 8 12.6 6.6 8.8 2.8 7.4 6.6 6z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 7.2v3.6M8 5.1v.1"/></symbol>
+  <symbol id="i-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 5.5 4h13L21 9.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19z"/><path d="M3 9.5h5l1 2.5h6l1-2.5h5"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5v8a2 2 0 0 0 2 2h6"/><path d="M4 6.5h8"/><circle cx="13.2" cy="6.5" r="1.3"/><circle cx="13.2" cy="12.5" r="1.3"/></symbol>
+</defs></svg>
+
+<div class="app od-screen">
+
+  <!-- ===================== WINDOW CHROME ===================== -->
+  <div class="app-top">
+    <div class="tabstrip od-row">
+      <div class="od-row" role="tablist" aria-label="Ontology views" style="--od-gap:0">
+        <button class="tab" role="tab" id="tab-suggestions" aria-selected="true" aria-controls="panel-suggestions" type="button">Suggestions</button>
+        <button class="tab" role="tab" id="tab-individuals" aria-selected="false" aria-controls="panel-individuals" tabindex="-1" type="button">Individuals</button>
+      </div>
+      <div class="od-fill"></div>
+      <div class="chrome-actions od-row">
+        <button class="iconbtn" id="themeBtn" type="button" title="Theme: follow system" aria-label="Theme: follow system">
+          <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="suggestionsChrome">
+
+    <!-- ===================== COMMAND BAR =====================
+         Everything the old header stacked across six bands:
+         pagination, suggestion kind, assistant, run history, New run. -->
+    <div class="cmdbar od-row" id="cmdbar">
+      <div class="pager od-row">
+        <button class="iconbtn" id="prevTarget" type="button" aria-label="Previous target">
+          <svg class="icon" aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-chev"/></svg>
+        </button>
+        <span class="pager-pos" id="pagerPos" aria-live="polite">1 / 2</span>
+        <button class="iconbtn" id="nextTarget" type="button" aria-label="Next target">
+          <svg class="icon" aria-hidden="true"><use href="#i-chev"/></svg>
+        </button>
+      </div>
+
+      <label class="cmd-label" for="suggestKind">Suggest</label>
+      <select class="ctl" id="suggestKind">
+        <option selected>Add Children</option>
+        <option>Add Siblings</option>
+        <option>Add Individuals</option>
+        <option>Refine Definition</option>
+      </select>
+
+      <select class="ctl" id="assistant" aria-label="Assistant">
+        <option selected>Claude</option>
+        <option>GPT-5</option>
+        <option>Local · Llama 3.1</option>
+      </select>
+
+      <div class="od-fill"></div>
+
+      <select class="ctl" id="runHistory" aria-label="Run history"></select>
+
+      <button class="btn btn-primary" id="newRun" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-run"/></svg>
+        New run
+      </button>
+    </div>
+
+    <!-- ===================== RUN BAR =====================
+         Title, an analysis peek that fills leftover width, and the
+         two overlay triggers. One row, roughly 40px. -->
+    <div class="runbar od-row" id="runbar">
+      <h1 id="runTitle">Add children to <span class="target">Fashion Merchandising</span></h1>
+
+      <span class="runpeek od-fill od-truncate hide-md" id="analysisPeek"></span>
+
+      <div class="pop-host">
+        <button class="btn pop-trigger" type="button" id="analysisBtn"
+                aria-expanded="false" aria-controls="analysisPanel">
+          <svg class="icon" aria-hidden="true"><use href="#i-chev"/></svg>
+          Analysis
+        </button>
+        <div class="pop-panel" id="analysisPanel" role="group" aria-label="Run analysis" hidden>
+          <p class="pop-title" id="analysisTitle"></p>
+          <div class="pop-body" id="analysisBody"></div>
+        </div>
+      </div>
+
+      <div class="pop-host">
+        <button class="btn pop-trigger" type="button" id="contextBtn"
+                aria-expanded="false" aria-controls="contextPanel">
+          <svg class="icon" aria-hidden="true"><use href="#i-chev"/></svg>
+          Context
+        </button>
+        <div class="pop-panel" id="contextPanel" role="group" aria-label="Context sent to the assistant" hidden>
+          <p class="pop-title">Context sent</p>
+          <dl class="ctx-grid od-grid" id="contextGrid"></dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="tools od-row">
+      <div class="od-cluster" id="filters" role="group" aria-label="Filter by status"></div>
+      <div class="od-fill"></div>
+      <div class="search">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="ctl" type="search" id="search" placeholder="Filter suggestions" aria-label="Filter suggestions by label or definition">
+      </div>
+    </div>
+
+    </div><!-- /#suggestionsChrome -->
+  </div>
+
+  <!-- ===================== SCROLLING BODY ===================== -->
+  <div class="od-scroll" id="scrollRegion">
+
+    <!-- ---------- SUGGESTIONS PANEL ---------- -->
+    <section id="panel-suggestions" role="tabpanel" aria-labelledby="tab-suggestions" tabindex="-1">
+
+      <table class="grid" id="grid">
+        <colgroup>
+          <col style="width:44px">
+          <col style="width:30%">
+          <col>
+          <col style="width:150px">
+          <col style="width:44px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="c-check" scope="col">
+              <input class="check" type="checkbox" id="selectAll" aria-label="Select all available suggestions">
+            </th>
+            <th class="c-name" scope="col" aria-sort="none" id="thName">
+              <button class="sortbtn" type="button" data-sort="label">Suggestion <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button>
+            </th>
+            <th class="c-def" scope="col">Definition</th>
+            <th class="c-status" scope="col" id="thStatus">
+              <button class="sortbtn" type="button" data-sort="status">Status <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button>
+            </th>
+            <th class="c-open" scope="col"><span class="sr-only">Details</span></th>
+          </tr>
+        </thead>
+      </table>
+
+      <div id="gridEmpty" hidden>
+        <div class="empty od-stack">
+          <svg class="icon" aria-hidden="true"><use href="#i-empty"/></svg>
+          <h2>No suggestions match this filter</h2>
+          <p id="emptyText">Nothing in this run matches the current status filter and search text.</p>
+          <button class="btn" id="resetFilters" type="button">Clear filter and search</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- INDIVIDUALS PANEL ---------- -->
+    <section id="panel-individuals" role="tabpanel" aria-labelledby="tab-individuals" tabindex="-1" hidden>
+      <div class="runbar od-row">
+        <h1>Individuals under <span class="target">Fashion Merchandising</span></h1>
+        <span class="runpeek od-fill">5 recorded</span>
+      </div>
+      <div class="panel-pad">
+        <table class="grid plain">
+          <colgroup><col style="width:34%"><col style="width:16%"><col><col style="width:16%"></colgroup>
+          <thead>
+            <tr>
+              <th scope="col">Label</th>
+              <th scope="col">Type</th>
+              <th scope="col" class="c-def">Identifier</th>
+              <th scope="col">Source</th>
+            </tr>
+          </thead>
+          <tbody id="individualsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== ACTION BAR ===================== -->
+  <div class="actionbar od-row" id="actionbar">
+    <span class="selcount" id="selCount">No suggestions selected</span>
+    <span id="toastSlot"></span>
+    <div class="od-fill"></div>
+    <button class="btn" id="clearSel" type="button" disabled>Clear selection</button>
+    <button class="btn btn-primary btn-lg" id="addBtn" type="button" disabled>Add selected children</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   DATA
+   Two targets in the suggestion queue; the first carries two runs.
+   Statuses: available | added | exists
+   ============================================================ */
+
+const EXISTS_NOTE = "An entity with this label or normalized name already exists. It will not be duplicated or moved.";
+const ADDED_NOTE  = "Added to the ontology in this run as a direct child.";
+
+function norm(label) { return label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""); }
+function iri(label)  { return "axiom:" + label.replace(/[^A-Za-z0-9]+/g, " ").split(" ").filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(""); }
+
+function item(label, def, rationale, status, extra) {
+  return Object.assign({
+    id: norm(label),
+    label, def, rationale, status,
+    kind: "Class",
+    norm: norm(label),
+    iri: iri(label),
+    match: null,
+    overlap: null
+  }, extra || {});
+}
+
+const POOL_FM = [
+  item("Fashion Buying",
+    "The selection, negotiation, and purchase of apparel and accessory assortments from vendors for resale.",
+    "Buying is the core merchandising function and is taught as a distinct course subject, one clear step more specific than the topic while remaining a discipline rather than a single course record.",
+    "exists", { match: "Fashion Buying · Business › Retail Operations" }),
+
+  item("Merchandise Planning and Allocation",
+    "Forecasting sales, setting assortment and inventory budgets, and distributing stock across stores and channels.",
+    "This is the quantitative counterpart to buying and a standard specialism within merchandising curricula, fitting under the topic rather than under general business.",
+    "added"),
+
+  item("Visual Merchandising",
+    "The presentation of garments through window displays, store layout, fixtures, and styling to drive selling.",
+    "It is a recognised branch of merchandising that bridges fashion and business, matching the topic's dual placement under both parents.",
+    "exists", { match: "Visual Merchandising · Fashion › Fashion Presentation" }),
+
+  item("Fashion Retailing",
+    "The operation and management of stores and other outlets that sell fashion goods to consumers.",
+    "Retailing is the channel context in which merchandising decisions are executed and is commonly offered as its own course area at this level of specificity.",
+    "added"),
+
+  item("Fashion Marketing and Promotion",
+    "Positioning, advertising, and promotional campaigns that build demand for apparel and accessory lines.",
+    "Promotion is one of the functional specialisms named in the topic description; it belongs beside buying and planning rather than under general marketing.",
+    "available", { overlap: "Partially overlaps Marketing under Business › Marketing. Link rather than duplicate if the scope matches." }),
+
+  item("Fashion Sourcing and Production",
+    "Identifying suppliers, negotiating terms, and managing the manufacture and delivery of apparel orders.",
+    "Sourcing is the upstream specialism named in the topic's own description and currently has no recorded entity under this parent.",
+    "available"),
+
+  item("Assortment Planning",
+    "Deciding the mix of styles, colours, sizes, and price points offered in a given season and channel.",
+    "Narrower than merchandise planning but taught as a distinct skill; proposed as a sibling so the two can be linked later if the finer grain proves unnecessary.",
+    "available"),
+
+  item("Fashion Merchandising and Management",
+    "A combined degree program covering merchandising practice alongside the business management of fashion enterprises.",
+    "Already recorded as the topic's only child; listed so the run accounts for it rather than silently re-proposing it.",
+    "exists", { match: "Fashion Merchandising and Management · Management" }),
+
+  item("Omnichannel Fashion Retail",
+    "Coordinating inventory, pricing, and customer experience across physical stores, e-commerce, and marketplaces.",
+    "A contemporary specialism now taught as its own subject and distinct enough from fashion retailing to warrant a separate class.",
+    "available"),
+
+  item("Fashion Merchandising Analytics",
+    "Applying sell-through, margin, and demand data to assortment, pricing, and markdown decisions.",
+    "The analytical practice cutting across buying and planning; curricula increasingly list it as a standalone subject rather than a technique.",
+    "available")
+];
+
+const POOL_TS = [
+  item("Fibre Science",
+    "The structure, chemistry, and physical properties of natural and manufactured textile fibres.",
+    "Fibre behaviour is the foundation layer of the discipline and is consistently taught before fabric or finishing subjects.",
+    "available"),
+
+  item("Fabric Construction",
+    "Weaving, knitting, and nonwoven methods by which fibres and yarns become fabric.",
+    "Construction is the second standard division of textile science and has no recorded entity under this parent.",
+    "available"),
+
+  item("Textile Testing and Standards",
+    "Laboratory methods for measuring strength, colourfastness, flammability, and conformance to published standards.",
+    "Testing is a distinct professional practice with its own certifications, not a subtopic of fabric construction.",
+    "available"),
+
+  item("Dyeing and Finishing",
+    "Chemical and mechanical treatments applied to fabric to set colour, hand, and performance characteristics.",
+    "Already present elsewhere in the ontology under chemical processing; proposed here so the overlap is recorded rather than duplicated.",
+    "exists", { match: "Dyeing and Finishing · Chemistry › Industrial Chemical Processing" })
+];
+
+function clone(list) { return list.map(o => Object.assign({}, o)); }
+
+function pick(pool, ids, overrides) {
+  return ids.map(id => {
+    const src = pool.find(o => o.id === id);
+    return Object.assign({}, src, (overrides && overrides[id]) || {});
+  });
+}
+
+const TARGETS = [
+  {
+    label: "Fashion Merchandising",
+    verb: "Add children to",
+    context: {
+      Ancestors:   { n: 3, detail: "Academic Subject › Business › Fashion" },
+      Children:    { n: 1, detail: "Fashion Merchandising and Management" },
+      Descendants: { n: 1, detail: "no deeper levels recorded" }
+    },
+    analysis: [
+      "Fashion merchandising is the business side of getting apparel and accessories from concept to the customer, so its natural subtypes are the functional specialisms taught as course subjects: buying, planning, retailing, presentation, promotion, and sourcing.",
+      "The topic currently has only one recorded type, “Fashion Merchandising and Management”, which reads as a combined degree program rather than a functional area, so the suggestions below sit alongside it without overlapping it.",
+      "One caveat on the recorded data: the collection shows only categories directly under this topic, and “Fashion Merchandising and Management” also sits under a “Management” category that is not otherwise described here. Some suggestions, particularly those touching marketing or retail, may already exist elsewhere under “Business” or “Fashion”; if so, they should be linked rather than duplicated."
+    ],
+    runs: [
+      { id: "fm-2", at: "9/23/2026, 2:35:46 PM", assistant: "Claude", items: clone(POOL_FM) },
+      {
+        id: "fm-1", at: "9/19/2026, 10:02:11 AM", assistant: "Claude",
+        items: pick(POOL_FM,
+          ["fashion_buying", "merchandise_planning_and_allocation", "visual_merchandising", "fashion_retailing", "fashion_merchandising_and_management", "fashion_marketing_and_promotion"],
+          {
+            merchandise_planning_and_allocation: { status: "available" },
+            fashion_retailing: { status: "available" },
+            fashion_marketing_and_promotion: { status: "available", overlap: null }
+          })
+      }
+    ]
+  },
+  {
+    label: "Textile Science",
+    verb: "Add children to",
+    context: {
+      Ancestors:   { n: 2, detail: "Academic Subject › Applied Science" },
+      Children:    { n: 0, detail: "none recorded" },
+      Descendants: { n: 0, detail: "none recorded" }
+    },
+    analysis: [
+      "Textile science divides cleanly into fibre properties, fabric construction, chemical treatment, and measurement, which is how the subject is sequenced in every curriculum in the source collection.",
+      "The topic has no recorded children at all, so these four are proposed as the first level rather than as refinements of anything existing."
+    ],
+    runs: [
+      { id: "ts-1", at: "9/22/2026, 4:14:03 PM", assistant: "Claude", items: clone(POOL_TS) }
+    ]
+  }
+];
+
+const INDIVIDUALS = [
+  { label: "Fashion Merchandising and Management, B.S.", type: "Degree Program", id: "axiom:FMM-BS-0142", src: "Catalog 2026" },
+  { label: "Principles of Fashion Buying", type: "Course", id: "axiom:CRS-FMER-210", src: "Catalog 2026" },
+  { label: "Retail Math for Merchandisers", type: "Course", id: "axiom:CRS-FMER-224", src: "Catalog 2026" },
+  { label: "Visual Merchandising Studio", type: "Course", id: "axiom:CRS-FMER-318", src: "Catalog 2025" },
+  { label: "Merchandising Capstone Practicum", type: "Course", id: "axiom:CRS-FMER-490", src: "Catalog 2026" }
+];
+
+const STATUS_META = {
+  available: { word: "Available", icon: "#i-plus",  order: 0 },
+  added:     { word: "Added",     icon: "#i-check", order: 1 },
+  exists:    { word: "Exists",    icon: "#i-dup",   order: 2 }
+};
+
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  targetIndex: 0,
+  runIndex: 0,
+  filter: "all",
+  query: "",
+  sort: null,           // { key: 'label' | 'status', dir: 1 | -1 }
+  selected: new Set(),
+  expanded: new Set()
+};
+
+const $  = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+function target() { return TARGETS[state.targetIndex]; }
+function run()    { return target().runs[state.runIndex]; }
+function items()  { return run().items; }
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+
+/* ============================================================
+   FILTERING + SORTING
+   ============================================================ */
+function visibleItems() {
+  const q = state.query.trim().toLowerCase();
+  let list = items().filter(it => {
+    if (state.filter !== "all" && it.status !== state.filter) return false;
+    if (!q) return true;
+    return (it.label + " " + it.def).toLowerCase().includes(q);
+  });
+
+  if (state.sort) {
+    const { key, dir } = state.sort;
+    list = list.slice().sort((a, b) => {
+      const av = key === "label" ? a.label.toLowerCase() : STATUS_META[a.status].order;
+      const bv = key === "label" ? b.label.toLowerCase() : STATUS_META[b.status].order;
+      if (av < bv) return -1 * dir;
+      if (av > bv) return  1 * dir;
+      return a.label.localeCompare(b.label);
+    });
+  }
+  return list;
+}
+
+function countBy(status) { return items().filter(it => it.status === status).length; }
+
+
+/* ============================================================
+   RENDER: header bands
+   ============================================================ */
+function renderHeader() {
+  const t = target(), r = run();
+
+  $("#pagerPos").textContent = (state.targetIndex + 1) + " / " + TARGETS.length;
+  $("#prevTarget").disabled = state.targetIndex === 0;
+  $("#nextTarget").disabled = state.targetIndex === TARGETS.length - 1;
+
+  $("#runTitle").innerHTML = esc(t.verb) + ' <span class="target">' + esc(t.label) + "</span>";
+
+  // run history select
+  const hist = $("#runHistory");
+  hist.innerHTML = t.runs.map((rr, i) => {
+    const added = rr.items.filter(x => x.status === "added").length;
+    return '<option value="' + i + '"' + (i === state.runIndex ? " selected" : "") + ">"
+      + esc(rr.at + " · " + rr.assistant + " · " + rr.items.length + " suggestions, " + added + " added")
+      + "</option>";
+  }).join("");
+
+  const a = countBy("available"), ad = countBy("added"), ex = countBy("exists");
+
+  // analysis: one line of peek in leftover width, the rest in the overlay
+  $("#analysisPeek").textContent = t.analysis[0];
+  $("#analysisTitle").textContent = "Why " + r.assistant + " proposed these";
+  $("#analysisBody").innerHTML = t.analysis.map(p => "<p>" + esc(p) + "</p>").join("");
+
+  // context: count and path are separate so the count can carry weight
+  const ctx = t.context;
+  $("#contextGrid").innerHTML = Object.keys(ctx).map(k =>
+    '<div class="od-field"><dt>' + esc(k) + "</dt><dd><b>" + esc(ctx[k].n) + "</b> " + esc(ctx[k].detail) + "</dd></div>"
+  ).join("");
+
+  // filter chips
+  const defs = [
+    ["all", "All", items().length],
+    ["available", "Available", a],
+    ["added", "Added", ad],
+    ["exists", "Already exist", ex]
+  ];
+  $("#filters").innerHTML = defs.map(([key, word, n]) =>
+    '<button class="chip" type="button" data-filter="' + key + '" aria-pressed="' + (state.filter === key) + '">'
+    + esc(word) + ' <span class="n">' + n + "</span></button>"
+  ).join("");
+
+  // sort indicators
+  $("#thName").setAttribute("aria-sort", state.sort && state.sort.key === "label" ? (state.sort.dir === 1 ? "ascending" : "descending") : "none");
+  $("#thStatus").setAttribute("aria-sort", state.sort && state.sort.key === "status" ? (state.sort.dir === 1 ? "ascending" : "descending") : "none");
+  if (!state.sort) { $("#thName").removeAttribute("aria-sort"); $("#thStatus").removeAttribute("aria-sort"); }
+}
+
+
+/* ============================================================
+   RENDER: table rows
+   ============================================================ */
+function pillHTML(status) {
+  const m = STATUS_META[status];
+  return '<span class="pill pill-' + status + '">'
+    + '<svg class="icon" aria-hidden="true"><use href="' + m.icon + '"/></svg>'
+    + '<span class="pill-text" aria-hidden="true">' + m.word + "</span>"
+    + '<span class="sr-only">' + m.word + "</span>"
+    + "</span>";
+}
+
+function detailHTML(it) {
+  const fields = [
+    ["Label", esc(it.label), ""],
+    ["Normalized name", esc(it.norm), " mono"],
+    ["Identifier", esc(it.iri), " mono"],
+    ["Parent relation", "rdfs:subClassOf " + esc(iri(target().label)), " mono"]
+  ];
+  if (it.match) fields.push(["Existing entity", esc(it.match), ""]);
+
+  let note = "";
+  if (it.status === "exists") {
+    note = '<div class="statusnote statusnote-exists od-row-top">'
+      + '<svg class="icon" aria-hidden="true"><use href="#i-dup"/></svg>'
+      + "<span>" + esc(EXISTS_NOTE) + "</span></div>";
+  } else if (it.status === "added") {
+    note = '<div class="statusnote statusnote-added od-row-top">'
+      + '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>'
+      + "<span>" + esc(ADDED_NOTE) + "</span></div>";
+  } else if (it.overlap) {
+    note = '<div class="statusnote statusnote-exists od-row-top">'
+      + '<svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>'
+      + "<span>" + esc(it.overlap) + "</span></div>";
+  }
+
+  const action = it.status === "available"
+    ? '<div class="detail-actions od-row"><button class="btn btn-primary" type="button" data-add-one="' + it.id + '">'
+      + '<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add this child</button></div>'
+    : "";
+
+  return '<div class="detail-panel od-stack">'
+    + "<div><div class=\"detail-label\">Why " + run().assistant + " proposed it</div>"
+    + '<p class="rationale" style="margin:0">' + esc(it.rationale) + "</p></div>"
+    + '<hr class="rule">'
+    + "<div><div class=\"detail-label\">Identifier and relationship</div>"
+    + '<dl class="idgrid od-grid" style="margin:6px 0 0">'
+    + fields.map(([k, v, cls]) => '<div class="od-field"><dt>' + k + '</dt><dd class="' + cls.trim() + '">' + v + "</dd></div>").join("")
+    + "</dl></div>"
+    + note
+    + action
+    + "</div>";
+}
+
+function renderRows() {
+  const table = $("#grid");
+  Array.from(table.tBodies).forEach(tb => tb.remove());
+
+  const list = visibleItems();
+  const empty = $("#gridEmpty");
+
+  if (!list.length) {
+    table.hidden = true;
+    empty.hidden = false;
+    $("#emptyText").textContent = state.query
+      ? 'Nothing in this run matches "' + state.query + '" under the current status filter.'
+      : "Nothing in this run has that status.";
+    syncSelectAll();
+    return;
+  }
+  table.hidden = false;
+  empty.hidden = true;
+
+  const html = list.map(it => {
+    const selectable = it.status === "available";
+    const isSel = state.selected.has(it.id);
+    const isOpen = state.expanded.has(it.id);
+    const detailId = "detail-" + it.id;
+
+    return '<tbody class="row' + (isSel ? " is-selected" : "") + (isOpen ? " is-open" : "") + '" data-id="' + it.id + '">'
+      + '<tr class="main">'
+        + '<td class="c-check">'
+          + '<input class="check" type="checkbox" data-check="' + it.id + '"'
+          + (isSel ? " checked" : "") + (selectable ? "" : " disabled")
+          + ' aria-label="' + esc(selectable ? "Select " + it.label : it.label + ", " + STATUS_META[it.status].word + ", cannot be added") + '">'
+        + "</td>"
+        + '<td class="c-name">'
+          + '<span class="name">' + esc(it.label) + '</span><span class="kind">' + esc(it.kind) + "</span>"
+          + '<span class="def-inline od-clamp-2">' + esc(it.def) + "</span>"
+        + "</td>"
+        + '<td class="c-def"><span class="def od-clamp-2">' + esc(it.def) + "</span></td>"
+        + '<td class="c-status">' + pillHTML(it.status) + "</td>"
+        + '<td class="c-open">'
+          + '<button class="expander" type="button" data-expand="' + it.id + '" aria-expanded="' + isOpen + '" aria-controls="' + detailId + '"'
+          + ' aria-label="' + esc((isOpen ? "Hide" : "Show") + " details for " + it.label) + '">'
+          + '<svg class="icon" aria-hidden="true"><use href="#i-chev"/></svg></button>'
+        + "</td>"
+      + "</tr>"
+      + '<tr class="detail" id="' + detailId + '"' + (isOpen ? "" : " hidden") + '>'
+        + '<td colspan="5">' + (isOpen ? detailHTML(it) : "") + "</td>"
+      + "</tr>"
+      + "</tbody>";
+  }).join("");
+
+  table.insertAdjacentHTML("beforeend", html);
+  syncSelectAll();
+}
+
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+function selectableVisible() { return visibleItems().filter(it => it.status === "available"); }
+
+function syncSelectAll() {
+  const pool = selectableVisible();
+  const chosen = pool.filter(it => state.selected.has(it.id)).length;
+  const box = $("#selectAll");
+  box.disabled = pool.length === 0;
+  box.checked = pool.length > 0 && chosen === pool.length;
+  box.indeterminate = chosen > 0 && chosen < pool.length;
+}
+
+function renderActionBar() {
+  const n = state.selected.size;
+  $("#selCount").innerHTML = n === 0
+    ? "No suggestions selected"
+    : "<b>" + n + "</b> of <b>" + countBy("available") + "</b> available selected";
+  $("#clearSel").disabled = n === 0;
+  const add = $("#addBtn");
+  add.disabled = n === 0;
+  add.textContent = n === 0 ? "Add selected children" : "Add " + n + (n === 1 ? " child" : " children");
+  syncSelectAll();
+}
+
+function setSelected(id, on) {
+  if (on) state.selected.add(id); else state.selected.delete(id);
+  const tb = document.querySelector('tbody.row[data-id="' + id + '"]');
+  if (tb) tb.classList.toggle("is-selected", on);
+  renderActionBar();
+}
+
+function toggleExpand(id) {
+  const open = !state.expanded.has(id);
+  if (open) state.expanded.add(id); else state.expanded.delete(id);
+
+  const tb = document.querySelector('tbody.row[data-id="' + id + '"]');
+  if (!tb) return;
+  const it = items().find(x => x.id === id);
+  const btn = tb.querySelector("[data-expand]");
+  const detailRow = tb.querySelector("tr.detail");
+
+  tb.classList.toggle("is-open", open);
+  btn.setAttribute("aria-expanded", String(open));
+  btn.setAttribute("aria-label", (open ? "Hide" : "Show") + " details for " + it.label);
+  detailRow.hidden = !open;
+  detailRow.firstElementChild.innerHTML = open ? detailHTML(it) : "";
+}
+
+function commitAdd(ids) {
+  let n = 0;
+  ids.forEach(id => {
+    const it = items().find(x => x.id === id);
+    if (it && it.status === "available") { it.status = "added"; n++; }
+  });
+  state.selected.clear();
+  renderHeader();
+  renderRows();
+  renderActionBar();
+  toast(n + (n === 1 ? " child added under " : " children added under ") + target().label);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const slot = $("#toastSlot");
+  slot.innerHTML = '<span class="toast" role="status"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' + esc(msg) + "</span>";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { slot.innerHTML = ""; }, 4000);
+}
+
+
+/* ============================================================
+   FULL RENDER
+   ============================================================ */
+function renderAll() {
+  renderHeader();
+  renderRows();
+  renderActionBar();
+}
+
+function resetView() {
+  state.selected.clear();
+  state.expanded.clear();
+  state.query = "";
+  state.filter = "all";
+  $("#search").value = "";
+  closePops(null);
+  renderAll();
+}
+
+
+/* ============================================================
+   OVERLAY PANELS
+   Analysis and Context open in the top layer of the run bar rather
+   than as bands in the document, so neither costs vertical space
+   when closed and neither reflows the table when open.
+   ============================================================ */
+function closePops(except) {
+  $$(".pop-trigger").forEach(btn => {
+    if (btn === except) return;
+    btn.setAttribute("aria-expanded", "false");
+    $("#" + btn.getAttribute("aria-controls")).hidden = true;
+  });
+}
+
+$$(".pop-trigger").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const panel = $("#" + btn.getAttribute("aria-controls"));
+    const open = btn.getAttribute("aria-expanded") !== "true";
+    closePops(btn);
+    btn.setAttribute("aria-expanded", String(open));
+    panel.hidden = !open;
+  });
+});
+
+// light dismiss: anywhere outside an open panel and its own trigger
+document.addEventListener("click", e => {
+  if (e.target.closest(".pop-panel") || e.target.closest(".pop-trigger")) return;
+  closePops(null);
+});
+
+// Escape closes and returns focus to the trigger that opened it
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const open = document.querySelector('.pop-trigger[aria-expanded="true"]');
+  if (!open) return;
+  closePops(null);
+  open.focus();
+});
+
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+
+// tabs
+$$('[role="tab"]').forEach(tab => {
+  tab.addEventListener("click", () => {
+    $$('[role="tab"]').forEach(t => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      $("#" + t.getAttribute("aria-controls")).hidden = !on;
+    });
+    const suggestions = tab.id === "tab-suggestions";
+    closePops(null);
+    $("#actionbar").hidden = !suggestions;
+    $("#suggestionsChrome").hidden = !suggestions;
+    $("#" + tab.getAttribute("aria-controls")).focus();
+  });
+  tab.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const tabs = $$('[role="tab"]');
+    const i = tabs.indexOf(tab);
+    const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus(); next.click();
+    e.preventDefault();
+  });
+});
+
+// theme cycle: auto -> light -> dark -> auto
+const THEMES = [
+  ["auto",  "Theme: follow system"],
+  ["light", "Theme: light"],
+  ["dark",  "Theme: dark"]
+];
+$("#themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const i = THEMES.findIndex(t => t[0] === cur);
+  const [val, label] = THEMES[(i + 1) % THEMES.length];
+  document.documentElement.setAttribute("data-theme", val);
+  const btn = $("#themeBtn");
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+});
+
+// target pager
+$("#prevTarget").addEventListener("click", () => {
+  if (state.targetIndex === 0) return;
+  state.targetIndex--; state.runIndex = 0; resetView();
+});
+$("#nextTarget").addEventListener("click", () => {
+  if (state.targetIndex === TARGETS.length - 1) return;
+  state.targetIndex++; state.runIndex = 0; resetView();
+});
+
+// run history
+$("#runHistory").addEventListener("change", e => {
+  state.runIndex = Number(e.target.value);
+  resetView();
+});
+
+// new run. Previously added or existing entities are now in the ontology,
+// everything else returns to available
+$("#newRun").addEventListener("click", () => {
+  const t = target();
+  const fresh = {
+    id: t.label + "-" + Date.now(),
+    at: new Date().toLocaleString("en-US", { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }),
+    assistant: $("#assistant").value,
+    items: items().map(it => Object.assign({}, it, { status: it.status === "available" ? "available" : "exists" }))
+  };
+  t.runs.unshift(fresh);
+  state.runIndex = 0;
+  resetView();
+  toast("New run recorded · " + fresh.items.length + " suggestions");
+});
+
+// suggest kind: the verb in the title follows it
+$("#suggestKind").addEventListener("change", e => {
+  const map = {
+    "Add Children": "Add children to",
+    "Add Siblings": "Add siblings of",
+    "Add Individuals": "Add individuals to",
+    "Refine Definition": "Refine the definition of"
+  };
+  TARGETS.forEach(t => { t.verb = map[e.target.value]; });
+  renderHeader();
+});
+
+// filters
+$("#filters").addEventListener("click", e => {
+  const chip = e.target.closest("[data-filter]");
+  if (!chip) return;
+  state.filter = chip.dataset.filter;
+  renderHeader();
+  renderRows();
+  // renderHeader rebuilds the chip row, so hand focus back to the same chip
+  const again = document.querySelector('[data-filter="' + state.filter + '"]');
+  if (again) again.focus();
+});
+
+$("#resetFilters").addEventListener("click", () => {
+  state.filter = "all"; state.query = ""; $("#search").value = "";
+  renderHeader(); renderRows(); $("#search").focus();
+});
+
+// search
+$("#search").addEventListener("input", e => {
+  state.query = e.target.value;
+  renderHeader();
+  renderRows();
+});
+
+// sort
+$$(".sortbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.sort;
+    if (state.sort && state.sort.key === key) {
+      state.sort = state.sort.dir === 1 ? { key, dir: -1 } : null;
+    } else {
+      state.sort = { key, dir: 1 };
+    }
+    renderHeader();
+    renderRows();
+  });
+});
+
+// select all
+$("#selectAll").addEventListener("change", e => {
+  const pool = selectableVisible();
+  pool.forEach(it => {
+    if (e.target.checked) state.selected.add(it.id); else state.selected.delete(it.id);
+    const tb = document.querySelector('tbody.row[data-id="' + it.id + '"]');
+    const box = tb && tb.querySelector("[data-check]");
+    if (tb) tb.classList.toggle("is-selected", e.target.checked);
+    if (box) box.checked = e.target.checked;
+  });
+  renderActionBar();
+});
+
+// row interactions
+$("#grid").addEventListener("change", e => {
+  const box = e.target.closest("[data-check]");
+  if (!box) return;
+  setSelected(box.dataset.check, box.checked);
+});
+
+$("#grid").addEventListener("click", e => {
+  const expandBtn = e.target.closest("[data-expand]");
+  if (expandBtn) { toggleExpand(expandBtn.dataset.expand); return; }
+
+  const addOne = e.target.closest("[data-add-one]");
+  if (addOne) { commitAdd([addOne.dataset.addOne]); return; }
+
+  if (e.target.closest("input, button, a, label")) return;
+
+  const mainRow = e.target.closest("tr.main");
+  if (!mainRow) return;
+  toggleExpand(mainRow.closest("tbody.row").dataset.id);
+});
+
+// action bar
+$("#clearSel").addEventListener("click", () => {
+  state.selected.clear();
+  $$("[data-check]").forEach(b => { b.checked = false; });
+  $$("tbody.row").forEach(tb => tb.classList.remove("is-selected"));
+  renderActionBar();
+});
+
+$("#addBtn").addEventListener("click", () => commitAdd(Array.from(state.selected)));
+
+
+/* ============================================================
+   INIT
+   ============================================================ */
+$("#individualsBody").innerHTML = INDIVIDUALS.map(r =>
+  "<tr><td>" + esc(r.label) + "</td><td>" + esc(r.type) + '</td><td class="c-def mono">'
+  + esc(r.id) + "</td><td>" + esc(r.src) + "</td></tr>"
+).join("");
+
+renderAll();
+</script>
+</body>
+</html>

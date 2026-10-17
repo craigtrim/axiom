@@ -1,3 +1,4 @@
+// Real ontology identifiers and recorded context in the reference layout (craigtrim/axiom#82).
 import type { Entity } from "../domain/model";
 import { displayName, identifier, identifierParts } from "../domain/rdf-model";
 import {
@@ -31,6 +32,7 @@ type Props = {
   loading: boolean;
   applying: boolean;
   activity: boolean;
+  selectionActivity?: boolean;
   waiting: boolean;
   targetExists: boolean;
   blocked: string;
@@ -64,71 +66,76 @@ export function AddChildrenSuggestions(p: Props) {
           />
         )
       }
-      renderDetails={(item) => {
-        const proposedIri =
-          (p.context?.ontology.namespace ?? "") + identifier(item.label);
-        const existing =
-          item.status === "exists"
-            ? p.entities.find(
-                (e) =>
-                  e.iri === proposedIri ||
-                  taxonomyNameKey(displayName(e)) ===
-                    taxonomyNameKey(item.label) ||
-                  taxonomyNameKey(identifierParts(e.iri).name) ===
-                    taxonomyNameKey(item.label),
-              )
-            : undefined;
-        return (
-          <div>
-            <h3>Identifier and relationship</h3>
-            <dl className="ac-identifiers">
-              <div>
-                <dt>Label</dt>
-                <dd>{item.label}</dd>
-              </div>
-              <div>
-                <dt>Normalized name</dt>
-                <dd>
-                  <code>
-                    {normalizedSuggestionName(item.label) || item.label}
-                  </code>
-                </dd>
-              </div>
-              <div>
-                <dt>Identifier</dt>
-                <dd>
-                  <code>{proposedIri}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>Parent relation</dt>
-                <dd>
-                  rdfs:subClassOf {p.name}
-                  <br />
-                  <code>{item.parentIri}</code>
-                </dd>
-              </div>
-              {item.status === "exists" && (
-                <div>
-                  <dt>Existing entity</dt>
-                  <dd>
-                    {existing ? (
-                      <>
-                        {displayName(existing)}
-                        <br />
-                        <code>{existing.iri}</code>
-                      </>
-                    ) : (
-                      "An existing ontology entity matches this label or normalized name."
-                    )}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
-        );
-      }}
+      renderDetails={(item) => (
+        <ChildSuggestionDetails
+          item={item}
+          context={p.context}
+          entities={p.entities}
+        />
+      )}
     />
+  );
+}
+
+export function ChildSuggestionDetails({
+  item,
+  context,
+  entities,
+}: {
+  item: ReturnType<typeof childSuggestions>[number];
+  context?: Pick<TaxonomyContext, "ontology">;
+  entities: Entity[];
+}) {
+  const proposedIri =
+    (context?.ontology.namespace ?? "") + identifier(item.label);
+  const existing =
+    item.status === "exists"
+      ? entities.find(
+          (e) =>
+            e.iri === proposedIri ||
+            taxonomyNameKey(displayName(e)) === taxonomyNameKey(item.label) ||
+            taxonomyNameKey(identifierParts(e.iri).name) ===
+              taxonomyNameKey(item.label),
+        )
+      : undefined;
+  return (
+    <div>
+      <h3>Identifier and relationship</h3>
+      <dl className="ac-identifiers">
+        <div>
+          <dt>Label</dt>
+          <dd>{item.label}</dd>
+        </div>
+        <div>
+          <dt>Normalized name</dt>
+          <dd>
+            <code>{normalizedSuggestionName(item.label) || item.label}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Identifier</dt>
+          <dd>
+            <code>{proposedIri}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Parent relation</dt>
+          <dd>
+            <code>rdfs:subClassOf {item.parentIri}</code>
+          </dd>
+        </div>
+        {item.status === "exists" && (
+          <div>
+            <dt>Existing entity</dt>
+            <dd>
+              {existing
+                ? `${displayName(existing)} · ${existing.iri}`
+                : "An existing ontology entity matches this label or normalized name."}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
   );
 }
 
@@ -151,41 +158,36 @@ function ContextContents({
   const children = context.childTerms ?? [];
   return (
     <>
-      <p>
-        <strong>{context.selected.label}</strong>
-        {context.selected.comment && ": " + context.selected.comment}
-      </p>
       <dl className="ac-context-counts">
         <div>
           <dt>Ancestors</dt>
           <dd>
-            <b>{context.ancestors.length}</b>
+            <b>{context.ancestors.length}</b>{" "}
             <span>
               {context.ancestors.map((t) => t.label).join(", ") ||
-                "No asserted parent."}
+                "none recorded"}
             </span>
           </dd>
         </div>
         <div>
           <dt>Children</dt>
           <dd>
-            <b>{context.sample?.children ?? context.directChildren.length}</b>
+            <b>{context.sample?.children ?? context.directChildren.length}</b>{" "}
             <span>
-              {context.directChildren.length} sent ·{" "}
-              {children.map((t) => t.label).join(", ") ||
-                "No existing children."}
+              {(context.sample?.children ?? context.directChildren.length) === 0
+                ? "none recorded"
+                : `${context.directChildren.length} sent · ${children.map((t) => t.label).join(", ")}`}
             </span>
           </dd>
         </div>
         <div>
           <dt>Descendants</dt>
           <dd>
-            <b>{context.sample?.descendants ?? context.descendants.length}</b>
+            <b>{context.sample?.descendants ?? context.descendants.length}</b>{" "}
             <span>
-              {context.descendants.length} sent ·{" "}
-              {context.descendants
-                .map((t) => t.label + " (depth " + t.depth + ")")
-                .join(", ") || "No descendants."}
+              {(context.sample?.descendants ?? context.descendants.length) === 0
+                ? "none recorded"
+                : `${context.descendants.length} sent · ${context.descendants.map((t) => t.label + " (depth " + t.depth + ")").join(", ")}`}
             </span>
           </dd>
         </div>

@@ -1,3 +1,4 @@
+// Finished child runs remain editable while another target runs (craigtrim/axiom#82, #68).
 import {
   AddChildrenSuggestions,
   type ChildSuggestionNavigation,
@@ -76,6 +77,8 @@ export function TaxonomyAssistant({
   const nodeHistory = relevantHistory.filter(
     (h) => h.iri === target?.iri && h.mode === target.mode,
   );
+  const activeForTarget =
+    busy || (!!activity && nodeHistory.some((h) => h.state === "running"));
   const otherHistory = relevantHistory.filter(
     (h) => h.iri !== target?.iri || h.mode !== target.mode,
   );
@@ -261,7 +264,7 @@ export function TaxonomyAssistant({
     }
   }
   async function apply(indices = [...selected]) {
-    if (!response || blocked || applying || activity) return;
+    if (!response || blocked || applying || activeForTarget) return;
     setApplying(true);
     setError("");
     try {
@@ -323,9 +326,15 @@ export function TaxonomyAssistant({
         loading={loading}
         applying={applying}
         activity={!!activity}
+        selectionActivity={activeForTarget}
         waiting={!!start && !!activity}
         targetExists={!!targetExists}
-        blocked={blocked}
+        blocked={
+          blocked ||
+          (activeForTarget && !busy
+            ? `Wait for the suggestions for ${name} to finish before selecting values.`
+            : "")
+        }
         drift={drift}
         error={error}
         entities={snapshot.entities}

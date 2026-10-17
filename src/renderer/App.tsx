@@ -1401,6 +1401,7 @@ export function App() {
                 <AdaptivePane
                   name={n.getName()}
                   paneId={n.getId()}
+                  shared={n.getComponent() === "taxonomy"} // Suggestions uses shared recovery (craigtrim/axiom#82).
                   visual={n.getComponent() === "graph"}
                   maximize={() => {
                     const owner = n.getWindow();
