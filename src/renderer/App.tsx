@@ -1361,6 +1361,7 @@ export function App() {
               name={n.getName()}
               paneId={n.getId()}
               visual={n.getComponent() === "graph"}
+              shared={n.getComponent() === "taxonomy"} // Suggestions uses shared recovery (craigtrim/axiom#82).
               maximize={() => {
                 const owner = n.getWindow();
                 if (owner && owner !== window) {

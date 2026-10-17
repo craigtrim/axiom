@@ -56,8 +56,14 @@ function service() {
   return new TaxonomyAssistantService(
     root,
     async (i) => taxonomyContext(store, i.iri, i.mode, epoch),
-    async (c, s) =>
-      validateTaxonomySuggestions(store, c.selected.iri, c.mode, s),
+    async (c, s) => {
+      // Match the worker's edit and workspace guards, including during generation.
+      if (c.datasetEpoch !== epoch || c.version !== store.version)
+        throw Error(
+          "The ontology changed. Find suggestions again before adding them.",
+        );
+      return validateTaxonomySuggestions(store, c.selected.iri, c.mode, s);
+    },
     async (c, s) => applyTaxonomySuggestions(store, c.selected.iri, c.mode, s),
   );
 }
@@ -191,6 +197,56 @@ it("retains failed and cancelled attempts alongside successful retries", async (
     "Provider unavailable",
   );
 });
+
+// craigtrim/axiom#82 retains the #68 review contract for child suggestions too.
+it("applies a completed run during another target's request, but blocks a request for its own target", async () => {
+  const current = service();
+  await current.run(input("saved"));
+  fake.block = true;
+  const other = current.run({ ...input("other", THING), bypassCache: true });
+  await vi.waitFor(() => expect(fake.release).toBeDefined());
+  try {
+    await current.apply("saved", [0]);
+    expect((await current.read("saved")).entry.applied).toEqual([0]);
+    expect(current.status().running).toBe(true);
+  } finally {
+    fake.release!();
+    await other;
+  }
+  fake.release = undefined;
+  const same = current.run({ ...input("same"), bypassCache: true });
+  await vi.waitFor(() => expect(fake.release).toBeDefined());
+  try {
+    await expect(current.apply("saved", [1])).rejects.toThrow(
+      "Wait for the suggestions for this class",
+    );
+    expect((await current.read("saved")).entry.applied).toEqual([0]);
+  } finally {
+    fake.release!();
+    await same;
+  }
+});
+
+it.each(["workspace", "target"])(
+  "rejects an active reply when its %s is no longer available",
+  async (change) => {
+    const current = service();
+    fake.block = true;
+    const running = current
+      .run(input("guarded"))
+      .catch((error) => error as Error);
+    await vi.waitFor(() => expect(fake.release).toBeDefined());
+    if (change === "workspace") epoch++;
+    else store.deleteClass(parent);
+    fake.release!();
+    const result = await running;
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toMatch(
+      /different ontology|nowhere to go/,
+    );
+    expect((await current.history())[0].state).toBe("failed");
+  },
+);
 
 it("protects prior records from reused run IDs and handles interruption without losing other history", async () => {
   const current = service();
