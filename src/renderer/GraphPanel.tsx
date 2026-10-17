@@ -261,7 +261,10 @@ function GraphContent() {
         event.key !== "Escape" ||
         event.isComposing ||
         event.defaultPrevented ||
-        doc.querySelector("dialog[open],[role=menu]")
+        // Issue 85: a closed shared popover must not suppress graph shortcuts.
+        doc.querySelector(
+          "dialog[open],[role=menu]:not([popover]),[role=menu]:popover-open",
+        )
       )
         return;
       event.preventDefault();

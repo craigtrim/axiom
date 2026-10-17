@@ -34,14 +34,22 @@ export function SharedMenu({
   items,
   trigger,
   label = "More actions",
+  triggerContent,
+  triggerClassName = "btn quiet iconbtn",
+  hidden = false,
 }: {
   items: readonly SharedMenuItem[];
   trigger: RefObject<HTMLButtonElement | null>;
   label?: string;
+  /** Issue 85 retains each view's reference trigger while sharing the menu. */
+  triggerContent?: ReactNode;
+  triggerClassName?: string;
+  hidden?: boolean;
 }) {
   const id = useId();
   const menu = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<string>();
   const { width, height, recovery } = usePaneLayout();
   const close = (restore = false) => {
     const popup = menu.current;
@@ -93,9 +101,9 @@ export function SharedMenu({
     ).focus();
   };
   useLayoutEffect(() => {
-    if (recovery) close();
+    if (recovery || hidden) close();
     else if (menu.current?.matches(":popover-open")) position();
-  }, [width, height, recovery, items]);
+  }, [width, height, recovery, hidden, items]);
   useEffect(() => {
     if (!open || !menu.current) return;
     const doc = menu.current.ownerDocument;
@@ -121,7 +129,8 @@ export function SharedMenu({
       <button
         ref={trigger}
         type="button"
-        className="btn quiet iconbtn"
+        className={triggerClassName}
+        hidden={hidden}
         aria-label={label}
         aria-haspopup="menu"
         aria-controls={id}
@@ -134,96 +143,104 @@ export function SharedMenu({
           }
         }}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          aria-hidden="true"
-          focusable="false"
-        >
-          {[5, 12, 19].map((cx) => (
-            <circle
-              key={cx}
-              cx={cx}
-              cy="12"
-              r="1.3"
-              fill="currentColor"
-              stroke="none"
-            />
-          ))}
-        </svg>
-      </button>
-      <div
-        ref={menu}
-        id={id}
-        popover="manual"
-        className="menu"
-        role="menu"
-        aria-label={label}
-        tabIndex={-1}
-        onToggle={(event) => setOpen(event.newState === "open")}
-        onKeyDown={(event) => {
-          const popup = menu.current!;
-          const buttons = [
-            ...popup.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-          ];
-          const index = buttons.indexOf(
-            popup.ownerDocument.activeElement as HTMLButtonElement,
-          );
-          if (event.key === "Escape" || event.key === "Tab") {
-            event.preventDefault();
-            event.stopPropagation();
-            close(true);
-          } else if (
-            ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!buttons.length) return;
-            const next =
-              event.key === "Home"
-                ? 0
-                : event.key === "End"
-                  ? buttons.length - 1
-                  : (index +
-                      (event.key === "ArrowDown" ? 1 : -1) +
-                      buttons.length) %
-                    buttons.length;
-            buttons[next].focus();
-          } else if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            event.stopPropagation();
-            buttons[index]?.click();
-          }
-        }}
-      >
-        {items.map((item) =>
-          "separator" in item ? (
-            <div key={item.id} className="sep" role="separator" />
-          ) : (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              data-shared-overflow={item.commandId}
-              aria-disabled={item.disabled || undefined}
-              title={item.reason}
-              onClick={() => {
-                if (!item.disabled) {
-                  close(true);
-                  item.run();
-                }
-              }}
-            >
-              {item.checked ? "✓ " : ""}
-              {item.label}
-              {item.shortcut && <span className="k">{item.shortcut}</span>}
-            </button>
-          ),
+        {triggerContent ?? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {[5, 12, 19].map((cx) => (
+              <circle
+                key={cx}
+                cx={cx}
+                cy="12"
+                r="1.3"
+                fill="currentColor"
+                stroke="none"
+              />
+            ))}
+          </svg>
         )}
-      </div>
+      </button>
+      {/* Issue 85 scopes menu tokens without changing the owner's typography. */}
+      <span className="shared-layer" style={{ display: "contents" }}>
+        <div
+          ref={menu}
+          id={id}
+          popover="manual"
+          className="menu"
+          role="menu"
+          aria-label={label}
+          tabIndex={-1}
+          onToggle={(event) => setOpen(event.newState === "open")}
+          onKeyDown={(event) => {
+            const popup = menu.current!;
+            const buttons = [
+              ...popup.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+            ];
+            const index = buttons.indexOf(
+              popup.ownerDocument.activeElement as HTMLButtonElement,
+            );
+            if (event.key === "Escape" || event.key === "Tab") {
+              event.preventDefault();
+              event.stopPropagation();
+              close(true);
+            } else if (
+              ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!buttons.length) return;
+              const next =
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? buttons.length - 1
+                    : (index +
+                        (event.key === "ArrowDown" ? 1 : -1) +
+                        buttons.length) %
+                      buttons.length;
+              buttons[next].focus();
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              buttons[index]?.click();
+            }
+          }}
+        >
+          {items.map((item) =>
+            "separator" in item ? (
+              <div key={item.id} className="sep" role="separator" />
+            ) : (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                data-shared-overflow={item.commandId}
+                data-active={active === item.id || undefined}
+                onFocus={() => setActive(item.id)}
+                onBlur={() => setActive(undefined)}
+                aria-disabled={item.disabled || undefined}
+                title={item.reason}
+                onClick={() => {
+                  if (!item.disabled) {
+                    close(true);
+                    item.run();
+                  }
+                }}
+              >
+                {item.checked ? "✓ " : ""}
+                {item.label}
+                {item.shortcut && <span className="k">{item.shortcut}</span>}
+              </button>
+            ),
+          )}
+        </div>
+      </span>
     </>
   );
 }

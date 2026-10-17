@@ -52,6 +52,7 @@ export function PredicateSelect({
   disabled,
   change,
   quiet = false,
+  count,
 }: {
   value: string;
   options: string[];
@@ -60,6 +61,8 @@ export function PredicateSelect({
   disabled?: boolean;
   change: (iri: string) => void;
   quiet?: boolean;
+  /** Issue 85 places the collapsed value count before the predicate chevron. */
+  count?: number;
 }) {
   const select = (
     <select
@@ -88,6 +91,9 @@ export function PredicateSelect({
       <span aria-hidden="true">
         {value ? compactIri(value, namespace) : "Choose predicate"}
       </span>
+      {count !== undefined && (
+        <span className="statement-value-count">{count}</span>
+      )}
       <span className="chev" aria-hidden="true">
         <DetailsGlyph kind="chevron" />
       </span>

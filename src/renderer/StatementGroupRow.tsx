@@ -25,7 +25,7 @@ export function StatementGroupRow<Value>({
 }: {
   group: StatementGroup<Value>;
   name: string;
-  predicate: ReactNode;
+  predicate: ReactNode | ((hidden: number) => ReactNode);
   renderValue(value: Value, index: number): ReactNode;
   valueKey(value: Value, index: number): string | number;
   add?: () => void;
@@ -42,6 +42,8 @@ export function StatementGroupRow<Value>({
   const grouped = group.values.length > 1;
   const shown = expanded ? group.values : group.values.slice(0, 3);
   const hidden = group.values.length - shown.length;
+  const predicateNode =
+    typeof predicate === "function" ? predicate(hidden) : predicate;
   useLayoutEffect(() => {
     if (pendingFocus.current === null) return;
     const fields = row.current?.querySelectorAll<HTMLElement>(
@@ -49,6 +51,10 @@ export function StatementGroupRow<Value>({
     );
     const field =
       fields?.[Math.min(pendingFocus.current.index, fields.length - 1)];
+    // Issue 85 hides actions outside focus; reveal the remaining row before
+    // returning keyboard focus to its remove action after deleting a value.
+    if (pendingFocus.current.selector === ".statement-value-remove")
+      field?.querySelector<HTMLElement>("input, select")?.focus();
     field?.querySelector<HTMLElement>(pendingFocus.current.selector)?.focus();
     pendingFocus.current = null;
   }, [group.values.length]);
@@ -65,7 +71,15 @@ export function StatementGroupRow<Value>({
       <button
         type="button"
         className={`statement-text-action${inline ? " statement-value-action" : ""}`}
-        onClick={addValue}
+        // Keep a focused single-value tools line in place until click dispatch.
+        onMouseDown={(event) => {
+          if (details && event.button === 0) event.preventDefault();
+        }}
+        onClick={(event) => {
+          // Finish the previous cell before appending the new blank value.
+          event.currentTarget.focus();
+          addValue();
+        }}
       >
         + Add value
       </button>
@@ -74,7 +88,7 @@ export function StatementGroupRow<Value>({
     return (
       <tr ref={row} data-predicate={group.predicate}>
         <td>
-          <div className="pred">{predicate}</div>
+          <div className="pred">{predicateNode}</div>
         </td>
         <td>
           <div className="vals" id={id}>
@@ -143,8 +157,8 @@ export function StatementGroupRow<Value>({
     >
       <td>
         <div className="statement-group-predicate">
-          {predicate}
-          {hidden > 0 && (
+          {predicateNode}
+          {hidden > 0 && typeof predicate !== "function" && (
             <span className="statement-value-count">{group.values.length}</span>
           )}
         </div>
@@ -173,7 +187,11 @@ export function StatementGroupRow<Value>({
                   className="statement-value-action statement-value-remove"
                   aria-label={`Remove this ${name} value`}
                   title={`Remove this ${name} value`}
-                  onClick={() => {
+                  onMouseDown={(event) => {
+                    if (details && event.button === 0) event.preventDefault();
+                  }}
+                  onClick={(event) => {
+                    event.currentTarget.focus();
                     pendingFocus.current = {
                       index: Math.max(0, index - 1),
                       selector: ".statement-value-remove",
@@ -190,11 +208,17 @@ export function StatementGroupRow<Value>({
                   )}
                 </button>
               )}
-              {!grouped && addButton(true)}
+              {/* Issue 85: Details reveals the tools line while the row holds focus. */}
+              {!grouped && !details && addButton(true)}
             </div>
           ))}
-          {grouped && (add || group.values.length > 3) && (
-            <div className="statement-value-tools">
+          {(grouped || details) && (add || group.values.length > 3) && (
+            <div
+              className={
+                "statement-value-tools" +
+                (!grouped ? " statement-single-tools" : "")
+              }
+            >
               {addButton()}
               {group.values.length > 3 && (
                 <button
@@ -202,7 +226,13 @@ export function StatementGroupRow<Value>({
                   className="statement-text-action statement-value-expand"
                   aria-expanded={expanded}
                   aria-controls={id}
-                  onClick={() => setExpanded(!expanded)}
+                  onMouseDown={(event) => {
+                    if (details && event.button === 0) event.preventDefault();
+                  }}
+                  onClick={(event) => {
+                    event.currentTarget.focus();
+                    setExpanded(!expanded);
+                  }}
                 >
                   {expanded ? "Show fewer" : `${hidden} more`}
                 </button>

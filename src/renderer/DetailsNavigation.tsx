@@ -173,7 +173,8 @@ export function DetailsNavigation({ children }: { children: ReactNode }) {
               "input,textarea,select,[contenteditable],.monaco-editor",
             ) ||
             target.ownerDocument.querySelector(
-              "dialog[open],[role=menu],[popover]:popover-open",
+              // Issue 85: the shared More menu remains mounted while closed.
+              "dialog[open],[role=menu]:not([popover]),[popover]:popover-open",
             )
           )
             return;
