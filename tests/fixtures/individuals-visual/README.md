@@ -2,7 +2,13 @@
 
 **Purpose:** Specify the Individuals grid, the kind aware Inspector, and Find Touchpoints as a detached action, to the level of detail required to rebuild all three without reading the prototype.
 
-**Status:** Normative. Revision 1.
+**Status:** Original specification, refined by [issue #86](https://github.com/craigtrim/axiom/issues/86) for Individuals. That issue governs conflicts with this document. Inspector and Touchpoints have their own replacement references in #89 and #92.
+
+The original specimen remains unchanged at `visual-reference.html` (71,021 bytes, SHA-256 `a331ecb4a08aafba275b1a19acfbe5b18d76004d0185b496660435575a38501a`). The supplementary workbench is pinned at `visual-reference-v2.html` (288,935 bytes, SHA-256 `bd7108c30dced68c104ce221cfd46da1c724e9bb6185b9048021e5f9259f5900`). Its `ROWS` array supplies every value in `five-hundred.ttl`, with each subject typed as `School`; the domain test checks all 500 records against the reference.
+
+The visual tests apply #86's documented decisions and the specimen stylesheet from its `capture.js`. Decision 4 retains locale sorting. Decision 6 retains ranked search and suppresses the sort arrow while a query uses best-match order. `polytechnic-order.json` records the 16 results from the existing lexical search contract, independently of screenshot capture; a domain test checks that order. The specimen's Columns substitution uses the current shown count, including six when aliases are enabled.
+
+Comparisons use the same compositor boundaries and fonts for the app and references. Each fixture remains byte-for-byte unchanged. The harness saves both renders and a raw pixel difference, with no masks or nonzero allowance.
 
 **Requirement ID prefixes owned:** `IND`
 

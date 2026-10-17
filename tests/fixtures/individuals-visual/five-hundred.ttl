@@ -1,0 +1,5055 @@
+@prefix : <http://devry.edu/school-names#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+# The 500 verbatim rows in issue 86, each typed as School.
+:Q7707454 a :School ;
+rdfs:label "Texas A&M College of Liberal Arts" ;
+:hasCoordinates "30.610278,-96.343611" ;
+:hasCountry "Q30" ;
+:hasQID "Q7707454" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7707454"^^xsd:anyURI .
+:Q10357800 a :School ;
+:hasCountry "Q45" ;
+:hasQID "Q10357800" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10357800"^^xsd:anyURI .
+:Q622683 a :School ;
+rdfs:label "University of Graz" ;
+:establishedYear "1585" ;
+:hasCoordinates "47.07761,15.44956" ;
+:hasCountry "Q40" ;
+:hasQID "Q622683" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.uni-graz.at/de/"^^xsd:anyURI ;
+:locatedIn "Q13298" ;
+rdfs:comment "university in Graz, Austria" ;
+rdfs:seeAlso "Carolo Franciscea Graecensis", "Karl Franzens Universität", "uni-graz.at" ;
+owl:sameAs "http://www.wikidata.org/entity/Q622683"^^xsd:anyURI .
+:Q2894666 a :School ;
+rdfs:label "Bellarmine University" ;
+:establishedYear "1950" ;
+:hasCoordinates "38.2198,-85.703" ;
+:hasCountry "Q30" ;
+:hasQID "Q2894666" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bellarmine.edu"^^xsd:anyURI ;
+:locatedIn "Q43668" ;
+rdfs:comment "private, liberal arts, Division I university affiliated with the Catholic church" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2894666"^^xsd:anyURI .
+:Q482683 a :School ;
+rdfs:label "Korea Military Academy" ;
+:establishedYear "1946" ;
+:hasCoordinates "37.623206,127.099596" ;
+:hasCountry "Q884" ;
+:hasQID "Q482683" ;
+:hasType "Q917182" ;
+:hasWebsite "http://www.kma.ac.kr"^^xsd:anyURI ;
+:locatedIn "Q8684" ;
+rdfs:comment "military academy" ;
+owl:sameAs "http://www.wikidata.org/entity/Q482683"^^xsd:anyURI .
+:Q100606019 a :School ;
+:hasCountry "Q414" ;
+:hasQID "Q100606019" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100606019"^^xsd:anyURI .
+:Q107717858 a :School ;
+rdfs:label "Eko University of Medical and Health Sciences Ijanikin Lagos" ;
+:establishedYear "2017" ;
+:hasCoordinates "6.491954085776475,3.124089890467559" ;
+:hasCountry "Q1033" ;
+:hasQID "Q107717858" ;
+:hasType "Q3918" ;
+:hasWebsite "https://ekounimed.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q24260589" ;
+rdfs:comment "Eko University of Medicine and Health Sciences (EkoUNIMED), a specialised, privately owned, medical, non-sectarian, and co-educational institution." ;
+rdfs:seeAlso "Eko University of Medicine and Health Sciences (EkoUNIMED)", "EkoUNIMED", "EkoUnimed" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107717858"^^xsd:anyURI .
+:Q17061929 a :School ;
+rdfs:label "Kepler" ;
+:establishedYear "2013" ;
+:hasQID "Q17061929" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.kepler.org/"^^xsd:anyURI ;
+rdfs:comment "nonprofit higher education program that operates a university campus in Kigali, Rwanda" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17061929"^^xsd:anyURI .
+:Q3345391 a :School ;
+rdfs:label "Inter-University Centre for Astronomy and Astrophysics" ;
+:establishedYear "1988" ;
+:hasCoordinates "18.559513086145806,73.82532014890373" ;
+:hasCountry "Q668" ;
+:hasQID "Q3345391" ;
+:hasType "Q31855" ;
+:hasWebsite "https://www.iucaa.in/"^^xsd:anyURI ;
+:locatedIn "Q1538" ;
+rdfs:comment "Indian institute for Astronomical sciences" ;
+rdfs:seeAlso "IUCAA", "Inter University Center for Astronomy and Astrophysics (IUCAA)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3345391"^^xsd:anyURI .
+:Q13058460 a :School ;
+rdfs:label "Patuakhali Polytechnic Institute" ;
+:establishedYear "1989" ;
+:hasCoordinates "22.352868,90.337431" ;
+:hasCountry "Q902" ;
+:hasQID "Q13058460" ;
+:hasType "Q121735451" ;
+:hasWebsite "https://www.ppi.gov.bd/"^^xsd:anyURI ;
+:locatedIn "Q1429761" ;
+rdfs:comment "Government Polytechnic Institute of Bangladesh" ;
+owl:sameAs "http://www.wikidata.org/entity/Q13058460"^^xsd:anyURI .
+:Q6954319 a :School ;
+rdfs:label "NIILM CMS" ;
+:establishedYear "1996" ;
+:hasCountry "Q668" ;
+:hasQID "Q6954319" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.niilm-cms.edu.in/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q6954319"^^xsd:anyURI .
+:Q7565333 a :School ;
+rdfs:label "SouthWest Skill Center" ;
+:hasCoordinates "33.480405,-112.343463" ;
+:hasCountry "Q30" ;
+:hasQID "Q7565333" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.estrellamountain.edu/southwest-skill-center"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q7565333"^^xsd:anyURI .
+:Q17929189 a :School ;
+rdfs:label "Federal University Gashua" ;
+:establishedYear "2013" ;
+:hasCoordinates "12.881298679947918,11.00464723525888" ;
+:hasCountry "Q1033" ;
+:hasQID "Q17929189" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.fugashua.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q682777" ;
+rdfs:comment "university in Yobe Sate, Nigeria" ;
+rdfs:seeAlso "FUGashua" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17929189"^^xsd:anyURI .
+:Q116490612 a :School ;
+:hasCountry "Q213" ;
+:hasQID "Q116490612" ;
+:hasType "Q110225820" ;
+:locatedIn "Q193719" ;
+owl:sameAs "http://www.wikidata.org/entity/Q116490612"^^xsd:anyURI .
+:Q117423169 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q117423169" ;
+:hasType "Q21514702" ;
+owl:sameAs "http://www.wikidata.org/entity/Q117423169"^^xsd:anyURI .
+:Q11088949 a :School ;
+rdfs:label "Showa College of Music" ;
+:establishedYear "1930" ;
+:hasCountry "Q17" ;
+:hasQID "Q11088949" ;
+:hasType "Q110296306" ;
+:hasWebsite "https://www.tosei-showa-music.ac.jp"^^xsd:anyURI ;
+rdfs:comment "education organization in Kawasaki, Japan" ;
+rdfs:seeAlso "Showa University of Music Junior College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11088949"^^xsd:anyURI .
+:Q338505 a :School ;
+rdfs:label "Accademia di Belle Arti di Venezia" ;
+:establishedYear "1750" ;
+:hasCoordinates "45.4286,12.3305" ;
+:hasCountry "Q4948" ;
+:hasQID "Q338505" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.accademiavenezia.it/"^^xsd:anyURI ;
+:locatedIn "Q641" ;
+rdfs:comment "public tertiary academy of art in Venice, Italy, founded in 1750" ;
+rdfs:seeAlso "Academy of Fine Arts Venice", "Academy of Fine Arts of Venice", "Academy of Venice", "Accademia Veneta", "Accademia delle Belle Arti di Venezia", "Venice Academy" ;
+owl:sameAs "http://www.wikidata.org/entity/Q338505"^^xsd:anyURI .
+:Q125287862 a :School ;
+:establishedYear "2024" ;
+:hasCountry "Q79" ;
+:hasQID "Q125287862" ;
+:hasType "Q902104" ;
+:locatedIn "Q30805" ;
+owl:sameAs "http://www.wikidata.org/entity/Q125287862"^^xsd:anyURI .
+:Q6979225 a :School ;
+rdfs:label "University of Abomey-Calavi" ;
+:establishedYear "1970" ;
+:hasCoordinates "6.44105,2.35234" ;
+:hasCountry "Q962" ;
+:hasQID "Q6979225" ;
+:hasType "Q875538" ;
+:hasWebsite "https://uac.bj/"^^xsd:anyURI ;
+:locatedIn "Q2473939" ;
+rdfs:comment "public university in Abomey-Calavi, Benin" ;
+rdfs:seeAlso "National University of Benin", "UAC", "UNB", "Universite du Dahomey", "University of Dahomey", "Université du Dahomey", "Université d’Abomey-Calavi", "uac.bj" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6979225"^^xsd:anyURI .
+:Q12236070 a :School ;
+rdfs:label "Al-Quds College" ;
+:establishedYear "1980" ;
+:hasCountry "Q810" ;
+:hasQID "Q12236070" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.quds.edu.jo/"^^xsd:anyURI ;
+:locatedIn "Q3805" ;
+rdfs:comment "College in Amman, Jordan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12236070"^^xsd:anyURI .
+:Q19892759 a :School ;
+rdfs:label "Government College Women University (Faisalabad)" ;
+:establishedYear "2012" ;
+:hasCountry "Q843" ;
+:hasQID "Q19892759" ;
+:hasType "Q3918" ;
+:hasWebsite "https://gcwuf.edu.pk/"^^xsd:anyURI ;
+:locatedIn "Q173985" ;
+rdfs:comment "university in Faisalabad, Pakistan" ;
+rdfs:seeAlso "Government College Women University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19892759"^^xsd:anyURI .
+:Q3444458 a :School ;
+rdfs:label "Westmont College" ;
+:establishedYear "1937" ;
+:hasCoordinates "34.4497888,-119.6593305" ;
+:hasCountry "Q30" ;
+:hasQID "Q3444458" ;
+:hasType "Q23002054" ;
+:hasWebsite "https://www.westmont.edu/"^^xsd:anyURI ;
+:locatedIn "Q108106" ;
+rdfs:comment "interdenominational Christian liberal arts college in Santa Barbara, California" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3444458"^^xsd:anyURI .
+:Q5589058 a :School ;
+rdfs:label "Government Polytechnic Solapur" ;
+:establishedYear "1956" ;
+:hasCoordinates "17.67185595851009,75.92291186281906" ;
+:hasCountry "Q668" ;
+:hasQID "Q5589058" ;
+:hasType "Q3918" ;
+:hasWebsite "http://gpsolapur.ac.in"^^xsd:anyURI ;
+:locatedIn "Q237847" ;
+rdfs:comment "government polytechnic college in Solapur, Maharashtra, India" ;
+rdfs:seeAlso "Polytechnic College Solapur" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5589058"^^xsd:anyURI .
+:Q55525681 a :School ;
+rdfs:label "Niigata Agro-Food University" ;
+:establishedYear "2018" ;
+:hasCoordinates "38.08581667,139.37573611" ;
+:hasCountry "Q17" ;
+:hasQID "Q55525681" ;
+:hasType "Q902104" ;
+:hasWebsite "https://nafu.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q179691" ;
+rdfs:comment "education organization in Niigata, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q55525681"^^xsd:anyURI .
+:Q4881219 a :School ;
+rdfs:label "Beijing Wuzi University" ;
+:establishedYear "1980" ;
+:hasCoordinates "39.929,116.6388" ;
+:hasCountry "Q148" ;
+:hasQID "Q4881219" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bwu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q956" ;
+rdfs:comment "university in Beijing, China" ;
+rdfs:seeAlso "Wuzi University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4881219"^^xsd:anyURI .
+:Q1654110 a :School ;
+rdfs:label "Universidade Amílcar Cabral" ;
+:establishedYear "1999" ;
+:hasCoordinates "11.8559,-15.611" ;
+:hasCountry "Q1007" ;
+:hasQID "Q1654110" ;
+:hasType "Q3918" ;
+:hasWebsite "http://uac.gw/"^^xsd:anyURI ;
+:locatedIn "Q3739" ;
+rdfs:comment "public higher education institution in Guinea-Bissau" ;
+rdfs:seeAlso "Amílcar Cabral University", "UAC", "Universidade Amilcar Cabral", "University Amilcar Cabral", "University Amílcar Cabral" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1654110"^^xsd:anyURI .
+:Q1987511 a :School ;
+rdfs:label "Sevastopol State University" ;
+:establishedYear "1951" ;
+:hasCoordinates "44.5945,33.477" ;
+:hasCountry "Q159" ;
+:hasQID "Q1987511" ;
+:hasType "Q3918" ;
+:hasWebsite "http://sevsu.ru/"^^xsd:anyURI ;
+:locatedIn "Q7525" ;
+rdfs:comment "university in Sevastopol, Crimea" ;
+rdfs:seeAlso "Sevastopol National Technical University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1987511"^^xsd:anyURI .
+:Q6875115 a :School ;
+rdfs:label "Misamis Institute of Technology" ;
+:hasCoordinates "8.14836,123.82368" ;
+:hasCountry "Q928" ;
+:hasQID "Q6875115" ;
+:hasType "Q1371037" ;
+rdfs:comment "Ozamiz City, Philippines, maritime, engineering, computing courses etc" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6875115"^^xsd:anyURI .
+:Q18159005 a :School ;
+rdfs:label "University of South Florida St. Petersburg Baseball Club" ;
+:establishedYear "1965" ;
+:hasCountry "Q30" ;
+:hasQID "Q18159005" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.usfsp.edu/"^^xsd:anyURI ;
+:locatedIn "Q49236" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18159005"^^xsd:anyURI .
+:Q6973732 a :School ;
+rdfs:label "National Institute of Technology Goa" ;
+:establishedYear "2010" ;
+:hasCoordinates "15.412413888889,73.978122222222" ;
+:hasCountry "Q668" ;
+:hasQID "Q6973732" ;
+:hasType "Q1371037" ;
+:hasWebsite "http://www.nitgoa.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q1171" ;
+rdfs:comment "engineering school in Goa, India (founded 2010)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6973732"^^xsd:anyURI .
+:Q2392351 a :School ;
+rdfs:label "Leeds Beckett University" ;
+:establishedYear "1992" ;
+:hasCoordinates "53.804166666667,-1.5494444444444" ;
+:hasCountry "Q145" ;
+:hasQID "Q2392351" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.leedsbeckett.ac.uk/"^^xsd:anyURI ;
+rdfs:comment "university in Leeds, England, United Kingdom" ;
+rdfs:seeAlso "Leeds Metropolitan University", "Leeds Polytechnic" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2392351"^^xsd:anyURI .
+:Q7055721 a :School ;
+rdfs:label "North Island College" ;
+:establishedYear "1975" ;
+:hasCountry "Q16" ;
+:hasQID "Q7055721" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.nic.bc.ca/"^^xsd:anyURI ;
+:locatedIn "Q1017477" ;
+rdfs:comment "community college complex on the northern half of Vancouver Island, Canada" ;
+rdfs:seeAlso "NIC" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7055721"^^xsd:anyURI .
+:Q768380 a :School ;
+rdfs:label "Free Polish University" ;
+:establishedYear "1918" ;
+:hasCoordinates "52.2103,20.9818" ;
+:hasCountry "Q36" ;
+:hasQID "Q768380" ;
+:hasType "Q3918" ;
+:locatedIn "Q270" ;
+rdfs:comment "former Polish university (1918–1952)" ;
+rdfs:seeAlso "WWP" ;
+owl:sameAs "http://www.wikidata.org/entity/Q768380"^^xsd:anyURI .
+:Q17067546 a :School ;
+rdfs:label "Kelvin Institute of Technology" ;
+:establishedYear "2012" ;
+:hasQID "Q17067546" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17067546"^^xsd:anyURI .
+:Q7133170 a :School ;
+rdfs:label "Papua New Guinea University of Natural Resources and Environment" ;
+:establishedYear "1965" ;
+:hasCountry "Q691" ;
+:hasQID "Q7133170" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unre.ac.pg"^^xsd:anyURI ;
+:locatedIn "Q1017369" ;
+rdfs:comment "Agriculture university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7133170"^^xsd:anyURI .
+:Q1718293 a :School ;
+rdfs:label "Imperial and Royal Technical Military Academy" ;
+:establishedYear "1717" ;
+:hasCountry "Q131964" ;
+:hasQID "Q1718293" ;
+:hasType "Q917182" ;
+rdfs:comment "military academy in Austria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1718293"^^xsd:anyURI .
+:Q14957032 a :School ;
+rdfs:label "Nilamber Pitamber University" ;
+:establishedYear "2009" ;
+:hasCoordinates "24.036266666666666,84.06858333333334" ;
+:hasCountry "Q668" ;
+:hasQID "Q14957032" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.npu.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q936464" ;
+rdfs:comment "state university in Medininagar, Jharkhand" ;
+owl:sameAs "http://www.wikidata.org/entity/Q14957032"^^xsd:anyURI .
+:Q6480379 a :School ;
+rdfs:label "Lalit Narayan Mithila University" ;
+:establishedYear "1972" ;
+:hasCoordinates "26.161303466799158,85.89577085565192" ;
+:hasCountry "Q668" ;
+:hasQID "Q6480379" ;
+:hasType "Q7603893" ;
+:hasWebsite "http://lnmu.in"^^xsd:anyURI ;
+:locatedIn "Q1136189" ;
+rdfs:comment "Lalit Narayan Mithila University (LNMU), established in 1972, is a public university located in Darbhanga, Bihar, India. Named after the renowned freedom fighter and scholar Lalit Narayan Mishra." ;
+rdfs:seeAlso "LN Mithila Vishwavidyalaya", "LNMU Darbhanga", "LNMU University", "Mithila University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6480379"^^xsd:anyURI .
+:Q6973730 a :School ;
+rdfs:label "National Institute of Technology Agartala" ;
+:establishedYear "2006" ;
+:hasCoordinates "23.8421589,91.4214152" ;
+:hasCountry "Q668" ;
+:hasQID "Q6973730" ;
+:hasType "Q1371037" ;
+:hasWebsite "https://www.nita.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q170454" ;
+rdfs:comment "Indian higher education institution" ;
+rdfs:seeAlso "NIT Agartala", "Tripura Engineering College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6973730"^^xsd:anyURI .
+:Q6807303 a :School ;
+rdfs:label "Medtech" ;
+:establishedYear "1939" ;
+:hasCountry "Q30" ;
+:hasQID "Q6807303" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.medtech.edu/schools/indianapolis-indiana"^^xsd:anyURI ;
+rdfs:comment "medical education facility founded in 2004 in Indianapolis, U.S" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6807303"^^xsd:anyURI .
+:Q39054538 a :School ;
+rdfs:label "Tufanganj Government Polytechnic" ;
+:establishedYear "2014" ;
+:hasCoordinates "26.2918084,89.6610016" ;
+:hasCountry "Q668" ;
+:hasQID "Q39054538" ;
+:hasType "Q845392" ;
+:hasWebsite "http://coochbehar.gov.in/TFG-GovPolytechnic.html#"^^xsd:anyURI ;
+:locatedIn "Q2560618" ;
+rdfs:comment "Polytechnic college in West Bengal, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q39054538"^^xsd:anyURI .
+:Q1029504 a :School ;
+rdfs:label "University of National and World Economy" ;
+:establishedYear "1920" ;
+:hasCoordinates "42.650277777778,23.3525" ;
+:hasCountry "Q219" ;
+:hasQID "Q1029504" ;
+:hasType "Q62078547" ;
+:hasWebsite "http://www.unwe.bg/en/"^^xsd:anyURI ;
+:locatedIn "Q472" ;
+rdfs:comment "university in Sofia, Bulgaria" ;
+rdfs:seeAlso "Karl Marx Higher Institute of Economics", "Държавно висше училище за финансови и административни науки", "Свободен университет за политически и стопански науки", "Университет за национално и световно стопанство" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1029504"^^xsd:anyURI .
+:Q1509484 a :School ;
+rdfs:label "The University of Georgia" ;
+:establishedYear "2004" ;
+:hasCoordinates "41.72388889,44.77777778" ;
+:hasCountry "Q230" ;
+:hasQID "Q1509484" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ug.edu.ge/"^^xsd:anyURI ;
+:locatedIn "Q994" ;
+rdfs:comment "university in Tbilisi, Georgia" ;
+rdfs:seeAlso "University Sakartvelo", "University of Georgia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1509484"^^xsd:anyURI .
+:Q1738772 a :School ;
+rdfs:label "Agricultural University of Tirana" ;
+:establishedYear "1951" ;
+:hasCoordinates "41.3622996,19.77105618" ;
+:hasCountry "Q222" ;
+:hasQID "Q1738772" ;
+:hasType "Q3918" ;
+:hasWebsite "http://ubt.edu.al/"^^xsd:anyURI ;
+:locatedIn "Q19689" ;
+rdfs:comment "university in Tirana, Albania" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1738772"^^xsd:anyURI .
+:Q8049772 a :School ;
+rdfs:label "Yashwantrao Chavan Institute Of Science Autonomous Satara" ;
+:establishedYear "1989" ;
+:hasCoordinates "20.020558333333334,73.69103888888888" ;
+:hasCountry "Q668" ;
+:hasQID "Q8049772" ;
+:hasType "Q3918" ;
+:hasWebsite "http://ycmou.digitaluniversity.ac/"^^xsd:anyURI ;
+:locatedIn "Q1191" ;
+rdfs:comment "yashwantrao chavan institute of science" ;
+rdfs:seeAlso "YCiOS" ;
+owl:sameAs "http://www.wikidata.org/entity/Q8049772"^^xsd:anyURI .
+:Q1122851 a :School ;
+rdfs:label "Luiss University" ;
+:establishedYear "1974" ;
+:hasCoordinates "41.924444,12.493056" ;
+:hasCountry "Q38" ;
+:hasQID "Q1122851" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.luiss.edu"^^xsd:anyURI ;
+:locatedIn "Q220" ;
+rdfs:comment "Independent private university in Rome" ;
+rdfs:seeAlso "Free International University for Social Studies \"Guido Carli\"", "LUISS", "LUISS Guido Carli University", "LUISS University", "Libera Università Internazionale degli Studi Sociali \"Guido Carli\"", "Libera Università Internazionale degli Studi Sociali Guido Carli", "Luiss", "Luiss Guido Carli", "Luiss University", "Università degli Studi LUISS Guido Carli di Roma" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1122851"^^xsd:anyURI .
+:Q642216 a :School ;
+rdfs:label "Joint Special Operations University" ;
+:establishedYear "2000" ;
+:hasCoordinates "27.8541,-82.4859" ;
+:hasCountry "Q30" ;
+:hasQID "Q642216" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.jsou.edu"^^xsd:anyURI ;
+:locatedIn "Q49255" ;
+rdfs:comment "university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q642216"^^xsd:anyURI .
+:Q1001338 a :School ;
+rdfs:label "Baden-Wuerttemberg Cooperative State University Loerrach" ;
+:establishedYear "1981" ;
+:hasCoordinates "47.61733,7.67724" ;
+:hasCountry "Q183" ;
+:hasQID "Q1001338" ;
+:hasType "Q1365560" ;
+:hasWebsite "http://www.dhbw-loerrach.de/"^^xsd:anyURI ;
+:locatedIn "Q6855" ;
+rdfs:comment "higher education institution" ;
+rdfs:seeAlso "DHBW Lörrach" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1001338"^^xsd:anyURI .
+:Q532822 a :School ;
+rdfs:label "University of Sassari" ;
+:establishedYear "1562" ;
+:hasCoordinates "40.7248,8.55975" ;
+:hasCountry "Q38" ;
+:hasQID "Q532822" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.uniss.it"^^xsd:anyURI ;
+:locatedIn "Q13629" ;
+rdfs:comment "university in Sassari, Italy" ;
+rdfs:seeAlso "UNISS" ;
+owl:sameAs "http://www.wikidata.org/entity/Q532822"^^xsd:anyURI .
+:Q1916267 a :School ;
+rdfs:label "MSB Medical School Berlin" ;
+:establishedYear "2012" ;
+:hasCoordinates "52.46922,13.31133" ;
+:hasCountry "Q183" ;
+:hasQID "Q1916267" ;
+:hasType "Q1365560" ;
+:hasWebsite "http://www.medicalschool-berlin.de/"^^xsd:anyURI ;
+:locatedIn "Q64" ;
+rdfs:comment "University in Berlin, Germany" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1916267"^^xsd:anyURI .
+:Q30257746 a :School ;
+rdfs:label "Moscow Witte University" ;
+:establishedYear "1993" ;
+:hasCountry "Q159" ;
+:hasQID "Q30257746" ;
+:hasType "Q2385804" ;
+:hasWebsite "https://www.muiv.ru/"^^xsd:anyURI ;
+:locatedIn "Q649" ;
+rdfs:comment "education organization in Moscow, Russia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30257746"^^xsd:anyURI .
+:Q7894322 a :School ;
+rdfs:label "Universidad de Ciencias Comerciales" ;
+:establishedYear "1964" ;
+:hasCoordinates "12.1232,-86.25246" ;
+:hasCountry "Q811" ;
+:hasQID "Q7894322" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ucc.edu.ni"^^xsd:anyURI ;
+:locatedIn "Q3274" ;
+rdfs:comment "Nicaraguan Uni" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7894322"^^xsd:anyURI .
+:Q1654386 a :School ;
+rdfs:label "University Notre Dame of Haiti" ;
+:establishedYear "1995" ;
+:hasCoordinates "18.5286889,-72.3353421" ;
+:hasCountry "Q790" ;
+:hasQID "Q1654386" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.undh.edu.ht/"^^xsd:anyURI ;
+:locatedIn "Q34261" ;
+rdfs:comment "Roman Catholic University in Haiti" ;
+rdfs:seeAlso "UNDH" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1654386"^^xsd:anyURI .
+:Q7895227 a :School ;
+rdfs:label "University of Cartagena" ;
+:establishedYear "1827" ;
+:hasCoordinates "10.42553388888889,-75.54981305555556" ;
+:hasCountry "Q739" ;
+:hasQID "Q7895227" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.unicartagena.edu.co/"^^xsd:anyURI ;
+:locatedIn "Q657461" ;
+rdfs:comment "academic publisher" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7895227"^^xsd:anyURI .
+:Q4112965 a :School ;
+rdfs:label "Vladivostok State University of Economics and Service" ;
+:establishedYear "1967" ;
+:hasCoordinates "43.1256,131.905" ;
+:hasCountry "Q159" ;
+:hasQID "Q4112965" ;
+:hasType "Q3918" ;
+:hasWebsite "http://vvsu.ru/"^^xsd:anyURI ;
+:locatedIn "Q959" ;
+rdfs:comment "university in Vladivostok, Russia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4112965"^^xsd:anyURI .
+:Q6965235 a :School ;
+rdfs:label "Nara College of Arts" ;
+:establishedYear "1966" ;
+:hasCoordinates "34.48444444,135.78611111" ;
+:hasCountry "Q17" ;
+:hasQID "Q6965235" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.naragei.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q496319" ;
+rdfs:comment "higher education institution in Nara Prefecture, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6965235"^^xsd:anyURI .
+:Q114339958 a :School ;
+rdfs:label "TH Karlsruhe" ;
+:establishedYear "1865" ;
+:hasCountry "Q183" ;
+:hasQID "Q114339958" ;
+:hasType "Q346549" ;
+rdfs:comment "predecessor of the University of Karlsruhe (1865–1967)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q114339958"^^xsd:anyURI .
+:Q7161056 a :School ;
+rdfs:label "Peking University Founder Technology College" ;
+:establishedYear "2002" ;
+:hasCountry "Q148" ;
+:hasQID "Q7161056" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.pfc.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q956" ;
+rdfs:comment "General vocational institution; organized by the Beijing University Founder Group Corporation" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7161056"^^xsd:anyURI .
+:Q18605256 a :School ;
+:establishedYear "1935" ;
+:hasCoordinates "37.56166666666667,126.945" ;
+:hasCountry "Q884" ;
+:hasQID "Q18605256" ;
+:hasType "Q3918" ;
+:locatedIn "Q624612" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18605256"^^xsd:anyURI .
+:Q18125954 a :School ;
+rdfs:label "Indian Institute of Natural Resins and Gums" ;
+:hasCountry "Q668" ;
+:hasQID "Q18125954" ;
+:hasType "Q3918" ;
+:locatedIn "Q15260893" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18125954"^^xsd:anyURI .
+:Q17052089 a :School ;
+rdfs:label "Dreamz Infotainments" ;
+:establishedYear "2000" ;
+:hasCountry "Q668" ;
+:hasQID "Q17052089" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.quizkerala.com/"^^xsd:anyURI ;
+:locatedIn "Q28729" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17052089"^^xsd:anyURI .
+:Q112173302 a :School ;
+rdfs:label "Palazzo degli Studi" ;
+:hasCoordinates "45.583627,9.272663" ;
+:hasCountry "Q38" ;
+:hasQID "Q112173302" ;
+:hasType "Q14911880" ;
+:locatedIn "Q6252" ;
+owl:sameAs "http://www.wikidata.org/entity/Q112173302"^^xsd:anyURI .
+:Q7877611 a :School ;
+rdfs:label "Uganda Martyrs University School of Medicine" ;
+:establishedYear "2010" ;
+:hasCoordinates "0.301389,32.5856" ;
+:hasCountry "Q1036" ;
+:hasQID "Q7877611" ;
+:hasType "Q3918" ;
+:locatedIn "Q7067544" ;
+rdfs:comment "medical school under Uganda Martyrs University" ;
+rdfs:seeAlso "Mother Kevin Postgraduate Medical School" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7877611"^^xsd:anyURI .
+:Q52661275 a :School ;
+rdfs:label "Pontificia Facoltà Teologica dell'Italia Meridionale, sezione \"S. Tommaso d'Aquino\"" ;
+:hasCountry "Q38" ;
+:hasQID "Q52661275" ;
+:hasType "Q118868153" ;
+:hasWebsite "http://santommaso.pftim.it/"^^xsd:anyURI ;
+rdfs:comment "Catholic theological faculty" ;
+owl:sameAs "http://www.wikidata.org/entity/Q52661275"^^xsd:anyURI .
+:Q482674 a :School ;
+rdfs:label "Gyeongnam National University of Science and Technology" ;
+:establishedYear "1910" ;
+:hasCoordinates "35.18058333333333,128.09397222222222" ;
+:hasCountry "Q884" ;
+:hasQID "Q482674" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.gntech.ac.kr/"^^xsd:anyURI ;
+:locatedIn "Q42144" ;
+rdfs:comment "national university in Jinju, South Korea" ;
+rdfs:seeAlso "GNTECH" ;
+owl:sameAs "http://www.wikidata.org/entity/Q482674"^^xsd:anyURI .
+:Q56394054 a :School ;
+rdfs:label "Universitas Islam Raden Rahmat" ;
+:establishedYear "2014" ;
+:hasCountry "Q252" ;
+:hasQID "Q56394054" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.uniramalang.ac.id"^^xsd:anyURI ;
+:locatedIn "Q9104969" ;
+rdfs:comment "higher education institution in Malang, Indonesia" ;
+rdfs:seeAlso "UNIRA Malang" ;
+owl:sameAs "http://www.wikidata.org/entity/Q56394054"^^xsd:anyURI .
+:Q5108974 a :School ;
+rdfs:label "Christ the King College, Gingoog City" ;
+:establishedYear "1916" ;
+:hasCoordinates "8.82347,125.10232" ;
+:hasCountry "Q928" ;
+:hasQID "Q5108974" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ckc.philcom.ph/"^^xsd:anyURI ;
+:locatedIn "Q1525029" ;
+rdfs:comment "Catholic school in Gingoog, Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5108974"^^xsd:anyURI .
+:Q1073795 a :School ;
+rdfs:label "Chinesisch-Deutsches Hochschulkolleg" ;
+:establishedYear "1998" ;
+:hasCountry "Q148" ;
+:hasQID "Q1073795" ;
+:hasType "Q3918" ;
+:hasWebsite "http://cdhk.tongji.edu.cn"^^xsd:anyURI ;
+:locatedIn "Q8686" ;
+rdfs:comment "Chinese university college" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1073795"^^xsd:anyURI .
+:Q6364449 a :School ;
+rdfs:label "Kansai Gaidai College" ;
+:establishedYear "1945" ;
+:hasCoordinates "34.82341667,135.66402778" ;
+:hasCountry "Q17" ;
+:hasQID "Q6364449" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.kansaigaidai.ac.jp"^^xsd:anyURI ;
+:locatedIn "Q270912" ;
+rdfs:comment "higher education institution in Osaka Prefecture, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6364449"^^xsd:anyURI .
+:Q100257877 a :School ;
+:establishedYear "2019" ;
+:hasCoordinates "30.02288888090142,31.523167573010834" ;
+:hasCountry "Q79" ;
+:hasQID "Q100257877" ;
+:hasType "Q3918" ;
+:hasWebsite "https://nctu.edu.eg/?lang=ar"^^xsd:anyURI ;
+:locatedIn "Q12191144" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100257877"^^xsd:anyURI .
+:Q18588985 a :School ;
+rdfs:label "Allen College" ;
+:establishedYear "1989" ;
+:hasCountry "Q30" ;
+:hasQID "Q18588985" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.allencollege.edu"^^xsd:anyURI ;
+:locatedIn "Q496381" ;
+rdfs:comment "private university in Waterloo, Iowa, United States" ;
+rdfs:seeAlso "Allen College of Nursing" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18588985"^^xsd:anyURI .
+:Q2128665 a :School ;
+rdfs:label "Pibulsongkram Rajabhat University" ;
+:establishedYear "1921" ;
+:hasCoordinates "16.828659,100.204869" ;
+:hasCountry "Q869" ;
+:hasQID "Q2128665" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.psru.ac.th/"^^xsd:anyURI ;
+:locatedIn "Q15831684" ;
+rdfs:comment "Thai university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2128665"^^xsd:anyURI .
+:Q5091594 a :School ;
+rdfs:label "Yonam University" ;
+:establishedYear "1974" ;
+:hasCoordinates "36.94699,127.15545" ;
+:hasCountry "Q884" ;
+:hasQID "Q5091594" ;
+:hasType "Q6453007" ;
+:hasWebsite "http://www.yonam.ac.kr/"^^xsd:anyURI ;
+:locatedIn "Q42146" ;
+rdfs:comment "South Korea private agricultural college" ;
+rdfs:seeAlso "Cheonan Yonam College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5091594"^^xsd:anyURI .
+:Q5329516 a :School ;
+rdfs:label "East Texas Baptist University" ;
+:establishedYear "1912" ;
+:hasCoordinates "32.555925,-94.373191" ;
+:hasCountry "Q30" ;
+:hasQID "Q5329516" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.etbu.edu/"^^xsd:anyURI ;
+:locatedIn "Q52996" ;
+rdfs:comment "private Baptist university in Marshall, Texas" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5329516"^^xsd:anyURI .
+:Q1432028 a :School ;
+rdfs:label "Nezamiyeh" ;
+:hasCountry "Q3708094" ;
+:hasQID "Q1432028" ;
+:hasType "Q1143413" ;
+rdfs:comment "historical institute" ;
+rdfs:seeAlso "Nezamieh", "Nezamiyye", "Nezamiyyeh", "Nizamiyya", "Nizamiyyah" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1432028"^^xsd:anyURI .
+:Q135067824 a :School ;
+rdfs:label "NYU Grossman Long Island School of Medicine" ;
+:hasCoordinates "40.7417,-73.6408" ;
+:hasQID "Q135067824" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q135067824"^^xsd:anyURI .
+:Q100989306 a :School ;
+rdfs:label "Université de Malemba Nkulu" ;
+:hasCountry "Q974" ;
+:hasQID "Q100989306" ;
+:hasType "Q3918" ;
+:locatedIn "Q6743073" ;
+rdfs:comment "university in the DRC" ;
+rdfs:seeAlso "UNIMALEMBANKULU", "University of Malemba Nkulu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100989306"^^xsd:anyURI .
+:Q100969218 a :School ;
+rdfs:label "Kazakh-Russian University" ;
+:hasCountry "Q232" ;
+:hasQID "Q100969218" ;
+:hasType "Q3918" ;
+rdfs:comment "university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100969218"^^xsd:anyURI .
+:Q55129559 a :School ;
+rdfs:label "Longerenong College" ;
+:establishedYear "1889" ;
+:hasCoordinates "-36.667,142.304" ;
+:hasCountry "Q408" ;
+:hasQID "Q55129559" ;
+:hasType "Q12420428" ;
+:hasWebsite "https://www.longy.com.au/"^^xsd:anyURI ;
+:locatedIn "Q36687" ;
+rdfs:comment "agricultural college in Victoria, Australia" ;
+rdfs:seeAlso "Longerenong Agricultural College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q55129559"^^xsd:anyURI .
+:Q1961160 a :School ;
+rdfs:label "Moscow State Mining University" ;
+:establishedYear "1918" ;
+:hasCoordinates "55.72681,37.60871" ;
+:hasCountry "Q159" ;
+:hasQID "Q1961160" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.msmu.ru/"^^xsd:anyURI ;
+:locatedIn "Q649" ;
+rdfs:comment "educational institute in Russia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1961160"^^xsd:anyURI .
+:Q44609570 a :School ;
+rdfs:label "Hpa-An University" ;
+:hasCountry "Q836" ;
+:hasQID "Q44609570" ;
+:hasType "Q3918" ;
+:locatedIn "Q1209404" ;
+owl:sameAs "http://www.wikidata.org/entity/Q44609570"^^xsd:anyURI .
+:Q6973743 a :School ;
+rdfs:label "National Institute of Technology, Rourkela" ;
+:establishedYear "1961" ;
+:hasCoordinates "22.24916667,82.91611111" ;
+:hasCountry "Q668" ;
+:hasQID "Q6973743" ;
+:hasType "Q1371037" ;
+:hasWebsite "http://nitrkl.ac.in/websiteNew/"^^xsd:anyURI ;
+:locatedIn "Q1012706" ;
+rdfs:comment "Engineering college" ;
+rdfs:seeAlso "NIT, Rourkela", "REC Rourkela", "REC, Rourkela", "Regional Engineering College Rourkela", "Regional Engineering College, Rourkela" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6973743"^^xsd:anyURI .
+:Q56828 a :School ;
+rdfs:label "Petro Mohyla Black Sea National University" ;
+:establishedYear "1996" ;
+:hasCoordinates "46.971645,32.015144" ;
+:hasCountry "Q212" ;
+:hasQID "Q56828" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.chmnu.edu.ua/"^^xsd:anyURI ;
+:locatedIn "Q41572" ;
+rdfs:comment "university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q56828"^^xsd:anyURI .
+:Q6188330 a :School ;
+rdfs:label "Jesus the Risen Savior School" ;
+:hasCoordinates "14.34696,121.03947" ;
+:hasQID "Q6188330" ;
+:hasType "Q3918" ;
+rdfs:comment "Supervised school" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6188330"^^xsd:anyURI .
+:Q16889445 a :School ;
+rdfs:label "Harare Polytechnic" ;
+:hasCoordinates "-17.827,31.036" ;
+:hasCountry "Q954" ;
+:hasQID "Q16889445" ;
+:hasType "Q845392" ;
+:hasWebsite "http://www.hrepoly.co.zw"^^xsd:anyURI ;
+rdfs:comment "polytechnic school in Zimbabwe" ;
+rdfs:seeAlso "Harare Polytechnic College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q16889445"^^xsd:anyURI .
+:Q1622093 a :School ;
+rdfs:label "University of Applied Sciences Bremerhaven" ;
+:establishedYear "1975" ;
+:hasCoordinates "53.53977,8.58204972" ;
+:hasCountry "Q183" ;
+:hasQID "Q1622093" ;
+:hasType "Q21028957" ;
+:hasWebsite "https://www.hs-bremerhaven.de"^^xsd:anyURI ;
+:locatedIn "Q2706" ;
+rdfs:comment "state university founded in 1975 in Bremerhaven, Germany" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1622093"^^xsd:anyURI .
+:Q12583809 a :School ;
+rdfs:label "Kyungwon University" ;
+:hasCountry "Q884" ;
+:hasQID "Q12583809" ;
+:hasType "Q3918" ;
+rdfs:comment "former private university in Seongnam, South Korea" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12583809"^^xsd:anyURI .
+:Q4881210 a :School ;
+rdfs:label "Beijing University of Posts and Telecommunications" ;
+:establishedYear "1955" ;
+:hasCoordinates "39.9598,116.352" ;
+:hasCountry "Q148" ;
+:hasQID "Q4881210" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bupt.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q956" ;
+rdfs:comment "key national university in Beijing, China" ;
+rdfs:seeAlso "BUPT" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4881210"^^xsd:anyURI .
+:Q24937816 a :School ;
+rdfs:label "Adventist University of Central Africa" ;
+:establishedYear "1978" ;
+:hasCoordinates "-1.9451934,30.1405192" ;
+:hasCountry "Q1037" ;
+:hasQID "Q24937816" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.auca.ac.rw/"^^xsd:anyURI ;
+:locatedIn "Q3859" ;
+rdfs:comment "university in Kigali, Rwanda" ;
+rdfs:seeAlso "AUCA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q24937816"^^xsd:anyURI .
+:Q107717874 a :School ;
+rdfs:label "Atiba University" ;
+:establishedYear "2017" ;
+:hasCoordinates "7.852296751247184,3.914718969317426" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107717874" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.atibauniversity.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q503905" ;
+rdfs:comment "Established in 2017, Atiba University is a private higher education institution located in the city of Oyo Town , Oyo." ;
+owl:sameAs "http://www.wikidata.org/entity/Q107717874"^^xsd:anyURI .
+:Q3018624 a :School ;
+rdfs:label "Istanbul University State Conservatory" ;
+:establishedYear "1917" ;
+:hasCountry "Q43" ;
+:hasQID "Q3018624" ;
+:hasType "Q875538" ;
+:hasWebsite "http://konservatuvar.istanbul.edu.tr/tr/index.asp"^^xsd:anyURI ;
+:locatedIn "Q406" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3018624"^^xsd:anyURI .
+:Q10280970 a :School ;
+:establishedYear "1959" ;
+:hasCountry "Q423" ;
+:hasQID "Q10280970" ;
+:hasType "Q3918" ;
+:locatedIn "Q195886" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10280970"^^xsd:anyURI .
+:Q11414923 a :School ;
+rdfs:label "College of Nagoya Women's University" ;
+:establishedYear "1915" ;
+:hasCountry "Q17" ;
+:hasQID "Q11414923" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.nagoya-wu.ac.jp/college2/index.html"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q11414923"^^xsd:anyURI .
+:Q483758 a :School ;
+rdfs:label "Anadolu University" ;
+:establishedYear "1958" ;
+:hasCoordinates "39.7914,30.4997" ;
+:hasCountry "Q43" ;
+:hasQID "Q483758" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.anadolu.edu.tr/"^^xsd:anyURI ;
+:locatedIn "Q168866" ;
+rdfs:comment "Turkish public university located in Eskişehir" ;
+rdfs:seeAlso "Anadolu University, Eskisehir", "Anadolu Üniversitesi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q483758"^^xsd:anyURI .
+:Q100806567 a :School ;
+rdfs:label "Federal Polytechnic, Daura" ;
+:establishedYear "2019" ;
+:hasCoordinates "13.036388888888888,8.317777777777778" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q100806567" ;
+:hasType "Q845392" ;
+rdfs:comment "polytechnic in Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100806567"^^xsd:anyURI .
+:Q19730997 a :School ;
+rdfs:label "Poltekkes Kemenkes Tasikmalaya" ;
+:hasCountry "Q252" ;
+:hasQID "Q19730997" ;
+:hasType "Q845392" ;
+:hasWebsite "https://www.poltekkestasikmalaya.ac.id"^^xsd:anyURI ;
+:locatedIn "Q3968283" ;
+rdfs:comment "higher education institution in Tasikmalaya, Indonesia" ;
+rdfs:seeAlso "POLKESTAMA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19730997"^^xsd:anyURI .
+:Q2165036 a :School ;
+rdfs:label "Romblon State University" ;
+:establishedYear "1915" ;
+:hasCoordinates "12.39637,121.98304" ;
+:hasCountry "Q928" ;
+:hasQID "Q2165036" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.rsu.edu.ph/"^^xsd:anyURI ;
+:locatedIn "Q174632" ;
+rdfs:comment "State University in the Philippines" ;
+rdfs:seeAlso "RSU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2165036"^^xsd:anyURI .
+:Q4315127 a :School ;
+rdfs:label "National University of Food Technologies" ;
+:establishedYear "1884" ;
+:hasCoordinates "50.43909493,30.50982285" ;
+:hasCountry "Q212" ;
+:hasQID "Q4315127" ;
+:hasType "Q3918" ;
+:hasWebsite "https://nuft.edu.ua/"^^xsd:anyURI ;
+:locatedIn "Q1899" ;
+rdfs:comment "university in Kyiv, Ukraine" ;
+rdfs:seeAlso "National university of food technologies" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4315127"^^xsd:anyURI .
+:Q83870793 a :School ;
+rdfs:label "National University of Sciences, Technologies, Engineering and Mathematics" ;
+:establishedYear "2014" ;
+:hasCoordinates "7.1640787,2.0108493" ;
+:hasCountry "Q962" ;
+:hasQID "Q83870793" ;
+:hasType "Q3918" ;
+:locatedIn "Q189685" ;
+rdfs:comment "public university in Abomey, Benin" ;
+rdfs:seeAlso "UNSTIM", "Université Nationale des Sciences, Technologies, Ingénierie et Mathématiques" ;
+owl:sameAs "http://www.wikidata.org/entity/Q83870793"^^xsd:anyURI .
+:Q22929389 a :School ;
+rdfs:label "Deraya University" ;
+:establishedYear "2010" ;
+:hasCoordinates "28.076427451287916,30.832978324673608" ;
+:hasCountry "Q79" ;
+:hasQID "Q22929389" ;
+:hasType "Q4671277" ;
+:hasWebsite "https://www.deraya.edu.eg"^^xsd:anyURI ;
+rdfs:comment "university in Egypt" ;
+owl:sameAs "http://www.wikidata.org/entity/Q22929389"^^xsd:anyURI .
+:Q6054166 a :School ;
+rdfs:label "International University of Professional Studies" ;
+:hasCoordinates "20.8354,-156.3324" ;
+:hasCountry "Q30" ;
+:hasQID "Q6054166" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.iups.edu/"^^xsd:anyURI ;
+:locatedIn "Q2425873" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6054166"^^xsd:anyURI .
+:Q85812301 a :School ;
+rdfs:label "University of Narowal" ;
+:hasCoordinates "32.09429,74.87455" ;
+:hasCountry "Q843" ;
+:hasQID "Q85812301" ;
+:hasType "Q3918" ;
+:hasWebsite "https://uon.edu.pk"^^xsd:anyURI ;
+:locatedIn "Q2977081" ;
+owl:sameAs "http://www.wikidata.org/entity/Q85812301"^^xsd:anyURI .
+:Q1074103 a :School ;
+rdfs:label "University of Science and Technology of China" ;
+:establishedYear "1958" ;
+:hasCoordinates "31.841666666666665,117.25888888888889" ;
+:hasCountry "Q148" ;
+:hasQID "Q1074103" ;
+:hasType "Q3918" ;
+:hasWebsite "https://ustc.edu.cn"^^xsd:anyURI ;
+:locatedIn "Q185684" ;
+rdfs:comment "university in Hefei, China" ;
+rdfs:seeAlso "USTC", "University of Science & Technology of China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1074103"^^xsd:anyURI .
+:Q3551766 a :School ;
+rdfs:label "University of Peloponnese" ;
+:establishedYear "2002" ;
+:hasCoordinates "37.527072,22.369464805555555" ;
+:hasCountry "Q41" ;
+:hasQID "Q3551766" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.uop.gr/"^^xsd:anyURI ;
+rdfs:comment "university based in Tripoli and departments all over Peloponnese, Greece" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551766"^^xsd:anyURI .
+:Q24144 a :School ;
+rdfs:label "Kharkiv Medical Academy of Post-graduate Education" ;
+:establishedYear "1923" ;
+:hasCoordinates "48.30416668,38.01805557" ;
+:hasCountry "Q212" ;
+:hasQID "Q24144" ;
+:hasType "Q3918" ;
+:hasWebsite "http://med.edu.ua"^^xsd:anyURI ;
+:locatedIn "Q42308" ;
+rdfs:comment "Ukrainian university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q24144"^^xsd:anyURI .
+:Q30135642 a :School ;
+rdfs:label "Rīgas skolotāju institūts" ;
+:hasQID "Q30135642" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30135642"^^xsd:anyURI .
+:Q5637071 a :School ;
+rdfs:label "Hachinohe Junior College" ;
+:establishedYear "1971" ;
+:hasCoordinates "40.46861111,141.58972222" ;
+:hasCountry "Q17" ;
+:hasQID "Q5637071" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://jc.hachinohe-u.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q191914" ;
+rdfs:comment "Higher education institution in Aomori Prefecture, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5637071"^^xsd:anyURI .
+:Q414245 a :School ;
+rdfs:label "AGH University of Science and Technology" ;
+:establishedYear "1913" ;
+:hasCoordinates "50.064528,19.92375" ;
+:hasCountry "Q36" ;
+:hasQID "Q414245" ;
+:hasType "Q1371037" ;
+:hasWebsite "https://www.agh.edu.pl/"^^xsd:anyURI ;
+:locatedIn "Q31487" ;
+rdfs:comment "technical university in Kraków, Poland" ;
+rdfs:seeAlso "AGH", "AGH UST", "AGH University of Kraków", "AGH University of Mining and Metallurgy", "AGH University of Science and Technologie", "Academy of Mining and Metallurgy in Cracow", "Akademia Górniczo-Hutnicza im. Stanisława Staszica", "Stanislaw Staszic Academy of Mining and Metallurgy in Cracow", "Stanislaw Staszic Academy of Mining and Metallurgy in Krakow", "Stanislaw Staszic University of Mining and Metallurgy", "University of Mining and Metallurgy", "agh.edu.pl" ;
+owl:sameAs "http://www.wikidata.org/entity/Q414245"^^xsd:anyURI .
+:Q2088264 a :School ;
+rdfs:label "Philosophisch-Theologische Hochschule Heiligenkreuz" ;
+:establishedYear "2007" ;
+:hasCoordinates "48.0561,16.129619444444444" ;
+:hasCountry "Q40" ;
+:hasQID "Q2088264" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.hochschule-heiligenkreuz.at/"^^xsd:anyURI ;
+:locatedIn "Q665159" ;
+rdfs:seeAlso "Benedict XVI Philosophical-Theological University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2088264"^^xsd:anyURI .
+:Q6098422 a :School ;
+rdfs:label "Çankırı Karatekin University" ;
+:establishedYear "2007" ;
+:hasCountry "Q43" ;
+:hasQID "Q6098422" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.karatekin.edu.tr"^^xsd:anyURI ;
+:locatedIn "Q209925" ;
+rdfs:comment "Turkish public university located in Çankırı" ;
+rdfs:seeAlso "University of Karatekin" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6098422"^^xsd:anyURI .
+:Q924265 a :School ;
+rdfs:label "Aarhus University" ;
+:establishedYear "1928" ;
+:hasCoordinates "56.17055555555555,10.20111111111111" ;
+:hasCountry "Q35" ;
+:hasQID "Q924265" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.au.dk/"^^xsd:anyURI ;
+:locatedIn "Q240262" ;
+rdfs:comment "public university in Aarhus, Denmark" ;
+rdfs:seeAlso "AU", "Aarhus Universitet", "au.dk", "international.au.dk" ;
+owl:sameAs "http://www.wikidata.org/entity/Q924265"^^xsd:anyURI .
+:Q1137665 a :School ;
+rdfs:label "Ghent University" ;
+:establishedYear "1817" ;
+:hasCoordinates "51.04388888888889,3.726111111111111" ;
+:hasCountry "Q31" ;
+:hasQID "Q1137665" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.ugent.be/"^^xsd:anyURI ;
+:locatedIn "Q1296" ;
+rdfs:comment "Dutch-speaking university in Belgium" ;
+rdfs:seeAlso "State University of Ghent", "UGent", "Universiteit Gent", "University of Ghent", "ugent.be" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1137665"^^xsd:anyURI .
+:Q107827350 a :School ;
+rdfs:label "Edusoko University" ;
+:hasCoordinates "9.0775,6.027259" ;
+:hasCountry "Q1033" ;
+:hasQID "Q107827350" ;
+:hasType "Q3918" ;
+:hasWebsite "https://edusokouniversity.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q503932" ;
+rdfs:comment "research university is located in Bida, Niger State, Nigeria" ;
+rdfs:seeAlso "EUB" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107827350"^^xsd:anyURI .
+:Q56187114 a :School ;
+rdfs:label "University of Technology Nuremberg" ;
+:establishedYear "2021" ;
+:hasCoordinates "49.42,11.104166666666666" ;
+:hasCountry "Q183" ;
+:hasQID "Q56187114" ;
+:hasType "Q1371037" ;
+:hasWebsite "https://www.utn.de/"^^xsd:anyURI ;
+:locatedIn "Q2090" ;
+rdfs:comment "New University of Technology Nuremberg" ;
+rdfs:seeAlso "UTN" ;
+owl:sameAs "http://www.wikidata.org/entity/Q56187114"^^xsd:anyURI .
+:Q17016292 a :School ;
+rdfs:label "Northampton Polytechnic" ;
+:hasQID "Q17016292" ;
+:hasType "Q845392" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17016292"^^xsd:anyURI .
+:Q4853503 a :School ;
+rdfs:label "Bamiyan University" ;
+:establishedYear "1994" ;
+:hasCoordinates "34.82971,67.83588" ;
+:hasCountry "Q889" ;
+:hasQID "Q4853503" ;
+:hasType "Q3918" ;
+:hasWebsite "http://bu.edu.af"^^xsd:anyURI ;
+:locatedIn "Q214495" ;
+rdfs:comment "University in Afghanistatn" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4853503"^^xsd:anyURI .
+:Q122270858 a :School ;
+rdfs:label "HEC-Chad University" ;
+:establishedYear "2016" ;
+:hasCoordinates "12.1283,15.09" ;
+:hasCountry "Q657" ;
+:hasQID "Q122270858" ;
+:hasType "Q3918" ;
+:hasWebsite "https://hectchad.com/"^^xsd:anyURI ;
+:locatedIn "Q3659" ;
+rdfs:comment "Higher institution of learning in Chad" ;
+owl:sameAs "http://www.wikidata.org/entity/Q122270858"^^xsd:anyURI .
+:Q25587464 a :School ;
+rdfs:label "Kurigram Polytechnic Institute" ;
+:establishedYear "2005" ;
+:hasCoordinates "25.802661,89.634862" ;
+:hasCountry "Q902" ;
+:hasQID "Q25587464" ;
+:hasType "Q121735451" ;
+:locatedIn "Q3349000" ;
+rdfs:comment "Government Polytechnic Institute of Bangladesh" ;
+owl:sameAs "http://www.wikidata.org/entity/Q25587464"^^xsd:anyURI .
+:Q16630140 a :School ;
+rdfs:label "Seminari menor de Barcelona" ;
+:establishedYear "1940" ;
+:hasCoordinates "41.49163056,2.25251944" ;
+:hasCountry "Q29" ;
+:hasQID "Q16630140" ;
+:hasType "Q14911880" ;
+:locatedIn "Q12026" ;
+owl:sameAs "http://www.wikidata.org/entity/Q16630140"^^xsd:anyURI .
+:Q127508718 a :School ;
+rdfs:label "Michoacán State Virtual University" ;
+:establishedYear "2011" ;
+:hasCoordinates "19.726111111111113,-101.23583333333333" ;
+:hasQID "Q127508718" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.univim.edu.mx/"^^xsd:anyURI ;
+rdfs:comment "public online university in Mexico" ;
+rdfs:seeAlso "UNIVIM", "Universidad Virtual de Michoacán", "Universidad Virtual del Estado de Michoacán" ;
+owl:sameAs "http://www.wikidata.org/entity/Q127508718"^^xsd:anyURI .
+:Q736674 a :School ;
+rdfs:label "University of Colorado Boulder" ;
+:establishedYear "1876" ;
+:hasCoordinates "40.006666666667,-105.26722222222" ;
+:hasCountry "Q30" ;
+:hasQID "Q736674" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.colorado.edu/"^^xsd:anyURI ;
+:locatedIn "Q192517" ;
+rdfs:comment "public university in Boulder, Colorado, USA and flagship of the University of Colorado System" ;
+rdfs:seeAlso "Boulder", "Buffaloes", "Buffalos", "Buffs", "C.U. Boulder", "CU", "CU Boulder", "CU at Boulder", "CU-Boulder", "CUB", "Colo", "Colorado", "Colorado University", "Golden Buffs", "U of CO", "U of Colo", "U of Colorado", "U.C.B.", "UC Boulder", "UCB", "Univ of CO", "Univ of Colo", "Univ of Colorado", "University of CO", "University of Colo", "University of Colorado", "University of Colorado at Boulder", "University of Colorado, Boulder", "colorado.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q736674"^^xsd:anyURI .
+:Q12523426 a :School ;
+rdfs:label "Jaya Development University" ;
+:establishedYear "2011" ;
+:hasCoordinates "-6.2921370281307905,106.72541880916563" ;
+:hasCountry "Q252" ;
+:hasQID "Q12523426" ;
+:hasType "Q3918" ;
+:hasWebsite "http://upj.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q3058349" ;
+rdfs:comment "higher education institution in tangerang Selatan, Indonesia" ;
+rdfs:seeAlso "UPJ" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12523426"^^xsd:anyURI .
+:Q48876833 a :School ;
+rdfs:label "Faculdade Internacional de Teologia Reformada" ;
+:hasCountry "Q155" ;
+:hasQID "Q48876833" ;
+:hasType "Q902104" ;
+:locatedIn "Q12829733" ;
+owl:sameAs "http://www.wikidata.org/entity/Q48876833"^^xsd:anyURI .
+:Q2077260 a :School ;
+rdfs:label "Université du Québec en Abitibi-Témiscamingue" ;
+:establishedYear "1983" ;
+:hasCoordinates "48.231944444444,-79.005555555556" ;
+:hasCountry "Q16" ;
+:hasQID "Q2077260" ;
+:hasType "Q3551519" ;
+:hasWebsite "http://www.uqat.ca"^^xsd:anyURI ;
+:locatedIn "Q176" ;
+rdfs:comment "Public university in Quebec, Canada" ;
+rdfs:seeAlso "UQAT", "Universite du Quebec en Abitibi-Temiscamingue", "uqat.ca" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2077260"^^xsd:anyURI .
+:Q6013669 a :School ;
+rdfs:label "Brazilian National Telecommunications Institute" ;
+:establishedYear "1965" ;
+:hasCoordinates "-22.25722222,-45.69611111" ;
+:hasCountry "Q155" ;
+:hasQID "Q6013669" ;
+:hasType "Q31855" ;
+:hasWebsite "http://www.inatel.br"^^xsd:anyURI ;
+:locatedIn "Q1650861" ;
+rdfs:comment "Private, non-profit higher education, research and technological development institution" ;
+rdfs:seeAlso "Inatel" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6013669"^^xsd:anyURI .
+:Q9008770 a :School ;
+rdfs:label "Italian University Institute of Rosario" ;
+:establishedYear "2001" ;
+:hasCoordinates "-32.94383396801131,-60.64209672744075" ;
+:hasCountry "Q414" ;
+:hasQID "Q9008770" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.iunir.edu.ar/"^^xsd:anyURI ;
+:locatedIn "Q52535" ;
+rdfs:comment "university in Argentina" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9008770"^^xsd:anyURI .
+:Q90838680 a :School ;
+rdfs:label "Polytechnic University of Queretaro" ;
+:hasCoordinates "20.546284466444977,-100.27481333244177" ;
+:hasCountry "Q96" ;
+:hasQID "Q90838680" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.upq.mx/"^^xsd:anyURI ;
+:locatedIn "Q2652454" ;
+rdfs:comment "university in Queretaro, Mexico" ;
+rdfs:seeAlso "UPQ" ;
+owl:sameAs "http://www.wikidata.org/entity/Q90838680"^^xsd:anyURI .
+:Q135489760 a :School ;
+rdfs:label "Tabesh University" ;
+:establishedYear "2009" ;
+:hasCountry "Q889" ;
+:hasQID "Q135489760" ;
+:hasType "Q3918" ;
+:hasWebsite "https://tabesh.edu.af"^^xsd:anyURI ;
+:locatedIn "Q183303" ;
+rdfs:comment "university on Afghanistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q135489760"^^xsd:anyURI .
+:Q8075310 a :School ;
+rdfs:label "Zunyi Medical University" ;
+:establishedYear "1947" ;
+:hasCoordinates "27.72489,107.06604" ;
+:hasCountry "Q148" ;
+:hasQID "Q8075310" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.zmu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q28994" ;
+rdfs:comment "university in Zunyi, China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q8075310"^^xsd:anyURI .
+:Q982435 a :School ;
+rdfs:label "Regensburg University of Applied Sciences" ;
+:establishedYear "1971" ;
+:hasCoordinates "49.0037,12.0951" ;
+:hasCountry "Q183" ;
+:hasQID "Q982435" ;
+:hasType "Q1365560" ;
+:hasWebsite "http://www.oth-regensburg.de/"^^xsd:anyURI ;
+:locatedIn "Q2978" ;
+rdfs:comment "university in Regensburg" ;
+rdfs:seeAlso "Eastern Bavarian Technical University of Regensburg", "OTH Regensburg" ;
+owl:sameAs "http://www.wikidata.org/entity/Q982435"^^xsd:anyURI .
+:Q189022 a :School ;
+rdfs:label "Imperial College London" ;
+:establishedYear "1907" ;
+:hasCoordinates "51.498308,-0.176882" ;
+:hasCountry "Q145" ;
+:hasQID "Q189022" ;
+:hasType "Q62078547" ;
+:hasWebsite "https://www.imperial.ac.uk/"^^xsd:anyURI ;
+:locatedIn "Q188801" ;
+rdfs:comment "public research university located in London, United Kingdom" ;
+rdfs:seeAlso "Central Technical College (London)", "ICL", "Imperial", "Imperial College", "Imperial College of Science and Technology", "Imperial College of Science, Technology and Medicine" ;
+owl:sameAs "http://www.wikidata.org/entity/Q189022"^^xsd:anyURI .
+:Q109913727 a :School ;
+rdfs:label "Politeknik ATI Padang" ;
+:establishedYear "2014" ;
+:hasCoordinates "-0.8631277,100.3402932" ;
+:hasCountry "Q252" ;
+:hasQID "Q109913727" ;
+:hasType "Q845392" ;
+:hasWebsite "https://poltekatipdg.ac.id"^^xsd:anyURI ;
+:locatedIn "Q12477930" ;
+rdfs:comment "higher education institution in Padang, Indonesia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109913727"^^xsd:anyURI .
+:Q7288633 a :School ;
+rdfs:label "Rama Devi Women's University" ;
+:establishedYear "1969" ;
+:hasCoordinates "20.29263,85.841589" ;
+:hasCountry "Q668" ;
+:hasQID "Q7288633" ;
+:hasType "Q7603893" ;
+:hasWebsite "http://www.rdwu.ac.in"^^xsd:anyURI ;
+:locatedIn "Q171771" ;
+rdfs:comment "public women's university in Bhubaneswar, Odisha" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7288633"^^xsd:anyURI .
+:Q6803431 a :School ;
+rdfs:label "Meadows School of the Arts" ;
+:establishedYear "1917" ;
+:hasCoordinates "32.841,-96.7861" ;
+:hasCountry "Q30" ;
+:hasQID "Q6803431" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.smu.edu/meadows"^^xsd:anyURI ;
+:locatedIn "Q979410" ;
+rdfs:comment "fine arts school at Southern Methodist University" ;
+rdfs:seeAlso "Algur H. Meadows School of the Arts" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6803431"^^xsd:anyURI .
+:Q7500131 a :School ;
+rdfs:label "Shohoku College" ;
+:establishedYear "1974" ;
+:hasCoordinates "35.435,139.34694444" ;
+:hasCountry "Q17" ;
+:hasQID "Q7500131" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.shohoku.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q389711" ;
+rdfs:comment "Japanese junior colleges" ;
+rdfs:seeAlso "Shōhoku tanki daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7500131"^^xsd:anyURI .
+:Q10369938 a :School ;
+rdfs:label "Seminário Teológico Batista do Sul do Brasil" ;
+:establishedYear "1907" ;
+:hasCoordinates "-22.933666666667,-43.235833333333" ;
+:hasCountry "Q155" ;
+:hasQID "Q10369938" ;
+:hasType "Q16970" ;
+:hasWebsite "http://www.stbsb.org.br/"^^xsd:anyURI ;
+:locatedIn "Q8678" ;
+rdfs:comment "church building in Rio de Janeiro, Brazil" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10369938"^^xsd:anyURI .
+:Q414464 a :School ;
+rdfs:label "Academy of Gondishapur" ;
+:establishedYear "0531" ;
+:hasCoordinates "32.28333333333333,48.516666666666666" ;
+:hasCountry "Q83891" ;
+:hasQID "Q414464" ;
+:hasType "Q41176" ;
+:locatedIn "Q1279478" ;
+rdfs:comment "Sasanian center of education in Iran" ;
+rdfs:seeAlso "Gondishapur University", "Jondi Shapur University", "Jondishapur University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q414464"^^xsd:anyURI .
+:Q9727031 a :School ;
+rdfs:label "Centro Universitário de João Pessoa" ;
+:establishedYear "1971" ;
+:hasCountry "Q155" ;
+:hasQID "Q9727031" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unipe.br"^^xsd:anyURI ;
+:locatedIn "Q167436" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9727031"^^xsd:anyURI .
+:Q28412971 a :School ;
+rdfs:label "Tianjin Vocational Institute" ;
+:establishedYear "1978" ;
+:hasCountry "Q148" ;
+:hasQID "Q28412971" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tjtc.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q11736" ;
+rdfs:seeAlso "Tianjin Professional College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q28412971"^^xsd:anyURI .
+:Q16849051 a :School ;
+rdfs:label "International Academy of Design & Technology – Sacramento" ;
+:establishedYear "2005" ;
+:hasCountry "Q30" ;
+:hasQID "Q16849051" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.iadtsacramento.com"^^xsd:anyURI ;
+:locatedIn "Q18013" ;
+owl:sameAs "http://www.wikidata.org/entity/Q16849051"^^xsd:anyURI .
+:Q107717843 a :School ;
+rdfs:label "Trinity University" ;
+:hasCoordinates "6.50546528049356,3.3837945" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107717843" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.trinityuniversity.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q836657" ;
+rdfs:comment "university in Ogun State, Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107717843"^^xsd:anyURI .
+:Q117468481 a :School ;
+rdfs:label "Naypyitaw State Academy" ;
+:hasCoordinates "19.76,96.045" ;
+:hasQID "Q117468481" ;
+:hasType "Q3918" ;
+rdfs:comment "state university in Naypyidaw, Myanmar" ;
+owl:sameAs "http://www.wikidata.org/entity/Q117468481"^^xsd:anyURI .
+:Q109913946 a :School ;
+rdfs:label "Politeknik Baja Tegal" ;
+:establishedYear "2014" ;
+:hasCountry "Q252" ;
+:hasQID "Q109913946" ;
+:hasType "Q845392" ;
+:locatedIn "Q4020440" ;
+rdfs:comment "university in Indonesia" ;
+rdfs:seeAlso "PBJT" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109913946"^^xsd:anyURI .
+:Q7237236 a :School ;
+rdfs:label "Prabhat Kumar College" ;
+:establishedYear "1926" ;
+:hasCoordinates "21.7792286,87.7481253" ;
+:hasCountry "Q668" ;
+:hasQID "Q7237236" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.pkcollegecontai.org/"^^xsd:anyURI ;
+rdfs:comment "college in West Bengal" ;
+rdfs:seeAlso "P. K. College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7237236"^^xsd:anyURI .
+:Q56301550 a :School ;
+:establishedYear "1987" ;
+:hasCountry "Q34" ;
+:hasQID "Q56301550" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q56301550"^^xsd:anyURI .
+:Q99554980 a :School ;
+rdfs:label "Escuela Militar de Inteligencia" ;
+:hasCountry "Q750" ;
+:hasQID "Q99554980" ;
+:hasType "Q917182" ;
+rdfs:comment "Bolivian military school" ;
+rdfs:seeAlso "EMIE" ;
+owl:sameAs "http://www.wikidata.org/entity/Q99554980"^^xsd:anyURI .
+:Q7975162 a :School ;
+rdfs:label "Waukesha County Technical College" ;
+:hasCoordinates "43.072222,-88.255833" ;
+:hasCountry "Q30" ;
+:hasQID "Q7975162" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.wctc.edu"^^xsd:anyURI ;
+:locatedIn "Q94919" ;
+rdfs:comment "Public community college in Wisconsin, U.S." ;
+rdfs:seeAlso "WCTC", "wctc.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7975162"^^xsd:anyURI .
+:Q135395423 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q135395423" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q135395423"^^xsd:anyURI .
+:Q7692469 a :School ;
+rdfs:label "Technological Educational Institute of Peloponnese" ;
+:establishedYear "1988" ;
+:hasCoordinates "37.062,22.062" ;
+:hasCountry "Q41" ;
+:hasQID "Q7692469" ;
+:hasType "Q12885307" ;
+:hasWebsite "http://www.teikal.gr"^^xsd:anyURI ;
+:locatedIn "Q167895" ;
+rdfs:seeAlso "TEI Peloponnese", "TEI of Peloponnese", "Technological Educational Institute of Kalamata" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7692469"^^xsd:anyURI .
+:Q10387783 a :School ;
+:establishedYear "2001" ;
+:hasCountry "Q155" ;
+:hasQID "Q10387783" ;
+:hasType "Q4830453" ;
+:hasWebsite "http://www.uniredebahia.com.br/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q10387783"^^xsd:anyURI .
+:Q11656390 a :School ;
+rdfs:label "Kansai College of Oriental Medicine" ;
+:establishedYear "1985" ;
+:hasCountry "Q17" ;
+:hasQID "Q11656390" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11656390"^^xsd:anyURI .
+:Q6712698 a :School ;
+rdfs:label "M. J. P. Rohilkhand University" ;
+:establishedYear "1975" ;
+:hasCoordinates "28.36611111,79.45722222" ;
+:hasCountry "Q668" ;
+:hasQID "Q6712698" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.mjpru.ac.in"^^xsd:anyURI ;
+:locatedIn "Q213026" ;
+rdfs:comment "public university in Bareilly, Uttar Pradesh" ;
+rdfs:seeAlso "Mahatma Jyotiba Phule Rohilkhand University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6712698"^^xsd:anyURI .
+:Q7571422 a :School ;
+rdfs:label "Southwestern Indian Polytechnic Institute" ;
+:establishedYear "1971" ;
+:hasCoordinates "35.1747477,-106.6658272" ;
+:hasCountry "Q30" ;
+:hasQID "Q7571422" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.sipi.edu"^^xsd:anyURI ;
+:locatedIn "Q34804" ;
+rdfs:comment "community college in Albuquerque, New Mexico" ;
+rdfs:seeAlso "S.I.P.I.", "SIPI" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7571422"^^xsd:anyURI .
+:Q12523305 a :School ;
+rdfs:label "Universitas Bina Darma" ;
+:establishedYear "1993" ;
+:hasCoordinates "-2.999509,104.770577" ;
+:hasCountry "Q252" ;
+:hasQID "Q12523305" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.binadarma.ac.id"^^xsd:anyURI ;
+:locatedIn "Q728750" ;
+rdfs:comment "University in Palembang, Indonesia" ;
+rdfs:seeAlso "UBD" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12523305"^^xsd:anyURI .
+:Q5413406 a :School ;
+rdfs:label "EU Business School" ;
+:establishedYear "1973" ;
+:hasCoordinates "46.224,6.101" ;
+:hasCountry "Q39" ;
+:hasQID "Q5413406" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.euruni.edu"^^xsd:anyURI ;
+:locatedIn "Q71" ;
+rdfs:comment "Private european business school" ;
+rdfs:seeAlso "EU", "European University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5413406"^^xsd:anyURI .
+:Q12523428 a :School ;
+rdfs:label "National Development University \"Veteran\" Jakarta" ;
+:establishedYear "1967" ;
+:hasCountry "Q252" ;
+:hasQID "Q12523428" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.upnvj.ac.id"^^xsd:anyURI ;
+:locatedIn "Q192987" ;
+rdfs:comment "Public University in Jakarta, Indonesia" ;
+rdfs:seeAlso "NDU\"V\"J", "NDUVJ", "UPNVJ", "Veteran Jakarta" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12523428"^^xsd:anyURI .
+:Q7335207 a :School ;
+rdfs:label "Rio Grande Bible Institute" ;
+:establishedYear "1946" ;
+:hasCoordinates "26.259599,-98.172658" ;
+:hasCountry "Q30" ;
+:hasQID "Q7335207" ;
+:hasType "Q1664720" ;
+:hasWebsite "http://riogrande.edu/en"^^xsd:anyURI ;
+:locatedIn "Q1439" ;
+rdfs:comment "Christian bible college in Texas, US" ;
+rdfs:seeAlso "RGBI" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7335207"^^xsd:anyURI .
+:Q11546359 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q11546359" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11546359"^^xsd:anyURI .
+:Q3551540 a :School ;
+rdfs:label "Atomi University" ;
+:establishedYear "1965" ;
+:hasCoordinates "35.716777777778,139.73483333333" ;
+:hasCountry "Q17" ;
+:hasQID "Q3551540" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.atomi.ac.jp/daigaku/"^^xsd:anyURI ;
+:locatedIn "Q386691" ;
+rdfs:comment "higher education institution in Saitama Prefecture, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551540"^^xsd:anyURI .
+:Q11353502 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q11353502" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11353502"^^xsd:anyURI .
+:Q1353248 a :School ;
+rdfs:label "New Mexico State University" ;
+:establishedYear "1888" ;
+:hasCoordinates "32.283,-106.748" ;
+:hasCountry "Q30" ;
+:hasQID "Q1353248" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.nmsu.edu/"^^xsd:anyURI ;
+:locatedIn "Q33264" ;
+rdfs:comment "university in the United States" ;
+rdfs:seeAlso "Las Cruces College", "NMSU", "New Mexico A&M", "New Mexico A&M College", "New Mexico College of Agriculture and Mechanic Arts", "nmsu.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1353248"^^xsd:anyURI .
+:Q7896114 a :School ;
+rdfs:label "University of Pinar del Río Hermanos Saíz Montes de Oca" ;
+:establishedYear "1972" ;
+:hasCoordinates "22.4253,-83.6875" ;
+:hasCountry "Q241" ;
+:hasQID "Q7896114" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.upr.edu.cu/"^^xsd:anyURI ;
+:locatedIn "Q244139" ;
+rdfs:comment "Public university" ;
+rdfs:seeAlso "University of Pinar del Rio" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7896114"^^xsd:anyURI .
+:Q108491361 a :School ;
+rdfs:label "Maranatha University" ;
+:hasCoordinates "5.713057984156544,6.853125377248006" ;
+:hasCountry "Q1033" ;
+:hasQID "Q108491361" ;
+:hasType "Q4671277" ;
+:hasWebsite "https://maranathauniversity.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q842939" ;
+rdfs:comment "private university in Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q108491361"^^xsd:anyURI .
+:Q4412452 a :School ;
+rdfs:label "North Dvina State University" ;
+:establishedYear "1920" ;
+:hasCoordinates "60.7495,46.3257" ;
+:hasCountry "Q159" ;
+:hasQID "Q4412452" ;
+:hasType "Q3918" ;
+:locatedIn "Q111048" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4412452"^^xsd:anyURI .
+:Q876520 a :School ;
+rdfs:label "University of Natural Resources and Life Sciences, Vienna" ;
+:establishedYear "1872" ;
+:hasCoordinates "48.23657222222222,16.33747222222222" ;
+:hasCountry "Q40" ;
+:hasQID "Q876520" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.boku.ac.at/"^^xsd:anyURI ;
+:locatedIn "Q1749983" ;
+rdfs:comment "university of life sciences in Vienna, Austria" ;
+rdfs:seeAlso "BOKU", "Hochschule für Bodenkultur", "University of Natural Resources and Life Sciences" ;
+owl:sameAs "http://www.wikidata.org/entity/Q876520"^^xsd:anyURI .
+:Q107723875 a :School ;
+rdfs:label "Dominion University" ;
+:hasCoordinates "7.19081483937727,3.8012115125950867" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107723875" ;
+:hasType "Q3918" ;
+:hasWebsite "https://dominionuniversity.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q183298" ;
+rdfs:comment "private university in Ibadan, Nigeria" ;
+rdfs:seeAlso "DU", "Dominion University Ibadan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107723875"^^xsd:anyURI .
+:Q7129474 a :School ;
+rdfs:label "Pan-Atlantic University" ;
+:establishedYear "2002" ;
+:hasCoordinates "6.48697222,3.85552778" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q7129474" ;
+:hasType "Q902104" ;
+:hasWebsite "https://pau.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q8673" ;
+rdfs:comment "university in Lagos, Nigeria" ;
+rdfs:seeAlso "PAU", "Pan-African University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7129474"^^xsd:anyURI .
+:Q5303981 a :School ;
+rdfs:label "Konkan Krishi Vidyapeeth" ;
+:establishedYear "1972" ;
+:hasCoordinates "17.7496,73.17846944444445" ;
+:hasCountry "Q668" ;
+:hasQID "Q5303981" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.dbskkv.org"^^xsd:anyURI ;
+:locatedIn "Q1922257" ;
+rdfs:comment "university in Maharashtra, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5303981"^^xsd:anyURI .
+:Q109912744 a :School ;
+rdfs:label "Poltekkes Kemenkes Jambi" ;
+:establishedYear "2001" ;
+:hasCountry "Q252" ;
+:hasQID "Q109912744" ;
+:hasType "Q845392" ;
+:hasWebsite "https://www.poltekkesjambi.ac.id"^^xsd:anyURI ;
+:locatedIn "Q14907677" ;
+rdfs:comment "higher education institution in Jambi, Indonesia" ;
+rdfs:seeAlso "polkesjam" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109912744"^^xsd:anyURI .
+:Q2094177 a :School ;
+rdfs:label "University of Memphis" ;
+:establishedYear "1912" ;
+:hasCoordinates "35.11888888888889,-89.93722222222222" ;
+:hasCountry "Q30" ;
+:hasQID "Q2094177" ;
+:hasType "Q62078547" ;
+:hasWebsite "http://www.memphis.edu"^^xsd:anyURI ;
+:locatedIn "Q16563" ;
+rdfs:comment "public research university in Memphis, Tennessee, USA" ;
+rdfs:seeAlso "U of M", "memphis.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2094177"^^xsd:anyURI .
+:Q7029133 a :School ;
+rdfs:label "Nicola Valley Institute of Technology" ;
+:establishedYear "1983" ;
+:hasCountry "Q16" ;
+:hasQID "Q7029133" ;
+:hasType "Q3918" ;
+:hasWebsite "https://nvit.ca"^^xsd:anyURI ;
+:locatedIn "Q1025990" ;
+rdfs:comment "Aboriginal college in British Columbia, Canada" ;
+rdfs:seeAlso "NVIT" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7029133"^^xsd:anyURI .
+:Q5972896 a :School ;
+rdfs:label "Tokyo Denki University" ;
+:establishedYear "1907" ;
+:hasCoordinates "35.7483,139.806" ;
+:hasCountry "Q17" ;
+:hasQID "Q5972896" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.dendai.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q1490" ;
+rdfs:comment "university in Tokyo, Japan" ;
+rdfs:seeAlso "Tōkyō Denki Daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5972896"^^xsd:anyURI .
+:Q61457471 a :School ;
+rdfs:label "Xenia Institute for Noble Young Ladies" ;
+:establishedYear "1894" ;
+:hasCoordinates "59.9325,30.293055555556" ;
+:hasCountry "Q34266" ;
+:hasQID "Q61457471" ;
+:hasType "Q3918" ;
+:locatedIn "Q656" ;
+rdfs:comment "defunct women's university" ;
+rdfs:seeAlso "Xenia Institute", "Xenia University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q61457471"^^xsd:anyURI .
+:Q119702803 a :School ;
+rdfs:label "Mount Kigali University" ;
+:hasCoordinates "-1.9884,30.0983" ;
+:hasCountry "Q1037" ;
+:hasQID "Q119702803" ;
+:hasType "Q3918" ;
+:hasWebsite "https://mkur.ac.rw/"^^xsd:anyURI ;
+:locatedIn "Q3859" ;
+rdfs:comment "university in Kigali, Rwanda" ;
+rdfs:seeAlso "MKUR", "Mount Kenya University Rwanda" ;
+owl:sameAs "http://www.wikidata.org/entity/Q119702803"^^xsd:anyURI .
+:Q3577670 a :School ;
+rdfs:label "Hassania School of Public Works" ;
+:establishedYear "1971" ;
+:hasCoordinates "33.5482,-7.65145" ;
+:hasCountry "Q1028" ;
+:hasQID "Q3577670" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ehtp.ac.ma/"^^xsd:anyURI ;
+:locatedIn "Q7903" ;
+rdfs:comment "university in Casablanca, Morocco" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3577670"^^xsd:anyURI .
+:Q5102412 a :School ;
+rdfs:label "Chittagong Veterinary and Animal Sciences University" ;
+:establishedYear "2006" ;
+:hasCoordinates "22.3639,91.804" ;
+:hasCountry "Q902" ;
+:hasQID "Q5102412" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.cvasu.ac.bd/"^^xsd:anyURI ;
+:locatedIn "Q376749" ;
+rdfs:comment "Public university in Bangladesh" ;
+rdfs:seeAlso "CVASU", "Chattogram Veterinary and Animal Sciences University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5102412"^^xsd:anyURI .
+:Q1250804 a :School ;
+rdfs:label "Polish People's University in Minsk" ;
+:establishedYear "1992" ;
+:hasCoordinates "53.906944,27.576944" ;
+:hasCountry "Q184" ;
+:hasQID "Q1250804" ;
+:hasType "Q3918" ;
+rdfs:comment "university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1250804"^^xsd:anyURI .
+:Q7980543 a :School ;
+rdfs:label "Welch College" ;
+:establishedYear "1942" ;
+:hasCoordinates "36.367172,-86.549098" ;
+:hasCountry "Q30" ;
+:hasQID "Q7980543" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.welch.edu"^^xsd:anyURI ;
+:locatedIn "Q2464943" ;
+rdfs:comment "private four-year college in Gallatin, Tennessee" ;
+rdfs:seeAlso "Free Will Baptist Bible College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7980543"^^xsd:anyURI .
+:Q943498 a :School ;
+rdfs:label "Universities in Leuven" ;
+:hasQID "Q943498" ;
+:hasType "Q3918" ;
+rdfs:comment "Universities in Belgium" ;
+owl:sameAs "http://www.wikidata.org/entity/Q943498"^^xsd:anyURI .
+:Q28006255 a :School ;
+rdfs:label "Alisher Navo'i Tashkent State University of Uzbek Language and Literature" ;
+:establishedYear "2016" ;
+:hasCoordinates "41.293055555556,69.253055555556" ;
+:hasCountry "Q265" ;
+:hasQID "Q28006255" ;
+:hasType "Q4671277" ;
+:locatedIn "Q269" ;
+rdfs:comment "higher education institution in Uzbekistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q28006255"^^xsd:anyURI .
+:Q2428356 a :School ;
+rdfs:label "Tashkent State University of Economics" ;
+:establishedYear "1931" ;
+:hasCoordinates "41.306111111111115,69.25444444444445" ;
+:hasCountry "Q265" ;
+:hasQID "Q2428356" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.tsue.uz"^^xsd:anyURI ;
+:locatedIn "Q269" ;
+rdfs:comment "major university in Uzbekistan" ;
+rdfs:seeAlso "TSUE" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2428356"^^xsd:anyURI .
+:Q31185084 a :School ;
+rdfs:label "College of Professional Studies for Information Technologies Belgrade" ;
+:establishedYear "2006" ;
+:hasCoordinates "44.8033216981915,20.419996336544433" ;
+:hasCountry "Q403" ;
+:hasQID "Q31185084" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.its.edu.rs/"^^xsd:anyURI ;
+:locatedIn "Q3711" ;
+rdfs:comment "high school in Belgrade" ;
+rdfs:seeAlso "College of Professional Studies for Information Technologies", "College of Professional Studies for Information Technologies (Belgrade)", "College of Professional Studies for Information Technologies in Belgrade", "College of Professional Studies in Information Technology (ITS)", "ITS - College of Professional Studies in Information Technology" ;
+owl:sameAs "http://www.wikidata.org/entity/Q31185084"^^xsd:anyURI .
+:Q9366817 a :School ;
+rdfs:label "Polish University in Vilnius" ;
+:establishedYear "1998" ;
+:hasCoordinates "54.6741,25.2784" ;
+:hasCountry "Q37" ;
+:hasQID "Q9366817" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.uspv.lt"^^xsd:anyURI ;
+:locatedIn "Q216" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9366817"^^xsd:anyURI .
+:Q12204401 a :School ;
+rdfs:label "Iman University" ;
+:establishedYear "1993" ;
+:hasCountry "Q805" ;
+:hasQID "Q12204401" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.jameataleman.org/"^^xsd:anyURI ;
+rdfs:comment "sunni religious school in Yemen" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12204401"^^xsd:anyURI .
+:Q5088071 a :School ;
+rdfs:label "Chaudhary Charan Singh Haryana Agricultural University" ;
+:establishedYear "1970" ;
+:hasCoordinates "29.15035,75.70570277777777" ;
+:hasCountry "Q668" ;
+:hasQID "Q5088071" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.hau.ernet.in/"^^xsd:anyURI ;
+:locatedIn "Q1772825" ;
+rdfs:comment "University in Hisar, Haryana" ;
+rdfs:seeAlso "CCS Haryana Agricultural University", "Haryana Agricultural University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5088071"^^xsd:anyURI .
+:Q7824887 a :School ;
+rdfs:label "Topiwala National Medical College and BYL Nair Hospital" ;
+:establishedYear "1921" ;
+:hasCoordinates "18.9727,72.8212" ;
+:hasCountry "Q668" ;
+:hasQID "Q7824887" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tnmcnair.com/"^^xsd:anyURI ;
+:locatedIn "Q1156" ;
+rdfs:comment "medical college in India" ;
+rdfs:seeAlso "Topiwala National Medical College", "Topiwala National Medical College and B.Y.L. Nair Charitable Hospital, Mumbai" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7824887"^^xsd:anyURI .
+:Q19752994 a :School ;
+rdfs:label "Universitas PGRI Banyuwangi" ;
+:establishedYear "1976" ;
+:hasCountry "Q252" ;
+:hasQID "Q19752994" ;
+:hasType "Q902104" ;
+:hasWebsite "http://uniba-bwi.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q4857377" ;
+rdfs:comment "higher education institution in Banyuwangi, Indonesia" ;
+rdfs:seeAlso "UNIBA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19752994"^^xsd:anyURI .
+:Q120801928 a :School ;
+rdfs:label "petit séminaire de Brive" ;
+:hasCountry "Q142" ;
+:hasQID "Q120801928" ;
+:hasType "Q391347" ;
+:locatedIn "Q6393" ;
+rdfs:comment "minor seminary in Brive, Corrèze, France" ;
+owl:sameAs "http://www.wikidata.org/entity/Q120801928"^^xsd:anyURI .
+:Q5088072 a :School ;
+rdfs:label "Chaudhary Charan Singh University" ;
+:establishedYear "1965" ;
+:hasCoordinates "28.97,77.7415" ;
+:hasCountry "Q668" ;
+:hasQID "Q5088072" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ccsuniversity.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q200237" ;
+rdfs:comment "public and state university in Meerut, Uttar Pradesh" ;
+rdfs:seeAlso "Meerut University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5088072"^^xsd:anyURI .
+:Q6088707 a :School ;
+rdfs:label "Istanbul Şehir University" ;
+:establishedYear "2008" ;
+:hasCountry "Q43" ;
+:hasQID "Q6088707" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.sehir.edu.tr/"^^xsd:anyURI ;
+:locatedIn "Q406" ;
+rdfs:comment "Turkish private university located in İstanbul" ;
+rdfs:seeAlso "İstanbul Şehir Üniversitesi", "Şehir University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6088707"^^xsd:anyURI .
+:Q10902302 a :School ;
+rdfs:label "Beijing Normal University,  Zhuhai" ;
+:establishedYear "2002" ;
+:hasCountry "Q148" ;
+:hasQID "Q10902302" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bnuz.edu.cn/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q10902302"^^xsd:anyURI .
+:Q5578067 a :School ;
+rdfs:label "Gokhale Institute of Politics and Economics" ;
+:establishedYear "1930" ;
+:hasCoordinates "18.52027222222222,73.83700277777778" ;
+:hasCountry "Q668" ;
+:hasQID "Q5578067" ;
+:hasType "Q3520135" ;
+:hasWebsite "http://www.gipe.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q1538" ;
+rdfs:comment "Research and training institute in Politics and Economics based at Pune in India." ;
+rdfs:seeAlso "Gokhale Institute" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5578067"^^xsd:anyURI .
+:Q56703595 a :School ;
+rdfs:label "Academy of the Ministry of Internal Affairs of Tajikistan" ;
+:establishedYear "2000" ;
+:hasCoordinates "38.55168,68.82327" ;
+:hasCountry "Q863" ;
+:hasQID "Q56703595" ;
+:hasType "Q3918" ;
+rdfs:comment "military academy in Tajikistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q56703595"^^xsd:anyURI .
+:Q28158677 a :School ;
+rdfs:label "Cost Guard Academy" ;
+:hasCountry "Q43" ;
+:hasQID "Q28158677" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q28158677"^^xsd:anyURI .
+:Q11362986 a :School ;
+rdfs:label "Chukyo Junior College" ;
+:establishedYear "1966" ;
+:hasCountry "Q17" ;
+:hasQID "Q11362986" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.chukyogakuin-u.ac.jp/department/junior-college/index.html"^^xsd:anyURI ;
+:locatedIn "Q853821" ;
+rdfs:comment "private junior college in Mizunami, Gifu, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11362986"^^xsd:anyURI .
+:Q11388579 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q11388579" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11388579"^^xsd:anyURI .
+:Q7591603 a :School ;
+rdfs:label "St. Rita's College of Balingasag" ;
+:establishedYear "1901" ;
+:hasCoordinates "8.74307,124.7745" ;
+:hasCountry "Q928" ;
+:hasQID "Q7591603" ;
+:hasType "Q3918" ;
+:locatedIn "Q195637" ;
+rdfs:comment "Roman Catholic college in Misamis Oriental, Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7591603"^^xsd:anyURI .
+:Q3551690 a :School ;
+rdfs:label "University of Winchester" ;
+:establishedYear "2005" ;
+:hasCoordinates "51.0597413,-1.3282474" ;
+:hasCountry "Q145" ;
+:hasQID "Q3551690" ;
+:hasType "Q15936437" ;
+:hasWebsite "http://www.wkac.ac.uk/"^^xsd:anyURI ;
+:locatedIn "Q172157" ;
+rdfs:comment "university in Winchester, United Kingdom" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551690"^^xsd:anyURI .
+:Q10946795 a :School ;
+rdfs:label "Anhui Jianzhu University" ;
+:establishedYear "1958" ;
+:hasCoordinates "31.74404,117.22368" ;
+:hasCountry "Q148" ;
+:hasQID "Q10946795" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ahjzu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q185684" ;
+rdfs:comment "university in China" ;
+rdfs:seeAlso "Anhui University of Architecture" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10946795"^^xsd:anyURI .
+:Q132128901 a :School ;
+rdfs:label "AICOE Institute" ;
+:establishedYear "2017" ;
+:hasQID "Q132128901" ;
+:hasType "Q31855" ;
+:hasWebsite "https://aicoe.ac"^^xsd:anyURI ;
+rdfs:comment "Global AI research hub" ;
+rdfs:seeAlso "AI Center of Excellence", "AICOE Academy", "AICOE Network" ;
+owl:sameAs "http://www.wikidata.org/entity/Q132128901"^^xsd:anyURI .
+:Q82267 a :School ;
+rdfs:label "Qingdao University" ;
+:establishedYear "1985" ;
+:hasCoordinates "36.072,120.428" ;
+:hasCountry "Q148" ;
+:hasQID "Q82267" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.qdu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q170322" ;
+rdfs:comment "university in China" ;
+rdfs:seeAlso "Qīngdǎo Dàxué" ;
+owl:sameAs "http://www.wikidata.org/entity/Q82267"^^xsd:anyURI .
+:Q4483854 a :School ;
+:hasQID "Q4483854" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4483854"^^xsd:anyURI .
+:Q61052428 a :School ;
+rdfs:label "Albert Szent-Györgyi University of Medicine" ;
+:establishedYear "1951" ;
+:hasCoordinates "46.24600098800662,20.148806242773162" ;
+:hasCountry "Q28" ;
+:hasQID "Q61052428" ;
+:hasType "Q3918" ;
+:locatedIn "Q81581" ;
+rdfs:comment "university from Szeged" ;
+rdfs:seeAlso "Albert Szent-Györgyi Medical University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q61052428"^^xsd:anyURI .
+:Q10281279 a :School ;
+:establishedYear "1970" ;
+:hasCountry "Q423" ;
+:hasQID "Q10281279" ;
+:hasType "Q3918" ;
+:locatedIn "Q708842" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10281279"^^xsd:anyURI .
+:Q3302123 a :School ;
+rdfs:label "Aleksandër Moisiu University of Durrës" ;
+:establishedYear "2005" ;
+:hasCoordinates "41.313534,19.434216" ;
+:hasCountry "Q222" ;
+:hasQID "Q3302123" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.uamd.edu.al/"^^xsd:anyURI ;
+:locatedIn "Q83285" ;
+rdfs:comment "university in Durrës, Albania" ;
+rdfs:seeAlso "Aleksandër Moisiu University", "University of Durrës" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3302123"^^xsd:anyURI .
+:Q11066366 a :School ;
+rdfs:label "Hungkuang University" ;
+:establishedYear "1967" ;
+:hasCoordinates "24.22138888888889,120.58416666666666" ;
+:hasCountry "Q865" ;
+:hasQID "Q11066366" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.hk.edu.tw/main.php"^^xsd:anyURI ;
+:locatedIn "Q569640" ;
+rdfs:comment "university in Shalu, Taichung, Taiwan" ;
+rdfs:seeAlso "Hóngguāng Kējì Dàxué" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11066366"^^xsd:anyURI .
+:Q630686 a :School ;
+rdfs:label "Sunyani Technical University" ;
+:establishedYear "1983" ;
+:hasCoordinates "7.32139,-2.31667" ;
+:hasCountry "Q117" ;
+:hasQID "Q630686" ;
+:hasType "Q1371037" ;
+:hasWebsite "https://stu.edu.gh/"^^xsd:anyURI ;
+:locatedIn "Q64685186" ;
+rdfs:comment "public university in Sunyani, Ghana" ;
+rdfs:seeAlso "STU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q630686"^^xsd:anyURI .
+:Q4791274 a :School ;
+rdfs:label "Arizona Christian University" ;
+:establishedYear "1960" ;
+:hasCoordinates "33.5959,-112.026" ;
+:hasCountry "Q30" ;
+:hasQID "Q4791274" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.arizonachristian.edu"^^xsd:anyURI ;
+:locatedIn "Q16556" ;
+rdfs:comment "Christian college in Phoenix, Arizona formerly named Southwestern College" ;
+rdfs:seeAlso "Southwestern College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4791274"^^xsd:anyURI .
+:Q7927115 a :School ;
+rdfs:label "Victoria University of Bangladesh" ;
+:establishedYear "2003" ;
+:hasCoordinates "23.750564,90.388389" ;
+:hasCountry "Q902" ;
+:hasQID "Q7927115" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.vub.edu.bd"^^xsd:anyURI ;
+:locatedIn "Q1354" ;
+rdfs:comment "university in Bangladesh" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7927115"^^xsd:anyURI .
+:Q13098260 a :School ;
+rdfs:label "Ahmad Dahlan University" ;
+:establishedYear "1994" ;
+:hasCountry "Q252" ;
+:hasQID "Q13098260" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.uad.ac.id"^^xsd:anyURI ;
+:locatedIn "Q2782889" ;
+rdfs:comment "university in Yogyakarta, Indonesia" ;
+rdfs:seeAlso "UAD" ;
+owl:sameAs "http://www.wikidata.org/entity/Q13098260"^^xsd:anyURI .
+:Q6146207 a :School ;
+rdfs:label "University of Jamestown" ;
+:establishedYear "1883" ;
+:hasCoordinates "46.914,-98.698" ;
+:hasCountry "Q30" ;
+:hasQID "Q6146207" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.uj.edu"^^xsd:anyURI ;
+:locatedIn "Q1052658" ;
+rdfs:comment "private Christian university in Jamestown, North Dakota, United States" ;
+rdfs:seeAlso "JC", "Jamestown College", "Jimmies", "UJ" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6146207"^^xsd:anyURI .
+:Q6973701 a :School ;
+rdfs:label "National Institute of Rehabilitation Training and Research" ;
+:establishedYear "1975" ;
+:hasCountry "Q668" ;
+:hasQID "Q6973701" ;
+:hasType "Q3918" ;
+:hasWebsite "http://nirtar.nic.in/"^^xsd:anyURI ;
+rdfs:comment "medical research institutes in India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6973701"^^xsd:anyURI .
+:Q4118040 a :School ;
+rdfs:label "University of Massachusetts Dartmouth" ;
+:establishedYear "1895" ;
+:hasCoordinates "41.62861111111111,-71.00611111111111" ;
+:hasCountry "Q30" ;
+:hasQID "Q4118040" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.umassd.edu"^^xsd:anyURI ;
+:locatedIn "Q771" ;
+rdfs:comment "university in the United States" ;
+rdfs:seeAlso "Southeastern Massachusetts University", "UMASS Dartmouth", "UMASSD", "UMass Dartmouth", "umassd.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4118040"^^xsd:anyURI .
+:Q1144798 a :School ;
+rdfs:label "Open International University of Human Development “Ukraine”" ;
+:establishedYear "1998" ;
+:hasCountry "Q212" ;
+:hasQID "Q1144798" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.vmurol.com.ua/"^^xsd:anyURI ;
+rdfs:comment "university" ;
+rdfs:seeAlso "Open International University of Human Development \"Ukraine\"" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1144798"^^xsd:anyURI .
+:Q368998 a :School ;
+rdfs:label "University of Trnava" ;
+:establishedYear "1635" ;
+:hasCoordinates "48.38333333333333,17.583333333333332" ;
+:hasCountry "Q171150" ;
+:hasQID "Q368998" ;
+:hasType "Q3918" ;
+:locatedIn "Q26175" ;
+rdfs:comment "university founded in 1635, which continued to operate in Pest (now Budapest) from 1777. The predecessor of three modern universities" ;
+owl:sameAs "http://www.wikidata.org/entity/Q368998"^^xsd:anyURI .
+:Q5644120 a :School ;
+rdfs:label "Centro Universitario CESINE" ;
+:establishedYear "1993" ;
+:hasCoordinates "43.471707,-3.7902887" ;
+:hasCountry "Q29" ;
+:hasQID "Q5644120" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.cesine.com/inicio"^^xsd:anyURI ;
+:locatedIn "Q12233" ;
+rdfs:comment "private university in Santander, Spain" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5644120"^^xsd:anyURI .
+:Q9191639 a :School ;
+:hasQID "Q9191639" ;
+:hasType "Q557206" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9191639"^^xsd:anyURI .
+:Q4233753 a :School ;
+rdfs:label "Royal Institute of Health Sciences" ;
+:establishedYear "1974" ;
+:hasCoordinates "27.46472222,89.63722222" ;
+:hasCountry "Q917" ;
+:hasQID "Q4233753" ;
+:hasType "Q2385804" ;
+rdfs:comment "National medical education center" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4233753"^^xsd:anyURI .
+:Q6394896 a :School ;
+rdfs:label "Kesavadasapuram" ;
+:hasQID "Q6394896" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6394896"^^xsd:anyURI .
+:Q123459010 a :School ;
+rdfs:label "Department of Biology Education kwara state University" ;
+:hasCoordinates "8.7063,4.4622" ;
+:hasCountry "Q1033" ;
+:hasQID "Q123459010" ;
+:hasType "Q3918" ;
+:hasWebsite "https://portal.kwasu.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q587085" ;
+rdfs:comment "department in kwara state University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q123459010"^^xsd:anyURI .
+:Q266255 a :School ;
+rdfs:label "University of Dillingen" ;
+:establishedYear "1551" ;
+:hasCountry "Q183" ;
+:hasQID "Q266255" ;
+:hasType "Q3918" ;
+rdfs:comment "former university in Dillingen an der Donau, Bavaria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q266255"^^xsd:anyURI .
+:Q390087 a :School ;
+rdfs:label "Xavier University of Louisiana" ;
+:establishedYear "1915" ;
+:hasCoordinates "29.9652,-90.107" ;
+:hasCountry "Q30" ;
+:hasQID "Q390087" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.xavier.edu/"^^xsd:anyURI ;
+:locatedIn "Q34404" ;
+rdfs:comment "Catholic university in the U.S state of Louisiana" ;
+rdfs:seeAlso "XULA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q390087"^^xsd:anyURI .
+:Q118942657 a :School ;
+rdfs:label "Government Medical College, Udhampur" ;
+:establishedYear "2023" ;
+:hasQID "Q118942657" ;
+:hasType "Q3918" ;
+rdfs:comment "india, cultural and specific, educate medicine with regulation" ;
+owl:sameAs "http://www.wikidata.org/entity/Q118942657"^^xsd:anyURI .
+:Q1622151 a :School ;
+rdfs:label "Hochschule der Deutschen Bundesbank" ;
+:establishedYear "1976" ;
+:hasCoordinates "50.6613,7.82575" ;
+:hasCountry "Q183" ;
+:hasQID "Q1622151" ;
+:hasType "Q1365560" ;
+:hasWebsite "https://www.hochschule-bundesbank.de"^^xsd:anyURI ;
+:locatedIn "Q534476" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1622151"^^xsd:anyURI .
+:Q7001944 a :School ;
+rdfs:label "Neumann University" ;
+:establishedYear "1965" ;
+:hasCoordinates "39.8756,-75.4403" ;
+:hasCountry "Q30" ;
+:hasQID "Q7001944" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.neumann.edu/"^^xsd:anyURI ;
+:locatedIn "Q1400" ;
+rdfs:comment "Catholic liberal arts college in Pennsylvania, U.S." ;
+rdfs:seeAlso "Neumann", "Our Lady of Angels College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7001944"^^xsd:anyURI .
+:Q3551530 a :School ;
+rdfs:label "Université Centrale de Kinshasa" ;
+:establishedYear "2010" ;
+:hasCountry "Q974" ;
+:hasQID "Q3551530" ;
+:hasType "Q4671277" ;
+:locatedIn "Q3838" ;
+rdfs:comment "university in the DRC" ;
+rdfs:seeAlso "Central University of Kinshasa" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551530"^^xsd:anyURI .
+:Q21644313 a :School ;
+:establishedYear "1879" ;
+:hasCountry "Q159" ;
+:hasQID "Q21644313" ;
+:hasType "Q14911880" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21644313"^^xsd:anyURI .
+:Q10367689 a :School ;
+:hasCountry "Q7462" ;
+:hasQID "Q10367689" ;
+:hasType "Q917182" ;
+rdfs:comment "Military Academy in Ancient China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10367689"^^xsd:anyURI .
+:Q18387794 a :School ;
+rdfs:label "APJ Abdul Kalam Technological University" ;
+:establishedYear "2014" ;
+:hasCoordinates "8.5416,76.9057" ;
+:hasCountry "Q668" ;
+:hasQID "Q18387794" ;
+:hasType "Q3918" ;
+:hasWebsite "http://ktu.edu.in"^^xsd:anyURI ;
+:locatedIn "Q167715" ;
+rdfs:comment "Indian university" ;
+rdfs:seeAlso "A P J Abdul Kalam Technological University", "APJAKTU", "KTU", "Kerala Technological University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18387794"^^xsd:anyURI .
+:Q5100586 a :School ;
+rdfs:label "Chinese People's Police University" ;
+:establishedYear "1981" ;
+:hasCountry "Q148" ;
+:hasQID "Q5100586" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.wjxy.edu.cn"^^xsd:anyURI ;
+:locatedIn "Q58710" ;
+rdfs:comment "university in China" ;
+rdfs:seeAlso "China People’s Police University", "Chinese People's Armed Police Force Academy" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5100586"^^xsd:anyURI .
+:Q7285798 a :School ;
+rdfs:label "Rajarshi Shahu College, Latur" ;
+:establishedYear "1970" ;
+:hasCountry "Q668" ;
+:hasQID "Q7285798" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.shahucollegelatur.org.in"^^xsd:anyURI ;
+:locatedIn "Q61394" ;
+rdfs:comment "college in Maharashtra, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7285798"^^xsd:anyURI .
+:Q114826768 a :School ;
+rdfs:label "Universidad Libre de Vitoria" ;
+:hasCountry "Q29" ;
+:hasQID "Q114826768" ;
+:hasType "Q3918" ;
+:locatedIn "Q14318" ;
+owl:sameAs "http://www.wikidata.org/entity/Q114826768"^^xsd:anyURI .
+:Q13582663 a :School ;
+rdfs:label "Rogers State University" ;
+:establishedYear "1909" ;
+:hasCoordinates "36.3192,-95.6392" ;
+:hasCountry "Q30" ;
+:hasQID "Q13582663" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.rsu.edu"^^xsd:anyURI ;
+:locatedIn "Q2046869" ;
+rdfs:comment "public university in Claremore, Oklahoma, United States" ;
+rdfs:seeAlso "CJC", "Claremore Jr. College", "Claremore Junior College", "Eastern University Preparatory School", "OMA", "Oklahoma Military Academy", "RSU", "Rogers State College", "Rogers University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q13582663"^^xsd:anyURI .
+:Q6958966 a :School ;
+rdfs:label "Nagoya University of Economics" ;
+:establishedYear "1907" ;
+:hasCoordinates "35.3197,136.9538" ;
+:hasCountry "Q17" ;
+:hasQID "Q6958966" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.nagoya-ku.ac.jp"^^xsd:anyURI ;
+:locatedIn "Q503411" ;
+rdfs:comment "Higher education institution in Aichi Prefecture, Japan" ;
+rdfs:seeAlso "Nagoya Keizai University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6958966"^^xsd:anyURI .
+:Q5159004 a :School ;
+rdfs:label "Concordia University Chicago" ;
+:establishedYear "1864" ;
+:hasCoordinates "41.8997,-87.8095" ;
+:hasCountry "Q30" ;
+:hasQID "Q5159004" ;
+:hasType "Q23002054" ;
+:hasWebsite "https://www.cuchicago.edu/"^^xsd:anyURI ;
+:locatedIn "Q2299339" ;
+rdfs:comment "private Lutheran university in River Forest, Illinois" ;
+rdfs:seeAlso "Addison Teachers Seminary", "CUC", "CURF", "Concordia College River Forest", "Concordia Teachers' College", "Concordia University River Forest" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5159004"^^xsd:anyURI .
+:Q109910742 a :School ;
+rdfs:label "Universitas Bina Sarana Informatika" ;
+:establishedYear "2018" ;
+:hasCountry "Q252" ;
+:hasQID "Q109910742" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.bsi.ac.id"^^xsd:anyURI ;
+:locatedIn "Q192871" ;
+rdfs:comment "higher education institution in Jakarta Pusat, Indonesia" ;
+rdfs:seeAlso "UBSI" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109910742"^^xsd:anyURI .
+:Q107720646 a :School ;
+rdfs:label "Crown-Hill University Eiyenkorin, kwara State" ;
+:hasCoordinates "8.398177234662182,4.446166707389009" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107720646" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.crownhilluniversity.edu.ng"^^xsd:anyURI ;
+:locatedIn "Q464953" ;
+rdfs:comment "Nigerian private university in ilorin kwara State." ;
+rdfs:seeAlso "CJ University", "Crown hill university.", "Ojaja University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107720646"^^xsd:anyURI .
+:Q7591405 a :School ;
+rdfs:label "St. Peter's Pontifical Seminary" ;
+:establishedYear "1778" ;
+:hasCountry "Q668" ;
+:hasQID "Q7591405" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.stpeters.org.in/"^^xsd:anyURI ;
+:locatedIn "Q1355" ;
+rdfs:comment "Roman Catholic major seminary located in Bangalore, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7591405"^^xsd:anyURI .
+:Q110769785 a :School ;
+rdfs:label "pontificio seminario regionale flaminio \"Benedetto XV" ;
+:hasCountry "Q38" ;
+:hasQID "Q110769785" ;
+:hasType "Q14911880" ;
+:hasWebsite "http://www.seminarioflaminio.it/"^^xsd:anyURI ;
+:locatedIn "Q1891" ;
+rdfs:comment "Roman Catholic seminary in Bologna, Italy" ;
+rdfs:seeAlso "Seminario regionale di Bologna" ;
+owl:sameAs "http://www.wikidata.org/entity/Q110769785"^^xsd:anyURI .
+:Q109911655 a :School ;
+rdfs:label "Politeknik Pusmanu" ;
+:establishedYear "2002" ;
+:hasCountry "Q252" ;
+:hasQID "Q109911655" ;
+:hasType "Q845392" ;
+:hasWebsite "http://www.politeknikpusmanu.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q3361925" ;
+rdfs:comment "higher education institution in Pekalongan, Indonesia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109911655"^^xsd:anyURI .
+:Q581954 a :School ;
+rdfs:label "University of Zimbabwe" ;
+:establishedYear "1952" ;
+:hasCoordinates "-17.78388888888889,31.053055555555556" ;
+:hasCountry "Q954" ;
+:hasQID "Q581954" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.uz.ac.zw/"^^xsd:anyURI ;
+:locatedIn "Q3921" ;
+rdfs:comment "university located in Harare, Zimbabwe" ;
+rdfs:seeAlso "UZ", "University College of Rhodesia and Nyasaland", "University Of Zimbabwe", "University of Rhodesia", "uz.ac.zw" ;
+owl:sameAs "http://www.wikidata.org/entity/Q581954"^^xsd:anyURI .
+:Q109359905 a :School ;
+rdfs:label "Matsumoto College of Nursing" ;
+:establishedYear "2021" ;
+:hasCoordinates "36.175333333333334,137.93516666666667" ;
+:hasCountry "Q17" ;
+:hasQID "Q109359905" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.mcon.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q213324" ;
+rdfs:comment "private college in Matsumoto, Nagano, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109359905"^^xsd:anyURI .
+:Q11652685 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q11652685" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11652685"^^xsd:anyURI .
+:Q1141880 a :School ;
+rdfs:label "Iuliu Hațieganu University of Medicine and Pharmacy" ;
+:establishedYear "1919" ;
+:hasCoordinates "46.762061,23.5836" ;
+:hasCountry "Q218" ;
+:hasQID "Q1141880" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.umfcluj.ro/"^^xsd:anyURI ;
+:locatedIn "Q100188" ;
+rdfs:comment "medical school in Cluj-Napoca, Romania" ;
+rdfs:seeAlso "Iuliu Hațieganu University of Medicine and Pharmacy Cluj-Napoca", "Universitatea de Medicină şi Farmacie \"Iuliu Hațieganu\"" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1141880"^^xsd:anyURI .
+:Q21042417 a :School ;
+rdfs:label "N. Muskhelishvili Kutaisi State Technical University" ;
+:establishedYear "1973" ;
+:hasCountry "Q230" ;
+:hasQID "Q21042417" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.kstu.ge/"^^xsd:anyURI ;
+:locatedIn "Q172415" ;
+rdfs:seeAlso "KSTU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21042417"^^xsd:anyURI .
+:Q7895547 a :School ;
+rdfs:label "University of International Golden Indonesia" ;
+:establishedYear "1983" ;
+:hasCoordinates "-6.198361111111111,106.79525" ;
+:hasCountry "Q252" ;
+:hasQID "Q7895547" ;
+:hasType "Q3918" ;
+:hasWebsite "https://stie-igi.info/index.php"^^xsd:anyURI ;
+:locatedIn "Q3630" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7895547"^^xsd:anyURI .
+:Q1109239 a :School ;
+rdfs:label "Collegium Liborianum" ;
+:hasCoordinates "51.721,8.75848" ;
+:hasCountry "Q183" ;
+:hasQID "Q1109239" ;
+:hasType "Q391347" ;
+:locatedIn "Q2971" ;
+rdfs:comment "school in Paderborn, Germany" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1109239"^^xsd:anyURI .
+:Q136371017 a :School ;
+rdfs:label "Maharishi Institute" ;
+:hasQID "Q136371017" ;
+:hasType "Q3918" ;
+rdfs:comment "private college in Marshalltown, Johannesburg" ;
+owl:sameAs "http://www.wikidata.org/entity/Q136371017"^^xsd:anyURI .
+:Q17002937 a :School ;
+:establishedYear "1972" ;
+:hasCountry "Q423" ;
+:hasQID "Q17002937" ;
+:hasType "Q3918" ;
+:locatedIn "Q48888" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17002937"^^xsd:anyURI .
+:Q2431406 a :School ;
+rdfs:label "Xizang Minzu University" ;
+:establishedYear "1958" ;
+:hasCoordinates "34.349583333333335,108.72817777777777" ;
+:hasCountry "Q148" ;
+:hasQID "Q2431406" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.xzmy.edu.cn"^^xsd:anyURI ;
+:locatedIn "Q497341" ;
+rdfs:comment "Chinese University about minorities" ;
+rdfs:seeAlso "Tibet Minzu University", "Tibet University for Nationalities", "Xizang Minzu Xueyuan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2431406"^^xsd:anyURI .
+:Q18126802 a :School ;
+rdfs:label "Khwaja Yunus Ali University" ;
+:establishedYear "2012" ;
+:hasCoordinates "24.2243,89.7057" ;
+:hasCountry "Q902" ;
+:hasQID "Q18126802" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.kyau.edu.bd/"^^xsd:anyURI ;
+rdfs:comment "Bangladeshi University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18126802"^^xsd:anyURI .
+:Q133454672 a :School ;
+rdfs:label "Kyera Agricultural Training College" ;
+:establishedYear "2008" ;
+:hasCoordinates "-0.6167315082516582,30.63331119063904" ;
+:hasCountry "Q1036" ;
+:hasQID "Q133454672" ;
+:hasType "Q902104" ;
+:hasWebsite "https://katc.ac.ug/"^^xsd:anyURI ;
+:locatedIn "Q1091595" ;
+rdfs:comment "A training college in Uganda operating in Mbarara district." ;
+owl:sameAs "http://www.wikidata.org/entity/Q133454672"^^xsd:anyURI .
+:Q7895118 a :School ;
+rdfs:label "University of Bijeljina" ;
+:establishedYear "2011" ;
+:hasCoordinates "44.775555555555556,19.224444444444444" ;
+:hasCountry "Q225" ;
+:hasQID "Q7895118" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ubn.rs.ba/"^^xsd:anyURI ;
+:locatedIn "Q207801" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7895118"^^xsd:anyURI .
+:Q5210049 a :School ;
+rdfs:label "Dakota State University" ;
+:establishedYear "1881" ;
+:hasCoordinates "44.0123,-97.1128" ;
+:hasCountry "Q30" ;
+:hasQID "Q5210049" ;
+:hasType "Q875538" ;
+:hasWebsite "https://dsu.edu/"^^xsd:anyURI ;
+:locatedIn "Q1020419" ;
+rdfs:comment "public university in Madison, South Dakota" ;
+rdfs:seeAlso "DSU", "Dakota State" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5210049"^^xsd:anyURI .
+:Q22080746 a :School ;
+rdfs:label "Apeejay Stya University" ;
+:establishedYear "2010" ;
+:hasCoordinates "28.214258333333333,77.17310277777777" ;
+:hasCountry "Q668" ;
+:hasQID "Q22080746" ;
+:hasType "Q3918" ;
+:hasWebsite "http://university.apeejay.edu/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q22080746"^^xsd:anyURI .
+:Q7895569 a :School ;
+rdfs:label "University of Jammu" ;
+:establishedYear "1969" ;
+:hasCoordinates "32.7186,74.8692" ;
+:hasCountry "Q668" ;
+:hasQID "Q7895569" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.jammuuniversity.in"^^xsd:anyURI ;
+:locatedIn "Q255455" ;
+rdfs:comment "The University of Jammu was established in 1969 by an Act of the State Legislature which effectively split the Jammu and Kashmir University into the separate Universities of Jammu and Kashmir." ;
+owl:sameAs "http://www.wikidata.org/entity/Q7895569"^^xsd:anyURI .
+:Q5061493 a :School ;
+rdfs:label "Central Nazarene College" ;
+:establishedYear "1909" ;
+:hasCountry "Q30" ;
+:hasQID "Q5061493" ;
+:hasType "Q3918" ;
+:locatedIn "Q980335" ;
+rdfs:comment "Junior college in Hamlin, Texas" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5061493"^^xsd:anyURI .
+:Q119829349 a :School ;
+rdfs:label "University of ilorin department of quantity surveying" ;
+:hasCoordinates "8.492174223289723,4.677357935645367" ;
+:hasCountry "Q1033" ;
+:hasQID "Q119829349" ;
+:hasType "Q3918" ;
+rdfs:comment "department in faculty of Environmental science, university of ilorin" ;
+rdfs:seeAlso "SUG" ;
+owl:sameAs "http://www.wikidata.org/entity/Q119829349"^^xsd:anyURI .
+:Q134399495 a :School ;
+:establishedYear "1997" ;
+:hasCoordinates "17.4873593,-91.4287582" ;
+:hasCountry "Q96" ;
+:hasQID "Q134399495" ;
+:hasType "Q209465" ;
+:hasWebsite "https://damrios.ujat.mx"^^xsd:anyURI ;
+:locatedIn "Q3850309" ;
+owl:sameAs "http://www.wikidata.org/entity/Q134399495"^^xsd:anyURI .
+:Q7813375 a :School ;
+rdfs:label "Toin University of Yokohama" ;
+:establishedYear "1988" ;
+:hasCoordinates "35.565935,139.517955" ;
+:hasCountry "Q17" ;
+:hasQID "Q7813375" ;
+:hasType "Q3918" ;
+:hasWebsite "http://toin.ac.jp/univ/"^^xsd:anyURI ;
+:locatedIn "Q11649584" ;
+rdfs:comment "university in Yokohama, Japan" ;
+rdfs:seeAlso "Toin Yokohama Daigaku", "Tōin Yokohama Daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7813375"^^xsd:anyURI .
+:Q6842964 a :School ;
+rdfs:label "Midrand Graduate Institute" ;
+:establishedYear "1989" ;
+:hasCoordinates "-26.02058,28.134055555555555" ;
+:hasCountry "Q258" ;
+:hasQID "Q6842964" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.mgi.ac.za"^^xsd:anyURI ;
+:locatedIn "Q639518" ;
+rdfs:comment "South African private institution of higher education" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6842964"^^xsd:anyURI .
+:Q2128646 a :School ;
+rdfs:label "Maha Sarakham Rajabhat University" ;
+:hasCountry "Q869" ;
+:hasQID "Q2128646" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.rmu.ac.th/enrmu/"^^xsd:anyURI ;
+:locatedIn "Q1210731" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2128646"^^xsd:anyURI .
+:Q861888 a :School ;
+rdfs:label "Oregon State University" ;
+:establishedYear "1868" ;
+:hasCoordinates "44.56583333333333,-123.27888888888889" ;
+:hasCountry "Q30" ;
+:hasQID "Q861888" ;
+:hasType "Q875538" ;
+:hasWebsite "http://oregonstate.edu"^^xsd:anyURI ;
+:locatedIn "Q748474" ;
+rdfs:comment "public research university in Corvallis, Oregon, United States" ;
+rdfs:seeAlso "Corvallis College", "Corvallis State Agricultural College", "OSU", "Oregon Agricultural College", "Oregon State Agricultural College", "Oregon State College", "State Agricultural College", "oregonstate.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q861888"^^xsd:anyURI .
+:Q7382780 a :School ;
+rdfs:label "Rutgers University–Newark" ;
+:establishedYear "1936" ;
+:hasCoordinates "40.741,-74.174" ;
+:hasCountry "Q30" ;
+:hasQID "Q7382780" ;
+:hasType "Q23002039" ;
+:hasWebsite "https://www.newark.rutgers.edu/"^^xsd:anyURI ;
+:locatedIn "Q25395" ;
+rdfs:comment "regional campus of Rutgers University" ;
+rdfs:seeAlso "Rutgers University-Newark", "Rutgers University-Newark Campus", "Rutgers-Newark", "Rutgers–Newark", "newark.rutgers.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7382780"^^xsd:anyURI .
+:Q102398759 a :School ;
+:establishedYear "1941" ;
+:hasCoordinates "59.71666666666667,30.416666666666668" ;
+:hasCountry "Q15180" ;
+:hasQID "Q102398759" ;
+:hasType "Q1880737" ;
+:hasWebsite "https://www.pvure.com/%D0%BD%D0%B0%D1%88%D0%B5-%D1%83%D1%87%D0%B8%D0%BB%D0%B8%D1%89%D0%B5/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F-%D1%83%D1%87%D0%B8%D0%BB%D0%B8%D1%89%D0%B0/"^^xsd:anyURI ;
+:locatedIn "Q7947" ;
+owl:sameAs "http://www.wikidata.org/entity/Q102398759"^^xsd:anyURI .
+:Q103831957 a :School ;
+:establishedYear "1943" ;
+:hasCoordinates "51.67167,39.21056" ;
+:hasCountry "Q159" ;
+:hasQID "Q103831957" ;
+:hasType "Q38723" ;
+:locatedIn "Q3426" ;
+owl:sameAs "http://www.wikidata.org/entity/Q103831957"^^xsd:anyURI .
+:Q24590306 a :School ;
+rdfs:label "Indian Institute of Information Technology, Design and Manufacturing, Kurnool" ;
+:establishedYear "2015" ;
+:hasCoordinates "15.761830555556,78.036402777778" ;
+:hasCountry "Q668" ;
+:hasQID "Q24590306" ;
+:hasType "Q3918" ;
+:locatedIn "Q3635276" ;
+rdfs:comment "Institute in Kurnool, Andhra Pradesh" ;
+owl:sameAs "http://www.wikidata.org/entity/Q24590306"^^xsd:anyURI .
+:Q6905380 a :School ;
+rdfs:label "Monterrey Institute of Technology and Higher Education, Cuernavaca" ;
+:establishedYear "1980" ;
+:hasCoordinates "18.805731,-99.221628" ;
+:hasCountry "Q96" ;
+:hasQID "Q6905380" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.cva.itesm.mx"^^xsd:anyURI ;
+:locatedIn "Q34946272" ;
+rdfs:comment "university and high school campus" ;
+rdfs:seeAlso "ITESM Campus Cuernavaca" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6905380"^^xsd:anyURI .
+:Q5269618 a :School ;
+rdfs:label "Dhirubhai Ambani University" ;
+:establishedYear "2001" ;
+:hasCoordinates "23.188333333333,72.628055555556" ;
+:hasCountry "Q668" ;
+:hasQID "Q5269618" ;
+:hasType "Q131389368" ;
+:hasWebsite "http://www.daiict.ac.in"^^xsd:anyURI ;
+:locatedIn "Q11910" ;
+rdfs:comment "private university in Gandhinagar, India." ;
+rdfs:seeAlso "DA-IICT", "DA-IITCT", "DAIICT", "DAU", "Dhirubhai Ambani Institute of Information and Communication Technology" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5269618"^^xsd:anyURI .
+:Q109913800 a :School ;
+rdfs:label "Politeknik API Yogyakarta" ;
+:establishedYear "1997" ;
+:hasCountry "Q252" ;
+:hasQID "Q109913800" ;
+:hasType "Q845392" ;
+:hasWebsite "http://www.poltekapi.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q5030061" ;
+rdfs:comment "higher education institution in Sleman, Indonesia" ;
+rdfs:seeAlso "POLTEK \"API\"" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109913800"^^xsd:anyURI .
+:Q100257879 a :School ;
+:hasCountry "Q79" ;
+:hasQID "Q100257879" ;
+:hasType "Q3918" ;
+:locatedIn "Q30832" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100257879"^^xsd:anyURI .
+:Q18286571 a :School ;
+rdfs:label "21st Century Business University" ;
+:establishedYear "1995" ;
+:hasCountry "Q414" ;
+:hasQID "Q18286571" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.21.edu.ar/"^^xsd:anyURI ;
+:locatedIn "Q44210" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18286571"^^xsd:anyURI .
+:Q15825857 a :School ;
+:hasQID "Q15825857" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q15825857"^^xsd:anyURI .
+:Q21771908 a :School ;
+:hasCoordinates "50.87811,4.69968" ;
+:hasCountry "Q31" ;
+:hasQID "Q21771908" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21771908"^^xsd:anyURI .
+:Q123440030 a :School ;
+rdfs:label "Department of Agricultural Engineering Kwara state University" ;
+:hasCoordinates "8.7063,4.4622" ;
+:hasCountry "Q1033" ;
+:hasQID "Q123440030" ;
+:hasType "Q3918" ;
+:hasWebsite "https://portal.kwasu.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q587085" ;
+rdfs:comment "Department in kwara state University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q123440030"^^xsd:anyURI .
+:Q19744834 a :School ;
+rdfs:label "Podomoro University" ;
+:establishedYear "2013" ;
+:hasCountry "Q252" ;
+:hasQID "Q19744834" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.podomorouniversity.com"^^xsd:anyURI ;
+:locatedIn "Q192737" ;
+rdfs:comment "university in Indonesia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19744834"^^xsd:anyURI .
+:Q16183302 a :School ;
+:hasCountry "Q252" ;
+:hasQID "Q16183302" ;
+:hasType "Q3918" ;
+:hasWebsite "http://iiq.ac.id/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q16183302"^^xsd:anyURI .
+:Q109441362 a :School ;
+rdfs:label "Universitas Muslim Maros" ;
+:establishedYear "2017" ;
+:hasCountry "Q252" ;
+:hasQID "Q109441362" ;
+:hasType "Q3918" ;
+:locatedIn "Q12711944" ;
+rdfs:comment "university in Indonesia" ;
+rdfs:seeAlso "UMMA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109441362"^^xsd:anyURI .
+:Q1982481 a :School ;
+rdfs:label "Northeastern University London" ;
+:establishedYear "2010" ;
+:hasCoordinates "51.5208,-0.121944" ;
+:hasCountry "Q145" ;
+:hasQID "Q1982481" ;
+:hasType "Q189004" ;
+:hasWebsite "http://www.nchlondon.ac.uk"^^xsd:anyURI ;
+:locatedIn "Q84" ;
+rdfs:comment "undergraduate and master's degree college in London" ;
+rdfs:seeAlso "NCH London", "NCH at Northeastern", "New College of the Humanities", "New College of the Humanities at Northeastern", "Northeastern University - London", "Northeastern University – London" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1982481"^^xsd:anyURI .
+:Q124365973 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q124365973" ;
+:hasType "Q21514702" ;
+owl:sameAs "http://www.wikidata.org/entity/Q124365973"^^xsd:anyURI .
+:Q21663334 a :School ;
+rdfs:label "Technological University of Bolivia" ;
+:establishedYear "1993" ;
+:hasCoordinates "-16.500656,-68.134299" ;
+:hasCountry "Q750" ;
+:hasQID "Q21663334" ;
+:hasType "Q3918" ;
+:hasWebsite "http://utb.edu.bo/"^^xsd:anyURI ;
+:locatedIn "Q1491" ;
+rdfs:comment "Bolivian private university" ;
+rdfs:seeAlso "UTB" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21663334"^^xsd:anyURI .
+:Q4516673 a :School ;
+rdfs:label "Transbaikal State University" ;
+:establishedYear "1938" ;
+:hasCoordinates "52.03207401,113.528882" ;
+:hasCountry "Q159" ;
+:hasQID "Q4516673" ;
+:hasType "Q3918" ;
+:hasWebsite "http://zabgu.ru"^^xsd:anyURI ;
+:locatedIn "Q53139" ;
+rdfs:comment "university in Chita, Russia" ;
+rdfs:seeAlso "Chita State University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4516673"^^xsd:anyURI .
+:Q101000113 a :School ;
+rdfs:label "Ho Chi Minh City University of Fine Art" ;
+:hasCountry "Q881" ;
+:hasQID "Q101000113" ;
+:hasType "Q3918" ;
+rdfs:comment "university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q101000113"^^xsd:anyURI .
+:Q30263417 a :School ;
+rdfs:label "South Florida Bible College & Theological Seminary" ;
+:establishedYear "1985" ;
+:hasCoordinates "26.303768,-80.092595" ;
+:hasCountry "Q30" ;
+:hasQID "Q30263417" ;
+:hasType "Q2385804" ;
+:hasWebsite "http://sfbc.edu/"^^xsd:anyURI ;
+:locatedIn "Q584849" ;
+rdfs:comment "education organization in Deerfield Beach, United States" ;
+rdfs:seeAlso "Bible Institute", "SFBC&TS", "South Florida Bible College and Theological Seminary" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30263417"^^xsd:anyURI .
+:Q5153072 a :School ;
+rdfs:label "Committee on International Relations" ;
+:establishedYear "1928" ;
+:hasCountry "Q30" ;
+:hasQID "Q5153072" ;
+:hasType "Q3918" ;
+:hasWebsite "https://cir.uchicago.edu/"^^xsd:anyURI ;
+:locatedIn "Q1297" ;
+rdfs:comment "graduate program" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5153072"^^xsd:anyURI .
+:Q109912364 a :School ;
+rdfs:label "Universitas 'Aisyiyah Bandung" ;
+:establishedYear "2020" ;
+:hasCountry "Q252" ;
+:hasQID "Q109912364" ;
+:hasType "Q3918" ;
+:locatedIn "Q1727617" ;
+rdfs:comment "Indonesian university" ;
+rdfs:seeAlso "UNISA BANDUNG" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109912364"^^xsd:anyURI .
+:Q3551390 a :School ;
+rdfs:label "Constantin Brâncoveanu University" ;
+:establishedYear "1991" ;
+:hasCoordinates "44.869968,24.859868" ;
+:hasCountry "Q218" ;
+:hasQID "Q3551390" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.univcb.ro"^^xsd:anyURI ;
+:locatedIn "Q187938" ;
+rdfs:comment "private university in Bucharest, Romania, founded in 1991" ;
+rdfs:seeAlso "\"Constantin Brâncoveanu\" University", "Constantin Brancoveanu University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551390"^^xsd:anyURI .
+:Q1707347 a :School ;
+rdfs:label "university of Fiji" ;
+:establishedYear "2004" ;
+:hasCoordinates "-18.12612,178.44806" ;
+:hasCountry "Q712" ;
+:hasQID "Q1707347" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unifiji.ac.fj/"^^xsd:anyURI ;
+:locatedIn "Q856662" ;
+rdfs:comment "university in Lautoka, Fiji" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1707347"^^xsd:anyURI .
+:Q2120427 a :School ;
+rdfs:label "Maronite College in Rome" ;
+:hasCoordinates "41.907426,12.486258" ;
+:hasCountry "Q38" ;
+:hasQID "Q2120427" ;
+:hasType "Q14911880" ;
+:hasWebsite "http://collegiopcm.org/"^^xsd:anyURI ;
+:locatedIn "Q220" ;
+rdfs:comment "Roman Catholic seminary in Rome" ;
+rdfs:seeAlso "Collegio dei Maroniti", "Pontificio Collegio dei Maroniti" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2120427"^^xsd:anyURI .
+:Q7058241 a :School ;
+rdfs:label "Northern College" ;
+:establishedYear "1967" ;
+:hasCoordinates "48.488055555556,-81.197777777778" ;
+:hasCountry "Q16" ;
+:hasQID "Q7058241" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.northernc.on.ca"^^xsd:anyURI ;
+:locatedIn "Q991310" ;
+rdfs:comment "community college in Ontario, Canada" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7058241"^^xsd:anyURI .
+:Q5429053 a :School ;
+rdfs:label "Faculty of Political Science, Chulalongkorn University" ;
+:establishedYear "1899" ;
+:hasCoordinates "13.734678,100.533339" ;
+:hasCountry "Q869" ;
+:hasQID "Q5429053" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.polsci.chula.ac.th"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q5429053"^^xsd:anyURI .
+:Q155354 a :School ;
+rdfs:label "University of Marburg" ;
+:establishedYear "1527" ;
+:hasCoordinates "50.810833333333,8.7736111111111" ;
+:hasCountry "Q183" ;
+:hasQID "Q155354" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.uni-marburg.de/"^^xsd:anyURI ;
+:locatedIn "Q3869" ;
+rdfs:comment "German university" ;
+rdfs:seeAlso "Philipps University of Marburg", "Philipps-University Marburg", "Philipps-Universität" ;
+owl:sameAs "http://www.wikidata.org/entity/Q155354"^^xsd:anyURI .
+:Q105626430 a :School ;
+rdfs:label "Politeknik Wilmar Bisnis Indonesia" ;
+:establishedYear "2015" ;
+:hasCountry "Q252" ;
+:hasQID "Q105626430" ;
+:hasType "Q845392" ;
+:hasWebsite "http://wbi.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q13545634" ;
+rdfs:comment "higher education institution in Deli Serdang, Indonesia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q105626430"^^xsd:anyURI .
+:Q100997989 a :School ;
+:establishedYear "1934" ;
+:hasCountry "Q414" ;
+:hasQID "Q100997989" ;
+:hasType "Q917182" ;
+:locatedIn "Q1018128" ;
+rdfs:comment "Argentina" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100997989"^^xsd:anyURI .
+:Q109974870 a :School ;
+rdfs:label "University of Dir" ;
+:hasQID "Q109974870" ;
+:hasType "Q3918" ;
+rdfs:comment "public university in Pakistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109974870"^^xsd:anyURI .
+:Q4946088 a :School ;
+rdfs:label "Borneo Tarakan University" ;
+:establishedYear "1999" ;
+:hasCoordinates "3.303138888888889,117.64883333333333" ;
+:hasCountry "Q252" ;
+:hasQID "Q4946088" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.ubt.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q3795" ;
+rdfs:comment "higher education institution in Tarakan, Indonesia" ;
+rdfs:seeAlso "The Borneo Tarakan University", "UBT" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4946088"^^xsd:anyURI .
+:Q7180812 a :School ;
+rdfs:label "Pharmacy Council of Pakistan" ;
+:establishedYear "1967" ;
+:hasCountry "Q843" ;
+:hasQID "Q7180812" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.pharmacycouncil.org.pk/"^^xsd:anyURI ;
+:locatedIn "Q1362" ;
+rdfs:comment "regulatory body of pharmacists and pharmacies in Pakistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7180812"^^xsd:anyURI .
+:Q11472836 a :School ;
+rdfs:label "Okazaki Womens University" ;
+:establishedYear "1924" ;
+:hasCoordinates "34.956488,137.179917" ;
+:hasCountry "Q17" ;
+:hasQID "Q11472836" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.okazaki-u.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q242783" ;
+rdfs:comment "education organization in Okazaki, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11472836"^^xsd:anyURI .
+:Q7270829 a :School ;
+rdfs:label "Queens University of Charlotte" ;
+:establishedYear "1857" ;
+:hasCoordinates "35.1888,-80.8323" ;
+:hasCountry "Q30" ;
+:hasQID "Q7270829" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.queens.edu"^^xsd:anyURI ;
+:locatedIn "Q16565" ;
+rdfs:comment "private university in Charlotte, North Carolina, United States" ;
+rdfs:seeAlso "Queens", "Queens College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7270829"^^xsd:anyURI .
+:Q123266314 a :School ;
+rdfs:label "UCL East" ;
+:establishedYear "2023" ;
+:hasCoordinates "51.538,-0.012" ;
+:hasCountry "Q145" ;
+:hasQID "Q123266314" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.ucl.ac.uk/ucl-east"^^xsd:anyURI ;
+rdfs:comment "Campus of University College London" ;
+rdfs:seeAlso "Marshgate", "One Pool Street", "University College London" ;
+owl:sameAs "http://www.wikidata.org/entity/Q123266314"^^xsd:anyURI .
+:Q7894640 a :School ;
+rdfs:label "University College for Women, Koti" ;
+:establishedYear "1924" ;
+:hasCoordinates "17.3605319,78.4750474" ;
+:hasCountry "Q668" ;
+:hasQID "Q7894640" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.oucwkoti.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q1361" ;
+rdfs:comment "University in Hyderabad, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7894640"^^xsd:anyURI .
+:Q1014867 a :School ;
+:establishedYear "1933" ;
+:hasCoordinates "48.2079,16.3683" ;
+:hasCountry "Q40" ;
+:hasQID "Q1014867" ;
+:hasType "Q14911880" ;
+:locatedIn "Q1741" ;
+rdfs:comment "seminary" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1014867"^^xsd:anyURI .
+:Q7936090 a :School ;
+rdfs:label "Visible School" ;
+:establishedYear "2000" ;
+:hasCoordinates "35.1445,-90.0493" ;
+:hasCountry "Q30" ;
+:hasQID "Q7936090" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.visible.edu"^^xsd:anyURI ;
+:locatedIn "Q16563" ;
+rdfs:comment "American private Christian music school in Tennessee" ;
+rdfs:seeAlso "Visible Music College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7936090"^^xsd:anyURI .
+:Q7830888 a :School ;
+rdfs:label "Toyota Technological Institute at Chicago" ;
+:establishedYear "2003" ;
+:hasCoordinates "41.784722,-87.592778" ;
+:hasCountry "Q30" ;
+:hasQID "Q7830888" ;
+:hasType "Q1371037" ;
+:hasWebsite "http://www.ttic.edu"^^xsd:anyURI ;
+:locatedIn "Q1297" ;
+rdfs:comment "private college focused on computer science" ;
+rdfs:seeAlso "TTI-Chicago", "TTIC" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7830888"^^xsd:anyURI .
+:Q18484232 a :School ;
+rdfs:label "Centro Universitário de Várzea Grande" ;
+:establishedYear "1989" ;
+:hasCoordinates "-15.643184,-56.095762" ;
+:hasCountry "Q155" ;
+:hasQID "Q18484232" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.univag.com.br/"^^xsd:anyURI ;
+:locatedIn "Q983884" ;
+rdfs:seeAlso "UNIVAG" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18484232"^^xsd:anyURI .
+:Q4836904 a :School ;
+rdfs:label "BYU Honors Program" ;
+:hasCoordinates "40.249722,-111.649167" ;
+:hasCountry "Q30" ;
+:hasQID "Q4836904" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4836904"^^xsd:anyURI .
+:Q108415339 a :School ;
+rdfs:label "College of Education, Gindiri" ;
+:establishedYear "1989" ;
+:hasCoordinates "9.244832727871728,9.367319124227524" ;
+:hasCountry "Q1033" ;
+:hasQID "Q108415339" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.coeg.edu.ng/0/"^^xsd:anyURI ;
+:locatedIn "Q503928" ;
+rdfs:comment "higher education institution in Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q108415339"^^xsd:anyURI .
+:Q19704353 a :School ;
+rdfs:label "Centro Universitário La Salle" ;
+:establishedYear "1972" ;
+:hasCountry "Q155" ;
+:hasQID "Q19704353" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unilasalle.edu.br"^^xsd:anyURI ;
+:locatedIn "Q194325" ;
+rdfs:comment "academic publisher" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19704353"^^xsd:anyURI .
+:Q110904486 a :School ;
+rdfs:label "Pontificia Facultad de Teología San Esteban" ;
+:hasQID "Q110904486" ;
+:hasType "Q118868153" ;
+:hasWebsite "https://www.facultadsanesteban.es/"^^xsd:anyURI ;
+rdfs:comment "school" ;
+owl:sameAs "http://www.wikidata.org/entity/Q110904486"^^xsd:anyURI .
+:Q3551475 a :School ;
+rdfs:label "Paris-Sorbonne University Abu Dhabi" ;
+:establishedYear "2006" ;
+:hasCountry "Q878" ;
+:hasQID "Q3551475" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.sorbonne.ae/"^^xsd:anyURI ;
+rdfs:comment "French and English-speaking university in Abu Dhabi" ;
+rdfs:seeAlso "UPSAD", "Universite Paris-Sorbonne Abou Dhabi", "Université Paris-Sorbonne Abou Dhabi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551475"^^xsd:anyURI .
+:Q15089213 a :School ;
+rdfs:label "Royal Naval College" ;
+:establishedYear "1873" ;
+:hasCoordinates "51.48222222,-0.00666667" ;
+:hasCountry "Q145" ;
+:hasQID "Q15089213" ;
+:hasType "Q1898357" ;
+rdfs:comment "Royal Navy training establishment" ;
+rdfs:seeAlso "RNC Greenwich", "Royal Naval College, Greenwich" ;
+owl:sameAs "http://www.wikidata.org/entity/Q15089213"^^xsd:anyURI .
+:Q12513077 a :School ;
+rdfs:label "Sekolah Tinggi Ilmu Hukum Manokwari" ;
+:establishedYear "1975" ;
+:hasCoordinates "-0.8643170518098044,134.06375987324196" ;
+:hasCountry "Q252" ;
+:hasQID "Q12513077" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.stih-manokwari.com"^^xsd:anyURI ;
+:locatedIn "Q24849515" ;
+rdfs:comment "higher education institution in Manokwari, Indonesia" ;
+rdfs:seeAlso "STIH MANOKWARI" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12513077"^^xsd:anyURI .
+:Q277664 a :School ;
+rdfs:label "Tampere University of Technology" ;
+:establishedYear "1972" ;
+:hasCoordinates "61.449444444444,23.86" ;
+:hasCountry "Q33" ;
+:hasQID "Q277664" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tut.fi/en/"^^xsd:anyURI ;
+:locatedIn "Q40840" ;
+rdfs:comment "former university in Tampere, Finland" ;
+rdfs:seeAlso "Tampereen teknillinen yliopisto" ;
+owl:sameAs "http://www.wikidata.org/entity/Q277664"^^xsd:anyURI .
+:Q126956234 a :School ;
+rdfs:label "IndiScale GmbH" ;
+:hasQID "Q126956234" ;
+:hasType "Q875538" ;
+owl:sameAs "http://www.wikidata.org/entity/Q126956234"^^xsd:anyURI .
+:Q133846121 a :School ;
+rdfs:label "ZEN University" ;
+:establishedYear "2025" ;
+:hasCoordinates "35.29761111111111,139.57016388888889" ;
+:hasCountry "Q17" ;
+:hasQID "Q133846121" ;
+:hasType "Q3918" ;
+:hasWebsite "https://zen.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q230843" ;
+rdfs:comment "online undergraduate university in Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q133846121"^^xsd:anyURI .
+:Q107475800 a :School ;
+rdfs:label "Federal Polytechnic, Ile-Oluji, ondo state" ;
+:establishedYear "2016" ;
+:hasCoordinates "7.20249065867581,4.863123450713707" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q107475800" ;
+:hasType "Q845392" ;
+:hasWebsite "https://www.fedpolel.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q5997398" ;
+rdfs:comment "public university in Nigeria" ;
+rdfs:seeAlso "Federal Polytechnic, Ile-Oluji" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107475800"^^xsd:anyURI .
+:Q113788 a :School ;
+rdfs:label "Kazan Federal University" ;
+:establishedYear "1804" ;
+:hasCoordinates "55.79075,49.121911111111" ;
+:hasCountry "Q159" ;
+:hasQID "Q113788" ;
+:hasType "Q4481793" ;
+:hasWebsite "https://kpfu.ru/"^^xsd:anyURI ;
+:locatedIn "Q900" ;
+rdfs:comment "Russian university" ;
+rdfs:seeAlso "Kazan (Volga region) Federal University", "Kazan State University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113788"^^xsd:anyURI .
+:Q495225 a :School ;
+rdfs:label "University of Alcalá" ;
+:establishedYear "1499" ;
+:hasCoordinates "40.482898055556,-3.363215" ;
+:hasCountry "Q29" ;
+:hasQID "Q495225" ;
+:hasType "Q557206" ;
+rdfs:comment "former Spanish university (1499-1836)" ;
+rdfs:seeAlso "Complutense University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q495225"^^xsd:anyURI .
+:Q21190798 a :School ;
+rdfs:label "Maharaja Ranjit Singh State Technical University" ;
+:establishedYear "2014" ;
+:hasCoordinates "30.173819444444444,74.92325277777778" ;
+:hasCountry "Q668" ;
+:hasQID "Q21190798" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.mrsstu.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q709319" ;
+rdfs:comment "university in Bathinda, India" ;
+rdfs:seeAlso "Maharaja Ranjit Singh Punjab Technical University", "Maharaja Ranjit Singh State Technical university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21190798"^^xsd:anyURI .
+:Q100258392 a :School ;
+:hasQID "Q100258392" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100258392"^^xsd:anyURI .
+:Q104855273 a :School ;
+rdfs:label "Delta State University of Science and Technology, Ozoro" ;
+:establishedYear "2002" ;
+:hasCoordinates "5.55618606335652,6.2471659338749115" ;
+:hasCountry "Q1033" ;
+:hasQID "Q104855273" ;
+:hasType "Q3918" ;
+:hasWebsite "https://dsust.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q503910" ;
+rdfs:comment "public university in Ozoro, Nigeria" ;
+rdfs:seeAlso "DSPZ", "Delta State Polytechnic", "Delta State Polytechnic, Ozoro", "Delta State University of Science and Technology" ;
+owl:sameAs "http://www.wikidata.org/entity/Q104855273"^^xsd:anyURI .
+:Q31173528 a :School ;
+rdfs:label "Sulthan Thaha Saifuddin Islamic University" ;
+:establishedYear "1967" ;
+:hasCoordinates "-1.612632,103.575756" ;
+:hasCountry "Q252" ;
+:hasQID "Q31173528" ;
+:hasType "Q6082807" ;
+:hasWebsite "https://uinjambi.ac.id"^^xsd:anyURI ;
+:locatedIn "Q14907677" ;
+rdfs:comment "University in Jambi, Indonesia" ;
+rdfs:seeAlso "uin sutha jambi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q31173528"^^xsd:anyURI .
+:Q1516779 a :School ;
+rdfs:label "Nyenrode Business University" ;
+:establishedYear "1946" ;
+:hasCoordinates "52.161,5.006" ;
+:hasCountry "Q55" ;
+:hasQID "Q1516779" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.nyenrode.nl/"^^xsd:anyURI ;
+:locatedIn "Q10042" ;
+rdfs:comment "university" ;
+rdfs:seeAlso "Nijenrode" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1516779"^^xsd:anyURI .
+:Q42529237 a :School ;
+rdfs:label "Bengaluru North University" ;
+:establishedYear "2017" ;
+:hasCoordinates "13.135452777777777,78.16855277777778" ;
+:hasCountry "Q668" ;
+:hasQID "Q42529237" ;
+:hasType "Q3918" ;
+:hasWebsite "http://bnu.ac.in/"^^xsd:anyURI ;
+rdfs:comment "Indian state university in Kolar, Karnataka" ;
+owl:sameAs "http://www.wikidata.org/entity/Q42529237"^^xsd:anyURI .
+:Q1164215 a :School ;
+rdfs:label "National University \"Zaporizhzhia Polytechnic\"" ;
+:establishedYear "1900" ;
+:hasCoordinates "47.818,35.1845" ;
+:hasCountry "Q212" ;
+:hasQID "Q1164215" ;
+:hasType "Q3918" ;
+:hasWebsite "https://zp.edu.ua/"^^xsd:anyURI ;
+:locatedIn "Q157835" ;
+rdfs:comment "National technical university of Ukraine" ;
+rdfs:seeAlso "National university \"Zaporizka politekhnika\"", "ZNTU", "ZSTU", "Zaporizhzhya National Technical University", "Zaporizhzhya State Technical University", "Zaporizʹkyj nacionalʹnyj techničnyj universytet", "Zaporizʹkyj_Deržavnyj_Techničnyj_Universytet", "Zaporozhskiĭ mashinostroitlʹnyĭ institut im. V.I︠A︡. Chubari︠a︡", "Zaporozhskiĭ ordena \"Znak Pocheta\" mashinostrooitelʹnyĭ institut im. V.I︠A︡. Chubari︠a︡", "Zaporozhye National Technical University", "zp.edu.ua" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1164215"^^xsd:anyURI .
+:Q7593895 a :School ;
+rdfs:label "St Kieran's College" ;
+:establishedYear "1782" ;
+:hasCoordinates "52.6469,-7.25556" ;
+:hasCountry "Q27" ;
+:hasQID "Q7593895" ;
+:hasType "Q14911880" ;
+:hasWebsite "http://www.stkieranscollege.ie"^^xsd:anyURI ;
+:locatedIn "Q109092" ;
+rdfs:comment "former Catholic seminary building in Kilkenny, Ireland, now used as a secondary school" ;
+rdfs:seeAlso "Kieran's College", "St. Kieran's College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7593895"^^xsd:anyURI .
+:Q71519799 a :School ;
+rdfs:label "Universitas Dharmas Indonesia" ;
+:establishedYear "2015" ;
+:hasCoordinates "-1.0575833333333333,101.646" ;
+:hasCountry "Q252" ;
+:hasQID "Q71519799" ;
+:hasType "Q902104" ;
+:hasWebsite "http://undhari.ac.id"^^xsd:anyURI ;
+:locatedIn "Q8167865" ;
+rdfs:comment "private university in West Sumatra, Indonesia" ;
+rdfs:seeAlso "UNDHARI", "Undhari" ;
+owl:sameAs "http://www.wikidata.org/entity/Q71519799"^^xsd:anyURI .
+:Q11132781 a :School ;
+rdfs:label "Yung Ta Institute of Technology and Commerce" ;
+:establishedYear "1967" ;
+:hasCoordinates "22.6545,120.5235" ;
+:hasCountry "Q865" ;
+:hasQID "Q11132781" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.ytit.edu.tw/"^^xsd:anyURI ;
+:locatedIn "Q708120" ;
+rdfs:comment "former university in Linluo, Pingtung County, Taiwan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11132781"^^xsd:anyURI .
+:Q32000610 a :School ;
+rdfs:label "Fachhochschule Frankfurt" ;
+:hasCoordinates "50.12989,8.69319" ;
+:hasCountry "Q183" ;
+:hasQID "Q32000610" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q32000610"^^xsd:anyURI .
+:Q7401915 a :School ;
+rdfs:label "Saint Michael College of Caraga" ;
+:establishedYear "1948" ;
+:hasCoordinates "8.9878159,125.3400701" ;
+:hasCountry "Q928" ;
+:hasQID "Q7401915" ;
+:hasType "Q3918" ;
+:locatedIn "Q627604" ;
+rdfs:comment "College in Agusan del Norte, Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7401915"^^xsd:anyURI .
+:Q12104641 a :School ;
+rdfs:label "Zhytomyr State Technological University" ;
+:establishedYear "1960" ;
+:hasCoordinates "50.24416667,28.63777778" ;
+:hasCountry "Q212" ;
+:hasQID "Q12104641" ;
+:hasType "Q3918" ;
+:hasWebsite "https://ztu.edu.ua/en/"^^xsd:anyURI ;
+:locatedIn "Q156713" ;
+rdfs:comment "education organization in Zhytomyr, Ukraine" ;
+rdfs:seeAlso "ZSTU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12104641"^^xsd:anyURI .
+:Q1000206 a :School ;
+rdfs:label "Hamburger University" ;
+:establishedYear "1961" ;
+:hasCoordinates "41.8836977,-87.6536787" ;
+:hasCountry "Q30" ;
+:hasQID "Q1000206" ;
+:hasType "Q2385804" ;
+:hasWebsite "https://corporate.mcdonalds.com/corpmcd/our-purpose-and-impact/jobs-inclusion-and-empowerment/skills-and-education.html"^^xsd:anyURI ;
+:locatedIn "Q1297" ;
+rdfs:comment "training facility of McDonald's Corporation" ;
+rdfs:seeAlso "Hamburger College", "McDonald's University", "McDonalds University", "Mcdonald's University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1000206"^^xsd:anyURI .
+:Q7059512 a :School ;
+rdfs:label "Northland Community & Technical College" ;
+:establishedYear "1949" ;
+:hasCoordinates "48.125807,-96.162568" ;
+:hasCountry "Q30" ;
+:hasQID "Q7059512" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.northlandcollege.edu/"^^xsd:anyURI ;
+:locatedIn "Q636832" ;
+rdfs:comment "education organization in Thief River Falls, United States" ;
+rdfs:seeAlso "NCTC", "Northland Community and Technical College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7059512"^^xsd:anyURI .
+:Q21190895 a :School ;
+rdfs:label "O.P. Jindal University" ;
+:establishedYear "2014" ;
+:hasCoordinates "22.061769444444,83.350347222222" ;
+:hasCountry "Q668" ;
+:hasQID "Q21190895" ;
+:hasType "Q131389368" ;
+:hasWebsite "http://www.opju.ac.in"^^xsd:anyURI ;
+:locatedIn "Q1168" ;
+rdfs:comment "Private unversity in in Raigarh, Chhattisgarh" ;
+owl:sameAs "http://www.wikidata.org/entity/Q21190895"^^xsd:anyURI .
+:Q719925 a :School ;
+rdfs:label "Université du Burundi" ;
+:establishedYear "1964" ;
+:hasCoordinates "-3.37888889,29.38444444" ;
+:hasCountry "Q967" ;
+:hasQID "Q719925" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.ub.edu.bi/"^^xsd:anyURI ;
+:locatedIn "Q3854" ;
+rdfs:comment "public university in Burundi (IAU-019693)" ;
+rdfs:seeAlso "UB", "University of Burundi", "ub.edu.bi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q719925"^^xsd:anyURI .
+:Q4450873 a :School ;
+rdfs:label "Tambov State University" ;
+:establishedYear "1918" ;
+:hasCoordinates "52.7208,41.4461" ;
+:hasCountry "Q159" ;
+:hasQID "Q4450873" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tsutmb.ru/"^^xsd:anyURI ;
+:locatedIn "Q3544" ;
+rdfs:seeAlso "G. R. Derzhavin State University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4450873"^^xsd:anyURI .
+:Q7894392 a :School ;
+rdfs:label "Universidade Positivo" ;
+:establishedYear "1988" ;
+:hasCoordinates "-25.4467,-49.3586" ;
+:hasCountry "Q155" ;
+:hasQID "Q7894392" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.up.edu.br"^^xsd:anyURI ;
+:locatedIn "Q4361" ;
+rdfs:comment "academic publisher" ;
+rdfs:seeAlso "Positive University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7894392"^^xsd:anyURI .
+:Q3543938 a :School ;
+rdfs:label "University of Asia and the Pacific" ;
+:establishedYear "1995" ;
+:hasCoordinates "14.5803,121.061" ;
+:hasCountry "Q928" ;
+:hasQID "Q3543938" ;
+:hasType "Q1143635" ;
+:hasWebsite "http://www.uap.asia"^^xsd:anyURI ;
+:locatedIn "Q1624" ;
+rdfs:comment "private university in the Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3543938"^^xsd:anyURI .
+:Q119782772 a :School ;
+rdfs:label "University of ilorin department of Arabic" ;
+:hasCoordinates "8.485449725891176,4.6719022274921524" ;
+:hasCountry "Q1033" ;
+:hasQID "Q119782772" ;
+:hasType "Q3918" ;
+rdfs:comment "department in the University of ilorin, Faculty of art" ;
+rdfs:seeAlso "ARA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q119782772"^^xsd:anyURI .
+:Q118481943 a :School ;
+rdfs:label "minor seminary of Avignon" ;
+:establishedYear "1826" ;
+:hasCountry "Q142" ;
+:hasQID "Q118481943" ;
+:hasType "Q391347" ;
+:locatedIn "Q6397" ;
+rdfs:comment "minor seminary in Avignon, Vaucluse, France" ;
+owl:sameAs "http://www.wikidata.org/entity/Q118481943"^^xsd:anyURI .
+:Q111972908 a :School ;
+rdfs:label "Mir Chakar Khan Rind University" ;
+:hasQID "Q111972908" ;
+:hasType "Q3918" ;
+rdfs:comment "public university in Balochistan, Pakistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q111972908"^^xsd:anyURI .
+:Q109911854 a :School ;
+rdfs:label "Politeknik Gorontalo" ;
+:establishedYear "2008" ;
+:hasCountry "Q252" ;
+:hasQID "Q109911854" ;
+:hasType "Q845392" ;
+:hasWebsite "http://www.poligon.ac.id"^^xsd:anyURI ;
+:locatedIn "Q4195489" ;
+rdfs:comment "higher education institution in Bone Bolango, Indonesia" ;
+rdfs:seeAlso "POLTEKGO" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109911854"^^xsd:anyURI .
+:Q129302611 a :School ;
+rdfs:label "Peter University, Achina-Onneh" ;
+:establishedYear "2020" ;
+:hasCoordinates "5.995533840299524,7.1426056539697145" ;
+:hasCountry "Q1033" ;
+:hasQID "Q129302611" ;
+:hasType "Q3918" ;
+:hasWebsite "https://puni.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q117714" ;
+rdfs:comment "university in Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q129302611"^^xsd:anyURI .
+:Q11644416 a :School ;
+:establishedYear "1933" ;
+:hasCountry "Q17" ;
+:hasQID "Q11644416" ;
+:hasType "Q110296306" ;
+:hasWebsite "http://www.rakuno.ac.jp/dep09/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q11644416"^^xsd:anyURI .
+:Q3955051 a :School ;
+rdfs:label "Seminary (Livorno)" ;
+:establishedYear "1851" ;
+:hasCoordinates "43.553729,10.318136" ;
+:hasCountry "Q38" ;
+:hasQID "Q3955051" ;
+:hasType "Q14911880" ;
+:locatedIn "Q6761" ;
+rdfs:comment "building in Livorno, Italy" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3955051"^^xsd:anyURI .
+:Q1780212 a :School ;
+rdfs:label "Sorbonne Paris North University" ;
+:establishedYear "1970" ;
+:hasCoordinates "48.956214,2.341933" ;
+:hasCountry "Q142" ;
+:hasQID "Q1780212" ;
+:hasType "Q3551775" ;
+:hasWebsite "https://www.univ-paris13.fr/"^^xsd:anyURI ;
+rdfs:comment "French university in the north of Paris" ;
+rdfs:seeAlso "Paris Nord University 13", "Sorbonne Paris Nord", "University Paris-Nord", "University of Paris Nord 13", "University of Paris North", "University of Paris North 13", "Université Paris Nord 13", "Université Sorbonne Paris Nord" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1780212"^^xsd:anyURI .
+:Q1667494 a :School ;
+rdfs:label "LCC International University" ;
+:establishedYear "1991" ;
+:hasCoordinates "55.731111111111,21.133333333333" ;
+:hasCountry "Q37" ;
+:hasQID "Q1667494" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.lcc.lt/"^^xsd:anyURI ;
+:locatedIn "Q776965" ;
+rdfs:comment "liberal arts institution in Klaipėda, Lithuania" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1667494"^^xsd:anyURI .
+:Q2120401 a :School ;
+rdfs:label "Pontifical French Seminary" ;
+:establishedYear "1853" ;
+:hasCoordinates "41.8977,12.4773" ;
+:hasCountry "Q38" ;
+:hasQID "Q2120401" ;
+:hasType "Q1322589" ;
+:hasWebsite "http://www.seminairefrancais.org"^^xsd:anyURI ;
+:locatedIn "Q220" ;
+rdfs:comment "Roman College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2120401"^^xsd:anyURI .
+:Q17332399 a :School ;
+rdfs:label "Central Institute of Road Transport" ;
+:establishedYear "1967" ;
+:hasCountry "Q668" ;
+:hasQID "Q17332399" ;
+:hasType "Q3918" ;
+rdfs:comment "Research center in Maharashtra, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17332399"^^xsd:anyURI .
+:Q16094769 a :School ;
+rdfs:label "Digital Seoul Culture Arts University" ;
+:hasCoordinates "37.585444,126.943861" ;
+:hasCountry "Q884" ;
+:hasQID "Q16094769" ;
+:hasType "Q1273097" ;
+:hasWebsite "http://www.scau.ac.kr"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q16094769"^^xsd:anyURI .
+:Q113253448 a :School ;
+rdfs:label "Scuola di Pavia" ;
+:hasCountry "Q38" ;
+:hasQID "Q113253448" ;
+:hasType "Q1329623" ;
+:locatedIn "Q6259" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113253448"^^xsd:anyURI .
+:Q109277911 a :School ;
+:establishedYear "1924" ;
+:hasCountry "Q13426199" ;
+:hasQID "Q109277911" ;
+:hasType "Q3918" ;
+:locatedIn "Q8686" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109277911"^^xsd:anyURI .
+:Q1275933 a :School ;
+rdfs:label "Galileo University" ;
+:establishedYear "2000" ;
+:hasCoordinates "14.6094,-90.5056" ;
+:hasCountry "Q774" ;
+:hasQID "Q1275933" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.galileo.edu"^^xsd:anyURI ;
+:locatedIn "Q1555" ;
+rdfs:comment "Technological University located in Guatemala" ;
+rdfs:seeAlso "UGAL", "Universidad Galileo" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1275933"^^xsd:anyURI .
+:Q11141318 a :School ;
+rdfs:label "Hebei Normal University" ;
+:establishedYear "1902" ;
+:hasCoordinates "37.595277777778,114.30527777778" ;
+:hasCountry "Q148" ;
+:hasQID "Q11141318" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.hebtu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q58401" ;
+rdfs:comment "university in China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11141318"^^xsd:anyURI .
+:Q10854116 a :School ;
+rdfs:label "Qom University of Technology" ;
+:hasCoordinates "34.583333,50.816667" ;
+:hasCountry "Q794" ;
+:hasQID "Q10854116" ;
+:hasType "Q41176" ;
+rdfs:comment "building in Iran" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10854116"^^xsd:anyURI .
+:Q7401825 a :School ;
+rdfs:label "Saint Mary's College" ;
+:hasCoordinates "42.593889,-83.357778" ;
+:hasCountry "Q30" ;
+:hasQID "Q7401825" ;
+:hasType "Q557206" ;
+:locatedIn "Q1166" ;
+rdfs:comment "college of Madonna University in Michigan, United States" ;
+rdfs:seeAlso "St. Mary's College of Madonna University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7401825"^^xsd:anyURI .
+:Q65277028 a :School ;
+rdfs:label "Fukuoka International University of Health and Welfare" ;
+:establishedYear "2019" ;
+:hasCoordinates "33.59086111111111,130.34908333333334" ;
+:hasCountry "Q17" ;
+:hasQID "Q65277028" ;
+:hasType "Q3918" ;
+:hasWebsite "https://fiuhw.takagigakuen.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q116204801" ;
+rdfs:comment "private university in Fukuoka, Japan (the main building)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q65277028"^^xsd:anyURI .
+:Q29054558 a :School ;
+rdfs:label "Technological University of the South" ;
+:hasCountry "Q786" ;
+:hasQID "Q29054558" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.utesur.edu.do/"^^xsd:anyURI ;
+:locatedIn "Q1836680" ;
+rdfs:comment "university in Azua, Dominican Republic" ;
+owl:sameAs "http://www.wikidata.org/entity/Q29054558"^^xsd:anyURI .
+:Q6953248 a :School ;
+rdfs:label "NC State University" ;
+:hasCoordinates "35.8111,-78.7168" ;
+:hasCountry "Q30" ;
+:hasQID "Q6953248" ;
+:hasType "Q3918" ;
+:locatedIn "Q1454" ;
+rdfs:comment "Superfund site" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6953248"^^xsd:anyURI .
+:Q4314828 a :School ;
+rdfs:label "National Defence Academy of Georgia" ;
+:hasCountry "Q230" ;
+:hasQID "Q4314828" ;
+:hasType "Q917182" ;
+:locatedIn "Q994" ;
+rdfs:seeAlso "David Aghmashenebeli National Defence Academy of Georgia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4314828"^^xsd:anyURI .
+:Q38710002 a :School ;
+rdfs:label "Rampurhat Government Polytechnic" ;
+:establishedYear "1950" ;
+:hasCoordinates "24.2232957,87.8817157" ;
+:hasCountry "Q668" ;
+:hasQID "Q38710002" ;
+:hasType "Q845392" ;
+rdfs:comment "Polytechnic college in West Bengal, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q38710002"^^xsd:anyURI .
+:Q136024296 a :School ;
+rdfs:label "Bilawal Institute of Historical Research" ;
+:establishedYear "1996" ;
+:hasCoordinates "26.23814,68.39481" ;
+:hasQID "Q136024296" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q136024296"^^xsd:anyURI .
+:Q12523487 a :School ;
+rdfs:label "Universitas Wiraswasta Indonesia" ;
+:hasCoordinates "-6.22125,106.86555555555556" ;
+:hasCountry "Q252" ;
+:hasQID "Q12523487" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.uwin.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q193374" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12523487"^^xsd:anyURI .
+:Q2121637 a :School ;
+rdfs:label "Baku Slavic University" ;
+:establishedYear "1946" ;
+:hasCoordinates "40.38361111111111,49.84361111111111" ;
+:hasCountry "Q227" ;
+:hasQID "Q2121637" ;
+:hasType "Q3918" ;
+:hasWebsite "https://bsu-uni.edu.az"^^xsd:anyURI ;
+:locatedIn "Q9248" ;
+rdfs:comment "university located in Baku, Azerbaijan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2121637"^^xsd:anyURI .
+:Q42272504 a :School ;
+rdfs:label "Wolaita Sodo University" ;
+:establishedYear "2007" ;
+:hasCoordinates "6.8309999999999995,37.751" ;
+:hasCountry "Q115" ;
+:hasQID "Q42272504" ;
+:hasType "Q3918" ;
+:locatedIn "Q673275" ;
+rdfs:comment "university in Ethiopia" ;
+rdfs:seeAlso "IAU-021322", "WSU", "ወላይታ ሶዶ ዩኒቨርሲቲ" ;
+owl:sameAs "http://www.wikidata.org/entity/Q42272504"^^xsd:anyURI .
+:Q7830628 a :School ;
+rdfs:label "Toyo Eiwa University" ;
+:establishedYear "1989" ;
+:hasCoordinates "35.5086,139.519" ;
+:hasCountry "Q17" ;
+:hasQID "Q7830628" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.toyoeiwa.ac.jp/english/engtop.html"^^xsd:anyURI ;
+:locatedIn "Q127513" ;
+rdfs:comment "Japanese women university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7830628"^^xsd:anyURI .
+:Q60914723 a :School ;
+rdfs:label "Sphinx University" ;
+:hasCoordinates "27.271243829701785,31.27054368469883" ;
+:hasCountry "Q79" ;
+:hasQID "Q60914723" ;
+:hasType "Q902104" ;
+:hasWebsite "https://sphinx.edu.eg/"^^xsd:anyURI ;
+:locatedIn "Q29965" ;
+rdfs:comment "private university in Assiut" ;
+owl:sameAs "http://www.wikidata.org/entity/Q60914723"^^xsd:anyURI .
+:Q1278152 a :School ;
+rdfs:label "Eastern Connecticut State University" ;
+:establishedYear "1889" ;
+:hasCoordinates "41.7195,-72.2175" ;
+:hasCountry "Q30" ;
+:hasQID "Q1278152" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.easternct.edu/"^^xsd:anyURI ;
+:locatedIn "Q779" ;
+rdfs:comment "university in the USA" ;
+rdfs:seeAlso "ECSU", "Eastern", "easternct.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1278152"^^xsd:anyURI .
+:Q4930299 a :School ;
+rdfs:label "Bluefield University" ;
+:establishedYear "1922" ;
+:hasCoordinates "37.2395,-81.252" ;
+:hasCountry "Q30" ;
+:hasQID "Q4930299" ;
+:hasType "Q3914" ;
+:hasWebsite "https://www.bluefield.edu/"^^xsd:anyURI ;
+:locatedIn "Q1371" ;
+rdfs:comment "private Baptist college in Bluefield, Virginia" ;
+rdfs:seeAlso "Bluefield College", "Bluefield Junior College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4930299"^^xsd:anyURI .
+:Q5917985 a :School ;
+rdfs:label "University Institute of the Argentine Federal Police" ;
+:establishedYear "1974" ;
+:hasCoordinates "-34.61977,-58.43638" ;
+:hasCountry "Q414" ;
+:hasQID "Q5917985" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.universidad-policial.edu.ar/"^^xsd:anyURI ;
+:locatedIn "Q1486" ;
+rdfs:comment "Argentine Federal Police academy" ;
+rdfs:seeAlso "IUPFA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5917985"^^xsd:anyURI .
+:Q69525298 a :School ;
+rdfs:label "Universidad Tecnológica de Mineral de la Reforma" ;
+:establishedYear "2014" ;
+:hasCoordinates "20.0391182,-98.7172143" ;
+:hasCountry "Q96" ;
+:hasQID "Q69525298" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.utmirbis.org"^^xsd:anyURI ;
+:locatedIn "Q80903" ;
+owl:sameAs "http://www.wikidata.org/entity/Q69525298"^^xsd:anyURI .
+:Q132451862 a :School ;
+rdfs:label "West Virginia College" ;
+:hasCoordinates "39.26713888888889,-80.11919444444443" ;
+:hasQID "Q132451862" ;
+:hasType "Q3918" ;
+rdfs:comment "former Baptist-affiliated college in the U.S. state of West Virginia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q132451862"^^xsd:anyURI .
+:Q132451294 a :School ;
+rdfs:label "Hartpury University and Hartpury College" ;
+:establishedYear "1948" ;
+:hasCoordinates "51.907,-2.23" ;
+:hasQID "Q132451294" ;
+:hasType "Q3918" ;
+rdfs:comment "College in Hartpury, England" ;
+owl:sameAs "http://www.wikidata.org/entity/Q132451294"^^xsd:anyURI .
+:Q2422685 a :School ;
+rdfs:label "Universidad Católica San Antonio de Murcia" ;
+:establishedYear "1996" ;
+:hasCoordinates "37.991631212731946,-1.1851961035277514" ;
+:hasCountry "Q29" ;
+:hasQID "Q2422685" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.ucam.edu/"^^xsd:anyURI ;
+:locatedIn "Q5613212" ;
+rdfs:comment "academic publisher" ;
+rdfs:seeAlso "Catholic University of Murcia", "Saint Anthony Catholic University", "Universidad Catolica San Antonio de Murcia", "ucam.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2422685"^^xsd:anyURI .
+:Q30265683 a :School ;
+rdfs:label "Universitas Panca Marga" ;
+:establishedYear "1984" ;
+:hasCoordinates "-7.753849,113.196576" ;
+:hasCountry "Q252" ;
+:hasQID "Q30265683" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.upm.ac.id/website/"^^xsd:anyURI ;
+:locatedIn "Q11450" ;
+rdfs:comment "education organization in Probolinggo, Indonesia" ;
+rdfs:seeAlso "UPM" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30265683"^^xsd:anyURI .
+:Q5507685 a :School ;
+rdfs:label "Fukuoka Dental College" ;
+:establishedYear "1973" ;
+:hasCoordinates "33.54444444,130.3325" ;
+:hasCountry "Q17" ;
+:hasQID "Q5507685" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.fdcnet.ac.jp/col/"^^xsd:anyURI ;
+:locatedIn "Q26600" ;
+rdfs:comment "higher education institution in Fukuoka Prefecture, Japan" ;
+rdfs:seeAlso "Fukuoka Shika Daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5507685"^^xsd:anyURI .
+:Q861548 a :School ;
+rdfs:label "Florida State University" ;
+:establishedYear "1851" ;
+:hasCoordinates "30.441666666666666,-84.295" ;
+:hasCountry "Q30" ;
+:hasQID "Q861548" ;
+:hasType "Q875538" ;
+:hasWebsite "https://fsu.edu"^^xsd:anyURI ;
+:locatedIn "Q37043" ;
+rdfs:comment "public university in Tallahassee, Florida, United States" ;
+rdfs:seeAlso "F. S. U.", "F.S.U.", "FL State", "FL State University", "FSU", "Fl State", "Fl State University", "Fl. State", "Fl. State University", "Fla. State", "Fla. State Univ.", "Fla. State University", "Florda State University", "Flordia State University", "Florida State", "Florida State Seminoles", "Florida State Univerisity", "Florida State University Seminoles", "Florida State Unversity", "Floridia State University", "Noles", "Seminoles", "The Florida State University", "fsu.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q861548"^^xsd:anyURI .
+:Q105885715 a :School ;
+rdfs:label "Krasnodar Higher Military Command and Engineering School of Missile Troops" ;
+:establishedYear "1982" ;
+:hasCoordinates "45.03333333333333,38.983333333333334" ;
+:hasCountry "Q159" ;
+:hasQID "Q105885715" ;
+:hasType "Q917182" ;
+:locatedIn "Q3646" ;
+owl:sameAs "http://www.wikidata.org/entity/Q105885715"^^xsd:anyURI .
+:Q16099124 a :School ;
+rdfs:label "Hyosung Women's University" ;
+:hasCountry "Q884" ;
+:hasQID "Q16099124" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q16099124"^^xsd:anyURI .
+:Q28125101 a :School ;
+rdfs:label "Nari Gursahani Law College" ;
+:establishedYear "2004" ;
+:hasCoordinates "19.22,73.15" ;
+:hasCountry "Q668" ;
+:hasQID "Q28125101" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.nglawhsnc.edu.in/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q28125101"^^xsd:anyURI .
+:Q7515389 a :School ;
+rdfs:label "Silliman University College of Nursing" ;
+:establishedYear "1947" ;
+:hasCountry "Q928" ;
+:hasQID "Q7515389" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7515389"^^xsd:anyURI .
+:Q85882122 a :School ;
+rdfs:label "Shonan Kamakura University of Medical Sciences" ;
+:establishedYear "2020" ;
+:hasCoordinates "35.34263055555556,139.52708055555556" ;
+:hasCountry "Q17" ;
+:hasQID "Q85882122" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.sku.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q200267" ;
+rdfs:comment "private university in Kamakura, Kanagawa, Japan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q85882122"^^xsd:anyURI .
+:Q7106892 a :School ;
+rdfs:label "Oskaloosa College" ;
+:establishedYear "1855" ;
+:hasCountry "Q30" ;
+:hasQID "Q7106892" ;
+:hasType "Q1377182" ;
+rdfs:comment "defunct American college" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7106892"^^xsd:anyURI .
+:Q7286777 a :School ;
+rdfs:label "Rashtriya Raksha University" ;
+:establishedYear "2009" ;
+:hasCoordinates "23.154444444444444,72.885" ;
+:hasCountry "Q668" ;
+:hasQID "Q7286777" ;
+:hasType "Q3351682" ;
+:hasWebsite "https://rru.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q11910" ;
+rdfs:comment "central university in India" ;
+rdfs:seeAlso "RRU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7286777"^^xsd:anyURI .
+:Q104829521 a :School ;
+rdfs:label "Federal Polytechnic Nasarawa" ;
+:establishedYear "1983" ;
+:hasCoordinates "8.533333333333333,7.7" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q104829521" ;
+:hasType "Q845392" ;
+:hasWebsite "https://fedpolynas.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q6966608" ;
+rdfs:comment "polytechnics in Nigeria" ;
+rdfs:seeAlso "Fedpolynas" ;
+owl:sameAs "http://www.wikidata.org/entity/Q104829521"^^xsd:anyURI .
+:Q5060452 a :School ;
+rdfs:label "Central Bicol State University of Agriculture" ;
+:hasCountry "Q928" ;
+:hasQID "Q5060452" ;
+:hasType "Q3918" ;
+:hasWebsite "http://cbsua.edu.ph/index.php/site/index"^^xsd:anyURI ;
+:locatedIn "Q208985" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5060452"^^xsd:anyURI .
+:Q17746994 a :School ;
+rdfs:label "Government Film and Television Institute" ;
+:establishedYear "1943" ;
+:hasCountry "Q668" ;
+:hasQID "Q17746994" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.filminstitutebangalore.com"^^xsd:anyURI ;
+rdfs:comment "Educational institution in Karnataka, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17746994"^^xsd:anyURI .
+:Q10387654 a :School ;
+rdfs:label "University of Taquari Valley" ;
+:establishedYear "1969" ;
+:hasCountry "Q155" ;
+:hasQID "Q10387654" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.univates.br"^^xsd:anyURI ;
+:locatedIn "Q1012550" ;
+rdfs:comment "Brazilian university" ;
+rdfs:seeAlso "Centro Universitário Univates", "UNIVATES" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10387654"^^xsd:anyURI .
+:Q11046982 a :School ;
+rdfs:label "Universidad Don Bosco" ;
+:hasCountry "Q792" ;
+:hasQID "Q11046982" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.udb.edu.sv/"^^xsd:anyURI ;
+:locatedIn "Q3110" ;
+rdfs:comment "university in San Salvador" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11046982"^^xsd:anyURI .
+:Q29052446 a :School ;
+rdfs:label "Universidad Yacambú" ;
+:hasCountry "Q717" ;
+:hasQID "Q29052446" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.uny.edu.ve"^^xsd:anyURI ;
+:locatedIn "Q4709" ;
+rdfs:comment "Education organization in Barquisimeto Venezuela" ;
+owl:sameAs "http://www.wikidata.org/entity/Q29052446"^^xsd:anyURI .
+:Q1872239 a :School ;
+rdfs:label "Louisiana Tech University" ;
+:establishedYear "1894" ;
+:hasCoordinates "32.5275,-92.6475" ;
+:hasCountry "Q30" ;
+:hasQID "Q1872239" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.latech.edu/"^^xsd:anyURI ;
+:locatedIn "Q2271328" ;
+rdfs:comment "university in Ruston, Louisiana, USA" ;
+rdfs:seeAlso "LA Tech", "Louisiana Polytechnic Institute", "latech.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1872239"^^xsd:anyURI .
+:Q6825670 a :School ;
+rdfs:label "Mewar University" ;
+:establishedYear "2009" ;
+:hasCoordinates "25.032988888888887,74.63547222222222" ;
+:hasCountry "Q668" ;
+:hasQID "Q6825670" ;
+:hasType "Q131389368" ;
+:locatedIn "Q41827" ;
+rdfs:comment "university in Rajasthan, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6825670"^^xsd:anyURI .
+:Q1342858 a :School ;
+rdfs:label "Latvia University of Life Sciences and Technologies" ;
+:establishedYear "1938" ;
+:hasCoordinates "56.66694444,23.76027778" ;
+:hasCountry "Q211" ;
+:hasQID "Q1342858" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.llu.lv"^^xsd:anyURI ;
+:locatedIn "Q179830" ;
+rdfs:comment "university in Jelgava, Latvia" ;
+rdfs:seeAlso "Latvia University of Agriculture" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1342858"^^xsd:anyURI .
+:Q30266525 a :School ;
+rdfs:label "Universidad de Ciencias y Humanidades" ;
+:establishedYear "2007" ;
+:hasCoordinates "-11.961328,-77.065695" ;
+:hasCountry "Q419" ;
+:hasQID "Q30266525" ;
+:hasType "Q2385804" ;
+:hasWebsite "http://www.uch.edu.pe/"^^xsd:anyURI ;
+:locatedIn "Q2868" ;
+rdfs:comment "education organization in Lima, Peru" ;
+rdfs:seeAlso "UCH" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30266525"^^xsd:anyURI .
+:Q4466157 a :School ;
+rdfs:label "Turkmen National Institute of World Languages" ;
+:establishedYear "2009" ;
+:hasCoordinates "37.950704,58.355244" ;
+:hasCountry "Q874" ;
+:hasQID "Q4466157" ;
+:hasType "Q3918" ;
+:hasWebsite "http://science.gov.tm/organisations/azadi_institute/"^^xsd:anyURI ;
+:locatedIn "Q23438" ;
+rdfs:comment "education organization in Ashgabat, Turkmenistan" ;
+rdfs:seeAlso "Döwletmämmet Azady adyndaky Türkmen milli dünýä dilleri instituty", "Turkmen National Institute of Foreign Languages named after D. Azadi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4466157"^^xsd:anyURI .
+:Q7110893 a :School ;
+rdfs:label "Our Lady of Mercy College – Bacolod" ;
+:establishedYear "2008" ;
+:hasCountry "Q928" ;
+:hasQID "Q7110893" ;
+:hasType "Q3918" ;
+:locatedIn "Q5217" ;
+rdfs:comment "Private college in Bacolod, Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7110893"^^xsd:anyURI .
+:Q17110663 a :School ;
+rdfs:label "New Brunswick College of Craft and Design" ;
+:establishedYear "1938" ;
+:hasCoordinates "45.9628,-66.6414" ;
+:hasCountry "Q16" ;
+:hasQID "Q17110663" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.nbccd.ca/"^^xsd:anyURI ;
+:locatedIn "Q2138" ;
+rdfs:comment "arts and design college in Canada" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17110663"^^xsd:anyURI .
+:Q113561085 a :School ;
+rdfs:label "Radha Devi Jageshwari Memorial Medical College and Hospital" ;
+:hasQID "Q113561085" ;
+:hasType "Q3918" ;
+rdfs:comment "medical college in Bihar, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113561085"^^xsd:anyURI .
+:Q19749298 a :School ;
+rdfs:label "Garissa University" ;
+:establishedYear "2011" ;
+:hasCoordinates "-0.449019,39.6619" ;
+:hasCountry "Q114" ;
+:hasQID "Q19749298" ;
+:hasType "Q15407956" ;
+:hasWebsite "http://www.guc.ac.ke"^^xsd:anyURI ;
+:locatedIn "Q845717" ;
+rdfs:comment "university in Kenya" ;
+rdfs:seeAlso "GU", "IAU-024051" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19749298"^^xsd:anyURI .
+:Q2347687 a :School ;
+rdfs:label "Theological University of the Reformed Churches" ;
+:establishedYear "1854" ;
+:hasCountry "Q55" ;
+:hasQID "Q2347687" ;
+:hasType "Q3918" ;
+:hasWebsite "https://tuu.nl/"^^xsd:anyURI ;
+rdfs:comment "theological seminary in Utrecht, Netherlands (formerly in Kampen, Netherlands)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2347687"^^xsd:anyURI .
+:Q12002144 a :School ;
+rdfs:label "Southern University at New Orleans" ;
+:establishedYear "1956" ;
+:hasCountry "Q30" ;
+:hasQID "Q12002144" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.suno.edu"^^xsd:anyURI ;
+:locatedIn "Q34404" ;
+rdfs:comment "Public HBCU in New Orleans, Louisiana, United States" ;
+rdfs:seeAlso "SUNO", "suno.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12002144"^^xsd:anyURI .
+:Q4703336 a :School ;
+rdfs:label "Al-Wataniya Private University" ;
+:establishedYear "2007" ;
+:hasCoordinates "34.96930556,36.75169444" ;
+:hasCountry "Q858" ;
+:hasQID "Q4703336" ;
+:hasType "Q3918" ;
+:hasWebsite "https://wpu.edu.sy/"^^xsd:anyURI ;
+:locatedIn "Q173545" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4703336"^^xsd:anyURI .
+:Q1026939 a :School ;
+rdfs:label "California State University, Northridge" ;
+:establishedYear "1958" ;
+:hasCoordinates "34.241666666667,-118.52833333333" ;
+:hasCountry "Q30" ;
+:hasQID "Q1026939" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.csun.edu/"^^xsd:anyURI ;
+:locatedIn "Q2050326" ;
+rdfs:comment "public university in Northridge, Los Angeles, California, USA" ;
+rdfs:seeAlso "CSU Northridge", "CSUN", "Cal State Northridge", "California State University Northridge", "csun.edu" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1026939"^^xsd:anyURI .
+:Q18162019 a :School ;
+rdfs:label "American University of Kurdistan" ;
+:establishedYear "2014" ;
+:hasCoordinates "36.86143888888889,42.861675" ;
+:hasCountry "Q796" ;
+:hasQID "Q18162019" ;
+:hasType "Q10829188" ;
+:hasWebsite "http://audk.edu.krd/"^^xsd:anyURI ;
+:locatedIn "Q152831" ;
+rdfs:comment "Private University in Kurdistan - Iraq" ;
+rdfs:seeAlso "AUK", "American University - Duhok" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18162019"^^xsd:anyURI .
+:Q3551621 a :School ;
+rdfs:label "University of Lille" ;
+:establishedYear "1559" ;
+:hasCoordinates "50.638888888889,3.0658333333333" ;
+:hasCountry "Q142" ;
+:hasQID "Q3551621" ;
+:hasType "Q3551775" ;
+:hasWebsite "https://www.univ-lille.fr/"^^xsd:anyURI ;
+rdfs:comment "French university located in Lille and founded in 1559 in Douai; split between 1970 and 2017 into three independent universities (Lille-I, Lille-II and Lille-III)" ;
+rdfs:seeAlso "Lille 1", "Lille 2", "Lille 3", "Lille Nord Europe", "Lille Nord de France", "Lille University", "Lille-I", "Lille-II", "Lille-III", "UDL", "ULNE", "ULille", "USTL", "Universitas Insulensis", "University of Douai", "univ-lille", "univ-lille.fr", "university Lille", "université Charles-de-Gaulle", "université de Douai", "université de Lille", "université des sciences et technologies de Lille", "université du droit et de la santé" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3551621"^^xsd:anyURI .
+:Q100876634 a :School ;
+:hasCountry "Q414" ;
+:hasQID "Q100876634" ;
+:hasType "Q917182" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100876634"^^xsd:anyURI .
+:Q4005890 a :School ;
+rdfs:label "Università degli Studi ''Guglielmo Marconi''" ;
+:establishedYear "2004" ;
+:hasCoordinates "41.9073701,12.4624389" ;
+:hasCountry "Q38" ;
+:hasQID "Q4005890" ;
+:hasType "Q1407393" ;
+:hasWebsite "http://www.unimarconi.it/"^^xsd:anyURI ;
+:locatedIn "Q220" ;
+rdfs:comment "university in Rome, Italy" ;
+rdfs:seeAlso "Guglielmo Marconi University", "Unimarconi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4005890"^^xsd:anyURI .
+:Q5574032 a :School ;
+rdfs:label "Universidade Federal da Integração Latino-Americana" ;
+:establishedYear "2010" ;
+:hasCoordinates "-25.4946889,-54.5632553" ;
+:hasCountry "Q155" ;
+:hasQID "Q5574032" ;
+:hasType "Q20052016" ;
+:hasWebsite "https://portal.unila.edu.br/"^^xsd:anyURI ;
+:locatedIn "Q202316" ;
+rdfs:comment "public federal university in Foz do Iguaçu, Paraná" ;
+rdfs:seeAlso "UNILA" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5574032"^^xsd:anyURI .
+:Q19730994 a :School ;
+rdfs:label "Poltekkes Kemenkes Bengkulu" ;
+:establishedYear "2012" ;
+:hasCountry "Q252" ;
+:hasQID "Q19730994" ;
+:hasType "Q845392" ;
+:hasWebsite "http://poltekkesbengkulu.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q9633984" ;
+rdfs:comment "higher education institution in Bengkulu, Indonesia" ;
+rdfs:seeAlso "POLKESLU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19730994"^^xsd:anyURI .
+:Q17632389 a :School ;
+rdfs:label "Universidad del Valle de Puebla" ;
+:establishedYear "1981" ;
+:hasCountry "Q96" ;
+:hasQID "Q17632389" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.uvp.mx/"^^xsd:anyURI ;
+:locatedIn "Q125293" ;
+rdfs:comment "University in the state of Puebla" ;
+rdfs:seeAlso "UVP" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17632389"^^xsd:anyURI .
+:Q123989119 a :School ;
+rdfs:label "Azman University Kano" ;
+:establishedYear "2023" ;
+:hasCoordinates "11.909926020108776,8.654803200490122" ;
+:hasCountry "Q1033" ;
+:hasQID "Q123989119" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.azmanuniversity.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q682571" ;
+rdfs:comment "private university in Kano State Nigeria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q123989119"^^xsd:anyURI .
+:Q9091593 a :School ;
+rdfs:label "Universidad Privada Franz Tamayo" ;
+:establishedYear "1993" ;
+:hasCoordinates "-17.7739535,-63.1924443" ;
+:hasCountry "Q750" ;
+:hasQID "Q9091593" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unifranz.edu.bo/"^^xsd:anyURI ;
+:locatedIn "Q1491" ;
+rdfs:comment "private university in Bolivia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9091593"^^xsd:anyURI .
+:Q13360253 a :School ;
+:hasCoordinates "49.9389,17.9067" ;
+:hasCountry "Q213" ;
+:hasQID "Q13360253" ;
+:hasType "Q110225820" ;
+:locatedIn "Q17375904" ;
+owl:sameAs "http://www.wikidata.org/entity/Q13360253"^^xsd:anyURI .
+:Q10829137 a :School ;
+rdfs:label "Thanh Do University" ;
+:hasCountry "Q881" ;
+:hasQID "Q10829137" ;
+:hasType "Q3918" ;
+:hasWebsite "https://thanhdo.edu.vn/"^^xsd:anyURI ;
+rdfs:comment "university in Vietnam" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10829137"^^xsd:anyURI .
+:Q10387863 a :School ;
+rdfs:label "Regional University of Blumenau" ;
+:establishedYear "1964" ;
+:hasCountry "Q155" ;
+:hasQID "Q10387863" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.furb.br"^^xsd:anyURI ;
+:locatedIn "Q155557" ;
+rdfs:comment "university in Blumenau" ;
+owl:sameAs "http://www.wikidata.org/entity/Q10387863"^^xsd:anyURI .
+:Q7227042 a :School ;
+rdfs:label "Polytechnic University of the Philippines, Bansud" ;
+:establishedYear "2010" ;
+:hasCoordinates "12.86228,121.45721" ;
+:hasCountry "Q928" ;
+:hasQID "Q7227042" ;
+:hasType "Q3918" ;
+:locatedIn "Q107543" ;
+rdfs:comment "Public university in Oriental Mindoro, Philippines" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7227042"^^xsd:anyURI .
+:Q7567162 a :School ;
+rdfs:label "South Eastern University of Sri Lanka" ;
+:establishedYear "1995" ;
+:hasCoordinates "7.30097222,81.85530556" ;
+:hasCountry "Q854" ;
+:hasQID "Q7567162" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.seu.ac.lk/"^^xsd:anyURI ;
+:locatedIn "Q696444" ;
+rdfs:comment "university in Sri Lanka" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7567162"^^xsd:anyURI .
+:Q24382 a :School ;
+rdfs:label "Bielefeld University" ;
+:establishedYear "1969" ;
+:hasCoordinates "52.03764,8.49019" ;
+:hasCountry "Q183" ;
+:hasQID "Q24382" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.uni-bielefeld.de/"^^xsd:anyURI ;
+:locatedIn "Q2112" ;
+rdfs:comment "university in Bielefeld, Germany" ;
+rdfs:seeAlso "UNIVERSITAET BIELEFELD", "University of Bielefeld" ;
+owl:sameAs "http://www.wikidata.org/entity/Q24382"^^xsd:anyURI .
+:Q5949096 a :School ;
+rdfs:label "Islamic Azad University of Semnan" ;
+:establishedYear "1984" ;
+:hasCoordinates "35.572778,53.429453" ;
+:hasCountry "Q794" ;
+:hasQID "Q5949096" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.semnaniau.ac.ir/en"^^xsd:anyURI ;
+:locatedIn "Q203045" ;
+rdfs:comment "university in Semnan, Iran" ;
+rdfs:seeAlso "IAU of Semnan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5949096"^^xsd:anyURI .
+:Q20988491 a :School ;
+rdfs:label "Nuh Naci Yazgan University" ;
+:establishedYear "2009" ;
+:hasCoordinates "38.7861,35.4069" ;
+:hasCountry "Q43" ;
+:hasQID "Q20988491" ;
+:hasType "Q902104" ;
+:hasWebsite "http://www.nny.edu.tr/"^^xsd:anyURI ;
+:locatedIn "Q48338" ;
+rdfs:comment "Turkish private university located in Kayseri" ;
+owl:sameAs "http://www.wikidata.org/entity/Q20988491"^^xsd:anyURI .
+:Q115669377 a :School ;
+rdfs:label "ITU – Interdisciplinary Transformation University Austria" ;
+:establishedYear "2022" ;
+:hasCoordinates "48.337222,14.317778" ;
+:hasCountry "Q40" ;
+:hasQID "Q115669377" ;
+:hasType "Q2385804" ;
+:hasWebsite "https://it-u.at/"^^xsd:anyURI ;
+:locatedIn "Q41329" ;
+rdfs:seeAlso "ISDA", "IT:U", "Institute of Digital Sciences Austria" ;
+owl:sameAs "http://www.wikidata.org/entity/Q115669377"^^xsd:anyURI .
+:Q114878252 a :School ;
+rdfs:label "Universidad Tecnológica Nacional, Facultad Regional Buenos Aires" ;
+:hasCoordinates "-34.659722271068745,-58.467779159545906" ;
+:hasCountry "Q414" ;
+:hasQID "Q114878252" ;
+:hasType "Q3918" ;
+:locatedIn "Q1486" ;
+owl:sameAs "http://www.wikidata.org/entity/Q114878252"^^xsd:anyURI .
+:Q2648311 a :School ;
+rdfs:label "Birla Institute of Technology and Science" ;
+:establishedYear "1929" ;
+:hasCoordinates "28.36387778,75.58701667" ;
+:hasCountry "Q668" ;
+:hasQID "Q2648311" ;
+:hasType "Q3520135" ;
+:hasWebsite "http://www.bits-pilani.ac.in"^^xsd:anyURI ;
+:locatedIn "Q1936947" ;
+rdfs:comment "engineering school in Rajasthan, India" ;
+rdfs:seeAlso "BITS Pilani", "BITS Pilani (Rajasthan)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2648311"^^xsd:anyURI .
+:Q17056176 a :School ;
+rdfs:label "Indian Institute of Information Technology, Kota" ;
+:establishedYear "2013" ;
+:hasCoordinates "25.048819444444,75.825469444444" ;
+:hasCountry "Q668" ;
+:hasQID "Q17056176" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.iiitkota.ac.in/"^^xsd:anyURI ;
+rdfs:comment "institute in Kota, Rajasthan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17056176"^^xsd:anyURI .
+:Q6364482 a :School ;
+rdfs:label "Kansai University of International Studies" ;
+:establishedYear "1987" ;
+:hasCoordinates "34.771802,135.043768" ;
+:hasCountry "Q17" ;
+:hasQID "Q6364482" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.kuins.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q31238" ;
+rdfs:comment "higher education institution in Hyōgo Prefecture, Japan" ;
+rdfs:seeAlso "KUISs" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6364482"^^xsd:anyURI .
+:Q2109623 a :School ;
+rdfs:label "Saint-Sulpice Seminary" ;
+:establishedYear "1641" ;
+:hasCoordinates "48.82523,2.27702" ;
+:hasCountry "Q142" ;
+:hasQID "Q2109623" ;
+:hasType "Q14911880" ;
+:hasWebsite "http://seminairesaintsulpice.fr/"^^xsd:anyURI ;
+:locatedIn "Q135265" ;
+rdfs:comment "Catholic seminary in France (1641-)" ;
+rdfs:seeAlso "seminary of Saint-Sulpice" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2109623"^^xsd:anyURI .
+:Q1736408 a :School ;
+rdfs:label "Catholic University in Ružomberok" ;
+:establishedYear "2000" ;
+:hasCoordinates "49.083030555556,19.280927777778" ;
+:hasCountry "Q214" ;
+:hasQID "Q1736408" ;
+:hasType "Q557206" ;
+:hasWebsite "http://www.ku.sk"^^xsd:anyURI ;
+:locatedIn "Q27541" ;
+rdfs:comment "University in Slovakia" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1736408"^^xsd:anyURI .
+:Q5946839 a :School ;
+rdfs:label "Golestan University" ;
+:establishedYear "2008" ;
+:hasCoordinates "36.843175,54.441032" ;
+:hasCountry "Q794" ;
+:hasQID "Q5946839" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.gu.ac.ir"^^xsd:anyURI ;
+:locatedIn "Q188155" ;
+rdfs:comment "institution of higher education in Iran" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5946839"^^xsd:anyURI .
+:Q9665597 a :School ;
+rdfs:label "Yunnan Military Academy" ;
+:hasCoordinates "25.05085,102.69915" ;
+:hasCountry "Q148" ;
+:hasQID "Q9665597" ;
+:hasType "Q917182" ;
+:locatedIn "Q10905716" ;
+rdfs:comment "military academy in China, 1909 to 1935" ;
+owl:sameAs "http://www.wikidata.org/entity/Q9665597"^^xsd:anyURI .
+:Q7422982 a :School ;
+rdfs:label "Sarajevo Graduate School of Business" ;
+:establishedYear "2004" ;
+:hasCountry "Q225" ;
+:hasQID "Q7422982" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.sgsb.ba/"^^xsd:anyURI ;
+:locatedIn "Q11194" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7422982"^^xsd:anyURI .
+:Q7588856 a :School ;
+rdfs:label "St. John's University of Tanzania" ;
+:establishedYear "1999" ;
+:hasCoordinates "-6.19889,35.7311" ;
+:hasCountry "Q924" ;
+:hasQID "Q7588856" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.sjut.ac.tz"^^xsd:anyURI ;
+:locatedIn "Q3866" ;
+rdfs:comment "Tanzanian, Anglican academic institution" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7588856"^^xsd:anyURI .
+:Q29522266 a :School ;
+rdfs:label "Barak Valley Engineering College" ;
+:establishedYear "2017" ;
+:hasCountry "Q668" ;
+:hasQID "Q29522266" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bvec.ac.in"^^xsd:anyURI ;
+rdfs:comment "Barak Valley Engineering College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q29522266"^^xsd:anyURI .
+:Q7681398 a :School ;
+rdfs:label "Tamil Virtual Academy" ;
+:establishedYear "2001" ;
+:hasCoordinates "13.01849,80.23956" ;
+:hasCountry "Q668" ;
+:hasQID "Q7681398" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tamilvu.org/"^^xsd:anyURI ;
+:locatedIn "Q1352" ;
+rdfs:comment "Indian university" ;
+rdfs:seeAlso "tamilvu.org" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7681398"^^xsd:anyURI .
+:Q462039 a :School ;
+rdfs:label "University of Ingolstadt" ;
+:establishedYear "1472" ;
+:hasCoordinates "49.27388888888889,11.706666666666667" ;
+:hasCountry "Q183" ;
+:hasQID "Q462039" ;
+:hasType "Q3918" ;
+:locatedIn "Q3004" ;
+rdfs:comment "former university in Ingolstadt, Bavaria (1472–1800)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q462039"^^xsd:anyURI .
+:Q11062018 a :School ;
+rdfs:label "Guangzhou Medical University" ;
+:establishedYear "1958" ;
+:hasCoordinates "46.7865,130.363" ;
+:hasCountry "Q148" ;
+:hasQID "Q11062018" ;
+:hasType "Q1916585" ;
+:hasWebsite "https://www.gzhmu.edu.cn/"^^xsd:anyURI ;
+:locatedIn "Q16572" ;
+rdfs:comment "university in China" ;
+rdfs:seeAlso "Guangzhou Medical College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11062018"^^xsd:anyURI .
+:Q442106 a :School ;
+rdfs:label "National University of Callao" ;
+:establishedYear "1966" ;
+:hasCoordinates "-12.06114,-77.117308" ;
+:hasCountry "Q419" ;
+:hasQID "Q442106" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.unac.edu.pe/"^^xsd:anyURI ;
+:locatedIn "Q2634400" ;
+rdfs:comment "university in Callao, Peru" ;
+owl:sameAs "http://www.wikidata.org/entity/Q442106"^^xsd:anyURI .
+:Q109913886 a :School ;
+rdfs:label "Politeknik PGRI Banten" ;
+:establishedYear "2003" ;
+:hasCountry "Q252" ;
+:hasQID "Q109913886" ;
+:hasType "Q845392" ;
+:hasWebsite "https://www.politeknikpgribanten.ac.id"^^xsd:anyURI ;
+:locatedIn "Q3436598" ;
+rdfs:comment "higher education institution in Serang, Indonesia" ;
+rdfs:seeAlso "POLGRI" ;
+owl:sameAs "http://www.wikidata.org/entity/Q109913886"^^xsd:anyURI .
+:Q17008973 a :School ;
+rdfs:label "Louisiana Christian University" ;
+:establishedYear "1906" ;
+:hasCoordinates "31.325277777777778,-92.42666666666668" ;
+:hasCountry "Q30" ;
+:hasQID "Q17008973" ;
+:hasType "Q23002054" ;
+:hasWebsite "https://lcuniversity.edu/"^^xsd:anyURI ;
+:locatedIn "Q3287287" ;
+rdfs:comment "Private Baptist college in Louisiana, U.S." ;
+rdfs:seeAlso "Louisiana College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17008973"^^xsd:anyURI .
+:Q3738242 a :School ;
+rdfs:label "Facoltà teologica dell'Emilia-Romagna" ;
+:establishedYear "2004" ;
+:hasCoordinates "44.47864,11.34455" ;
+:hasCountry "Q38" ;
+:hasQID "Q3738242" ;
+:hasType "Q118868153" ;
+:hasWebsite "https://www.fter.it/"^^xsd:anyURI ;
+:locatedIn "Q1891" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3738242"^^xsd:anyURI .
+:Q169939 a :School ;
+rdfs:label "Akdeniz University" ;
+:establishedYear "1982" ;
+:hasCoordinates "36.895,30.6511" ;
+:hasCountry "Q43" ;
+:hasQID "Q169939" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.akdeniz.edu.tr/"^^xsd:anyURI ;
+:locatedIn "Q6487" ;
+rdfs:comment "Turkish public university located in Antalya" ;
+rdfs:seeAlso "Akdeniz Üniversitesi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q169939"^^xsd:anyURI .
+:Q7603622 a :School ;
+rdfs:label "State University of New York at Delhi" ;
+:establishedYear "1913" ;
+:hasCoordinates "42.27055555555555,-74.92472222222223" ;
+:hasCountry "Q30" ;
+:hasQID "Q7603622" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.delhi.edu"^^xsd:anyURI ;
+:locatedIn "Q5253725" ;
+rdfs:comment "public college in Delhi, New York, U.S" ;
+rdfs:seeAlso "SUNY Delhi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7603622"^^xsd:anyURI .
+:Q1161297 a :School ;
+rdfs:label "University of Sussex" ;
+:establishedYear "1961" ;
+:hasCoordinates "50.865277777778,-0.085555555555556" ;
+:hasCountry "Q145" ;
+:hasQID "Q1161297" ;
+:hasType "Q62078547" ;
+:hasWebsite "http://www.sussex.ac.uk"^^xsd:anyURI ;
+rdfs:comment "university in Brighton and Hove, UK" ;
+rdfs:seeAlso "Sussex University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1161297"^^xsd:anyURI .
+:Q121599459 a :School ;
+rdfs:label "University of Science and Technology, Sanaa" ;
+:establishedYear "1994" ;
+:hasCountry "Q805" ;
+:hasQID "Q121599459" ;
+:hasType "Q2385804" ;
+:hasWebsite "https://ust.edu.ye"^^xsd:anyURI ;
+:locatedIn "Q2471" ;
+rdfs:comment "education organization in Sanaa, Yemen" ;
+rdfs:seeAlso "USTY", "USTY, UST Sana’a", "University of Science and Technology, Sana’a" ;
+owl:sameAs "http://www.wikidata.org/entity/Q121599459"^^xsd:anyURI .
+:Q11432687 a :School ;
+rdfs:label "National Institute of Technology, Oita College" ;
+:establishedYear "1963" ;
+:hasCoordinates "33.23269444,131.65105556" ;
+:hasCountry "Q17" ;
+:hasQID "Q11432687" ;
+:hasType "Q841248" ;
+:hasWebsite "http://www.oita-ct.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q199609" ;
+rdfs:comment "education organization in Maki, Oita-city, Japan" ;
+rdfs:seeAlso "Oita National College of Technology" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11432687"^^xsd:anyURI .
+:Q12191827 a :School ;
+rdfs:label "University of Technology and Applied Sciences" ;
+:establishedYear "1984" ;
+:hasCountry "Q842" ;
+:hasQID "Q12191827" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.hct.edu.om"^^xsd:anyURI ;
+rdfs:comment "in Oman" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12191827"^^xsd:anyURI .
+:Q19456917 a :School ;
+rdfs:label "Assam Rajiv Gandhi University of Cooperative Management" ;
+:establishedYear "2010" ;
+:hasCountry "Q668" ;
+:hasQID "Q19456917" ;
+:hasType "Q3918" ;
+:hasWebsite "http://argucom.org.in/"^^xsd:anyURI ;
+rdfs:comment "university in Sivasagar, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19456917"^^xsd:anyURI .
+:Q6156632 a :School ;
+rdfs:label "Universidad Politécnica de Canarias" ;
+:establishedYear "1979" ;
+:hasCountry "Q29" ;
+:hasQID "Q6156632" ;
+:hasType "Q875538" ;
+:locatedIn "Q11974" ;
+rdfs:seeAlso "Universidad Politecnica de Canarias" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6156632"^^xsd:anyURI .
+:Q19881671 a :School ;
+rdfs:label "Adamas University" ;
+:establishedYear "2014" ;
+:hasCoordinates "22.738303,88.456591" ;
+:hasCountry "Q668" ;
+:hasQID "Q19881671" ;
+:hasType "Q131389368" ;
+:hasWebsite "https://adamasuniversity.ac.in"^^xsd:anyURI ;
+:locatedIn "Q1356" ;
+rdfs:comment "Private University in Barasat, West Bengal" ;
+rdfs:seeAlso "AU" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19881671"^^xsd:anyURI .
+:Q2507812 a :School ;
+rdfs:label "Tajik State University of Commerce" ;
+:establishedYear "1987" ;
+:hasCoordinates "38.5326,68.7583" ;
+:hasCountry "Q863" ;
+:hasQID "Q2507812" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tguk.tj/index.php/tj/"^^xsd:anyURI ;
+:locatedIn "Q9365" ;
+rdfs:comment "university in Tajikistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q2507812"^^xsd:anyURI .
+:Q4097525 a :School ;
+rdfs:label "Bryansk State Agrarian University" ;
+:establishedYear "1980" ;
+:hasCoordinates "53.15525,34.12093" ;
+:hasCountry "Q159" ;
+:hasQID "Q4097525" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bgsha.com/"^^xsd:anyURI ;
+:locatedIn "Q2801" ;
+rdfs:comment "education organization in Bryansk, Russia" ;
+rdfs:seeAlso "Bryansk State Academy of Agriculture", "Bryansk State Agricultural Academy", "FSBEI HE Bryansk SAU", "Federal State Budget Educational Institution of Higher Education «Bryansk State Agrarian University»" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4097525"^^xsd:anyURI .
+:Q25047414 a :School ;
+rdfs:label "ESCAE-University, Benin" ;
+:establishedYear "2008" ;
+:hasCoordinates "6.436802,2.339599" ;
+:hasCountry "Q962" ;
+:hasQID "Q25047414" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.escaebeninuniversity.com/"^^xsd:anyURI ;
+:locatedIn "Q3799" ;
+rdfs:comment "school in Republic of Benin" ;
+rdfs:seeAlso "ESCAE BENIN University", "Ecole Supérieure des Sciences, de Commerce et d’Administration des Entreprises du Benin" ;
+owl:sameAs "http://www.wikidata.org/entity/Q25047414"^^xsd:anyURI .
+:Q19744796 a :School ;
+rdfs:label "De La Salle Catholic University" ;
+:establishedYear "2000" ;
+:hasCoordinates "1.5050555555555556,124.87277777777778" ;
+:hasCountry "Q252" ;
+:hasQID "Q19744796" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.unikadelasalle.ac.id"^^xsd:anyURI ;
+:locatedIn "Q13094941" ;
+rdfs:comment "private university in Manado, Indonesia" ;
+rdfs:seeAlso "De La Salle Catholic University, Manado", "Unika De La Salle" ;
+owl:sameAs "http://www.wikidata.org/entity/Q19744796"^^xsd:anyURI .
+:Q135058 a :School ;
+rdfs:label "Pyongyang University of Music and Dance" ;
+:establishedYear "1972" ;
+:hasCoordinates "39.019436620660514,125.78997189282961" ;
+:hasCountry "Q423" ;
+:hasQID "Q135058" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.korart.sca.kp/index.php/arteducation#tab-3"^^xsd:anyURI ;
+:locatedIn "Q18808" ;
+rdfs:comment "university in North Korea" ;
+rdfs:seeAlso "Kim Won Gyun University of Music", "Pyongyang Kim Won Gyun Conservatory" ;
+owl:sameAs "http://www.wikidata.org/entity/Q135058"^^xsd:anyURI .
+:Q113578472 a :School ;
+rdfs:label "Zhongfa Aviation University" ;
+:hasCountry "Q148" ;
+:hasQID "Q113578472" ;
+:hasType "Q3918" ;
+:hasWebsite "https://zfau.cn/"^^xsd:anyURI ;
+:locatedIn "Q4970" ;
+rdfs:comment "higher education institution in Hangzhou, China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113578472"^^xsd:anyURI .
+:Q12523341 a :School ;
+rdfs:label "Universitas Islam Madura" ;
+:establishedYear "1988" ;
+:hasCoordinates "-7.155401171148124,113.45774182540767" ;
+:hasCountry "Q252" ;
+:hasQID "Q12523341" ;
+:hasType "Q902104" ;
+:hasWebsite "http://uimadura.ac.id/"^^xsd:anyURI ;
+:locatedIn "Q10817819" ;
+rdfs:comment "private university in Pamekasan, Indonesia" ;
+rdfs:seeAlso "UIM" ;
+owl:sameAs "http://www.wikidata.org/entity/Q12523341"^^xsd:anyURI .
+:Q119349092 a :School ;
+rdfs:label "Alumni of the Open University of Tanzania" ;
+:establishedYear "1992" ;
+:hasCountry "Q924" ;
+:hasQID "Q119349092" ;
+:hasType "Q3918" ;
+rdfs:seeAlso "OUT Alumni" ;
+owl:sameAs "http://www.wikidata.org/entity/Q119349092"^^xsd:anyURI .
+:Q5097181 a :School ;
+rdfs:label "Chifeng University" ;
+:establishedYear "2003" ;
+:hasCountry "Q148" ;
+:hasQID "Q5097181" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.cfxy.cn"^^xsd:anyURI ;
+:locatedIn "Q570829" ;
+rdfs:comment "university in China" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5097181"^^xsd:anyURI .
+:Q16096209 a :School ;
+rdfs:label "Korea Soongsil Cyber University" ;
+:hasCoordinates "37.574444444444,126.98875" ;
+:hasCountry "Q884" ;
+:hasQID "Q16096209" ;
+:hasType "Q902104" ;
+:hasWebsite "https://www.kcu.ac/"^^xsd:anyURI ;
+rdfs:comment "university in Seoul, South Korea" ;
+owl:sameAs "http://www.wikidata.org/entity/Q16096209"^^xsd:anyURI .
+:Q1724577 a :School ;
+rdfs:label "Southern Arkansas University" ;
+:establishedYear "1909" ;
+:hasCoordinates "33.2916,-93.2359" ;
+:hasCountry "Q30" ;
+:hasQID "Q1724577" ;
+:hasType "Q3918" ;
+:hasWebsite "https://web.saumag.edu/"^^xsd:anyURI ;
+:locatedIn "Q79562" ;
+rdfs:comment "university in Magnolia, Arkansas" ;
+rdfs:seeAlso "Magnolia A&M", "Southern State College", "Third District Agricultural School" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1724577"^^xsd:anyURI .
+:Q30266555 a :School ;
+rdfs:label "Wolkite University" ;
+:establishedYear "2011" ;
+:hasCoordinates "8.290231,37.780523" ;
+:hasCountry "Q115" ;
+:hasQID "Q30266555" ;
+:hasType "Q2385804" ;
+:hasWebsite "http://www.wku.edu.et/"^^xsd:anyURI ;
+:locatedIn "Q1110026" ;
+rdfs:comment "university in Ethiopia" ;
+rdfs:seeAlso "IAU-024624", "WKU", "ወልቂጤ ዩኒቨርሲቲ" ;
+owl:sameAs "http://www.wikidata.org/entity/Q30266555"^^xsd:anyURI .
+:Q1107723 a :School ;
+rdfs:label "University of Horticulture and Food Industry" ;
+:establishedYear "1853" ;
+:hasCountry "Q28" ;
+:hasQID "Q1107723" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.kee.hu"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q1107723"^^xsd:anyURI .
+:Q58555 a :School ;
+rdfs:label "Holy Spirit Seminary" ;
+:establishedYear "1964" ;
+:hasCoordinates "22.246459,114.161746" ;
+:hasCountry "Q148" ;
+:hasQID "Q58555" ;
+:hasType "Q14911880" ;
+:hasWebsite "http://www.hss.org.hk/"^^xsd:anyURI ;
+:locatedIn "Q839495" ;
+rdfs:comment "seminary" ;
+owl:sameAs "http://www.wikidata.org/entity/Q58555"^^xsd:anyURI .
+:Q11472295 a :School ;
+rdfs:label "Okayama Prefectural University-Junior College" ;
+:establishedYear "1993" ;
+:hasCountry "Q17" ;
+:hasQID "Q11472295" ;
+:hasType "Q110296306" ;
+:locatedIn "Q873536" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11472295"^^xsd:anyURI .
+:Q113358289 a :School ;
+rdfs:label "Tansian University" ;
+:establishedYear "2007" ;
+:hasCoordinates "6.200159,6.894298" ;
+:hasCountry "Q1033" ;
+:hasQID "Q113358289" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.tansianuniversity.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q117714" ;
+rdfs:comment "private Christian University Located In Umunya Anambra State" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113358289"^^xsd:anyURI .
+:Q131763159 a :School ;
+rdfs:label "Equator University of Science and Technology" ;
+:hasCountry "Q1036" ;
+:hasQID "Q131763159" ;
+:hasType "Q3918" ;
+:hasWebsite "https://equsat.ac.ug/"^^xsd:anyURI ;
+:locatedIn "Q956659" ;
+rdfs:comment "private-not-for- profit Higher Education institution offering a wide range of academic programmes" ;
+rdfs:seeAlso "EQUSaT" ;
+owl:sameAs "http://www.wikidata.org/entity/Q131763159"^^xsd:anyURI .
+:Q7439503 a :School ;
+rdfs:label "Scuola Italiana Design" ;
+:establishedYear "1991" ;
+:hasCountry "Q38" ;
+:hasQID "Q7439503" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.scuolaitalianadesign.com"^^xsd:anyURI ;
+:locatedIn "Q617" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7439503"^^xsd:anyURI .
+:Q6424307 a :School ;
+rdfs:label "Kobe Design University" ;
+:establishedYear "1928" ;
+:hasCoordinates "34.6775,135.05694444" ;
+:hasCountry "Q17" ;
+:hasQID "Q6424307" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.kobe-du.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q48320" ;
+rdfs:comment "higher education institution in Hyōgo Prefecture, Japan" ;
+rdfs:seeAlso "Kōbe geijutsu kōka daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6424307"^^xsd:anyURI .
+:Q6448317 a :School ;
+rdfs:label "Kutaisi Institute of Medicine" ;
+:establishedYear "1992" ;
+:hasCountry "Q230" ;
+:hasQID "Q6448317" ;
+:hasType "Q3918" ;
+:locatedIn "Q172415" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6448317"^^xsd:anyURI .
+:Q123425613 a :School ;
+rdfs:label "Lang Son College of Education" ;
+:establishedYear "1961" ;
+:hasCoordinates "21.8430068,106.748373" ;
+:hasCountry "Q881" ;
+:hasQID "Q123425613" ;
+:hasType "Q3918" ;
+:hasWebsite "https://lce.edu.vn/"^^xsd:anyURI ;
+:locatedIn "Q33383" ;
+owl:sameAs "http://www.wikidata.org/entity/Q123425613"^^xsd:anyURI .
+:Q102398847 a :School ;
+rdfs:label "Military University of Radioelectronics" ;
+:establishedYear "1957" ;
+:hasCoordinates "59.11666666666667,37.9" ;
+:hasCountry "Q159" ;
+:hasQID "Q102398847" ;
+:hasType "Q130382439" ;
+:hasWebsite "https://chvviure.mil.ru/About/Istoriya"^^xsd:anyURI ;
+:locatedIn "Q2144" ;
+rdfs:comment "Russian military university" ;
+owl:sameAs "http://www.wikidata.org/entity/Q102398847"^^xsd:anyURI .
+:Q5194072 a :School ;
+rdfs:label "Sivas Cumhuriyet University" ;
+:establishedYear "1974" ;
+:hasCoordinates "39.7069,37.0295" ;
+:hasCountry "Q43" ;
+:hasQID "Q5194072" ;
+:hasType "Q875538" ;
+:hasWebsite "http://www.cumhuriyet.edu.tr/"^^xsd:anyURI ;
+:locatedIn "Q107401" ;
+rdfs:comment "Turkish public university located in Sivas" ;
+rdfs:seeAlso "Cumhuriyet Üniversitesi" ;
+owl:sameAs "http://www.wikidata.org/entity/Q5194072"^^xsd:anyURI .
+:Q113482133 a :School ;
+rdfs:label "Sarat Chandra Chattopadhyay Government Medical College and Hospital" ;
+:hasQID "Q113482133" ;
+:hasType "Q3918" ;
+rdfs:comment "medical college in India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q113482133"^^xsd:anyURI .
+:Q134488470 a :School ;
+rdfs:label "University of Technology Tarbes Occitanie Pyrénées" ;
+:establishedYear "2024" ;
+:hasCoordinates "43.226,0.05" ;
+:hasQID "Q134488470" ;
+:hasType "Q3918" ;
+rdfs:comment "public university of technology in Tarbes, France" ;
+owl:sameAs "http://www.wikidata.org/entity/Q134488470"^^xsd:anyURI .
+:Q1321655 a :School ;
+rdfs:label "Toyo University" ;
+:establishedYear "1887" ;
+:hasCoordinates "35.72324,139.75044" ;
+:hasCountry "Q17" ;
+:hasQID "Q1321655" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.toyo.ac.jp/en/"^^xsd:anyURI ;
+:locatedIn "Q212713" ;
+rdfs:comment "Japanese university" ;
+rdfs:seeAlso "Shiritsu Tetsugakukan", "Tōyō Daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q1321655"^^xsd:anyURI .
+:Q19894491 a :School ;
+rdfs:label "Narangi Anchalik Mahavidyalaya" ;
+:establishedYear "1991" ;
+:hasQID "Q19894491" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.narangian.org/"^^xsd:anyURI ;
+owl:sameAs "http://www.wikidata.org/entity/Q19894491"^^xsd:anyURI .
+:Q107016989 a :School ;
+rdfs:label "Okayama Medical University, Japan" ;
+:hasQID "Q107016989" ;
+:hasType "Q3918" ;
+rdfs:seeAlso "日本岡山醫大學校" ;
+owl:sameAs "http://www.wikidata.org/entity/Q107016989"^^xsd:anyURI .
+:Q7813858 a :School ;
+rdfs:label "Tokyo College of Transport Studies" ;
+:establishedYear "1952" ;
+:hasCoordinates "35.7409,139.709" ;
+:hasCountry "Q17" ;
+:hasQID "Q7813858" ;
+:hasType "Q110296306" ;
+:hasWebsite "https://toko.hosho.ac.jp/"^^xsd:anyURI ;
+:locatedIn "Q1490" ;
+rdfs:comment "transport Studies Unit (TSU)  is a community of researchers and students at Tokyo Institute of Technology (Tokyo Tech)." ;
+rdfs:seeAlso "Tōkyō Kōtsū Tanki Daigaku" ;
+owl:sameAs "http://www.wikidata.org/entity/Q7813858"^^xsd:anyURI .
+:Q122143828 a :School ;
+:establishedYear "1971" ;
+:hasCountry "Q881" ;
+:hasQID "Q122143828" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q122143828"^^xsd:anyURI .
+:Q6776040 a :School ;
+rdfs:label "Martin Luther Christian University" ;
+:establishedYear "2005" ;
+:hasCoordinates "25.5687,91.8833" ;
+:hasCountry "Q668" ;
+:hasQID "Q6776040" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.mlcuniv.in"^^xsd:anyURI ;
+:locatedIn "Q207752" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6776040"^^xsd:anyURI .
+:Q6393490 a :School ;
+rdfs:label "Kerala University of Fisheries and Ocean Studies" ;
+:establishedYear "2010" ;
+:hasCoordinates "9.9106,76.3172" ;
+:hasCountry "Q668" ;
+:hasQID "Q6393490" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.kufos.ac.in/"^^xsd:anyURI ;
+:locatedIn "Q1800" ;
+rdfs:comment "university in Kerala" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6393490"^^xsd:anyURI .
+:Q24185435 a :School ;
+rdfs:label "Sunshine Coast Theological College" ;
+:hasCoordinates "-26.7104,153.0564" ;
+:hasCountry "Q408" ;
+:hasQID "Q24185435" ;
+:hasType "Q4671277" ;
+:hasWebsite "http://www.sctc.org.au/"^^xsd:anyURI ;
+:locatedIn "Q36074" ;
+rdfs:comment "defunct Australian Theological College" ;
+rdfs:seeAlso "Westminster Theological College" ;
+owl:sameAs "http://www.wikidata.org/entity/Q24185435"^^xsd:anyURI .
+:Q4866684 a :School ;
+rdfs:label "Baselios Poulose Second College" ;
+:establishedYear "2003" ;
+:hasCoordinates "9.9378,76.5365" ;
+:hasCountry "Q668" ;
+:hasQID "Q4866684" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.bpscollege.com"^^xsd:anyURI ;
+rdfs:comment "college in Kerala, India" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4866684"^^xsd:anyURI .
+:Q6368619 a :School ;
+rdfs:label "Karary University" ;
+:establishedYear "1996" ;
+:hasCoordinates "15.61588888888889,32.478027777777775" ;
+:hasCountry "Q1049" ;
+:hasQID "Q6368619" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.karary.edu.sd"^^xsd:anyURI ;
+:locatedIn "Q180921" ;
+rdfs:comment "university in Omdurman, Khartoum, Sudan" ;
+rdfs:seeAlso "KU", "جامعة كرري" ;
+owl:sameAs "http://www.wikidata.org/entity/Q6368619"^^xsd:anyURI .
+:Q3668446 a :School ;
+rdfs:label "University of Kurdistan Hewler" ;
+:establishedYear "2006" ;
+:hasCountry "Q796" ;
+:hasQID "Q3668446" ;
+:hasType "Q3918" ;
+:hasWebsite "https://www.ukh.edu.krd/"^^xsd:anyURI ;
+:locatedIn "Q132754" ;
+rdfs:comment "university in Iraq" ;
+rdfs:seeAlso "University of Kurdistan – Hawler" ;
+owl:sameAs "http://www.wikidata.org/entity/Q3668446"^^xsd:anyURI .
+:Q482711 a :School ;
+rdfs:label "Daegu National University of Education" ;
+:establishedYear "1950" ;
+:hasCoordinates "35.853055555556,128.589" ;
+:hasCountry "Q884" ;
+:hasQID "Q482711" ;
+:hasType "Q3918" ;
+:hasWebsite "http://www.dnue.ac.kr/"^^xsd:anyURI ;
+:locatedIn "Q50362" ;
+rdfs:comment "Teacher's university in Daegu, South Korea" ;
+owl:sameAs "http://www.wikidata.org/entity/Q482711"^^xsd:anyURI .
+:Q114037560 a :School ;
+rdfs:label "Douglass University" ;
+:establishedYear "1926" ;
+:hasCoordinates "38.64904,-90.24872" ;
+:hasCountry "Q30" ;
+:hasQID "Q114037560" ;
+:hasType "Q902104" ;
+:locatedIn "Q38022" ;
+rdfs:comment "American black university in St. Louis" ;
+owl:sameAs "http://www.wikidata.org/entity/Q114037560"^^xsd:anyURI .
+:Q11508701 a :School ;
+rdfs:label "Nihon Shakai Jigyō Tanki Daigaku" ;
+:hasCountry "Q17" ;
+:hasQID "Q11508701" ;
+:hasType "Q110296306" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11508701"^^xsd:anyURI .
+:Q951305 a :School ;
+rdfs:label "University of Cape Town" ;
+:establishedYear "1829" ;
+:hasCoordinates "-33.9575,18.460555555556" ;
+:hasCountry "Q258" ;
+:hasQID "Q951305" ;
+:hasType "Q875538" ;
+:hasWebsite "https://www.uct.ac.za/"^^xsd:anyURI ;
+:locatedIn "Q1185115" ;
+rdfs:comment "public university in Cape Town, South Africa" ;
+rdfs:seeAlso "Cape Town University", "South African College", "UCT", "uct.ac.za" ;
+owl:sameAs "http://www.wikidata.org/entity/Q951305"^^xsd:anyURI .
+:Q85812316 a :School ;
+rdfs:label "University of Sufism and Modern Sciences" ;
+:hasCountry "Q843" ;
+:hasQID "Q85812316" ;
+:hasType "Q3918" ;
+rdfs:comment "higher education institution in Pakistan" ;
+owl:sameAs "http://www.wikidata.org/entity/Q85812316"^^xsd:anyURI .
+:Q4822428 a :School ;
+rdfs:label "AURO University" ;
+:establishedYear "2011" ;
+:hasCoordinates "21.177605555555555,72.73555555555555" ;
+:hasCountry "Q668" ;
+:hasQID "Q4822428" ;
+:hasType "Q131389368" ;
+:hasWebsite "https://www.aurouniversity.edu.in"^^xsd:anyURI ;
+:locatedIn "Q4629" ;
+rdfs:comment "private university in Gujarat, India." ;
+rdfs:seeAlso "Auro University of Hospitality and Management" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4822428"^^xsd:anyURI .
+:Q11667388 a :School ;
+:hasCountry "Q17" ;
+:hasQID "Q11667388" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q11667388"^^xsd:anyURI .
+:Q100709256 a :School ;
+rdfs:label "Federal Polytechnic Damaturu" ;
+:establishedYear "1993" ;
+:hasCoordinates "11.7474,11.9839" ;
+:hasCountry "Q1033" ;
+:hasLanguage "Q1860" ;
+:hasQID "Q100709256" ;
+:hasType "Q845392" ;
+:hasWebsite "http://www.fedpodam.edu.ng/"^^xsd:anyURI ;
+:locatedIn "Q682777" ;
+rdfs:comment "Polytechnic in Nigeria, Yobe State" ;
+rdfs:seeAlso "FEDPODAM" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100709256"^^xsd:anyURI .
+:Q17031990 a :School ;
+rdfs:label "Vlaamsche Hoogeschool" ;
+:hasCountry "Q31" ;
+:hasQID "Q17031990" ;
+:hasType "Q3918" ;
+:locatedIn "Q1296" ;
+rdfs:comment "Institute of Higher Learning in Belgium (1916-1918)" ;
+rdfs:seeAlso "Hoogeschool te Gent", "Von Bissing University" ;
+owl:sameAs "http://www.wikidata.org/entity/Q17031990"^^xsd:anyURI .
+:Q4791877 a :School ;
+rdfs:label "Arkansas State University Paragould" ;
+:hasCoordinates "36.0615,-90.5174" ;
+:hasCountry "Q30" ;
+:hasQID "Q4791877" ;
+:hasType "Q3918" ;
+:locatedIn "Q79386" ;
+rdfs:comment "state university secondary campus" ;
+owl:sameAs "http://www.wikidata.org/entity/Q4791877"^^xsd:anyURI .
+:Q273461 a :School ;
+rdfs:label "École Centrale de Lille" ;
+:establishedYear "1854" ;
+:hasCountry "Q142" ;
+:hasQID "Q273461" ;
+:hasType "Q3255372" ;
+:hasWebsite "https://centralelille.fr/"^^xsd:anyURI ;
+rdfs:comment "graduate engineering school in Villeneuve d'Ascq, Lille metropolis, France" ;
+rdfs:seeAlso "Centrale Lille", "Centrale Lille School of Engineering and Applied Science", "Centrale-Lille", "Centralien de Lille", "EC Lille", "EC-Lille", "ECLille", "Ecole Centrale Lille", "Ecole Centrale de Lille", "Ecole centrale (Lille)", "Ecole centrale de Lille", "Ecole des arts industriels et des mines", "I.D.N", "Institut Industriel du Nord de la France", "Institut industriel du Nord", "ec-Lille", "ecole centrale de lille", "École Centrale Lille", "École Centrale de Lille, Villeneuve d'Ascq", "École centrale de Lille", "École des arts industriels et des mines", "école centrale de Lille" ;
+owl:sameAs "http://www.wikidata.org/entity/Q273461"^^xsd:anyURI .
+:Q112862651 a :School ;
+:hasCountry "Q142" ;
+:hasQID "Q112862651" ;
+:hasType "Q15974764" ;
+owl:sameAs "http://www.wikidata.org/entity/Q112862651"^^xsd:anyURI .
+:Q18389307 a :School ;
+rdfs:label "Polytechnic University of the Philippines College of Communication" ;
+:hasCoordinates "14.597222,121.010833" ;
+:hasCountry "Q928" ;
+:hasQID "Q18389307" ;
+:hasType "Q3918" ;
+owl:sameAs "http://www.wikidata.org/entity/Q18389307"^^xsd:anyURI .
+:Q118258797 a :School ;
+:establishedYear "2022" ;
+:hasCountry "Q183" ;
+:hasQID "Q118258797" ;
+:hasType "Q38723" ;
+:hasWebsite "https://www.ehip.eu/"^^xsd:anyURI ;
+:locatedIn "Q14947" ;
+owl:sameAs "http://www.wikidata.org/entity/Q118258797"^^xsd:anyURI .
+:Q121433825 a :School ;
+rdfs:label "Kobe Women's College of Pharmacy" ;
+:establishedYear "1949" ;
+:hasCountry "Q17" ;
+:hasQID "Q121433825" ;
+:hasType "Q3918" ;
+:locatedIn "Q48320" ;
+rdfs:comment "university in Kōbe City, Hyōgo Prefecture, Japan (1949-1994)" ;
+owl:sameAs "http://www.wikidata.org/entity/Q121433825"^^xsd:anyURI .
+:Q100482746 a :School ;
+rdfs:label "Séminaire Saint-Curé-d'Ars" ;
+:establishedYear "1986" ;
+:hasCoordinates "47.51356,4.52969" ;
+:hasCountry "Q142" ;
+:hasQID "Q100482746" ;
+:hasType "Q14911880" ;
+:locatedIn "Q333734" ;
+rdfs:comment "Traditionalist Catholic seminary in Flavigny-sur-Ozerain, Côte-d'Or, France" ;
+rdfs:seeAlso "Saint-Curé-d'Ars seminary", "Séminaire International Saint-Curé d'Ars" ;
+owl:sameAs "http://www.wikidata.org/entity/Q100482746"^^xsd:anyURI .

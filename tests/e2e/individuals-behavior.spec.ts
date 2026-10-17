@@ -1,3 +1,4 @@
+// Issue #86 retains the grid contracts while adding page-edge navigation and movable columns.
 import { test, expect, type Desktop } from "./modal-fixture";
 import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
 import type { Snapshot } from "../../src/shared/protocol";
@@ -18,11 +19,11 @@ const fixture =
       `:S${i} a :School; rdfs:label "School ${String(i).padStart(3, "0")}"; rdfs:comment "Description ${i % 7}"; rdfs:seeAlso "${i === 204 ? "Hiddennickname" : "Alias " + i}", "Other ${i}"; :establishedYear ${1900 + i}; :hasCountry "Q${i % 3}" .`,
   ).join("\n");
 const grid = (d: Desktop) =>
-  d.page.getByRole("region", { name: "Individuals panel", exact: true });
+  d.page.getByRole("region", { name: "Individuals", exact: true });
 const inspector = (d: Desktop) =>
   d.page.getByRole("region", { name: "Entity inspector", exact: true });
-async function prepare(d: Desktop) {
-  await d.load(fixture, "schools.ttl");
+async function prepare(d: Desktop, text = fixture) {
+  await d.load(text, "schools.ttl");
   await d.menu("view.individuals");
   await d.page
     .locator('.adaptive-pane[data-pane-id="individuals"]')
@@ -67,6 +68,20 @@ test("column visibility, order and widths persist per class through close and wo
     .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
     .focus();
   await earlier.click();
+  // The subject remains visible, but is no longer forced to lead on restore.
+  const subject = chooser.getByRole("checkbox", {
+    name: "Individual",
+    exact: true,
+  });
+  await subject
+    .locator("xpath=ancestor::div[contains(@class, 'crow')]")
+    .hover();
+  const later = chooser.getByRole("button", {
+    name: "Move Individual later",
+    exact: true,
+  });
+  const count = await chooser.getByRole("checkbox").count();
+  for (let i = 1; i < count; i++) await later.click();
   await d.page.keyboard.press("Escape");
   await expect(grid(d).getByRole("button", { name: /^Columns/ })).toBeFocused();
   const width = grid(d).getByRole("separator", {
@@ -82,6 +97,9 @@ test("column visibility, order and widths persist per class through close and wo
   );
   const headers = () => grid(d).locator("thead .hlab").allTextContents();
   const order = await headers();
+  expect(order[0]).toMatch(/^rdfs:seeAlso/);
+  expect(order.at(-1)).toMatch(/^Individual/);
+  await expect(grid(d).locator("thead th.pin")).toContainText("rdfs:seeAlso");
   await grid(d)
     .getByLabel("Filter by class")
     .selectOption(base + "Campus");
@@ -138,6 +156,155 @@ test("column visibility, order and widths persist per class through close and wo
   await d.page.keyboard.press("Escape");
   await expect(width).toHaveAttribute("aria-valuenow", String(initial));
 });
+
+test("new individuals reveal in the current scope without changing another class's filter", async ({
+  desktop: d,
+}) => {
+  await prepare(d);
+  const filter = grid(d).getByRole("textbox", { name: "Filter individuals" });
+  await filter.fill("noexistingmatch");
+  await expect(grid(d).locator(".empty")).toBeVisible();
+  const iri = await d.request<string>("createIndividual", {
+    name: "Zzz new school",
+    type: base + "School",
+  });
+  await expect(filter).toHaveValue("");
+  await expect(
+    grid(d).getByRole("textbox", { name: "Page number" }),
+  ).toHaveValue("3");
+  const row = grid(d).locator(`tr[data-iri="${iri}"]`);
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(row).toBeFocused();
+  await expect
+    .poll(async () => (await d.request<Snapshot>("state")).selected)
+    .toBe(iri);
+  await filter.fill("noexistingmatch");
+  await d.request("createIndividual", {
+    name: "Zzz new campus",
+    type: base + "Campus",
+  });
+  await expect(filter).toHaveValue("noexistingmatch");
+  await expect(grid(d).locator(".empty")).toBeVisible();
+});
+
+test("rapid arrow keys retain every step before selection replies arrive", async ({
+  desktop: d,
+}) => {
+  await prepare(d);
+  const body = grid(d).locator(".gwrap");
+  await body.focus();
+  await body.evaluate((el) => {
+    for (let i = 0; i < 3; i++)
+      el.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+  });
+  await expect
+    .poll(async () => (await d.request<Snapshot>("state")).selected)
+    .toBe(base + "S2");
+  await expect(grid(d).locator(`tr[data-iri="${base}S2"]`)).toBeFocused();
+});
+
+test("pager clamps input and the narrow toolbar keeps every retained control inside the pane", async ({
+  desktop: d,
+}) => {
+  await prepare(d);
+  const page = grid(d).getByRole("textbox", { name: "Page number" });
+  await page.fill("999");
+  await page.press("Enter");
+  await expect(page).toHaveValue("3");
+  await expect(
+    grid(d).getByRole("button", { name: "Last page" }),
+  ).toBeDisabled();
+  await page.fill("nonsense");
+  await page.press("Enter");
+  await expect(page).toHaveValue("1");
+  await page.fill("Infinity");
+  await page.press("Enter");
+  await expect(page).toHaveValue("1");
+  await expect(
+    grid(d).getByRole("button", { name: "Previous page" }),
+  ).toBeDisabled();
+  const host = d.page.locator('.adaptive-pane[data-pane-id="individuals"]');
+  for (const width of [600, 599, 503, 360, 300, 240]) {
+    await host.evaluate(
+      (el, w) => ((el as HTMLElement).style.width = w + "px"),
+      width,
+    );
+    await expect
+      .poll(() =>
+        grid(d)
+          .locator(".tbar")
+          .evaluate((el) => {
+            const box = el.getBoundingClientRect();
+            return [...el.querySelectorAll("input,select,button")]
+              .filter((node) => (node as HTMLElement).offsetWidth)
+              .every((node) => {
+                const b = node.getBoundingClientRect();
+                return b.left >= box.left && b.right <= box.right;
+              });
+          }),
+      )
+      .toBe(true);
+  }
+});
+test("value lists flip above the window edge at pane zoom and preserve selection", async ({
+  desktop: d,
+}) => {
+  const values = Array.from({ length: 40 }, (_, i) =>
+    JSON.stringify(`Alias ${i}: ${"long value ".repeat(9)}`),
+  ).join(", ");
+  await prepare(d, fixture.replace('"Alias 0", "Other 0"', values));
+  const chooser = await columns(d);
+  await chooser
+    .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+    .check();
+  await d.page.keyboard.press("Escape");
+  await d.request("select", { iri: base + "S1" });
+  await d.resize(640, 760);
+  const host = d.page.locator('.adaptive-pane[data-pane-id="individuals"]');
+  await host.evaluate((el) =>
+    Object.assign((el as HTMLElement).style, {
+      width: "600px",
+      height: "400px",
+    }),
+  );
+  await host.dispatchEvent("wheel", { ctrlKey: true, deltaY: -150 });
+  const owner = grid(d).getByRole("button", {
+    name: "39 more values of rdfs:seeAlso",
+  });
+  const viewport = await owner.evaluate((el) => {
+    const zoom = Number(
+      el.closest<HTMLElement>(".adaptive-pane")!.dataset.paneZoom,
+    );
+    Object.assign((el as HTMLElement).style, {
+      position: "fixed",
+      top: (innerHeight - 45) / zoom + "px",
+      left: (innerWidth - 55) / zoom + "px",
+    });
+    return { width: innerWidth, height: innerHeight, zoom };
+  });
+  expect(viewport.zoom).toBeGreaterThan(1);
+  await owner.click();
+  const popup = d.page.getByRole("region", { name: "Values of rdfs:seeAlso" });
+  await expect(popup.locator("li")).toHaveCount(40);
+  const bounds = (await popup.boundingBox())!,
+    anchor = (await owner.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(6);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width - 5);
+  expect(bounds.y).toBeGreaterThanOrEqual(6);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(anchor.y - 3);
+  await popup.locator("li").first().click();
+  expect((await d.request<Snapshot>("state")).selected).toBe(base + "S1");
+  await d.page.keyboard.press("Escape");
+  await expect(popup).toBeHidden();
+  await expect(owner).toBeFocused();
+});
+
 test("shown fields control filtering, multivalues open accessibly, and keyboard selection retains row nodes", async ({
   desktop: d,
 }) => {
@@ -160,9 +327,9 @@ test("shown fields control filtering, multivalues open accessibly, and keyboard 
     name: "1 more values of rdfs:seeAlso",
   });
   await more.click();
-  await expect(d.page.locator(".individual-values:visible")).toContainText(
-    "Other 204",
-  );
+  await expect(
+    d.page.getByRole("region", { name: "Values of rdfs:seeAlso" }),
+  ).toContainText("Other 204");
   await d.page.keyboard.press("Escape");
   await expect(more).toBeFocused();
   await filter.fill("");
@@ -196,7 +363,21 @@ test("shown fields control filtering, multivalues open accessibly, and keyboard 
   await body.press("PageUp");
   await expect
     .poll(async () => (await d.request<Snapshot>("state")).selected)
+    .toBe(base + "S0");
+  await body.press("End");
+  await d.page.keyboard.press("ArrowDown");
+  await expect
+    .poll(async () => (await d.request<Snapshot>("state")).selected)
+    .toBe(base + "S100");
+  await expect(
+    grid(d).locator('tr[data-iri="' + base + 'S100"]'),
+  ).toBeFocused();
+  await d.page.keyboard.press("ArrowUp");
+  await expect
+    .poll(async () => (await d.request<Snapshot>("state")).selected)
     .toBe(base + "S99");
+  await expect(grid(d).locator('tr[data-iri="' + base + 'S99"]')).toBeFocused();
+  await body.press("Home");
   const width = grid(d).getByRole("separator", {
     name: "Width of Individual",
     exact: true,

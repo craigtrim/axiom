@@ -126,7 +126,8 @@ it("restores valid layout settings while retiring missing columns", () => {
     widths: { [columns[2].key]: 999 },
   };
   const restored = restoreIndividualColumns(columns, rows.length, saved);
-  expect(restored.order.slice(0, 2)).toEqual(["subject", columns[2].key]);
+  // Issue #86 lets any shown column lead, including after workspace restoration.
+  expect(restored.order.slice(0, 2)).toEqual([columns[2].key, "subject"]);
   expect(restored.visible).toEqual(["subject", columns[2].key]);
   expect(restored.widths[columns[2].key]).toBe(720);
 });

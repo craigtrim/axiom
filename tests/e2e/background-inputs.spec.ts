@@ -161,7 +161,8 @@ for (const action of ["Enter", "Tab"] as const) {
 test("Escape cancels a resource commit awaiting search and preserves the original statement", async ({
   desktop: d,
 }) => {
-  const field = await resourceField(d);
+  // #86 regression coverage: annotation resources await search; exact parent classes resolve locally.
+  const field = await resourceField(d, "seeAlso");
   await holdRequests(d.app, ["resourceSuggestions"]);
   await field.fill("Gamma");
   await field.press("Enter");
@@ -169,17 +170,19 @@ test("Escape cancels a resource commit awaiting search and preserves the origina
   await field.press("Escape");
   await releaseRequests(d.app);
   await expect(field).toHaveAttribute("title", base + "Beta");
+  const document = await d.request<any>("entityDocument", {
+    iri: base + "Alpha",
+  });
   expect(
-    (await d.request<Snapshot>("state")).entities.find(
-      (e) => e.iri === base + "Alpha",
-    )?.parents,
-  ).toContain(base + "Beta");
+    document.statements.find((t: any) => t.predicate.endsWith("#seeAlso"))
+      ?.object,
+  ).toEqual({ literal: false, value: base + "Beta" });
 });
 
 test("editing again replaces a pending resource intent and late replies cannot commit the old value", async ({
   desktop: d,
 }) => {
-  const field = await resourceField(d);
+  const field = await resourceField(d, "seeAlso");
   await holdRequests(d.app, ["resourceSuggestions"]);
   await field.fill("Gamma");
   await field.press("Enter");
@@ -189,13 +192,15 @@ test("editing again replaces a pending resource intent and late replies cannot c
   await waitForHeld(d.app, 2);
   await releaseRequests(d.app, { reverse: true });
   await expect
-    .poll(
-      async () =>
-        (await d.request<Snapshot>("state")).entities.find(
-          (e) => e.iri === base + "Alpha",
-        )?.parents,
-    )
-    .toEqual([base + "Betamax"]);
+    .poll(async () => {
+      const document = await d.request<any>("entityDocument", {
+        iri: base + "Alpha",
+      });
+      return document.statements.find((t: any) =>
+        t.predicate.endsWith("#seeAlso"),
+      )?.object;
+    })
+    .toEqual({ literal: false, value: base + "Betamax" });
 });
 
 test("Example orders retains loaded rows and counts and discards an older filter response", async ({
