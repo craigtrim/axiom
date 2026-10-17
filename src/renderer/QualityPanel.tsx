@@ -878,8 +878,14 @@ export function QualityPanel() {
             role="progressbar"
             aria-label={t("running.state")}
             aria-valuemin={0}
-            aria-valuemax={Math.max(1, job.total)}
-            aria-valuenow={job.scanned}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(
+              (job.scanned / Math.max(1, job.total)) * 100,
+            )}
+            aria-valuetext={t("running.progress", {
+              scanned: job.scanned,
+              total: job.total,
+            })}
           >
             <i
               style={{

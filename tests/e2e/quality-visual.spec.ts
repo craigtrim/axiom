@@ -1103,14 +1103,23 @@ const cases: Case[] = [
     name: "a2-running-bar",
     plan: { section: "a", index: 1, prescanBar: true },
     regions: [bar],
-    drive: () =>
-      run({
+    drive: async () => {
+      await run({
         id: 1,
         state: "running",
         scanned: 2524,
         total: 5868,
         phase: "Checking entities",
-      }),
+      });
+      const progress = pane().getByRole("progressbar", { name: "Scanning" });
+      await expect(progress).toHaveAttribute("aria-valuemin", "0");
+      await expect(progress).toHaveAttribute("aria-valuemax", "100");
+      await expect(progress).toHaveAttribute("aria-valuenow", "43");
+      await expect(progress).toHaveAttribute(
+        "aria-valuetext",
+        "2,524 of 5,868 entities",
+      );
+    },
   },
   {
     name: "a8-failed-bar",
