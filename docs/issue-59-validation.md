@@ -8,6 +8,8 @@ Active grid queries use relevance order unless the user has explicitly chosen a 
 
 ## Relationship to issue 61
 
+Issue #86, decision 6, resolves the acceptance conflict: the ranked engine stays, and #61's former 1,271 and 2 substring counts are withdrawn. The current census test verifies 3,147 and 578 and separately verifies that hidden fields cannot match.
+
 Issue 59's shared matching replaces the older grid's AND/phrase-preferred filter. On the pinned school census, `higher education institution` now returns 3,147 rows with the default columns and 578 with comments hidden, replacing 1,271 and 2. This is the expected broader retrieval used by Find. The shown-column boundary, measured census statistics and visual reference are unchanged. The unfiltered default retains Individual ascending; relevance searches do not show a misleading ascending-column indicator.
 
 ## Domain and worker verification

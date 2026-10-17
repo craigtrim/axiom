@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  act,
   command,
   onCommand,
   panel,
@@ -33,6 +32,7 @@ import {
 import {
   IndividualPaneHeader,
   IndividualPopover,
+  IndividualIcon,
   IdentifierTag,
   ReasonTag,
 } from "./IndividualsChrome";
@@ -52,11 +52,22 @@ export function ColumnChooser({
   change: (next: IndividualColumnLayout, message: string) => void;
 }) {
   const byKey = new Map(columns.map((c) => [c.key, c]));
+  const movedControl = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => {
+    const control = movedControl.current,
+      group = control?.parentElement;
+    const target = control?.disabled
+      ? group?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      : control;
+    target?.focus({ preventScroll: true });
+    group?.style.removeProperty("display");
+    movedControl.current = null;
+  }, [layout.order]);
   const move = (key: string, delta: number) => {
     const order = [...layout.order],
       i = order.indexOf(key),
       j = i + delta;
-    if (i < 1 || j < 1 || j >= order.length) return;
+    if (i < 0 || j < 0 || j >= order.length) return;
     [order[i], order[j]] = [order[j], order[i]];
     change(
       { ...layout, order },
@@ -148,13 +159,17 @@ export function ColumnChooser({
                 <span className="f">{nf(c.fill)}</span>
                 <span className="d">{nf(c.distinct)}</span>
               </span>
-              {key !== "subject" && (
+              {
                 <span className="moves">
                   <button
                     className="btn tiny"
                     aria-label={`Move ${c.label} earlier`}
-                    disabled={index === 1}
-                    onClick={() => move(key, -1)}
+                    disabled={index === 0}
+                    onClick={(event) => {
+                      movedControl.current = event.currentTarget;
+                      event.currentTarget.parentElement!.style.display = "flex";
+                      move(key, -1);
+                    }}
                   >
                     ↑
                   </button>
@@ -162,12 +177,16 @@ export function ColumnChooser({
                     className="btn tiny"
                     aria-label={`Move ${c.label} later`}
                     disabled={index === layout.order.length - 1}
-                    onClick={() => move(key, 1)}
+                    onClick={(event) => {
+                      movedControl.current = event.currentTarget;
+                      event.currentTarget.parentElement!.style.display = "flex";
+                      move(key, 1);
+                    }}
                   >
                     ↓
                   </button>
                 </span>
-              )}
+              }
             </div>
           );
         })}
@@ -239,16 +258,16 @@ const GridRows = memo(function GridRows({
                         label={`${values.length - 1} more values of ${c.label}`}
                         buttonClass="plus"
                         button={`+${values.length - 1}`}
-                        width={400}
+                        valueList
                       >
-                        <div
-                          className="individual-values"
-                          aria-label={`Values of ${c.label}`}
-                        >
-                          {values.map((v, j) => (
-                            <p key={j}>{v}</p>
-                          ))}
+                        <div className="vh2">
+                          {c.label} · {values.length} values
                         </div>
+                        <ul>
+                          {values.map((v, j) => (
+                            <li key={j}>{v}</li>
+                          ))}
+                        </ul>
                       </IndividualPopover>
                     )}
                   </span>
@@ -283,11 +302,15 @@ export function OntologyIndividualsPanel() {
     );
   const [data, setData] = useState<IndividualGridPage>(),
     [layout, setLayout] = useState<IndividualColumnLayout>(),
-    [announcement, say] = useState("");
+    [announcement, say] = useState(""),
+    [reveal, setReveal] = useState<string>();
   const [scroll, setScroll] = useState({ top: 0, height: 660 });
   const table = useRef<HTMLTableElement>(null),
     wrap = useRef<HTMLDivElement>(null),
     liveLayout = useRef(layout),
+    filter = useRef<HTMLInputElement>(null),
+    pendingFocus = useRef<string | null>(null),
+    previousSnapshot = useRef(s),
     pendingSelection = useRef<"first" | "last">(null),
     generation = useRef(0),
     restored = useRef(false);
@@ -297,13 +320,32 @@ export function OntologyIndividualsPanel() {
     sort.explicit ||
     sort.key !== "subject" ||
     sort.direction !== 1;
-  const selected = useRef(s.selected);
-  selected.current = s.selected;
+  const selected = useRef(s.selected),
+    selectionIntent = useRef<string | null>(null);
+  // Repeated keys advance locally while earlier selection acknowledgements arrive (#86).
+  if (!selectionIntent.current || s.selected === selectionIntent.current) {
+    selected.current = s.selected;
+    selectionIntent.current = null;
+  }
+  const select = useCallback((iri: string) => {
+    selected.current = iri;
+    selectionIntent.current = iri;
+    void request("select", { iri }).catch((error: Error) => {
+      if (selectionIntent.current === iri) {
+        selectionIntent.current = null;
+        selected.current = previousSnapshot.current.selected;
+      }
+      report(error.message, true);
+    });
+  }, []);
   const chooseScope = useCallback((value: string) => {
     setScope(value);
     savePanel(scopeKey, value);
     setLayout(undefined);
     liveLayout.current = undefined;
+    pendingFocus.current = null;
+    pendingSelection.current = null;
+    setReveal(undefined);
     setPage(1);
     setQuery("");
     savePanel("table.individuals.page", 1);
@@ -331,7 +373,32 @@ export function OntologyIndividualsPanel() {
     setLayout(undefined);
     liveLayout.current = undefined;
     restored.current = false;
+    selectionIntent.current = null;
+    selected.current = s.selected;
+    pendingFocus.current = null;
+    pendingSelection.current = null;
+    setReveal(undefined);
   }, [s.datasetEpoch]);
+  // Reveal creations in the active scope without disturbing ordinary selection (#86).
+  useEffect(() => {
+    const previous = previousSnapshot.current;
+    previousSnapshot.current = s;
+    if (
+      previous.datasetEpoch !== s.datasetEpoch ||
+      !s.selected ||
+      previous.entities.some((e) => e.iri === s.selected)
+    )
+      return;
+    const created = s.entities.find((e) => e.iri === s.selected);
+    if (
+      created?.kind !== "Individual" ||
+      (scope && !created.types.includes(scope))
+    )
+      return;
+    setQuery("");
+    savePanel("table.individuals.query", "");
+    setReveal(created.iri);
+  }, [s, scope]);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   useEffect(() => {
@@ -350,6 +417,7 @@ export function OntologyIndividualsPanel() {
         sort: columnSorted ? sort.key : undefined,
         direction: sort.direction,
         page,
+        reveal,
         consumer,
         searchId: crypto.randomUUID(),
         datasetEpoch: s.datasetEpoch,
@@ -365,14 +433,24 @@ export function OntologyIndividualsPanel() {
         liveLayout.current = next;
         setLayout(next);
         setData(value);
-        if (value.page !== page) setPage(value.page);
+        if (value.page !== page) {
+          setPage(value.page);
+          savePanel("table.individuals.page", value.page);
+        }
+        if (reveal && value.rows.some((r) => r.iri === reveal)) {
+          pendingFocus.current = reveal;
+          setReveal(undefined);
+        }
         if (pendingSelection.current) {
           const row =
             pendingSelection.current === "first"
               ? value.rows[0]
               : value.rows.at(-1);
           pendingSelection.current = null;
-          if (row) void act("select", { iri: row.iri });
+          if (row) {
+            pendingFocus.current = row.iri;
+            select(row.iri);
+          }
         }
       },
       (e) => report(e.message, true),
@@ -381,6 +459,7 @@ export function OntologyIndividualsPanel() {
     scope,
     query,
     page,
+    reveal,
     sort,
     s.version,
     s.datasetEpoch,
@@ -389,8 +468,27 @@ export function OntologyIndividualsPanel() {
   useLayoutEffect(() => {
     for (const row of table.current?.querySelectorAll<HTMLTableRowElement>(
       "tbody tr[data-iri]",
-    ) ?? [])
-      row.setAttribute("aria-selected", String(row.dataset.iri === s.selected));
+    ) ?? []) {
+      const active = row.dataset.iri === s.selected;
+      row.setAttribute("aria-selected", String(active));
+      row.tabIndex = active ? 0 : -1;
+    }
+    const iri = pendingFocus.current,
+      el = wrap.current;
+    if (!iri || !el || iri !== s.selected) return;
+    const index = data?.rows.findIndex((r) => r.iri === iri) ?? -1;
+    if (index < 0) return;
+    const top = 29 + index * 30;
+    if (top < el.scrollTop + 29) el.scrollTop = top - 29;
+    else if (top + 30 > el.scrollTop + el.clientHeight)
+      el.scrollTop = top + 30 - el.clientHeight;
+    const row = table.current?.querySelector<HTMLTableRowElement>(
+      `tbody tr[data-iri="${CSS.escape(iri)}"]`,
+    );
+    if (row) {
+      row.focus({ preventScroll: true });
+      pendingFocus.current = null;
+    }
   }, [s.selected, data, scroll.top, scroll.height, layout]);
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -480,9 +578,28 @@ export function OntologyIndividualsPanel() {
   const drag = useRef<
       { c: IndividualColumn; start: number; width: number } | undefined
     >(undefined),
-    reorder = useRef<string | undefined>(undefined);
-  const select = useCallback((iri: string) => {
-    void act("select", { iri });
+    reorder = useRef<
+      | {
+          key: string;
+          x: number;
+          y: number;
+          active: boolean;
+          target?: string;
+          after?: boolean;
+        }
+      | undefined
+    >(undefined),
+    suppressSort = useRef(false);
+  const clearReorder = () => {
+    table.current
+      ?.querySelectorAll(".dragsrc,.dropL,.dropR")
+      .forEach((el) => el.classList.remove("dragsrc", "dropL", "dropR"));
+    table.current?.ownerDocument.body.classList.remove("individuals-dragging");
+    reorder.current = undefined;
+  };
+  useEffect(() => {
+    const doc = table.current?.ownerDocument;
+    return () => doc?.body.classList.remove("individuals-dragging");
   }, []);
   const go = (n: number) => {
     setPage(n);
@@ -499,7 +616,7 @@ export function OntologyIndividualsPanel() {
     <section
       className="individuals-surface pane"
       data-panel="individuals"
-      aria-label="Individuals panel"
+      aria-label="Individuals"
     >
       <IndividualPaneHeader recoveryOnly>
         <span className="name">Individuals</span>
@@ -508,6 +625,7 @@ export function OntologyIndividualsPanel() {
         <span className="ttl">Individuals</span>
         <span className="fwrap">
           <input
+            ref={filter}
             className="fld"
             placeholder="Filter individuals"
             aria-label="Filter individuals"
@@ -515,6 +633,7 @@ export function OntologyIndividualsPanel() {
             onChange={(e) => {
               setQuery(e.target.value);
               setPage(1);
+              savePanel("table.individuals.page", 1);
               savePanel("table.individuals.query", e.target.value);
             }}
           />
@@ -524,10 +643,12 @@ export function OntologyIndividualsPanel() {
               aria-label="Clear the filter"
               onClick={() => {
                 setQuery("");
+                go(1);
                 savePanel("table.individuals.query", "");
+                filter.current?.focus();
               }}
             >
-              ×
+              <IndividualIcon name="x" />
             </button>
           )}
         </span>
@@ -536,6 +657,7 @@ export function OntologyIndividualsPanel() {
             label={`Columns ${layout.visible.length} of ${data.columns.length}`}
             button={`Columns ${layout.visible.length} of ${data.columns.length}`}
             width={408}
+            align="end"
           >
             <ColumnChooser
               columns={data.columns}
@@ -582,9 +704,8 @@ export function OntologyIndividualsPanel() {
       <div className="gstat" aria-live="polite">
         {query ? (
           <>
-            <b>{nf(data?.total ?? 0)}</b> of {nf(data?.scopeTotal ?? 0)}{" "}
-            individuals match across {columns.length} shown{" "}
-            {columns.length === 1 ? "column" : "columns"}
+            <b>{nf(data?.total ?? 0)}</b>
+            {` of ${nf(data?.scopeTotal ?? 0)} individuals match across ${columns.length} shown ${columns.length === 1 ? "column" : "columns"}`}
           </>
         ) : (
           <>
@@ -598,7 +719,8 @@ export function OntologyIndividualsPanel() {
         className="gwrap"
         ref={wrap}
         tabIndex={0}
-        aria-label="Individual rows"
+        role="region"
+        aria-label="Individuals table, scrollable"
         onScroll={(e) => {
           const el = e.currentTarget;
           setScroll({ top: el.scrollTop, height: el.clientHeight });
@@ -614,35 +736,40 @@ export function OntologyIndividualsPanel() {
           )
             return;
           let i = data.rows.findIndex((r) => r.iri === selected.current);
-          if (e.key === "ArrowDown") i = Math.min(data.rows.length - 1, i + 1);
-          else if (e.key === "ArrowUp") i = Math.max(0, i - 1);
-          else if (e.key === "Home") i = 0;
+          const turn = (n: number, edge: "first" | "last") => {
+            pendingSelection.current = edge;
+            go(n);
+            e.preventDefault();
+          };
+          if (e.key === "ArrowDown") {
+            if (i === data.rows.length - 1 && page < pages) {
+              turn(page + 1, "first");
+              return;
+            }
+            i = Math.min(data.rows.length - 1, i + 1);
+          } else if (e.key === "ArrowUp") {
+            if (i === 0 && page > 1) {
+              turn(page - 1, "last");
+              return;
+            }
+            i = Math.max(0, i - 1);
+          } else if (e.key === "Home") i = 0;
           else if (e.key === "End") i = data.rows.length - 1;
           else if (e.key === "PageDown" && page < pages) {
-            pendingSelection.current = "first";
-            go(page + 1);
-            e.preventDefault();
+            turn(page + 1, "first");
             return;
           } else if (e.key === "PageUp" && page > 1) {
-            pendingSelection.current = "last";
-            go(page - 1);
-            e.preventDefault();
+            turn(page - 1, "first");
             return;
           } else return;
           e.preventDefault();
+          pendingFocus.current = data.rows[i].iri;
           select(data.rows[i].iri);
-          const top = 29 + i * 30;
-          if (top < e.currentTarget.scrollTop + 29)
-            e.currentTarget.scrollTop = top - 29;
-          else if (
-            top + 30 >
-            e.currentTarget.scrollTop + e.currentTarget.clientHeight
-          )
-            e.currentTarget.scrollTop = top + 30 - e.currentTarget.clientHeight;
         }}
       >
         <table
           className="g"
+          hidden={!!data && !data.total}
           role="grid"
           aria-label="Individuals"
           aria-rowcount={data?.total}
@@ -677,71 +804,79 @@ export function OntologyIndividualsPanel() {
                         : "descending"
                       : undefined
                   }
-                  onDragOver={(e) => {
-                    if (reorder.current && c.key !== "subject") {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      const b = e.currentTarget.getBoundingClientRect();
-                      e.currentTarget.classList.toggle(
-                        "drag-after",
-                        e.clientX > b.x + b.width / 2,
-                      );
-                      e.currentTarget.classList.toggle(
-                        "drag-before",
-                        e.clientX <= b.x + b.width / 2,
-                      );
-                    }
-                  }}
-                  onDragLeave={(e) =>
-                    e.currentTarget.classList.remove(
-                      "drag-before",
-                      "drag-after",
-                    )
-                  }
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const after =
-                      e.currentTarget.classList.contains("drag-after");
-                    e.currentTarget.classList.remove(
-                      "drag-before",
-                      "drag-after",
-                    );
-                    if (
-                      !layout ||
-                      !reorder.current ||
-                      c.key === "subject" ||
-                      c.key === reorder.current
-                    )
-                      return;
-                    const order = layout.order.filter(
-                      (k) => k !== reorder.current,
-                    );
-                    order.splice(
-                      order.indexOf(c.key) + (after ? 1 : 0),
-                      0,
-                      reorder.current,
-                    );
-                    reorder.current = undefined;
-                    change({ ...layout, order }, "Columns reordered");
-                  }}
+                  data-column={c.key}
                 >
                   <div className="hcell">
                     <button
                       className="hlab"
-                      draggable={c.key !== "subject"}
-                      onDragStart={(event) => {
-                        reorder.current = c.key;
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", c.key);
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        suppressSort.current = false;
+                        reorder.current = {
+                          key: c.key,
+                          x: e.clientX,
+                          y: e.clientY,
+                          active: false,
+                        };
+                        e.currentTarget.setPointerCapture(e.pointerId);
                       }}
-                      onDragEnd={() => {
-                        reorder.current = undefined;
+                      onPointerMove={(e) => {
+                        const move = reorder.current;
+                        if (!move || move.key !== c.key) return;
+                        if (
+                          !move.active &&
+                          Math.hypot(e.clientX - move.x, e.clientY - move.y) <=
+                            5
+                        )
+                          return;
+                        move.active = true;
+                        e.currentTarget.classList.add("dragsrc");
+                        const doc = e.currentTarget.ownerDocument;
+                        doc.body.classList.add("individuals-dragging");
                         table.current
-                          ?.querySelectorAll(".drag-before,.drag-after")
+                          ?.querySelectorAll(".dropL,.dropR")
                           .forEach((el) =>
-                            el.classList.remove("drag-before", "drag-after"),
+                            el.classList.remove("dropL", "dropR"),
                           );
+                        const target = doc
+                          .elementFromPoint(e.clientX, e.clientY)
+                          ?.closest<HTMLTableCellElement>("th[data-column]");
+                        move.target =
+                          target && table.current?.contains(target)
+                            ? target.dataset.column
+                            : undefined;
+                        if (move.target) {
+                          const box = target!.getBoundingClientRect();
+                          move.after = e.clientX > box.x + box.width / 2;
+                          target!
+                            .querySelector(".hcell")
+                            ?.classList.add(move.after ? "dropR" : "dropL");
+                        }
                       }}
+                      onPointerUp={() => {
+                        const move = reorder.current,
+                          current = liveLayout.current;
+                        suppressSort.current = !!move?.active;
+                        if (
+                          current &&
+                          move?.active &&
+                          move.target &&
+                          move.target !== move.key
+                        ) {
+                          const order = current.order.filter(
+                            (key) => key !== move.key,
+                          );
+                          order.splice(
+                            order.indexOf(move.target) + (move.after ? 1 : 0),
+                            0,
+                            move.key,
+                          );
+                          change({ ...current, order }, `${c.label} moved`);
+                        }
+                        clearReorder();
+                      }}
+                      onPointerCancel={clearReorder}
+                      onLostPointerCapture={clearReorder}
                       data-dir={
                         columnSorted && sort.key === c.key
                           ? sort.direction === 1
@@ -750,12 +885,16 @@ export function OntologyIndividualsPanel() {
                           : undefined
                       }
                       onClick={() => {
+                        if (suppressSort.current) {
+                          suppressSort.current = false;
+                          return;
+                        }
                         const direction =
                           columnSorted && sort.key === c.key
                             ? -sort.direction
                             : 1;
                         setSort({ key: c.key, direction, explicit: true });
-                        setPage(1);
+                        go(1);
                         savePanel("table.individuals.sort", {
                           key: c.key,
                           direction,
@@ -838,11 +977,11 @@ export function OntologyIndividualsPanel() {
           )}
         </table>
         {data && !data.total && (
-          <p style={{ padding: 12 }}>
+          <div className="empty">
             {query
-              ? `No individual matches "${query}" in the ${columns.length} shown columns. Show more columns to widen the search.`
+              ? `No individual matches "${query}" in the ${columns.length} shown ${columns.length === 1 ? "column" : "columns"}. Show more columns to widen the search.`
               : "This class holds no individuals."}
-          </p>
+          </div>
         )}
       </div>
       {pages > 1 && (
@@ -851,61 +990,67 @@ export function OntologyIndividualsPanel() {
             Rows {nf((page - 1) * 100 + 1)} to{" "}
             {nf(Math.min(page * 100, data!.total))}
           </span>
-          <span className="flex" />
-          <button
-            className="btn tiny"
-            aria-label="First page"
-            disabled={page === 1}
-            onClick={() => go(1)}
-          >
-            «
-          </button>
-          <button
-            className="btn tiny"
-            aria-label="Previous page"
-            disabled={page === 1}
-            onClick={() => go(page - 1)}
-          >
-            ‹
-          </button>
-          <label>
-            Page{" "}
-            <input
-              className="fld"
-              style={{ width: 48 }}
-              aria-label="Page"
-              key={page}
-              defaultValue={page}
-              onBlur={(e) => {
-                const next = Math.max(
-                  1,
-                  Math.min(pages, Math.floor(Number(e.target.value)) || 1),
-                );
-                e.target.value = String(next);
-                go(next);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-              }}
-            />
-          </label>
-          <span>of {nf(pages)}</span>
-          <button
-            className="btn tiny"
-            aria-label="Next page"
-            disabled={page === pages}
-            onClick={() => go(page + 1)}
-          >
-            ›
-          </button>
-          <button
-            className="btn tiny"
-            aria-label="Last page"
-            disabled={page === pages}
-            onClick={() => go(pages)}
-          >
-            »
-          </button>
+          <span className="pg">
+            <button
+              className="ib"
+              aria-label="First page"
+              disabled={page === 1}
+              onClick={() => go(1)}
+            >
+              <IndividualIcon name="first" />
+            </button>
+            <button
+              className="ib"
+              aria-label="Previous page"
+              disabled={page === 1}
+              onClick={() => go(page - 1)}
+            >
+              <IndividualIcon name="prev" />
+            </button>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <label htmlFor="individual-page">Page</label>
+              <input
+                id="individual-page"
+                className="pgn"
+                inputMode="numeric"
+                aria-label="Page number"
+                key={page}
+                defaultValue={page}
+                onBlur={(e) => {
+                  const value = Number(e.target.value);
+                  const next = Math.max(
+                    1,
+                    Math.min(
+                      pages,
+                      Number.isFinite(value) ? Math.floor(value) || 1 : 1,
+                    ),
+                  );
+                  e.target.value = String(next);
+                  go(next);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+              />
+              <span>of {nf(pages)}</span>
+            </span>
+            <button
+              className="ib"
+              aria-label="Next page"
+              disabled={page === pages}
+              onClick={() => go(page + 1)}
+            >
+              <IndividualIcon name="next" />
+            </button>
+            <button
+              className="ib"
+              aria-label="Last page"
+              disabled={page === pages}
+              onClick={() => go(pages)}
+            >
+              <IndividualIcon name="last" />
+            </button>
+          </span>
         </div>
       )}
       <span className="vh" role="status" aria-live="polite">

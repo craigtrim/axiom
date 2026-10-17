@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import "./individual-tokens.css";
+// The identifier tooltip and retained Touchpoints badge follow issue #86.
 export const ReasonTag = ({
   children,
   warn = false,
@@ -6,7 +8,14 @@ export const ReasonTag = ({
   children: ReactNode;
   warn?: boolean;
 }) => <span className={"why" + (warn ? " warnish" : "")}>{children}</span>;
-export const IdentifierTag = () => <span className="tagid">id</span>;
+export const IdentifierTag = () => (
+  <span
+    className="tagid"
+    title="No rdfs:label is asserted. This is the identifier."
+  >
+    id
+  </span>
+);
 export const InferredTag = () => <span className="inf">inferred</span>;
 export const LinkedPill = () => <span className="pill ok2">Linked</span>;
 export function SaveState({

@@ -1,5 +1,7 @@
 # Issue 61 validation
 
+Issue #86 now governs the Individuals refinements and settles the reopened search-count conflict. Its decision 6 retains the ranked engine from #59 and withdraws the former substring counts. The original specimen stays unchanged; the supplementary reference supplies the controls it does not draw.
+
 Observed on Windows on 2026-10-07, with Electron 44.3.0 and device scale 1.
 
 ## Reference and fixtures

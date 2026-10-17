@@ -132,7 +132,7 @@ Ignore zero-size readings from inactive tabs. Keep mode changes stable around bo
 
 Prefer a content scroller bounded by actual header/footer rows over layers that cover content. Avoid several nested scroll areas for ordinary fields. Exceptionally small panes should surface the maximize recovery action without changing the task.
 
-Inspector applies its grouped statement draft from the header. Individuals, Inspector and Touchpoints register recovery below 240 pixels wide or 120 pixels tall: only their header remains, with no bottom rule. Their retained content and draft state survive recovery. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; Suggestions follows the dockable review policy in the table above.
+Inspector applies its grouped statement draft from the header. Individuals keeps its reference's recovery below 240 pixels wide or 120 pixels tall: only its header remains, with no bottom rule. Its retained content and column state survive recovery. Issue #86 preserves that exception for Individuals; the Inspector and Touchpoints references in #89 and #92 use the shared recovery ladder. Touchpoints shows the entity and query associated with its displayed candidates. Query and Source retain their Monaco editors. Grids retain their existing models and column access. Provenance keeps progress and errors above its options scroller. The Edge inspector shares the action and disclosure components; Suggestions follows the dockable review policy in the table above.
 
 ## Validation criteria
 
