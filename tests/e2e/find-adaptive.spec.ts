@@ -20,7 +20,7 @@ const host = () => page.locator('[data-pane-id="find"]');
 const query = () =>
   pane().getByRole("searchbox", { name: "Search the ontology", exact: true });
 const rows = () => pane().locator(".find-results tbody tr");
-const scope = () => pane().getByRole("button", { name: /^Options:/ });
+const scope = () => pane().getByRole("button", { name: /^Search scope:/ });
 const create = () =>
   pane().getByRole("region", {
     name: "Add to the ontology",
@@ -64,11 +64,24 @@ async function size(width: number, height: number) {
     { width: width + inset.width, height: height + inset.height },
   );
   await expect
-    .poll(async () => Math.round((await host().boundingBox())!.width))
-    .toBe(width);
-  await expect
-    .poll(async () => Math.round((await host().boundingBox())!.height))
-    .toBe(height);
+    .poll(async () => {
+      const bounds = (await host().boundingBox())!;
+      const actual = {
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height),
+      };
+      // Native frame insets can settle after detaching; target the measured pane (#83).
+      if (actual.width !== width || actual.height !== height)
+        await window.evaluate(
+          (win, delta) => {
+            const [w, h] = win.getContentSize();
+            win.setContentSize(w + delta.width, h + delta.height);
+          },
+          { width: width - actual.width, height: height - actual.height },
+        );
+      return actual;
+    })
+    .toEqual({ width, height });
 }
 async function fits(locator: Locator) {
   await expect(locator).toBeVisible();
@@ -190,13 +203,15 @@ test.afterEach(async ({}, info) => {
 test("control homes fit at 600 by 400 and More owns all four page sizes", async () => {
   await size(600, 400);
   await expect(host()).toHaveAttribute("data-pane-layout", "expanded");
+  await expect(rows()).toHaveCount(0);
+  await expect(
+    pane().getByRole("button", { name: "Clear", exact: true }),
+  ).toHaveCount(0);
+  await query().fill("Topic");
   await expect(rows()).toHaveCount(50);
-  await expect(pane().getByRole("button", { name: "Clear query" })).toHaveCount(
-    0,
-  );
   await expect(
     pane().getByRole("button", { name: "Reset filters", exact: true }),
-  ).toBeVisible();
+  ).toBeHidden();
   await expect(
     pane().getByRole("button", { name: "Recent searches", exact: true }),
   ).toBeVisible();
@@ -257,11 +272,15 @@ for (const [width, height, mode, columns] of [
     }
     if (mode === "constrained") {
       await expect(rows().first().locator("td").first()).toContainText("Class");
-      await expect(pane().getByLabel("Sort results")).toBeHidden();
+      await expect(pane().getByLabel("Sort")).toBeHidden();
     }
     await noOverflow();
     const undersized = await pane()
-      .locator("button:visible:not(.find-store button), select:visible")
+      // Entity names sit inside a clickable row; measure that row as
+      // their target, and retain the 24 px minimum for standalone controls (#83).
+      .locator(
+        "button:visible:not(.find-store button):not(.find-result-name), select:visible",
+      )
       .evaluateAll((elements) =>
         elements
           .filter((el) => {
@@ -271,6 +290,9 @@ for (const [width, height, mode, columns] of [
           .map((el) => el.outerHTML),
       );
     expect(undersized).toEqual([]);
+    expect((await rows().first().boundingBox())!.height).toBeGreaterThanOrEqual(
+      24,
+    );
     await page.screenshot({ path: `artifacts/testing/find-${mode}.png` });
   });
 }
@@ -278,7 +300,7 @@ for (const [width, height, mode, columns] of [
 test("hysteresis preserves query, scope, sort, page, selection and scroll at every crossing", async () => {
   await query().fill("Topic");
   await pageSize(25);
-  await pane().getByLabel("Sort results").selectOption("name");
+  await pane().getByLabel("Sort").selectOption("name");
   await settled();
   await pane()
     .getByRole("button", { name: "Next results page", exact: true })
@@ -287,6 +309,12 @@ test("hysteresis preserves query, scope, sort, page, selection and scroll at eve
   await rows().nth(8).focus();
   await rows().nth(8).press("Space");
   const text = await rows().nth(8).textContent();
+  // Seed a real scroll position. The reference's shorter rows can leave the
+  // focused ninth result visible without scrolling the initial pane (#83).
+  const scroll = pane().locator(".find-results-scroll");
+  await scroll.evaluate((el) => (el.scrollTop = 200));
+  const initialScroll = await scroll.evaluate((el) => el.scrollTop);
+  expect(initialScroll).toBe(200);
   for (const [width, height, mode] of [
     [598, 660, "narrow"],
     [600, 660, "narrow"],
@@ -301,21 +329,22 @@ test("hysteresis preserves query, scope, sort, page, selection and scroll at eve
   ] as const) {
     await size(width, height);
     await expect(host()).toHaveAttribute("data-pane-layout", mode);
+    // The rail and its entry use the same hysteresis (craigtrim/axiom#83).
+    await expect(scope()).toBeVisible({ visible: mode !== "expanded" });
+    await expect(pane().locator(".find-facets")).toBeVisible({
+      visible: mode === "expanded",
+    });
     await expect(query()).toHaveValue("Topic");
     await expect(rows().nth(8)).toHaveAttribute("aria-selected", "true");
     await expect(rows().nth(8)).toContainText("Topic 033");
     expect(await rows().nth(8).textContent()).toContain("Topic 033");
-    await expect(pane().getByLabel("Sort results")).toHaveValue("name");
+    await expect(pane().getByLabel("Sort")).toHaveValue("name");
   }
   expect(text).toContain("Topic 033");
   await expect(
     pane().getByRole("group", { name: "Result pages" }),
   ).toContainText("Page 2 of 11");
-  expect(
-    await pane()
-      .locator(".find-results-scroll")
-      .evaluate((el) => el.scrollTop),
-  ).toBeGreaterThan(0);
+  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(initialScroll);
 });
 
 test("Options retains the result scroll and returns focus on Escape, even after growing", async () => {
@@ -352,14 +381,15 @@ test("Options retains the result scroll and returns focus on Escape, even after 
     .click();
   await expect(
     pane().getByRole("button", { name: "Reset filters", exact: true }),
-  ).toBeVisible();
+  ).toBeHidden();
   await expect(query()).toHaveValue("Topic");
+  await expect(query()).toBeFocused();
 });
 
 test("query and result keyboard bindings select, page and open Details deliberately", async () => {
   await query().fill("Topic");
   await pageSize(25);
-  await pane().getByLabel("Sort results").selectOption("name");
+  await pane().getByLabel("Sort").selectOption("name");
   await settled();
   await query().focus();
   await query().press("ArrowDown");
@@ -396,6 +426,11 @@ test("query and result keyboard bindings select, page and open Details deliberat
   await expect(query()).toHaveValue("");
   await settled();
   await query().press("Escape");
+  await expect(pane().locator(".find-results-scroll")).toBeFocused();
+  await expect(rows()).toHaveCount(0);
+  await query().fill("Topic");
+  await settled();
+  await query().press("ArrowDown");
   await expect(rows().first()).toBeFocused();
   await page.keyboard.press("Enter");
   await expect
@@ -569,7 +604,7 @@ test("normalized names warn and create separately while exact names and occupied
   await input.fill("reading comprehension");
   await expect(save).toBeEnabled();
   await expect(create().locator(".find-collision")).toContainText(
-    "You can still create a separate class",
+    "is very close to",
   );
   await expect(create().getByLabel("Subject IRI", { exact: true })).toHaveValue(
     base + "ReadingComprehension2",
@@ -725,7 +760,7 @@ for (const theme of ["light", "dark"] as const)
     expect(contrast.label).toBeGreaterThanOrEqual(4.5);
     expect(contrast.breadcrumb).toBeGreaterThanOrEqual(4.5);
     expect(contrast.border).toBe(
-      theme === "light" ? "rgb(198, 198, 198)" : "rgb(85, 85, 85)",
+      theme === "light" ? "rgb(208, 215, 222)" : "rgb(61, 68, 77)",
     );
     expect(contrast.focus).toBeGreaterThanOrEqual(3);
     const results = await new AxeBuilder({ page })

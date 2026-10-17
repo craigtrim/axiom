@@ -2,6 +2,7 @@ import { useId, type ReactNode } from "react";
 import { THING, type Entity } from "../domain/model";
 import type { Snapshot } from "../shared/protocol";
 import { ancestryTrail } from "../domain/ancestry";
+import { FindGlyph } from "./FindGlyph";
 
 export function SectionPanel({
   title,
@@ -43,7 +44,8 @@ export function StatementTable({
               <span className="th-row">
                 <span>Value</span>
                 <span className="n entity-statement-count">
-                  {count} {count === 1 ? "statement" : "statements"}
+                  {/* One text run keeps the reference kerning (craigtrim/axiom#83). */}
+                  {`${count} ${count === 1 ? "statement" : "statements"}`}
                 </span>
               </span>
             </th>
@@ -57,9 +59,11 @@ export function StatementTable({
 export function AddStatementAction({
   disabled,
   add,
+  find = false,
 }: {
   disabled?: boolean;
   add(): void;
+  find?: boolean;
 }) {
   return (
     <button
@@ -67,8 +71,16 @@ export function AddStatementAction({
       className="entity-add-row addrow"
       disabled={disabled}
       onClick={add}
+      aria-label={find ? "+ Add row" : undefined}
     >
-      + Add row
+      {find ? (
+        <>
+          <FindGlyph name="plus" />
+          Add row
+        </>
+      ) : (
+        "+ Add row"
+      )}
     </button>
   );
 }

@@ -108,6 +108,15 @@ async function expectPageSize(value: string) {
 }
 
 async function openNetworkFixture() {
+  // Keep page-preservation checks lexical; semantic refresh has separate coverage
+  // in find-stability (craigtrim/axiom#83).
+  await app.evaluate(({ ipcMain }) => {
+    const original = (ipcMain as any)._invokeHandlers.get("domain:request");
+    ipcMain.removeHandler("domain:request");
+    ipcMain.handle("domain:request", (event, method, args) =>
+      method === "findSemantic" ? undefined : original(event, method, args),
+    );
+  });
   const file = path.join(profile, "networks.ttl");
   await writeFile(
     file,
@@ -195,6 +204,7 @@ for (const chosenParent of [false, true]) {
         .getByRole("combobox", { name: "Parent classes", exact: true })
         .fill("Course");
       await page
+        .getByRole("listbox", { name: "Parent classes" })
         .getByRole("option")
         .filter({ hasText: /^Course/ })
         .first()
@@ -456,12 +466,16 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(first).toBeFocused();
   await first.press("Enter");
-  await expect(page.getByRole("menuitem").first()).toBeFocused();
-  await page.getByRole("menuitem").first().press("Escape");
+  await expect(
+    page.getByRole("menu").getByRole("menuitem").first(),
+  ).toBeFocused();
+  await page.getByRole("menu").getByRole("menuitem").first().press("Escape");
   await expect(first).toBeFocused();
   await first.press("Space");
-  await expect(page.getByRole("menuitem").first()).toBeFocused();
-  await page.getByRole("menuitem").first().press("ArrowDown");
+  await expect(
+    page.getByRole("menu").getByRole("menuitem").first(),
+  ).toBeFocused();
+  await page.getByRole("menu").getByRole("menuitem").first().press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
   await page.getByRole("menuitem", { name: /^Subclass/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Sibling/ })).toBeFocused();
@@ -536,7 +550,7 @@ test("the narrow split reserves 148 pixels and lists Synonym before relations", 
   await expect(trigger).toHaveText("v");
   await expect(row.locator(".ext-main")).toHaveText("+ Synonym");
   await expect(row.locator(".ext-main")).toBeEnabled();
-  await expect(page.getByRole("menuitem")).toHaveText([
+  await expect(page.getByRole("menu").getByRole("menuitem")).toHaveText([
     "Synonymrdfs:seeAlso",
     "Subclassrdfs:subClassOf",
     "Siblingrdfs:subClassOf",
@@ -546,13 +560,13 @@ test("the narrow split reserves 148 pixels and lists Synonym before relations", 
     "aria-label",
     "Psychology",
   );
-  await page.getByRole("menuitem").first().click();
+  await page.getByRole("menu").getByRole("menuitem").first().click();
   await expect(pane().locator(".extend-confirmation")).toHaveText(
     "Psy added to Psychology",
   );
   await extendMenu("Psychology");
-  await expect(page.getByRole("menuitem")).toHaveCount(4);
-  await expect(page.getByRole("menuitem").first()).toHaveText(
+  await expect(page.getByRole("menu").getByRole("menuitem")).toHaveCount(4);
+  await expect(page.getByRole("menu").getByRole("menuitem").first()).toHaveText(
     "Synonymrdfs:seeAlso",
   );
 });
@@ -769,7 +783,9 @@ for (const mode of ["expanded", "narrow", "constrained"] as const) {
     const trigger = await extendMenu("Psychology");
     await trigger.press("Escape");
     await trigger.press("Enter");
-    await expect(page.getByRole("menuitem").first()).toBeFocused();
+    await expect(
+      page.getByRole("menu").getByRole("menuitem").first(),
+    ).toBeFocused();
     const order = ["Subclass", "Sibling", "Synonym", "Subclass"];
     for (const item of order) {
       await page.keyboard.press("s");
@@ -788,7 +804,7 @@ test("#55 owl:Thing offers Subclass and Instance without Sibling", async () => {
     "false",
   );
   await extendMenu("Thing");
-  await expect(page.getByRole("menuitem")).toHaveText([
+  await expect(page.getByRole("menu").getByRole("menuitem")).toHaveText([
     "Synonymrdfs:seeAlso",
     "Subclassrdfs:subClassOf",
     "Instancerdf:type",
@@ -1094,10 +1110,14 @@ test("Find synonym action permits name and synonym matches, rejects query syntax
   for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
     await query.fill(text);
     await expect(p.locator(".find-synonym")).toHaveCount(0);
-    if (!text)
+    if (!text) {
       await expect(
         p.getByRole("columnheader", { name: "Synonym", exact: true }),
-      ).toHaveCount(1);
+      ).toHaveCount(0);
+      await expect(p.locator(".find-empty")).toHaveText(
+        "Type to search names, aliases and IRIs.",
+      );
+    }
   }
   expect((await synonymDocument()).statements).toEqual(before.statements);
   expect((await synonymDocument()).version).toBe(before.version);
@@ -1184,7 +1204,7 @@ test("Find filters, sorts and pages every match with useful result actions", asy
   );
   await types(["Classes"]);
   await setPageSize("25");
-  await p.getByRole("combobox", { name: "Sort results" }).selectOption("name");
+  await p.getByRole("combobox", { name: "Sort" }).selectOption("name");
   await expect(p.getByRole("status").first()).toHaveText(
     /125 matches of [\d,]+ entities/,
   );
@@ -1460,7 +1480,10 @@ test("automatic Find enriches an unseen query and preserves field and type facet
     p.getByRole("checkbox", { name: "rdfs:comment", exact: true }),
   ).toBeVisible();
   await p.getByRole("button", { name: "More", exact: true }).click();
-  await p.getByRole("button", { name: "Clear", exact: true }).click();
+  await p
+    .getByRole("dialog", { name: "More", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
   await expect(p).toContainText("Select at least one field");
   await p.getByRole("checkbox", { name: "rdfs:comment", exact: true }).check();
   await p
@@ -1555,7 +1578,10 @@ test("graph Find similar uses the selected name and field facets survive restart
     pane().getByRole("combobox", { name: "Match mode" }),
   ).toHaveCount(0);
   await pane().getByRole("button", { name: "More", exact: true }).click();
-  await pane().getByRole("button", { name: "Clear", exact: true }).click();
+  await pane()
+    .getByRole("dialog", { name: "More", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();
@@ -1695,7 +1721,10 @@ test("opens every filtered result and shared ancestry in a separate graph, prese
 test("result graphs follow field filters and instance ancestry without expanding siblings", async () => {
   await find("Basic");
   await pane().getByRole("button", { name: "More", exact: true }).click();
-  await pane().getByRole("button", { name: "Clear", exact: true }).click();
+  await pane()
+    .getByRole("dialog", { name: "More", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
   await pane()
     .getByRole("checkbox", { name: "rdfs:comment", exact: true })
     .check();

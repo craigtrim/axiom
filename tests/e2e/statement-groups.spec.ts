@@ -460,8 +460,8 @@ test("Find values share one predicate, source keeps delimiters and parents use i
     row.getByRole("button", { name: "1 more", exact: true }),
   ).toBeVisible();
   const height = (await row.boundingBox())!.height;
-  expect(height).toBeGreaterThanOrEqual(130);
-  expect(height).toBeLessThanOrEqual(135);
+  // The v5 Find specimen includes 2 px stack gaps and 3 px cell padding (#83).
+  expect(Math.round(height)).toBe(143);
   await writeFile(
     "artifacts/grouped-statements/find-geometry.json",
     JSON.stringify({ height }, null, 2),

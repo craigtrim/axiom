@@ -3,47 +3,22 @@
 .extend-context,
 .extend-confirmation {
   grid-row: 4;
-  --ext-raised: #fff;
-  --ext-border: #e1e4e8;
-  --ext-border-strong: #d0d7de;
-  --ext-text: #1b1f24;
-  --ext-muted: #57606a;
-  --ext-hover: #f6f7f9;
-  --ext-focus: #0b5fd0;
-  --ext-accent: #0b5fd0;
-  --ext-tint: #f4f8fe;
-  --ext-ok: #0a7a3d;
-  --ext-ok-bg: #e8f5ed;
-  --ext-ok-border: #a9d8bd;
-  --ext-shadow: 0 8px 24px rgba(27, 31, 36, 0.18);
-  --ext-font:
-    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --ext-mono:
-    "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
-  font: 13px/1.5 var(--ext-font);
-  color: var(--ext-text);
+  /* The extension reference has two private colors (craigtrim/axiom#83). */
+  --accent-tint: #f4f8fe;
+  --ok-border: #a9d8bd;
+  font: 13px/1.5 var(--font);
+  color: var(--text);
 }
 [data-theme="dark"] :is(.entity-extend, .extend-context, .extend-confirmation) {
-  --ext-raised: #1c2128;
-  --ext-border: #30363d;
-  --ext-border-strong: #3d444d;
-  --ext-text: #e6edf3;
-  --ext-muted: #9ba7b4;
-  --ext-hover: #161b22;
-  --ext-focus: #6aabff;
-  --ext-accent: #4c9aff;
-  --ext-tint: #0f1a28;
-  --ext-ok: #4ade80;
-  --ext-ok-bg: #0f2a1b;
-  --ext-ok-border: #1d5233;
-  --ext-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --accent-tint: #0f1a28;
+  --ok-border: #1d5233;
 }
 .find-panel .find-extend-column {
   width: 148px;
   text-align: end;
 }
 /* Keep unbroken names and aliases inside their cell when the split reserves
-   space. Narrow panes place Type below the entity alongside its other metadata. */
+   space. Constrained panes place Type below the entity with its other metadata. */
 .find-panel
   .find-results
   :is(.find-result-name, .find-row-synonyms, .find-folded-type),
@@ -91,13 +66,13 @@ tr[data-selected="true"] .entity-extend,
   padding: 0 8px;
   font: inherit;
   font-size: 13px;
-  color: var(--ext-text);
-  background: var(--ext-raised);
-  border: 1px solid var(--ext-border-strong);
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
   cursor: pointer;
 }
 .entity-extend .ext-action:hover {
-  background: var(--ext-hover);
+  background: var(--row-hover);
 }
 .entity-extend .ext-main {
   border-radius: 4px 0 0 4px;
@@ -115,7 +90,7 @@ tr[data-selected="true"] .entity-extend,
   padding: 0 7px;
 }
 .entity-extend .ext-action:focus-visible {
-  outline: 2px solid var(--ext-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
   z-index: 2;
 }
@@ -135,11 +110,11 @@ tr[data-selected="true"] .entity-extend,
   overscroll-behavior: contain;
   padding: 3px;
   text-align: start;
-  background: var(--ext-raised);
-  color: var(--ext-text);
-  border: 1px solid var(--ext-border-strong);
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  box-shadow: var(--ext-shadow);
+  box-shadow: var(--shadow-pop);
   font: inherit;
 }
 .entity-extend .ext-item {
@@ -153,16 +128,16 @@ tr[data-selected="true"] .entity-extend,
   padding: 6px 8px;
   font: inherit;
   font-size: 13px;
-  color: var(--ext-text);
+  color: var(--text);
   border-radius: 4px;
   cursor: pointer;
 }
 .entity-extend .ext-item:hover,
 .entity-extend .ext-item:focus-visible {
-  background: var(--ext-hover);
+  background: var(--row-hover);
 }
 .entity-extend .ext-item:focus-visible {
-  outline: 2px solid var(--ext-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 .entity-extend .ext-item:disabled {
@@ -180,22 +155,22 @@ tr[data-selected="true"] .entity-extend,
   min-width: 0;
   overflow-wrap: anywhere;
   text-align: end;
-  font-family: var(--ext-mono);
+  font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--ext-muted);
+  color: var(--text-muted);
 }
 .ext-separator {
   display: block;
   height: 1px;
   margin: 3px 0;
-  background: var(--ext-border);
+  background: var(--border);
 }
 .ext-caption {
   display: block;
   overflow-wrap: anywhere;
   padding: 4px 8px 2px;
   font-size: 11.5px;
-  color: var(--ext-muted);
+  color: var(--text-muted);
 }
 .extend-context {
   display: flex;
@@ -204,8 +179,8 @@ tr[data-selected="true"] .entity-extend,
   gap: 8px;
   flex: none;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--ext-border);
-  background: var(--ext-tint);
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-tint);
   font-size: 12.5px;
 }
 .extend-context > span {
@@ -223,21 +198,21 @@ tr[data-selected="true"] .entity-extend,
   padding: 0 8px;
   font: inherit;
   font-size: 12px;
-  color: var(--ext-text);
-  background: var(--ext-raised);
-  border: 1px solid var(--ext-border-strong);
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
 }
 .extend-context code {
-  font-family: var(--ext-mono);
+  font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--ext-accent);
+  color: var(--accent);
 }
 .extend-context .extend-back:focus-visible {
-  outline: 2px solid var(--ext-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 .extend-confirmation {
@@ -246,16 +221,16 @@ tr[data-selected="true"] .entity-extend,
   gap: 6px;
   flex: none;
   padding: 8px 12px;
-  border-top: 1px solid var(--ext-ok-border);
-  background: var(--ext-ok-bg);
-  color: var(--ext-ok);
+  border-top: 1px solid var(--ok-border);
+  background: var(--ok-soft);
+  color: var(--ok);
   font-size: 12.5px;
   font-weight: 600;
 }
 .find-label-hint {
   display: block;
   font-size: 11.5px;
-  color: var(--ink-3);
+  color: var(--text-muted);
 }
 .find-panel[data-create-open="true"] .find-create-host {
   padding: 0;
@@ -266,8 +241,8 @@ tr[data-selected="true"] .entity-extend,
   z-index: 2;
 }
 .find-panel .extend-context code {
-  font-family: var(--ext-mono);
+  font-family: var(--mono);
   font-size: 11.5px;
   line-height: 1.5;
-  color: var(--ext-accent);
+  color: var(--accent);
 }

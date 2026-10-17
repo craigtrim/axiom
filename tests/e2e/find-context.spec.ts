@@ -121,6 +121,8 @@ test.beforeEach(async () => {
     )
     .toBe("context.ttl");
   await menu("view.find");
+  // Empty Find now waits for a query (craigtrim/axiom#83).
+  await query().fill("Topic");
   await expect(rows()).toHaveCount(50);
   await size(560);
 });
@@ -146,15 +148,18 @@ test("the empty context takes no space and clears immediately while replacement 
   await expect(rows()).toHaveCount(6);
   await rows().first().press("Space");
   await expect(inspector()).toBeVisible();
+  for (const text of ["Boundary 00", "Class", "Foundation"])
+    await expect(inspector()).toContainText(text);
+  await pane().getByRole("button", { name: "More", exact: true }).click();
   for (const text of [
-    "Boundary 00",
-    "Class",
     "https://context.test/Topic0",
-    "Foundation",
     "Alias 0",
     "Description 0",
   ])
-    await expect(inspector()).toContainText(text);
+    await expect(pane().locator(".find-selected-details")).toContainText(text);
+  await pane()
+    .getByRole("dialog", { name: "More", exact: true })
+    .press("Escape");
   await holdRequests(app, ["find"]);
   await query().fill("Missing name");
   await waitForHeld(app);

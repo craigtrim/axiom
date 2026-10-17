@@ -1,10 +1,7 @@
 .adaptive-pane[data-pane-id="find"] {
   container-name: pane;
   overflow: hidden;
-  background: #ffffff;
-}
-[data-theme="dark"] .adaptive-pane[data-pane-id="find"] {
-  background: #1e1e1e;
+  background: var(--ground);
 }
 .find-panel {
   .find-controls {
@@ -16,18 +13,6 @@
     text-align: center;
     border-radius: 0;
   }
-  --surface: var(--bg);
-  --surface-alt: var(--raised);
-  --surface-sunken: var(--sunken);
-  --stroke: var(--line);
-  --stroke-strong: var(--line-2);
-  --text: var(--ink);
-  --text-secondary: var(--ink-2);
-  --text-on-accent: var(--on-accent);
-  --accent-hover: var(--accent-2);
-  --layer-hover: var(--hover);
-  --item-hover: var(--hover);
-  --item-hover-text: var(--ink);
   font:
     14px/1.4 "Segoe UI Variable Text",
     "Segoe UI",
@@ -35,8 +20,8 @@
     -apple-system,
     sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: var(--ink);
-  background: transparent;
+  color: var(--text);
+  background: var(--ground);
   color-scheme: light dark;
   height: 100%;
   min-width: 0;
@@ -81,57 +66,13 @@
     margin: 8px 0 12px;
   }
 }
-/* Measured from the authoritative visual-reference.html, SHA-256
- * c2a08e67a186ef3fd606b153faf59778962a96e6c56f0d1f7eee8100c9105716.
- * The scoped specimen rules below preserve its dimensions and glyph layout.
- */
+/* Find keeps its reference geometry and reads the shared palette directly
+ * (craigtrim/axiom#83). Only the primary hover value is private. */
 .find-panel {
-  --bg: #ffffff;
-  --sunken: #f4f4f4;
-  --raised: #fafafa;
-  --hover: #efefef;
-  --line: #e2e2e2;
-  --line-2: #c6c6c6;
-  --ink: #1b1b1b;
-  --ink-2: #585858;
-  /* Clears 4.5:1 against the hover ground as well as against the page, which is
-     where secondary text actually lands in a result row. */
-  --ink-3: #6a6a6a;
-  --accent: #0f5fa8;
-  --accent-2: #0b4a84;
-  --on-accent: #ffffff;
-  --tint: #eaf2fb;
-  --ok: #0b6b36;
-  --ok-tint: #e6f4ec;
-  --warn: #7d4a00;
-  --warn-tint: #fcf1df;
-  --bad: #a8201a;
-  --bad-tint: #fbeae9;
-  --focus: #0f5fa8;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.24);
+  --accent-hover: #0a52b4;
 }
 [data-theme="dark"] .find-panel {
-  --bg: #1e1e1e;
-  --sunken: #161616;
-  --raised: #272727;
-  --hover: #323232;
-  --line: #3a3a3a;
-  --line-2: #555555;
-  --ink: #f1f1f1;
-  --ink-2: #c3c3c3;
-  --ink-3: #a0a0a0;
-  --accent: #6cb4f5;
-  --accent-2: #9acbf8;
-  --on-accent: #0a1a28;
-  --tint: #16293a;
-  --ok: #65d18f;
-  --ok-tint: #11301e;
-  --warn: #e3a942;
-  --warn-tint: #33260c;
-  --bad: #ff8d81;
-  --bad-tint: #3a1a17;
-  --focus: #6cb4f5;
-  --shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.7);
+  --accent-hover: #6aabff;
 }
 
 .find-panel {
@@ -141,7 +82,7 @@
     align-items: center;
     gap: 4px;
     padding: 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
   .find-query {
     position: relative;
@@ -155,10 +96,10 @@
     width: 100%;
     padding: 6px 60px 6px 10px;
     min-height: 32px;
-    border: 1px solid var(--line-2);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
-    background: var(--bg);
-    color: var(--ink);
+    background: var(--ground);
+    color: var(--text);
   }
   .find-query input:focus-visible {
     outline: 2px solid var(--focus);
@@ -184,14 +125,14 @@
     min-height: 24px;
     border: 1px solid transparent;
     background: transparent;
-    color: var(--ink-2);
+    color: var(--text-muted);
     border-radius: 4px;
     cursor: pointer;
     padding: 0;
   }
   .ib:hover {
-    background: var(--hover);
-    color: var(--ink);
+    background: var(--row-hover);
+    color: var(--text);
   }
   .ib:focus-visible {
     outline: 2px solid var(--focus);
@@ -211,15 +152,15 @@
     font-size: 13px;
     padding: 5px 10px;
     min-height: 32px;
-    border: 1px solid var(--line-2);
-    background: var(--bg);
-    color: var(--ink);
+    border: 1px solid var(--border-strong);
+    background: var(--ground);
+    color: var(--text);
     border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
   }
   .btn:hover {
-    background: var(--hover);
+    background: var(--row-hover);
   }
   .btn:focus-visible {
     outline: 2px solid var(--focus);
@@ -233,18 +174,18 @@
   .btn.primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--on-accent);
+    color: var(--accent-fg);
   }
   .btn.primary:hover {
-    background: var(--accent-2);
-    border-color: var(--accent-2);
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
   }
   .btn[disabled] {
     opacity: 0.5;
     cursor: default;
   }
   .btn[disabled]:hover {
-    background: var(--bg);
+    background: var(--ground);
   }
 
   select.sel {
@@ -252,10 +193,10 @@
     font-size: 13px;
     min-height: 32px;
     padding: 4px 6px;
-    border: 1px solid var(--line-2);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
-    background: var(--bg);
-    color: var(--ink);
+    background: var(--ground);
+    color: var(--text);
     max-width: 128px;
     min-width: 0;
     flex: 0 1 auto;
@@ -274,8 +215,8 @@
   }
   .find-facets {
     display: none;
-    border-right: 1px solid var(--line);
-    background: var(--raised);
+    border-right: 1px solid var(--border);
+    background: var(--surface);
     overflow-y: auto;
     min-height: 0;
     padding: 8px;
@@ -293,13 +234,13 @@
   }
   .find-scope-heading .s {
     font-size: 12px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-facets h4 {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--ink-3);
+    color: var(--text-muted);
     margin: 12px 0 6px;
     font-weight: 600;
   }
@@ -328,7 +269,7 @@
   .chk .c {
     flex: none;
     font-size: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
   .chk .c.hit {
@@ -348,12 +289,12 @@
     justify-content: space-between;
     gap: 8px;
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
-    background: var(--raised);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
   .find-results-toolbar .n {
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-result-actions {
     display: inline-flex;
@@ -376,10 +317,10 @@
     align-items: center;
     gap: 4px;
     padding: 6px 8px;
-    border-top: 1px solid var(--line);
-    background: var(--raised);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
     font-size: 12px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-pagination .pg {
     font-variant-numeric: tabular-nums;
@@ -388,9 +329,9 @@
   .find-inspector {
     display: none;
     padding: 6px 8px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-store {
     display: none;
@@ -398,10 +339,10 @@
     justify-content: space-between;
     gap: 8px;
     padding: 4px 8px;
-    border-top: 1px solid var(--line);
-    background: var(--raised);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
     font-size: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
 
   /* Result table */
@@ -414,24 +355,23 @@
     text-align: left;
     font-size: 12px;
     font-weight: 600;
-    color: var(--ink-2);
+    color: var(--text-muted);
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    background: var(--bg);
+    background: var(--ground);
   }
   table.find-results td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     vertical-align: top;
   }
   table.find-results tr:hover td {
-    background: var(--hover);
+    background: var(--row-hover);
   }
   table.find-results tr.sel td {
-    background: var(--tint);
-    box-shadow: inset 2px 0 0 var(--accent);
+    background: var(--row-selected);
   }
   .ename {
     color: var(--accent);
@@ -449,7 +389,7 @@
     gap: 4px;
     min-width: 0;
     font-size: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
   .epath .ph {
     flex: 0 1 auto;
@@ -465,19 +405,19 @@
   .efold {
     display: none;
     font-size: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
     margin-top: 2px;
   }
   .efold b {
-    color: var(--ink-2);
+    color: var(--text-muted);
     font-weight: 600;
   }
   .syn {
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .syn.none {
-    color: var(--ink-3);
+    color: var(--text-muted);
     font-style: normal;
   }
   .addsyn {
@@ -509,9 +449,7 @@
     border: 0;
   }
 
-  /* ===== Container query tiering. Only 600 and 400 appear anywhere below. =====
-   Defaults first, overrides after, because these selectors have equal weight
-   and the later rule wins. The default state is Narrow and shallow. */
+  /* AdaptivePane owns thresholds and hysteresis; CSS follows its same flags. */
   .sort {
     display: none;
   }
@@ -533,7 +471,7 @@
     display: block;
   }
 
-  @container pane (min-height: 400px) {
+  &:is([data-layout="expanded"], [data-layout="narrow"]) {
     .find-results-toolbar {
       display: flex;
     }
@@ -561,7 +499,7 @@
       display: none;
     }
   }
-  @container pane (min-width: 600px) {
+  &:is([data-layout="expanded"], [data-layout="shallow"]) {
     .sort {
       display: inline-flex;
     }
@@ -580,7 +518,7 @@
       display: none;
     }
   }
-  @container pane (min-width: 600px) and (min-height: 400px) {
+  &[data-layout="expanded"] {
     .find-workarea {
       grid-template-columns: 224px minmax(0, 1fr);
     }
@@ -599,7 +537,7 @@
   .zero-editor {
     display: none;
   }
-  @container pane (min-height: 400px) {
+  &:is([data-layout="expanded"], [data-layout="narrow"]) {
     .zero-editor {
       display: block;
     }
@@ -616,7 +554,7 @@
   }
   .find-zero .why {
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
     margin: 0 0 12px;
     max-width: 60ch;
   }
@@ -634,15 +572,15 @@
     font-size: 13px;
     padding: 5px 10px;
     min-height: 32px;
-    border: 1px solid var(--line-2);
-    background: var(--bg);
-    color: var(--ink);
+    border: 1px solid var(--border-strong);
+    background: var(--ground);
+    color: var(--text);
     border-radius: 4px;
     cursor: pointer;
     text-align: left;
   }
   .find-remedy:hover {
-    background: var(--hover);
+    background: var(--row-hover);
   }
   .find-remedy:focus-visible {
     outline: 2px solid var(--focus);
@@ -653,7 +591,7 @@
     font-variant-numeric: tabular-nums;
     padding: 1px 7px;
     border-radius: 10px;
-    background: var(--ok-tint);
+    background: var(--ok-soft);
     color: var(--ok);
     font-weight: 600;
     white-space: nowrap;
@@ -663,16 +601,16 @@
     cursor: default;
   }
   .find-remedy[disabled]:hover {
-    background: var(--bg);
+    background: var(--ground);
   }
   .find-remedy[disabled] .y {
     background: var(--sunken);
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
 
   .rule {
     border: 0;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
     margin: 16px 0;
   }
 
@@ -702,7 +640,7 @@
     gap: 10px;
     font-size: 13px;
     font-weight: 600;
-    color: var(--ink-2);
+    color: var(--text-muted);
     margin: 4px 0 8px;
     min-height: 28px;
   }
@@ -710,7 +648,7 @@
     content: "";
     flex: 1 1 auto;
     height: 1px;
-    background: var(--line);
+    background: var(--border);
   }
 
   /* Collapsed ancestry: a chain of one is not a chain. FND-132.
@@ -722,11 +660,11 @@
     flex-wrap: wrap;
     font-size: 13px;
     min-height: 28px;
-    color: var(--ink-2);
+    color: var(--text-muted);
     max-width: 560px;
   }
   .anc-line b {
-    color: var(--ink);
+    color: var(--text);
     font-weight: 600;
   }
   .anc-line .hint {
@@ -734,9 +672,9 @@
   }
 
   .sect {
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-top: 3px solid var(--accent);
-    background: var(--tint);
+    background: var(--row-selected);
     border-radius: 0 0 6px 6px;
     padding: 8px;
     max-width: 560px;
@@ -750,8 +688,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid var(--line-2);
-    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    background: var(--ground);
     border-radius: 8px;
     padding: 8px 12px;
     min-height: 44px;
@@ -759,7 +697,7 @@
   .ccard.sel {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--on-accent);
+    color: var(--accent-fg);
   }
   .ccard .glyph {
     flex: none;
@@ -779,7 +717,7 @@
   .conn {
     height: 16px;
     margin-left: 26px;
-    border-left: 1px solid var(--line-2);
+    border-left: 1px solid var(--border-strong);
     width: 1px;
   }
   .conn::after {
@@ -787,7 +725,7 @@
     display: block;
     margin-left: -5px;
     margin-top: 8px;
-    color: var(--line-2);
+    color: var(--border-strong);
     font-size: 11px;
     line-height: 1;
   }
@@ -801,7 +739,7 @@
     min-height: 30px;
   }
   .subj .k {
-    color: var(--ink-3);
+    color: var(--text-muted);
     flex: none;
   }
   .subj .v {
@@ -809,7 +747,7 @@
     min-width: 0;
     font-family: "Cascadia Mono", Consolas, monospace;
     font-size: 12px;
-    color: var(--ink-2);
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -817,7 +755,7 @@
   .subj .follows {
     flex: none;
     font-size: 11px;
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
 
   /* The statement count rides the header row. It never takes a band. FND-125. */
@@ -830,9 +768,9 @@
     text-align: left;
     font-size: 12px;
     font-weight: 600;
-    color: var(--ink-2);
+    color: var(--text-muted);
     padding: 4px 6px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
   .th-row {
     display: flex;
@@ -842,13 +780,13 @@
   }
   .th-row .n {
     font-weight: 400;
-    color: var(--ink-3);
+    color: var(--text-muted);
     font-size: 11.5px;
     white-space: nowrap;
   }
   table.st td {
     padding: 3px 6px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
   table.st .pk {
@@ -857,12 +795,12 @@
     gap: 4px;
     font-family: "Cascadia Mono", Consolas, monospace;
     font-size: 12px;
-    color: var(--ink);
+    color: var(--text);
   }
   table.st .pk svg {
     width: 12px;
     height: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
     flex: none;
   }
   table.st input,
@@ -872,10 +810,10 @@
     width: 100%;
     padding: 4px 8px;
     min-height: 30px;
-    border: 1px solid var(--line-2);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
-    background: var(--bg);
-    color: var(--ink);
+    background: var(--ground);
+    color: var(--text);
   }
   table.st td.fixed-v {
     font-size: 13px;
@@ -923,7 +861,7 @@
   details.src summary {
     cursor: pointer;
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
     padding: 4px 2px;
     min-height: 28px;
     display: flex;
@@ -937,13 +875,13 @@
     margin: 4px 0 0;
     padding: 10px;
     background: var(--sunken);
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 4px;
     overflow-x: auto;
     font-family: "Cascadia Mono", Consolas, monospace;
     font-size: 11.5px;
     line-height: 1.5;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   /* One row. The primary action is never stranded on its own line. FND-133. */
   .cfoot {
@@ -951,7 +889,7 @@
     align-items: center;
     gap: 10px;
     flex-wrap: nowrap;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
     margin-top: 6px;
     padding-top: 8px;
     min-height: 44px;
@@ -960,13 +898,13 @@
     flex: 1 1 0;
     min-width: 0;
     font-size: 12px;
-    color: var(--ink-2);
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .cfoot .dest b {
-    color: var(--ink);
+    color: var(--text);
     font-weight: 600;
   }
   .cfoot .acts {
@@ -983,6 +921,7 @@
     padding: 8px 10px;
     border-radius: 4px;
     font-size: 13px;
+    line-height: 1.6;
     margin: 6px 0;
   }
   .guard svg {
@@ -992,12 +931,12 @@
     margin-top: 2px;
   }
   .guard.block {
-    background: var(--bad-tint);
+    background: var(--bad-soft);
     color: var(--bad);
     border: 1px solid var(--bad);
   }
   .guard.caution {
-    background: var(--warn-tint);
+    background: var(--warn-soft);
     color: var(--warn);
     border: 1px solid var(--warn);
   }
@@ -1013,6 +952,7 @@
     padding: 0;
     text-decoration: underline;
     cursor: pointer;
+    min-height: 0;
   }
 }
 
@@ -1028,7 +968,7 @@
     align-items: center;
   }
   .find-controls input::-webkit-search-cancel-button {
-    display: none;
+    visibility: hidden;
   }
   .find-query {
     border: 0;
@@ -1036,7 +976,7 @@
   }
   .find-summary {
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-scope-heading .btn {
     font-size: 12px;
@@ -1073,9 +1013,6 @@
   .find-inspector p {
     margin: 0;
     font: inherit;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     color: inherit;
   }
   .find-store button {
@@ -1135,14 +1072,14 @@
   .entity-statements tbody th {
     vertical-align: middle;
     padding: 3px 6px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
   .entity-statements tbody th code {
     display: flex;
     align-items: center;
     gap: 4px;
     font-weight: 400;
-    color: var(--ink);
+    color: var(--text);
   }
   .entity-statements input,
   .entity-statements select {
@@ -1189,7 +1126,7 @@
     align-items: center;
     border: 0;
     background: none;
-    color: var(--ink-2);
+    color: var(--text-muted);
     font-size: 13px;
     padding: 4px 2px;
     min-height: 28px;
@@ -1198,14 +1135,14 @@
     margin: 4px 0 0;
     padding: 10px;
     background: var(--sunken);
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 4px;
     overflow-x: auto;
     font:
       11.5px/1.5 "Cascadia Mono",
       Consolas,
       monospace;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-create-actions > span {
     color: inherit;
@@ -1251,7 +1188,7 @@
   }
   .find-create-entry > span {
     font-size: 13px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   [data-withdrawn="true"] {
     position: absolute;
@@ -1278,6 +1215,7 @@
     grid-row: 3;
   }
   .find-result-name {
+    appearance: none;
     border: 0;
     padding: 0;
     background: transparent;
@@ -1286,10 +1224,15 @@
     text-align: left;
     white-space: normal;
     max-width: 100%;
+    width: 100%;
+    min-height: 0;
+    display: block;
+    text-decoration: none;
   }
   .find-result-path {
-    display: block;
-    direction: rtl;
+    display: flex;
+    gap: 4px;
+    min-width: 0;
     text-align: left;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -1299,7 +1242,7 @@
   .find-row-synonyms,
   .find-folded-type {
     font-size: 12px;
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
   .find-results .find-type-column {
     width: 120px;
@@ -1308,19 +1251,19 @@
     width: 180px;
   }
   .find-results tbody tr[data-selected="true"] {
-    background: var(--tint);
-    box-shadow: inset 2px 0 var(--accent);
+    background: var(--row-selected);
+    box-shadow: none;
   }
   .find-popover {
     position: fixed;
     margin: 0;
     padding: 12px;
-    border: 1px solid var(--line-2);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
-    background: var(--bg);
-    color: var(--ink);
+    background: var(--ground);
+    color: var(--text);
     overflow: auto;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-pop);
     font-size: 13px;
   }
   .find-popover:popover-open,
@@ -1342,7 +1285,7 @@
   }
   .find-selected-details dt {
     margin-top: 8px;
-    color: var(--ink-2);
+    color: var(--text-muted);
   }
   .find-created {
     color: var(--ok);
@@ -1364,7 +1307,7 @@
 .find-panel[data-create-open="true"] .find-create-host {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: var(--ground);
   z-index: 2;
   overflow: auto;
   padding: 8px;
@@ -1373,4 +1316,155 @@
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+/* The selection marker belongs to the leading cell, once per row. */
+.find-panel .find-results tbody tr[data-selected="true"] td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.find-panel .find-empty {
+  padding: 16px;
+  margin: 0;
+  color: var(--text-muted);
+}
+/* Revision 5 groups values beneath one predicate. Shared editor components keep
+   their behavior while Find supplies its reference spacing and palette. */
+.find-panel table.st tr.statement-group-row > td {
+  padding: 3px 6px;
+}
+.find-panel .statement-value-stack {
+  display: grid;
+  gap: 2px;
+}
+.find-panel .statement-value-stack.grouped {
+  border-color: var(--border-strong);
+}
+.find-panel .statement-value-count {
+  margin-left: 2px;
+  color: var(--text-muted);
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+.find-panel .statement-value-tools {
+  flex-wrap: wrap;
+}
+.find-panel table .statement-value-stack button.statement-value-expand {
+  margin-left: 0;
+}
+.find-panel table .statement-value-stack .statement-value-remove {
+  color: var(--text-muted);
+}
+.find-panel .entity-ancestry-peers::after {
+  border-color: var(--border-strong);
+}
+.find-panel .entity-ancestry-peers > .ccard::before {
+  border-color: var(--border-strong);
+}
+.find-panel table.st tbody tr:not(.statement-group-row) {
+  height: 41px;
+}
+.find-panel table.st tbody tr:not(.statement-group-row) > td {
+  padding-right: 36px;
+}
+.find-panel .find-value-action-slot {
+  flex: none;
+  width: 26px;
+}
+.find-panel .statement-value-field {
+  flex: 0 1 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+.find-panel
+  .statement-value-line:has(.text-parent-entry)
+  .statement-value-field {
+  max-width: 360px;
+}
+.find-panel .statement-value-line .statement-value-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.find-panel .statement-value-line .statement-value-remove svg {
+  width: 16px;
+  height: 16px;
+}
+.find-panel table .statement-value-stack button.statement-text-action {
+  min-height: 0;
+}
+.find-panel table.st tbody tr.find-kind-row > td {
+  padding-right: 6px;
+}
+.find-panel .find-kind-row select {
+  flex: 0 1 auto;
+}
+.find-panel .find-kind-action-space {
+  visibility: hidden;
+  flex: none;
+  padding: 2px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* The result metadata follows the reference's named, folded values (#83). */
+.find-panel .find-result-name:hover {
+  text-decoration: underline;
+}
+.find-panel .find-result-path .ph {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.find-panel .find-result-path .pl {
+  flex: none;
+  white-space: nowrap;
+}
+.find-panel .find-folded-type,
+.find-panel .find-folded-synonyms {
+  margin-top: 2px;
+  display: block;
+}
+.find-panel .find-folded-synonyms {
+  font-size: 12px;
+}
+.find-panel .find-folded-type b,
+.find-panel .find-folded-synonyms b {
+  font-weight: 600;
+}
+.find-panel .find-row-synonyms {
+  font-size: 13px;
+}
+.find-panel .find-folded-synonyms.find-row-synonyms {
+  font-size: 12px;
+}
+.find-panel .find-results tbody tr[data-selected="true"] td {
+  background: var(--row-selected);
+}
+.find-panel .statement-group-predicate > .predicate-picker {
+  flex: 0 1 auto;
+}
+.find-panel .statement-group-predicate .predicate-picker select {
+  width: auto;
+  field-sizing: content;
+}
+.find-panel .statement-value-field > .text-parent-entry {
+  width: 100%;
+}
+.find-panel .statement-value-field input {
+  height: auto;
+  min-height: 30px;
+}
+/* Keep the narrow reference column at its preferred width while the remaining
+   entity space still fits; smaller panes reduce that width continuously. */
+.find-panel[data-layout="narrow"] .find-results .find-type-column {
+  width: clamp(24px, calc(100cqw - 243px), 120px);
+}
+.find-panel[data-layout="narrow"] .find-results th {
+  box-sizing: border-box;
+}
+.find-panel .find-results-toolbar {
+  min-width: 0;
+  flex-wrap: wrap;
 }

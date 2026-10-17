@@ -54,6 +54,28 @@ const matrix = queries.flatMap((text) =>
   ),
 );
 describe("Find scope counts and remedies", () => {
+  // No browse flag: the pane still needs useful totals before typing (#83).
+  it.each(["", "   "])(
+    "empty query %j has no rows and reports populated fields and kind totals",
+    (text) => {
+      const result = index.find({
+        text,
+        diagnostics: true,
+        fields: [],
+        kinds: [],
+      });
+      expect(result.total).toBe(0);
+      expect(result.rows).toEqual([]);
+      expect(result.kinds.find((k) => k.id === "classes")?.count).toBe(3); // Includes owl:Thing.
+      expect(result.kinds.find((k) => k.id === "individuals")?.count).toBe(1);
+      expect(
+        result.fields.find((f) => f.id === NS.rdfs + "comment")?.count,
+      ).toBe(2);
+      expect(
+        result.fields.find((f) => f.id === "name")?.count,
+      ).toBeGreaterThanOrEqual(5);
+    },
+  );
   it.each(matrix)("query=$text fields=$fields kinds=$kinds", (options) => {
     // Each diagnostic is checked against the actual search that its control will run.
     // The main ranker and the diagnostic union evaluator are separate code paths.
