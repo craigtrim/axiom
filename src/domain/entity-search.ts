@@ -643,7 +643,12 @@ export class EntitySearchIndex {
     const kinds = findKinds.map((id) => ({
       id,
       label: labels[id],
-      count: count(selected, [id]),
+      // Empty Find keeps useful Store totals without requesting browse rows
+      // (craigtrim/axiom#83).
+      count: options.text.trim()
+        ? count(selected, [id])
+        : this.rows.filter((row) => eligible(row) && row.category === id)
+            .length,
     }));
     const remedies: NonNullable<FindResults["remedies"]> = [];
     if (selected.length < allFields.length)

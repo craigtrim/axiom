@@ -277,42 +277,56 @@ export function FindCreatePanel({
           </div>
           <StatementTable
             count={
-              4 +
-              Math.max(0, draft.parents.length - 1) +
-              draft.statements.length
+              // Count filled values, not empty input slots (craigtrim/axiom#83).
+              1 +
+              Number(!!draft.label.trim()) +
+              Number(!!draft.comment.trim()) +
+              selectedParents.length +
+              draft.statements.filter((row) => row.value.trim()).length
             }
           >
-            <tr>
+            <tr className="find-kind-row">
               <th scope="row">
                 <code>rdf:type</code>
               </th>
               <td>
-                <select
-                  className="w-label"
-                  aria-label="rdf:type"
-                  value={creationType(kind)}
-                  onChange={(event) => {
-                    const next = findCreationKinds.find(
-                      (k) => creationType(k) === event.target.value,
-                    )!;
-                    updateFindDraft({
-                      kind: next,
-                      parents: selectedParents.filter((iri) => {
-                        const target = snapshot.entities.find(
-                          (e) => e.iri === iri,
-                        );
-                        return target && creationTargetMatches(next, target);
-                      }),
-                      parentText: "",
-                    });
-                  }}
-                >
-                  {findCreationKinds.map((k) => (
-                    <option key={k} value={creationType(k)}>
-                      {compactIri(creationType(k), snapshot.ontology.namespace)}
-                    </option>
-                  ))}
-                </select>
+                <div className="statement-value-line">
+                  <select
+                    className="w-label"
+                    aria-label="rdf:type"
+                    value={creationType(kind)}
+                    onChange={(event) => {
+                      const next = findCreationKinds.find(
+                        (k) => creationType(k) === event.target.value,
+                      )!;
+                      updateFindDraft({
+                        kind: next,
+                        parents: selectedParents.filter((iri) => {
+                          const target = snapshot.entities.find(
+                            (e) => e.iri === iri,
+                          );
+                          return target && creationTargetMatches(next, target);
+                        }),
+                        parentText: "",
+                      });
+                    }}
+                  >
+                    {findCreationKinds.map((k) => (
+                      <option key={k} value={creationType(k)}>
+                        {compactIri(
+                          creationType(k),
+                          snapshot.ontology.namespace,
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="find-value-action-slot" />
+                  {/* Kind remains a single choice; reserve the same space as the
+                    repeatable value rows without adding a dead control. */}
+                  <span className="find-kind-action-space" aria-hidden="true">
+                    + Add value
+                  </span>
+                </div>
                 {fieldError("kind")}
               </td>
             </tr>
@@ -359,6 +373,7 @@ export function FindCreatePanel({
               </td>
             </tr>
             <StatementGroupRow
+              find
               group={{
                 predicate: relation,
                 values: parentValues as [string, ...string[]],
@@ -488,6 +503,7 @@ export function FindCreatePanel({
             </tr>
             {statementGroups.map((group) => (
               <StatementGroupRow
+                find
                 key={group.predicate}
                 group={group}
                 name={compactIri(group.predicate, snapshot.ontology.namespace)}
@@ -565,6 +581,7 @@ export function FindCreatePanel({
           {fieldError("statements")}
           <div className="ed-tools">
             <AddStatementAction
+              find
               disabled={!unusedPredicate}
               add={() =>
                 unusedPredicate &&
@@ -593,50 +610,79 @@ export function FindCreatePanel({
             />
           </div>
           {preview?.collisions.map((collision) => (
-            <div className="find-collision" role="status" key={collision.iri}>
-              <p>
-                <strong>{collision.label}</strong> already exists
-                {collision.kind === "normalized"
-                  ? ", and its normalised name is the same as yours"
-                  : collision.kind === "iri"
-                    ? " at this subject IRI"
-                    : ""}
-                . It sits under {collision.path}.
-                {collision.kind === "normalized" &&
-                  ` You can still create a separate ${noun}.`}
-              </p>
-              {collision.openable === false ? (
-                <p>
-                  This IRI is already used in RDF. Choose another subject IRI.
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void check
-                      .validate()
-                      .then((fresh) => {
-                        if (
-                          !current() ||
-                          !fresh?.collisions.some(
-                            (item) =>
-                              item.iri === collision.iri &&
-                              item.openable !== false,
+            <div
+              className={`find-collision guard ${collision.kind === "normalized" ? "caution" : "block"}`}
+              role="status"
+              key={collision.iri}
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                aria-hidden="true"
+              >
+                {collision.kind === "normalized" ? (
+                  <>
+                    <path d="M8 2.2 14.5 13.3h-13z" />
+                    <path d="M8 6.3v3M8 11.4v.6" />
+                  </>
+                ) : (
+                  <>
+                    <circle cx="8" cy="8" r="6.5" />
+                    <path d="M8 4.5v4.2M8 11.2v.6" />
+                  </>
+                )}
+              </svg>
+              <span>
+                {collision.kind === "normalized" ? (
+                  <>
+                    <span className="b">{draft.label}</span>
+                    {" is very close to "}
+                    <span className="b">{collision.label}</span>
+                    {` under ${collision.path}.`}
+                  </>
+                ) : (
+                  <>
+                    <span className="b">{collision.label}</span>
+                    {` already exists${collision.kind === "iri" ? " at this subject IRI" : ""} under ${collision.path}. `}
+                  </>
+                )}
+                {collision.kind === "normalized" ? null : collision.openable ===
+                  false ? (
+                  <span>
+                    This IRI is already used in RDF. Choose another subject IRI.
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() =>
+                      void check
+                        .validate()
+                        .then((fresh) => {
+                          if (
+                            !current() ||
+                            !fresh?.collisions.some(
+                              (item) =>
+                                item.iri === collision.iri &&
+                                item.openable !== false,
+                            )
                           )
-                        )
-                          return;
-                        return reveal(
-                          collision.iri,
-                          collision.label,
-                          `Opened ${collision.label}`,
-                        );
-                      })
-                      .catch((reason) => setError(reason.message))
-                  }
-                >
-                  Open {collision.label}
-                </button>
-              )}
+                            return;
+                          return reveal(
+                            collision.iri,
+                            collision.label,
+                            `Opened ${collision.label}`,
+                          );
+                        })
+                        .catch((reason) => setError(reason.message))
+                    }
+                  >
+                    {`Open ${collision.label}`}
+                  </button>
+                )}
+              </span>
             </div>
           ))}
           <footer className="find-create-actions cfoot">
