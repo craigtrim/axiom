@@ -1,3 +1,4 @@
+// Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
   test,
   expect,
@@ -85,7 +86,10 @@ async function suggest(name: string, action: string) {
   await page.getByRole("menuitem", { name: action, exact: true }).click();
   await expect(view()).toBeVisible();
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue(
     action === "Add Children"
       ? "children"
@@ -280,17 +284,17 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   await expect(
     view().getByRole("table", { name: "Suggested parent classes" }),
   ).toBeVisible();
-  await expect(
-    view().getByRole("combobox", { name: "Taxonomy assistant" }),
-  ).toHaveValue("codex");
+  await expect(view().getByRole("combobox", { name: "Assistant" })).toHaveValue(
+    "codex",
+  );
   await expect(
     view().getByRole("button", { name: "Available 2", exact: true }),
   ).toBeVisible();
   await view()
-    .getByRole("button", { name: "Details for Alpha Gamma", exact: true })
+    .getByRole("button", { name: "Show details for Alpha Gamma", exact: true })
     .click();
   await expect(view().locator(".ac-detail")).toContainText(
-    "Why Codex proposed this",
+    "Why Codex proposed these",
   );
   await expect(view().locator(".ac-detail")).toContainText(
     "Alpha Beta Gamma rdfs:subClassOf Alpha Gamma",
@@ -299,7 +303,7 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   const box = await table.boundingBox();
   await view().getByRole("button", { name: "Context", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "Context sent to the assistant" }),
+    page.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("class names and their parent links were sent");
   expect(await table.boundingBox()).toEqual(box);
   await page.keyboard.press("Escape");
@@ -307,7 +311,7 @@ test("uses the local assistant for parents in the shared view, keeps histories a
     const trigger = view().getByRole("button", { name, exact: true });
     await trigger.click();
     const popover = page.locator(".ac-popover");
-    await expect(popover).toBeFocused();
+    await expect(trigger).toBeFocused();
     expect(await table.boundingBox()).toEqual(box);
     const placement = await popover.evaluate((el) => {
       const r = el.getBoundingClientRect();
@@ -363,11 +367,11 @@ test("uses the local assistant for parents in the shared view, keeps histories a
     )
     .toContain(base + "AlphaGamma");
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("children");
   await expect(view().getByRole("heading")).toContainText("Add children");
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("parents");
   await expect
     .poll(
@@ -391,18 +395,21 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   const other = page.locator('.suggestions-view[data-panel^="taxonomy:"]');
   await expect(other).toBeVisible();
   await other
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("children");
   await menu("view.taxonomy");
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("parents");
   await menu("file.save");
   await expect.poll(async () => (await state()).dirty).toBe(false);
   // Opening saves the active workspace first. Keep a separate snapshot to test restoration.
   await writeFile(file + ".saved.axiom", await readFile(file + ".axiom"));
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("children");
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
@@ -413,7 +420,10 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   await menu("file.open");
   await menu("view.taxonomy");
   await expect(
-    view().getByRole("combobox", { name: "Suggestion type", exact: true }),
+    view().getByRole("combobox", {
+      name: /^(Suggest|Suggestion type)$/,
+      exact: true,
+    }),
   ).toHaveValue("parents");
   await app.close();
   await launch();
@@ -437,7 +447,10 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   await expect(
     page
       .locator('.suggestions-view[data-panel^="taxonomy:"]')
-      .getByRole("combobox", { name: "Suggestion type", exact: true }),
+      .getByRole("combobox", {
+        name: /^(Suggest|Suggestion type)$/,
+        exact: true,
+      }),
   ).toHaveValue("children");
 });
 test("saves custom suggestions globally, reviews values and confines child progress to Suggestions", async () => {
@@ -481,7 +494,7 @@ test("saves custom suggestions globally, reviews values and confines child progr
     )
     .toBe(true);
   await view()
-    .getByRole("combobox", { name: "Suggestion type", exact: true })
+    .getByRole("combobox", { name: /^(Suggest|Suggestion type)$/, exact: true })
     .selectOption("children");
   await expect(view().locator('[data-assistant="taxonomy"]')).toBeVisible();
   await expect(

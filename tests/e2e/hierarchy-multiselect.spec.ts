@@ -1,3 +1,4 @@
+// Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
   test,
   expect,
@@ -407,7 +408,7 @@ for (const undo of [false, true]) {
       ).toBeDisabled();
       await expect(
         review().getByRole("button", { name: "Run again", exact: true }),
-      ).toBeDisabled();
+      ).toHaveCount(0);
       await review()
         .getByRole("checkbox", { name: "Select all available suggestions" })
         .check();
@@ -460,6 +461,61 @@ for (const undo of [false, true]) {
     }
   });
 }
+
+test("completed child suggestions can be added and undone while another target runs", async () => {
+  const hold = path.join(profile, "hold-Beta Subject");
+  await writeFile(hold, "hold");
+  try {
+    await start(["Alpha", "Beta"], "children");
+    await expect
+      .poll(async () => (await batches())[0].runs.map((r) => r.state))
+      .toEqual(["completed", "running"]);
+    await runs()
+      .getByRole("button", { name: "Open run for Alpha Subject", exact: true })
+      .click();
+    const choice = review().getByRole("checkbox", {
+      name: "Select Alpha Subject Addition",
+      exact: true,
+    });
+    await expect(choice).toBeEnabled();
+    await choice.check();
+    await review()
+      .getByRole("button", { name: "Add 1 child", exact: true })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.find(
+            (e) => e.name === "Alpha Subject Addition",
+          )?.parents,
+      )
+      .toEqual([base + "Alpha"]);
+    expect((await batches())[0].runs.map((r) => r.state)).toEqual([
+      "completed",
+      "running",
+    ]);
+    await menu("edit.undo");
+    await expect
+      .poll(async () =>
+        (await state()).entities.some(
+          (e) => e.name === "Alpha Subject Addition",
+        ),
+      )
+      .toBe(false);
+    expect((await batches())[0].runs.map((r) => r.state)).toEqual([
+      "completed",
+      "running",
+    ]);
+    await unlink(hold);
+    await expect
+      .poll(async () => (await batches())[0].runs.map((r) => r.state))
+      .toEqual(["completed", "completed"]);
+  } finally {
+    await unlink(hold).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
+});
 
 test("a run for the reviewed node explains why selection is blocked", async () => {
   await start(["Alpha", "Beta"], "synonyms");
@@ -658,7 +714,10 @@ for (const mode of ["parents", "instances"] as const) {
       .getByRole("button", { name: "Open run for Beta Subject", exact: true })
       .click();
     await expect(
-      review().getByRole("combobox", { name: "Suggestion type", exact: true }),
+      review().getByRole("combobox", {
+        name: /^(Suggest|Suggestion type)$/,
+        exact: true,
+      }),
     ).toHaveValue(mode);
     await expect(
       review().getByRole("combobox", { name: "Run history", exact: true }),
