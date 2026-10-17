@@ -3619,7 +3619,8 @@ a {
   color: var(--accent);
 }
 .resource-matches [role="option"][aria-selected="true"] {
-  background: var(--selection, var(--item-hover));
+  /* Issue 85 pairs the shared accent with its readable selection ground. */
+  background: var(--row-selected);
 }
 .resource-matches span,
 .resource-matches small {
