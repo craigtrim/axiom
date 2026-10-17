@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -106,7 +107,7 @@ test("natural labels create in the taxonomy and full entity details open beside 
     .getByRole("combobox")
     .selectOption("http://www.w3.org/2000/01/rdf-schema#comment");
   await editor
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("The number of credits awarded.");
   await page.locator(":focus").blur();
   await expect
@@ -322,7 +323,7 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   await menu("entity.edit");
   const editor = page.getByRole("region", { name: "Details" });
   await editor
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Retained draft label");
   await menu("pane.close");
   await expect(editor).toHaveCount(0);
@@ -339,7 +340,7 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   await expect.poll(async () => (await state()).dirty).toBe(false);
   await menu("entity.edit");
   await editor
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("My unsaved change");
   await page.evaluate(
     (iri) =>
@@ -353,15 +354,15 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
     "An intervening change",
   );
-  const more = editor.getByRole("button", { name: "More entity actions" });
+  const more = editor.getByRole("button", { name: "More" });
   if (!(await more.isVisible())) {
     await editor.locator(".phead .name").click();
     await menu("pane.maximise");
   }
   await more.click();
-  await editor.getByRole("button", { name: "Reload", exact: true }).click();
+  await editor.getByRole("menuitem", { name: "Reload", exact: true }).click();
   await expect(
-    editor.getByRole("textbox", { name: "Entity label", exact: true }),
+    editor.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("An intervening change");
 });
 test("canvas creation respects refusal at a full graph budget and stale workspace requests", async () => {
@@ -511,7 +512,7 @@ test("changing an entity IRI keeps its editor, pinned graph position and incomin
     page.getByRole("tab", { name: "Details", exact: true }),
   ).toHaveCount(1);
   await editor
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Updated credit");
   await page.locator(":focus").blur();
   await expect

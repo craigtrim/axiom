@@ -16,8 +16,12 @@ export function keyboardContext(doc: Document): KeyboardContext {
     text: !!el?.closest(
       "input,textarea,select,[contenteditable=true],.monaco-editor",
     ),
+    // Issue 85: a shared menu stays mounted while its popover is closed.
     modal:
-      editorMenuOpen(doc) || !!doc.querySelector("dialog[open],[role=menu]"),
+      editorMenuOpen(doc) ||
+      !!doc.querySelector(
+        "dialog[open],[role=menu]:not([popover]),[role=menu]:popover-open",
+      ),
   };
 }
 export function installKeyboard(doc: Document) {

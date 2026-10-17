@@ -1,4 +1,4 @@
-// Whole-pane pixels from Craig's reference, with only #58's authorized copy edit.
+// Whole-pane pixels from Craig's reference and the approved amendments in issues 58 and 85.
 import {
   test,
   expect,
@@ -167,7 +167,12 @@ async function resize(width: number, height: number) {
     .poll(async () => (await pane().boundingBox())!.height)
     .toBe(height);
 }
-async function capture(root: Locator) {
+async function capture(root: Locator, focused = false) {
+  await root.page().mouse.move(1, 1);
+  if (!focused)
+    await root
+      .page()
+      .evaluate(() => (document.activeElement as HTMLElement)?.blur());
   // Match the pane and rounded body controls' compositing boundaries. Otherwise
   // Chromium rasterizes fractional corners against different ancestor layers.
   // This changes neither geometry nor reference colors, and applies to both sides.
@@ -193,10 +198,6 @@ async function capture(root: Locator) {
     }
   });
   const b = (await root.boundingBox())!;
-  await root.page().mouse.move(1, 1);
-  await root
-    .page()
-    .evaluate(() => (document.activeElement as HTMLElement)?.blur());
   const take = () =>
     root.page().screenshot({ clip: b, animations: "disabled", scale: "css" });
   let previous = await take();
@@ -234,9 +235,9 @@ const layoutData = (root: Locator) =>
       });
   });
 
-async function compare(name: string) {
-  const actual = await capture(pane());
-  const expected = await capture(specimen.locator(".pane"));
+async function compare(name: string, focused = false) {
+  const actual = await capture(pane(), focused);
+  const expected = await capture(specimen.locator(".pane"), focused);
   const appLayout = await layoutData(pane()),
     referenceLayout = await layoutData(specimen.locator(".pane"));
   await writeFile(`artifacts/issue-57/${name}-app.png`, actual);
@@ -410,4 +411,156 @@ for (const theme of ["light", "dark"] as const)
     );
     await matrix(theme, "stale");
     expect(await editor().inputValue()).toBe(draft);
+  });
+
+// Issue 85 frames 17 to 21 retain the pinned prototype and apply only the
+// recorded single-value, uncommitted-edit and blank-chooser decisions.
+for (const theme of ["light", "dark"] as const)
+  test("Details grouped reference " + theme, async () => {
+    test.setTimeout(120000);
+    await launch(theme);
+    await resize(1100, 660);
+    await specimen.evaluate(
+      (revision) => {
+        (window as any).STORE.revision = revision;
+        (window as any).render();
+      },
+      (await state()).version,
+    );
+    const aliases = pane().locator(
+      'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
+    );
+    const source = await pane().locator(".src").inputValue();
+
+    const label = pane().getByRole("textbox", {
+      name: "rdfs:label value 1",
+      exact: true,
+    });
+    const originalWidth = (await label.boundingBox())!.width;
+    const labelRow = pane().locator(
+      'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#label"]',
+    );
+    const height = (await labelRow.boundingBox())!.height;
+    await label.focus();
+    expect((await labelRow.boundingBox())!.height - height).toBe(24.75);
+    expect((await label.boundingBox())!.width).toBe(originalWidth);
+    await specimen.evaluate(() => {
+      const input = document.querySelector<HTMLInputElement>(
+        '[aria-label="rdfs:label value 1"]',
+      )!;
+      input
+        .closest(".vstack")!
+        .insertAdjacentHTML(
+          "beforeend",
+          '<span class="vtools"><button type="button" class="lnk">+ Add value</button></span>',
+        );
+      input.focus();
+    });
+    await compare(theme + "-17-single-focus", true);
+
+    await aliases
+      .getByRole("button", { name: "+ Add value", exact: true })
+      .click();
+    await expect(
+      aliases.getByRole("combobox", {
+        name: "rdfs:seeAlso value 3",
+        exact: true,
+      }),
+    ).toBeFocused();
+    // Assert initial focus above, then close resource suggestions with Escape for the table capture.
+    await aliases
+      .getByRole("combobox", { name: "rdfs:seeAlso value 3", exact: true })
+      .press("Escape");
+    await specimen.locator('[data-addval="3"]').click();
+    await specimen.evaluate((source) => {
+      // A blank value is a grid draft until commit, so source still shows the ontology.
+      document.querySelector(".state .word")!.textContent = "Editing";
+      (document.querySelector(".src") as HTMLTextAreaElement).value = source;
+    }, source);
+    await compare(theme + "-18-add-third");
+
+    await main.evaluate(async (iri) => {
+      const doc = await window.axiom.request<any>("entityDocument", { iri });
+      await window.axiom.request("updateEntity", {
+        iri,
+        nextIri: iri,
+        version: doc.version,
+        datasetEpoch: doc.datasetEpoch,
+        preserveSelection: true,
+        statements: [
+          ...doc.statements,
+          ...["Alias three", "Alias four", "Alias five"].map((value) => ({
+            subject: iri,
+            predicate: "http://www.w3.org/2000/01/rdf-schema#seeAlso",
+            object: { literal: true, value },
+          })),
+        ],
+      });
+    }, base + "TechnicalAlgebra");
+    // Reload discards the uncommitted empty field, exactly as the real menu does.
+    await pane().getByRole("button", { name: "More", exact: true }).click();
+    await pane().getByRole("menuitem", { name: "Reload", exact: true }).click();
+    const fewer = aliases.getByRole("button", {
+      name: "Show fewer",
+      exact: true,
+    });
+    await expect(
+      aliases.getByRole("combobox", { name: /rdfs:seeAlso value/ }),
+    ).toHaveCount(5);
+    await fewer.click();
+    await expect(
+      aliases.getByRole("button", { name: "2 more", exact: true }),
+    ).toBeVisible();
+    await specimen.evaluate(
+      (revision) => {
+        const w = window as any;
+        w.STORE.statements[3].values = [
+          "Algebra Tech",
+          "TECH ALG",
+          "Alias three",
+          "Alias four",
+          "Alias five",
+        ];
+        w.STORE.revision = revision;
+        w.S.openPred = null;
+        w.render();
+      },
+      (await state()).version,
+    );
+    await scroll(false);
+    await compare(theme + "-19-five-collapsed");
+    await aliases.getByRole("button", { name: "2 more", exact: true }).click();
+    await specimen.getByRole("button", { name: "2 more", exact: true }).click();
+    await scroll(false);
+    await compare(theme + "-20-five-expanded");
+
+    await pane()
+      .getByRole("button", { name: "+ Add row", exact: true })
+      .click();
+    await expect(
+      pane().getByRole("combobox", { name: "Choose predicate", exact: true }),
+    ).toBeFocused();
+    const currentSource = await pane().locator(".src").inputValue();
+    await specimen
+      .getByRole("button", { name: "+ Add row", exact: true })
+      .click();
+    await specimen.evaluate((source) => {
+      const pred = document.querySelector("tbody tr:last-child .pred")!;
+      pred.firstChild!.textContent = "Choose predicate";
+      const chooser = pred.querySelector<HTMLElement>(".chev")!;
+      chooser.setAttribute("aria-label", "Choose predicate");
+      // The real chooser spans the compact predicate text and chevron.
+      const wrapper = document.createElement("span");
+      wrapper.style.cssText =
+        "display:inline-flex;align-items:center;gap:4px;border-radius:4px";
+      while (pred.firstChild) wrapper.append(pred.firstChild);
+      pred.append(wrapper);
+      wrapper.tabIndex = 0;
+      wrapper.style.outline = "2px solid var(--focus)";
+      wrapper.style.outlineOffset = "1px";
+      wrapper.focus();
+      (document.querySelector(".src") as HTMLTextAreaElement).value = source;
+    }, currentSource);
+    await scroll(true);
+    await compare(theme + "-21-new-row", true);
   });

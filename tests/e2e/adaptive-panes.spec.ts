@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import AxeBuilder from "@axe-core/playwright";
 import {
@@ -292,7 +293,7 @@ test("Entity statements and query results retain their working content when resi
   child.on("pageerror", (e) => errors.push(e.message));
   await child.bringToFront();
   const label = child.getByRole("textbox", {
-    name: "Entity label",
+    name: "rdfs:label value 1",
     exact: true,
   });
   await label.fill("Retained statement draft");

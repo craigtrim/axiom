@@ -4,6 +4,10 @@ Details has two columns: Predicate and Value. Predicates use dropdowns and recog
 
 For named ontology classes, the rdf:type owl:Class declaration appears first and is read-only in the grid. The declaration has no row actions. Instance type assignments remain editable. Grid edits apply when the user leaves a cell or selects a resource. Source edits require Save source.
 
+Each predicate has one row with a separate field for each value (#85). Groups show three values initially; **N more** expands that group and **Show fewer** collapses it. **+ Add value** expands the group and focuses its new field. For a predicate with one value, the action appears below the field while the row holds keyboard focus. Labels and comments can have additional values; rdf:type has no add action.
+
+**+ Add row** starts a blank statement and focuses **Choose predicate**. Choose a predicate that the entity does not already use. Field names include their predicate and position, such as **rdfs:comment value 2**. The statement count includes collapsed values. The header's **More** menu contains **Reload**, with arrow-key navigation and Escape or Tab to return focus to More.
+
 ## Resource values
 
 Start typing a name or IRI in a resource cell. Search matches label words, alternate labels, local identifiers, recognized prefixes, and full IRIs. Multiple words can be entered in any order. The list includes identifiers to distinguish duplicate labels. Arrow keys choose a result, Enter accepts it, and Escape restores the previous value. Mouse selection works in docked and detached Details panes. Edge endpoints use the same control.

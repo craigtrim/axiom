@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -163,7 +164,7 @@ test("native drop changes RDF, graph and Details together and survives undo, red
   await expect(
     page
       .getByRole("region", { name: "Details", exact: true })
-      .getByRole("combobox", { name: /Value/ }),
+      .getByRole("combobox", { name: / value \d+$/ }),
   ).toHaveValue("Z");
   await menu("edit.undo");
   await expect.poll(() => parents()).toEqual([base + "A"]);

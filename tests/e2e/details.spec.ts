@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import { edgeKey } from "../../src/domain/viewport";
 import {
@@ -171,7 +172,7 @@ for (const commit of ["Enter", "Tab"]) {
     await menu("view.details");
     await expect(
       details().getByRole("button", {
-        name: "More entity actions",
+        name: "More",
         exact: true,
       }),
     ).toBeFocused();
@@ -229,7 +230,7 @@ test("Details reuses exact and explicitly chosen parents and Escape cancels crea
   await request("select", { iri: ids.a });
   await menu("view.details");
   await expect(
-    details().getByRole("button", { name: "More entity actions", exact: true }),
+    details().getByRole("button", { name: "More", exact: true }),
   ).toBeFocused();
   const count = (await state()).classCount;
   await parentField().fill("New parent");
@@ -280,7 +281,7 @@ test("Details keeps invalid class names editable", async () => {
   await request("select", { iri: ids.a });
   await menu("view.details");
   await expect(
-    details().getByRole("button", { name: "More entity actions", exact: true }),
+    details().getByRole("button", { name: "More", exact: true }),
   ).toBeFocused();
   await parentField().fill("B".repeat(257));
   await parentField().press("Enter");
@@ -316,17 +317,23 @@ test("Details opens explicitly from View, follows graph clicks and retains each 
   await menu("pane.move.right");
   await fitGraph();
   await details()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Alpha draft retained");
   await clickNode(ids.b);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("");
   await clickNode(ids.a);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.a);
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Alpha draft retained");
   await expect(page.getByTestId("graph-canvas")).toBeFocused();
   await page.screenshot({
@@ -341,7 +348,10 @@ test("Details opens explicitly from View, follows graph clicks and retains each 
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   await request("select", { iri: ids.a });
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Alpha draft retained");
   await request("select", { iri: null });
   await expect(details()).toContainText(
@@ -707,7 +717,7 @@ test("Details Back retraces selections and preserves text editing and drafts", a
   await menu("view.details");
   await expect(backButton()).toBeDisabled();
   await details()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Alpha draft");
   await openEntity(ids.b);
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
@@ -716,7 +726,7 @@ test("Details Back retraces selections and preserves text editing and drafts", a
     "Back to Alpha (Backspace)",
   );
   const label = details().getByRole("textbox", {
-    name: "Entity label",
+    name: "rdfs:label value 1",
     exact: true,
   });
   await label.focus();
@@ -732,7 +742,10 @@ test("Details Back retraces selections and preserves text editing and drafts", a
   await page.keyboard.press("Backspace");
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.a);
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Alpha draft");
   await expect(backButton()).toBeDisabled();
   await page.keyboard.press("Backspace");
@@ -741,7 +754,7 @@ test("Details Back retraces selections and preserves text editing and drafts", a
   await expect(identifier()).toHaveAttribute("data-entity-iri", ids.b);
   // A native predicate select owns its keys instead of navigating Details.
   await details()
-    .getByRole("combobox", { name: /Predicate/ })
+    .getByRole("combobox", { name: /predicate/i })
     .first()
     .focus();
   await page.keyboard.press("Backspace");

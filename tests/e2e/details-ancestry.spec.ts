@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -317,10 +318,16 @@ test("adding a parent in Details replaces the Thing fallback and Undo restores i
     `tbody tr[data-predicate="${SUBCLASS}"]`,
   );
   await parentGroup
+    .getByRole("combobox", {
+      name: "Change the predicate on rdfs:subClassOf",
+      exact: true,
+    })
+    .focus();
+  await parentGroup
     .getByRole("button", { name: "+ Add value", exact: true })
     .click();
   await parentGroup
-    .getByRole("combobox", { name: /Value/ })
+    .getByRole("combobox", { name: / value \d+$/ })
     .last()
     .fill("Course");
   await page
@@ -331,9 +338,9 @@ test("adding a parent in Details replaces the Thing fallback and Undo restores i
   await expect(root("Thing")).toHaveCount(0);
   const parents = details().locator(`tbody tr[data-predicate="${SUBCLASS}"]`);
   await expect(parents).toHaveCount(1);
-  await expect(parents.getByRole("combobox", { name: /Value/ })).toHaveValue(
-    "Course",
-  );
+  await expect(
+    parents.getByRole("combobox", { name: / value \d+$/ }),
+  ).toHaveValue("Course");
   await expect(details().locator('[role="status"]')).toContainText("Saved");
   await page.screenshot({
     path: "artifacts/testing/details-thing-parent-replaced.png",
@@ -358,10 +365,14 @@ test("adds a row in place and refreshes the consolidated ancestry after editing 
   const add = details().getByRole("button", { name: "+ Add row", exact: true });
   await add.click();
   const last = details().locator("tbody tr").last();
-  const predicate = last.getByRole("combobox", { name: /Predicate/ });
+  const predicate = last.getByRole("combobox", {
+    name: "Choose predicate",
+    exact: true,
+  });
   await expect(predicate).toBeFocused();
   await add.click();
   await expect(details().locator('tbody tr[data-predicate=""]')).toHaveCount(1);
+  await last.getByRole("textbox").focus();
   await last
     .getByRole("button", { name: "Remove this value", exact: true })
     .click();
@@ -369,9 +380,17 @@ test("adds a row in place and refreshes the consolidated ancestry after editing 
     `tbody tr[data-predicate="${SUBCLASS}"]`,
   );
   await parentGroup
+    .getByRole("combobox", {
+      name: "Change the predicate on rdfs:subClassOf",
+      exact: true,
+    })
+    .focus();
+  await parentGroup
     .getByRole("button", { name: "+ Add value", exact: true })
     .click();
-  const value = parentGroup.getByRole("combobox", { name: /Value/ }).last();
+  const value = parentGroup
+    .getByRole("combobox", { name: / value \d+$/ })
+    .last();
   await value.fill("Course");
   await page
     .getByRole("listbox")
@@ -387,16 +406,22 @@ test("adds a row in place and refreshes the consolidated ancestry after editing 
   ).toHaveCount(1);
   await expect(details().locator('[role="status"]')).toContainText("Saved");
   await parentGroup
+    .getByRole("combobox", { name: / value \d+$/ })
+    .last()
+    .focus();
+  await parentGroup
     .getByRole("button", { name: /^Remove this .* value$/ })
     .last()
     .click();
   await expect(current).not.toHaveAttribute("title", /is a subclass of Course/);
   await add.click();
   await last
-    .getByRole("combobox", { name: /Predicate/ })
+    .getByRole("combobox", { name: "Choose predicate", exact: true })
     .selectOption(NS.skos + "altLabel");
-  await last.getByRole("textbox", { name: /Value/ }).fill("Online Activism");
-  await last.getByRole("textbox", { name: /Value/ }).press("Enter");
+  await last
+    .getByRole("textbox", { name: / value \d+$/ })
+    .fill("Online Activism");
+  await last.getByRole("textbox", { name: / value \d+$/ }).press("Enter");
   await expect
     .poll(async () => {
       const doc = await page.evaluate(
