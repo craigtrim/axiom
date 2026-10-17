@@ -1,3 +1,4 @@
+// craigtrim/axiom#79: retain the manual latency gate with tracked highlights.
 // craigtrim/axiom#73: measure real keyboard editing separately from parser throughput.
 import { _electron as electron, expect } from "@playwright/test";
 import { build } from "esbuild";
@@ -78,6 +79,7 @@ try {
   await page.getByTestId("graph-canvas").waitFor();
   await app.evaluate(({ dialog, BrowserWindow, ipcMain }, ontology) => {
     const win = BrowserWindow.getAllWindows()[0];
+    if (process.env.AXIOM_TEST_BACKGROUND === "1") win.setFocusable(false);
     win.setSize(1400, 1000);
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -132,14 +134,19 @@ try {
   console.log("Editor ready");
   await paste(passage.slice(0, initialCharacters));
   console.log("Inserted text", Math.min(passage.length, initialCharacters));
-  await expect(panel.locator(".text-analysis-status")).toContainText("match", {
-    timeout: 120000,
-  });
+  await expect(panel.locator(".text-analysis-status")).toHaveText(
+    `${Math.floor(Math.min(passage.length, initialCharacters) / 10)} matches`,
+    {
+      timeout: 120000,
+    },
+  );
   report.workload.result = await panel
     .locator(".text-analysis-status")
     .textContent();
   console.log("Initial analysis", report.workload.result);
-  await panel.getByRole("switch", { name: "Live analysis" }).click();
+  await panel
+    .getByRole("switch", { name: "Auto, analyze while typing" })
+    .click();
   await expect(panel.getByRole("switch")).toHaveAttribute(
     "aria-checked",
     "false",
@@ -272,7 +279,7 @@ try {
       const host = document.createElement('div');
       Object.assign(host.style, { position:'fixed', left: bounds.x+'px', top: bounds.y+'px', width: bounds.width+'px', height: bounds.height+'px', zIndex:'99999', background:'white' });
       document.body.append(host);
-      const instance = monaco.editor.create(host, { value:text, language:'plaintext', editContext:false, automaticLayout:true, wordWrap:'on', minimap:{enabled:false}, lineNumbers:'off', glyphMargin:false, folding:false, lineDecorationsWidth:10, fontSize:15, lineHeight:26, padding:{top:12,bottom:12}, scrollBeyondLastLine:false, renderLineHighlight:'none', ariaLabel:'Plain baseline' });
+      const instance = monaco.editor.create(host, { value:text, language:'plaintext', editContext:false, automaticLayout:true, wordWrap:'on', minimap:{enabled:false}, lineNumbers:'off', glyphMargin:false, folding:false, lineDecorationsWidth:12, fontSize:14, fontFamily:'Cascadia Mono, Cascadia Code, Consolas, monospace', lineHeight:22, padding:{top:10,bottom:10}, scrollBeyondLastLine:false, renderLineHighlight:'none', ariaLabel:'Plain baseline' });
       instance.focus();
     };`,
       resolveDir: process.cwd(),

@@ -1,0 +1,399 @@
+/* craigtrim/axiom#79: editor-specific tints; palette and controls are shared (#81). */
+.text-analysis-panel {
+  --h1: #ebd1f2;
+  --h1r: #8e4fa6;
+  --h2: #a5e6dc;
+  --h2r: #2f7f72;
+  --h3: #c5dbfa;
+  --h3r: #3f73b5;
+  --h4: #f6d875;
+  --h4r: #8a6f12;
+  --h5: #d7d7f8;
+  --h5r: #5f5fb0;
+  --h6: #b1e7b7;
+  --h6r: #3a8449;
+  --ed-pad: 10px;
+}
+[data-theme="dark"] .text-analysis-panel {
+  --h1: #3f2548;
+  --h1r: #b887c9;
+  --h2: #10352f;
+  --h2r: #58b3a6;
+  --h3: #12324d;
+  --h3r: #6aa3dd;
+  --h4: #382e10;
+  --h4r: #c2a63f;
+  --h5: #29295e;
+  --h5r: #8e8ed8;
+  --h6: #12371b;
+  --h6r: #5fae70;
+}
+.text-analysis-panel .bar {
+  flex: none;
+}
+.text-analysis-panel .state.busy {
+  color: var(--accent);
+}
+.text-analysis-panel.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--ground);
+  font: 13px/1.45 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.text-analysis-panel button {
+  font-family: inherit;
+  line-height: inherit;
+  color: inherit;
+  min-height: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.text-analysis-panel .body {
+  position: relative;
+  min-height: 0;
+  display: grid;
+}
+
+.text-analysis-panel .ed {
+  position: relative;
+  min-height: 0;
+  background: var(--ground);
+}
+.text-analysis-panel .ed:has(.inputarea:focus-visible)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 2px solid var(--focus);
+  border-radius: var(--r-ctl);
+}
+
+.text-analysis-panel .empty {
+  position: absolute;
+  inset: 0;
+  padding: var(--ed-pad) var(--sp-3);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  pointer-events: none;
+  max-width: 68ch;
+}
+
+.text-analysis-panel .empty b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.text-analysis-panel .summary {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--ground);
+}
+
+.text-analysis-panel .sumhead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.text-analysis-panel .sumhead b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.text-analysis-panel .sumlist {
+  display: block;
+  padding: 0 var(--sp-2) var(--sp-3);
+}
+
+.text-analysis-panel .sumrow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 3px var(--sp-2);
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.text-analysis-panel .sumrow:hover {
+  background: var(--row-hover);
+}
+
+.text-analysis-panel .sumrow .sw2 {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--hr, var(--border-strong));
+  background: var(--hb, var(--sunken));
+}
+
+.text-analysis-panel .sumrow.h1 {
+  --hb: var(--h1);
+  --hr: var(--h1r);
+}
+
+.text-analysis-panel .sumrow.h2 {
+  --hb: var(--h2);
+  --hr: var(--h2r);
+}
+
+.text-analysis-panel .sumrow.h3 {
+  --hb: var(--h3);
+  --hr: var(--h3r);
+}
+
+.text-analysis-panel .sumrow.h4 {
+  --hb: var(--h4);
+  --hr: var(--h4r);
+}
+
+.text-analysis-panel .sumrow.h5 {
+  --hb: var(--h5);
+  --hr: var(--h5r);
+}
+
+.text-analysis-panel .sumrow.h6 {
+  --hb: var(--h6);
+  --hr: var(--h6r);
+}
+
+.text-analysis-panel .sumrow .lab {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-analysis-panel .sumrow .n {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-analysis-panel .sumempty {
+  padding: var(--sp-4) var(--sp-3);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.text-analysis-panel .sheet {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 30;
+  padding: var(--sp-3);
+  background: var(--raised);
+  border-top: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.text-analysis-panel .sheet b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.text-analysis-panel .sheet .x {
+  padding: 0;
+  position: absolute;
+  inset-block-start: var(--sp-1);
+  inset-inline-end: var(--sp-1);
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.text-analysis-panel .sheet .x:hover {
+  background: var(--chrome-hover);
+  color: var(--text);
+}
+
+.text-analysis-panel .sheet p {
+  margin: 0;
+  max-width: 68ch;
+  padding-inline-end: var(--sp-6);
+}
+
+.text-analysis-panel .body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.text-analysis-panel .text-analysis-editor {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  border: 0;
+}
+
+.text-analysis-panel .monaco-editor,
+.text-analysis-panel .monaco-editor-background,
+.text-analysis-panel .margin {
+  background: var(--ground) !important;
+}
+
+.text-analysis-panel .view-lines .mtk1 {
+  color: var(--text);
+}
+
+.text-analysis-panel .monaco-editor .selected-text {
+  background: var(--sel) !important;
+}
+
+.text-analysis-panel .monaco-editor .cursor {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.text-analysis-panel .ta-match {
+  background: var(--hb);
+  color: var(--text);
+  border: 0;
+  border-radius: 2px;
+  text-decoration: none;
+}
+
+.text-analysis-panel .ta-caret {
+  outline: 1px solid var(--hr);
+}
+
+.text-analysis-panel.drift .ta-match {
+  filter: grayscale(1);
+}
+
+.text-analysis-panel .text-analysis-summary-host {
+  min-height: 0;
+  overflow: auto;
+}
+
+.text-analysis-panel .text-analysis-summary {
+  padding: 0;
+  height: 100%;
+}
+
+.text-analysis-panel .text-analysis-summary .text-analysis-legend {
+  display: block;
+  padding: 0 var(--sp-2) var(--sp-3);
+  margin: 0;
+  border: 0;
+  overflow: visible;
+  max-height: none;
+}
+
+.text-analysis-panel .text-analysis-chip {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.text-analysis-panel .sheet .x svg {
+  width: 10px;
+  height: 10px;
+}
+
+.text-analysis-recovery {
+  display: grid;
+  place-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  height: 100%;
+  width: 100%;
+  text-align: center;
+  color: var(--text);
+  background: var(--ground);
+  font: 13px/1.45 var(--font);
+}
+
+.text-analysis-recovery .id {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.text-analysis-recovery .why {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.adaptive-pane[data-pane-id="textanalysis"] > .pane-recovery {
+  padding: 0;
+}
+
+.text-analysis-panel .h1 {
+  --hb: var(--h1);
+  --hr: var(--h1r);
+}
+
+.text-analysis-panel .h2 {
+  --hb: var(--h2);
+  --hr: var(--h2r);
+}
+
+.text-analysis-panel .h3 {
+  --hb: var(--h3);
+  --hr: var(--h3r);
+}
+
+.text-analysis-panel .h4 {
+  --hb: var(--h4);
+  --hr: var(--h4r);
+}
+
+.text-analysis-panel .h5 {
+  --hb: var(--h5);
+  --hr: var(--h5r);
+}
+
+.text-analysis-panel .h6 {
+  --hb: var(--h6);
+  --hr: var(--h6r);
+}
+
+.text-analysis-panel .text-analysis-error {
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.text-analysis-panel .monaco-editor .minimap {
+  display: none;
+}
+
+.text-analysis-panel .text-analysis-scroll {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 15px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.text-analysis-panel .text-analysis-scroll > div {
+  width: 1px;
+}

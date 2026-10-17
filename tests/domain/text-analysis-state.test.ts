@@ -215,3 +215,60 @@ it("preserves saved text when workspace capture happens before Text Analysis ope
     "Saved unopened text",
   );
 });
+
+// craigtrim/axiom#79: manual navigation refreshes retained matches without enabling Auto.
+it.each([true, false])(
+  "manual inspection opens only a still-matching entity: %s",
+  async (remains) => {
+    api.setLiveTextAnalysis(false);
+    api.editAnalysisText(() => (remains ? "Dog Cat again" : "Nothing"));
+    let resolve!: (value: TextAnalysisResult) => void;
+    parse.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    const action = api.inspectTextEntity(settled.entities[0]);
+    await vi.advanceTimersByTimeAsync(60);
+    expect(api.textAnalysisSession.getSnapshot()).toMatchObject({
+      waiting: true,
+      liveAnalysis: false,
+      notice: { tail: "Details opens only if dog still matches." },
+    });
+    expect(client.request).not.toHaveBeenCalled();
+    const input = api.textAnalysisSession.getSnapshot().input;
+    resolve({
+      ...parsed(input),
+      entities: remains ? parsed(input).entities : [],
+    });
+    await action;
+    expect(api.textAnalysisSession.getSnapshot()).toMatchObject({
+      waiting: false,
+      liveAnalysis: false,
+    });
+    expect(client.request).toHaveBeenCalledTimes(remains ? 1 : 0);
+  },
+);
+
+it("overlapping explicit waits clear their busy state after an edit cancels both", async () => {
+  api.setLiveTextAnalysis(false);
+  api.editAnalysisText(() => "Dog Cat again");
+  let resolve!: (value: TextAnalysisResult) => void;
+  parse.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  const first = api.waitForCurrentTextAnalysis("Graph waits.");
+  const second = api.waitForCurrentTextAnalysis("Details waits.");
+  await vi.advanceTimersByTimeAsync(60);
+  const oldInput = api.textAnalysisSession.getSnapshot().input;
+  expect(api.textAnalysisSession.getSnapshot().waiting).toBe(true);
+  api.editAnalysisText(() => "A different edit");
+  resolve(parsed(oldInput));
+  expect(await Promise.all([first, second])).toEqual([undefined, undefined]);
+  expect(api.textAnalysisSession.getSnapshot().waiting).toBe(false);
+  expect(client.request).not.toHaveBeenCalled();
+});

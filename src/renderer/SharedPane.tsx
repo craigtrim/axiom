@@ -23,6 +23,8 @@ export interface SharedMenuAction {
   shortcut?: string;
   checked?: boolean;
   commandId?: string;
+  /** Plain-letter activation, without splitting the visible label (#79). */
+  accessKey?: string;
 }
 export type SharedMenuItem = SharedMenuAction | { id: string; separator: true };
 const openMenus = new WeakMap<
@@ -208,6 +210,20 @@ export function SharedMenu({
               event.preventDefault();
               event.stopPropagation();
               buttons[index]?.click();
+            } else if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+              const action = items.find(
+                (item) =>
+                  !("separator" in item) &&
+                  item.accessKey === event.key.toLowerCase(),
+              );
+              if (action && !("separator" in action)) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!action.disabled) {
+                  close(true);
+                  action.run();
+                }
+              }
             }
           }}
         >
@@ -221,6 +237,7 @@ export function SharedMenu({
                 role="menuitem"
                 tabIndex={-1}
                 data-shared-overflow={item.commandId}
+                data-action={item.id}
                 data-active={active === item.id || undefined}
                 onFocus={() => setActive(item.id)}
                 onBlur={() => setActive(undefined)}

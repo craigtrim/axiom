@@ -20,6 +20,9 @@ import {
   waitForCurrentTextAnalysis,
   setLiveTextAnalysis,
 } from "./text-analysis-state";
+import { TextAnalysisToolbar } from "./TextAnalysisToolbar";
+import { registerPaneRecovery, usePaneLayout } from "./AdaptivePane";
+import "./text-analysis.css";
 import { TextAnalysisSummary } from "./TextAnalysisSummary";
 import { textEntityGroups, hasUnanalyzedText } from "./text-analysis-session";
 import {
@@ -44,26 +47,60 @@ function matchedOntologyIris(result?: TextAnalysisResult) {
   ];
 }
 
+// craigtrim/axiom#79: custom recovery copy uses the shared size thresholds.
+registerPaneRecovery("textanalysis", {
+  Body: ({ maximize }) => (
+    <div className="text-analysis-recovery">
+      <div className="id">Text Analysis</div>
+      <div className="why">
+        Too little room to edit. The text and its matches are retained.
+      </div>
+      <div>{maximize}</div>
+    </div>
+  ),
+});
+
 export function TextAnalysisPanel() {
   const session = useTextAnalysis();
   const { snapshot, input, analysis, result, view, liveAnalysis } = session;
+  const layout = usePaneLayout();
+  const [help, setHelp] = useState(false);
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    if (layout.shallow || layout.recovery) setHelp(false);
+  }, [layout.shallow, layout.recovery]);
+  useEffect(() => {
+    const remaining = (session.notice?.expiresAt ?? 0) - Date.now();
+    if (!session.notice || remaining <= 0) {
+      setToast("");
+      return;
+    }
+    setToast(session.notice.tail);
+    const timer = setTimeout(() => setToast(""), remaining);
+    return () => clearTimeout(timer);
+  }, [session.notice]);
   const outOfDate = hasUnanalyzedText(session);
   // craigtrim/axiom#73: manual mode keeps ordinary editing separate from analysis.
   const text = input.text;
   const [selectedText, setSelectedText] = useState("");
   const addSelection = useRef<() => void>(() => {});
   const [graphError, setGraphError] = useState("");
-  const [openingGraph, setOpeningGraph] = useState(false);
   const graphPending = useRef(false);
   const interaction = useRef<{
     result: TextAnalysisResult;
+    byDecoration: Map<string, TextEntity>;
   } | null>(null);
   const host = useRef<HTMLDivElement>(null);
+  const scrollHost = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const applyingText = useRef(false);
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(
     null,
   );
+  const corners = useRef<monaco.editor.IEditorDecorationsCollection | null>(
+    null,
+  );
+  const refreshCaretDecoration = useRef<() => void>(() => {});
   useLayoutEffect(() => {
     if (!host.current) return;
     const owner = host.current.ownerDocument;
@@ -74,22 +111,80 @@ export function TextAnalysisPanel() {
     const instance = monaco.editor.create(host.current, {
       model,
       editContext: false,
-      automaticLayout: true,
+      automaticLayout: false,
       wordWrap: "on",
+      wrappingStrategy: "advanced",
       minimap: { enabled: false },
       lineNumbers: "off",
       glyphMargin: false,
       folding: false,
-      lineDecorationsWidth: 10,
-      fontSize: 15,
-      lineHeight: 26,
-      padding: { top: 12, bottom: 12 },
+      lineDecorationsWidth: 12,
+      fontSize: 14,
+      fontFamily: "Cascadia Mono, Cascadia Code, Consolas, monospace",
+      lineHeight: 22,
+      padding: { top: 10, bottom: 10 },
+      scrollbar: {
+        vertical: "hidden",
+        verticalScrollbarSize: 12,
+        useShadows: false,
+      },
+      overviewRulerLanes: 0,
+      overviewRulerBorder: false,
+      hideCursorInOverviewRuler: true,
       scrollBeyondLastLine: false,
       renderLineHighlight: "none",
       ariaLabel: "Text to analyze",
       theme: owner.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
     });
     editor.current = instance;
+    const scroll = scrollHost.current!;
+    let layingOut = false;
+    const layoutEditor = () => {
+      if (layingOut || !host.current) return;
+      layingOut = true;
+      const width = host.current.clientWidth,
+        height = host.current.clientHeight;
+      if (!width || !height) {
+        layingOut = false;
+        return;
+      }
+      const before = instance.getLayoutInfo();
+      // Measure overflow at the new viewport before reserving its scrollbar (#79).
+      if (
+        before.height !== height ||
+        before.width + (scroll.hidden ? 0 : scroll.offsetWidth) !== width
+      )
+        instance.layout({ width, height });
+      const overflow = instance.getContentHeight() > height;
+      scroll.hidden = !overflow;
+      const desiredWidth = Math.max(
+        0,
+        width - (overflow ? scroll.offsetWidth : 0),
+      );
+      const currentLayout = instance.getLayoutInfo();
+      if (
+        width &&
+        height &&
+        (currentLayout.width !== desiredWidth ||
+          currentLayout.height !== height)
+      )
+        instance.layout({ width: desiredWidth, height });
+      scroll.firstElementChild!.setAttribute(
+        "style",
+        `height:${instance.getContentHeight()}px`,
+      );
+      scroll.scrollTop = instance.getScrollTop();
+      layingOut = false;
+    };
+    const resized = new ResizeObserver(layoutEditor);
+    resized.observe(host.current);
+    const contentSize = instance.onDidContentSizeChange(layoutEditor);
+    const scrolled = instance.onDidScrollChange(() => {
+      scroll.scrollTop = instance.getScrollTop();
+    });
+    const scrollEditor = () => instance.setScrollTop(scroll.scrollTop);
+    scroll.addEventListener("scroll", scrollEditor);
+    layoutEditor();
     const removeEditorMenu = registerEditorMenu(instance);
     decorations.current = instance.createDecorationsCollection();
     const trackedRange = (entity: TextEntity) => {
@@ -105,10 +200,37 @@ export function TextAnalysisPanel() {
         ? range
         : undefined;
     };
+    const caret = instance.createDecorationsCollection();
+    // Query Monaco's interval tree instead of scanning every match during typing.
+    const matchesAt = (range: monaco.IRange) =>
+      model.getDecorationsInRange(range).flatMap((decoration) => {
+        const entity = interaction.current?.byDecoration.get(decoration.id);
+        return entity ? [{ entity, range: decoration.range }] : [];
+      });
     const selectedMatch = (selection: monaco.Selection) =>
-      interaction.current?.result.entities.some((entity) =>
-        trackedRange(entity)?.equalsRange(selection),
+      matchesAt(selection).some((item) => item.range.equalsRange(selection));
+    const refreshCaret = () => {
+      const selection = instance.getSelection();
+      const match =
+        instance.hasTextFocus() && selection?.isEmpty()
+          ? matchesAt(selection)[0]
+          : undefined;
+      caret.set(
+        match
+          ? [
+              {
+                range: match.range,
+                options: {
+                  inlineClassName: `ta-caret h${1 + (entityHue(match.entity.key) % 6)}`,
+                },
+              },
+            ]
+          : [],
       );
+    };
+    const focusChanged = instance.onDidFocusEditorText(refreshCaret);
+    refreshCaretDecoration.current = refreshCaret;
+    const blur = instance.onDidBlurEditorText(() => caret.clear());
     const detach = attachTextEditor({
       focus: () => {
         // The editor stays mounted beneath Summary; wait for React to reveal it.
@@ -148,27 +270,16 @@ export function TextAnalysisPanel() {
     const showDetails = (offset: number, key?: string) => {
       const current = interaction.current;
       if (!current) return;
-      const candidates = current.result.entities
-        .filter((entity) => !key || entity.key === key)
-        .flatMap((entity) => {
-          const range = trackedRange(entity);
-          return range
-            ? [
-                {
-                  entity,
-                  start: model.getOffsetAt(range.getStartPosition()),
-                  end: model.getOffsetAt(range.getEndPosition()),
-                },
-              ]
-            : [];
-        });
-      const entity =
-        candidates.find(
-          (entity) => offset >= entity.start && offset < entity.end,
-        ) ?? candidates.find((entity) => offset === entity.end);
-      if (entity) {
-        void inspectTextEntity(entity.entity);
-      }
+      const position = model.getPositionAt(offset);
+      const match = matchesAt(
+        new monaco.Range(
+          position.lineNumber,
+          position.column,
+          position.lineNumber,
+          position.column,
+        ),
+      ).find((item) => !key || item.entity.key === key);
+      if (match) void inspectTextEntity(match.entity);
     };
     let down: { x: number; y: number } | undefined;
     const mouseDown = instance.onMouseDown((event) => {
@@ -179,7 +290,6 @@ export function TextAnalysisPanel() {
     const mouseUp = instance.onMouseUp((event) => {
       const start = down;
       down = undefined;
-      if (!textAnalysisSession.getSnapshot().liveAnalysis) return;
       if (
         !start ||
         !event.target.position ||
@@ -191,10 +301,16 @@ export function TextAnalysisPanel() {
       if (selection && !selection.isEmpty()) {
         if (!selectedMatch(selection)) return;
       }
-      if (event.target.type === monaco.editor.MouseTargetType.CONTENT_TEXT)
-        showDetails(model.getOffsetAt(event.target.position));
+      // The mouse-up hit test can lag a decoration repaint; Monaco's committed
+      // selection identifies the actual clicked text (craigtrim/axiom#79).
+      if (
+        selection &&
+        event.target.type === monaco.editor.MouseTargetType.CONTENT_TEXT
+      )
+        showDetails(model.getOffsetAt(selection.getStartPosition()));
     });
     const selectionChanged = instance.onDidChangeCursorSelection(() => {
+      refreshCaret();
       const selection = instance.getSelection();
       setSelectedText(
         selection && instance.getSelections()?.length === 1
@@ -260,12 +376,18 @@ export function TextAnalysisPanel() {
     return () => {
       flushAnalysisText();
       detach();
+      resized.disconnect();
+      contentSize.dispose();
+      scrolled.dispose();
+      scroll.removeEventListener("scroll", scrollEditor);
       observer.disconnect();
       commands();
       mouseDown.dispose();
       mouseUp.dispose();
       change.dispose();
       selectionChanged.dispose();
+      focusChanged.dispose();
+      blur.dispose();
       addAction.dispose();
       findAction.dispose();
       removeEditorMenu();
@@ -273,6 +395,7 @@ export function TextAnalysisPanel() {
       model.dispose();
       editor.current = null;
       decorations.current = null;
+      refreshCaretDecoration.current = () => {};
       interaction.current = null;
     };
   }, []);
@@ -309,28 +432,14 @@ export function TextAnalysisPanel() {
   };
   const entities = result?.entities ?? [];
   const legend = useMemo(() => textEntityGroups(result), [result]);
-  const matchedIris = useMemo(() => matchedOntologyIris(result), [result]);
-  const graphNeedsAnalysis = !liveAnalysis && outOfDate;
-  const legendStyle = useMemo(
-    () =>
-      !liveAnalysis && view !== "summary"
-        ? ""
-        : legend
-            .map(({ entity }, i) => {
-              const hue = entityHue(entity.key);
-              return `.text-analysis-panel .text-entity-${i}{background:hsl(${hue} 75% 90%);color:#202020}[data-theme=dark] .text-analysis-panel .text-entity-${i}{background:hsl(${hue} 35% 27%);color:#fff}`;
-            })
-            .join("\n"),
-    [legend, liveAnalysis, view],
-  );
   const openGraph = async () => {
-    if (!matchedIris.length || graphNeedsAnalysis || graphPending.current)
-      return;
+    if (graphPending.current) return;
     graphPending.current = true;
-    setOpeningGraph(true);
     setGraphError("");
     try {
-      const fresh = await waitForCurrentTextAnalysis();
+      const fresh = await waitForCurrentTextAnalysis(
+        "View in Graph waits for the current matches before building.",
+      );
       if (
         !fresh ||
         !editor.current ||
@@ -352,24 +461,26 @@ export function TextAnalysisPanel() {
       setGraphError(error instanceof Error ? error.message : String(error));
     } finally {
       graphPending.current = false;
-      setOpeningGraph(false);
     }
   };
   useLayoutEffect(() => {
     const model = editor.current?.getModel();
-    if (
-      !liveAnalysis ||
-      !model ||
-      !result ||
-      model.getValue() !== result.text
-    ) {
+    if (!model || !result || model.getValue() !== result.text) {
       decorations.current?.clear();
       interaction.current = null;
+      refreshCaretDecoration.current();
       return;
     }
-    interaction.current = { result };
+    const byDecoration = new Map<string, TextEntity>();
+    interaction.current = { result, byDecoration };
     const classes = new Map(
-      legend.map(({ entity }, i) => [entity.key, "text-entity-" + i]),
+      legend.map(({ entity }, i) => [
+        entity.key,
+        `ta-match h${1 + (entityHue(entity.key) % 6)} text-entity-${i}`,
+      ]),
+    );
+    const byStart = new Map(
+      result.entities.map((entity) => [entity.start, entity]),
     );
     decorations.current?.set(
       result.entities.map((entity) => {
@@ -399,100 +510,56 @@ export function TextAnalysisPanel() {
         };
       }),
     );
-  }, [result, legend, liveAnalysis]);
-  const status = !text.trim()
-    ? "Type or paste text to begin."
-    : analysis.status === "error"
-      ? "Analysis unavailable"
-      : !result
-        ? ""
-        : `${entities.length} ${entities.length === 1 ? "match" : "matches"}`;
-  const shownStatus =
-    !liveAnalysis &&
-    outOfDate &&
-    (session.editing || text.trim()) &&
-    analysis.status !== "error"
-      ? `${entities.length} ${entities.length === 1 ? "match" : "matches"} · out of date`
-      : status;
+    for (const decoration of model.getAllDecorations()) {
+      if (!decoration.options.inlineClassName?.startsWith("ta-match "))
+        continue;
+      const index = model.getOffsetAt(decoration.range.getStartPosition());
+      const entity = byStart.get(index);
+      if (entity) byDecoration.set(decoration.id, entity);
+    }
+    refreshCaretDecoration.current();
+  }, [result, legend]);
+  const helpCopy = (
+    <>
+      {liveAnalysis ? (
+        <>
+          Type or paste plain text. Matches update as you type. Click a
+          highlight to open{" "}
+        </>
+      ) : (
+        <>
+          Type or paste plain text. Press <b>Analyze now</b> to update matches.
+          Click a highlight to open{" "}
+        </>
+      )}
+      <b>Details</b>. Select a phrase and press <b>Alt+Enter</b>, or right click
+      and press <b>A</b>, to add it as an entity.
+    </>
+  );
   return (
     <section
-      className="panel text-analysis-panel"
+      className={
+        "panel shared-layer text-analysis-panel" + (outOfDate ? " drift" : "")
+      }
       data-panel="textanalysis"
       aria-label="Text Analysis"
     >
-      <style>{legendStyle}</style>
-      <div className="text-analysis-heading">
-        <strong>Text Analysis</strong>
-        <span className="text-analysis-ontology" title={snapshot.ontology.name}>
-          {snapshot.ontology.name}
-        </span>
-        <button
-          className="text-analysis-graph"
-          disabled={!matchedIris.length || graphNeedsAnalysis || openingGraph}
-          title={
-            graphNeedsAnalysis
-              ? "Press Analyze now before opening the current text in a graph"
-              : "Open all matched ontology entries and their ancestors in a new graph"
-          }
-          onClick={() => void openGraph()}
-        >
-          {openingGraph ? "Opening..." : "View in Graph"}
-        </button>
-        {view === "text" && (
-          <>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={liveAnalysis}
-              className="text-analysis-switch"
-              onClick={() => setLiveTextAnalysis(!liveAnalysis)}
-            >
-              <span className="text-analysis-switch-track" aria-hidden="true" />
-              Live analysis
-            </button>
-            {!liveAnalysis && (
-              <button
-                disabled={!outOfDate || analysis.status === "pending"}
-                onClick={analyzeTextNow}
-              >
-                Analyze now
-              </button>
-            )}
-            <button
-              disabled={!selectedText || selectedText.length > 256}
-              title="Select a phrase of up to 256 characters, then add it to the taxonomy"
-              onClick={() => addSelection.current()}
-            >
-              Add entity
-            </button>
-          </>
-        )}
-        <button
-          onClick={() => {
-            setTextAnalysisView(view === "text" ? "summary" : "text");
-            if (view === "summary")
-              requestAnimationFrame(() => editor.current?.focus());
-          }}
-        >
-          {view === "text" ? "View Summary" : "View Text"}
-        </button>
-        <span
-          role="status"
-          aria-live="polite"
-          className="text-analysis-status"
-          title={result ? `Analysis took ${result.milliseconds} ms` : undefined}
-        >
-          {shownStatus}
-        </span>
-      </div>
-      <p className="text-analysis-hint" hidden={view !== "text"}>
-        Type or paste plain text.{" "}
-        {liveAnalysis
-          ? "Matches update automatically using the open ontology."
-          : "Press Analyze now to update matches using the open ontology."}{" "}
-        {liveAnalysis && "Click a highlight to open the Details view. "}Select a
-        new phrase and choose Add entity, or press Alt+Enter.
-      </p>
+      <TextAnalysisToolbar
+        auto={liveAnalysis}
+        stale={outOfDate}
+        busy={!!session.waiting}
+        count={entities.length}
+        ontology={snapshot.ontology.name}
+        view={view}
+        canAdd={!!selectedText && selectedText.length <= 256}
+        help={help}
+        toggleAuto={() => setLiveTextAnalysis(!liveAnalysis)}
+        analyze={analyzeTextNow}
+        graph={() => void openGraph()}
+        add={() => addSelection.current()}
+        setView={setTextAnalysisView}
+        toggleHelp={() => setHelp(!help)}
+      />
       {analysis.status === "error" && (
         <p role="alert" className="error text-analysis-error">
           {analysis.message}
@@ -503,13 +570,48 @@ export function TextAnalysisPanel() {
           {graphError}
         </p>
       )}
-      <div
-        className="text-analysis-editor"
-        ref={host}
-        hidden={view !== "text"}
-      />
-      <div className="text-analysis-summary-host" hidden={view !== "summary"}>
-        {(liveAnalysis || view === "summary") && <TextAnalysisSummary />}
+      <div className="body">
+        <div className="ed" hidden={view !== "text"}>
+          <div className="text-analysis-editor" ref={host} />
+          <div
+            className="text-analysis-scroll"
+            ref={scrollHost}
+            aria-hidden="true"
+            hidden
+          >
+            <div />
+          </div>
+          {!session.editing && !text && <div className="empty">{helpCopy}</div>}
+        </div>
+        <div className="text-analysis-summary-host" hidden={view !== "summary"}>
+          {(liveAnalysis || view === "summary") && <TextAnalysisSummary />}
+        </div>
+        {help && (
+          <div className="sheet">
+            <button
+              className="x"
+              aria-label="Close help"
+              onClick={() => setHelp(false)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+            <p>{helpCopy}</p>
+          </div>
+        )}
+        {toast && (
+          <div className="toast" role="status">
+            <b>Analyzing first.</b> <span className="sub">{toast}</span>
+          </div>
+        )}
       </div>
     </section>
   );
