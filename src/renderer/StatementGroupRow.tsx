@@ -8,6 +8,7 @@ import {
 import type { StatementGroup } from "./statement-groups";
 import "./statement-groups.css";
 import { DetailsGlyph } from "./DetailsGlyph";
+import { FindGlyph } from "./FindGlyph";
 
 export function StatementGroupRow<Value>({
   group,
@@ -20,6 +21,7 @@ export function StatementGroupRow<Value>({
   removable = () => true,
   details = false,
   inspector = false,
+  find = false,
 }: {
   group: StatementGroup<Value>;
   name: string;
@@ -31,6 +33,7 @@ export function StatementGroupRow<Value>({
   removable?: (value: Value) => boolean;
   details?: boolean;
   inspector?: boolean;
+  find?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const row = useRef<HTMLTableRowElement>(null);
@@ -160,6 +163,10 @@ export function StatementGroupRow<Value>({
               <div className="statement-value-field">
                 {renderValue(value, index)}
               </div>
+              {/* Find reserves the action slot even for an empty value (craigtrim/axiom#83). */}
+              {find && !removable(value) && (
+                <span className="find-value-action-slot" />
+              )}
               {removable(value) && (
                 <button
                   type="button"
@@ -174,7 +181,13 @@ export function StatementGroupRow<Value>({
                     remove(value, index);
                   }}
                 >
-                  {details ? <DetailsGlyph kind="remove" /> : "×"}
+                  {details ? (
+                    <DetailsGlyph kind="remove" />
+                  ) : find ? (
+                    <FindGlyph name="close" />
+                  ) : (
+                    "×"
+                  )}
                 </button>
               )}
               {!grouped && addButton(true)}

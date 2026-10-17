@@ -311,7 +311,8 @@ export function FindPanel() {
   const pendingPageFocus = useRef<string | undefined>(undefined);
   const scopeVisible = !layout.compact || scopeOpen;
   const { options, selected, recent, created, draft } = useFindState();
-  const searchOptions = { ...options, browse: true, diagnostics: true };
+  // Empty queries are instructions to search, not Store browsing (craigtrim/axiom#83).
+  const searchOptions = { ...options, diagnostics: true };
   const { data, facets, busy, ready, announcing, error, displayedOptions } =
     useFindResults(searchOptions);
   const [fieldFilter, setFieldFilter] = useState("");
@@ -409,76 +410,12 @@ export function FindPanel() {
     setExtendOpen("");
   }, [options.text, snapshot.datasetEpoch]);
   const active = rows.find((row) => row.iri === selected);
-  const [chrome, setChrome] = useState({
-    header: true,
-    pager: true,
-    inspector: true,
-  });
-  useLayoutEffect(() => {
-    const host = root.current;
-    if (!host) return;
-    const win = host.ownerDocument.defaultView!;
-    const measure = (selector: string) => {
-      const element = host.querySelector<HTMLElement>(selector);
-      if (!element) return 0;
-      // Withdrawn chrome is absolutely positioned, so it can wrap to a different
-      // height than when it participates in the grid. Measure its natural grid
-      // width to avoid alternating show/hide decisions at the fit boundary.
-      const withdrawn = element.dataset.withdrawn;
-      if (withdrawn === "true") element.dataset.withdrawn = "false";
-      const height = element.offsetHeight;
-      if (withdrawn === "true") element.dataset.withdrawn = withdrawn;
-      return height;
-    };
-    const update = () => {
-      const next = { header: true, pager: true, inspector: true };
-      if (layout.shallow && (layout.narrow || !rows.length))
-        Object.assign(next, { header: false, pager: false, inspector: false });
-      else if (layout.shallow) {
-        // Reserve three real rows, then withdraw supporting regions in priority order.
-        // These are measured content requirements, not additional presentation thresholds.
-        const available =
-          layout.height -
-          measure(".find-controls") -
-          measure(".find-results thead") -
-          3 * measure(".find-results tbody tr");
-        const sizes = {
-          header: measure(".find-results-toolbar"),
-          pager: measure(".find-pagination"),
-          inspector: measure(".find-inspector"),
-        };
-        // Selection must not withdraw a header or pager and shift the results.
-        // Fit those first, then show the inspector only in the remaining space.
-        let needed = sizes.header + sizes.pager + 8;
-        for (const name of ["header", "pager"] as const) {
-          if (needed <= available) break;
-          next[name] = false;
-          needed -= sizes[name];
-        }
-        next.inspector = needed + sizes.inspector <= available;
-      }
-      setChrome((old) =>
-        old.header === next.header &&
-        old.pager === next.pager &&
-        old.inspector === next.inspector
-          ? old
-          : next,
-      );
-    };
-    const observer = new win.ResizeObserver(update);
-    for (const selector of [
-      ".find-controls",
-      ".find-results-toolbar",
-      ".find-pagination",
-      ".find-inspector",
-      ".find-results tbody tr",
-    ]) {
-      const element = host.querySelector(selector);
-      if (element) observer.observe(element);
-    }
-    update();
-    return () => observer.disconnect();
-  }, [layout.width, layout.height, layout.mode, data, !!active]);
+  // The shared pane flags govern all presentation withdrawal (#83).
+  const chrome = {
+    header: !layout.shallow,
+    pager: !layout.shallow,
+    inspector: !layout.shallow,
+  };
   const focusRow = (index: number) => {
     if (!ready || !rows[index]) {
       root.current?.querySelector<HTMLElement>(".find-results-scroll")?.focus();
@@ -750,17 +687,24 @@ export function FindPanel() {
   const offset = data?.offset ?? options.offset;
   const total = data?.total ?? 0;
   const storeTotal = data?.storeTotal ?? facets?.storeTotal ?? 0;
-  const resetScope = () =>
+  const resetScope = () => {
     updateFind({
       fields: [...defaultFindOptions.fields],
       kinds: [...findKinds],
       excludeIri: "",
       sort: "relevance",
     });
+    queryInput.current?.focus();
+  };
   const allFields =
     options.fields.includes("*") ||
     (fields.length > 0 && selectedFieldCount === fields.length);
   const allTypes = options.kinds.length === findKinds.length;
+  const scopeDirty =
+    options.sort !== "relevance" ||
+    options.kinds.length !== findKinds.length ||
+    options.fields.length !== defaultFindOptions.fields.length ||
+    !defaultFindOptions.fields.every((field) => options.fields.includes(field));
   const scopeSummary = `${selectedFieldCount} of ${fields.length} fields, ${options.kinds.length} of ${findKinds.length} types`;
   const remedies =
     data?.remedies?.filter((remedy) =>
@@ -874,7 +818,7 @@ export function FindPanel() {
           ref={scopeTrigger}
           hidden={!layout.compact}
           className="find-scope-trigger btn scope-btn"
-          aria-label={`Options: ${scopeSummary}`}
+          aria-label={`Search scope: ${scopeSummary}`}
           aria-expanded={scopeOpen}
           aria-controls={scopeId}
           onClick={() => {
@@ -931,8 +875,8 @@ export function FindPanel() {
               <button
                 className="ib"
                 type="button"
-                aria-label="Clear query"
-                title="Clear query"
+                aria-label="Clear"
+                title="Clear"
                 onClick={() => {
                   updateFind({ text: "", excludeIri: "" });
                   queryInput.current?.focus();
@@ -966,7 +910,7 @@ export function FindPanel() {
         <label className="find-sort" hidden={layout.narrow && layout.shallow}>
           <select
             className="sel sort"
-            aria-label="Sort results"
+            aria-label="Sort"
             value={options.sort === "iri" ? "type" : options.sort}
             onChange={(event) =>
               updateFind({ sort: event.target.value as FindOptions["sort"] })
@@ -1114,7 +1058,12 @@ export function FindPanel() {
         >
           <header className="find-scope-heading">
             <span className="s">{scopeSummary}</span>
-            <button type="button" className="btn" onClick={resetScope}>
+            <button
+              type="button"
+              className="btn"
+              hidden={!scopeDirty}
+              onClick={resetScope}
+            >
               Reset filters
             </button>
             {scopeOpen && (
@@ -1203,11 +1152,13 @@ export function FindPanel() {
             aria-hidden={!chrome.header || createOverlay || undefined}
           >
             <div className="find-summary" role="status">
-              {announcing
-                ? "Searching..."
-                : error
-                  ? "Search unavailable"
-                  : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
+              {!displayedOptions.text.trim()
+                ? ""
+                : announcing
+                  ? "Searching..."
+                  : error
+                    ? "Search unavailable"
+                    : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"} of ${storeTotal.toLocaleString()} entities`}
             </div>
             {total > 0 && (
               <span className="find-result-actions">
@@ -1235,7 +1186,7 @@ export function FindPanel() {
                   title="Open all filtered matches, across every page, with shared ancestry back to the roots"
                 >
                   <FindGlyph name="graph" />
-                  <span className="find-graph-label" hidden={layout.compact}>
+                  <span className="find-graph-label">
                     {openingGraph
                       ? "Opening graph..."
                       : "Open results in new graph"}
@@ -1268,7 +1219,7 @@ export function FindPanel() {
                     <th
                       scope="col"
                       className="find-type-column"
-                      hidden={layout.narrow}
+                      hidden={layout.narrow && layout.shallow}
                     >
                       Type
                     </th>
@@ -1318,7 +1269,16 @@ export function FindPanel() {
                           className="find-result-path"
                           title={row.path ?? "no parent recorded"}
                         >
-                          <bdi>{row.path ?? "no parent recorded"}</bdi>
+                          {row.path?.includes("›") && (
+                            <span className="ph">
+                              {row.path.slice(0, row.path.lastIndexOf("›") + 1)}
+                            </span>
+                          )}
+                          <span className="pl">
+                            {row.path
+                              ?.slice(row.path.lastIndexOf("›") + 1)
+                              .trim() || "no parent recorded"}
+                          </span>
                         </div>
                         {row.matchedField &&
                           row.matchedField !== "iri" &&
@@ -1340,20 +1300,22 @@ export function FindPanel() {
                           )}
                         <span
                           className="find-folded-type"
-                          hidden={!layout.narrow}
+                          hidden={!(layout.narrow && layout.shallow)}
                         >
-                          {kindLabel(row.kind)}
+                          <b>Type</b>
+                          {` ${kindLabel(row.kind)}`}
                         </span>
                         {layout.narrow && (
-                          <div className="find-folded-synonyms">
-                            <span className="find-row-synonyms">
-                              <span className="sr-only">Synonyms: </span>
-                              {row.aliases?.join(", ") || "none recorded"}
-                            </span>
-                          </div>
+                          <span className="find-folded-synonyms find-row-synonyms">
+                            <b>Synonym</b>
+                            {` ${row.aliases?.join(", ") || "none recorded"}`}
+                          </span>
                         )}
                       </td>
-                      <td className="find-type-column" hidden={layout.narrow}>
+                      <td
+                        className="find-type-column"
+                        hidden={layout.narrow && layout.shallow}
+                      >
                         {kindLabel(row.kind)}
                       </td>
                       {!layout.narrow && (
@@ -1390,7 +1352,7 @@ export function FindPanel() {
                 </tbody>
               </table>
             )}
-            {data && !rows.length && (
+            {data && !rows.length && displayedOptions.text.trim() && (
               <fieldset className="find-zero" disabled={!ready}>
                 <div hidden={createOverlay}>
                   <h3>
@@ -1431,7 +1393,9 @@ export function FindPanel() {
                               : "Reset every filter"}
                         </span>
                         <span className="find-remedy-yield y">
-                          {`${remedy.count.toLocaleString()} ${remedy.count === 1 ? "match" : "matches"}`}
+                          {remedy.count
+                            ? `${remedy.count.toLocaleString()} ${remedy.count === 1 ? "match" : "matches"}`
+                            : "no matches"}
                         </span>
                       </button>
                     ))}
@@ -1467,6 +1431,11 @@ export function FindPanel() {
                 </div>
                 {creationEditor}
               </fieldset>
+            )}
+            {data && !rows.length && !displayedOptions.text.trim() && (
+              <p className="find-empty">
+                Type to search names, aliases and IRIs.
+              </p>
             )}
             {rows.length > 0 && createOpen && (
               <fieldset className="find-zero" disabled={!ready}>
@@ -1555,10 +1524,9 @@ export function FindPanel() {
             {created.includes(active.iri) && (
               <span className="find-created"> created here</span>
             )}{" "}
-            · {kindLabel(active.kind)} · {active.iri} ·{" "}
-            {active.path ?? "no parent recorded"} ·{" "}
-            {active.aliases?.join(", ") || "none recorded"} ·{" "}
-            {active.description || "none recorded"}
+            <span>
+              {`${kindLabel(active.kind)} · ${active.path ?? "no parent recorded"}`}
+            </span>
           </p>
         </section>
       )}

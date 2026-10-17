@@ -38,11 +38,25 @@ it("removes only equal duplicate declarations and retains deferred private palet
         });
       });
   }
-  // Suggestions adds only its five private names (craigtrim/axiom#82).
+  // Suggestions and Find retain only their named private colors (#82, craigtrim/axiom#83).
   const prior = declarations.filter(
-    (d) => d.file !== "suggestions-reference.css",
+    (d) =>
+      ![
+        "suggestions-reference.css",
+        "find-reference.css",
+        "entity-extend.css",
+      ].includes(d.file),
   );
-  expect(prior).toHaveLength(339);
+  expect(prior).toHaveLength(257);
+  expect(
+    new Set(
+      declarations
+        .filter((d) =>
+          ["find-reference.css", "entity-extend.css"].includes(d.file),
+        )
+        .map((d) => d.name),
+    ),
+  ).toEqual(new Set(["--accent-hover", "--accent-tint", "--ok-border"]));
   expect(
     new Set(
       declarations
@@ -58,14 +72,13 @@ it("removes only equal duplicate declarations and retains deferred private palet
       "--sp-8",
     ]),
   );
-  expect(new Set(prior.map((d) => d.name)).size).toBe(116);
+  expect(new Set(prior.map((d) => d.name)).size).toBe(94);
   const shared = declarations.filter(
     (d) => sharedTokens.has(d.name.slice(2)) && d.file !== "styles.css",
   );
   expect(
     shared.every(
       (d) =>
-        d.file === "find-reference.css" ||
         d.file === "quality.css" ||
         (d.file === "quality-settings.css" &&
           [

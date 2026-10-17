@@ -111,27 +111,42 @@ test.afterEach(async ({}, info) => {
   }
 });
 
-test("blank query browses with permanent columns, denominator and explicit inspector fields", async () => {
+test("empty queries show instructions and retain field and type totals (#83)", async () => {
   await expect(query()).toHaveValue("");
-  await pane().getByRole("button", { name: "More", exact: true }).click();
-  await pane().getByLabel("Results per page").selectOption("25");
-  await pane().getByLabel("Results per page").press("Escape");
-  await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
-  await expect(pane().getByRole("columnheader")).toHaveText([
-    "Entity",
-    "Type",
-    "Synonym",
-    "Extend entity",
-  ]);
-  await expect(pane().locator(".find-summary")).toHaveText(
-    /\d+ matches of \d+ entities/,
-  );
-  await expect(pane().locator(".find-inspector")).toHaveCount(0);
-  await pane().getByRole("button", { name: "More", exact: true }).click();
-  await pane().getByRole("button", { name: "Names only", exact: true }).click();
+  const empty = async () => {
+    await expect(pane().locator(".find-results tbody tr")).toHaveCount(0);
+    await expect(pane().locator(".find-empty")).toHaveText(
+      "Type to search names, aliases and IRIs.",
+    );
+    await expect(pane().locator(".find-summary")).toHaveText("");
+    await expect(pane()).toContainText("Page 0 of 0");
+    await expect(pane().locator(".find-zero")).toHaveCount(0);
+    await expect(
+      pane().getByRole("button", { name: "Open results in new graph" }),
+    ).toHaveCount(0);
+    expect(
+      Number(
+        await pane().locator(".find-type-facets .c").first().textContent(),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      Number(
+        (await pane()
+          .locator(".find-field-facets .c")
+          .first()
+          .textContent())!.replaceAll(",", ""),
+      ),
+    ).toBeGreaterThan(0);
+  };
+  await empty();
+  await query().fill("   ");
+  await empty();
+  await query().fill("Topic");
+  await expect(pane().locator(".find-results tbody tr").first()).toBeVisible();
+  await pane().getByRole("button", { name: "Clear", exact: true }).click();
+  await empty();
   await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "Clear", exact: true }).click();
-  await expect(pane().locator(".find-results tbody tr")).toHaveCount(25);
   await query().fill("Foundation");
   await expect(
     pane().getByRole("table", { name: "Found entities" }),
@@ -146,7 +161,13 @@ test("blank query browses with permanent columns, denominator and explicit inspe
   const inspector = pane().getByRole("region", { name: "Selected entity" });
   await expect(inspector).toBeVisible();
   await expect(inspector).toContainText("no parent recorded");
-  await expect(inspector).toContainText("none recorded");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
+  await expect(pane().locator(".find-selected-details")).toContainText(
+    "none recorded",
+  );
+  await pane()
+    .getByRole("dialog", { name: "More", exact: true })
+    .press("Escape");
   await query().fill("No matching entity");
   await expect(pane().locator(".find-inspector")).toHaveCount(0);
 });
@@ -252,7 +273,11 @@ test("hidden property duplicate is blocked and Open widens scope to a visible se
   ).toContainText("Public Property");
   await expect(
     pane().getByRole("region", { name: "Selected entity" }),
-  ).toContainText(base + "prop");
+  ).toContainText("Public Property Object property");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
+  await expect(pane().locator(".find-selected-details")).toContainText(
+    base + "prop",
+  );
 });
 
 test("inline create saves custom IRI, parents and annotations, selects it, and undoes atomically", async () => {
@@ -269,7 +294,10 @@ test("inline create saves custom IRI, parents and annotations, selects it, and u
     .fill('A < B & "quoted"');
   const parent = create().getByRole("combobox", { name: "Parent classes" });
   await parent.fill("Foundation");
-  await page.getByRole("option", { name: /Foundation/ }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes" })
+    .getByRole("option", { name: /Foundation/ })
+    .click();
   await create()
     .getByRole("button", { name: /Add row/ })
     .click();
@@ -292,7 +320,13 @@ test("inline create saves custom IRI, parents and annotations, selects it, and u
   const inspector = pane().getByRole("region", { name: "Selected entity" });
   await expect(inspector).toContainText("created here");
   await expect(inspector).toContainText("Foundation");
-  await expect(inspector).toContainText("Other & alias");
+  await pane().getByRole("button", { name: "More", exact: true }).click();
+  await expect(pane().locator(".find-selected-details")).toContainText(
+    "Other & alias",
+  );
+  await pane()
+    .getByRole("dialog", { name: "More", exact: true })
+    .press("Escape");
   const added = (await snapshot()).entities.find(
     (e) => e.iri === base + "ManualSubject",
   );
@@ -332,6 +366,90 @@ test("pending parent text blocks commit and Escape restores explicit root creati
     .toEqual([THING]);
 });
 
+// Exercise the grouped specimen's 21 independent values through the real editor
+// (craigtrim/axiom#83), including collapse, expansion and removing the last value.
+test("grouped values show three of twenty-one and retain every literal in order", async () => {
+  await miss("Physical Education");
+  await create()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
+  await create()
+    .getByRole("combobox", { name: "Predicate 1", exact: true })
+    .selectOption(NS.rdfs + "seeAlso");
+  const values = [
+    "Exercise Physiology and Wellness",
+    "Fitness",
+    "GEN PHYS ED",
+    "Gym Class",
+    "LIFETIME FIT",
+    "LIFETIME FITNESS",
+    "PE",
+    "PE:PE",
+    "PHY ED",
+    "PHY ED LIFETIME FIT",
+    "PHYS CON",
+    "PHYS FIT CON",
+    "PHYSICAL E",
+    "PHYSICAL ED",
+    "PHYSICAL EDU",
+    "PHYSICAL EDUC",
+    "PHYSICAL EDUCA",
+    "PHYSICAL EDUCAT",
+    "PHYSICAL EDUCATI",
+    "PHYSICAL EDUCATIO",
+    "Per Well",
+  ];
+  const group = create().locator(`tr[data-predicate="${NS.rdfs}seeAlso"]`);
+  for (const [index, value] of values.entries()) {
+    if (index)
+      await group
+        .getByRole("button", { name: "+ Add value", exact: true })
+        .click();
+    await group.getByRole("textbox").last().fill(value);
+  }
+  await group.getByRole("button", { name: "Show fewer", exact: true }).click();
+  await expect(group.getByRole("textbox")).toHaveCount(3);
+  await expect(group.locator(".statement-value-count")).toHaveText("21");
+  await group.getByRole("button", { name: "18 more", exact: true }).click();
+  await expect(group.getByRole("textbox")).toHaveCount(21);
+  await expect(group.locator(".statement-value-count")).toHaveCount(0);
+  expect(
+    await group
+      .getByRole("textbox")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => (node as HTMLInputElement).value),
+      ),
+  ).toEqual(values);
+  await create().getByRole("button", { name: "Source", exact: true }).click();
+  await expect(create().getByLabel("RDF/XML source")).toContainText(
+    ">Per Well</",
+  );
+  const source = await create().getByLabel("RDF/XML source").textContent();
+  let previous = -1;
+  for (const value of values) {
+    const position = source!.indexOf(`>${value}</`, previous + 1);
+    expect(position).toBeGreaterThan(previous);
+    previous = position;
+  }
+  for (let remaining = 21; remaining > 0; remaining--) {
+    const remove = group
+      .getByRole("button", {
+        name: "Remove this rdfs:seeAlso value",
+        exact: true,
+      })
+      .last();
+    await remove.focus();
+    await remove.press("Enter");
+  }
+  await expect(group).toHaveCount(0);
+  await expect(create().getByLabel("RDF/XML source")).not.toContainText(
+    "rdfs:seeAlso",
+  );
+  await expect(create().locator(".entity-statement-count")).toHaveText(
+    "2 statements",
+  );
+});
+
 test("flat editor follows parent selection, label edits and statement removal", async () => {
   await miss("New course");
   const ancestry = create().getByLabel("Draft ancestry");
@@ -339,9 +457,12 @@ test("flat editor follows parent selection, label edits and statement removal", 
   const parent = create().getByRole("combobox", { name: "Parent classes" });
   await expect(ancestry).toContainText("New Course under owl:Thing");
   await expect(ancestry.locator(".entity-ancestry-card")).toHaveCount(0);
-  await expect(count).toHaveText("4 statements");
+  await expect(count).toHaveText("2 statements");
   await parent.fill("Foundation");
-  await page.getByRole("option", { name: /Foundation/ }).click();
+  await page
+    .getByRole("listbox", { name: "Parent classes" })
+    .getByRole("option", { name: /Foundation/ })
+    .click();
   await expect(parent).toHaveValue("Foundation");
   await expect(ancestry.locator(".entity-ancestry-card .nn")).toHaveText([
     "New Course",
@@ -362,7 +483,7 @@ test("flat editor follows parent selection, label edits and statement removal", 
   await create()
     .getByRole("textbox", { name: "Value 1", exact: true })
     .fill("Retained annotation");
-  await expect(count).toHaveText("5 statements");
+  await expect(count).toHaveText("4 statements");
   await create().getByRole("button", { name: "Source", exact: true }).click();
   await expect(create().getByLabel("RDF/XML source")).toContainText(
     "Retained annotation",
@@ -379,7 +500,7 @@ test("flat editor follows parent selection, label edits and statement removal", 
     });
   await remove.focus();
   await remove.press("Enter");
-  await expect(count).toHaveText("4 statements");
+  await expect(count).toHaveText("3 statements");
   await expect(create().getByLabel("RDF/XML source")).not.toContainText(
     "Retained annotation",
   );
@@ -659,7 +780,7 @@ test("Find creation retains a collision and field errors until replacement valid
     "already exists",
   );
   await holdRequests(app, ["findCreatePreview"]);
-  await label.fill("Ocean  Studies");
+  await label.fill("ocean studies");
   await waitForHeld(app);
   await expect(create().locator(".find-collision")).toContainText(
     "already exists",
@@ -668,10 +789,13 @@ test("Find creation retains a collision and field errors until replacement valid
     create().getByRole("button", { name: "Create class", exact: true }),
   ).toBeDisabled();
   await releaseRequests(app, { keepHolding: true });
+  await expect(create().locator(".find-collision")).toContainText(
+    "is very close to",
+  );
   await label.fill("Unoccupied label");
   await waitForHeld(app);
   await expect(create().locator(".find-collision")).toContainText(
-    "already exists",
+    "is very close to",
   );
   await releaseRequests(app, { keepHolding: true });
   await expect(create().locator(".find-collision")).toHaveCount(0);

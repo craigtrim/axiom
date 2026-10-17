@@ -1,54 +1,44 @@
-# Find visual contract — issue 34
+# Find visual contract
 
-`visual-reference.html` was copied from Craig's authoritative file:
+Issue [83](https://github.com/craigtrim/axiom/issues/83) combines three references. The rendered specimens govern their respective parts of Find:
 
-```text
-C:\Users\Craig\AppData\Roaming\Open Design\namespaces\release-stable-win\data\projects\dd6f8408-986c-4b38-9c30-3fe336496345\specs\find\visual-reference.html
-```
+| Reference | Governs | SHA-256 |
+| --- | --- | --- |
+| `visual-reference.html` | Find chrome, results, editor surroundings and footer, including the amendments from #36 and #48 | `5fb508df79392f7212bf313127e90ad2787a363ffd24ed5f95309610a32ba73c` |
+| `visual-reference-v5.html` | Grouped statement table, following decision 13 | `e2a3a9cc2ee03fd99e8e952db1279063d35f80fd1686eb22fa32e9c06d24f268` |
+| `../extend-visual/visual-reference-v3.html` | Row actions, menus and editor context bars | `e70c7d9b72ca40bc5de6812d26a9cd4af97bc1ac378d632d1a62a28bd8e62502` |
 
-Issue 36 removes the empty context line from this test fixture. The external original and the files under `specs/` remain unchanged.
+The original Find specimen came from Craig's Open Design project. Revision 5 is pinned from the attachment on #83. The source HTML remains unchanged. Tests apply the issue's named amendments in memory: shared palette T1, a 148 px action column at every width (A1), removal of word-match remedies (A2), no empty context line (A3), one selection marker on the leading cell (A4), and Reset filters only off the defaults (A5). The existing `Type` sort remains available because the store does not record change times.
 
-Issue 48 explicitly amends the results state: a quiet plus button beside Graph offers a new class; exact-name or proposed-IRI collisions disable it. Row actions read `+ Synonym`. The zero-results reference remains unchanged. These changes implement the approved issue and are exceptions to #34's older reference. The amended HTML is the source for the new result-action baselines; application screenshots are never used as expected images.
-
-SHA-256: `5fb508df79392f7212bf313127e90ad2787a363ffd24ed5f95309610a32ba73c`.
-
-The rendered HTML takes precedence over issue 34's older prose. In particular it retains the labeled `Add to the ontology` rule, `follows rdfs:label`, `Create class`, and the simple ancestry line when no parent is selected. The issue's explicit exception remains: the removed word-match mode is not restored.
+For complete results, the selected row's split is composed from the extend reference. For the editor, only the statement table and its styles come from revision 5. The surrounding editor continues to come from the original specimen. This follows the issue's precedence rules without changing either pinned file.
 
 ## Screenshot checks
 
-The #48 action checks compare the plus/graph group in both themes. These controls are captured at integer origins with matching compositor isolation in both windows, avoiding fractional ancestor-layer rasterization differences. Their dimensions, fonts, paint properties and all raw pixels must agree; nothing is masked or resampled. Zero-state specimens remain unchanged.
+`find-visual.spec.ts` has 38 comparisons: complete results in Expanded, Narrow, Shallow and Constrained layouts, root and parent-chain creation at multiple sizes and scroll positions, the header action group, exact and normalized collision notices, and the 21-value group. `extend-visual.spec.ts` separately compares the row split, remembered action, menus, focus state, synonym confirmation and all five creation doors in both themes.
 
-Issue 49 replaces the former isolated `synonym-action` checks with the complete control suite in `extend-visual.spec.ts`. At capture time the #34 results tables are amended in memory: `.addsyn` is removed and an empty trailing column reserves 148 pixels, or 44 when narrow. This does not modify the pinned HTML or the zero-results specimens. The new control's baselines come only from the separate extend reference.
+The test launches the real Electron application, imports an ontology, detaches Find and uses its controls. Search counts, field catalogues, store totals and reference result rows are presentation fixtures. Functional suites exercise actual search, persistence, creation, undo, semantic refresh, keyboard behavior and draft handoffs. The 21-value example also has a behavioral check for collapse, expansion, source order and removal of the last value.
 
-The integration also treats Type/Synonym's previous widths as maximums where the new column would otherwise crowd Entity out of the smallest expanded pane. They shrink continuously while reserving Entity space; no new presentation threshold is introduced. The in-memory results amendment applies the same rule.
+Expected images come only from the pinned HTML. Every run checks its hash and compares a fresh reference rendering with the checked-in baseline before comparing Axiom. Both renders use the same viewport, Segoe UI fonts, native 1x device scale, grayscale text, sRGB output and SwiftShader renderer. CSS-size captures require no resampling. Matching compositor layers isolate each pane, the More glyph and the result name and metadata text runs. This gives corresponding elements the same paint boundaries at equal origins and avoids rounding differences caused by renderer batching.
 
-The test launches the actual Electron application, imports a real small ontology, detaches Find, and edits its real controls. Only the reference's search counts, facet catalogue, suggested IRI and store totals are presentation fixtures. Domain behavior, persistence, validation, handoffs and undo are exercised separately by the functional suites.
+The collision notices and 21-value group are captured as isolated components at integer origins on opaque pane grounds. The grouped exhibit inherits Find's 14 px pane typography, as the other inline editor variants do. Its document captions and surrounding exhibit layout are outside the component capture.
 
-The reference is rendered independently from the pinned HTML. Only exhibit scaffolding and the explicitly excluded word-match remedy are removed at capture time. The parent variant comes directly from its `ed-chain` specimen. The app and reference have matching viewport dimensions, fonts, theme, native 1× device scale, grayscale text, sRGB output and a fixed SwiftShader renderer. Captures use CSS pixel dimensions without a scale transition or resampling. Each pane must produce two consecutive identical captures before comparison. The reference window is shown without taking keyboard focus so packaged Electron keeps it rendering.
+Each capture must settle to two consecutive identical images. Playwright uses `threshold: 0` and `maxDiffPixels: 0`; decoded bitmap comparison also includes antialiased edge pixels. Nothing is masked, and application screenshots cannot become expected images. A failed comparison remains a failure.
 
-The comparison uses `threshold: 0` and `maxDiffPixels: 0`, then compares decoded bitmaps directly. This extra check includes antialiased edge pixels that Playwright's default image comparator can otherwise ignore. Both the fresh reference against its baseline and Axiom against the fresh reference must have **zero differing raw pixels**. Neither images nor their SVGs are masked or replaced.
-
-**Open verification issue:** one complete packaged run passed every raw-pixel check, but repeat runs have intermittently differed in six edge pixels of the More icon. Matching SVG attributes, computed paint properties and screen transforms are recorded in the geometry artifacts. Changing raster backends, repainting, or keeping Find in the original window has not eliminated the variation. A successful single run does not establish repeatable 100% bitmap equality. Keep this acceptance gate strict while the discrepancy is investigated.
-
-**Issue 36 verification:** all 22 empty-context, result-area and footer geometry comparisons pass against the amended reference. The full-pane comparisons pass in the two shallow frames and fail in the other 20 frames, whose statement editor differs from this older fixture after the grouped-values implementation. An isolated run of the previous EXE against the previous committed HTML and baseline also fails in the light wide frame. These full-pane assertions remain strict and are not skipped or marked as expected failures. The reference baselines were regenerated independently from HTML; application screenshots were not used as expected images. Evidence is under `artifacts/issue-36`.
-
-Eleven cases per theme cover wide, narrow and extra-wide root views and their scrolled footers; shallow creation; and wide/narrow selected-parent chains at both scroll positions. Baseline images are generated **only from the reference**, never from Axiom. Every run verifies the HTML hash and verifies the checked-in baseline against a fresh reference render before comparing the application.
-
-Run on Windows with the repository's Electron/Playwright versions and Segoe UI fonts:
+Run on Windows with the repository's installed Electron and Playwright versions:
 
 ```powershell
 node scripts/build.mjs
-node node_modules/@playwright/test/cli.js test tests/e2e/find-visual.spec.ts
+node node_modules/@playwright/test/cli.js test tests/e2e/find-visual.spec.ts tests/e2e/extend-visual.spec.ts
 ```
 
-To regenerate reference baselines after an explicitly approved reference change, update the pinned HTML hash and then run:
+After an approved reference amendment, regenerate baselines from the reference:
 
 ```powershell
 $env:AXIOM_UPDATE_REFERENCE = '1'
-node node_modules/@playwright/test/cli.js test tests/e2e/find-visual.spec.ts
+node node_modules/@playwright/test/cli.js test tests/e2e/find-visual.spec.ts tests/e2e/extend-visual.spec.ts
 Remove-Item Env:AXIOM_UPDATE_REFERENCE
 ```
 
-Do not use Playwright's `--update-snapshots` to bless application output. Expected and actual captures, plus measured geometry and SVG transforms, are written to `artifacts/issue-34`. Each test also attaches its original reference/application PNGs and raw difference counts to the Playwright report so subsequent repetitions cannot overwrite its evidence. Unstable captures retain the last two images. Failed image comparisons also produce Playwright's diff image.
+The Find suite rejects `--update-snapshots` modes that could accept application output. Evidence includes reference and application PNGs, layout measurements, raw bitmap results and Playwright diffs under `artifacts/issue-34`, `artifacts/issue-36`, `artifacts/issue-48` and `artifacts/issue-83`. The HTML report retains failure traces.
 
-Run desktop suites sequentially: simultaneous Electron suites can interfere with Windows keyboard focus. Unit tests can run independently.
+Run desktop suites sequentially because simultaneous Electron suites can interfere with Windows keyboard focus. Unit tests can run independently.
