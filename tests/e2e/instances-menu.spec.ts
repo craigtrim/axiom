@@ -1,3 +1,4 @@
+// Issue 87 exercises instance commands through the installed-menu palette.
 import { launchExample } from "./example-fixture";
 import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
 import {
@@ -653,11 +654,10 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   ).toHaveText("Direct instances 0");
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Show instances");
   const option = page.getByRole("option", {
-    name: "Edit: Show instances (0)",
-    exact: true,
+    name: /^Show instances \(0\)(?:\s|$)/,
   });
   await expect(option).toBeDisabled();
   await page.keyboard.press("Enter");
@@ -721,12 +721,11 @@ test("palette and class pickers show the same counts as the report", async () =>
     .toEqual({ label: "Show instances (527)", enabled: true });
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Show instances");
   await expect(
     page.getByRole("option", {
-      name: "Edit: Show instances (527)",
-      exact: true,
+      name: /^Show instances \(527\)(?:\s|$)/,
     }),
   ).toBeEnabled();
   await page.keyboard.press("Enter");
@@ -763,12 +762,23 @@ test("palette and class pickers show the same counts as the report", async () =>
 
 test("known-empty graph operations are disabled consistently with the native menu", async () => {
   await menu("file.new");
+  await expect.poll(async () => (await state()).ontology.example).toBe(false);
   const context = await graphMenu(THING);
+  // A seeded root can already be expanded. The context command follows that
+  // state, while both native operations remain disabled for a degree-zero node.
+  const node = (await state()).graph.nodes.find((n) => n.iri === THING)!;
+  expect(node.degree).toBe(0);
   await expect(
-    context.getByRole("menuitem", { name: "Expand", exact: true }),
+    context.getByRole("menuitem", {
+      name: node.expanded ? "Collapse" : "Expand",
+      exact: true,
+    }),
   ).toBeDisabled();
   await expect(
-    context.getByRole("menuitem", { name: "Collapse", exact: true }),
+    context.getByRole("menuitem", {
+      name: node.expanded ? "Expand" : "Collapse",
+      exact: true,
+    }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   for (const name of ["Expand", "Collapse"])
@@ -785,11 +795,11 @@ test("known-empty graph operations are disabled consistently with the native men
   expect(enabled).toEqual([false, false]);
   await menu("palette");
   await page
-    .getByRole("textbox", { name: "Find a command" })
+    .getByRole("combobox", { name: "Command palette" })
     .fill("Collapse selected node");
   await expect(
     page.getByRole("option", {
-      name: /^Graph: Collapse selected node/,
+      name: /^Collapse selected node(?:\s|$)/,
     }),
   ).toBeDisabled();
 });

@@ -1,3 +1,4 @@
+// Issue 87 checks each window through its live shell status.
 import {
   test,
   expect,
@@ -55,7 +56,9 @@ async function launch(file?: string, updateLog?: string): Promise<Instance> {
   apps.add(app);
   const page = await app.firstWindow();
   page.on("pageerror", (error) => errors.push(error.message));
-  await expect(page.locator(".status-counts")).toBeVisible();
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toBeVisible();
   const profile = await app.evaluate(({ app }) => app.getPath("userData"));
   expect(await app.evaluate(({ app }) => app.getPath("sessionData"))).toBe(
     profile,

@@ -1,3 +1,4 @@
+// Issue 87 reports loaded workspace counts in the shell status bar.
 // craigtrim/axiom#1
 import {
   test,
@@ -45,7 +46,9 @@ async function launch(file?: string) {
       checkboxChecked: false,
     });
   });
-  await expect(page.locator(".status-counts")).toBeVisible();
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toBeVisible();
 }
 async function menu(id: string) {
   await app!.evaluate(({ Menu, BrowserWindow }, id) => {
@@ -109,7 +112,9 @@ test("a workspace path on the command line opens that workspace", async () => {
   await launch(file);
   await expect.poll(async () => (await state()).classCount).toBe(3);
   expect((await state()).dirty).toBe(false);
-  await expect(page.locator(".window-title")).toContainText("Courses.axiom");
+  await expect(
+    page.getByTestId("window-titlebar").locator("strong"),
+  ).toHaveText("Courses.axiom");
   await page.screenshot({ path: "artifacts/testing/launch-workspace.png" });
 });
 

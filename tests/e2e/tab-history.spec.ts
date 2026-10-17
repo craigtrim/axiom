@@ -1,3 +1,4 @@
+// Issue 87 reports restored workspaces through the full shell.
 import {
   test,
   expect,
@@ -251,7 +252,7 @@ test("unnamed tabs are omitted from history by default and inline renaming makes
 test("inline rename preserves rejected text, cancels blank input and accepts corrected names", async () => {
   const tab = page.getByRole("tab", { name: "Graph", exact: true });
   const inline = page.locator(".flexlayout__tab_button_textbox");
-  const notice = page.locator(".status-bar");
+  const notice = page.getByRole("contentinfo", { name: "Workbench status" });
   const before = await notice.innerText();
   await tab.dblclick();
   await inline.fill("   ");
