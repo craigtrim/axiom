@@ -1,3 +1,4 @@
+// Issue 87 exposes restored document counts in the shell status.
 import {
   test,
   expect,
@@ -37,7 +38,9 @@ async function launch() {
       checkboxChecked: false,
     });
   });
-  await expect(page.locator(".status-counts")).toBeVisible();
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toBeVisible();
 }
 async function menu(id: string) {
   await app!.evaluate(({ Menu, BrowserWindow }, id) => {

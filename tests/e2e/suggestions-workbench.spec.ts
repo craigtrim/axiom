@@ -1,3 +1,4 @@
+// Issue 87 names the application menubar consistently with the reference.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
@@ -188,7 +189,7 @@ test("uses the document pill with the absolute folder and keeps palette shortcut
     ).toHaveCount(0);
   await expect(
     page
-      .getByRole("menubar", { name: "Application menus" })
+      .getByRole("menubar", { name: "Application" })
       .getByRole("menuitem", { name: "View", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Control+Shift+P");

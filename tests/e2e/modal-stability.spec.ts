@@ -10,7 +10,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Snapshot } from "../../src/shared/protocol";
 for (const size of ["default", "short", "narrow"] as const) {
   for (const item of [
-    { command: "palette", title: "Command palette", field: "Find a command" },
+    { command: "palette", title: "Command palette", field: "Command palette" },
     {
       command: "help.shortcuts",
       title: "Keyboard shortcuts",
@@ -34,17 +34,23 @@ for (const size of ["default", "short", "narrow"] as const) {
         name: item.title,
         exact: true,
       });
-      const input = dialog.getByRole("textbox", {
-        name: item.field,
-        exact: true,
-      });
+      const input = dialog.getByRole(
+        item.command === "palette" ? "combobox" : "textbox",
+        {
+          name: item.field,
+          exact: true,
+        },
+      );
       const original = await box(dialog),
         inputBox = await box(input);
       for (const text of ["Find", "NoSuchCommandzzzzz", ""]) {
         await input.fill(text);
         await fixedBox(dialog, original);
         await fixedBox(input, inputBox);
-        await bounds(dialog);
+        await bounds(
+          dialog,
+          item.command === "palette" ? ".plist" : ".modal-body",
+        );
         await expect(input).toBeFocused();
       }
       if (item.command === "keyboard.settings") {
@@ -214,19 +220,30 @@ test("Regenerate confirmation remains bounded and Cancel retains the example dat
   desktop: d,
 }) => {
   await d.menu("file.example");
-  const input = d.page.getByRole("combobox", { name: "Dataset size" });
-  await expect(input).toBeVisible();
-  const previous = await input.inputValue();
-  await input.focus();
-  await input.selectOption(previous === "1000" ? "12000" : "1000");
+  await expect
+    .poll(async () => (await d.request<Snapshot>("state")).ontology.example)
+    .toBe(true);
+  // Issue 87: cancellation preserves the example and restores the Tools trigger.
+  const previous = (await d.request<Snapshot>("state")).orderCount;
+  const trigger = d.page.locator('[data-menu-id="menu.tools"]');
+  await trigger.click();
+  await d.page
+    .getByRole("menuitem", { name: "Dataset size", exact: true })
+    .click();
+  await d.page
+    .getByRole("menuitemradio", {
+      name: previous === 1000 ? "12,000 orders" : "1,000 orders",
+      exact: true,
+    })
+    .click();
   const dialog = d.page.getByRole("dialog", { name: "Regenerate dataset" });
   await bounds(dialog);
   await d.resize(480, 450);
   await bounds(dialog);
   await d.resize(1280, 900);
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(input).toHaveValue(previous);
-  await expect(input).toBeFocused();
+  expect((await d.request<Snapshot>("state")).orderCount).toBe(previous);
+  await expect(trigger).toBeFocused();
 });
 for (const advanced of [false, true]) {
   test(`${advanced ? "Graph stylesheet" : "Graph appearance"} remains anchored through conditional controls and errors`, async ({

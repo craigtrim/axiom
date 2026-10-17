@@ -1,3 +1,4 @@
+// Issue 87 retains the regression for published suggestion completion and saved metadata.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
@@ -79,6 +80,28 @@ afterEach(() => {
   services.splice(0).forEach((s) => s.close());
 });
 describe("suggestions for explicit selected nodes", () => {
+  it("publishes completion only after review metadata and the result are saved", async () => {
+    let finishReview!: (reviewable: boolean) => void;
+    runner.hasRun = vi.fn(
+      () => new Promise<boolean>((resolve) => (finishReview = resolve)),
+    );
+    const batch = await service.enqueue(input(["urn:parent"]));
+    await vi.waitFor(() => expect(runner.hasRun).toHaveBeenCalledOnce());
+    // The runner has finished, but its final record is still being assembled.
+    expect((await service.history())[0].runs[0].state).toBe("running");
+    finishReview(true);
+    await wait(["completed"]);
+    const saved = JSON.parse(
+      await readFile(path.join(root, batch.id + ".json"), "utf8"),
+    );
+    expect(saved).toEqual((await service.history())[0]);
+    expect(saved.runs[0]).toMatchObject({
+      state: "completed",
+      count: 3,
+      reviewable: true,
+      finishedAt: expect.any(Number),
+    });
+  });
   it.each(Object.keys(batchModes) as BatchMode[])(
     "captures only selected targets for %s, deduplicated",
     async (mode) => {

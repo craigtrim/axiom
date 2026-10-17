@@ -1,0 +1,393 @@
+/* Issue 87: the full shell uses the pinned reference's rail, tabs, status and palette. */
+.workbench {
+  container-type: size;
+  container-name: workbench-shell;
+}
+.workbench-midrow {
+  display: grid;
+  grid-template-columns: var(--w-rail) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+.workbench-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.workbench-stage > .docking-workspace {
+  overflow: clip;
+}
+.chrome-palette-shell .palette input::placeholder {
+  color: revert;
+  opacity: revert;
+}
+.shell-surface {
+  box-sizing: border-box;
+  font: 13px/1.45 var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.shell-surface :where(button, span, div, input) {
+  all: revert;
+  box-sizing: border-box;
+}
+.shell-surface :where(button, input) {
+  font: inherit;
+  color: inherit;
+}
+.shell-surface :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+/* ----------------------------------------------------------------- rail ---- */
+.shell-surface .midrow {
+  display: grid;
+  grid-template-columns: var(--w-rail) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.shell-surface.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--rail);
+  border-inline-end: 1px solid var(--chrome-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.shell-surface.rail::-webkit-scrollbar {
+  display: none;
+}
+.shell-surface .railgroup {
+  display: flex;
+  flex-direction: column;
+}
+.shell-surface .railgroup.bottom {
+  margin-top: auto;
+}
+
+.shell-surface .ri {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--w-rail);
+  border: 0;
+  background: none;
+  color: var(--rail-icon);
+  cursor: pointer;
+}
+.shell-surface .ri svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.shell-surface .ri:hover {
+  color: var(--text);
+  background: var(--chrome-hover);
+}
+/* current pane: a 2px bar on the leading edge plus full strength ink, so the
+   state is a shape and a weight, never colour alone */
+.shell-surface .ri[aria-current="true"] {
+  color: var(--text);
+}
+.shell-surface .ri[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--accent);
+}
+.shell-surface .ri .badge {
+  position: absolute;
+  inset-block-start: 7px;
+  inset-inline-end: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.shell-surface .ri .badge.warn {
+  background: var(--warn);
+  color: var(--accent-fg);
+}
+
+/* ----------------------------------------------------------------- tabs ---- */
+.shell-surface .stage {
+  display: grid;
+  grid-template-rows: var(--h-doc-tabs) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.shell-surface.tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.shell-surface.tabs::-webkit-scrollbar {
+  display: none;
+}
+.shell-surface .tab {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 220px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.shell-surface .tab:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.shell-surface .tab[aria-selected="true"] {
+  background: var(--ground);
+  color: var(--text);
+  font-weight: 600;
+}
+.shell-surface .tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  height: 2px;
+  background: var(--accent);
+}
+.shell-surface .tab .lab {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- status ---- */
+.shell-surface.statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--h-status);
+  padding-inline: var(--sp-2);
+  background: var(--chrome);
+  border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.shell-surface.statusbar .si {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+}
+.shell-surface.statusbar .si svg {
+  width: 11px;
+  height: 11px;
+}
+.shell-surface.statusbar button.si {
+  height: 18px;
+  padding: 0 var(--sp-1);
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.shell-surface.statusbar button.si:hover {
+  background: var(--chrome-hover);
+  color: var(--text);
+}
+.shell-surface.statusbar .warnink {
+  color: var(--warn);
+}
+.shell-surface.statusbar .okink {
+  color: var(--ok);
+}
+.shell-surface.statusbar .num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------- palette ---- */
+.shell-surface .palette {
+  width: min(620px, 92vw);
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.shell-surface .palette input {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--text);
+  font: 13px var(--font);
+}
+.shell-surface .palette input:focus {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.shell-surface .plist {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: var(--sp-1) 0;
+}
+.shell-surface .pi {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-1) var(--sp-3);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+.shell-surface .pi[data-active="true"] {
+  background: var(--row-selected);
+}
+.shell-surface .pi .ppath {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.shell-surface .pi .pacc {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.shell-surface .pempty {
+  padding: var(--sp-4) var(--sp-3);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.shell-surface.tabs {
+  height: var(--h-doc-tabs);
+  min-height: var(--h-doc-tabs);
+  flex: none;
+}
+.shell-surface.rail .ri {
+  min-height: var(--w-rail);
+  flex: none;
+}
+.shell-surface.rail .railgroup {
+  flex: none;
+}
+.shell-surface.statusbar {
+  min-height: var(--h-status);
+  flex: none;
+}
+.shell-surface .shell-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0;
+  border: 0;
+}
+.shell-surface.statusbar .status-error {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.shell-surface.statusbar .status-error span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chrome-palette-shell {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 72px 0 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  background: transparent;
+}
+.chrome-palette-shell[open] {
+  display: grid;
+  justify-items: center;
+  align-items: start;
+}
+.chrome-palette-shell::backdrop {
+  background: rgba(27, 31, 36, 0.28);
+}
+[data-theme="dark"] .chrome-palette-shell::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+.chrome-palette-shell .palette {
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+}
+.chrome-palette-shell .palette input {
+  flex: none;
+}
+.chrome-palette-shell .plist {
+  overflow-y: auto;
+}
+@container workbench-shell (max-width: 620px) {
+  .shell-surface.statusbar .opt {
+    display: none;
+  }
+}
+@container workbench-shell (max-height: 420px) {
+  .shell-surface.rail .railgroup.bottom .optr {
+    display: none;
+  }
+}
+@container workbench-shell (max-width: 239px), workbench-shell (max-height: 119px) {
+  .shell-surface.rail,
+  .shell-surface.tabs,
+  .shell-surface.statusbar {
+    display: none;
+  }
+  .workbench-midrow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Animate the mounted dialog and its native top-layer backdrop together. */
+.chrome-palette-shell[open],
+.chrome-palette-shell[open]::backdrop {
+  animation: chrome-fade var(--t-enter) ease-out;
+}
+@keyframes chrome-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chrome-palette-shell[open],
+  .chrome-palette-shell[open]::backdrop {
+    animation: none;
+  }
+}

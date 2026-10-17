@@ -47,7 +47,7 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "entity-extend.css",
       ].includes(d.file),
   );
-  expect(prior).toHaveLength(199);
+  expect(prior).toHaveLength(197);
   expect(
     new Set(
       declarations
@@ -88,17 +88,27 @@ it("removes only equal duplicate declarations and retains deferred private palet
         .map((d) => d.name),
     ),
   ).toEqual(new Set(["--warn-bg", "--warn-border", "--idle-border"]));
-  expect(new Set(prior.map((d) => d.name)).size).toBe(94);
+  expect(new Set(prior.map((d) => d.name)).size).toBe(95);
   const shared = declarations.filter(
     (d) => sharedTokens.has(d.name.slice(2)) && d.file !== "styles.css",
   );
-  // Issue 84 completes Quality's migration to the shared palette.
+  // Issue 87 removes the last shared override and gives document tabs their own height.
+  expect(shared).toEqual([]);
   expect(
-    shared.every(
-      (d) => d.file === "window-chrome.css" && d.name === "--h-tabs",
+    new Set(
+      declarations
+        .filter((d) => d.file === "window-chrome.css")
+        .map((d) => d.name),
     ),
-  ).toBe(true);
-  expect(
-    shared.find((d) => d.file === "window-chrome.css")?.selector,
-  ).toContain(".window-chrome");
+  ).toEqual(
+    new Set([
+      "--chrome-press",
+      "--rail",
+      "--rail-icon",
+      "--h-title",
+      "--h-doc-tabs",
+      "--h-status",
+      "--w-rail",
+    ]),
+  );
 });

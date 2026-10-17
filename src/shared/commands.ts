@@ -1,4 +1,6 @@
 import { layoutOptions } from "./layout-options";
+// Issue 87: the example dataset controls live in the installed Tools menu.
+export const datasetSizes = [1000, 12000, 50000, 100000];
 export const scopes = [
   "app",
   "graph",
@@ -170,6 +172,18 @@ export const menuTree: MenuDefinition[] = [
   ]),
   menu("menu.tools", "Tools", "T", [
     c("tools.quality", "Check ontology...", "Tools"),
+    menu(
+      "menu.dataset",
+      "Dataset size",
+      "D",
+      datasetSizes.map((size) =>
+        c(
+          "tools.dataset." + size,
+          size.toLocaleString("en-GB") + " orders",
+          "Tools > Dataset size",
+        ),
+      ),
+    ),
   ]),
   menu("menu.graph", "Graph", "G", [
     c(
