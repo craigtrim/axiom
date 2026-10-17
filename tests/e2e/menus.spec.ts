@@ -19,7 +19,7 @@ let app: ElectronApplication,
 // The appearance workflows live in their own desktop suite.
 // Issue 87: dataset commands are covered through their installed menu and confirmation.
 const coverage: Record<string, string[]> = {
-  "Dataset size (tests/e2e/workbench-shell.spec.ts)": [
+  "Dataset size (tests/e2e/shell-contracts.spec.ts)": [
     "tools.dataset.1000",
     "tools.dataset.12000",
     "tools.dataset.50000",
