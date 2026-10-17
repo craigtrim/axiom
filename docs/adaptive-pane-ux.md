@@ -68,7 +68,7 @@ The search field, Search and Refresh controls remain above the results scroller.
 
 ## Coverage across the current views
 
-App.tsx declares eighteen dockable component types. The per-view policies below cover thirteen of them; Error log, Tab history, Sparsity, Text Analysis and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
+App.tsx declares eighteen dockable component types. The per-view policies below cover fourteen of them; Error log, Tab history, Sparsity and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
@@ -84,6 +84,7 @@ App.tsx declares eighteen dockable component types. The per-view policies below 
 | Source | Editor with format and edit actions | Same editor; compact controls | Action/status row above editor | Exact source, draft, cursor and validation |
 | Filesystem provenance | Folder/options and collection details | Choose, Collect/Cancel and progress; options disclosed | Folder/action row above progress or evidence | Root, coverage limits, errors and status |
 | Graph | Graph and existing interaction model | Same graph; smaller drawing area | Same graph; smaller drawing area | Camera, layout, budget, pins and selection |
+| Text Analysis | One action row above the editor: Auto, match state, presentation switch, View in Graph, overflow | Same row; secondary actions overflow by measurement in a stable order | Help sheet closes and every remaining pixel goes to the editor | Text, caret, selection, scroll position, Undo history, Auto state, presentation and settled highlights |
 | Ontology Quality | Full report, settings, limits, coverage | Kind and IRI fold into the name cell; store line withdraws | Limits, advanced settings rows and Group by withdraw; in Narrow and shallow only the command bar, severity filter, findings and footer remain | Report, settings, expanded rules, open finding and review selections |
 
 For grids, a smaller width should not silently remove data columns or replace the grid with unbounded cards. Optional column presentation needs explicit access to hidden values. Tree indentation continues to represent hierarchy.
