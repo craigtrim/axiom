@@ -1,3 +1,4 @@
+// Issue 87 validation retains the existing fix for completion-before-persistence.
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
@@ -27,6 +28,7 @@ export interface BatchRunner {
 /** Owns the queue outside any pane. A target list is captured once, never expanded. */
 export class SuggestionBatches {
   private batches: SuggestionBatch[] = [];
+  private published = new Map<string, SuggestionBatch>();
   private ready?: Promise<void>;
   private writes: Promise<void> = Promise.resolve();
   private pumping = false;
@@ -78,6 +80,7 @@ export class SuggestionBatches {
                 "Axiom closed before this run finished. Select the node to start a new run.";
             }
           this.batches.push(batch);
+          this.published.set(batch.id, structuredClone(batch));
         } catch {
           /* One damaged history must not hide the others. */
         }
@@ -86,7 +89,8 @@ export class SuggestionBatches {
     })());
   }
   private save(batch: SuggestionBatch) {
-    const json = JSON.stringify(batch, null, 2);
+    const saved = structuredClone(batch);
+    const json = JSON.stringify(saved, null, 2);
     const write = this.writes
       .catch(() => {})
       .then(async () => {
@@ -94,6 +98,8 @@ export class SuggestionBatches {
         const temp = target + ".tmp";
         await writeFile(temp, json, "utf8");
         await rename(temp, target);
+        // Readers must never observe completion before its result is on disk.
+        this.published.set(saved.id, saved);
         this.changed();
       });
     this.writes = write;
@@ -101,7 +107,9 @@ export class SuggestionBatches {
   }
   async history() {
     await this.load();
-    return structuredClone([...this.batches].reverse());
+    return structuredClone(
+      this.batches.map((batch) => this.published.get(batch.id)!).reverse(),
+    );
   }
   async enqueue(input: BatchRequest) {
     await this.load();
