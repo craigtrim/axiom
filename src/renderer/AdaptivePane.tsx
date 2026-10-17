@@ -38,7 +38,7 @@ const PaneContext = createContext(initial);
 export const usePaneLayout = () => useContext(PaneContext);
 /** A pane may set its own recovery height and body; width recovery and Maximize stay shared. */
 export interface PaneRecovery {
-  height: number;
+  height?: number;
   Body: (props: { maximize: ReactNode }) => ReactNode;
 }
 const recoveries = new Map<string, PaneRecovery>();
@@ -117,7 +117,8 @@ export function AdaptivePane({
         // Ontology Quality renders working content down to 120 tall (craigtrim/axiom#44).
         const own =
           recoveries.get(paneId) ?? recoveries.get(paneId.split(":")[0]);
-        if (own && !visual)
+        // craigtrim/axiom#79: a custom body may retain the shared recovery thresholds.
+        if (own?.height !== undefined && !visual)
           next.recovery =
             Math.round(width) < 240 || Math.round(height) < own.height;
         if (next.recovery && !old.recovery) {

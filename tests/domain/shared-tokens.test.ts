@@ -45,9 +45,28 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "suggestions-reference.css",
         "find-reference.css",
         "entity-extend.css",
+        "text-analysis.css",
       ].includes(d.file),
   );
   expect(prior).toHaveLength(197);
+  // craigtrim/axiom#79 adds six editor tints per theme, not another palette.
+  expect(
+    new Set(
+      declarations
+        .filter((d) => d.file === "text-analysis.css")
+        .map((d) => d.name),
+    ),
+  ).toEqual(
+    new Set([
+      "--ed-pad",
+      "--hb",
+      "--hr",
+      ...Array.from({ length: 6 }, (_, i) => [
+        `--h${i + 1}`,
+        `--h${i + 1}r`,
+      ]).flat(),
+    ]),
+  );
   expect(
     new Set(
       declarations

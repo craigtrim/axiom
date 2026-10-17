@@ -10,7 +10,10 @@ import {
   useSnapshot,
 } from "./client";
 import { textEntityConcepts } from "../shared/text-analysis";
-import { TextAnalysisSession } from "./text-analysis-session";
+import {
+  TextAnalysisSession,
+  hasUnanalyzedText,
+} from "./text-analysis-session";
 import { analysisResult } from "./live-analysis";
 import type { TextEntityClassDraft } from "./text-analysis-session";
 import type { TextEntity, TextAnalysisResult } from "../shared/text-analysis";
@@ -34,9 +37,7 @@ export function editAnalysisText(readText: () => string) {
   textSaveTimer = setTimeout(flushAnalysisText, 250);
 }
 export function analyzeTextNow() {
-  flushAnalysisText();
-  syncTextAnalysisContext();
-  textAnalysisSession.analyzeNow();
+  void waitForCurrentTextAnalysis();
 }
 function initialize() {
   if (initialized || !state) return;
@@ -123,15 +124,26 @@ export function useTextAnalysis() {
     retained?.datasetEpoch === snapshot.datasetEpoch ? retained : undefined;
   return { ...value, result, snapshot };
 }
-export function waitForCurrentTextAnalysis() {
-  if (!state) return Promise.resolve(undefined);
+let waitingActions = 0;
+// craigtrim/axiom#79: explicit actions refresh stale text even with Auto off.
+export async function waitForCurrentTextAnalysis(tail?: string) {
+  if (!state) return undefined;
   flushAnalysisText();
   textAnalysisSession.update({
     text: textAnalysisSession.getSnapshot().input.text,
     datasetEpoch: state.datasetEpoch,
     version: state.version,
   });
-  return textAnalysisSession.whenReady();
+  const stale = hasUnanalyzedText(textAnalysisSession.getSnapshot());
+  if (!stale) return textAnalysisSession.whenReady();
+  ++waitingActions;
+  textAnalysisSession.setWaiting(true, tail);
+  textAnalysisSession.analyzeNow();
+  try {
+    return await textAnalysisSession.whenReady();
+  } finally {
+    textAnalysisSession.setWaiting(--waitingActions > 0);
+  }
 }
 interface TextEditorBridge {
   focus(): void;
@@ -154,6 +166,7 @@ export function attachTextEditor(bridge: TextEditorBridge) {
 function currentMatch(entity: TextEntity) {
   const result = analysisResult(textAnalysisSession.getSnapshot().analysis);
   return result?.entities.includes(entity) &&
+    !hasUnanalyzedText(textAnalysisSession.getSnapshot()) &&
     result.datasetEpoch === state?.datasetEpoch &&
     result.version === state.version
     ? result
@@ -180,14 +193,12 @@ async function activateTextEntity(
   const ticket = ++inspectionTicket;
   if (
     result.version !== state.version ||
-    (selectText &&
-      !editor &&
-      ["pending", "stale"].includes(
-        textAnalysisSession.getSnapshot().analysis.status,
-      ))
+    hasUnanalyzedText(textAnalysisSession.getSnapshot())
   ) {
     // Synchronize before waiting, including a click before the view's effect ran.
-    const fresh = await waitForCurrentTextAnalysis();
+    const fresh = await waitForCurrentTextAnalysis(
+      `Details opens only if ${entity.label} still matches.`,
+    );
     if (!fresh || ticket !== inspectionTicket) return;
     const match = fresh.entities.find((item) => item.key === entity.key);
     if (!match || currentMatch(match) !== fresh) return;

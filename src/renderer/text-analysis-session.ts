@@ -39,6 +39,8 @@ export interface TextAnalysisSessionState {
   view: "text" | "summary";
   liveAnalysis: boolean;
   editing: boolean;
+  waiting?: boolean;
+  notice?: { id: number; tail: string; expiresAt: number };
   details?: { entity: TextEntity; result: TextAnalysisResult };
   creation?: {
     phrase: string;
@@ -82,6 +84,22 @@ export class TextAnalysisSession {
   private publish(change: Partial<TextAnalysisSessionState>) {
     this.value = { ...this.value, ...change };
     for (const listener of this.listeners) listener();
+  }
+  // craigtrim/axiom#79: background matching keeps the count; explicit actions announce their wait.
+  setWaiting(waiting: boolean, tail?: string) {
+    if (this.disposed) return;
+    this.publish({
+      waiting,
+      ...(tail
+        ? {
+            notice: {
+              id: (this.value.notice?.id ?? 0) + 1,
+              tail,
+              expiresAt: Date.now() + 4200,
+            },
+          }
+        : {}),
+    });
   }
   // craigtrim/axiom#73: manual keystrokes stay in Monaco until capture or an action.
   edit(readText: () => string) {
