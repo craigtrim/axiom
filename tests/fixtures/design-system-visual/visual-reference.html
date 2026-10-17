@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom shared layer</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* ===========================================================================
+   AXIOM SHARED LAYER v1
+   One palette, one component set. Declared here and byte identical in every
+   file of this delivery. In Axiom this block belongs at :root in styles.css,
+   once, and every feature stylesheet references rather than redeclares it.
+   =========================================================================== */
+:root {
+  color-scheme: light;
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+  --border-ctl:    #7d868f;
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+  --accent:        #0b5fd0;
+  --accent-fg:     #ffffff;
+  --accent-soft:   #eaf2fd;
+  --ok:            #0a7a3d;
+  --ok-soft:       #e8f5ed;
+  --warn:          #8a6116;
+  --warn-soft:     #fdf5e3;
+  --bad:           #a4201a;
+  --bad-soft:      #fdecea;
+  --idle:          #57606a;
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+  --chrome:        #eceff3;
+  --chrome-hover:  #dfe4ea;
+  --chrome-border: #d7dce2;
+  --sel:           rgba(11, 95, 208, .26);
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px;
+
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* geometry shared by every pane */
+  --h-tabs: 28px;   /* the dock strip, owned by the shell */
+  --h-bar:  28px;   /* a view's entire chrome: one action row */
+  --h-foot: 22px;   /* a status or footer line, where a view has one */
+  --row:    26px;   /* a list or table row */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+  --ok: #4ade80; --ok-soft: #0f2a1b;
+  --warn: #e3b341; --warn-soft: #2b2211;
+  --bad: #ff8d81; --bad-soft: #3a1a17;
+  --idle: #9ba7b4;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+  --sel: rgba(76, 154, 255, .30);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+    --ok: #4ade80; --ok-soft: #0f2a1b;
+    --warn: #e3b341; --warn-soft: #2b2211;
+    --bad: #ff8d81; --bad-soft: #3a1a17;
+    --idle: #9ba7b4;
+    --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+    --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+    --sel: rgba(76, 154, 255, .30);
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; padding: var(--sp-5);
+  background: var(--surface); color: var(--text);
+  font: 13px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl); }
+
+/* ------------------------------------------------------------------ dock -- */
+/* A docked pane is resized by dragging the dock splitter, so these grips are
+   the real workbench affordance rather than a size picker. */
+.rig { display: grid; grid-template-columns: auto 6px; grid-template-rows: auto 6px; width: max-content; max-width: 100%; }
+.dock {
+  display: grid; grid-template-rows: var(--h-tabs) minmax(0, 1fr);
+  width: 900px; height: 560px; min-width: 180px; min-height: 110px; max-width: 100%;
+  background: var(--ground); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); overflow: hidden;
+}
+.grip { background: none; border: 0; padding: 0; }
+.grip.v { cursor: col-resize; } .grip.h { cursor: row-resize; } .grip.c { cursor: nwse-resize; }
+.grip::after { content: ""; display: block; width: 100%; height: 100%; background: var(--border-strong); border-radius: var(--r-pill); opacity: .5; }
+.grip:hover::after, .grip:focus-visible::after { opacity: 1; background: var(--accent); }
+
+.tabs { display: flex; align-items: stretch; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative; flex: none; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); border: 0; border-inline-end: 1px solid var(--border);
+  background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.tab:hover { background: var(--row-hover); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--ground); color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; height: 2px; background: var(--accent); }
+
+/* ------------------------------------------------------------------ pane -- */
+.pane { container-type: size; container-name: pane; display: grid; grid-template-rows: var(--h-bar) minmax(0, 1fr); min-height: 0; background: var(--ground); }
+.pane.footed { grid-template-rows: var(--h-bar) minmax(0, 1fr) var(--h-foot); }
+
+/* a view's entire chrome: one row, measured overflow, no second band */
+.bar {
+  display: flex; align-items: center; gap: var(--sp-1);
+  height: var(--h-bar); padding-inline: var(--sp-2) var(--sp-1);
+  background: var(--chrome); border-bottom: 1px solid var(--chrome-border);
+  overflow: hidden; white-space: nowrap;
+}
+.bar > * { flex: none; }
+.bar .od-fill { flex: 1 1 0; min-width: 0; }
+.state { font-size: 12px; color: var(--text-muted); padding-inline: var(--sp-1); font-variant-numeric: tabular-nums; }
+.state.warnink { color: var(--warn); } .state.okink { color: var(--ok); } .state.badink { color: var(--bad); }
+.state .num { color: var(--text); }
+
+.foot {
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--h-foot); padding-inline: var(--sp-2);
+  background: var(--chrome); border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden;
+}
+.foot .num { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------- controls -- */
+.btn {
+  height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text);
+  font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn:disabled { color: var(--idle); background: none; cursor: default; }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: none; }
+.btn.quiet:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn svg { width: 13px; height: 13px; display: block; }
+.iconbtn { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; }
+
+.sel {
+  height: 22px; max-width: 200px; padding: 0 var(--sp-1); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px; cursor: pointer;
+}
+.fld {
+  height: 22px; min-width: 0; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px;
+}
+.fld::placeholder { color: var(--idle); }
+
+.seg { display: inline-flex; border: 1px solid var(--border-ctl); border-radius: var(--r-ctl); overflow: hidden; height: 22px; }
+.seg button { border: 0; background: var(--ground); color: var(--text-muted); font-size: 12px; padding: 0 var(--sp-2); cursor: pointer; white-space: nowrap; }
+.seg button + button { border-inline-start: 1px solid var(--border-ctl); }
+.seg button:hover { background: var(--chrome-hover); color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+
+/* a chip states its own count; a zero count is shown and is not selectable */
+.chip {
+  height: 20px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-pill); background: var(--ground); color: var(--text);
+  font-size: 11px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+}
+.chip .n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chip:hover:not([aria-disabled="true"]) { background: var(--chrome-hover); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.chip[aria-pressed="true"]::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.chip[aria-disabled="true"] { color: var(--idle); cursor: default; }
+.chip[aria-disabled="true"] .n { color: var(--idle); }
+
+.sw { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2) 0 4px; border: 1px solid transparent; border-radius: var(--r-pill); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
+.sw:hover { background: var(--chrome-hover); }
+.sw .track { position: relative; width: 26px; height: 14px; border-radius: var(--r-pill); background: var(--idle); transition: background var(--t-fast); flex: none; }
+.sw .knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ground); transition: transform var(--t-fast); }
+.sw[aria-checked="true"] .track { background: var(--accent); }
+.sw[aria-checked="true"] .knob { transform: translateX(12px); }
+.sw[aria-checked="true"] { border-color: var(--border-ctl); background: var(--accent-soft); }
+
+/* ------------------------------------------------------------------ list -- */
+.grid { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.grid th, .grid td { text-align: start; padding: 0 var(--sp-2); height: var(--row); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border-strong); }
+.grid th button { all: unset; cursor: pointer; display: block; width: 100%; }
+.grid tbody tr { cursor: pointer; }
+.grid tbody tr:hover { background: var(--row-hover); }
+.grid tbody tr[aria-selected="true"] { background: var(--row-selected); }
+.grid tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.grid td.n { text-align: end; font-variant-numeric: tabular-nums; }
+.grid td .mono, .grid th .mono { font-family: var(--mono); font-size: 12px; }
+.grid .muted { color: var(--text-muted); }
+
+.rows { min-height: 0; overflow: auto; }
+.empty { padding: var(--sp-5) var(--sp-3); color: var(--text-muted); font-size: 12px; max-width: 72ch; }
+.empty b { color: var(--text); font-weight: 600; }
+
+/* severity and status read as a word plus a shape, never colour alone */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
+.tag .gl { width: 9px; height: 9px; flex: none; }
+.tag.err { color: var(--bad); } .tag.wrn { color: var(--warn); } .tag.inf { color: var(--text-muted); } .tag.good { color: var(--ok); }
+.tag.err .gl { background: var(--bad); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tag.wrn .gl { background: var(--warn); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tag.inf .gl { background: var(--idle); border-radius: 50%; }
+.tag.good .gl { background: var(--ok); border-radius: 2px; }
+
+/* ------------------------------------------------------------------ menu -- */
+.menu { position: fixed; z-index: 60; min-width: 190px; padding: var(--sp-1) 0; background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--r-panel); box-shadow: var(--shadow-pop); }
+.menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: 26px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font-size: 13px; text-align: start; white-space: nowrap; cursor: default; }
+.menu button:hover:not([aria-disabled="true"]), .menu button[data-active="true"] { background: var(--row-selected); }
+.menu button[aria-disabled="true"] { color: var(--idle); }
+.menu button .k { margin-inline-start: auto; color: var(--text-muted); font-size: 11px; }
+.menu .sep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+.toast { position: absolute; inset-inline-start: var(--sp-3); inset-block-end: var(--sp-3); z-index: 40; max-width: calc(100% - var(--sp-6)); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow-pop); font-size: 12px; }
+.toast b { font-weight: 600; } .toast .sub { color: var(--text-muted); }
+
+/* ------------------------------------------------------- recovery, shared -- */
+.recov { display: none; place-content: center; gap: var(--sp-2); padding: var(--sp-3); text-align: center; }
+.recov .id { font-size: 12px; font-weight: 600; }
+.recov .why { font-size: 11px; color: var(--text-muted); }
+
+/* the published ladder. 600 and 400 with 616 and 416 exits, recovery below
+   240 wide, 210 high when narrow and 180 otherwise. No number here is new. */
+@container pane (max-width: 239px), pane (max-height: 179px) {
+  .bar, .body, .foot { display: none; }
+  .pane, .pane.footed { grid-template-rows: minmax(0, 1fr); }
+  .recov { display: grid; }
+}
+
+
+/* /AXIOM SHARED LAYER v1 */
+
+/* ------------------------------------------------- design system specimen -- */
+.doc { max-width: 980px; margin: 0 auto; color: var(--text); }
+.doc h1 { margin: 0 0 var(--sp-2); font-size: 18px; font-weight: 600; }
+.doc h2 { margin: var(--sp-6) 0 var(--sp-2); font-size: 14px; font-weight: 600; }
+.doc h3 { margin: var(--sp-4) 0 var(--sp-2); font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.doc p { margin: 0 0 var(--sp-3); color: var(--text-muted); max-width: 72ch; }
+.doc p b { color: var(--text); font-weight: 600; }
+.doc code { font: 12px var(--mono); background: var(--sunken); padding: 1px 4px; border-radius: 3px; }
+
+.block { border: 1px solid var(--border); border-radius: var(--r-panel); background: var(--raised); padding: var(--sp-3); margin-bottom: var(--sp-3); }
+.block .cap { font-size: 11px; color: var(--text-muted); margin-bottom: var(--sp-2); }
+
+pre.src {
+  margin: 0; padding: var(--sp-3); background: var(--sunken); border: 1px solid var(--border);
+  border-radius: var(--r-ctl); font: 12px/1.5 var(--mono); color: var(--text);
+  max-height: 320px; overflow: auto; white-space: pre; tab-size: 2;
+}
+.srchead { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.srchead .t { font-size: 12px; font-weight: 600; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: var(--sp-3); }
+.tbl th, .tbl td { text-align: start; padding: 5px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tbl th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.tbl td.n { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .mono { font-family: var(--mono); }
+.swatch { display: inline-block; width: 34px; height: 16px; border-radius: 3px; border: 1px solid var(--border-strong); vertical-align: middle; }
+
+.demo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+
+.pass { color: var(--ok); } .fail { color: var(--bad); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+<h1>Axiom shared layer</h1>
+<p>One palette and one component set for all nineteen dockable views. Every file in this delivery carries this block byte identical, which is a workaround rather than the fix: in Axiom it belongs at <code>:root</code> in <code>styles.css</code>, declared once, with every feature stylesheet referencing rather than redeclaring it.</p>
+
+<h2>The problem this replaces</h2>
+<p>The renderer's stylesheets today declare <b>108 distinct tokens 451 times</b>. <code>--accent</code>, <code>--focus</code>, <code>--ok</code>, <code>--warn</code>, <code>--bad</code>, <code>--raised</code> and <code>--sunken</code> are each declared <b>thirteen times</b>, in seven private palettes scoped to <code>.details-pane</code>, <code>.find-panel</code>, <code>.adaptive-pane[data-pane-id="quality"]</code>, <code>.entity-context-menu.chrome-menu</code> and three more. The original <code>styles.css</code>, 102 KB of it, declares <b>fifteen tokens in total</b>. So the six rebuilt panes agree because they were specified from the same numbers, not because they share anything. Change the accent and you edit it in thirteen places, and any pane outside those seven keeps the old look.</p>
+
+<h2>The hoist</h2>
+<p>This block is read out of this page's own live stylesheet at load, so it cannot drift from the CSS above it. Paste it at <code>:root</code> in <code>styles.css</code>, then delete the palette from every feature stylesheet and let them inherit.</p>
+<div class="block">
+  <div class="srchead"><span class="t">styles.css</span><button class="btn" type="button" id="copyTokens">Copy</button><span class="state" id="copyState"></span></div>
+  <pre class="src" id="tokenBlock">Reading the live stylesheet</pre>
+</div>
+
+<h2>Palette</h2>
+<p>Values and their measured contrast, computed here at load for the theme you are reading in. Switch your system theme and the numbers recompute: the dark set is authored independently rather than inverted, so it has to be measured on its own.</p>
+<table class="tbl" id="paletteTable"><thead><tr><th>Token</th><th></th><th>Value</th><th>Against</th><th class="n">Ratio</th><th class="n">Floor</th></tr></thead><tbody></tbody></table>
+
+<h2>Geometry</h2>
+<p>A view's entire chrome is <b>one action row</b>. There is no second band, and no standing explanatory paragraph at any size. These are the shared constants; a view may declare its own budgets on top, never instead.</p>
+<table class="tbl" id="geoTable"><thead><tr><th>Token</th><th>Value</th><th>What it governs</th></tr></thead><tbody></tbody></table>
+
+<h2>Components</h2>
+
+<h3>Action row</h3>
+<div class="block">
+  <div class="cap">The whole of a view's chrome. Items overflow by measurement in one stable order, never at a breakpoint.</div>
+  <div class="bar" style="border-radius:4px;border:1px solid var(--chrome-border)">
+    <button class="btn primary" type="button">Run scan</button>
+    <span class="state"><span class="num">6,844</span> findings</span>
+    <span class="od-fill"></span>
+    <div class="seg"><button type="button" aria-pressed="true">Text</button><button type="button" aria-pressed="false">Summary</button></div>
+    <button class="btn quiet" type="button">View in Graph</button>
+    <button class="btn quiet iconbtn" type="button" aria-label="More actions" id="demoMore"></button>
+  </div>
+</div>
+
+<h3>Pane chrome</h3>
+<div class="block">
+  <div class="cap">A live pane at its real proportions. Drag the grips on the right and bottom edges, which is how a docked pane is resized in the workbench. Pull it under 240 wide or 180 high and it enters the recovery state.</div>
+  <div class="rig">
+    <div class="dock" id="dock" style="width:460px;height:200px">
+      <div class="tabs">
+        <button class="tab" type="button" role="tab" aria-selected="true">Ontology Quality</button>
+        <button class="tab" type="button" role="tab" aria-selected="false">Sparsity</button>
+      </div>
+      <div class="pane footed">
+        <div class="bar">
+          <button class="btn primary" type="button" id="demoRun">Run scan</button>
+          <span class="state" id="demoState"><span class="num">6,844</span> findings</span>
+          <span class="od-fill"></span>
+          <button class="btn quiet iconbtn" type="button" aria-label="More actions" id="demoMore"></button>
+        </div>
+        <div class="body rows">
+          <table class="grid">
+            <thead><tr><th style="width:62%">Rule</th><th style="width:38%">Severity</th></tr></thead>
+            <tbody id="demoRows"></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <span><span class="num">6,172</span> classes</span>
+          <span>revision <span class="num">4,812</span></span>
+        </div>
+        <div class="recov">
+          <div class="id">Ontology Quality</div>
+          <div class="why">Too little room to work. The report is retained.</div>
+          <div><button class="btn primary" type="button" id="recovBtn">Maximise pane</button></div>
+        </div>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </div>
+    </div>
+    <button class="grip v" id="gripV" aria-label="Resize pane width" title="Drag to resize the pane"></button>
+    <button class="grip h" id="gripH" aria-label="Resize pane height" title="Drag to resize the pane"></button>
+    <button class="grip c" id="gripC" aria-label="Resize pane"></button>
+  </div>
+</div>
+
+<h3>State ink</h3>
+<div class="block">
+  <div class="cap">The action row's state slot carries one fact and its reason. A state that needs attention is coloured and worded, never coloured alone.</div>
+  <div class="demo">
+    <span class="state"><span class="num">6,844</span> findings</span>
+    <span class="state warnink"><span class="num">6,844</span> findings, out of date</span>
+    <span class="state okink">Scan current</span>
+    <span class="state badink">Scan failed, nothing was written</span>
+  </div>
+</div>
+
+<h3>Buttons and fields</h3>
+<div class="block"><div class="demo">
+  <button class="btn primary" type="button">Primary</button>
+  <button class="btn" type="button">Default</button>
+  <button class="btn quiet" type="button">Quiet</button>
+  <button class="btn" type="button" disabled>Disabled</button>
+  <select class="sel"><option>Whole ontology</option><option>Selected branch</option></select>
+  <input class="fld" placeholder="Filter" size="14">
+  <button class="sw" type="button" role="switch" aria-checked="true" id="demoSw"><span class="track" aria-hidden="true"><span class="knob"></span></span><span>Auto</span></button>
+</div></div>
+
+<h3>Chips</h3>
+<div class="block">
+  <div class="cap">A chip carries its own count. A count of zero is shown and the chip is not selectable, because hiding it loses the fact that the number is zero.</div>
+  <div class="demo">
+    <button class="chip" type="button" aria-pressed="true">Classes <span class="n">6,172</span></button>
+    <button class="chip" type="button" aria-pressed="false">Object properties <span class="n">148</span></button>
+    <button class="chip" type="button" aria-disabled="true">Individuals <span class="n">0</span></button>
+  </div>
+</div>
+
+<h3>Status</h3>
+<div class="block">
+  <div class="cap">Each severity is a word, a distinct shape and a colour. Any two of the three carry it alone.</div>
+  <div class="demo">
+    <span class="tag err"><span class="gl"></span>Error</span>
+    <span class="tag wrn"><span class="gl"></span>Warning</span>
+    <span class="tag inf"><span class="gl"></span>Info</span>
+    <span class="tag good"><span class="gl"></span>Passed</span>
+  </div>
+</div>
+
+<h3>Grid</h3>
+<div class="block">
+  <div class="cap">Fixed layout, sticky head, 26 pixel rows. Selection is a tinted row plus a 2 pixel leading bar, so it survives a greyscale screen.</div>
+  <div style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:4px">
+    <table class="grid">
+      <thead><tr><th style="width:44%">Entity</th><th style="width:18%">Type</th><th style="width:38%">Comment</th></tr></thead>
+      <tbody>
+        <tr aria-selected="true"><td>Marketing</td><td class="muted">Class</td><td class="muted">A course of study in marketing</td></tr>
+        <tr><td>Media Studies</td><td class="muted">Class</td><td class="muted">Communication and media theory</td></tr>
+        <tr><td>Advertising Research</td><td class="muted">Class</td><td class="muted">Methods for evaluating campaigns</td></tr>
+        <tr><td>Consumer Behaviour</td><td class="muted">Class</td><td class="muted">How buyers decide</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>The presentation ladder</h2>
+<p>From <code>docs/adaptive-pane-ux.md</code>, unchanged. No file in this delivery introduces a threshold of its own; an action row that cannot fit overflows by measurement instead.</p>
+<table class="tbl">
+  <thead><tr><th>Presentation</th><th>Entry</th><th>What a view does</th></tr></thead>
+  <tbody>
+    <tr><td>Expanded</td><td class="mono">w 600+, h 400+</td><td>Full configuration and working content</td></tr>
+    <tr><td>Narrow</td><td class="mono">w under 600</td><td>Single column; secondary actions overflow</td></tr>
+    <tr><td>Shallow</td><td class="mono">h under 400</td><td>Horizontal header; remaining height goes to the body</td></tr>
+    <tr><td>Narrow and shallow</td><td class="mono">both</td><td>Narrow structure, shallow priority, one section at a time</td></tr>
+    <tr><td>Recovery</td><td class="mono">w under 240, h under 210 narrow or 180</td><td>Identity and Maximise pane; contents stay mounted and inert</td></tr>
+  </tbody>
+</table>
+<p>Exits carry 16 pixels of hysteresis at 616 and 416 so a pane near a boundary does not flicker. Graph is exempt by name and keeps its canvas at every size.</p>
+
+<h2>The rules every view in this delivery holds</h2>
+<table class="tbl">
+  <tbody>
+    <tr><td style="width:30%"><b>One action row</b></td><td>A view's entire chrome is one row of <code>--h-bar</code>. No second toolbar band, and no standing explanatory paragraph at any size.</td></tr>
+    <tr><td><b>Declare your size</b></td><td>Every region declares its own height and width budget. A region that declares neither takes whatever the container offers, in whichever direction the container is generous, which is the defect behind both the Find editor and the Quality settings block.</td></tr>
+    <tr><td><b>Measure, do not break</b></td><td>Actions overflow when they do not fit, in one order that never reshuffles. Breakpoints are for the body, not the toolbar.</td></tr>
+    <tr><td><b>Every fact once</b></td><td>A count stated in the header is not restated in the body. A headline does not echo a value visible in the field above it.</td></tr>
+    <tr><td><b>Empty space is correct</b></td><td>A view with little to show is reporting that honestly. Stretching a region to fill the pane is a defect, not a fix.</td></tr>
+    <tr><td><b>Say why it is unavailable</b></td><td>A disabled control carries its reason. A control that is structurally impossible withdraws; a measurable zero is shown as zero.</td></tr>
+    <tr><td><b>Never colour alone</b></td><td>Status pairs colour with a word and a shape. Selection pairs tint with a leading bar.</td></tr>
+    <tr><td><b>Help is not furniture</b></td><td>Explanatory text is the empty state's own content or a named disclosure, never a permanent band.</td></tr>
+  </tbody>
+</table>
+
+<h2>What this delivery covers</h2>
+<table class="tbl">
+  <thead><tr><th>File</th><th>Views</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">design-system.html</td><td>All nineteen</td><td>The shared layer</td></tr>
+    <tr><td class="mono">query.html</td><td>Query, Query results</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">inspector.html</td><td>Inspector</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">sparsity.html</td><td>Sparsity</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">hierarchy.html</td><td>Hierarchy</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">touchpoints.html</td><td>Touchpoints</td><td>Rebuilt as the documented Wikipedia feature</td></tr>
+    <tr><td class="mono">addentity.html</td><td>Add entity</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">utility.html</td><td>Source, Filesystem provenance, Suggestion runs, Error log, Tab History</td><td>Rebuilt</td></tr>
+    <tr><td class="mono">index, find, quality, details, individuals, text, shell</td><td>Suggestions, Find, Ontology Quality, Details, Individuals, Inspector in part, Text Analysis, window chrome</td><td>Earlier in this session</td></tr>
+    <tr><td class="mono">none</td><td>Graph</td><td>Token layer only; exempt from the ladder by its own published policy</td></tr>
+  </tbody>
+</table>
+
+<h2>What this is not</h2>
+<p>These are prototypes, not the numbered normative specs the earlier six surfaces each received. No capture of the running app exists for any of the twelve views rebuilt here, so they are designed from <code>src/renderer</code> and <code>docs/</code> rather than from observed defects. Where a file supersedes a documented sentence it quotes that sentence in its own notes.</p>
+
+</div>
+<script>
+/* AXIOM SHARED LAYER v1: the helpers every pane in this delivery uses.
+   Identical in every file, so one fix lands everywhere. */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function num(n) { return Number(n).toLocaleString("en-US"); }
+var ICON = {
+  run: '<path d="M7 4.5 19 12 7 19.5z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+  more: '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>',
+  down: '<path d="M5 9l7 7 7-7"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20.5 20.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+  warn: '<path d="M12 3.4 22 20.6H2z"/><path d="M12 10v4.6M12 17.6v.1"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/>',
+  grid: '<path d="M3 5h18v14H3z"/><path d="M3 10h18M3 15h18M9 5v14"/>',
+  tree: '<path d="M4 3h6v4H4z"/><path d="M14 10h6v4h-6z"/><path d="M14 17h6v4h-6z"/><path d="M7 7v12M7 12h7M7 19h7"/>',
+  code: '<path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>',
+  link: '<path d="M10 13.5a4 4 0 0 0 5.7.3l3-3a4 4 0 1 0-5.7-5.7L11.6 6.5"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-3 3a4 4 0 1 0 5.7 5.7L12.4 17.5"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>',
+  panel: '<path d="M4 4h16v16H4z"/><path d="M4 8.5h16M8 12.5h8M8 16.5h5"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4.5-5"/>',
+  undo: '<path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/>'
+};
+function svg(n, w) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 1.7) +
+    '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICON[n] + "</svg>";
+}
+
+/* one transient status line per pane, announced politely */
+var _toastTimer = null;
+function toast(head, sub) {
+  var t = $("#toast");
+  if (!t) return;
+  t.innerHTML = "<b>" + esc(head) + "</b>" + (sub ? ' <span class="sub">' + esc(sub) + "</span>" : "");
+  t.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.hidden = true; }, 4200);
+}
+
+/* a row of actions that moves what does not fit into the overflow, in one
+   order that never reshuffles. No breakpoint of its own. */
+function fitBar(barSel, order) {
+  var fitting = false, collapsed = [];
+  function fit() {
+    if (fitting) return;
+    fitting = true;
+    var bar = $(barSel);
+    order.forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = false; });
+    collapsed = [];
+    for (var i = 0; i < order.length; i++) {
+      if (bar.scrollWidth <= bar.clientWidth) break;
+      var el = document.getElementById(order[i]);
+      if (el) { el.hidden = true; collapsed.push(order[i]); }
+    }
+    fitting = false;
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe($(barSel));
+  window.addEventListener("resize", fit);
+  fit();
+  return { fit: fit, collapsed: function () { return collapsed.slice(); } };
+}
+
+/* one popup implementation, keyboard complete */
+var _menu = null;
+function closeMenu(restore) {
+  if (!_menu) return;
+  var owner = _menu.owner;
+  _menu.el.remove(); _menu = null;
+  if (owner) { owner.setAttribute("aria-expanded", "false"); if (restore) owner.focus(); }
+}
+function openMenu(owner, items, run) {
+  closeMenu(false);
+  var el = document.createElement("div");
+  el.className = "menu"; el.setAttribute("role", "menu"); el.tabIndex = -1;
+  el.innerHTML = items.map(function (it, i) {
+    if (it.sep) return '<div class="sep" role="separator"></div>';
+    return '<button type="button" role="menuitem" data-i="' + i + '"' +
+      (it.dis ? ' aria-disabled="true"' : "") + ">" +
+      (it.checked ? "&#10003; " : "") + esc(it.l) +
+      (it.k ? '<span class="k">' + esc(it.k) + "</span>" : "") + "</button>";
+  }).join("");
+  document.body.appendChild(el);
+  var r = owner.getBoundingClientRect();
+  var x = Math.max(4, Math.min(r.right - el.offsetWidth, window.innerWidth - el.offsetWidth - 4));
+  var y = r.bottom + 2;
+  if (y + el.offsetHeight > window.innerHeight - 4) y = Math.max(4, r.top - el.offsetHeight - 2);
+  el.style.left = x + "px"; el.style.top = y + "px";
+  owner.setAttribute("aria-expanded", "true");
+  _menu = { el: el, owner: owner };
+
+  function list() { return $$("[data-i]", el); }
+  el.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-i]") : null;
+    if (!b || b.getAttribute("aria-disabled") === "true") return;
+    var it = items[+b.getAttribute("data-i")];
+    closeMenu(true); run(it);
+  });
+  el.addEventListener("keydown", function (e) {
+    var l = list(), i = l.indexOf(document.activeElement);
+    if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); l[(i + 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); l[(i - 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "Home") { e.preventDefault(); l[0].focus(); return; }
+    if (e.key === "End") { e.preventDefault(); l[l.length - 1].focus(); return; }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (i < 0 || l[i].getAttribute("aria-disabled") === "true") return;
+      var it = items[+l[i].getAttribute("data-i")];
+      closeMenu(true); run(it);
+    }
+  });
+  var first = el.querySelector("[data-i]:not([aria-disabled])");
+  if (first) first.focus();
+}
+document.addEventListener("pointerdown", function (e) {
+  if (_menu && !(e.target.closest && (e.target.closest(".menu") || e.target === _menu.owner || (_menu.owner.contains && _menu.owner.contains(e.target))))) closeMenu(false);
+});
+
+/* the dock splitters */
+function grips() {
+  var d = $("#dock");
+  function bind(el, axis) {
+    if (!el) return;
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      var x0 = e.clientX, y0 = e.clientY, w0 = d.offsetWidth, h0 = d.offsetHeight;
+      function move(ev) {
+        if (axis !== "h") d.style.width = Math.max(180, w0 + (ev.clientX - x0)) + "px";
+        if (axis !== "v") d.style.height = Math.max(110, h0 + (ev.clientY - y0)) + "px";
+      }
+      function up(ev) {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
+      }
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
+    });
+    el.addEventListener("keydown", function (e) {
+      var s = e.shiftKey ? 40 : 10, w = d.offsetWidth, h = d.offsetHeight;
+      if (axis !== "h" && e.key === "ArrowLeft") { e.preventDefault(); d.style.width = Math.max(180, w - s) + "px"; }
+      if (axis !== "h" && e.key === "ArrowRight") { e.preventDefault(); d.style.width = (w + s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowUp") { e.preventDefault(); d.style.height = Math.max(110, h - s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowDown") { e.preventDefault(); d.style.height = (h + s) + "px"; }
+    });
+  }
+  bind($("#gripV"), "v"); bind($("#gripH"), "h"); bind($("#gripC"), "both");
+  var rb = $("#recovBtn");
+  if (rb) rb.addEventListener("click", function () { d.style.width = "900px"; d.style.height = "560px"; });
+}
+
+/* ------------------------------------------- the design system page only -- */
+(function () {
+  "use strict";
+
+  /* the token block is read out of the live stylesheet, so the text you copy
+     is the CSS above it rather than a transcription of it */
+  var GROUPS = [
+    ["surfaces", ["--ground", "--surface", "--raised", "--sunken", "--chrome"]],
+    ["lines", ["--border", "--border-strong", "--border-ctl", "--chrome-border"]],
+    ["text", ["--text", "--text-muted", "--idle"]],
+    ["accent", ["--accent", "--accent-fg", "--accent-soft", "--focus", "--sel"]],
+    ["status", ["--ok", "--ok-soft", "--warn", "--warn-soft", "--bad", "--bad-soft"]],
+    ["rows", ["--row-hover", "--row-selected", "--chrome-hover", "--shadow-pop"]],
+    ["space", ["--sp-1", "--sp-2", "--sp-3", "--sp-4", "--sp-5", "--sp-6"]],
+    ["shape", ["--r-ctl", "--r-panel", "--r-pill"]],
+    ["motion", ["--t-fast", "--t-enter"]],
+    ["type", ["--font", "--mono"]],
+    ["geometry", ["--h-tabs", "--h-bar", "--h-foot", "--row"]]
+  ];
+  var GEO = {
+    "--h-tabs": "The dock strip above a pane. Owned by the shell, not by any view.",
+    "--h-bar": "A view's entire chrome: one action row and nothing else.",
+    "--h-foot": "A status or footer line, where a view has one.",
+    "--row": "One list or table row."
+  };
+
+  function val(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function buildBlock() {
+    var out = [":root {", "  color-scheme: light;"];
+    GROUPS.forEach(function (g) {
+      out.push("");
+      out.push("  /* " + g[0] + " */");
+      var w = 0;
+      g[1].forEach(function (n) { if (n.length > w) w = n.length; });
+      g[1].forEach(function (n) {
+        var v = val(n);
+        if (!v) return;
+        out.push("  " + n + ":" + new Array(w - n.length + 2).join(" ") + v + ";");
+      });
+    });
+    out.push("}");
+    return out.join("\n");
+  }
+  $("#tokenBlock").textContent = buildBlock();
+
+  $("#copyTokens").addEventListener("click", function () {
+    var t = $("#tokenBlock").textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(
+        function () { $("#copyState").textContent = "Copied " + t.split("\n").length + " lines"; },
+        function () { $("#copyState").textContent = "Select the block and copy"; }
+      );
+    } else {
+      $("#copyState").textContent = "Select the block and copy";
+    }
+  });
+
+  /* contrast, measured here rather than asserted */
+  function lin(c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function rgb(v) {
+    v = v.trim();
+    if (v.charAt(0) === "#") {
+      var h = v.slice(1);
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    var m = v.match(/(\d+(?:\.\d+)?)/g);
+    return m ? [+m[0], +m[1], +m[2]] : null;
+  }
+  function lum(v) { var c = rgb(v); return c ? 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]) : null; }
+  function ratio(a, b) {
+    var la = lum(a), lb = lum(b);
+    if (la === null || lb === null) return null;
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  var PAIRS = [
+    ["--text", "--ground", 4.5, "body text"],
+    ["--text", "--chrome", 4.5, "action row"],
+    ["--text", "--raised", 4.5, "menu and popup"],
+    ["--text", "--row-selected", 4.5, "selected row"],
+    ["--text-muted", "--ground", 4.5, "secondary text"],
+    ["--text-muted", "--chrome", 4.5, "action row state"],
+    ["--text-muted", "--surface", 4.5, "grid head"],
+    ["--idle", "--ground", 3, "disabled"],
+    ["--accent", "--ground", 3, "accent on page"],
+    ["--accent", "--chrome", 3, "accent in chrome"],
+    ["--accent-fg", "--accent", 4.5, "primary button"],
+    ["--focus", "--ground", 3, "focus ring"],
+    ["--ok", "--ground", 4.5, "passed"],
+    ["--warn", "--ground", 4.5, "warning"],
+    ["--bad", "--ground", 4.5, "error"],
+    ["--ok", "--ok-soft", 4.5, "passed on its tint"],
+    ["--warn", "--warn-soft", 4.5, "warning on its tint"],
+    ["--bad", "--bad-soft", 4.5, "error on its tint"],
+    ["--border-ctl", "--ground", 3, "control border"],
+    ["--border-ctl", "--chrome", 3, "control border in chrome"]
+  ];
+
+  function paintPalette() {
+    var rows = [];
+    PAIRS.forEach(function (p) {
+      var fg = val(p[0]), bg = val(p[1]), r = ratio(fg, bg);
+      var ok = r !== null && r >= p[2];
+      rows.push("<tr>" +
+        '<td class="mono">' + esc(p[0]) + "</td>" +
+        '<td><span class="swatch" style="background:' + esc(fg) + '"></span></td>' +
+        '<td class="mono">' + esc(fg) + "</td>" +
+        '<td class="mono">' + esc(p[1]) + " <span style=\"color:var(--text-muted)\">" + esc(p[3]) + "</span></td>" +
+        '<td class="n ' + (ok ? "pass" : "fail") + '">' + (r === null ? "n/a" : r.toFixed(2)) + "</td>" +
+        '<td class="n">' + p[2].toFixed(1) + "</td></tr>");
+    });
+    $("#paletteTable tbody").innerHTML = rows.join("");
+  }
+  function paintGeo() {
+    var rows = [];
+    Object.keys(GEO).forEach(function (n) {
+      rows.push('<tr><td class="mono">' + esc(n) + '</td><td class="mono">' + esc(val(n)) + "</td><td>" + esc(GEO[n]) + "</td></tr>");
+    });
+    $("#geoTable tbody").innerHTML = rows.join("");
+  }
+  paintPalette();
+  paintGeo();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var re = function () { $("#tokenBlock").textContent = buildBlock(); paintPalette(); };
+    if (mq.addEventListener) mq.addEventListener("change", re); else if (mq.addListener) mq.addListener(re);
+  }
+
+  /* the live specimens behave, so they can be checked rather than admired */
+  grips();
+  var RULES = [
+    { l: "Class asserts no rdfs:label", s: "err", w: "Error" },
+    { l: "Leading or trailing whitespace in a label", s: "wrn", w: "Warning" },
+    { l: "Class has no rdfs:comment", s: "inf", w: "Info" },
+    { l: "Individual asserts no type", s: "good", w: "Passed" }
+  ];
+  $("#demoRows").innerHTML = RULES.map(function (r, i) {
+    return '<tr' + (i === 0 ? ' aria-selected="true"' : "") + "><td>" + esc(r.l) +
+      '</td><td><span class="tag ' + r.s + '"><span class="gl"></span>' + esc(r.w) + "</span></td></tr>";
+  }).join("");
+  $$("#demoRows tr").forEach(function (row) {
+    row.addEventListener("click", function () {
+      $$("#demoRows tr").forEach(function (x) { x.setAttribute("aria-selected", "false"); });
+      row.setAttribute("aria-selected", "true");
+    });
+  });
+  $("#demoRun").addEventListener("click", function () {
+    toast("Scan complete", "6,844 findings over 6,172 classes.");
+    $("#demoState").innerHTML = '<span class="num">6,844</span> findings';
+    $("#demoState").className = "state";
+  });
+
+  $("#demoMore").innerHTML = svg("more");
+  $("#demoMore").setAttribute("aria-haspopup", "true");
+  $("#demoMore").setAttribute("aria-expanded", "false");
+  $("#demoMore").addEventListener("click", function () {
+    if (_menu) { closeMenu(true); return; }
+    openMenu(this, [
+      { l: "Export findings", k: "E" },
+      { l: "Copy summary", k: "C" },
+      { sep: 1 },
+      { l: "Rerun", k: "R", dis: true }
+    ], function () {});
+  });
+  $("#demoSw").addEventListener("click", function () {
+    this.setAttribute("aria-checked", this.getAttribute("aria-checked") === "true" ? "false" : "true");
+  });
+  $$(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      $$(".seg button", b.parentNode).forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+      b.setAttribute("aria-pressed", "true");
+    });
+  });
+  $$(".chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      if (c.getAttribute("aria-disabled") === "true") return;
+      c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    });
+  });
+  $$(".grid tbody tr").forEach(function (r) {
+    r.addEventListener("click", function () {
+      $$(".grid tbody tr").forEach(function (x) { x.setAttribute("aria-selected", "false"); });
+      r.setAttribute("aria-selected", "true");
+    });
+  });
+})();
+</script>
+</body>
+</html>

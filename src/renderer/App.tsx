@@ -130,6 +130,7 @@ import {
 } from "./client";
 import examples from "../domain/data/examples.json";
 import tokens from "../domain/data/tokens.json";
+import { sharedTokens } from "./shared-tokens";
 const names: Record<string, string> = {
   hierarchy: "Hierarchy",
   graph: "Graph",
@@ -430,7 +431,9 @@ export function applyTheme(doc: Document = document) {
     ...tokens.base,
     ...tokens[dark ? "dark" : "light"],
   }))
-    root.style.setProperty("--" + k, v);
+    // The shared stylesheet owns these names in every window (craigtrim/axiom#81).
+    if (sharedTokens.has(k)) root.style.removeProperty("--" + k);
+    else root.style.setProperty("--" + k, v);
 }
 export function App() {
   useAssistantActivityPolling();

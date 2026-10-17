@@ -2,48 +2,17 @@
  * scoped; surrounding workbench chrome retains its own design. */
 .individuals-surface.individuals-surface {
   color-scheme: light;
-  --ground: #ffffff;
-  --surface: #f6f7f9;
-  --raised: #ffffff;
-  --sunken: #f0f2f5;
-  --border: #e1e4e8;
-  --border-strong: #d0d7de;
-  --text: #1b1f24;
-  --text-muted: #57606a;
-  --accent: #0b5fd0;
   --accent-hover: #0a52b4;
-  --accent-fg: #ffffff;
-  --accent-soft: #eaf2fd;
   --accent-tint: #f4f8fe;
-  --ok: #0a7a3d;
   --ok-bg: #e8f5ed;
   --ok-border: #a9d8bd;
-  --warn: #8a6116;
   --warn-bg: #fdf5e3;
   --warn-border: #e6cf95;
-  --bad: #a4201a;
   --bad-bg: #fdecea;
   --bad-border: #e4a9a4;
-  --idle: #57606a;
   --idle-border: #c6cbd1;
-  --row-hover: #f6f7f9;
-  --row-selected: #eaf2fd;
-  --focus: #0b5fd0;
-  --shadow-pop: 0 8px 24px rgba(27, 31, 36, 0.18);
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
   --sp-8: 32px;
-  --r-ctl: 4px;
-  --r-panel: 6px;
   --r-card: 8px;
-  --r-pill: 999px;
-  --font:
-    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   font: 14px/1.6 var(--font);
   color: var(--text);
   background: var(--ground);
@@ -852,34 +821,15 @@
 [data-theme="dark"] .individuals-surface.individuals-surface,
 .individuals-surface.individuals-surface.dk {
   color-scheme: dark;
-  --ground: #0d1117;
-  --surface: #161b22;
-  --raised: #1c2128;
-  --sunken: #10151c;
-  --border: #30363d;
-  --border-strong: #3d444d;
-  --text: #e6edf3;
-  --text-muted: #9ba7b4;
-  --accent: #4c9aff;
   --accent-hover: #6aabff;
-  --accent-fg: #06192e;
-  --accent-soft: #12243a;
   --accent-tint: #0f1a28;
-  --ok: #4ade80;
   --ok-bg: #0f2a1b;
   --ok-border: #1d5233;
-  --warn: #e3b341;
   --warn-bg: #2b2211;
   --warn-border: #5a4718;
-  --bad: #ff8d81;
   --bad-bg: #3a1a17;
   --bad-border: #7a3630;
-  --idle: #9ba7b4;
   --idle-border: #454c54;
-  --row-hover: #161b22;
-  --row-selected: #12243a;
-  --focus: #6aabff;
-  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 .individuals-surface.individuals-surface.pane {
   container-type: size;
