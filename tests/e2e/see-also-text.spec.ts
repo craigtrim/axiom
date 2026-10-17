@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 // craigtrim/axiom#35: typed annotation text survives the pointer, arrow keys and long match lists.
 import type { Locator } from "@playwright/test";
 import { test, expect, type Desktop } from "./modal-fixture";
@@ -35,23 +36,35 @@ ${textClasses.map((label) => `<${iri(label)}> a owl:Class; rdfs:label "${label}"
   );
   await d.request("select", { iri: base + "FocusedStudy" });
   await d.menu("view.details");
-  return d.page.getByRole("region", { name: "Details", exact: true });
+  const details = d.page.getByRole("region", { name: "Details", exact: true });
+  await expect(
+    details.getByRole("button", { name: "More", exact: true }),
+  ).toBeFocused();
+  return details;
 }
 async function existingSeeAlso(d: Desktop) {
   // Located by predicate, because the stored value (and so the title) changes.
   const field = (await focusedStudy(d))
     .locator("tbody tr")
     .filter({ has: d.page.locator(`select[title="${seeAlso}"]`) })
-    .getByRole("combobox", { name: /Value/ });
+    .getByRole("combobox", { name: / value \d+$/ });
   await expect(field).toHaveAttribute("title", base + "TextAnalysis");
   return field;
 }
 async function newSeeAlso(d: Desktop) {
   const details = await focusedStudy(d);
-  await details.getByRole("button", { name: "Add row", exact: true }).click();
-  const row = details.locator("tbody tr").last();
-  await row.getByRole("combobox", { name: /Predicate/ }).selectOption(seeAlso);
-  const field = row.getByRole("combobox", { name: /Value/ });
+  const row = details.locator(`tbody tr[data-predicate="${seeAlso}"]`);
+  await row
+    .getByRole("combobox", {
+      name: "Change the predicate on rdfs:seeAlso",
+      exact: true,
+    })
+    .focus();
+  await row.getByRole("button", { name: "+ Add value", exact: true }).click();
+  const field = row.getByRole("combobox", {
+    name: "rdfs:seeAlso value 2",
+    exact: true,
+  });
   await expect(field).toBeVisible();
   return field;
 }

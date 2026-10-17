@@ -1,12 +1,12 @@
 import { resourcePredicate as requiresResource } from "../shared/statement-values";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   PredicateSelect,
   usePredicateOptions,
   rememberPredicate,
 } from "./PredicateSelect";
 import { useSnapshot } from "./client";
-import { displayName, LABEL, COMMENT } from "../domain/rdf-model";
+import { displayName } from "../domain/rdf-model";
 import {
   NS,
   TYPE,
@@ -38,6 +38,7 @@ export function StatementGrid({
 }) {
   const table = useRef<HTMLTableElement>(null);
   const pendingFocus = useRef(false);
+  const [announcement, announce] = useState("");
   const focusPredicate = () =>
     table.current
       ?.querySelector<HTMLSelectElement>('tr[data-predicate=""] select')
@@ -46,6 +47,8 @@ export function StatementGrid({
     if (pendingFocus.current) {
       focusPredicate();
       pendingFocus.current = false;
+    } else if (!triples.some((t) => !t.predicate)) {
+      announce("");
     }
   }, [triples]);
   const addRow = () => {
@@ -55,6 +58,7 @@ export function StatementGrid({
       return;
     }
     pendingFocus.current = true;
+    announce("Row added. Choose its predicate with the chevron.");
     replace([
       ...triples,
       { subject, predicate: "", object: { literal: true, value: "" } },
@@ -91,9 +95,9 @@ export function StatementGrid({
       : [{ t, index, member: -1, members: undefined }];
   });
   const groups = groupStatements(
-    rows.map((value, position) => ({
+    rows.map((value) => ({
       predicate: value.t.predicate,
-      value: { ...value, number: position + 1 },
+      value,
     })),
   ).sort(
     (a, b) =>
@@ -137,6 +141,9 @@ export function StatementGrid({
   };
   return (
     <>
+      <span className="vh" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </span>
       <table
         ref={table}
         className="statement-grid st"
@@ -155,7 +162,6 @@ export function StatementGrid({
         <tbody>
           {groups.map((group) => {
             const fixed = group.predicate === TYPE;
-            const single = [LABEL, COMMENT, TYPE].includes(group.predicate);
             const name = compactIri(group.predicate, namespace);
             return (
               <StatementGroupRow
@@ -170,7 +176,7 @@ export function StatementGrid({
                   commit();
                 }}
                 add={
-                  !single && group.predicate
+                  !fixed && group.predicate
                     ? () => {
                         const last = group.values.at(-1)!.index;
                         replace([
@@ -188,23 +194,31 @@ export function StatementGrid({
                       }
                     : undefined
                 }
-                predicate={
+                predicate={(hidden) =>
                   fixed ? (
-                    <span className="statement-fixed">{name}</span>
+                    <>
+                      <span className="statement-fixed">{name}</span>
+                      {hidden > 0 && (
+                        <span className="statement-value-count">
+                          {group.values.length}
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <PredicateSelect
                       quiet
-                      label={"Predicate " + group.values[0].number}
+                      count={hidden > 0 ? group.values.length : undefined}
+                      label={
+                        group.predicate
+                          ? "Change the predicate on " + name
+                          : "Choose predicate"
+                      }
                       value={group.predicate}
                       options={predicates.filter(
                         (p) =>
                           p === group.predicate ||
-                          ((!group.predicate
-                            ? !groups.some((g) => g.predicate === p)
-                            : true) &&
-                            (![LABEL, COMMENT].includes(p) ||
-                              (group.values.length === 1 &&
-                                !groups.some((g) => g.predicate === p)))),
+                          !!group.predicate ||
+                          !groups.some((g) => g.predicate === p),
                       )}
                       namespace={namespace}
                       change={(predicate) => {
@@ -245,21 +259,17 @@ export function StatementGrid({
                     />
                   )
                 }
-                renderValue={(
-                  { t, index, member, members, number },
-                  position,
-                ) => {
+                renderValue={({ t, index, member, members }, position) => {
                   const locked = declaration(t);
                   const change = (next: Triple, save = true) => {
                     update(index, member, members, next);
                     if (save) commit();
                   };
+                  // Issue 85: number values within their predicate, including labels and comments.
                   const label =
-                    t.predicate === LABEL && position === 0
-                      ? "Entity label"
-                      : t.predicate === COMMENT && position === 0
-                        ? "Entity comment"
-                        : "Value " + number;
+                    (group.predicate ? name : "New statement") +
+                    " value " +
+                    (position + 1);
                   const expr = !t.object.literal && expression(t.object.value);
                   return (
                     <div className="statement-value-cell">
@@ -367,7 +377,18 @@ export function StatementGrid({
         </tbody>
       </table>
       <div className="addrow">
-        <button className="statement-add-row lnk" onClick={addRow}>
+        <button
+          className="statement-add-row lnk"
+          onMouseDown={(event) => {
+            // Issue 85: collapsing a focused tools line must not move this
+            // button between the pointer press and its click.
+            if (event.button === 0) event.preventDefault();
+          }}
+          onClick={(event) => {
+            event.currentTarget.focus();
+            addRow();
+          }}
+        >
           + Add row
         </button>
       </div>

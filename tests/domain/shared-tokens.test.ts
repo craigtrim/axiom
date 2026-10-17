@@ -47,7 +47,7 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "entity-extend.css",
       ].includes(d.file),
   );
-  expect(prior).toHaveLength(230);
+  expect(prior).toHaveLength(211);
   expect(
     new Set(
       declarations
@@ -71,6 +71,14 @@ it("removes only equal duplicate declarations and retains deferred private palet
       "--idle-border",
       "--sp-8",
     ]),
+  );
+  // Issue 85 leaves only the four reference-specific Details tokens.
+  expect(
+    new Set(
+      declarations.filter((d) => d.file === "details.css").map((d) => d.name),
+    ),
+  ).toEqual(
+    new Set(["--accent-hover", "--accent-tint", "--idle-border", "--r-card"]),
   );
   expect(new Set(prior.map((d) => d.name)).size).toBe(94);
   const shared = declarations.filter(

@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -489,7 +490,7 @@ test("#73 ontology edits wait for Analyze now in manual mode", async () => {
   );
   await menu("view.details");
   await expect(
-    details().getByRole("button", { name: "More entity actions", exact: true }),
+    details().getByRole("button", { name: "More", exact: true }),
   ).toBeFocused();
   const synonym = details().locator(
     'tr[data-predicate="http://www.w3.org/2004/02/skos/core#altLabel"] input',
@@ -1042,7 +1043,7 @@ test("a seeAlso synonym added beside an empty Details row matches immediately, c
     .locator(
       'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
     )
-    .getByRole("combobox", { name: /Value/ });
+    .getByRole("combobox", { name: / value \d+$/ });
   await synonym.fill("phleb");
   await synonym.press("Tab");
   await expect(chip("phlebotomy")).toBeAttached({ timeout: 20000 });
@@ -1289,7 +1290,10 @@ test("clicking a synonym reuses the editable Details tab for successive entities
     details().getByRole("table", { name: "Entity statements" }),
   ).toBeVisible();
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("A domesticated animal.");
   await expect(
     details().getByRole("button", { name: "View Animal details", exact: true }),
@@ -1298,10 +1302,10 @@ test("clicking a synonym reuses the editable Details tab for successive entities
     details().getByRole("button", { name: "View Pet details", exact: true }),
   ).toBeVisible();
   await details()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Edited through the shared Details view.");
   await details()
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .press("Tab");
   await expect
     .poll(
@@ -1329,7 +1333,10 @@ test("clicking a synonym reuses the editable Details tab for successive entities
   await selectSummaryEntity("dog");
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Edited through the shared Details view.");
   await menu("view.details");
   await menu("pane.close");
@@ -1533,7 +1540,10 @@ test("gapped matches open the canonical entity and Details follows ontology upda
     });
   }, base);
   await expect(
-    details().getByRole("textbox", { name: "Entity comment", exact: true }),
+    details().getByRole("textbox", {
+      name: "rdfs:comment value 1",
+      exact: true,
+    }),
   ).toHaveValue("Updated span description");
   await enter("canine plainword");
   await expect(chip("dog")).toBeAttached();

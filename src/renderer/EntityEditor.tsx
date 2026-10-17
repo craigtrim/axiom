@@ -88,6 +88,15 @@ export function EntityEditor({
     useEntityEditor(iri, true);
   const source = useEntitySource(iri);
   const name = loaded ? displayName(loaded.entity) : "Details";
+  // Issue 85 counts values, including the members of retained parent expressions.
+  const statementCount = triples.reduce(
+    (n, t) =>
+      n +
+      (t.predicate === SUBCLASS
+        ? (loaded?.parentExpressions?.[t.object.value]?.length ?? 1)
+        : 1),
+    0,
+  );
 
   return (
     <section
@@ -110,17 +119,8 @@ export function EntityEditor({
           <>
             <AncestryBreadcrumb key={s.datasetEpoch + ":" + iri} iri={iri} />
             <div className="scount">
-              {triples
-                .reduce(
-                  (n, t) =>
-                    n +
-                    (t.predicate === SUBCLASS
-                      ? (loaded.parentExpressions?.[t.object.value]?.length ??
-                        1)
-                      : 1),
-                  0,
-                )
-                .toLocaleString() + " statements"}
+              {statementCount.toLocaleString("en-US") +
+                (statementCount === 1 ? " statement" : " statements")}
             </div>
             <StatementGrid
               subject={iri}

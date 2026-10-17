@@ -1,4 +1,4 @@
-/* Shared by Details and the Find statement editor. No nested scroll region. */
+/* Shared statement rows keep hidden actions out of hit-testing (craigtrim/axiom#85). */
 table tr.statement-group-row > td,
 .find-panel table.st tr.statement-group-row > td {
   padding: 1px 6px;
@@ -100,11 +100,11 @@ table .statement-value-stack .statement-value-remove {
 }
 @media (hover: hover) and (pointer: fine) {
   .statement-value-action {
-    opacity: 0;
+    visibility: hidden;
   }
   .statement-value-line:hover .statement-value-action,
   .statement-value-line:focus-within .statement-value-action {
-    opacity: 1;
+    visibility: visible;
   }
   .statement-text-action:hover {
     text-decoration: underline;

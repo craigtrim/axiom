@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -105,7 +106,7 @@ async function exportMatches(before: SourceDocument, name = "export.ttl") {
 async function openDetails() {
   await menu("view.details");
   await expect(
-    details().getByRole("textbox", { name: "Entity label", exact: true }),
+    details().getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Course");
 }
 async function incompleteRow() {
@@ -114,10 +115,13 @@ async function incompleteRow() {
     .getByRole("button", { name: "+ Add row", exact: true })
     .click();
   const predicate = details()
-    .getByRole("combobox", { name: /^Predicate / })
+    .getByRole("combobox", { name: "Choose predicate", exact: true })
     .last();
   await predicate.selectOption(NS.rdfs + "subClassOf");
-  return predicate;
+  return details().getByRole("combobox", {
+    name: "Change the predicate on rdfs:subClassOf",
+    exact: true,
+  });
 }
 async function enterSource(text: string) {
   await menu("view.source");
@@ -201,7 +205,7 @@ test("a complete focused cell remains a draft until its normal commit", async ()
   await openDetails();
   const before = await sourceDocument();
   const comment = details().getByRole("textbox", {
-    name: "Entity comment",
+    name: "rdfs:comment value 1",
     exact: true,
   });
   await comment.fill("Uncommitted cell");
@@ -302,7 +306,10 @@ test("canceling export leaves simultaneous grid and source drafts and Undo histo
   await menu("view.details");
   await expect(
     details()
-      .getByRole("combobox", { name: /^Predicate / })
+      .getByRole("combobox", {
+        name: "Change the predicate on rdfs:subClassOf",
+        exact: true,
+      })
       .last(),
   ).toHaveValue(NS.rdfs + "subClassOf");
 });
@@ -326,7 +333,7 @@ test("an automatic cell save finishing during the file dialog belongs to the nex
     });
   });
   const comment = details().getByRole("textbox", {
-    name: "Entity comment",
+    name: "rdfs:comment value 1",
     exact: true,
   });
   await comment.fill("Automatic commit during dialog");
@@ -390,7 +397,7 @@ test("workspace Save still commits complete grid edits and retains incomplete an
   await request("select", { iri: base + "Lab" });
   await menu("view.details");
   const label = details().getByRole("textbox", {
-    name: "Entity label",
+    name: "rdfs:label value 1",
     exact: true,
   });
   await expect(label).toHaveValue("Lab");

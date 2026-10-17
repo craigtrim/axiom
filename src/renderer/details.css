@@ -1,4 +1,4 @@
-/* Details: Craig's byte-pinned reference, issue #57. The pane host supplies
+/* Details: Craig's byte-pinned reference, issues #57 and #85. The pane host supplies
  * measured presentations; no viewport or container-query breakpoints here. */
 .details-pane.details-pane {
   color-scheme: light;
@@ -6,18 +6,7 @@
   --accent-hover: #0a52b4;
   --accent-tint: #f4f8fe;
 
-  --ok-bg: #e8f5ed;
-  --ok-border: #a9d8bd;
-
-  --warn-bg: #fdf5e3;
-  --warn-border: #e6cf95;
-
-  --bad-bg: #fdecea;
-  --bad-border: #e4a9a4;
-
   --idle-border: #c6cbd1;
-
-  --sp-8: 32px;
 
   --r-card: 8px;
   container-type: size;
@@ -430,11 +419,11 @@
   }
   .srcwrap.invalid .src {
     border-inline-start-color: var(--bad);
-    background: var(--bad-bg);
+    background: var(--bad-soft);
   }
   .srcwrap.stale .src {
     border-inline-start-color: var(--warn);
-    background: var(--warn-bg);
+    background: var(--warn-soft);
   }
 
   .srcerr {
@@ -620,14 +609,16 @@
     background: var(--row-hover);
     color: var(--text);
   }
-  /* A single value's Add action remains keyboard-accessible without spending
-     permanent width on a tools band. */
-  .statement-value-stack .statement-value-line > button.statement-text-action {
-    position: absolute;
-    right: 12px;
+  /* Issue 85: a focused single value uses the group's normal tools line. */
+  .statement-value-tools.statement-single-tools {
+    display: none;
   }
-  .statement-value-line {
-    position: relative;
+  .statement-group-row:focus-within .statement-single-tools {
+    display: flex;
+  }
+  :is(.lnk, .fmt, .statement-value-stack button):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
   }
   .statement-expression {
     font-size: 13.5px;
@@ -646,15 +637,6 @@
     min-width: 0;
     flex: 1;
   }
-  .details-more-menu {
-    margin: 0;
-    padding: 8px;
-    background: var(--raised);
-    color: var(--text);
-    border: 1px solid var(--border-strong);
-    border-radius: 4px;
-    box-shadow: var(--shadow-pop);
-  }
   .details-expression {
     padding: 12px;
   }
@@ -666,7 +648,7 @@
   .details-pane.details-pane
     .statement-value-stack
     button.statement-value-action {
-    opacity: 0;
+    visibility: hidden;
   }
   .details-pane.details-pane
     .statement-value-line:hover
@@ -674,19 +656,14 @@
   .details-pane.details-pane
     .statement-value-line:focus-within
     .statement-value-action {
-    opacity: 1;
+    visibility: visible;
   }
 }
 [data-theme="dark"] .details-pane.details-pane {
   color-scheme: dark;
   --accent-hover: #6aabff;
   --accent-tint: #0f1a28;
-  --ok-bg: #0f2a1b;
-  --ok-border: #1d5233;
-  --warn-bg: #2b2211;
-  --warn-border: #5a4718;
-  --bad-bg: #3a1a17;
-  --bad-border: #7a3630;
+
   --idle-border: #454c54;
 }
 @media (prefers-color-scheme: dark) {
@@ -694,12 +671,7 @@
     color-scheme: dark;
     --accent-hover: #6aabff;
     --accent-tint: #0f1a28;
-    --ok-bg: #0f2a1b;
-    --ok-border: #1d5233;
-    --warn-bg: #2b2211;
-    --warn-border: #5a4718;
-    --bad-bg: #3a1a17;
-    --bad-border: #7a3630;
+
     --idle-border: #454c54;
   }
 }
@@ -744,10 +716,7 @@
 }
 
 .adaptive-pane[data-pane-id="details"] {
-  background: #f6f7f9;
-}
-[data-theme="dark"] .adaptive-pane[data-pane-id="details"] {
-  background: #161b22;
+  background: var(--surface);
 }
 
 .details-pane.details-pane .statement-value-field,

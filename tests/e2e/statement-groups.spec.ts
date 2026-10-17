@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
   expect,
@@ -216,9 +217,11 @@ test("adding, editing and removing one value preserves order through save and re
   const expected = [...aliases, "Zulu:PE,PE <A&B>"];
   expected[1] = "Fitness changed";
   await expect.poll(() => saved(NS.rdfs + "seeAlso")).toEqual(expected);
+  await fields(row).nth(2).focus();
   await row
     .getByRole("button", {
       name: "Remove this rdfs:seeAlso value",
+      includeHidden: true,
       exact: true,
     })
     .nth(2)
@@ -250,15 +253,21 @@ test("adding, editing and removing one value preserves order through save and re
   ).toEqual(expected);
 });
 
-test("single value actions take no extra line and keyboard removal removes the last statement", async () => {
+test("single value tools appear on focus and keyboard removal removes the last statement", async () => {
   const row = group(base + "custom");
   await fields(row).first().scrollIntoViewIfNeeded();
   await page.mouse.move(0, 0);
   const add = row.getByRole("button", { name: "+ Add value", exact: true });
-  await expect(add).toHaveCSS("opacity", "0");
+  await expect(add).toBeHidden();
+  await row.hover();
+  await expect(add).toBeHidden();
   expect((await row.boundingBox())!.height).toBeLessThanOrEqual(39);
   await fields(row).first().focus();
-  await expect(add).toHaveCSS("opacity", "1");
+  await expect(add).toBeVisible();
+  const field = (await fields(row).first().boundingBox())!;
+  expect((await add.boundingBox())!.y).toBeGreaterThanOrEqual(
+    field.y + field.height,
+  );
   await page.keyboard.press("Tab");
   await expect(
     row.getByRole("button", { name: "Remove this custom value", exact: true }),
@@ -333,6 +342,7 @@ test("keyboard traversal reaches each field, remove action, add action and expan
       row
         .getByRole("button", {
           name: "Remove this rdfs:seeAlso value",
+          includeHidden: true,
           exact: true,
         })
         .nth(i),
@@ -356,6 +366,7 @@ test("keyboard traversal reaches each field, remove action, add action and expan
       row
         .getByRole("button", {
           name: "Remove this rdfs:seeAlso value",
+          includeHidden: true,
           exact: true,
         })
         .nth(i),
@@ -373,6 +384,7 @@ test("keyboard traversal reaches each field, remove action, add action and expan
 test("removing a newly entered value while its save reply is pending keeps it removed", async () => {
   const row = group(base + "custom");
   await holdRequests(app, ["updateEntity"]);
+  await fields(row).first().focus();
   await row.getByRole("button", { name: "+ Add value", exact: true }).click();
   await fields(row).last().fill("Pending value");
   await fields(row).last().press("Tab");
@@ -473,6 +485,7 @@ test("Find values share one predicate, source keeps delimiters and parents use i
     .getByRole("option", { name: /^Education/ })
     .first()
     .click();
+  await fields(parent).first().focus();
   await parent
     .getByRole("button", { name: "+ Add value", exact: true })
     .click();

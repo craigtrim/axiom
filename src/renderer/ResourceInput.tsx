@@ -174,7 +174,16 @@ export function ResourceInput({
     const owner = input.current!.ownerDocument.defaultView!;
     const place = () => {
       const r = input.current!.getBoundingClientRect();
-      const below = owner.innerHeight - r.bottom - 12;
+      // Issue 85 reveals a tools line under a focused single Details value.
+      // Leave its Add action reachable while the resource choices are open.
+      const tools = input
+        .current!.closest(".details-pane .statement-group-row")
+        ?.querySelector<HTMLElement>(".statement-single-tools");
+      const bottom = Math.max(
+        r.bottom,
+        tools?.getBoundingClientRect().bottom ?? r.bottom,
+      );
+      const below = owner.innerHeight - bottom - 12;
       const height = Math.max(
         100,
         Math.min(240, below >= 160 ? below : r.top - 12),
@@ -184,7 +193,7 @@ export function ResourceInput({
           8,
           Math.min(r.left, owner.innerWidth - Math.max(240, r.width) - 8),
         ),
-        top: below >= 160 ? r.bottom + 2 : r.top - height - 2,
+        top: below >= 160 ? bottom + 2 : r.top - height - 2,
         width: Math.min(owner.innerWidth - 16, Math.max(240, r.width)),
         maxHeight: height,
       });

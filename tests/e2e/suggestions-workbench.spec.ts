@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 // Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
   test,
@@ -214,7 +215,7 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
   const details = page.getByRole("region", { name: "Details", exact: true });
   const existing = details
     .locator('tr[data-predicate="' + NS.rdfs + 'seeAlso"]')
-    .getByRole("combobox", { name: /Value/ });
+    .getByRole("combobox", { name: / value \d+$/ });
   await existing.fill("Basic English reference");
   await existing.press("Enter");
   await expect
@@ -225,9 +226,11 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
         )?.object.language,
     )
     .toBe("en");
-  await details.getByRole("button", { name: "Add row", exact: true }).click();
-  const row = details.locator("tbody tr").last(),
-    predicate = row.getByRole("combobox", { name: /Predicate/ });
+  const row = details.locator('tr[data-predicate="' + NS.rdfs + 'seeAlso"]');
+  const predicate = row.getByRole("combobox", {
+    name: "Change the predicate on rdfs:seeAlso",
+    exact: true,
+  });
   expect(
     await predicate.locator("option").evaluateAll((opts) =>
       opts
@@ -239,8 +242,12 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
   await expect(predicate.locator('option[value="' + TYPE + '"]')).toHaveCount(
     0,
   );
-  await predicate.selectOption(NS.rdfs + "seeAlso");
-  const input = row.getByRole("combobox", { name: /Value/ });
+  await existing.focus();
+  await row.getByRole("button", { name: "+ Add value", exact: true }).click();
+  const input = row.getByRole("combobox", {
+    name: "rdfs:seeAlso value 2",
+    exact: true,
+  });
   await input.fill("Preparatory English");
   await input.press("Enter");
   await expect
@@ -253,14 +260,14 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
       ),
     )
     .toBe(true);
-  await details.getByRole("button", { name: "Add row", exact: true }).click();
-  const link = details.locator("tbody tr").last();
-  await link
-    .getByRole("combobox", { name: /Predicate/ })
-    .selectOption(NS.rdfs + "seeAlso");
-  await link.getByRole("combobox", { name: /Value/ }).fill("Alpha Gamma");
+  await row.getByRole("button", { name: "+ Add value", exact: true }).click();
+  const link = row.getByRole("combobox", {
+    name: "rdfs:seeAlso value 3",
+    exact: true,
+  });
+  await link.fill("Alpha Gamma");
   await page
-    .getByRole("listbox", { name: /Value .* matches/ })
+    .getByRole("listbox", { name: / value \d+ matches/ })
     .getByRole("option", { name: /^Alpha Gamma/ })
     .click();
   await expect

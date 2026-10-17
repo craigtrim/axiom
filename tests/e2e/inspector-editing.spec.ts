@@ -1,3 +1,4 @@
+// Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -236,10 +237,10 @@ test("inspector and details share drafts across selection changes, reject confli
     exact: true,
   });
   await expect(
-    editor.getByRole("textbox", { name: "Entity label", exact: true }),
+    editor.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Shared label");
   await editor
-    .getByRole("textbox", { name: "Entity comment", exact: true })
+    .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
     .fill("Shared comment");
   await expect(
     fields().getByRole("textbox", {
@@ -281,7 +282,7 @@ test("inspector and details share drafts across selection changes, reject confli
     .getByRole("button", { name: "Discard", exact: true })
     .click();
   await expect(
-    editor.getByRole("textbox", { name: "Entity label", exact: true }),
+    editor.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Graph change");
   await fields()
     .getByRole("textbox", { name: "rdfs:comment value 1", exact: true })
@@ -510,13 +511,13 @@ test("default identifiers follow label drafts in both editors and become stable 
     exact: true,
   });
   await expect(
-    details.getByRole("textbox", { name: "Entity label", exact: true }),
+    details.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Alpha Beta !! Gamma");
   await details
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Course Credit");
   await details
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .press("Tab");
   const next = old.replace(/NewClass$/, "CourseCredit");
   await expect.poll(async () => (await state()).selected).toBe(next);

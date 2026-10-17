@@ -64,6 +64,60 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("retained editor drafts during asynchronous saves", () => {
+  // Issue 85: adding a field after blur must not enter the preceding cell save.
+  it("retains an added blank value while saving the preceding cell snapshot", async () => {
+    const d = draft([note("Before")], [note("Changed")]);
+    rememberEditorDraft(d);
+    const reply = deferred<{ iri: string; document: DocumentData }>();
+    mocks.request.mockReturnValue(reply.promise);
+    const operation = applyEditorDraft(d, true);
+    rememberEditorDraft({ ...d, statements: [...d.statements, note("")] });
+    await Promise.resolve();
+    expect(mocks.request).toHaveBeenCalledWith(
+      "updateEntity",
+      expect.objectContaining({ statements: [note("Changed")] }),
+    );
+    reply.resolve({ iri, document: document(d.statements) });
+    await operation;
+    const retained = getEditorDraft(iri, epoch)!;
+    expect(retained.loaded.statements).toEqual([note("Changed")]);
+    expect(retained.statements).toEqual([note("Changed"), note("")]);
+  });
+  it("keeps a later blank out of a queued cell commit after rebasing", async () => {
+    const first = draft([note("Before")], [note("First")]);
+    rememberEditorDraft(first);
+    const reply = deferred<{ iri: string; document: DocumentData }>();
+    mocks.request.mockReturnValueOnce(reply.promise).mockResolvedValue({
+      iri,
+      document: { ...document([note("Second")]), version: 3 },
+    });
+    const firstSave = applyEditorDraft(first, true);
+    await Promise.resolve();
+    const second = draft([note("Before")], [note("Second")]);
+    rememberEditorDraft(second);
+    const secondSave = applyEditorDraft(second, true);
+    rememberEditorDraft({
+      ...second,
+      statements: [...second.statements, note("")],
+    });
+    reply.resolve({
+      iri,
+      document: { ...document(first.statements), version: 2 },
+    });
+    await Promise.all([firstSave, secondSave]);
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      "updateEntity",
+      expect.objectContaining({
+        statements: [note("Second")],
+        original: [note("First")],
+        version: 2,
+      }),
+    );
+    expect(getEditorDraft(iri, epoch)?.statements).toEqual([
+      note("Second"),
+      note(""),
+    ]);
+  });
   it.each([
     ["addition", [note("Only")], [note("Only"), note("Pending")]],
     ["deletion", [note("Only"), note("Pending")], [note("Only")]],
