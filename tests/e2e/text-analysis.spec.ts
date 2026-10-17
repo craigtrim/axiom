@@ -122,7 +122,7 @@ async function showText() {
   await menu("view.textanalysis");
   await expect(panel()).toBeVisible();
   const toggle = panel().getByRole("button", {
-    name: "View Text",
+    name: "Text",
     exact: true,
   });
   if (await toggle.isVisible()) await toggle.click();
@@ -132,7 +132,7 @@ async function showSummary() {
   await menu("view.textanalysis");
   await expect(panel()).toBeVisible();
   const toggle = panel().getByRole("button", {
-    name: "View Summary",
+    name: "Summary",
     exact: true,
   });
   if (await toggle.isVisible()) await toggle.click();
@@ -234,7 +234,9 @@ test("a pasted comma synonym has one complete highlight and opens its own entity
     "https://example.org/comma#CultureAndMediaStudies",
   );
   await enter("Culture");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).toHaveCount(0);
@@ -275,10 +277,19 @@ test("typing and pasting highlight original text automatically with accessible c
   await expect(chip("Place")).toHaveCount(0);
   const colors = await Promise.all(
     [chip("dog"), chip("cat")].map((c) =>
-      c.evaluate((e) => getComputedStyle(e).backgroundColor),
+      c.locator(".sw2").evaluate((e) => getComputedStyle(e).backgroundColor),
     ),
   );
-  expect(colors[0]).not.toBe(colors[1]);
+  // #79 intentionally shares six tints across all canonical entities.
+  const palette = [
+    "rgb(235, 209, 242)",
+    "rgb(165, 230, 220)",
+    "rgb(197, 219, 250)",
+    "rgb(246, 216, 117)",
+    "rgb(215, 215, 248)",
+    "rgb(177, 231, 183)",
+  ];
+  for (const color of colors) expect(palette).toContain(color);
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).not.toHaveCount(0);
@@ -329,12 +340,16 @@ test("typing and pasting highlight original text automatically with accessible c
     ).toEqual([]);
   }
   await enter("unmatchedword");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).toHaveCount(0);
   await enter("");
-  await expect(panel()).toContainText("Type or paste text to begin.");
+  await expect(panel().locator(".empty")).toContainText(
+    "Type or paste plain text.",
+  );
 });
 
 test("unsaved ontology edits reparse the same text and text survives restart", async () => {
@@ -380,7 +395,9 @@ test("switching ontologies clears old matches and a blank workspace has no infer
   await expect(panel()).toHaveCount(0);
   await menu("view.textanalysis");
   await expect(editor()).toBeVisible();
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await expect(chip("Place")).toHaveCount(0);
   await expect(chip("dog")).toHaveCount(0);
   await menu("file.example");
@@ -407,17 +424,18 @@ async function highlighted(label: string) {
     .replace(/\u00a0/g, " ");
 }
 
-// craigtrim/axiom#73: manual editing uses native input without implicit analysis or navigation.
+// craigtrim/axiom#79: manual typing retains tracked highlights; navigation explicitly refreshes stale results.
 const liveSwitch = () =>
-  panel().getByRole("switch", { name: "Live analysis", exact: true });
+  panel().getByRole("switch", {
+    name: "Auto, analyze while typing",
+    exact: true,
+  });
 const analyzeNow = () =>
   panel().getByRole("button", { name: "Analyze now", exact: true });
-test("#73 manual typing stays plain until an explicit analysis and resuming runs immediately", async () => {
+test("#79 manual typing retains gray highlights until explicit analysis and resuming runs immediately", async () => {
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "true");
-  await panel()
-    .getByRole("button", { name: "View Summary", exact: true })
-    .focus();
-  await page.keyboard.press("Shift+Tab");
+  await panel().getByRole("button", { name: "Summary", exact: true }).focus();
+  await page.keyboard.press("Home");
   await expect(liveSwitch()).toBeFocused();
   expect(
     await liveSwitch().evaluate(
@@ -428,12 +446,10 @@ test("#73 manual typing stays plain until an explicit analysis and resuming runs
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
   expect(
     await liveSwitch()
-      .locator(".text-analysis-switch-track")
+      .locator(".track")
       .evaluate((element) => getComputedStyle(element).backgroundColor),
   ).not.toBe("rgba(0, 0, 0, 0)");
-  await expect(panel().locator(".text-analysis-hint")).toContainText(
-    "Press Analyze now",
-  );
+  await expect(panel().locator(".empty")).toContainText("Press Analyze now");
   await enter("canine");
   await analyzeNow().click();
   await expect(panel().locator(".text-analysis-status")).toHaveText("1 match", {
@@ -449,10 +465,10 @@ test("#73 manual typing stays plain until an explicit analysis and resuming runs
   expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await expect(chip("cat")).toHaveCount(0);
   await expect(panel().locator(".text-analysis-status")).toHaveText(
-    "1 match · out of date",
+    "1 match, out of date",
   );
   await page.screenshot({ path: "artifacts/testing/text-analysis-paused.png" });
   await analyzeNow().click();
@@ -466,7 +482,7 @@ test("#73 manual typing stays plain until an explicit analysis and resuming runs
   await page.keyboard.insertText("Lion and ");
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(2);
   await liveSwitch().click();
   await expect(chip("lion")).toBeAttached();
   await expect(panel().locator(".text-analysis-status")).toHaveText(
@@ -475,7 +491,7 @@ test("#73 manual typing stays plain until an explicit analysis and resuming runs
   await expect(analyzeNow()).toHaveCount(0);
   expect(await requestCount(app, "textAnalysis:parse")).toBe(2);
   await showSummary();
-  await expect(liveSwitch()).toHaveCount(0);
+  await expect(liveSwitch()).toBeVisible();
 });
 
 test("#73 ontology edits wait for Analyze now in manual mode", async () => {
@@ -509,7 +525,7 @@ test("#73 ontology edits wait for Analyze now in manual mode", async () => {
 });
 
 for (const initial of ["canine", "zzzx"]) {
-  test(`#73 manual View in Graph requires Analyze now after ${initial}`, async () => {
+  test(`#79 manual View in Graph refreshes the text after ${initial}`, async () => {
     await enter(initial);
     await expect(panel().locator(".text-analysis-status")).toHaveText(
       initial === "canine" ? "1 match" : "0 matches",
@@ -525,10 +541,10 @@ for (const initial of ["canine", "zzzx"]) {
       name: "View in Graph",
       exact: true,
     });
-    await expect(graphButton).toBeDisabled();
-    await expect(graphButton).toHaveAttribute("title", /Press Analyze now/);
+    await expect(graphButton).toBeEnabled();
     expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
-    await analyzeNow().click();
+    await graphButton.click();
+    await expect(panel().locator(".toast")).toContainText("Analyzing first.");
     await waitForHeld(app);
     expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
     expect(
@@ -536,8 +552,6 @@ for (const initial of ["canine", "zzzx"]) {
         .activeGraphId,
     ).toBe(before.activeGraphId);
     await releaseRequests(app);
-    await expect(graphButton).toBeEnabled();
-    await graphButton.click();
     await expect
       .poll(
         async () =>
@@ -578,7 +592,7 @@ test("#73 manual mode captures the last edit on close and waits after restart or
   await page.waitForTimeout(250);
   expect(await requestCount(app, "textAnalysis:parse")).toBe(1);
   await expect(panel().locator(".text-analysis-status")).toHaveText(
-    "1 match · out of date",
+    "1 match, out of date",
   );
   await menu("pane.close");
   await expect(panel()).toHaveCount(0);
@@ -593,27 +607,28 @@ test("#73 manual mode captures the last edit on close and waits after restart or
   expect(await requestCount(app, "textAnalysis:parse")).toBe(2);
 });
 
-test("#73 manual clicks and selection edit text without opening Details", async () => {
+test("#79 manual nonmatch clicks and selection edit text without opening Details", async () => {
   await enter("canine and Cat");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await liveSwitch().click();
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(2);
   await holdRequests(app, [], "textAnalysis:parse");
   await panel()
     .locator(".view-line")
     .first()
-    .click({ position: { x: 15, y: 10 } });
+    .click({ position: { x: 68, y: 10 } });
   await expect(
-    page.getByRole("region", { name: "Details view", exact: true }),
+    page.getByRole("region", { name: "Details", exact: true }),
   ).toHaveCount(0);
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+ArrowRight");
-  await expect(
-    panel().getByRole("button", { name: "Add entity", exact: true }),
-  ).toBeEnabled();
+  await expect(panel().locator(".menu [data-action=add]")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
   await page.keyboard.type("Dog ");
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Control+y");
@@ -624,6 +639,145 @@ test("#73 manual clicks and selection edit text without opening Details", async 
   await showText();
   await expect(panel().locator(".view-lines")).toContainText("Dog and Cat");
 });
+
+test("#79 toolbar roves, overflows in order and retains editing through recovery", async () => {
+  await enter("canine and Cat");
+  await expect(chip("dog")).toBeAttached();
+  const resize = async (width: number, height = 530) => {
+    await page.locator(".text-analysis-panel").evaluate(
+      (element, size) => {
+        const pane = element.closest<HTMLElement>(".adaptive-pane")!;
+        Object.assign(pane.style, {
+          position: "fixed",
+          left: "24px",
+          top: "60px",
+          width: size.width + "px",
+          height: size.height + "px",
+          zIndex: "1000",
+        });
+      },
+      { width, height },
+    );
+  };
+  const bar = panel().getByRole("toolbar");
+  const more = bar.getByRole("button", { name: "More actions" });
+  const stops = () => bar.locator('button[tabindex="0"]:visible');
+  await resize(758);
+  await liveSwitch().focus();
+  await expect(stops()).toHaveCount(1);
+  await page.keyboard.press("End");
+  await expect(more).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(liveSwitch()).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "false");
+  await page.keyboard.press("Space");
+  await expect(liveSwitch()).toHaveAttribute("aria-checked", "true");
+  await resize(418);
+  await expect(
+    bar.getByRole("button", { name: "View in Graph" }),
+  ).toBeVisible();
+  await resize(358);
+  await expect(bar.getByRole("button", { name: "View in Graph" })).toBeHidden();
+  await expect(
+    bar.getByRole("button", { name: "Summary", exact: true }),
+  ).toBeVisible();
+  await resize(278);
+  await expect(
+    bar.getByRole("button", { name: "Summary", exact: true }),
+  ).toBeHidden();
+  await more.click();
+  await expect(
+    panel().getByRole("menuitem", { name: "Add entity" }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("s");
+  await expect(summary()).toBeVisible();
+  await expect(more).toBeFocused();
+  await more.click();
+  await page.keyboard.press("t");
+  await expect(editor()).toBeVisible();
+  await more.click();
+  await page.keyboard.press("h");
+  await expect(panel().locator(".sheet")).toBeVisible();
+  await resize(378, 270);
+  await expect(panel().locator(".sheet")).toHaveCount(0);
+  await resize(758);
+  await expect(
+    bar.getByRole("button", { name: "View in Graph" }),
+  ).toBeVisible();
+  await editor().focus();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText(" retained");
+  await resize(218);
+  const recovery = page.locator(
+    '.adaptive-pane[data-pane-id="textanalysis"] > .pane-recovery',
+  );
+  await expect(recovery).toContainText(
+    "Too little room to edit. The text and its matches are retained.",
+  );
+  await expect(
+    recovery.getByRole("button", { name: "Maximize pane" }),
+  ).toBeVisible();
+  await resize(758);
+  await editor().focus();
+  await page.keyboard.press("Control+z");
+  await expect(panel().locator(".view-lines")).toHaveText("canine and Cat");
+  await more.click();
+  await page.keyboard.press("Tab");
+  await expect(more).toBeFocused();
+  await expect(panel().getByRole("menu")).toBeHidden();
+  await more.click();
+  await panel().locator(".state").click();
+  await expect(panel().getByRole("menu")).toBeHidden();
+});
+
+for (const action of ["highlight", "Summary"] as const)
+  for (const remains of [true, false]) {
+    test(`#79 manual stale ${action} refreshes before Details, match remains ${remains}`, async () => {
+      await enter("canine and Cat");
+      await expect(chip("dog")).toBeAttached();
+      await liveSwitch().click();
+      await editor().focus();
+      await page.keyboard.press("Control+Home");
+      await page.keyboard.insertText("Notes ");
+      await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
+      // The native parser still runs; control only whether its current result contains this match.
+      if (!remains) await changeAnalysisSynonym("Dog", "canine", false);
+      if (action === "highlight")
+        await panel()
+          .locator(".view-lines .ta-match")
+          .filter({ hasText: "canine" })
+          .click();
+      else {
+        await showSummary();
+        await chip("dog").click();
+      }
+      await waitForHeld(app);
+      await expect(panel().locator(".text-analysis-status")).toHaveText(
+        "Analyzing",
+      );
+      await expect(panel().locator(".toast")).toContainText(
+        "Details opens only if dog still matches.",
+      );
+      expect(
+        (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+          .selected,
+      ).not.toBe(base + "Dog");
+      await releaseRequests(app);
+      await expect(panel().locator(".text-analysis-status")).toHaveText(
+        remains ? "2 matches" : "1 match",
+      );
+      if (remains)
+        await expect(
+          page.getByRole("region", { name: "Details", exact: true }),
+        ).toHaveAttribute("data-entity-iri", base + "Dog");
+      else
+        expect(
+          (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+            .selected,
+        ).not.toBe(base + "Dog");
+    });
+  }
 
 test("#73 editing during Analyze now invalidates the reply without scheduling another parse", async () => {
   await liveSwitch().click();
@@ -660,14 +814,14 @@ test("#73 native paste and drag selection remain ordinary manual editing", async
     await page.mouse.move(box.x + 55, box.y + box.height / 2, { steps: 8 });
     await page.mouse.up();
     await expect(
-      panel().getByRole("button", { name: "Add entity", exact: true }),
-    ).toBeEnabled();
+      panel().locator(".menu [data-action=add]"),
+    ).not.toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Control+C");
     const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
     expect(copied.length).toBeGreaterThan(0);
     expect("Dog and Cat").toContain(copied);
     await expect(
-      page.getByRole("region", { name: "Details view", exact: true }),
+      page.getByRole("region", { name: "Details", exact: true }),
     ).toHaveCount(0);
     expect(await requestCount(app, "textAnalysis:parse")).toBe(0);
   } finally {
@@ -683,7 +837,7 @@ test("background analysis retains moved highlights, status and legend until one 
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const status = panel().locator(".text-analysis-status");
   await expect(status).toHaveText("1 match");
-  await expect(status).toHaveAttribute("title", /Analysis took .* ms/);
+  await expect(status).toHaveAttribute("title", "1 match in animals.ttl");
   await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
   await editor().focus();
   await page.keyboard.press("Control+Home");
@@ -708,8 +862,9 @@ test("background analysis retains moved highlights, status and legend until one 
     .locator('.view-lines [class*="text-entity-"]')
     .filter({ hasText: "canine" })
     .click();
-  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
+  await expect(status).toHaveText("Analyzing");
   await releaseRequests(app);
+  await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await menu("view.textanalysis");
   await expect(chip("cat")).toBeAttached();
   await expect(status).toHaveText("2 matches");
@@ -953,7 +1108,7 @@ for (const remains of [true, false]) {
       );
       await expect(
         panel().getByRole("button", { name: "View in Graph", exact: true }),
-      ).toBeDisabled();
+      ).toBeEnabled();
       expect(
         Object.keys(
           (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
@@ -1163,7 +1318,9 @@ test("punctuated synonyms highlight whole phrases and navigate to their ontology
     );
   }
   await enter("PE/PE");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
 });
 
 test("text ending in an abbreviation or contraction keeps its highlights and curly apostrophes match", async () => {
@@ -1208,14 +1365,18 @@ test("plus spans highlight intervening words and stop at the reference distance 
     await expect.poll(() => highlighted("pair")).toBe(text);
   }
   await enter("alpha blah blah blah blah beta");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await expect(chip("pair")).toHaveCount(0);
   await expect(
     panel().locator('.view-lines [class*="text-entity-"]'),
   ).toHaveCount(0);
 
   await enter("alpha blah gamma");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await page.evaluate(async () => {
     const source = await window.axiom.request<
       import("../../src/shared/source").SourceDocument
@@ -1373,11 +1534,13 @@ test("keyboard ontology matches reuse Details and unmatched names have no inferr
   await page.evaluate(() => window.axiom.request("select", { iri: null }));
   await expect(details()).toContainText("Select a node or edge");
   await enter("London");
-  await expect(summary()).toContainText("No entities found.");
+  await expect(summary()).toContainText(
+    "Nothing in this text matches the open ontology.",
+  );
   await expect(chip("Place")).toHaveCount(0);
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
 });
 
 test("shared canonical names offer their actual ontology entries in the existing Details tab", async () => {
@@ -1565,12 +1728,14 @@ test("long pasted text retains every match as its beginning and end change", asy
   const text = "Dog and a big cat. Cat lives in London.\n".repeat(80);
   await enter(text);
   for (const label of ["dog", "lion", "cat"])
-    await expect(chip(label).locator("b")).toHaveText("80", { timeout: 20000 });
+    await expect(chip(label).locator(".n")).toHaveText("80", {
+      timeout: 20000,
+    });
   await expect(chip("Place")).toHaveCount(0);
   await enter("canine " + text + " big cat");
-  await expect(chip("dog").locator("b")).toHaveText("81");
-  await expect(chip("lion").locator("b")).toHaveText("81");
-  await expect(chip("cat").locator("b")).toHaveText("80");
+  await expect(chip("dog").locator(".n")).toHaveText("81");
+  await expect(chip("lion").locator(".n")).toHaveText("81");
+  await expect(chip("cat").locator(".n")).toHaveText("80");
   await expect(panel().getByRole("alert")).toHaveCount(0);
   await expect(
     panel().getByRole("button", { name: "View in Graph", exact: true }),
@@ -1612,25 +1777,29 @@ test("Add entity opens on demand and docks, resizes, closes and restores indepen
   await launch();
   await expect(editor()).toBeVisible();
   await expect(entitiesPane()).toHaveCount(0);
-  await panel()
-    .getByRole("button", { name: "View Summary", exact: true })
-    .click();
+  await panel().getByRole("button", { name: "Summary", exact: true }).click();
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
   await showText();
   await expect.poll(() => highlighted("dog")).toBe("canine");
 });
+
+async function addFromOverflow() {
+  await panel()
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await panel().locator(".menu [data-action=add]").click();
+}
 
 async function selectForCreation(text: string) {
   await enter(text);
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
-  await expect(
-    panel().getByRole("button", { name: "Add entity", exact: true }),
-  ).toBeEnabled();
-  await panel()
-    .getByRole("button", { name: "Add entity", exact: true })
-    .click();
+  await expect(panel().locator(".menu [data-action=add]")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await addFromOverflow();
   return entitiesPane().getByRole("region", {
     name: "Add entity",
     exact: true,
@@ -2576,9 +2745,7 @@ for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
     await page.keyboard.press("Control+Home");
     await page.keyboard.press("Control+Shift+End");
     if (route === "toolbar") {
-      await panel()
-        .getByRole("button", { name: "Add entity", exact: true })
-        .click();
+      await addFromOverflow();
     } else if (route === "Alt+Enter") {
       await page.keyboard.press("Alt+Enter");
     } else {
@@ -2778,11 +2945,12 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveCount(
     0,
   );
-  await find
-    .getByRole("combobox", { name: "Sort results" })
-    .selectOption("name-desc");
+  await find.getByRole("combobox", { name: "Sort" }).selectOption("name-desc");
   await find.getByRole("button", { name: "More", exact: true }).click();
-  await find.getByRole("button", { name: "Clear", exact: true }).click();
+  await find
+    .getByRole("dialog", { name: "More", exact: true })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
   await page.keyboard.press("Escape");
   if (await find.getByRole("button", { name: /^Options:/ }).isVisible())
     await find.getByRole("button", { name: /^Options:/ }).click();
@@ -2814,9 +2982,9 @@ test("selected text opens Find from the editor context menu and reuses it with d
   await expect(find.getByRole("combobox", { name: "Match mode" })).toHaveCount(
     0,
   );
-  await expect(
-    find.getByRole("combobox", { name: "Sort results" }),
-  ).toHaveValue("relevance");
+  await expect(find.getByRole("combobox", { name: "Sort" })).toHaveValue(
+    "relevance",
+  );
   if (await find.getByRole("button", { name: /^Options:/ }).isVisible())
     await find.getByRole("button", { name: /^Options:/ }).click();
   await expect(
@@ -2932,9 +3100,7 @@ test("a detached Add entity view retains nested drafts and can add a selected cl
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
-  await panel()
-    .getByRole("button", { name: "Add entity", exact: true })
-    .click();
+  await addFromOverflow();
   const form = entitiesPane(detached).getByRole("region", {
     name: "Add entity",
     exact: true,
@@ -3220,7 +3386,7 @@ test("a detached Text Analysis switches Summary and handles context menu letters
     exact: true,
   });
   await expect(content.locator(".text-analysis-chip")).toBeVisible();
-  await content.getByRole("button", { name: "View Text", exact: true }).click();
+  await content.getByRole("button", { name: "Text", exact: true }).click();
   const input = content.getByRole("textbox", {
     name: "Text to analyze",
     exact: true,
@@ -3230,9 +3396,10 @@ test("a detached Text Analysis switches Summary and handles context menu letters
     .locator(".view-line")
     .first()
     .dblclick({ position: { x: 15, y: 10 } });
-  await expect(
-    content.getByRole("button", { name: "Add entity", exact: true }),
-  ).toBeEnabled();
+  await expect(content.locator(".menu [data-action=add]")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
   await detached.keyboard.press("Shift+F10");
   await expect(
     detached.locator('.monaco-menu [data-menu-key="F"]'),
@@ -3257,8 +3424,6 @@ test("a detached Text Analysis switches Summary and handles context menu letters
       before,
     );
   }
-  await content
-    .getByRole("button", { name: "View Summary", exact: true })
-    .click();
+  await content.getByRole("button", { name: "Summary", exact: true }).click();
   await expect(content.locator(".text-analysis-chip")).toBeVisible();
 });
