@@ -31,8 +31,8 @@ The reports and CPU profiles are retained under `C:\Users\Craig\AppData\Local\Te
 
 ## Functional verification
 
-Build and type checking pass. The source unit run passed 11,919 tests and exposed one outdated token-count assertion; after updating that inventory, all 64 targeted state and token tests pass. The general unit suite skips 182 native cases without a runtime in the fresh worktree. The desktop suite explicitly supplies the installed native runtime.
+Build and type checking pass. The combined checkout, including the existing local commits, passes all 11,924 unit tests. The general unit suite skips 182 native cases without a runtime in the fresh worktree. The desktop suite explicitly supplies the installed native runtime.
 
-The full desktop run covered 96 scenarios and passed 91. Follow-up checks corrected assertions for the six-color palette, empty-editor instructions, status tooltip, available graph action, and the existing Find controls. They also caught the moved-highlight hit-test problem described above. The final focused checks pass all 22 selected scenarios across the 19-case pass and the three corrected cases.
+The final combined desktop run passes all 96 scenarios in 5.1 minutes. Both visual tests pass, covering 36 reference comparisons with the bounded corner differences described above. Earlier source checks caught the moved-highlight hit-test problem and outdated assertions for the former controls; both were corrected before this run.
 
-Coverage includes native matching, pending and stale results, cancellation, graph ancestry, Details reuse, manual typing, accessibility in both themes, keyboard and context-menu actions, overflow, recovery, Undo, presentation and restart persistence, detached windows, and Add entity authoring. The integration review records the final combined-checkout results before merge. Logs and desktop evidence are retained under `C:\Users\Craig\AppData\Local\Temp\axiom-epic80`.
+Coverage includes native matching, pending and stale results, cancellation, graph ancestry, Details reuse, manual typing, accessibility in both themes, keyboard and context-menu actions, overflow, recovery, Undo, presentation and restart persistence, detached windows, and Add entity authoring. Logs and desktop evidence are retained under `C:\Users\Craig\AppData\Local\Temp\axiom-epic80`.
