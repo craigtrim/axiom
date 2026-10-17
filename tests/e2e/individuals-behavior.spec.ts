@@ -252,58 +252,64 @@ test("pager clamps input and the narrow toolbar keeps every retained control ins
       .toBe(true);
   }
 });
-test("value lists flip above the window edge at pane zoom and preserve selection", async ({
-  desktop: d,
-}) => {
-  const values = Array.from({ length: 40 }, (_, i) =>
-    JSON.stringify(`Alias ${i}: ${"long value ".repeat(9)}`),
-  ).join(", ");
-  await prepare(d, fixture.replace('"Alias 0", "Other 0"', values));
-  const chooser = await columns(d);
-  await chooser
-    .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
-    .check();
-  await d.page.keyboard.press("Escape");
-  await d.request("select", { iri: base + "S1" });
-  await d.resize(640, 760);
-  const host = d.page.locator('.adaptive-pane[data-pane-id="individuals"]');
-  await host.evaluate((el) =>
-    Object.assign((el as HTMLElement).style, {
-      width: "600px",
-      height: "400px",
-    }),
-  );
-  await host.dispatchEvent("wheel", { ctrlKey: true, deltaY: -150 });
-  const owner = grid(d).getByRole("button", {
-    name: "39 more values of rdfs:seeAlso",
-  });
-  const viewport = await owner.evaluate((el) => {
-    const zoom = Number(
-      el.closest<HTMLElement>(".adaptive-pane")!.dataset.paneZoom,
+for (const deltaY of [-150, -10000])
+  test(`value lists stay inside the window at pane zoom (${deltaY}) and preserve selection`, async ({
+    desktop: d,
+  }) => {
+    const values = Array.from({ length: 40 }, (_, i) =>
+      JSON.stringify(`Alias ${i}: ${"long value ".repeat(9)}`),
+    ).join(", ");
+    await prepare(d, fixture.replace('"Alias 0", "Other 0"', values));
+    const chooser = await columns(d);
+    await chooser
+      .getByRole("checkbox", { name: "rdfs:seeAlso", exact: true })
+      .check();
+    await d.page.keyboard.press("Escape");
+    await d.request("select", { iri: base + "S1" });
+    await d.resize(640, 760);
+    const host = d.page.locator('.adaptive-pane[data-pane-id="individuals"]');
+    await host.evaluate((el) =>
+      Object.assign((el as HTMLElement).style, {
+        width: "600px",
+        height: "400px",
+      }),
     );
-    Object.assign((el as HTMLElement).style, {
-      position: "fixed",
-      top: (innerHeight - 45) / zoom + "px",
-      left: (innerWidth - 55) / zoom + "px",
+    await host.dispatchEvent("wheel", { ctrlKey: true, deltaY });
+    const owner = grid(d).getByRole("button", {
+      name: "39 more values of rdfs:seeAlso",
     });
-    return { width: innerWidth, height: innerHeight, zoom };
+    const viewport = await owner.evaluate((el) => {
+      const zoom = Number(
+        el.closest<HTMLElement>(".adaptive-pane")!.dataset.paneZoom,
+      );
+      Object.assign((el as HTMLElement).style, {
+        position: "fixed",
+        zIndex: "1000",
+        top: (innerHeight - 45) / zoom + "px",
+        left: (innerWidth - 55) / zoom + "px",
+      });
+      return { width: innerWidth, height: innerHeight, zoom };
+    });
+    expect(viewport.zoom).toBeGreaterThan(1);
+    await owner.click();
+    const popup = d.page.getByRole("region", {
+      name: "Values of rdfs:seeAlso",
+    });
+    await expect(popup.locator("li")).toHaveCount(40);
+    const bounds = (await popup.boundingBox())!,
+      anchor = (await owner.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(6);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width - 5);
+    expect(bounds.y).toBeGreaterThanOrEqual(6);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height - 5);
+    if (deltaY === -150)
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(anchor.y - 3);
+    await popup.locator("li").first().click();
+    expect((await d.request<Snapshot>("state")).selected).toBe(base + "S1");
+    await d.page.keyboard.press("Escape");
+    await expect(popup).toBeHidden();
+    await expect(owner).toBeFocused();
   });
-  expect(viewport.zoom).toBeGreaterThan(1);
-  await owner.click();
-  const popup = d.page.getByRole("region", { name: "Values of rdfs:seeAlso" });
-  await expect(popup.locator("li")).toHaveCount(40);
-  const bounds = (await popup.boundingBox())!,
-    anchor = (await owner.boundingBox())!;
-  expect(bounds.x).toBeGreaterThanOrEqual(6);
-  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width - 5);
-  expect(bounds.y).toBeGreaterThanOrEqual(6);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(anchor.y - 3);
-  await popup.locator("li").first().click();
-  expect((await d.request<Snapshot>("state")).selected).toBe(base + "S1");
-  await d.page.keyboard.press("Escape");
-  await expect(popup).toBeHidden();
-  await expect(owner).toBeFocused();
-});
 
 test("shown fields control filtering, multivalues open accessibly, and keyboard selection retains row nodes", async ({
   desktop: d,

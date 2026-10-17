@@ -100,6 +100,18 @@ export function IndividualPopover({
         button.closest<HTMLElement>(".adaptive-pane")?.dataset.paneZoom ?? 1,
       ),
       margin = valueList ? 6 : 4;
+    const availableWidth =
+      (doc.documentElement.clientWidth - margin * 2) / zoom;
+    layer.style.maxWidth =
+      Math.min(valueList ? 420 : (width ?? 250), availableWidth) + "px";
+    layer.style.minWidth = valueList
+      ? Math.min(200, availableWidth) + "px"
+      : "";
+    layer.style.maxHeight =
+      Math.min(
+        valueList ? 320 : Infinity,
+        (doc.documentElement.clientHeight - margin * 2) / zoom,
+      ) + "px";
     layer.style.width = valueList
       ? "max-content"
       : Math.min(
