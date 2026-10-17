@@ -235,8 +235,11 @@ export const qly = {
   "recovery.name": "Quality",
   "recovery.widen": "Widen the pane to work with it.",
   "recovery.maximize": "Maximize pane",
-  "announce.complete": "Scan complete. {total} findings from {checks} checks.",
-  "announce.canceled": "Scan canceled.",
+  // Issue 84: announcements name the scanned population and partial results.
+  "announce.complete":
+    "Scan complete. {total} findings across {scanned} entities.",
+  "announce.canceled":
+    "Scan canceled after {scanned} of {total} entities. Results are partial.",
   "announce.failed": "Scan failed.",
   "announce.stale": "Report out of date.",
 } as const;

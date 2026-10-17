@@ -47,7 +47,7 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "entity-extend.css",
       ].includes(d.file),
   );
-  expect(prior).toHaveLength(257);
+  expect(prior).toHaveLength(230);
   expect(
     new Set(
       declarations
@@ -76,26 +76,12 @@ it("removes only equal duplicate declarations and retains deferred private palet
   const shared = declarations.filter(
     (d) => sharedTokens.has(d.name.slice(2)) && d.file !== "styles.css",
   );
+  // Issue 84 completes Quality's migration to the shared palette.
   expect(
     shared.every(
-      (d) =>
-        d.file === "quality.css" ||
-        (d.file === "quality-settings.css" &&
-          [
-            "--raised",
-            "--sunken",
-            "--accent",
-            "--ok",
-            "--warn",
-            "--focus",
-            ...(d.selector.includes("dark") ? [] : ["--bad"]),
-          ].includes(d.name)) ||
-        (d.file === "window-chrome.css" && d.name === "--h-tabs"),
+      (d) => d.file === "window-chrome.css" && d.name === "--h-tabs",
     ),
   ).toBe(true);
-  expect(shared.filter((d) => d.file === "quality-settings.css")).toHaveLength(
-    13,
-  );
   expect(
     shared.find((d) => d.file === "window-chrome.css")?.selector,
   ).toContain(".window-chrome");

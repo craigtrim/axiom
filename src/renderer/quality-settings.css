@@ -1,44 +1,31 @@
-/* Issue 65: styles transcribed from the pinned settings reference. */
+/* Issues 65 and 84: reference settings with the inherited shared palette. */
 .quality-panel:is(.qss-prescan),
 .quality-panel .quality-settings {
   color-scheme: light;
-  --raised: #ffffff;
-  --sunken: #f0f2f5;
-  --accent: #0b5fd0;
   --accent-hover: #0a52b4;
   --accent-tint: #f4f8fe;
-  --ok: #0a7a3d;
   --ok-bg: #e8f5ed;
   --ok-border: #a9d8bd;
-  --warn: #8a6116;
   --warn-bg: #fdf5e3;
   --warn-border: #e6cf95;
-  --bad: #a4201a;
   --bad-bg: #fdecea;
   --bad-border: #e4a9a4;
   --idle-border: #c6cbd1;
-  --focus: #0b5fd0;
   --sp-8: 32px;
   --r-card: 8px;
 }
 [data-theme="dark"] .quality-panel.qss-prescan,
 [data-theme="dark"] .quality-panel .quality-settings {
   color-scheme: dark;
-  --raised: #1c2128;
-  --sunken: #10151c;
-  --accent: #4c9aff;
   --accent-hover: #6aabff;
   --accent-tint: #0f1a28;
-  --ok: #4ade80;
   --ok-bg: #0f2a1b;
   --ok-border: #1d5233;
-  --warn: #e3b341;
   --warn-bg: #2b2211;
   --warn-border: #5a4718;
   --bad-bg: #3a1a17;
   --bad-border: #7a3630;
   --idle-border: #454c54;
-  --focus: #6aabff;
 }
 .quality-panel.qss-prescan,
 .quality-panel .quality-settings {
@@ -139,6 +126,7 @@
   background: var(--surface);
 }
 .quality-panel.qss-prescan .cbar .t {
+  flex: none;
   font-weight: 600;
   font-size: 13px;
 }
@@ -402,4 +390,17 @@
 }
 .quality-panel:not(.qss-prescan) > .limits > span {
   max-width: 440px;
+}
+
+/* Issue 84: #44 state contents inside #65's unchanged command-bar box. */
+.quality-panel.qss-prescan .cbar .state {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quality-panel.qss-prescan .cbar .prog {
+  background: var(--border);
+}
+.quality-panel.qss-prescan .cbar.alert-bad {
+  background: var(--bad-bg);
+  border-bottom-color: var(--bad-border);
 }
