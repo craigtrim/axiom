@@ -153,6 +153,8 @@ export interface IndividualGridInput {
   sort?: string;
   direction?: number;
   page?: number;
+  // Locate a newly created individual within the current sorted scope (#86).
+  reveal?: string;
 }
 export function individualGridFindOptions(
   store: Store,
@@ -203,11 +205,16 @@ export function individualGridPage(
         a.local.localeCompare(b.local)
       );
     });
+  const revealIndex = input.reveal
+    ? result.findIndex((r) => r.iri === input.reveal)
+    : -1;
   const page = Math.max(
     1,
     Math.min(
       Math.max(1, Math.ceil(result.length / 100)),
-      Math.floor(input.page ?? 1) || 1,
+      revealIndex >= 0
+        ? Math.floor(revealIndex / 100) + 1
+        : Math.floor(input.page ?? 1) || 1,
     ),
   );
   return {

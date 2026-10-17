@@ -73,6 +73,8 @@ export function IndividualPopover({
   children,
   width,
   onOpen,
+  align = "start",
+  valueList = false,
 }: {
   label: string;
   buttonClass?: string;
@@ -80,10 +82,46 @@ export function IndividualPopover({
   children: ReactNode;
   width?: number;
   onOpen?: () => void;
+  align?: "start" | "end";
+  valueList?: boolean;
 }) {
   const id = useId(),
     trigger = useRef<HTMLButtonElement>(null),
-    pop = useRef<HTMLDivElement>(null);
+    pop = useRef<HTMLDivElement>(null),
+    releaseKeys = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => () => releaseKeys.current?.(), []);
+  // Both reference layers stay within the window, including at pane zoom (#86).
+  const place = () => {
+    const button = trigger.current!,
+      layer = pop.current!,
+      bounds = button.getBoundingClientRect(),
+      doc = button.ownerDocument,
+      zoom = Number(
+        button.closest<HTMLElement>(".adaptive-pane")?.dataset.paneZoom ?? 1,
+      ),
+      margin = valueList ? 6 : 4;
+    layer.style.width = valueList
+      ? "max-content"
+      : Math.min(
+          width ?? 250,
+          doc.documentElement.clientWidth / zoom - margin * 2,
+        ) + "px";
+    const size = layer.getBoundingClientRect();
+    const left = align === "end" ? bounds.right - size.width : bounds.left;
+    const top =
+      bounds.bottom + 4 + size.height <=
+      doc.documentElement.clientHeight - margin
+        ? bounds.bottom + 4
+        : bounds.top - 4 - size.height;
+    layer.style.left =
+      Math.max(
+        margin,
+        Math.min(left, doc.documentElement.clientWidth - size.width - margin),
+      ) /
+        zoom +
+      "px";
+    layer.style.top = Math.max(margin, top) / zoom + "px";
+  };
   return (
     <>
       <button
@@ -91,25 +129,8 @@ export function IndividualPopover({
         className={buttonClass}
         aria-label={label}
         popoverTarget={id}
-        onClick={() => {
-          const b = trigger.current!.getBoundingClientRect(),
-            doc = trigger.current!.ownerDocument;
-          const zoom = Number(
-            trigger.current!.closest<HTMLElement>(".adaptive-pane")?.dataset
-              .paneZoom ?? 1,
-          );
-          const w = Math.min(width ?? 250, doc.documentElement.clientWidth - 8);
-          Object.assign(pop.current!.style, {
-            left:
-              Math.max(
-                4,
-                Math.min(b.left, doc.documentElement.clientWidth - w - 4),
-              ) /
-                zoom +
-              "px",
-            top: (b.bottom + 4) / zoom + "px",
-            width: w / zoom + "px",
-          });
+        onClick={(event) => {
+          event.stopPropagation();
           onOpen?.();
         }}
       >
@@ -119,18 +140,64 @@ export function IndividualPopover({
         ref={pop}
         id={id}
         popover="auto"
-        className="individual-popover"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            pop.current?.hidePopover();
-            trigger.current?.focus();
+        className={"individual-popover" + (valueList ? " vpop" : "")}
+        onClick={(event) => event.stopPropagation()}
+        role={valueList ? "region" : undefined}
+        aria-label={
+          valueList
+            ? label.replace(/^\d+ more values of /, "Values of ")
+            : undefined
+        }
+        onToggle={(event) => {
+          releaseKeys.current?.();
+          releaseKeys.current = null;
+          if (event.newState === "open") {
+            place();
+            const doc = event.currentTarget.ownerDocument;
+            // Clicking a plain value can leave focus on the document (#86).
+            const escape = (e: KeyboardEvent) => {
+              if (e.key !== "Escape" || !pop.current?.matches(":popover-open"))
+                return;
+              e.preventDefault();
+              e.stopPropagation();
+              pop.current.hidePopover();
+              trigger.current?.focus({ preventScroll: true });
+            };
+            doc.addEventListener("keydown", escape, true);
+            releaseKeys.current = () =>
+              doc.removeEventListener("keydown", escape, true);
           }
         }}
       >
         {children}
       </div>
     </>
+  );
+}
+
+export function IndividualIcon({
+  name,
+}: {
+  name: "x" | "first" | "prev" | "next" | "last";
+}) {
+  const paths = {
+    x: "M4 4l8 8M12 4l-8 8",
+    first: "M11 3.5 6.5 8 11 12.5M4.6 3.5v9",
+    prev: "M10 3.5 5.5 8 10 12.5",
+    next: "M6 3.5 10.5 8 6 12.5",
+    last: "M5 3.5 9.5 8 5 12.5M11.4 3.5v9",
+  };
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={paths[name]} />
+    </svg>
   );
 }

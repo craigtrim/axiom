@@ -1,0 +1,8 @@
+/* The Linked badge belongs to Touchpoints; Individuals has no private success palette (#86). */
+.individuals-surface .pill.ok2 {
+  --ok-border: #a9d8bd;
+}
+[data-theme="dark"] .individuals-surface .pill.ok2,
+.individuals-surface.dk .pill.ok2 {
+  --ok-border: #1d5233;
+}

@@ -127,7 +127,8 @@ export function restoreIndividualColumns(
     return defaults;
   const keys = new Set(defaults.order);
   const order = [
-    ...new Set(["subject", ...saved.order, ...defaults.order]),
+    // Any column can lead the saved layout; the first shown column is pinned (#86).
+    ...new Set([...saved.order, ...defaults.order]),
   ].filter((k) => keys.has(k));
   return {
     order,
