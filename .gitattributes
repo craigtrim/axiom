@@ -18,3 +18,5 @@ tests/fixtures/window-chrome-visual/shell.html -text
 # Preserve the reference bytes for craigtrim/axiom#81.
 tests/fixtures/design-system-visual/visual-reference.html -text
 tests/fixtures/suggestions-visual/visual-reference.html -text
+# Grouped Find editor reference for craigtrim/axiom#83.
+tests/fixtures/find-visual/visual-reference-v5.html -text

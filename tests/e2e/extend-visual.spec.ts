@@ -92,6 +92,7 @@ async function referenceControl(
       document.body.dataset.theme = theme;
       const control = document.querySelector<HTMLElement>(selector)!;
       const frame = control.closest<HTMLElement>(".pane")!;
+      // The surrounding ground follows the shared palette (craigtrim/axiom#83).
       // Specimen dimensions and the surrounding table are explicitly scaffolding
       // in #49. Render expanded controls above the published narrow threshold.
       Object.assign(frame.style, {
@@ -101,7 +102,7 @@ async function referenceControl(
         width: width + "px",
         height: "650px",
         resize: "none",
-        background: theme === "dark" ? "#1e1e1e" : "#ffffff",
+        background: theme === "dark" ? "#0d1117" : "#ffffff",
       });
       for (const tr of frame.querySelectorAll<HTMLElement>("tr")) {
         tr.classList.remove("is-selected");
@@ -168,7 +169,7 @@ async function capture(control: Locator, owner: Page, pad = 0) {
         background:
           document.body.dataset.theme === "dark" ||
           document.documentElement.dataset.theme === "dark"
-            ? "#1e1e1e"
+            ? "#0d1117"
             : "#ffffff",
       });
       document.body.append(backing);
