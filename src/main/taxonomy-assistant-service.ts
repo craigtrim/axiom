@@ -79,6 +79,7 @@ export class TaxonomyAssistantService {
     private validate: (
       context: TaxonomyContext,
       suggestions: TaxonomySuggestion[],
+      checkVersion?: boolean,
     ) => Promise<(string | null)[]>,
     private insert: (
       context: TaxonomyContext,
@@ -216,7 +217,11 @@ export class TaxonomyAssistantService {
       // A different completed target may have been added while this reply ran.
       // Keep the recorded prompt, but validate against the current ontology (#82, #68).
       const currentContext = await this.reviewContext(entry);
-      const issues = await this.validate(currentContext, result.suggestions);
+      const issues = await this.validate(
+        currentContext,
+        result.suggestions,
+        false,
+      );
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");
       if (!hit) await this.cache.put(key, completion, () => this.cancelled);
       if (this.cancelled) throw Error("Taxonomy suggestions cancelled.");

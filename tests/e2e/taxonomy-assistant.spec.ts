@@ -296,6 +296,72 @@ test("blocks duplicates and preserves the right-clicked parent when selection ch
     (await state()).entities.find((e) => e.name === "Water vehicle")?.parents,
   ).toEqual([vehicle]);
 });
+test("read-only taxonomy validation accepts current data while application requires an exact edit version", async () => {
+  await ready();
+  const result = await bridge.evaluate(async (root) => {
+    const [run] = await window.axiom.taxonomyAssistant.history();
+    const { entry } = await window.axiom.taxonomyAssistant.read(run.id);
+    const args = {
+      iri: entry.context.selected.iri,
+      mode: entry.context.mode,
+      datasetEpoch: entry.context.datasetEpoch,
+      version: entry.context.version,
+      suggestions: entry.response!.result.suggestions,
+    };
+    await window.axiom.request("createClass", {
+      name: "Concurrent addition",
+      parent: root,
+    });
+    const before = await window.axiom.request<Snapshot>("state");
+    const invoke = async (
+      method: "validateTaxonomySuggestions" | "applyTaxonomySuggestions",
+      input: Record<string, unknown>,
+    ) => {
+      try {
+        return await window.axiom.request(method, input);
+      } catch (error) {
+        return { error: (error as Error).message };
+      }
+    };
+    const currentRead = await invoke("validateTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+    });
+    const staleRead = await invoke("validateTaxonomySuggestions", args);
+    const missingWrite = await invoke("applyTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+    });
+    const staleWrite = await invoke("applyTaxonomySuggestions", args);
+    const wrongWorkspace = await invoke("validateTaxonomySuggestions", {
+      ...args,
+      version: undefined,
+      datasetEpoch: args.datasetEpoch + 1,
+    });
+    const after = await window.axiom.request<Snapshot>("state");
+    return {
+      currentRead,
+      staleRead,
+      missingWrite,
+      staleWrite,
+      wrongWorkspace,
+      before: before.classCount,
+      after: after.classCount,
+    };
+  }, THING);
+  expect(result.currentRead).toEqual([null, null]);
+  for (const rejected of [
+    result.staleRead,
+    result.missingWrite,
+    result.staleWrite,
+    result.wrongWorkspace,
+  ])
+    expect(rejected).toEqual({
+      error: expect.stringContaining("The ontology changed"),
+    });
+  expect(result.after).toBe(result.before);
+});
+
 test("survives unrelated edits, warns when the class moves, and retains the ontology when it changes during generation", async () => {
   const dialog = await ready();
   await dialog
@@ -1287,14 +1353,12 @@ test("compact review stays accessible in light and dark themes and at 375px in a
           (await control.getAttribute("aria-label")) ??
           (await control.textContent()),
         bounds,
-        bands: await detached
-          .locator(".ac-band")
-          .evaluateAll((es) =>
-            es.map((e) => ({
-              class: e.className,
-              rect: e.getBoundingClientRect().toJSON(),
-            })),
-          ),
+        bands: await detached.locator(".ac-band").evaluateAll((es) =>
+          es.map((e) => ({
+            class: e.className,
+            rect: e.getBoundingClientRect().toJSON(),
+          })),
+        ),
       }),
     ).toBeLessThanOrEqual(viewport.height + 1);
   }

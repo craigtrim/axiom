@@ -385,12 +385,13 @@ const suggestions = new SuggestionService(
 const taxonomyAssistant = new TaxonomyAssistantService(
   path.join(app.getPath("userData"), "taxonomy-runs"),
   (input) => request("taxonomyContext", { iri: input.iri, mode: input.mode }),
-  (context, suggestions) =>
+  (context, suggestions, checkVersion = true) =>
     request("validateTaxonomySuggestions", {
       iri: context.selected.iri,
       mode: context.mode,
       datasetEpoch: context.datasetEpoch,
-      version: context.version,
+      // Read-only generation sees current data; applying keeps the edit guard (#82, #68).
+      version: checkVersion ? context.version : undefined,
       suggestions,
     }),
   (context, suggestions) =>

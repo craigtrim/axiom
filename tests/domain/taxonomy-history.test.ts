@@ -17,6 +17,7 @@ const fake = vi.hoisted(() => ({
   fail: false,
   release: undefined as (() => void) | undefined,
   block: false,
+  editBeforeValidate: false,
 }));
 vi.mock("../../src/main/local-assistant", () => ({
   discoverAssistants: async () => [],
@@ -56,9 +57,16 @@ function service() {
   return new TaxonomyAssistantService(
     root,
     async (i) => taxonomyContext(store, i.iri, i.mode, epoch),
-    async (c, s) => {
+    async (c, s, checkVersion = true) => {
+      if (fake.editBeforeValidate) {
+        fake.editBeforeValidate = false;
+        store.createClass("Water vehicle", parent);
+      }
       // Match the worker's edit and workspace guards, including during generation.
-      if (c.datasetEpoch !== epoch || c.version !== store.version)
+      if (
+        c.datasetEpoch !== epoch ||
+        (checkVersion && c.version !== store.version)
+      )
         throw Error(
           "The ontology changed. Find suggestions again before adding them.",
         );
@@ -85,6 +93,7 @@ beforeEach(async () => {
   fake.fail = false;
   fake.block = false;
   fake.release = undefined;
+  fake.editBeforeValidate = false;
 });
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
@@ -225,6 +234,14 @@ it("applies a completed run during another target's request, but blocks a reques
     fake.release!();
     await same;
   }
+});
+
+it("validates current duplicates when an edit lands between reading context and validating a reply", async () => {
+  fake.editBeforeValidate = true;
+  const response = await service().run(input("overlap"));
+  expect(response.context.directChildren).toEqual([]);
+  expect(response.issues[0]).toMatch(/already exists/);
+  expect(response.issues[1]).toBeNull();
 });
 
 it.each(["workspace", "target"])(
