@@ -33,3 +33,5 @@ tests/fixtures/query-visual/visual-reference.html -text
 tests/fixtures/inspector-visual/visual-reference.html -text
 # Craig's Sparsity reference, hash-pinned (craigtrim/axiom#90).
 tests/fixtures/sparsity-visual/visual-reference.html -text
+# Craig's Touchpoints reference, hash-pinned (craigtrim/axiom#92).
+tests/fixtures/touchpoints-visual/visual-reference.html -text

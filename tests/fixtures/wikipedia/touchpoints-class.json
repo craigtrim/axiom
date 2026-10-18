@@ -1,0 +1,185 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 1,
+        "index": 1,
+        "title": "Academic journal",
+        "description": "Periodical publication in which scholarship relating to a particular academic discipline is published.",
+        "pageprops": {
+          "wikibase_item": "Q737498"
+        }
+      },
+      {
+        "pageid": 2,
+        "index": 2,
+        "title": "Scientific literature",
+        "description": "Scholarly publications that report original empirical and theoretical work.",
+        "pageprops": {
+          "wikibase_item": "Q12271"
+        }
+      },
+      {
+        "pageid": 3,
+        "index": 3,
+        "title": "Article (publishing)",
+        "description": "Written work published in a print or electronic medium.",
+        "pageprops": {
+          "wikibase_item": "Q191067"
+        }
+      },
+      {
+        "pageid": 4,
+        "index": 4,
+        "title": "Journal",
+        "description": "Several types of periodical publication, listed by sense.",
+        "pageprops": {
+          "disambiguation": ""
+        }
+      },
+      {
+        "pageid": 5,
+        "index": 5,
+        "title": "Peer review",
+        "description": "Evaluation of work by people with similar competences.",
+        "pageprops": {
+          "wikibase_item": "Q656365"
+        }
+      },
+      {
+        "pageid": 6,
+        "index": 6,
+        "title": "Open access",
+        "description": "Research output distributed online free of cost.",
+        "pageprops": {
+          "wikibase_item": "Q232932"
+        }
+      },
+      {
+        "pageid": 7,
+        "index": 7,
+        "title": "Preprint",
+        "description": "Version of a scholarly paper preceding formal peer review.",
+        "pageprops": {
+          "wikibase_item": "Q580922"
+        }
+      },
+      {
+        "pageid": 8,
+        "index": 8,
+        "title": "Scholarly communication",
+        "description": "Creation, evaluation and preservation of scholarly research.",
+        "pageprops": {}
+      },
+      {
+        "pageid": 9,
+        "index": 9,
+        "title": "Impact factor",
+        "description": "Measure reflecting the yearly average number of citations.",
+        "pageprops": {
+          "wikibase_item": "Q243545"
+        }
+      },
+      {
+        "pageid": 10,
+        "index": 10,
+        "title": "Academic publishing",
+        "description": "Subfield of publishing distributing academic research.",
+        "pageprops": {
+          "wikibase_item": "Q1156854"
+        }
+      },
+      {
+        "pageid": 11,
+        "index": 11,
+        "title": "Scientific journal",
+        "description": "Redirects to Academic journal.",
+        "pageprops": {
+          "wikibase_item": "Q737498"
+        }
+      },
+      {
+        "pageid": 12,
+        "index": 12,
+        "title": "Review article",
+        "description": "Article that summarises the current state of understanding on a topic.",
+        "pageprops": {
+          "wikibase_item": "Q7318358"
+        }
+      },
+      {
+        "pageid": 13,
+        "index": 13,
+        "title": "Research",
+        "description": "Creative and systematic work undertaken to increase knowledge.",
+        "pageprops": {
+          "wikibase_item": "Q42240"
+        }
+      },
+      {
+        "pageid": 14,
+        "index": 14,
+        "title": "Citation",
+        "description": "Reference to a source.",
+        "pageprops": {
+          "wikibase_item": "Q1713"
+        }
+      },
+      {
+        "pageid": 15,
+        "index": 15,
+        "title": "Digital object identifier",
+        "description": "Persistent identifier standardised by ISO.",
+        "pageprops": {
+          "wikibase_item": "Q25670"
+        }
+      },
+      {
+        "pageid": 16,
+        "index": 16,
+        "title": "International Standard Serial Number",
+        "description": "Eight digit serial number identifying a periodical.",
+        "pageprops": {
+          "wikibase_item": "Q131276"
+        }
+      },
+      {
+        "pageid": 17,
+        "index": 17,
+        "title": "Bibliographic database",
+        "description": "Database of bibliographic records.",
+        "pageprops": {
+          "wikibase_item": "Q1361872"
+        }
+      },
+      {
+        "pageid": 18,
+        "index": 18,
+        "title": "Abstract (summary)",
+        "description": "Brief summary of a research article or other work.",
+        "pageprops": {
+          "wikibase_item": "Q333291"
+        }
+      },
+      {
+        "pageid": 19,
+        "index": 19,
+        "title": "Manuscript",
+        "description": "Document written by hand or typewritten.",
+        "pageprops": {
+          "wikibase_item": "Q87167"
+        }
+      },
+      {
+        "pageid": 20,
+        "index": 20,
+        "title": "Publication",
+        "description": "Act of making content available to the public.",
+        "pageprops": {
+          "wikibase_item": "Q732577"
+        }
+      }
+    ]
+  }
+}

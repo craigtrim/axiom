@@ -1,0 +1,131 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 1,
+        "index": 1,
+        "title": "Marie Curie",
+        "description": "Polish and French physicist and chemist, 1867 to 1934.",
+        "pageprops": {
+          "wikibase_item": "Q7186"
+        }
+      },
+      {
+        "pageid": 2,
+        "index": 2,
+        "title": "Pierre Curie",
+        "description": "French physicist, 1859 to 1906.",
+        "pageprops": {
+          "wikibase_item": "Q37463"
+        }
+      },
+      {
+        "pageid": 3,
+        "index": 3,
+        "title": "Curie",
+        "description": "Surname, unit of radioactivity and several places.",
+        "pageprops": {
+          "disambiguation": ""
+        }
+      },
+      {
+        "pageid": 4,
+        "index": 4,
+        "title": "Radium",
+        "description": "Chemical element with atomic number 88.",
+        "pageprops": {
+          "wikibase_item": "Q1121"
+        }
+      },
+      {
+        "pageid": 5,
+        "index": 5,
+        "title": "Polonium",
+        "description": "Chemical element with atomic number 84.",
+        "pageprops": {
+          "wikibase_item": "Q871"
+        }
+      },
+      {
+        "pageid": 6,
+        "index": 6,
+        "title": "Nobel Prize in Physics",
+        "description": "Annual award for outstanding contributions to physics.",
+        "pageprops": {
+          "wikibase_item": "Q38104"
+        }
+      },
+      {
+        "pageid": 7,
+        "index": 7,
+        "title": "Nobel Prize in Chemistry",
+        "description": "Annual award for outstanding contributions to chemistry.",
+        "pageprops": {
+          "wikibase_item": "Q44585"
+        }
+      },
+      {
+        "pageid": 8,
+        "index": 8,
+        "title": "Curie Institute (Paris)",
+        "description": "French research centre and hospital for cancer treatment.",
+        "pageprops": {
+          "wikibase_item": "Q1142326"
+        }
+      },
+      {
+        "pageid": 9,
+        "index": 9,
+        "title": "Joliot-Curie family",
+        "description": "French family of scientists over three generations.",
+        "pageprops": {}
+      },
+      {
+        "pageid": 10,
+        "index": 10,
+        "title": "Radioactive decay",
+        "description": "Process by which an unstable nucleus loses energy.",
+        "pageprops": {
+          "wikibase_item": "Q11448"
+        }
+      },
+      {
+        "pageid": 11,
+        "index": 11,
+        "title": "University of Paris",
+        "description": "French university, 1150 to 1970.",
+        "pageprops": {
+          "wikibase_item": "Q209842"
+        }
+      },
+      {
+        "pageid": 12,
+        "index": 12,
+        "title": "Curie temperature",
+        "description": "Temperature above which a material loses its permanent magnetism.",
+        "pageprops": {
+          "wikibase_item": "Q187526"
+        }
+      },
+      {
+        "pageid": 13,
+        "index": 13,
+        "title": "Henri Becquerel",
+        "description": "French physicist, 1852 to 1908.",
+        "pageprops": {
+          "wikibase_item": "Q41269"
+        }
+      },
+      {
+        "pageid": 14,
+        "index": 14,
+        "title": "History of science",
+        "description": "Study of the development of science over time.",
+        "pageprops": {
+          "wikibase_item": "Q201486"
+        }
+      }
+    ]
+  }
+}
