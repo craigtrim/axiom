@@ -161,7 +161,9 @@ it("handles cycles and self-links without inventing inflated descendant counts",
       ":Self a owl:Class; rdfs:subClassOf :Self,:Root.",
   );
   const r = analyze(s);
-  expect(r.cycleClasses).toBe(3);
+  // craigtrim/axiom#90: exclusions count parent/candidate pairs, not cycle vertices.
+  expect(r.excluded).toBe(5);
+  expect(r.compared).toBe(r.rows.length + r.unpaired + r.excluded);
   expect(
     r.rows.some((v) =>
       ["Cycle", "Loop", "Self"].some((n) => v.iri === base + n),

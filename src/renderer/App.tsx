@@ -1394,6 +1394,8 @@ export function App() {
                   paneId={n.getId()}
                   visual={n.getComponent() === "graph"}
                   shared={[
+                    // craigtrim/axiom#90: Sparsity uses the common recovery and chrome.
+                    "sparsity",
                     "inspector",
                     "taxonomy",
                     "textanalysis",
