@@ -8,6 +8,8 @@ const notices = [
   "This file covers bundled JavaScript dependencies. Electron, Chromium and Node.js notices also accompany the executable, and Mutatoc's licenses accompany its runtime under resources/mutatoc.",
 ];
 const supplemental = new Map([
+  // craigtrim/axiom#94: saxes omits its license from npm; retain the v6.0.0 upstream notice.
+  ["saxes@6.0.0", "licenses/saxes-6.0.0-LICENSE.txt"],
   ["@rubensworks/saxes@6.0.1", "licenses/rubensworks-saxes-LICENSE.txt"],
   ["undici-types@5.26.5", "licenses/undici-types-5.26.5-LICENSE.txt"],
   ["onnxruntime-common@1.30.0", "licenses/onnxruntime-1.30.0-LICENSE.txt"],
