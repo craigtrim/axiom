@@ -99,12 +99,12 @@ it("validates actual engine support and refuses unknown ontology identifiers", (
       "SELECT ?s WHERE { ?s <http://invented.org/property> ?o }",
       context,
     ),
-  ).toMatch(/absent/);
+  ).toMatch(/not in the context Axiom sent/); // craigtrim/axiom#88: reference refusal copy.
   expect(
     validateQueryProposal(query + " SELECT ?x WHERE {?x ?p ?o}", context),
   ).not.toBe(null);
   expect(validateQueryProposal("DELETE WHERE {?s ?p ?o}", context)).toMatch(
-    /SELECT, ASK/,
+    /That is an update, not a query/,
   );
   expect(
     validateQueryProposal("SELECT (COUNT(?s) AS ?n) WHERE {?s ?p ?o}", context),

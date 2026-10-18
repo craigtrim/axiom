@@ -7,6 +7,8 @@ export interface QueryContext {
   tripleCount: number;
   entityCount: number;
   omitted: number;
+  // craigtrim/axiom#88: disclose predicates excluded by the separate context cap.
+  omittedPredicates?: number;
   terms: {
     iri: string;
     label: string;
@@ -49,7 +51,10 @@ export interface QueryAssistantStatus {
   startedAt?: number;
   response?: QueryAssistantResponse;
   error?: string;
+  refusal?: string;
 }
+/** A malformed proposal is a validation outcome, distinct from a runner failure (#88). */
+export class QueryProposalError extends Error {}
 export const querySchema = {
   type: "object",
   additionalProperties: false,
@@ -93,12 +98,13 @@ export function extractQueryProposal(raw: unknown): QueryProposal {
       const fences = [
         ...text.matchAll(/\x60\x60\x60([^\n]*)\r?\n([\s\S]*?)\x60\x60\x60/g),
       ];
-      if (
-        fences.length > 1 ||
-        (fences.length === 1 && !/^(sparql|rq)?$/i.test(fences[0][1].trim()))
-      )
-        throw Error(
-          "The assistant returned ambiguous code blocks. Generate one SPARQL query.",
+      if (fences.length > 1)
+        throw new QueryProposalError(
+          "The response carried more than one code block.",
+        );
+      if (fences.length === 1 && !/^(sparql|rq)?$/i.test(fences[0][1].trim()))
+        throw new QueryProposalError(
+          "No SPARQL query was found in the response.",
         );
       const sparql = fences.length === 1 ? fences[0][2].trim() : text;
       if (
@@ -106,7 +112,9 @@ export function extractQueryProposal(raw: unknown): QueryProposal {
           sparql,
         )
       )
-        throw Error("The assistant did not return a SPARQL query.");
+        throw new QueryProposalError(
+          "No SPARQL query was found in the response.",
+        );
       raw = {
         status: "query",
         sparql,
@@ -117,25 +125,38 @@ export function extractQueryProposal(raw: unknown): QueryProposal {
     }
   }
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    throw Error("The assistant returned an invalid query response.");
+    throw new QueryProposalError(
+      "The status was not one of query or unsupported.",
+    );
   const r = raw as Record<string, unknown>;
+  if (r.status !== "query" && r.status !== "unsupported")
+    throw new QueryProposalError(
+      "The status was not one of query or unsupported.",
+    );
+  if (typeof r.explanation !== "string" || !r.explanation.trim())
+    throw new QueryProposalError("No explanation was returned.");
+  if (r.explanation.length > 12000)
+    throw new QueryProposalError("The explanation exceeded its length bound.");
   if (
-    !["query", "unsupported"].includes(String(r.status)) ||
     typeof r.sparql !== "string" ||
+    (r.status === "query" && !r.sparql.trim())
+  )
+    throw new QueryProposalError(
+      "The status was query but no SPARQL was returned.",
+    );
+  if (r.status === "unsupported" && r.sparql.trim())
+    throw new QueryProposalError(
+      "An unsupported response carried runnable query text.",
+    );
+  if (
     r.sparql.length > 100000 ||
-    typeof r.explanation !== "string" ||
-    !r.explanation.trim() ||
-    r.explanation.length > 12000 ||
     !Array.isArray(r.assumptions) ||
     r.assumptions.length > 20 ||
     r.assumptions.some((x) => typeof x !== "string" || x.length > 2000)
   )
-    throw Error("The assistant returned an invalid query response.");
-  if (
-    (r.status === "query" && !r.sparql.trim()) ||
-    (r.status === "unsupported" && r.sparql.trim())
-  )
-    throw Error("The assistant response has an inconsistent query status.");
+    throw new QueryProposalError(
+      "The assistant returned an invalid query response.",
+    );
   return {
     status: r.status as QueryProposal["status"],
     sparql: r.sparql.trim(),

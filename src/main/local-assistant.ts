@@ -213,17 +213,29 @@ export class LocalAssistantRunner {
   }
   async assistants(): Promise<AssistantInfo[]> {
     const found = await this.discover();
-    return (["claude", "codex"] as const).map((id) => ({
-      id,
-      name: id === "codex" ? "Codex" : "Claude",
-      available: found.some((c) => c.id === id),
-      path:
-        found.find((c) => c.id === id)?.args[0] ??
-        found.find((c) => c.id === id)?.file,
-      message: found.some((c) => c.id === id)
-        ? "Uses your existing CLI sign-in."
-        : "Not found on PATH. Install and sign in, then refresh.",
-    }));
+    // craigtrim/axiom#88: reuse bounded --version discovery without starting a model call.
+    return Promise.all(
+      (["claude", "codex"] as const).map(async (id) => {
+        const command = found.find((c) => c.id === id);
+        const version = command
+          ? (await cliVersion(command))?.match(
+              /\b\d+\.\d+(?:\.\d+)?(?:-[\w.-]+)?\b/,
+            )?.[0]
+          : undefined;
+        return {
+          id,
+          name: id === "codex" ? "Codex" : "Claude Code",
+          available: !!command,
+          version,
+          path:
+            found.find((c) => c.id === id)?.args[0] ??
+            found.find((c) => c.id === id)?.file,
+          message: found.some((c) => c.id === id)
+            ? "Uses your existing CLI sign-in."
+            : "Not found on PATH. Install and sign in, then refresh.",
+        };
+      }),
+    );
   }
   cancel() {
     const job = this.active;
