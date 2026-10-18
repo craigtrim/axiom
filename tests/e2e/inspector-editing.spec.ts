@@ -278,8 +278,12 @@ test("inspector and details share drafts across selection changes, reject confli
   expect((await state()).entities.find((e) => e.iri === a)!.label).toBe(
     "Graph change",
   );
+  // A long conflict message moves Discard into the measured overflow (#89).
   await inspector()
-    .getByRole("button", { name: "Discard", exact: true })
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await inspector()
+    .getByRole("menuitem", { name: "Discard", exact: true })
     .click();
   await expect(
     editor.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
@@ -428,14 +432,10 @@ test("property domain, range and inverse are editable in the inspector", async (
     ["owl:inverseOf", ids.q],
   ]) {
     await inspector()
-      .getByRole("button", { name: "Add row", exact: true })
+      .getByRole("button", { name: "Add statement", exact: true })
+      .first()
       .click();
-    await inspector()
-      .getByRole("textbox", { name: "Predicate for new row" })
-      .fill(name);
-    await inspector()
-      .getByRole("textbox", { name: "Predicate for new row" })
-      .press("Enter");
+    await inspector().getByRole("menuitem", { name, exact: true }).click();
     await inspector()
       .getByRole("textbox", { name: name + " value 1", exact: true })
       .fill(iri);
@@ -454,7 +454,8 @@ test("property domain, range and inverse are editable in the inspector", async (
   expect(e.range).toBe(b);
   await fields().getByRole("textbox", { name: "rdfs:range value 1" }).focus();
   await fields()
-    .getByRole("button", { name: "Remove this rdfs:range value", exact: true })
+    .locator('tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#range"]')
+    .getByRole("button", { name: "Remove this value", exact: true })
     .click();
   await inspector()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -534,6 +535,76 @@ test("default identifiers follow label drafts in both editors and become stable 
   await page.screenshot({
     path: "artifacts/testing/default-name-normalization.png",
   });
+});
+
+// craigtrim/axiom#89: a pane reveal retry must not commit a cell by stealing focus.
+test("a delayed Details reveal preserves the field and its uncommitted identifier draft", async () => {
+  await menu("file.new");
+  await expect(
+    page.getByRole("button", { name: "Classes · 1", exact: true }),
+  ).toBeVisible();
+  const old = await page.evaluate(() =>
+    window.axiom.request<string>("createClass", {
+      name: "New class",
+      parent: "http://www.w3.org/2002/07/owl#Thing",
+    }),
+  );
+  await expect.poll(async () => (await state()).selected).toBe(old);
+  await fields()
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
+    .fill("Alpha Beta");
+  await page.evaluate(() => {
+    const w = window as any;
+    w.revealRetries = [];
+    w.hideDetailsMeasure = true;
+    const timeout = window.setTimeout.bind(window);
+    const rectangle = HTMLElement.prototype.getBoundingClientRect;
+    w.restoreRevealProbe = () => {
+      window.setTimeout = timeout;
+      HTMLElement.prototype.getBoundingClientRect = rectangle;
+    };
+    window.setTimeout = ((
+      callback: TimerHandler,
+      delay?: number,
+      ...args: any[]
+    ) => {
+      if (delay === 40 && typeof callback === "function") {
+        w.revealRetries.push(() => callback(...args));
+        return timeout(() => {}, 0);
+      }
+      return timeout(callback, delay, ...args);
+    }) as typeof window.setTimeout;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return w.hideDetailsMeasure &&
+        this.closest('[data-panel="details"]') &&
+        this.matches("input,button")
+        ? new DOMRect()
+        : rectangle.call(this);
+    };
+  });
+  await menu("view.details");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).revealRetries.length))
+    .toBeGreaterThan(0);
+  await page.evaluate(() => {
+    (window as any).hideDetailsMeasure = false;
+  });
+  const label = page
+    .getByRole("region", { name: "Details", exact: true })
+    .getByRole("textbox", { name: "rdfs:label value 1", exact: true });
+  await label.fill("Course Credit");
+  await expect(label).toBeFocused();
+  await page.evaluate(() => {
+    const w = window as any;
+    w.restoreRevealProbe();
+    for (const retry of w.revealRetries) retry();
+  });
+  await expect(label).toBeFocused();
+  expect((await state()).selected).toBe(old);
+  await label.press("Tab");
+  await expect
+    .poll(async () => (await state()).selected)
+    .toBe(old.replace(/NewClass$/, "CourseCredit"));
 });
 
 test("a saved placeholder mismatch is recognized by its spelling and its repair is included in Save", async () => {

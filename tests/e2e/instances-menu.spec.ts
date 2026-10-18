@@ -352,7 +352,8 @@ test("Inspector shows the count and the report's class survives selection change
   const inspector = page.locator('[data-panel="inspector"]');
   await expect(
     inspector.locator(".usage .u").filter({ hasText: "Direct instances" }),
-  ).toHaveText("Direct instances 527");
+    // craigtrim/axiom#89: usage tiles put the count above their caption.
+  ).toHaveText("527Direct instances");
   await menu("entity.showInstances");
   await expect(report().getByRole("status")).toContainText(
     "527 direct instances",
@@ -651,7 +652,7 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   const inspector = page.locator('[data-panel="inspector"]');
   await expect(
     inspector.locator(".usage .u").filter({ hasText: "Direct instances" }),
-  ).toHaveText("Direct instances 0");
+  ).toHaveText("0Direct instances");
   await menu("palette");
   await page
     .getByRole("combobox", { name: "Command palette" })

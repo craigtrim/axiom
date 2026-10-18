@@ -27,3 +27,5 @@ tests/fixtures/find-visual/visual-reference-v5.html -text
 tests/fixtures/quality-visual/visual-reference-v2.html -text
 # Craig's Query and Query results reference, hash-pinned (craigtrim/axiom#88).
 tests/fixtures/query-visual/visual-reference.html -text
+# Craig's Inspector reference, hash-pinned (craigtrim/axiom#89).
+tests/fixtures/inspector-visual/visual-reference.html -text

@@ -122,7 +122,8 @@ test("Inspector preserves an unapplied draft and keeps Apply visible in a shallo
     exact: true,
   });
   const label = pane.getByRole("textbox", {
-    name: "Entity label",
+    // craigtrim/axiom#89: Name edits the same retained label draft in every size tier.
+    name: "Name",
     exact: true,
   });
   await label.fill("Retained label");
