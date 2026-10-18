@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: provenance shows the selected folder as a retained path.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -7,6 +8,7 @@ import {
 } from "@playwright/test";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { Parser } from "n3";
 import path from "node:path";
 const manifest = JSON.parse(
   await readFile("tests/fixtures/ontologies/manifest.json", "utf8"),
@@ -95,19 +97,23 @@ for (const fixture of manifest)
         entity.iri,
       );
       const inspector = page.locator('[data-panel="inspector"]');
-      await inspector
-        .getByText("Full identifier (IRI)", { exact: true })
-        .click();
-      await expect(
-        inspector.getByRole("textbox", { name: "Entity IRI", exact: true }),
-      ).toHaveValue(entity.iri);
-      await menu("entity.rename");
-      const rename = page.getByRole("textbox", {
-        name: "Rename entity",
+      await expect(inspector.locator(".ident .iri")).toHaveText(entity.iri);
+      await menu("view.inspector");
+      const rename = inspector.getByRole("textbox", {
+        name: "Name",
         exact: true,
       });
+      await expect(rename).toBeEditable();
       await rename.fill("Edited " + fixture.title);
-      await rename.press("Enter");
+      await inspector
+        .getByRole("button", { name: "Apply changes", exact: true })
+        .click();
+      await expect
+        .poll(
+          async () =>
+            (await state()).entities.find((e) => e.iri === entity.iri)?.label,
+        )
+        .toBe("Edited " + fixture.title);
       await menu("entity.createClass");
       const form = page.getByRole("form", { name: "Create entity" });
       await form
@@ -167,9 +173,7 @@ test("Windows metadata produces auditable PROV and retains source content", asyn
   await expect(panel).toBeVisible();
   await source(root);
   await panel.getByRole("button", { name: "Choose folder" }).click();
-  await expect(
-    panel.getByRole("textbox", { name: "Provenance folder" }),
-  ).toHaveValue(root);
+  await expect(panel.locator("[data-provenance-root]")).toHaveText(root);
   await panel
     .getByRole("button", { name: "Collect metadata", exact: true })
     .click();
@@ -213,6 +217,20 @@ test("Windows metadata produces auditable PROV and retains source content", asyn
       .digest("hex"),
   ).toBe(original);
   const rdf = await readFile(result.rdfPath!, "utf8");
+  const triples = new Parser({ format: "N-Triples" }).parse(rdf);
+  expect(result.observations).toBe(
+    triples.filter((t) =>
+      t.predicate.value.startsWith("urn:axiom:filesystem:metadata:"),
+    ).length,
+  );
+  expect(result.observations).toBeGreaterThan(result.entries);
+  const generated = triples.filter(
+    (t) => t.predicate.value === "http://www.w3.org/ns/prov#wasGeneratedBy",
+  );
+  expect(generated.length).toBeGreaterThan(0);
+  expect(
+    generated.every((t) => t.object.value === "urn:uuid:" + result.id),
+  ).toBe(true);
   expect(rdf).toContain("http://www.w3.org/ns/prov#wasGeneratedBy");
   expect(rdf).not.toContain("http://www.w3.org/ns/prov#wasAttributedTo");
   await page.screenshot({
@@ -237,4 +255,55 @@ test("Windows metadata produces auditable PROV and retains source content", asyn
   await source(workspace);
   await menu("file.open");
   await expect.poll(async () => (await state()).tripleCount).toBe(count);
+  await menu("file.provenance");
+  await expect(panel).toBeVisible();
+  const reset = panel.getByRole("button", { name: "Start over", exact: true });
+  if (await reset.isVisible()) await reset.click();
+  else {
+    await panel.getByRole("button", { name: "More actions" }).click();
+    await reset
+      .or(page.getByRole("menuitem", { name: "Start over", exact: true }))
+      .filter({ visible: true })
+      .click();
+  }
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.provenance.status())).status,
+    )
+    .toBe("idle");
+  await expect(panel.locator("[data-provenance-root]")).toHaveText(root);
+  expect(await readFile(result.rdfPath!, "utf8")).toBe(rdf);
+  const limit = panel.getByRole("spinbutton", {
+    name: "Collection entry limit",
+  });
+  await limit.fill("1");
+  await limit.press("Tab");
+  await panel
+    .getByRole("button", { name: "Collect metadata", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await page.evaluate(() => window.axiom.provenance.status())).status,
+      { timeout: 90000 },
+    )
+    .toBe("cancelled");
+  const partial = await page.evaluate(() => window.axiom.provenance.status());
+  expect(partial.entries).toBe(1);
+  expect(partial.id).not.toBe(result.id);
+  expect(await readFile(partial.rdfPath!, "utf8")).toContain('"cancelled"');
+  await panel
+    .getByRole("button", {
+      name: "Open partial provenance ontology",
+      exact: true,
+    })
+    .click();
+  await expect
+    .poll(async () => (await state()).tripleCount)
+    .toBe(
+      new Parser({ format: "N-Triples" }).parse(
+        await readFile(partial.rdfPath!, "utf8"),
+      ).length,
+    );
 });

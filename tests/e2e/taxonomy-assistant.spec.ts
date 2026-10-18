@@ -1,6 +1,8 @@
+// craigtrim/axiom#94: audit entries open in place and copy confirmation keeps the button stable.
 // Reference control names and retained review behavior (craigtrim/axiom#82).
 import AxeBuilder from "@axe-core/playwright";
 import { launchExample } from "./example-fixture";
+import { hierarchyFilter } from "./hierarchy-controls";
 import {
   test,
   _electron,
@@ -32,7 +34,7 @@ async function menu(id: string) {
   }, id);
 }
 async function open(mode = "children", keyboard = false, label = "Vehicle") {
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill(label);
+  await (await hierarchyFilter(page)).fill(label);
   const row = page.locator(".tree-row").filter({
     has: page.locator(".tree-name", {
       hasText: new RegExp("^" + label + "$", "i"),
@@ -757,27 +759,40 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
   await expect(logs).toContainText("Parsing taxonomy proposal");
   await page.screenshot({ path: "artifacts/testing/error-audit-summary.png" });
   const reference = await logs
-    .getByRole("combobox", { name: "Error history" })
-    .inputValue();
+    .locator('.ent[data-open="true"]')
+    .getAttribute("data-audit-id");
   const record = await bridge.evaluate(
     (id) => window.axiom.audit.read(id),
-    reference,
+    reference!,
   );
   expect(record.details["Assistant response"]).toBe("bad output");
   expect(record.metadata.entity).toBe("Vehicle");
   expect(record.metadata.exitCode).toBe(0);
   expect(path.isAbsolute(record.file!)).toBe(true);
   expect(JSON.parse(await readFile(record.file!, "utf8")).record.id).toBe(
-    reference,
+    reference!,
   );
   await expect(logs.getByText("bad output", { exact: true })).toBeHidden();
-  await logs.getByText("Assistant response", { exact: true }).click();
+  await logs
+    .locator(".dsec summary")
+    .filter({ hasText: /^Assistant response,/ })
+    .click();
   await expect(logs.getByText("bad output", { exact: true })).toBeVisible();
+  const previousClipboard = await app.evaluate(({ clipboard }) =>
+    clipboard.readText(),
+  );
   await logs.getByRole("button", { name: "Copy report", exact: true }).click();
   await expect(
-    logs.getByRole("button", { name: "Copied", exact: true }),
+    logs.getByRole("status").filter({ hasText: "Report copied." }),
   ).toBeVisible();
   const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
+  await app.evaluate(
+    async ({ clipboard }, { copied, previousClipboard }) => {
+      if ((await clipboard.readText()) === copied)
+        await clipboard.writeText(previousClipboard);
+    },
+    { copied, previousClipboard },
+  );
   expect(copied).toContain(reference);
   expect(copied).toContain("bad output");
   expect(copied).toContain("Suggest useful additional types");
@@ -842,10 +857,14 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
     name: "Error log",
     exact: true,
   });
-  await expect(
-    restoredLogs.getByRole("combobox", { name: "Error history" }),
-  ).toHaveValue(reference);
-  await restoredLogs.getByText("Assistant response", { exact: true }).click();
+  await expect(restoredLogs.locator('.ent[data-open="true"]')).toHaveAttribute(
+    "data-audit-id",
+    reference!,
+  );
+  await restoredLogs
+    .locator(".dsec summary")
+    .filter({ hasText: /^Assistant response,/ })
+    .click();
   await expect(
     restoredLogs.getByText("bad output", { exact: true }),
   ).toBeVisible();
@@ -896,11 +915,11 @@ test("opens the matching audit from a native file-operation error dialog", async
   const dialog = await app.evaluate(() => (globalThis as any).auditDialog);
   expect(dialog.buttons).toEqual(["Close", "Error details"]);
   const reference = await logs
-    .getByRole("combobox", { name: "Error history" })
-    .inputValue();
+    .locator('.ent[data-open="true"]')
+    .getAttribute("data-audit-id");
   const record = await bridge.evaluate(
     (id) => window.axiom.audit.read(id),
-    reference,
+    reference!,
   );
   expect(record.message).toContain(missing);
   expect(record.details["Technical error"]).toContain("ENOENT");

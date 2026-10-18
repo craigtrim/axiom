@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: select a saved tab, then activate it from the measured row.
 // Issue 87 reports restored workspaces through the full shell.
 import {
   test,
@@ -95,7 +96,7 @@ async function save(file: string) {
     .toBeGreaterThan(0);
 }
 const history = () =>
-  page.getByRole("region", { name: "Tab History", exact: true });
+  page.getByRole("region", { name: "Tab history", exact: true });
 async function showHistory() {
   await menu("view.tabhistory");
   await expect(history()).toBeVisible();
@@ -146,7 +147,7 @@ test("named graph tabs restore their name, geometry and camera from workspace hi
   await closeTab("English overview");
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /English overview.*Closed/ }),
+    history().getByRole("button", { name: /English overview.*closed/ }),
   ).toBeVisible();
   const file = path.join(profile, "saved-tabs.axiom");
   await save(file);
@@ -162,7 +163,10 @@ test("named graph tabs restore their name, geometry and camera from workspace hi
   await launch();
   await showHistory();
   await history()
-    .getByRole("button", { name: /English overview.*Closed/ })
+    .getByRole("button", { name: /English overview.*closed/ })
+    .click();
+  await history()
+    .getByRole("button", { name: "Activate", exact: true })
     .click();
   await expect(
     page.getByRole("tab", { name: "English overview", exact: true }),
@@ -179,7 +183,10 @@ test("named graph tabs restore their name, geometry and camera from workspace hi
   await menu("view.graph");
   await showHistory();
   await history()
-    .getByRole("button", { name: /English overview.*Open/ })
+    .getByRole("button", { name: /English overview.*open/ })
+    .click();
+  await history()
+    .getByRole("button", { name: "Activate", exact: true })
     .click();
   await expect.poll(async () => (await state()).activeGraphId).toBe("graph");
   await expect(
@@ -211,11 +218,14 @@ test("all-tabs mode retains default numbered tabs and closing graphs frees open 
   }
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /Graph_19.*Closed/ }),
+    history().getByRole("button", { name: /Graph_19.*closed/ }),
   ).toBeVisible();
   await history()
-    .getByRole("button", { name: /Graph_2.*Closed/, exact: false })
+    .getByRole("button", { name: /Graph_2.*closed/, exact: false })
     .first()
+    .click();
+  await history()
+    .getByRole("button", { name: "Activate", exact: true })
     .click();
   await expect(
     page.getByRole("tab", { name: "Graph_2", exact: true }),
@@ -223,7 +233,7 @@ test("all-tabs mode retains default numbered tabs and closing graphs frees open 
   await policy(false);
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /Graph_19.*Closed/ }),
+    history().getByRole("button", { name: /Graph_19.*closed/ }),
   ).toBeVisible();
 });
 
@@ -232,7 +242,7 @@ test("unnamed tabs are omitted from history by default and inline renaming makes
   await menu("view.graph");
   await closeTab("Graph_2");
   await showHistory();
-  await expect(history()).toContainText("Rename a tab to keep it here");
+  await expect(history()).toContainText("No saved tab matches that filter.");
   await menu("view.graph");
   await page.getByRole("tab", { name: "Graph", exact: true }).dblclick();
   const input = page.locator("input.flexlayout__tab_button_textbox");
@@ -245,7 +255,7 @@ test("unnamed tabs are omitted from history by default and inline renaming makes
   await closeTab("My map");
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /My map.*Closed/ }),
+    history().getByRole("button", { name: /My map.*closed/ }),
   ).toBeVisible();
 });
 
@@ -298,16 +308,19 @@ test("saved Find tabs restore query and facets, and renames survive arrangement 
   });
   await menu("view.find");
   const find = page.getByRole("region", { name: "Find entities results" });
+  await menu("pane.maximise");
+  await find.getByRole("button", { name: "More", exact: true }).click();
   await find
     .getByRole("combobox", { name: "Results per page" })
     .selectOption("25");
   await find
+    .getByRole("combobox", { name: "Results per page" })
+    .press("Escape");
+  await find
     .getByRole("searchbox", { name: "Search the ontology" })
     .fill("English Basic");
-  await find
-    .getByRole("combobox", { name: "Sort results" })
-    .selectOption("name-desc");
-  await find.getByRole("button", { name: "Names only", exact: true }).click();
+  await find.getByRole("combobox", { name: "Sort" }).selectOption("name-desc");
+  await find.getByRole("checkbox", { name: "IRI", exact: true }).uncheck();
   await find
     .getByRole("checkbox", { name: "Instances", exact: true })
     .uncheck();
@@ -319,20 +332,29 @@ test("saved Find tabs restore query and facets, and renames survive arrangement 
   await closeTab("English search");
   await showHistory();
   await history()
-    .getByRole("button", { name: /English search.*Closed/ })
+    .getByRole("button", { name: /English search.*closed/ })
+    .click();
+  await history()
+    .getByRole("button", { name: "Activate", exact: true })
     .click();
   await expect(
     find.getByRole("searchbox", { name: "Search the ontology" }),
   ).toHaveValue("English Basic");
+  if ((await find.evaluate((el) => el.clientWidth)) < 900)
+    await menu("pane.maximise");
+  await find.getByRole("button", { name: "More", exact: true }).click();
   await expect(
     find.getByRole("combobox", { name: "Results per page" }),
   ).toHaveValue("25");
+  await find
+    .getByRole("combobox", { name: "Results per page" })
+    .press("Escape");
   await expect(
     find.getByRole("checkbox", { name: "Instances", exact: true }),
   ).not.toBeChecked();
-  await expect(
-    find.getByRole("combobox", { name: "Sort results" }),
-  ).toHaveValue("name-desc");
+  await expect(find.getByRole("combobox", { name: "Sort" })).toHaveValue(
+    "name-desc",
+  );
   await expect(
     find.getByRole("checkbox", { name: "IRI", exact: true }),
   ).not.toBeChecked();

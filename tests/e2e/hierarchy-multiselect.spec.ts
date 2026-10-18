@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: reviewable run rows replace per-row action buttons.
 // craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
 import { hierarchyFilter } from "./hierarchy-controls";
 // Reference control names and retained review behavior (craigtrim/axiom#82).
@@ -265,7 +266,7 @@ test("Add Children runs exactly the selected parent and child and opens each sav
   ).toBe(false);
   const callsBefore = await readFile(path.join(profile, "calls.jsonl"), "utf8");
   await runs()
-    .getByRole("button", {
+    .getByRole("row", {
       name: "Open run for Alpha Subject Child",
       exact: true,
     })
@@ -303,7 +304,7 @@ test("Add Children runs exactly the selected parent and child and opens each sav
     .toBe(false);
   await menu("view.suggestionruns");
   await runs()
-    .getByRole("button", { name: "Open run for Alpha Subject", exact: true })
+    .getByRole("row", { name: "Open run for Alpha Subject", exact: true })
     .click();
   await expect(
     review().getByRole("checkbox", {
@@ -342,7 +343,7 @@ test("Find Synonyms retains captured targets while selection changes and applies
     .toEqual(["completed", "completed"]);
   await menu("view.suggestionruns");
   await runs()
-    .getByRole("button", { name: "Open run for Beta Subject", exact: true })
+    .getByRole("row", { name: "Open run for Beta Subject", exact: true })
     .click();
   await expect(
     review().getByRole("checkbox", {
@@ -395,7 +396,7 @@ for (const undo of [false, true]) {
         .toEqual(["completed", "running", "queued"]);
       const batch = (await batches())[0];
       await runs()
-        .getByRole("button", {
+        .getByRole("row", {
           name: "Open run for Alpha Subject",
           exact: true,
         })
@@ -473,7 +474,7 @@ test("completed child suggestions can be added and undone while another target r
       .poll(async () => (await batches())[0].runs.map((r) => r.state))
       .toEqual(["completed", "running"]);
     await runs()
-      .getByRole("button", { name: "Open run for Alpha Subject", exact: true })
+      .getByRole("row", { name: "Open run for Alpha Subject", exact: true })
       .click();
     const choice = review().getByRole("checkbox", {
       name: "Select Alpha Subject Addition",
@@ -543,7 +544,7 @@ test("a run for the reviewed node explains why selection is blocked", async () =
       )
       .toBe(base + "Alpha");
     await runs()
-      .getByRole("button", { name: "Open run for Alpha Subject", exact: true })
+      .getByRole("row", { name: "Open run for Alpha Subject", exact: true })
       .click();
     await expect(
       review().getByRole("combobox", { name: "Run history", exact: true }),
@@ -631,32 +632,89 @@ test("synonym validation reads current values while retaining edit and workspace
   ).rejects.toThrow("The ontology changed");
 });
 
-test("batch continues after a node fails and cancellation targets only unfinished runs", async () => {
-  await start(["Gamma", "Alpha", "Beta"]);
+test("batch cancellation lets the running target finish and keeps its failure reference", async () => {
+  const hold = path.join(profile, "hold-Alpha Subject");
+  await writeFile(hold, "hold");
+  try {
+    await start(["Gamma", "Alpha", "Beta"]);
+    await expect
+      .poll(async () => (await batches())[0].runs.map((r) => r.state))
+      .toEqual(["failed", "running", "queued"]);
+    const batch = (await batches())[0];
+    expect(batch.runs[0].auditId).toBeTruthy();
+    await runs()
+      .getByRole("button", { name: "Cancel the batch", exact: true })
+      .click();
+    await expect
+      .poll(async () => (await batches())[0].runs.map((r) => r.state))
+      .toEqual(["failed", "running", "cancelled"]);
+    await expect(runs().getByRole("status")).toContainText(
+      "No further targets will start.",
+    );
+    await unlink(hold);
+    await expect
+      .poll(async () => (await batches())[0].runs.map((r) => r.state))
+      .toEqual(["failed", "completed", "cancelled"]);
+    await expect(
+      runs().getByRole("row", {
+        name: "Open run for Alpha Subject",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await runs()
+      .getByRole("button", { name: "Error details", exact: true })
+      .click();
+    await expect(
+      page.locator('[data-panel="errorlog"] .ent[data-open="true"]'),
+    ).toHaveAttribute("data-audit-id", batch.runs[0].auditId!);
+  } finally {
+    await unlink(hold).catch((e) => {
+      if (e.code !== "ENOENT") throw e;
+    });
+  }
+});
+
+test("rerunning uses the frozen batch and clearing does not reveal an older batch", async () => {
+  await start(["Alpha", "Beta"], "synonyms");
   await expect
-    .poll(async () => (await batches())[0].runs[0].state)
-    .toBe("failed");
+    .poll(async () => (await batches())[0].runs.map((r) => r.state))
+    .toEqual(["completed", "completed"]);
+  const first = (await batches())[0];
+  await select(["Gamma"]);
+  await menu("view.suggestionruns");
   await runs()
-    .getByRole("button", { name: "Cancel run for Beta Subject", exact: true })
+    .getByRole("button", { name: "Run the batch", exact: true })
     .click();
+  await expect.poll(async () => (await batches())[0].id).not.toBe(first.id);
+  const repeated = (await batches())[0];
+  expect(repeated.runs.map((r) => r.iri)).toEqual(first.runs.map((r) => r.iri));
+  expect(repeated.mode).toBe(first.mode);
+  expect(repeated.provider).toBe(first.provider);
   await expect
     .poll(async () => (await batches())[0].runs.map((r) => r.state))
-    .toEqual(["failed", "completed", "cancelled"]);
-  expect((await batches())[0].runs[0].error).toBeTruthy();
-  await expect(
-    runs().getByRole("button", {
-      name: "Open run for Alpha Subject",
-      exact: true,
-    }),
-  ).toBeEnabled();
-  await start(["Child", "Beta"]);
-  await expect
-    .poll(async () => (await batches())[0].runs[0].state)
-    .toBe("running");
-  await runs().getByRole("button", { name: "Cancel remaining runs" }).click();
-  await expect
-    .poll(async () => (await batches())[0].runs.map((r) => r.state))
-    .toEqual(["cancelled", "cancelled"]);
+    .toEqual(["completed", "completed"]);
+  const clear = runs().getByRole("button", {
+    name: "Clear results",
+    exact: true,
+  });
+  if (await clear.isVisible()) await clear.click();
+  else {
+    await runs().getByRole("button", { name: "More actions" }).click();
+    await page
+      .getByRole("menuitem", { name: "Clear results", exact: true })
+      .click();
+  }
+  await expect(runs()).toContainText("Select nodes in Hierarchy");
+  const remaining = await batches();
+  expect(remaining.map((b) => b.id)).toContain(first.id);
+  expect(remaining.map((b) => b.id)).not.toContain(repeated.id);
+  await menu("pane.close");
+  await menu("view.suggestionruns");
+  await expect(runs()).toContainText("Select nodes in Hierarchy");
+  await start(["Alpha", "Child"], "synonyms");
+  expect((await batches())[0].id).not.toBe(repeated.id);
+  await expect(runs().locator("tbody tr")).toHaveCount(2);
+  await expect(runs()).toContainText("Alpha Subject");
 });
 
 test("closing and reopening the run list preserves work; completed histories survive restart", async () => {
@@ -681,7 +739,7 @@ test("closing and reopening the run list preserves work; completed histories sur
       .split("\n"),
   ).toHaveLength(2);
   await runs()
-    .getByRole("button", { name: "Open run for Beta Subject", exact: true })
+    .getByRole("row", { name: "Open run for Beta Subject", exact: true })
     .click();
   await expect(
     review().getByRole("checkbox", {
@@ -713,7 +771,7 @@ for (const mode of ["parents", "instances"] as const) {
     expect(batch.mode).toBe(mode);
     const calls = await readFile(path.join(profile, "calls.jsonl"), "utf8");
     await runs()
-      .getByRole("button", { name: "Open run for Beta Subject", exact: true })
+      .getByRole("row", { name: "Open run for Beta Subject", exact: true })
       .click();
     await expect(
       review().getByRole("combobox", {
@@ -752,13 +810,13 @@ test("the detached run list keeps live status and opens the saved review", async
   const panel = detached.locator('[data-panel="suggestionruns"]');
   await expect(panel).toBeVisible();
   await expect(
-    panel.getByRole("button", {
+    panel.getByRole("row", {
       name: "Open run for Beta Subject",
       exact: true,
     }),
   ).toBeEnabled({ timeout: 15000 });
   await panel
-    .getByRole("button", { name: "Open run for Beta Subject", exact: true })
+    .getByRole("row", { name: "Open run for Beta Subject", exact: true })
     .click();
   await expect(
     review().getByRole("checkbox", {
