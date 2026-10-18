@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: Query keeps generation in Describe and activity on its tab.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -133,21 +134,33 @@ test.afterEach(async ({}, info) => {
   }
   expect(errors).toEqual([]);
 });
-test("Query keeps progress and cancellation on its pane after the composer closes", async () => {
+test("Query keeps progress and cancellation in Describe after the pane closes", async () => {
   await menu("view.query");
   await pane("query")
     .getByRole("button", { name: "Compose query", exact: true })
     .click();
   await page
-    .getByRole("textbox", { name: "Describe your query" })
+    .getByRole("textbox", { name: "Describe the query" })
     .fill("List seven subjects");
   const generate = page.getByRole("button", {
-    name: "Generate query",
+    name: "Generate",
     exact: true,
   });
   await click100(generate);
-  await expect(activity("query")).toContainText("Codex · Generating query");
-  await expect(generate).toBeDisabled();
+  const composer = pane("query").getByRole("region", {
+    name: "Compose a SPARQL query",
+  });
+  await expect(
+    composer.getByRole("button", { name: "Cancel generation" }),
+  ).toBeVisible();
+  await expect(activity("query")).toHaveCount(0);
+  await expect(
+    page
+      .locator(".flexlayout__tab_button")
+      .filter({ hasText: "Query" })
+      .locator(".assistant-tab-activity"),
+  ).toBeVisible();
+  await expect(generate).toHaveCount(0);
   await expect.poll(count).toBe(1);
   expect(
     await page.evaluate(async () => {
@@ -167,28 +180,28 @@ test("Query keeps progress and cancellation on its pane after the composer close
     }),
   ).toBe(100);
   expect(await count()).toBe(1);
-  await page.getByRole("button", { name: "Close query composer" }).click();
-  await expect(
-    activity("query").getByRole("button", { name: "Cancel generation" }),
-  ).toBeVisible();
+  await composer.getByRole("button", { name: "Fields", exact: true }).click();
+  expect(await count()).toBe(1);
   await focusPane(pane("query"));
   await menu("pane.close");
   await menu("view.query");
-  await expect(activity("query")).toBeVisible();
+  await expect(activity("query")).toHaveCount(0);
   await pane("query")
     .getByRole("button", { name: "Compose query", exact: true })
     .click();
-  await expect(generate).toBeDisabled();
-  await activity("query")
-    .getByRole("button", { name: "Cancel generation" })
-    .click();
+  await expect(generate).toHaveCount(0);
+  await composer.getByRole("button", { name: "Cancel generation" }).click();
   await expect(activity("query")).toHaveCount(0);
   await expect(generate).toBeEnabled();
   await writeFile(behavior, '{"release":true}');
   await generate.click();
-  await expect(pane("query").locator(".query-run-status")).toContainText(
-    "Generated query ready",
+  await expect(composer.locator(".prop")).toContainText(
+    "Validated against the query engine.",
   );
+  expect(
+    (await page.evaluate(() => window.axiom.queryHistory.load())).current
+      .generation,
+  ).toBeUndefined();
   await expect(activity("query")).toHaveCount(0);
 });
 for (const mode of ["children", "instances"])
