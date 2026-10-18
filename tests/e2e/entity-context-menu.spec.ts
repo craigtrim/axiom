@@ -1,3 +1,4 @@
+// craigtrim/axiom#92: the explicit Touchpoints action opens the pinned, initially empty pane.
 import {
   test,
   expect,
@@ -44,9 +45,17 @@ async function open(surface: Surface, iri: string, target = page) {
         name: entity.kind.endsWith("Property") ? /^Properties/ : /^Classes/,
       })
       .click();
-    await target
-      .getByRole("textbox", { name: "Filter hierarchy" })
-      .fill(entity.name);
+    const filter = target.getByRole("textbox", { name: "Filter hierarchy" });
+    if (!(await filter.isVisible())) {
+      const hierarchy = target.getByRole("region", { name: "Hierarchy panel" });
+      await hierarchy
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await target
+        .getByRole("menuitem", { name: "Filter hierarchy", exact: true })
+        .click();
+    }
+    await filter.fill(entity.name);
     const row = target
       .locator(".tree-row")
       .filter({ has: target.locator('[data-rename-iri="' + iri + '"]') });
@@ -311,10 +320,12 @@ for (const surface of ["hierarchy", "graph"] as const) {
       exact: true,
     });
     await expect(
-      pane.getByRole("textbox", { name: "Query", exact: true }),
+      pane.getByRole("textbox", { name: "Wikipedia query", exact: true }),
     ).toHaveValue("Root");
     await expect(pane.locator(".cand")).toHaveCount(0);
-    await expect(pane.locator(".tpq")).toContainText("0 candidates");
+    await expect(pane.locator(".empty")).toContainText(
+      "Nothing fetched yet for Root.",
+    );
     await expect(page.getByRole("menu")).toHaveCount(0);
     await expect(page.locator(".inline-rename")).toHaveCount(0);
   });

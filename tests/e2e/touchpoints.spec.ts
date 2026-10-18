@@ -1,3 +1,4 @@
+// craigtrim/axiom#92: preserve cache and mutation checks against the new pane controls.
 import {
   test,
   expect,
@@ -78,9 +79,9 @@ test.beforeEach(async () => {
   );
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("touchpoints.open");
-  await expect(pane().getByRole("textbox", { name: "Query" })).toHaveValue(
-    "Sustainable business",
-  );
+  await expect(
+    pane().getByRole("textbox", { name: "Wikipedia query" }),
+  ).toHaveValue("Sustainable business");
 });
 test.afterEach(async ({}, info) => {
   if (app) {
@@ -95,14 +96,14 @@ test.afterEach(async ({}, info) => {
 });
 test("search is explicit, recorded results are cached indefinitely, and Refresh preserves data on error", async () => {
   await pane()
-    .getByRole("textbox", { name: "Query" })
+    .getByRole("textbox", { name: "Wikipedia query" })
     .fill("sustainable business");
   expect(await calls()).toBe(0);
-  await pane().getByRole("textbox", { name: "Query" }).press("Enter");
+  await pane().getByRole("textbox", { name: "Wikipedia query" }).press("Enter");
   await expect(pane().locator(".cand")).toHaveCount(20);
   expect(await calls()).toBe(1);
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText("Fetched");
+  await expect(pane()).toContainText("fetched");
   expect(await calls()).toBe(1);
   const root = path.join(profile, "cache/wikipedia"),
     directory = (await readdir(root))[0],
@@ -112,10 +113,10 @@ test("search is explicit, recorded results are cached indefinitely, and Refresh 
       (await readdir(path.join(root, directory)))[0],
     );
   const entry = JSON.parse(await readFile(file, "utf8"));
-  entry.fetchedAt = "2001-06-01T12:00:00Z";
+  entry.fetchedAt = new Date(2001, 5, 1, 12, 0).toISOString();
   await writeFile(file, JSON.stringify(entry));
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText(/Fetched [\d,]+ days ago/);
+  await expect(pane()).toContainText("fetched 1 June 2001");
   expect(await calls()).toBe(1);
   await app.evaluate(() => ((globalThis as any).wikiFailure = true));
   await pane().getByRole("button", { name: "Refresh", exact: true }).click();
@@ -139,7 +140,7 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
   await menu("view.touchpoints");
   await pane().getByRole("button", { name: "Search", exact: true }).click();
   await expect(pane().locator(".cand")).toHaveCount(20);
-  const row = pane().getByRole("article", {
+  const row = pane().getByRole("listitem", {
     name: "Sustainable business",
     exact: true,
   });
@@ -175,7 +176,7 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
   await pane()
     .getByRole("button", { name: "Apply selected touchpoints" })
     .click();
-  await expect(pane()).toContainText("Added 1 touchpoint");
+  await expect(pane()).toContainText("Added 1 resource statement");
   const statements = await page.evaluate(
     (iri) => window.axiom.request<any>("entityDocument", { iri }),
     iri,
@@ -190,7 +191,7 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
   });
   await pane().getByRole("button", { name: "Search", exact: true }).click();
   await expect(row).toContainText("Linked");
-  await expect(row.getByRole("checkbox")).toHaveCount(0);
+  await expect(row.getByRole("checkbox")).toHaveCount(1);
   await menu("edit.undo");
   expect(
     (
@@ -211,7 +212,13 @@ test("selection offers resource predicates, one Apply is one Undo, and stale sel
   );
   await expect(
     pane().getByRole("button", { name: "Apply selected touchpoints" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await pane()
+    .getByRole("button", { name: "Apply selected touchpoints" })
+    .click();
+  await expect(pane().getByRole("alert")).toContainText(
+    "The ontology changed after this search.",
+  );
 });
 test("Wikipedia cache survives a restart and retired Research commands are absent", async () => {
   await pane().getByRole("button", { name: "Search", exact: true }).click();
@@ -221,7 +228,7 @@ test("Wikipedia cache survives a restart and retired Research commands are absen
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("view.touchpoints");
   await pane().getByRole("button", { name: "Search", exact: true }).click();
-  await expect(pane()).toContainText("Fetched");
+  await expect(pane()).toContainText("fetched");
   expect(await calls()).toBe(0);
   expect(
     await app.evaluate(({ Menu }) =>
@@ -237,13 +244,15 @@ test("Wikipedia cache survives a restart and retired Research commands are absen
 });
 
 test("rapid Refresh clicks issue one request and both themes retain the reference narrow controls", async () => {
+  await pane().getByRole("button", { name: "Search", exact: true }).click();
+  await expect(pane().locator(".cand")).toHaveCount(20);
   await pane()
     .getByRole("button", { name: "Refresh", exact: true })
     .evaluate((button) => {
       for (let i = 0; i < 100; i++) (button as HTMLButtonElement).click();
     });
   await expect(pane().locator(".cand")).toHaveCount(20);
-  expect(await calls()).toBe(1);
+  await expect.poll(calls).toBe(2);
   for (const theme of ["light", "dark"]) {
     await menu("theme." + theme);
     const bounds = (await pane().boundingBox())!;
@@ -263,7 +272,7 @@ test("rapid Refresh clicks issue one request and both themes retain the referenc
       expect(box.y).toBeGreaterThanOrEqual(bounds.y);
       expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height);
     }
-    await expect(pane().locator(".cand .iri2:visible")).toHaveCount(0);
+    await expect(pane().locator(".ciri:visible")).toHaveCount(0);
     await page.screenshot({
       path: "artifacts/testing/touchpoints-" + theme + "-narrow.png",
     });
@@ -273,7 +282,9 @@ test("rapid Refresh clicks issue one request and both themes retain the referenc
 test("two subject panes stay pinned and closing and reopening never adds a numeric suffix", async () => {
   const firstId = "touchpoints:" + encodeURIComponent(iri);
   const first = page.locator(`[data-panel="${firstId}"]`);
-  await first.getByRole("textbox", { name: "Query" }).fill("Retained query");
+  await first
+    .getByRole("textbox", { name: "Wikipedia query" })
+    .fill("Retained query");
   const other = await page.evaluate(() =>
     window.axiom.request<string>("createClass", {
       name: "Other subject",
@@ -285,36 +296,36 @@ test("two subject panes stay pinned and closing and reopening never adds a numer
   const second = page.locator(
     `[data-panel="touchpoints:${encodeURIComponent(other)}"]`,
   );
-  await expect(second.getByRole("textbox", { name: "Query" })).toHaveValue(
-    "Other subject",
-  );
+  await expect(
+    second.getByRole("textbox", { name: "Wikipedia query" }),
+  ).toHaveValue("Other subject");
   await expect(
     page
       .locator(
         ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
       )
-      .filter({ hasText: "Touchpoints · Sustainable business" }),
-  ).toHaveText("Touchpoints · Sustainable business");
+      .filter({ hasText: "Touchpoints, Sustainable business" }),
+  ).toHaveText("Touchpoints, Sustainable business");
   await expect(
     page
       .locator(
         ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
       )
-      .filter({ hasText: "Touchpoints · Other subject" }),
-  ).toHaveText("Touchpoints · Other subject");
+      .filter({ hasText: "Touchpoints, Other subject" }),
+  ).toHaveText("Touchpoints, Other subject");
   await page.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("touchpoints.open");
-  await expect(first.getByRole("textbox", { name: "Query" })).toHaveValue(
-    "Retained query",
-  );
+  await expect(
+    first.getByRole("textbox", { name: "Wikipedia query" }),
+  ).toHaveValue("Retained query");
   await expect(
     page
       .locator(
         ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
       )
-      .filter({ hasText: "Touchpoints · Sustainable business" }),
+      .filter({ hasText: "Touchpoints, Sustainable business" }),
   ).toHaveCount(1);
-  await first.getByRole("textbox", { name: "Query" }).focus();
+  await first.getByRole("textbox", { name: "Wikipedia query" }).focus();
   await menu("pane.close");
   await menu("touchpoints.open");
   await expect(
@@ -322,7 +333,7 @@ test("two subject panes stay pinned and closing and reopening never adds a numer
       .locator(
         ".flexlayout__tab_button[role=tab] .flexlayout__tab_button_content",
       )
-      .filter({ hasText: "Touchpoints · Sustainable business" }),
-  ).toHaveText("Touchpoints · Sustainable business");
-  await expect(first.locator(".pin")).toHaveText("Sustainable business");
+      .filter({ hasText: "Touchpoints, Sustainable business" }),
+  ).toHaveText("Touchpoints, Sustainable business");
+  await expect(first.locator(".pin .pn")).toHaveText("Sustainable business");
 });
