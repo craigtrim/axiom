@@ -166,7 +166,8 @@ export function AdaptivePane({
             ].find((element) =>
               element.checkVisibility({ visibilityProperty: true }),
             );
-      target?.focus();
+      // craigtrim/axiom#91: recovery restores focus without changing the retained tree scroll.
+      target?.focus({ preventScroll: true });
       previousFocus.current = null;
     }
   }, [layout.recovery]);

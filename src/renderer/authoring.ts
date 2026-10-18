@@ -42,6 +42,8 @@ export const takeCreation = () => {
   return result;
 };
 let editorIri: string | undefined;
+// craigtrim/axiom#91: an explicit row target remains valid when Enter collapses a range.
+export const hasEditorIri = () => editorIri !== undefined;
 export function editEntity(iri: string) {
   editorIri = iri;
   command("entity.edit");
@@ -55,6 +57,8 @@ export const entityDragType = "application/x-axiom-entity";
 
 export const taxonomyDragType = "application/x-axiom-taxonomy";
 export interface TaxonomyDrag {
+  // craigtrim/axiom#91: one drop carries every independent selected branch.
+  moves?: { iri: string; fromParent: string | null }[];
   iri: string;
   fromParent: string | null;
   version: number;
