@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom Add entity</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* ===========================================================================
+   AXIOM SHARED LAYER v1
+   One palette, one component set. Declared here and byte identical in every
+   file of this delivery. In Axiom this block belongs at :root in styles.css,
+   once, and every feature stylesheet references rather than redeclares it.
+   =========================================================================== */
+:root {
+  color-scheme: light;
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+  --border-ctl:    #7d868f;
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+  --accent:        #0b5fd0;
+  --accent-fg:     #ffffff;
+  --accent-soft:   #eaf2fd;
+  --ok:            #0a7a3d;
+  --ok-soft:       #e8f5ed;
+  --warn:          #8a6116;
+  --warn-soft:     #fdf5e3;
+  --bad:           #a4201a;
+  --bad-soft:      #fdecea;
+  --idle:          #57606a;
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+  --chrome:        #eceff3;
+  --chrome-hover:  #dfe4ea;
+  --chrome-border: #d7dce2;
+  --sel:           rgba(11, 95, 208, .26);
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px;
+
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* geometry shared by every pane */
+  --h-tabs: 28px;   /* the dock strip, owned by the shell */
+  --h-bar:  28px;   /* a view's entire chrome: one action row */
+  --h-foot: 22px;   /* a status or footer line, where a view has one */
+  --row:    26px;   /* a list or table row */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+  --ok: #4ade80; --ok-soft: #0f2a1b;
+  --warn: #e3b341; --warn-soft: #2b2211;
+  --bad: #ff8d81; --bad-soft: #3a1a17;
+  --idle: #9ba7b4;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+  --sel: rgba(76, 154, 255, .30);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+    --ok: #4ade80; --ok-soft: #0f2a1b;
+    --warn: #e3b341; --warn-soft: #2b2211;
+    --bad: #ff8d81; --bad-soft: #3a1a17;
+    --idle: #9ba7b4;
+    --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+    --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+    --sel: rgba(76, 154, 255, .30);
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; padding: var(--sp-5);
+  background: var(--surface); color: var(--text);
+  font: 13px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl); }
+
+/* ------------------------------------------------------------------ dock -- */
+/* A docked pane is resized by dragging the dock splitter, so these grips are
+   the real workbench affordance rather than a size picker. */
+.rig { display: grid; grid-template-columns: auto 6px; grid-template-rows: auto 6px; width: max-content; max-width: 100%; }
+.dock {
+  display: grid; grid-template-rows: var(--h-tabs) minmax(0, 1fr);
+  width: 900px; height: 560px; min-width: 180px; min-height: 110px; max-width: 100%;
+  background: var(--ground); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); overflow: hidden;
+}
+.grip { background: none; border: 0; padding: 0; }
+.grip.v { cursor: col-resize; } .grip.h { cursor: row-resize; } .grip.c { cursor: nwse-resize; }
+.grip::after { content: ""; display: block; width: 100%; height: 100%; background: var(--border-strong); border-radius: var(--r-pill); opacity: .5; }
+.grip:hover::after, .grip:focus-visible::after { opacity: 1; background: var(--accent); }
+
+.tabs { display: flex; align-items: stretch; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative; flex: none; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); border: 0; border-inline-end: 1px solid var(--border);
+  background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.tab:hover { background: var(--row-hover); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--ground); color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; height: 2px; background: var(--accent); }
+
+/* ------------------------------------------------------------------ pane -- */
+.pane { container-type: size; container-name: pane; display: grid; grid-template-rows: var(--h-bar) minmax(0, 1fr); min-height: 0; background: var(--ground); }
+.pane.footed { grid-template-rows: var(--h-bar) minmax(0, 1fr) var(--h-foot); }
+
+/* a view's entire chrome: one row, measured overflow, no second band */
+.bar {
+  display: flex; align-items: center; gap: var(--sp-1);
+  height: var(--h-bar); padding-inline: var(--sp-2) var(--sp-1);
+  background: var(--chrome); border-bottom: 1px solid var(--chrome-border);
+  overflow: hidden; white-space: nowrap;
+}
+.bar > * { flex: none; }
+.bar .od-fill { flex: 1 1 0; min-width: 0; }
+.state { font-size: 12px; color: var(--text-muted); padding-inline: var(--sp-1); font-variant-numeric: tabular-nums; }
+.state.warnink { color: var(--warn); } .state.okink { color: var(--ok); } .state.badink { color: var(--bad); }
+.state .num { color: var(--text); }
+
+.foot {
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--h-foot); padding-inline: var(--sp-2);
+  background: var(--chrome); border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden;
+}
+.foot .num { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------- controls -- */
+.btn {
+  height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text);
+  font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn:disabled { color: var(--idle); background: none; cursor: default; }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: none; }
+.btn.quiet:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn svg { width: 13px; height: 13px; display: block; }
+.iconbtn { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; }
+
+.sel {
+  height: 22px; max-width: 200px; padding: 0 var(--sp-1); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px; cursor: pointer;
+}
+.fld {
+  height: 22px; min-width: 0; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px;
+}
+.fld::placeholder { color: var(--idle); }
+
+.seg { display: inline-flex; border: 1px solid var(--border-ctl); border-radius: var(--r-ctl); overflow: hidden; height: 22px; }
+.seg button { border: 0; background: var(--ground); color: var(--text-muted); font-size: 12px; padding: 0 var(--sp-2); cursor: pointer; white-space: nowrap; }
+.seg button + button { border-inline-start: 1px solid var(--border-ctl); }
+.seg button:hover { background: var(--chrome-hover); color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+
+/* a chip states its own count; a zero count is shown and is not selectable */
+.chip {
+  height: 20px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-pill); background: var(--ground); color: var(--text);
+  font-size: 11px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+}
+.chip .n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chip:hover:not([aria-disabled="true"]) { background: var(--chrome-hover); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.chip[aria-pressed="true"]::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.chip[aria-disabled="true"] { color: var(--idle); cursor: default; }
+.chip[aria-disabled="true"] .n { color: var(--idle); }
+
+.sw { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2) 0 4px; border: 1px solid transparent; border-radius: var(--r-pill); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
+.sw:hover { background: var(--chrome-hover); }
+.sw .track { position: relative; width: 26px; height: 14px; border-radius: var(--r-pill); background: var(--idle); transition: background var(--t-fast); flex: none; }
+.sw .knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ground); transition: transform var(--t-fast); }
+.sw[aria-checked="true"] .track { background: var(--accent); }
+.sw[aria-checked="true"] .knob { transform: translateX(12px); }
+.sw[aria-checked="true"] { border-color: var(--border-ctl); background: var(--accent-soft); }
+
+/* ------------------------------------------------------------------ list -- */
+.grid { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.grid th, .grid td { text-align: start; padding: 0 var(--sp-2); height: var(--row); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border-strong); }
+.grid th button { all: unset; cursor: pointer; display: block; width: 100%; }
+.grid tbody tr { cursor: pointer; }
+.grid tbody tr:hover { background: var(--row-hover); }
+.grid tbody tr[aria-selected="true"] { background: var(--row-selected); }
+.grid tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.grid td.n { text-align: end; font-variant-numeric: tabular-nums; }
+.grid td .mono, .grid th .mono { font-family: var(--mono); font-size: 12px; }
+.grid .muted { color: var(--text-muted); }
+
+.rows { min-height: 0; overflow: auto; }
+.empty { padding: var(--sp-5) var(--sp-3); color: var(--text-muted); font-size: 12px; max-width: 72ch; }
+.empty b { color: var(--text); font-weight: 600; }
+
+/* severity and status read as a word plus a shape, never colour alone */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
+.tag .gl { width: 9px; height: 9px; flex: none; }
+.tag.err { color: var(--bad); } .tag.wrn { color: var(--warn); } .tag.inf { color: var(--text-muted); } .tag.good { color: var(--ok); }
+.tag.err .gl { background: var(--bad); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tag.wrn .gl { background: var(--warn); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tag.inf .gl { background: var(--idle); border-radius: 50%; }
+.tag.good .gl { background: var(--ok); border-radius: 2px; }
+
+/* ------------------------------------------------------------------ menu -- */
+.menu { position: fixed; z-index: 60; min-width: 190px; padding: var(--sp-1) 0; background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--r-panel); box-shadow: var(--shadow-pop); }
+.menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: 26px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font-size: 13px; text-align: start; white-space: nowrap; cursor: default; }
+.menu button:hover:not([aria-disabled="true"]), .menu button[data-active="true"] { background: var(--row-selected); }
+.menu button[aria-disabled="true"] { color: var(--idle); }
+.menu button .k { margin-inline-start: auto; color: var(--text-muted); font-size: 11px; }
+.menu .sep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+.toast { position: absolute; inset-inline-start: var(--sp-3); inset-block-end: var(--sp-3); z-index: 40; max-width: calc(100% - var(--sp-6)); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow-pop); font-size: 12px; }
+.toast b { font-weight: 600; } .toast .sub { color: var(--text-muted); }
+
+/* ------------------------------------------------------- recovery, shared -- */
+.recov { display: none; place-content: center; gap: var(--sp-2); padding: var(--sp-3); text-align: center; }
+.recov .id { font-size: 12px; font-weight: 600; }
+.recov .why { font-size: 11px; color: var(--text-muted); }
+
+/* the published ladder. 600 and 400 with 616 and 416 exits, recovery below
+   240 wide, 210 high when narrow and 180 otherwise. No number here is new. */
+@container pane (max-width: 239px), pane (max-height: 179px) {
+  .bar, .body, .foot { display: none; }
+  .pane, .pane.footed { grid-template-rows: minmax(0, 1fr); }
+  .recov { display: grid; }
+}
+
+
+/* /AXIOM SHARED LAYER v1 */
+/* ----------------------------------------------------------------- notes -- */
+/* Outside the dock. Implementer material, not application UI. */
+.notes { max-width: 880px; margin-top: var(--sp-6); color: var(--text-muted); }
+.notes h1 { margin: 0 0 var(--sp-2); font-size: 15px; font-weight: 600; color: var(--text); }
+.notes h2 { margin: var(--sp-5) 0 var(--sp-2); font-size: 13px; font-weight: 600; color: var(--text); }
+.notes p { margin: 0 0 var(--sp-3); max-width: 72ch; }
+.notes b { color: var(--text); font-weight: 600; }
+.notes code { font: 12px var(--mono); background: var(--sunken); padding: 1px 4px; border-radius: 3px; }
+.notes table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: var(--sp-3); }
+.notes th, .notes td { text-align: start; padding: 5px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: top; }
+.notes th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.notes td.n { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notes tr:last-child td { border-bottom: 0; }
+.notes .q { border-inline-start: 2px solid var(--border-strong); padding-inline-start: var(--sp-3); font-style: italic; margin: 0 0 var(--sp-2); max-width: 72ch; }
+
+/* ------------------------------------------------------------ add entity -- */
+/* A form, so the discipline is different: every row is one line tall, the
+   label column is fixed, and the planned source sits beside the form rather
+   than under it, because a preview below a form pushes the commit action off
+   screen at exactly the pane sizes where it matters. */
+/* the layout lives on an inner element, never on .body itself: the shared
+   recovery rule hides .body, and an own or inline display would outrank it */
+.work2 { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; min-height: 0; }
+.form { min-height: 0; overflow-y: auto; padding-bottom: var(--sp-3); }
+
+.frow { display: flex; align-items: center; gap: var(--sp-2); min-height: 26px; padding: 2px var(--sp-3); }
+.frow.top { align-items: start; }
+.frow > .flbl { flex: none; width: 86px; font-size: 11px; color: var(--text-muted); padding-top: 5px; }
+.frow > .fctl { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+.fctl .wide { width: 100%; }
+.fctl .rowline { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ta { width: 100%; min-height: 44px; padding: 3px var(--sp-2); border: 1px solid var(--border-ctl); border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font: 13px var(--font); resize: vertical; }
+.fnote { font-size: 11px; color: var(--text-muted); }
+.fnote .mono { font-family: var(--mono); }
+.sect2 { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 0; }
+.sect2 .st { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.sect2 .sn { font-size: 11px; color: var(--text-muted); }
+
+/* the resource picker: typing offers real classes, Enter takes the IRI */
+.pick2 { position: relative; display: grid; gap: 3px; }
+.psug { position: absolute; top: 25px; inset-inline: 0; z-index: 30; max-height: 148px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow-pop); }
+.psug button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 3px var(--sp-2); border: 0; background: none; color: var(--text); font-size: 12px; text-align: start; cursor: pointer; }
+.psug button[data-active="true"], .psug button:hover { background: var(--row-selected); }
+.psug .pi { font: 11px var(--mono); color: var(--text-muted); margin-inline-start: auto; }
+.psug .new { color: var(--accent); }
+
+.pchip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 4px 0 var(--sp-2); border: 1px solid var(--border-ctl); border-radius: var(--r-pill); background: var(--ground); font-size: 11px; }
+.pchip.draft { border-style: dashed; border-color: var(--accent); background: var(--accent-soft); }
+.pchip .x { width: 14px; height: 14px; padding: 0; border: 0; background: none; color: var(--text-muted); cursor: pointer; display: grid; place-items: center; }
+.pchip .x:hover { color: var(--bad); }
+.pchip .x svg { width: 9px; height: 9px; display: block; }
+
+.nest { margin-inline-start: var(--sp-4); border-inline-start: 2px solid var(--accent); }
+
+.stmt { display: flex; align-items: center; gap: var(--sp-2); padding: 2px var(--sp-3) 2px calc(var(--sp-3) + 86px + var(--sp-2)); }
+.stmt .sp2 { width: 150px; flex: none; font-family: var(--mono); font-size: 12px; }
+.stmt .sv { flex: 1 1 auto; min-width: 0; }
+
+/* the planned source, escaped, including parents that do not exist yet */
+.srcbox { border-inline-start: 1px solid var(--border); display: none; grid-template-rows: 22px minmax(0, 1fr); min-height: 0; background: var(--ground); }
+.srcbox .sh { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3); font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--surface); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; }
+.srcbox .sh .sn2 { margin-inline-start: auto; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.sc { margin: 0; padding: var(--sp-2) var(--sp-3); overflow: auto; font: 12px/1.5 var(--mono); color: var(--text); white-space: pre; }
+
+.vmsg { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border); font-size: 12px; }
+.vmsg.bad2 { background: var(--bad-soft); }
+.vmsg.wrn2 { background: var(--warn-soft); }
+
+@container pane (max-width: 599px) {
+  .frow > .flbl { width: 70px; }
+  .stmt { padding-inline-start: calc(var(--sp-3) + 70px + var(--sp-2)); }
+  .stmt .sp2 { width: 112px; }
+}
+
+/* The planned source is a second column only where the pane can carry one, and
+   nowhere else: no folding under the form, no narrow sliver. 860 is the
+   published threshold for a second region alongside a primary editor. Below it
+   a 320 px preview would leave the form under 540 px while still being too
+   narrow to read its own longest line, which costs the form width and buys
+   nothing. It also grows with the pane rather than sitting at a fixed 320,
+   so a wide pane spends the extra width on the preview that needed it. */
+@container pane (min-width: 860px) and (min-height: 400px) {
+  .work2 { grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); }
+  .srcbox { display: grid; }
+}
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <div class="dock" id="dock">
+    <div class="tabs">
+      <button class="tab" type="button" role="tab" aria-selected="true" aria-controls="pane">Add entity</button>
+    </div>
+
+    <div class="pane footed" id="pane" role="tabpanel">
+      <div class="bar" id="bar" aria-label="Add entity actions">
+        <span class="seg" id="kind" role="group" aria-label="Entity kind">
+          <button type="button" data-kind="class" aria-pressed="true">Class</button>
+          <button type="button" data-kind="individual" aria-pressed="false">Individual</button>
+        </span>
+        <span class="state" id="state"></span>
+        <span class="od-fill"></span>
+        <button class="btn primary" type="button" id="aCreate">Create</button>
+        <button class="btn quiet" type="button" id="aFind">Find existing</button>
+        <button class="btn quiet" type="button" id="aClear">Discard draft</button>
+        <button class="btn quiet iconbtn" type="button" id="aMore" aria-haspopup="true" aria-expanded="false" aria-label="More actions"></button>
+      </div>
+
+      <div class="body" id="body">
+        <div class="work2">
+          <div class="form" id="form">
+            <div id="vb" role="status"></div>
+            <div id="fields"></div>
+          </div>
+          <div class="srcbox">
+            <div class="sh">Planned source<span class="sn2" id="srcn"></span></div>
+            <pre class="sc" id="src"></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot" id="foot"></div>
+
+      <div class="recov">
+        <div class="id">Add entity</div>
+        <div class="why">Too little room to author. The name, parents, description and statements are retained.</div>
+        <div><button class="btn primary" type="button" id="recovBtn">Maximise pane</button></div>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+  </div>
+  <button class="grip v" id="gripV" aria-label="Resize pane width" title="Drag to resize the pane"></button>
+  <button class="grip h" id="gripH" aria-label="Resize pane height" title="Drag to resize the pane"></button>
+  <button class="grip c" id="gripC" aria-label="Resize pane"></button>
+</div>
+
+<div class="notes">
+  <h1>Add entity</h1>
+  <p>Opened from a text selection, so the name has already been through the documented title case conversion and the Context row still holds the phrase it came from. Edit the name and watch the IRI, the duplicate check and the planned source follow. Type <code>Enginee</code> in Parents to see the resource picker, and type a name that does not exist to draft a parent inside the same transaction.</p>
+
+  <h2>The title case rules, implemented</h2>
+  <p><code>docs/text-analysis.md</code> specifies this precisely, so it is code here rather than prose. The menu has a <b>Re-run the title case conversion</b> item and the three published examples are in it.</p>
+  <table>
+    <thead><tr><th>Selection</th><th>Name</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><code>Basic ENGLISH COMPOSITION</code></td><td><code>Basic English Composition</code></td><td>All uppercase words are capitalised</td></tr>
+      <tr><td><code>PHD SEMINAR IN GIS</code></td><td><code>PhD Seminar in GIS</code></td><td>Listed acronyms take their canonical spelling, and a small word inside the title goes lowercase</td></tr>
+      <tr><td><code>iPhone accessory</code></td><td><code>iPhone Accessory</code></td><td>Mixed case is left alone, so <code>iPhone</code> and <code>McGraw</code> survive</td></tr>
+      <tr><td><code>the theory of flight</code></td><td><code>The Theory of Flight</code></td><td>All lowercase words are capitalised; <code>of</code> stays down because it is neither first nor last</td></tr>
+    </tbody>
+  </table>
+  <p>The conversion runs only when a selection first opens this view. Names you type, and parent names you type, keep your spelling, which is why editing the field does not re-title-case it as you go.</p>
+
+  <h2>Nested parent drafts and one transaction</h2>
+  <p><code>docs/find-similarity.md</code> is explicit: <span class="q">"New parents and the class are committed together in one undoable transaction"</span> and <span class="q">"Source there includes the complete planned hierarchy."</span> Type an unknown parent name and the picker offers to draft it; the chip is dashed, the nested row takes its own parent, and the planned source grows to include it. Create writes the whole set as one operation, and one Undo removes all of it.</p>
+
+  <h2>What the name check actually checks</h2>
+  <p>Three separate things, reported separately rather than as one red field: whether the <b>name</b> is already used by a class in the store, whether the <b>IRI</b> that this name would occupy is taken by anything at all, and whether the characters need percent encoding to be a legal IRI. A name collision offers to reveal the existing class, because the documented behaviour of opening a duplicate is to show you its actual page rather than to refuse.</p>
+
+  <h2>The planned source is the first thing to go</h2>
+  <p>It is a second column above <b>860 pixels wide and 400 tall</b>, and it is absent everywhere else. Not folded under the form, not reduced to a sliver: gone. The form plus the commit action is the irreducible content of this view, and the preview is the one region that can leave without taking a fact with it, because the form already states everything the source serialises.</p>
+  <p>860 is the published threshold for carrying a second region alongside a primary editor, and the arithmetic underneath it is what makes the withdrawal right rather than merely tidy. The longest line this preview emits is about 62 monospace characters, roughly 470 pixels. A fixed 320 pixel column clips that line at every pane width, so at an 800 pixel pane the preview was taking 40 percent of the view, leaving the form 480, and <b>still</b> scrolling horizontally. It cost the form real width and bought an unreadable preview. Above 860 the column takes 34 percent instead of a fixed 320, so it stops being a sliver exactly where there is width to spend on it, and the form never drops below about 540.</p>
+  <p>Nothing becomes unreachable. <b>Copy the planned source</b> stays in the overflow menu at every size, including recovery, so the full serialisation is one action away whether or not the column is on screen. The draft, the parents, the nested drafts and the validation survive every one of these transitions.</p>
+
+  <h2>What is seeded rather than read from your store</h2>
+  <p>The existing class list the picker and the duplicate check search, the occupied IRI set, and the text selection this draft opened from. The title case conversion, the picker, the nested drafts, the three name checks and the escaped source are all real.</p>
+</div>
+<script>
+/* AXIOM SHARED LAYER v1: the helpers every pane in this delivery uses.
+   Identical in every file, so one fix lands everywhere. */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function num(n) { return Number(n).toLocaleString("en-US"); }
+var ICON = {
+  run: '<path d="M7 4.5 19 12 7 19.5z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+  more: '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>',
+  down: '<path d="M5 9l7 7 7-7"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20.5 20.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+  warn: '<path d="M12 3.4 22 20.6H2z"/><path d="M12 10v4.6M12 17.6v.1"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/>',
+  grid: '<path d="M3 5h18v14H3z"/><path d="M3 10h18M3 15h18M9 5v14"/>',
+  tree: '<path d="M4 3h6v4H4z"/><path d="M14 10h6v4h-6z"/><path d="M14 17h6v4h-6z"/><path d="M7 7v12M7 12h7M7 19h7"/>',
+  code: '<path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>',
+  link: '<path d="M10 13.5a4 4 0 0 0 5.7.3l3-3a4 4 0 1 0-5.7-5.7L11.6 6.5"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-3 3a4 4 0 1 0 5.7 5.7L12.4 17.5"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>',
+  panel: '<path d="M4 4h16v16H4z"/><path d="M4 8.5h16M8 12.5h8M8 16.5h5"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4.5-5"/>',
+  undo: '<path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/>'
+};
+function svg(n, w) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 1.7) +
+    '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICON[n] + "</svg>";
+}
+
+/* one transient status line per pane, announced politely */
+var _toastTimer = null;
+function toast(head, sub) {
+  var t = $("#toast");
+  if (!t) return;
+  t.innerHTML = "<b>" + esc(head) + "</b>" + (sub ? ' <span class="sub">' + esc(sub) + "</span>" : "");
+  t.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.hidden = true; }, 4200);
+}
+
+/* a row of actions that moves what does not fit into the overflow, in one
+   order that never reshuffles. No breakpoint of its own. */
+function fitBar(barSel, order) {
+  var fitting = false, collapsed = [];
+  function fit() {
+    if (fitting) return;
+    fitting = true;
+    var bar = $(barSel);
+    order.forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = false; });
+    collapsed = [];
+    for (var i = 0; i < order.length; i++) {
+      if (bar.scrollWidth <= bar.clientWidth) break;
+      var el = document.getElementById(order[i]);
+      if (el) { el.hidden = true; collapsed.push(order[i]); }
+    }
+    fitting = false;
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe($(barSel));
+  window.addEventListener("resize", fit);
+  fit();
+  return { fit: fit, collapsed: function () { return collapsed.slice(); } };
+}
+
+/* one popup implementation, keyboard complete */
+var _menu = null;
+function closeMenu(restore) {
+  if (!_menu) return;
+  var owner = _menu.owner;
+  _menu.el.remove(); _menu = null;
+  if (owner) { owner.setAttribute("aria-expanded", "false"); if (restore) owner.focus(); }
+}
+function openMenu(owner, items, run) {
+  closeMenu(false);
+  var el = document.createElement("div");
+  el.className = "menu"; el.setAttribute("role", "menu"); el.tabIndex = -1;
+  el.innerHTML = items.map(function (it, i) {
+    if (it.sep) return '<div class="sep" role="separator"></div>';
+    return '<button type="button" role="menuitem" data-i="' + i + '"' +
+      (it.dis ? ' aria-disabled="true"' : "") + ">" +
+      (it.checked ? "&#10003; " : "") + esc(it.l) +
+      (it.k ? '<span class="k">' + esc(it.k) + "</span>" : "") + "</button>";
+  }).join("");
+  document.body.appendChild(el);
+  var r = owner.getBoundingClientRect();
+  var x = Math.max(4, Math.min(r.right - el.offsetWidth, window.innerWidth - el.offsetWidth - 4));
+  var y = r.bottom + 2;
+  if (y + el.offsetHeight > window.innerHeight - 4) y = Math.max(4, r.top - el.offsetHeight - 2);
+  el.style.left = x + "px"; el.style.top = y + "px";
+  owner.setAttribute("aria-expanded", "true");
+  _menu = { el: el, owner: owner };
+
+  function list() { return $$("[data-i]", el); }
+  el.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-i]") : null;
+    if (!b || b.getAttribute("aria-disabled") === "true") return;
+    var it = items[+b.getAttribute("data-i")];
+    closeMenu(true); run(it);
+  });
+  el.addEventListener("keydown", function (e) {
+    var l = list(), i = l.indexOf(document.activeElement);
+    if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); l[(i + 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); l[(i - 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "Home") { e.preventDefault(); l[0].focus(); return; }
+    if (e.key === "End") { e.preventDefault(); l[l.length - 1].focus(); return; }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (i < 0 || l[i].getAttribute("aria-disabled") === "true") return;
+      var it = items[+l[i].getAttribute("data-i")];
+      closeMenu(true); run(it);
+    }
+  });
+  var first = el.querySelector("[data-i]:not([aria-disabled])");
+  if (first) first.focus();
+}
+document.addEventListener("pointerdown", function (e) {
+  if (_menu && !(e.target.closest && (e.target.closest(".menu") || e.target === _menu.owner || (_menu.owner.contains && _menu.owner.contains(e.target))))) closeMenu(false);
+});
+
+/* the dock splitters */
+function grips() {
+  var d = $("#dock");
+  function bind(el, axis) {
+    if (!el) return;
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      var x0 = e.clientX, y0 = e.clientY, w0 = d.offsetWidth, h0 = d.offsetHeight;
+      function move(ev) {
+        if (axis !== "h") d.style.width = Math.max(180, w0 + (ev.clientX - x0)) + "px";
+        if (axis !== "v") d.style.height = Math.max(110, h0 + (ev.clientY - y0)) + "px";
+      }
+      function up(ev) {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
+      }
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
+    });
+    el.addEventListener("keydown", function (e) {
+      var s = e.shiftKey ? 40 : 10, w = d.offsetWidth, h = d.offsetHeight;
+      if (axis !== "h" && e.key === "ArrowLeft") { e.preventDefault(); d.style.width = Math.max(180, w - s) + "px"; }
+      if (axis !== "h" && e.key === "ArrowRight") { e.preventDefault(); d.style.width = (w + s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowUp") { e.preventDefault(); d.style.height = Math.max(110, h - s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowDown") { e.preventDefault(); d.style.height = (h + s) + "px"; }
+    });
+  }
+  bind($("#gripV"), "v"); bind($("#gripH"), "h"); bind($("#gripC"), "both");
+  var rb = $("#recovBtn");
+  if (rb) rb.addEventListener("click", function () { d.style.width = "900px"; d.style.height = "560px"; });
+}
+
+/* ------------------------------------------------------- Add entity view -- */
+(function () {
+  "use strict";
+
+  var BASE = "http://example.org/axiom#";
+
+  /* the store the picker and the duplicate check search */
+  var STORE = [
+    "Agent", "Person", "Researcher", "Student", "Employee", "Organization", "Company",
+    "Startup", "University", "Government Body", "Software Agent", "Artifact", "Document",
+    "Article", "Journal Article", "Book", "Dataset", "Device", "Sensor", "Instrument",
+    "Event", "Publication Event", "Conference", "Experiment", "Place", "City", "Country",
+    "Facility", "Role", "Author Role", "Reviewer Role", "Measurement", "Quantity", "Unit",
+    "Engineering", "Engineering Process", "Basic English Composition"
+  ];
+  /* IRIs that are occupied by something, not necessarily by a class */
+  var OCCUPIED = {};
+  STORE.forEach(function (n) { OCCUPIED[BASE + local(n)] = "a class"; });
+  OCCUPIED[BASE + "Seminar"] = "an object property";
+  OCCUPIED[BASE + "GIS"] = "an individual";
+
+  function local(n) { return n.split(/\s+/).join(""); }
+
+  /* --------------------------------------------- the title case conversion -- */
+  /* docs/text-analysis.md specifies this exactly, so it is implemented rather
+     than approximated. It runs once, when a selection opens this view. */
+  var ACRONYM = ["PhD", "GIS", "RDF", "RDFS", "OWL", "SPARQL", "IRI", "URI", "API", "HTTP",
+                 "HTML", "JSON", "SKOS", "XSD", "ISO", "DOI", "ISSN", "MPNet", "SQL", "CSV"];
+  var SMALL = ["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to"];
+  function titleCase(s) {
+    var words = s.split(/(\s+)/);
+    var slots = [];
+    words.forEach(function (w, i) { if (!/^\s*$/.test(w)) slots.push(i); });
+    return words.map(function (w, i) {
+      if (/^\s*$/.test(w)) return w;
+      var lead = (w.match(/^[^0-9A-Za-z]*/) || [""])[0];
+      var tail = (w.match(/[^0-9A-Za-z]*$/) || [""])[0];
+      var core = w.slice(lead.length, w.length - tail.length);
+      if (!core) return w;
+      var out = core;
+      var canon = null;
+      ACRONYM.forEach(function (a) { if (a.toLowerCase() === core.toLowerCase()) canon = a; });
+      if (canon) out = canon;
+      else if (core === core.toUpperCase() || core === core.toLowerCase()) {
+        var first = slots[0] === i, last = slots[slots.length - 1] === i;
+        if (!first && !last && SMALL.indexOf(core.toLowerCase()) >= 0) out = core.toLowerCase();
+        else out = core.charAt(0).toUpperCase() + core.slice(1).toLowerCase();
+      }
+      /* mixed case is left exactly as it was: iPhone, McGraw */
+      return lead + out + tail;
+    }).join("");
+  }
+
+  var SELECTION = "Basic ENGLISH COMPOSITION";
+  var EXAMPLES = ["Basic ENGLISH COMPOSITION", "PHD SEMINAR IN GIS", "iPhone accessory", "the theory of flight"];
+
+  /* ------------------------------------------------------------------ state -- */
+  var D = {
+    kind: "class",
+    name: titleCase(SELECTION),
+    context: SELECTION,
+    comment: "",
+    parents: [],          /* { name, draft, parents: [names] } */
+    stmts: [{ p: "skos:altLabel", v: "" }],
+    picker: { at: null, text: "", active: 0 },
+    created: false
+  };
+
+  /* ------------------------------------------------------------ validation -- */
+  function clean(n) { return n.replace(/\s+/g, " ").trim(); }
+  function checks() {
+    var n = clean(D.name), out = [];
+    if (!n) out.push(["bad2", "A name is required before this can be created."]);
+    var dup = STORE.filter(function (s) { return s.toLowerCase() === n.toLowerCase(); })[0];
+    if (dup) out.push(["bad2", "A class named " + dup + " already exists.", dup]);
+    var iri = BASE + local(n);
+    if (!dup && OCCUPIED[iri]) out.push(["bad2", iri + " is already occupied by " + OCCUPIED[iri] + "."]);
+    if (n && /[^0-9A-Za-z \-_.]/.test(n))
+      out.push(["wrn2", "Characters outside the unreserved set need percent encoding in the IRI. The label keeps them exactly as typed."]);
+    if (n !== D.name && D.name) out.push(["wrn2", "Leading, trailing or repeated whitespace is removed from the name before it becomes an IRI."]);
+    D.parents.forEach(function (p) {
+      if (p.draft && STORE.indexOf(p.name) >= 0) out.push(["bad2", p.name + " now exists, so it cannot also be drafted."]);
+    });
+    return out;
+  }
+  function creatable() { return !checks().some(function (c) { return c[0] === "bad2"; }) && !!clean(D.name); }
+
+  /* ---------------------------------------------------------------- source -- */
+  function source() {
+    var n = clean(D.name) || "Unnamed", lines = [];
+    var tag = D.kind === "class" ? "owl:Class" : "owl:NamedIndividual";
+    /* parents that do not exist yet are part of the same planned hierarchy */
+    D.parents.filter(function (p) { return p.draft; }).forEach(function (p) {
+      lines.push('<owl:Class rdf:about="' + BASE + local(p.name) + '">');
+      lines.push('  <rdfs:label xml:lang="en">' + esc(p.name) + "</rdfs:label>");
+      p.parents.forEach(function (g) {
+        lines.push('  <rdfs:subClassOf rdf:resource="' + BASE + local(g) + '"/>');
+      });
+      lines.push("</owl:Class>");
+      lines.push("");
+    });
+    lines.push("<" + tag + ' rdf:about="' + BASE + local(n) + '">');
+    lines.push('  <rdfs:label xml:lang="en">' + esc(n) + "</rdfs:label>");
+    if (clean(D.comment)) lines.push('  <rdfs:comment xml:lang="en">' + esc(clean(D.comment)) + "</rdfs:comment>");
+    D.parents.forEach(function (p) {
+      lines.push("  " + (D.kind === "class"
+        ? '<rdfs:subClassOf rdf:resource="' + BASE + local(p.name) + '"/>'
+        : '<rdf:type rdf:resource="' + BASE + local(p.name) + '"/>'));
+    });
+    if (!D.parents.length && D.kind === "class")
+      lines.push('  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>');
+    D.stmts.filter(function (s) { return clean(s.v); }).forEach(function (s) {
+      lines.push("  <" + s.p + ">" + esc(clean(s.v)) + "</" + s.p + ">");
+    });
+    lines.push("</" + tag + ">");
+    return lines.join("\n");
+  }
+
+  /* ---------------------------------------------------------------- render -- */
+  function chip(p, i) {
+    return '<span class="pchip' + (p.draft ? " draft" : "") + '">' + esc(p.name) +
+      (p.draft ? " (new)" : "") +
+      '<button class="x" type="button" data-rm="' + i + '" aria-label="Remove ' + esc(p.name) + '">' + svg("close", 2.6) + "</button></span>";
+  }
+
+  function pickerHtml(at) {
+    if (D.picker.at !== at || !clean(D.picker.text)) return "";
+    var s0 = suggestions(at), hits = s0.hits;
+    var items = hits.map(function (s, i) {
+      return '<button type="button" data-sug="' + esc(s) + '" data-active="' + (D.picker.active === i ? "true" : "false") +
+        '">' + esc(s) + '<span class="pi">' + BASE.replace("http://", "") + local(s) + "</span></button>";
+    });
+    if (s0.offerNew) items.push('<button type="button" class="new" data-new="' + esc(clean(D.picker.text)) +
+      '" data-active="' + (D.picker.active === hits.length ? "true" : "false") +
+      '">Draft a new parent named ' + esc(clean(D.picker.text)) + '<span class="pi">committed in the same transaction</span></button>');
+    return '<div class="psug" role="listbox" aria-label="Matching classes">' + items.join("") + "</div>";
+  }
+
+  function renderMsgs() {
+    $("#vb").innerHTML = checks().map(function (c) {
+      return '<div class="vmsg ' + c[0] + '"><span class="tag ' + (c[0] === "bad2" ? "err" : "wrn") + '"><span class="gl"></span></span>' +
+        esc(c[1]) + (c[2] ? ' <button class="btn quiet" type="button" id="reveal">Reveal ' + esc(c[2]) + "</button>" : "") + "</div>";
+    }).join("");
+  }
+
+  function renderFields() {
+    var n = clean(D.name), iri = BASE + local(n || "Unnamed");
+    var h = [];
+
+    h.push('<div class="frow"><span class="flbl">Name</span><div class="fctl">' +
+      '<input class="fld wide" id="nm" value="' + esc(D.name) + '" aria-label="Name">' +
+      '<div class="fnote">IRI <span class="mono">' + esc(iri) + "</span></div></div></div>");
+
+    h.push('<div class="frow"><span class="flbl">Context</span><div class="fctl">' +
+      '<div class="fnote">from the selection <span class="mono">' + esc(D.context) + "</span>, title cased once when this view opened" +
+      "</div></div></div>");
+
+    h.push('<div class="sect2"><span class="st">Parents</span><span class="sn">' +
+      (D.parents.length ? num(D.parents.length) + " selected, " + num(D.parents.filter(function (p) { return p.draft; }).length) + " to be created"
+                        : "none, so it would be created under owl:Thing") + "</span></div>");
+    h.push('<div class="frow top"><span class="flbl">' + (D.kind === "class" ? "Subclass of" : "Type") + '</span><div class="fctl">' +
+      '<div class="rowline">' + D.parents.map(chip).join("") + "</div>" +
+      '<div class="pick2"><input class="fld wide" id="pp" placeholder="Type a class name, for example Enginee" aria-label="Add a parent"' +
+      ' value="' + (D.picker.at === "root" ? esc(D.picker.text) : "") + '">' + pickerHtml("root") + "</div></div></div>");
+
+    D.parents.forEach(function (p, i) {
+      if (!p.draft) return;
+      h.push('<div class="frow top nest"><span class="flbl">' + esc(p.name) + '</span><div class="fctl">' +
+        '<div class="rowline">' + p.parents.map(function (g, j) {
+          return '<span class="pchip">' + esc(g) + '<button class="x" type="button" data-nrm="' + i + "." + j +
+            '" aria-label="Remove ' + esc(g) + '">' + svg("close", 2.6) + "</button></span>";
+        }).join("") + "</div>" +
+        '<div class="pick2"><input class="fld wide" data-np="' + i + '" placeholder="Parent for this new class" aria-label="Parent for ' + esc(p.name) + '"' +
+        ' value="' + (D.picker.at === "n" + i ? esc(D.picker.text) : "") + '">' + pickerHtml("n" + i) + "</div></div></div>");
+    });
+
+    h.push('<div class="sect2"><span class="st">Description</span></div>');
+    h.push('<div class="frow top"><span class="flbl">Comment</span><div class="fctl">' +
+      '<textarea class="ta" id="cm" aria-label="Comment">' + esc(D.comment) + "</textarea></div></div>");
+
+    h.push('<div class="sect2"><span class="st">Additional statements</span><span class="sn">' +
+      num(D.stmts.filter(function (s) { return clean(s.v); }).length) + " with a value</span></div>");
+    D.stmts.forEach(function (s, i) {
+      h.push('<div class="stmt"><select class="sel sp2" data-sp="' + i + '" aria-label="Predicate">' +
+        ["skos:altLabel", "skos:prefLabel", "rdfs:seeAlso", "skos:definition", "dc:source"].map(function (p) {
+          return "<option" + (p === s.p ? " selected" : "") + ">" + p + "</option>";
+        }).join("") + "</select>" +
+        '<input class="fld sv" data-sv="' + i + '" value="' + esc(s.v) + '" placeholder="Value, one literal per statement" aria-label="Value">' +
+        '<button class="btn quiet iconbtn" type="button" data-srm="' + i + '" aria-label="Remove statement">' + svg("close") + "</button></div>");
+    });
+    h.push('<div class="stmt"><button class="btn quiet" type="button" id="addStmt">Add a statement</button>' +
+      '<span class="fnote">a comma inside a literal is part of that literal, so use separate statements for separate aliases</span></div>');
+
+    $("#fields").innerHTML = h.join("");
+  }
+
+  function renderSource() {
+    $("#src").textContent = source();
+    var drafts = D.parents.filter(function (p) { return p.draft; }).length;
+    $("#srcn").textContent = drafts ? (drafts + 1) + " entities, one transaction" : "1 entity, one transaction";
+  }
+
+  var bar;
+  function renderBar() {
+    var st = $("#state"), v = checks();
+    var bad = v.filter(function (c) { return c[0] === "bad2"; }).length;
+    var wrn = v.length - bad;
+    st.className = "state" + (bad ? " badink" : wrn ? " warnink" : clean(D.name) ? " okink" : "");
+    st.textContent = bad ? bad + (bad === 1 ? " problem" : " problems")
+      : wrn ? wrn + (wrn === 1 ? " note" : " notes") : clean(D.name) ? "Ready to create" : "Draft";
+    $("#aCreate").disabled = !creatable();
+    $("#aCreate").textContent = D.parents.filter(function (p) { return p.draft; }).length ? "Create both" : "Create";
+    $$("#kind button").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-kind") === D.kind ? "true" : "false");
+    });
+    bar.fit();
+  }
+
+  function renderFoot() {
+    var f = [];
+    f.push("<span>one undoable transaction</span>");
+    f.push('<span>names and IRIs checked across <span class="num">' + num(STORE.length) + "</span> entities</span>");
+    f.push("<span>the draft survives resizing, detaching and recovery</span>");
+    if (D.created) f.push('<span class="tag good"><span class="gl"></span>created, and selected in Hierarchy</span>');
+    $("#foot").innerHTML = f.join("");
+  }
+
+  function render() { renderMsgs(); renderFields(); renderSource(); renderBar(); renderFoot(); }
+
+  /* --------------------------------------------------------------- picker -- */
+  function refocus(at) {
+    var el = at === "root" ? $("#pp") : $('[data-np="' + at.slice(1) + '"]');
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }
+  function suggestions(at) {
+    var t = clean(D.picker.text).toLowerCase();
+    var taken = D.parents.map(function (p) { return p.name; });
+    var hits = STORE.filter(function (s) { return s.toLowerCase().indexOf(t) >= 0 && taken.indexOf(s) < 0; }).slice(0, 6);
+    var exact = STORE.some(function (s) { return s.toLowerCase() === t; });
+    return { hits: hits, offerNew: !exact && !!t, at: at };
+  }
+  function take(at, name, isNew) {
+    if (at === "root") {
+      if (isNew) D.parents.push({ name: name, draft: true, parents: [] });
+      else D.parents.push({ name: name, draft: false, parents: [] });
+    } else {
+      var i = +at.slice(1);
+      if (D.parents[i].parents.indexOf(name) < 0) D.parents[i].parents.push(name);
+    }
+    D.picker = { at: null, text: "", active: 0 };
+    render();
+  }
+
+  /* ----------------------------------------------------------------- wire -- */
+  function boot() {
+    $("#aMore").innerHTML = svg("more");
+    bar = fitBar("#bar", ["aClear", "aFind"]);
+    render();
+
+    $("#kind").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-kind]") : null;
+      if (!b) return;
+      D.kind = b.getAttribute("data-kind");
+      render();
+    });
+
+    $("#form").addEventListener("input", function (e) {
+      var t = e.target;
+      if (t.id === "nm") { D.name = t.value; renderMsgs(); renderSource(); renderBar(); return; }
+      if (t.id === "cm") { D.comment = t.value; renderSource(); return; }
+      if (t.hasAttribute("data-sv")) { D.stmts[+t.getAttribute("data-sv")].v = t.value; renderSource(); return; }
+      if (t.id === "pp" || t.hasAttribute("data-np")) {
+        D.picker = { at: t.id === "pp" ? "root" : "n" + t.getAttribute("data-np"), text: t.value, active: 0 };
+        renderFields();
+        refocus(D.picker.at);
+      }
+    });
+
+    $("#form").addEventListener("change", function (e) {
+      var t = e.target;
+      if (t.hasAttribute("data-sp")) { D.stmts[+t.getAttribute("data-sp")].p = t.value; renderSource(); }
+    });
+
+    $("#form").addEventListener("keydown", function (e) {
+      var t = e.target;
+      if (t.id !== "pp" && !t.hasAttribute("data-np")) return;
+      var at = t.id === "pp" ? "root" : "n" + t.getAttribute("data-np");
+      var s = suggestions(at), total = s.hits.length + (s.offerNew ? 1 : 0);
+      if (!total) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); D.picker.active = (D.picker.active + 1) % total; renderFields(); refocus(at); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); D.picker.active = (D.picker.active + total - 1) % total; renderFields(); refocus(at); }
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        if (D.picker.active < s.hits.length) take(at, s.hits[D.picker.active], false);
+        else if (s.offerNew) take(at, clean(D.picker.text), true);
+      } else if (e.key === "Escape") { D.picker = { at: null, text: "", active: 0 }; renderFields(); }
+    });
+
+    $("#form").addEventListener("click", function (e) {
+      var t = e.target.closest ? e.target.closest("[data-sug],[data-new],[data-rm],[data-nrm],[data-srm],#addStmt,#reveal") : null;
+      if (!t) return;
+      if (t.hasAttribute("data-sug")) { take(D.picker.at, t.getAttribute("data-sug"), false); return; }
+      if (t.hasAttribute("data-new")) { take(D.picker.at, t.getAttribute("data-new"), true); return; }
+      if (t.hasAttribute("data-rm")) { D.parents.splice(+t.getAttribute("data-rm"), 1); render(); return; }
+      if (t.hasAttribute("data-nrm")) {
+        var ij = t.getAttribute("data-nrm").split(".");
+        D.parents[+ij[0]].parents.splice(+ij[1], 1);
+        render(); return;
+      }
+      if (t.hasAttribute("data-srm")) { D.stmts.splice(+t.getAttribute("data-srm"), 1); render(); return; }
+      if (t.id === "addStmt") { D.stmts.push({ p: "rdfs:seeAlso", v: "" }); render(); return; }
+      if (t.id === "reveal") {
+        toast("Find opens the existing class.", "Opening a duplicate reveals its actual result page rather than refusing the name.");
+      }
+    });
+
+    $("#aCreate").addEventListener("click", function () {
+      var drafts = D.parents.filter(function (p) { return p.draft; });
+      var n = clean(D.name);
+      STORE.push(n);
+      OCCUPIED[BASE + local(n)] = "a class";
+      drafts.forEach(function (p) {
+        STORE.push(p.name);
+        OCCUPIED[BASE + local(p.name)] = "a class";
+        p.draft = false;
+      });
+      D.created = true;
+      render();
+      toast("Created " + (drafts.length ? (drafts.length + 1) + " classes" : n) + " in one transaction.",
+        "The saved parents were reread, the new class is selected in Hierarchy, and one Undo removes all of it.");
+    });
+
+    $("#aFind").addEventListener("click", function () {
+      toast("Find opens with " + (clean(D.name) || "the draft name") + ".",
+        "The draft stays here, so you can check for an existing class and come back to it.");
+    });
+
+    $("#aClear").addEventListener("click", function () {
+      D.name = ""; D.comment = ""; D.parents = []; D.stmts = [{ p: "skos:altLabel", v: "" }];
+      D.context = "nothing, this is a blank form"; D.created = false;
+      render();
+      toast("Draft discarded.", "View, Add entity reopens a blank form without needing selected text.");
+    });
+
+    $("#aMore").addEventListener("click", function () {
+      if (_menu) { closeMenu(true); return; }
+      var items = bar.collapsed().map(function (id) {
+        return { l: document.getElementById(id).textContent, act: id };
+      });
+      if (items.length) items.push({ sep: 1 });
+      EXAMPLES.forEach(function (x) {
+        items.push({ l: "Title case " + x, act: "tc:" + x });
+      });
+      items.push({ sep: 1 });
+      items.push({ l: "Copy the planned source", act: "copy" });
+      openMenu(this, items, function (it) {
+        if (it.act.indexOf("tc:") === 0) {
+          var raw = it.act.slice(3);
+          D.context = raw;
+          D.name = titleCase(raw);
+          D.created = false;
+          render();
+          toast(raw, "becomes " + D.name);
+        } else if (it.act === "copy") {
+          toast("The planned source is on the clipboard.", "It includes every parent that does not exist yet.");
+        } else { var el = document.getElementById(it.act); el.hidden = false; el.focus(); }
+      });
+    });
+
+    grips();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

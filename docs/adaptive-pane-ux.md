@@ -68,7 +68,7 @@ The 28-pixel action row holds the subject, search field, Search, Refresh and Mor
 
 ## Coverage across the current views
 
-App.tsx declares eighteen dockable component types. The per-view policies below cover fifteen of them; Error log, Tab history and Text Entities also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
+App.tsx declares eighteen dockable component types. The per-view policies below cover sixteen of them; Error log and Tab history also inherit the shared measurement. Nested tools inherit the same rules, even when they are not independently dockable.
 
 | View | Expanded | Narrow | Shallow | Preserve |
 | --- | --- | --- | --- | --- |
@@ -81,6 +81,7 @@ App.tsx declares eighteen dockable component types. The per-view policies below 
 | Individuals | Column chooser, class scope and grid | Class and creation controls withdraw; grid scrolls horizontally | Status line withdraws; toolbar and grid remain | Per-class column visibility, order and widths; sort, filter, page, selection and scroll |
 | Query (#88) | Editor with a 320 px composer on its right from 860 px wide, at every usable height | Editor alone; Compose query temporarily gives the body to Describe and can be reversed | Line numbers withdraw; the action row and footer remain | Text, Undo, cursor, document identity, Fields values, retained proposals and active generation |
 | Query results (#88) | Shared row, execution context, sortable grid and footer | The context line keeps only the executed query; actions overflow by measurement | Row, context line and grid remain | Executed query, run attribution, retained rows, column choices and sort |
+| Add entity (#93) | One action row; the form; the planned source beside it from 860 wide | Labels narrow to 70 px; Discard draft, then Find existing, overflow by measurement; no source column | No source column; the form and its row remain | Name, kind, parents, nested drafts, comment, statements, validation and picker text |
 | Source | Editor with format and edit actions | Same editor; compact controls | Action/status row above editor | Exact source, draft, cursor and validation |
 | Filesystem provenance | Folder/options and collection details | Choose, Collect/Cancel and progress; options disclosed | Folder/action row above progress or evidence | Root, coverage limits, errors and status |
 | Graph | Graph and existing interaction model | Same graph; smaller drawing area | Same graph; smaller drawing area | Camera, layout, budget, pins and selection |

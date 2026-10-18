@@ -14,6 +14,8 @@ import type {
 import type { FindCreationDraft } from "../shared/find-create";
 
 export interface TextEntityClassDraft {
+  // craigtrim/axiom#93: each nested row retains its picker through remounts.
+  pickerText?: string;
   label: string;
   comment: string;
   parents: ({ iri: string } | { create: TextEntityClassDraft })[];
@@ -25,6 +27,11 @@ export interface TextEntityClassDraft {
   findDraft?: FindCreationDraft;
 }
 export interface TextEntityDraft {
+  kind?: "class" | "individual";
+  origin?: "selection" | "find" | "blank";
+  phrase?: string;
+  created?: string[];
+  error?: string;
   frames: { value: TextEntityClassDraft; editIndex?: number }[];
 }
 export interface TextEntityCreated {
@@ -43,6 +50,7 @@ export interface TextAnalysisSessionState {
   notice?: { id: number; tail: string; expiresAt: number };
   details?: { entity: TextEntity; result: TextAnalysisResult };
   creation?: {
+    id: number;
     phrase: string;
     datasetEpoch: number;
     draft?: TextEntityDraft;
@@ -63,6 +71,7 @@ export class TextAnalysisSession {
   private listeners = new Set<() => void>();
   private live: LiveAnalysis;
   private disposed = false;
+  private creationId = 0;
   private draftText?: () => string;
   constructor(
     parse: (input: TextAnalysisInput) => Promise<TextAnalysisResult>,
@@ -115,8 +124,6 @@ export class TextAnalysisSession {
       editing: true,
       mode: "summary",
       details: undefined,
-      creation: undefined,
-      created: undefined,
     };
     this.live.invalidate();
   }
@@ -150,7 +157,9 @@ export class TextAnalysisSession {
       analysis: pendingAnalysis(this.value.analysis, input),
       details: undefined,
       mode: replace ? "summary" : this.value.mode,
-      ...(replace ? { creation: undefined, created: undefined } : {}),
+      ...(old.datasetEpoch !== input.datasetEpoch
+        ? { creation: undefined, created: undefined }
+        : {}),
     });
     this.live.update(input, {
       schedule: this.value.liveAnalysis,
@@ -192,6 +201,7 @@ export class TextAnalysisSession {
     this.publish({
       mode: "add",
       creation: {
+        id: ++this.creationId,
         phrase: phrase.trim(),
         datasetEpoch: this.value.input.datasetEpoch,
         context: selectionContext(this.value.input.text, phrase.trim(), start),
@@ -207,6 +217,19 @@ export class TextAnalysisSession {
     if (previous === draft) return;
     this.publish({ creation: { ...creation, draft } });
   };
+  restoreCreation(phrase: string, draft: TextEntityDraft) {
+    this.publish({
+      mode: "add",
+      creation: {
+        id: ++this.creationId,
+        phrase,
+        draft,
+        datasetEpoch: this.value.input.datasetEpoch,
+      },
+      details: undefined,
+      created: undefined,
+    });
+  }
   openDraft(draft: TextEntityClassDraft, parentLabel?: string) {
     const frames = [{ value: draft }];
     if (parentLabel)
@@ -224,6 +247,7 @@ export class TextAnalysisSession {
       details: undefined,
       created: undefined,
       creation: {
+        id: ++this.creationId,
         phrase: draft.label,
         datasetEpoch: this.value.input.datasetEpoch,
         draft: { frames },

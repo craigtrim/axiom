@@ -13,6 +13,10 @@ import {
   setEntitySourceDraft,
 } from "./entity-source-draft";
 import { state, request, onCommand, report } from "./client";
+import {
+  captureAddEntityDraft,
+  restoreAddEntityDraft,
+} from "./text-analysis-state";
 let restoring: Promise<void> | undefined;
 export function restoreWorkspaceDrafts() {
   restoring = (async () => {
@@ -21,6 +25,8 @@ export function restoreWorkspaceDrafts() {
       await request<import("../shared/protocol").Snapshot>("state");
     syncEditorEpoch(current.datasetEpoch);
     if (!saved) return;
+    // craigtrim/axiom#93: rebase the retained form to this workspace's epoch.
+    if (saved.addEntity) restoreAddEntityDraft(saved.addEntity);
     const rebase = <T extends { version: number; datasetEpoch: number }>(
       loaded: T,
     ): T => ({
@@ -50,13 +56,16 @@ export async function captureWorkspaceDrafts(): Promise<
   const entities = editorDraftSnapshot(),
     source = sourceDraftSnapshot(),
     entitySources = entitySourceDraftSnapshot();
-  if (!entities.length && !source && !entitySources.length) return undefined;
+  const addEntity = captureAddEntityDraft();
+  if (!entities.length && !source && !entitySources.length && !addEntity)
+    return undefined;
   return {
     version: 1,
     storeVersion: state!.version,
     entities,
     source,
     entitySources,
+    addEntity,
   };
 }
 onCommand((id) => {

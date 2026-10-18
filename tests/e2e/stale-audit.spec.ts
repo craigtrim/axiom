@@ -84,6 +84,15 @@ test("stale Find previews preserve errors, disk records and the rail badge while
   await expect(badge()).toHaveCount(0);
   expect(await readdir(path.join(profile, "error-logs"))).toEqual([]);
 
+  // craigtrim/axiom#93: Add entity also preserves the local quiet-stale contract.
+  for (const method of ["addEntityCheck", "addEntityCreate"])
+    expect(await errorFrom(method, revision)).toBe(
+      "The ontology changed. Review the draft before creating it.",
+    );
+  expect(await records()).toEqual(before);
+  await expect(badge()).toHaveCount(0);
+  expect(await readdir(path.join(profile, "error-logs"))).toEqual([]);
+
   const current = await state();
   expect(
     await errorFrom("findCreatePreview", {
@@ -122,11 +131,13 @@ test("stale Find previews preserve errors, disk records and the rail badge while
   await expect(badge()).toHaveText("1");
 });
 
-test("all 16 specified guards preserve messages and mark stale worker replies", async () => {
+test("stale worker guards preserve messages and mark replies", async () => {
   const cases: [DomainMethod, Record<string, unknown>, string][] = [
     ["updateEntity", {}, "Reload this editor before saving."],
     ["findCreatePreview", {}, "Review the draft before adding it."],
     ["findCreate", {}, "Review the draft before adding it."],
+    ["addEntityCheck", {}, "Review the draft before creating it."],
+    ["addEntityCreate", {}, "Review the draft before creating it."],
     ["textAnalysisDraft", {}, "Refresh the selected phrase before adding it."],
     [
       "textAnalysisCreatePreview",
