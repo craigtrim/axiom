@@ -1,0 +1,352 @@
+/* craigtrim/axiom#90: Sparsity uses the shared palette and reference geometry. */
+.sparsity-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+}
+@scope (.sparsity-surface) {
+  :scope :is(button, input, select) {
+    min-height: 0;
+  }
+  :scope .fld {
+    width: auto;
+    height: 22px;
+    min-width: 0;
+    padding: 0 var(--sp-2);
+    border: 1px solid var(--border-ctl);
+    border-radius: var(--r-ctl);
+    background: var(--ground);
+    color: var(--text);
+    font: 12px var(--font);
+  }
+  :scope .sel {
+    height: 22px;
+    max-width: 200px;
+    padding: 0 var(--sp-1);
+    border: 1px solid var(--border-ctl);
+    border-radius: var(--r-ctl);
+    background: var(--ground);
+    color: var(--text);
+    font: 12px var(--font);
+  }
+  .bar .state {
+    flex-shrink: 1;
+  }
+  .bar .state.shared-command {
+    flex: none;
+  }
+  .number-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .number-field-error {
+    font-size: 11px;
+    color: var(--bad);
+    white-space: nowrap;
+  }
+  .number-field-error:empty {
+    display: none;
+  }
+  .band,
+  .fin {
+    border-radius: 0;
+  }
+  :scope :is(.band, .fin):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+    border-radius: var(--r-ctl);
+  }
+  .rail:has([aria-invalid="true"]) > .hint {
+    display: none;
+  }
+  .problem {
+    margin: 0;
+    padding: 8px 12px;
+    color: var(--bad);
+    font-size: 12px;
+  }
+  .setup {
+    display: grid;
+    grid-template-rows: repeat(4, 32px) 36px;
+    align-content: start;
+    border-bottom: 1px solid var(--border);
+  }
+  .srow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding-inline: var(--sp-3);
+    min-width: 0;
+  }
+  .srow > .lbl {
+    flex: none;
+    width: 104px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .srow > .rail {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    padding-inline-end: var(--sp-4);
+    scroll-padding-inline: var(--sp-2);
+  }
+  .srow > .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .srow > .rail > * {
+    flex: none;
+    scroll-snap-align: start;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .actline {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding-inline: var(--sp-3);
+  }
+  .limits {
+    padding: var(--sp-2) var(--sp-3);
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 74ch;
+  }
+  .limits b {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* findings, grouped by the sibling group that produced the comparison */
+  .band {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: 0 var(--sp-3);
+    height: var(--row);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    text-align: start;
+    cursor: pointer;
+  }
+  .band:hover {
+    background: var(--chrome-hover);
+  }
+  :scope .band:is(:hover, :active):not(:disabled) {
+    background: var(--chrome-hover);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .band .caret {
+    width: 10px;
+    flex: none;
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+  .band .bn {
+    margin-inline-start: auto;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fin {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: 0 var(--sp-3) 0 var(--sp-5);
+    height: var(--row);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    text-align: start;
+    cursor: pointer;
+  }
+  .fin:hover {
+    background: var(--row-hover);
+  }
+  :scope .fin:is(:hover, :active):not(:disabled) {
+    background: var(--row-hover);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .fin[aria-pressed="true"] {
+    background: var(--row-selected);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  :scope .fin[aria-pressed="true"]:is(:hover, :active):not(:disabled) {
+    background: var(--row-selected);
+  }
+  .fin .nm {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fin .sc {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    width: 108px;
+    text-align: end;
+  }
+  .fin .ct {
+    flex: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* the score bar is a second channel, never the only one */
+  .meter {
+    flex: none;
+    width: 56px;
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--sunken);
+    overflow: hidden;
+  }
+  .meter i {
+    display: block;
+    height: 100%;
+    background: var(--text-muted);
+  }
+  .meter.hot i {
+    background: var(--warn);
+  }
+
+  /* the sibling baseline the score was taken against, shown on selection */
+  .sibs {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+    background: var(--sunken);
+    display: grid;
+    gap: var(--sp-1);
+  }
+  .sibs .hd {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .sib {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 12px;
+  }
+  .sib .sn {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 320px;
+  }
+  .sib .sv {
+    flex: none;
+    width: 150px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+  }
+  .sib.me .sn,
+  .sib.me .sv {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .sib .bars {
+    flex: none;
+    width: 90px;
+    height: 8px;
+    background: var(--sunken);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .sib .bars i {
+    display: block;
+    height: 100%;
+    background: var(--border-ctl);
+  }
+  .sib.me .bars i {
+    background: var(--warn);
+  }
+  .sibs .mean {
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px dashed var(--border-ctl);
+    padding-top: var(--sp-1);
+  }
+
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  /* the layout lives on an inner element, never on .body itself: the shared
+   recovery rule hides .body, and an inline or own display would outrank it */
+  .stack {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+
+  .band {
+    white-space: nowrap;
+  }
+  .band > span:not([class]) {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fin {
+    white-space: nowrap;
+  }
+  .body {
+    min-height: 0;
+  }
+}
+.adaptive-pane[data-pane-narrow="true"] .sparsity-surface {
+  .srow > .lbl {
+    width: 72px;
+  }
+  .fin .meter,
+  .fin .ct,
+  .hint {
+    display: none;
+  }
+  .sib .sv {
+    width: 96px;
+  }
+}
+.adaptive-pane[data-pane-shallow="true"] .sparsity-surface .limits {
+  display: none;
+}
+.sparsity-recovery {
+  display: grid;
+  gap: var(--sp-2);
+}
+.adaptive-pane[data-pane-id="sparsity"] .sparsity-recovery .id {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sparsity-recovery .why {
+  font-size: 11px;
+  color: var(--text-muted);
+}

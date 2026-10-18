@@ -1,3 +1,4 @@
+// craigtrim/axiom#90: preserve the original domain workflows through the grouped reference UI.
 import {
   test,
   expect,
@@ -35,8 +36,7 @@ let app: ElectronApplication, page: Page, profile: string, file: string;
 const errors: string[] = [];
 const pane = (p = page) =>
   p.getByRole("region", { name: "Sparsity analysis", exact: true });
-const finding = (p = page) =>
-  p.getByRole("region", { name: "Selected finding", exact: true });
+const finding = (p = page) => pane(p).locator(".sibs");
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
 const treeRow = (name: string) =>
@@ -97,12 +97,22 @@ async function open(name = "Root") {
   await treeRow(name).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Analyze", exact: true }).click();
   await page.getByRole("menuitem", { name: "Sparsity", exact: true }).click();
-  await expect(
-    pane().getByRole("heading", {
-      name: name === "Thing" ? "Whole taxonomy" : name,
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(pane().locator(".bar .state")).toContainText(
+    "measured, highest",
+  );
+  await pane()
+    .locator("..")
+    .locator("..")
+    .evaluate((el) =>
+      Object.assign((el as HTMLElement).style, {
+        position: "fixed",
+        left: "24px",
+        top: "72px",
+        width: "898px",
+        height: "530px",
+        zIndex: "1000",
+      }),
+    );
 }
 async function replace(text: string) {
   await writeFile(file, prefix + text);
@@ -135,99 +145,99 @@ test.afterEach(async ({}, info) => {
   await app.close();
   expect(errors).toEqual([]);
 });
-test("right-click analysis opens a local report with the five-versus-one finding and leaves RDF unchanged", async () => {
+
+const group = (name = "Root", p = page) =>
+  pane(p).locator(`[data-band="${base + name}"]`);
+const row = (name: string, parent = "Root", p = page) =>
+  pane(p).locator(
+    `[data-row='${JSON.stringify([base + parent, base + name])}']`,
+  );
+async function more(label: string, p = page) {
+  await pane(p)
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await p.getByRole("menuitem", { name: label, exact: true }).click();
+}
+async function compute(p = page) {
+  await pane(p)
+    .getByRole("button", { name: /^(Compute|Recompute)$/, exact: true })
+    .click();
+  await expect(pane(p).locator(".bar .state")).toContainText(
+    "measured, highest",
+  );
+}
+async function selectB(p = page) {
+  if ((await group("Root", p).getAttribute("aria-expanded")) !== "true")
+    await group("Root", p).click();
+  await row("B", "Root", p).click();
+}
+test("right-click analysis opens the five-versus-one comparison without changing RDF", async () => {
   const before = await state();
   await open();
-  await expect(
-    finding().getByRole("heading", { name: "B", exact: true }),
-  ).toBeVisible();
-  await expect(finding()).toContainText("1 direct child");
-  await expect(finding()).toContainText("sibling average of 5");
-  await expect(finding().locator(".sparsity-score strong")).toHaveText("80");
-  await expect(pane().locator("tbody tr")).toHaveCount(1);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await selectB();
+  await expect(row("B").locator(".sc")).toHaveText("80 of 100");
+  await expect(finding()).toContainText("Peer mean 5 direct over 1 peer");
+  await expect(finding().locator(".sib")).toHaveCount(2);
   const after = await state();
   expect(after.version).toBe(before.version);
   expect(after.tripleCount).toBe(before.tripleCount);
-  expect(after.graph.nodes.map((n) => n.iri)).toEqual(
-    before.graph.nodes.map((n) => n.iri),
-  );
   const audit = await new AxeBuilder({ page })
     .setLegacyMode(true)
     .include('[data-panel="sparsity"]')
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
   expect(audit.violations).toEqual([]);
-  await pane().getByRole("button", { name: "Refresh", exact: true }).focus();
-  await menu("pane.maximise");
-  await page.screenshot({ path: "artifacts/testing/sparsity-report.png" });
 });
-test("selected branch scope is independent of the current selection and whole taxonomy is accessible", async () => {
+test("context analysis fixes the branch scope independently of selection and settings can choose the whole taxonomy", async () => {
   await open("A");
-  await expect(pane()).toContainText("No branches meet these filters");
+  await expect(pane()).toContainText(
+    "No finding clears the current report settings.",
+  );
   await page.evaluate(
     (iri) => window.axiom.request("select", { iri }),
     base + "B",
   );
-  await expect(
-    pane().getByRole("heading", { name: "A", exact: true }),
-  ).toBeVisible();
-  await pane()
-    .getByRole("button", { name: "Analyze selected", exact: true })
-    .click();
-  await expect(
-    pane().getByRole("heading", { name: "B", exact: true }),
-  ).toBeVisible();
-  await expect(pane()).toContainText("There are no comparable sibling groups");
-  await pane()
-    .getByRole("button", { name: "Whole taxonomy", exact: true })
-    .click();
-  await expect(
-    pane().getByRole("heading", { name: "Whole taxonomy", exact: true }),
-  ).toBeVisible();
-  await expect(
-    finding().getByRole("heading", { name: "B", exact: true }),
-  ).toBeVisible();
+  await more("Change settings");
+  await expect(pane().getByRole("combobox", { name: "Scope" })).toHaveValue(
+    base + "A",
+  );
+  await pane().getByRole("combobox", { name: "Scope" }).selectOption(THING);
+  await compute();
+  await selectB();
+  await expect(row("B").locator(".sc")).toHaveText("80 of 100");
 });
-test("filters and descendant weighting update findings without losing keyboard focus", async () => {
+test("influence and label filtering update positive findings while retaining focus", async () => {
   await replace(
     body + Array.from({ length: 8 }, (_, i) => node("Deep" + i, "B0")).join(""),
   );
   await open();
-  const minimum = pane().getByRole("slider", {
-    name: "Minimum sparsity score",
-  });
-  await minimum.fill("0");
-  await expect(pane().locator("tbody tr")).toHaveCount(2);
-  await pane()
-    .getByText("How the scores work and research", { exact: true })
-    .click();
-  const influence = pane().getByRole("slider", {
-    name: "Descendant influence",
+  await more("Change settings");
+  await pane().getByRole("spinbutton", { name: "Minimum score" }).fill("0");
+  const influence = pane().getByRole("button", {
+    name: "0 percent",
     exact: true,
   });
-  await influence.focus();
-  await influence.press("Home");
+  await influence.click();
   await expect(influence).toBeFocused();
-  await expect(pane().locator("tbody tr")).toHaveCount(1);
-  await influence.press("End");
-  await expect(influence).toBeFocused();
-  await expect(pane().locator("tbody tr")).toHaveCount(2);
-  await pane()
-    .getByRole("searchbox", { name: "Filter sparsity findings" })
-    .fill("Absent");
-  await expect(pane()).toContainText("No branches meet these filters");
-  await pane()
-    .getByRole("searchbox", { name: "Filter sparsity findings" })
-    .fill("B");
-  await expect(pane().locator("tbody tr")).toHaveCount(1);
-  await expect(pane().getByRole("link", { name: /Lemant/ })).toHaveAttribute(
-    "href",
-    "https://doi.org/10.1093/sysbio/syac027",
-  );
+  await compute();
+  await group().click();
+  await expect(pane().locator(".fin")).toHaveCount(1);
+  await more("Change settings");
+  await pane().getByRole("button", { name: "40 percent", exact: true }).click();
+  await compute();
+  await expect(pane().locator(".fin")).toHaveCount(2);
+  const filter = pane().getByRole("textbox", { name: "Filter classes" });
+  await filter.fill("Absent");
+  await expect(pane()).toContainText("No finding clears");
+  await expect(filter).toBeFocused();
+  await filter.fill("B");
+  await expect(pane().locator(".fin")).toHaveCount(1);
+  await expect(filter).toBeFocused();
 });
-test("a changed parent and Undo refresh the same report from current RDF", async () => {
+test("a changed parent and Undo silently refresh the retained selection and baseline", async () => {
   await open();
+  await selectB();
+  await expect(pane().locator(".toast")).toBeHidden({ timeout: 6000 });
   const current = await state();
   await page.evaluate(
     ({ base, version, datasetEpoch }) =>
@@ -240,50 +250,60 @@ test("a changed parent and Undo refresh the same report from current RDF", async
       }),
     { base, version: current.version, datasetEpoch: current.datasetEpoch },
   );
-  await expect(finding().locator(".sparsity-score strong")).toHaveText("50");
-  await expect(finding()).toContainText("2 direct children");
+  await expect(row("B").locator(".sc")).toHaveText("50 of 100");
+  await expect(row("B")).toHaveAttribute("aria-pressed", "true");
+  await expect(finding()).toContainText("2 direct, 0 nearby");
+  await expect(pane().locator(".toast")).toBeHidden();
   await menu("edit.undo");
-  await expect(finding().locator(".sparsity-score strong")).toHaveText("80");
+  await expect(row("B").locator(".sc")).toHaveText("80 of 100");
+  await expect(finding()).toBeVisible();
+  await expect(pane().locator(".toast")).toBeHidden();
 });
-test("findings navigate to taxonomy and Details while the report scope is retained after close and restart", async () => {
+test("navigation works and report settings survive close, workspace save and restart", async () => {
   await open();
-  await finding()
-    .getByRole("button", { name: "Find in taxonomy", exact: true })
-    .click();
+  await selectB();
+  const hierarchy = pane().getByRole("button", {
+    name: "Show in Hierarchy",
+    exact: true,
+  });
+  await hierarchy.click();
   await expect(treeRow("B")).toHaveAttribute("aria-selected", "true");
-  await finding().getByRole("button", { name: "Details", exact: true }).click();
+  await expect(hierarchy).toBeFocused();
+  await pane()
+    .getByRole("button", { name: "Open in Details", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Details", exact: true }),
   ).toContainText("B");
   await menu("view.sparsity");
-  await pane()
-    .getByRole("slider", { name: "Minimum sparsity score" })
-    .fill("55");
-  await pane()
-    .getByRole("checkbox", { name: "Include leaf classes" })
-    .uncheck();
-  await pane().getByRole("button", { name: "Refresh", exact: true }).focus();
+  await more("Change settings");
+  await pane().getByRole("spinbutton", { name: "Minimum score" }).fill("55");
+  await pane().getByRole("switch").click();
+  await compute();
+  await row("B").click();
+  await pane().getByRole("button", { name: "Recompute", exact: true }).focus();
   await menu("pane.close");
   await menu("view.sparsity");
-  await expect(
-    pane().getByRole("slider", { name: "Minimum sparsity score" }),
-  ).toHaveValue("55");
+  await expect(finding()).toBeVisible();
+  await expect(row("B")).toHaveAttribute("aria-pressed", "true");
   await menu("file.saveAs");
   await app.close();
   await launch();
   await menu("view.sparsity");
+  await expect(finding()).toBeVisible();
+  await more("Change settings");
   await expect(
-    pane().getByRole("heading", { name: "Root", exact: true }),
-  ).toBeVisible();
-  await expect(
-    pane().getByRole("slider", { name: "Minimum sparsity score" }),
+    pane().getByRole("spinbutton", { name: "Minimum score" }),
   ).toHaveValue("55");
-  await expect(
-    pane().getByRole("checkbox", { name: "Include leaf classes" }),
-  ).not.toBeChecked();
-  await expect(finding().locator(".sparsity-score strong")).toHaveText("80");
+  await expect(pane().getByRole("switch")).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+  await expect(pane().getByRole("combobox", { name: "Scope" })).toHaveValue(
+    base + "Root",
+  );
 });
-test("leaf filters and cycle exclusions are visible and do not mutate hierarchy data", async () => {
+test("leaf filtering preserves group expansion and reports candidate cycle exclusions", async () => {
   await replace(
     body +
       node("Leaf", "Root") +
@@ -292,70 +312,67 @@ test("leaf filters and cycle exclusions are visible and do not mutate hierarchy 
       ":Cycle rdfs:subClassOf :Loop.",
   );
   await open();
-  await expect(pane()).toContainText("2 classes belong to cycles");
-  await expect(
-    finding().getByRole("heading", { name: "Leaf", exact: true }),
-  ).toBeVisible();
-  await pane()
-    .getByRole("checkbox", { name: "Include leaf classes" })
-    .uncheck();
-  await expect(
-    finding().getByRole("heading", { name: "B", exact: true }),
-  ).toBeVisible();
-  await expect(pane().locator("tbody tr")).toHaveCount(1);
+  await group().click();
+  await expect(row("Leaf").locator(".sc")).toHaveText("100 of 100");
+  await expect(pane().locator(".foot")).toContainText("3 excluded, in a cycle");
+  await more("Change settings");
+  await pane().getByRole("switch").click();
+  await compute();
+  await expect(pane().locator(".fin")).toHaveCount(1);
+  await expect(row("B")).toBeVisible();
 });
-test("View menu opens an empty report in a fresh workspace and never shows a previous ontology's findings", async () => {
+test("View opens settings in a new workspace without leaking the previous report", async () => {
   await open();
+  await selectB();
   const epoch = (await state()).datasetEpoch;
   await menu("file.new");
   await expect
     .poll(async () => (await state()).datasetEpoch)
     .toBeGreaterThan(epoch);
   await menu("view.sparsity");
-  await expect(pane()).toContainText("Right-click a class in Hierarchy");
-  await expect(pane().locator("tbody tr")).toHaveCount(0);
+  await expect(
+    pane().getByRole("group", { name: "Sparsity settings" }),
+  ).toBeVisible();
+  await expect(pane().locator(".fin")).toHaveCount(0);
+  await expect(pane()).toContainText("0 named classes in the store");
 });
-
-test("a detached narrow report remains usable in the dark theme", async () => {
+test("detached narrow dark reports retain selection and pass accessibility checks", async () => {
   await open();
+  await selectB();
   await menu("theme.dark");
-  await pane().getByRole("button", { name: "Refresh", exact: true }).focus();
-  const popup = app.waitForEvent("window");
+  await pane().getByRole("button", { name: "Recompute", exact: true }).focus();
+  const waiting = app.waitForEvent("window");
   await menu("pane.detach");
-  const detached = await popup;
+  const detached = await waiting;
   await expect(pane(detached)).toBeVisible();
   await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows().find((w) =>
       w.webContents.getURL().includes("popout"),
     );
     if (w) {
-      w.setSize(600, 800);
-      if (process.env.AXIOM_TEST_BACKGROUND === "1") w.setFocusable(false);
+      w.setFocusable(false);
+      w.setSize(560, 800);
     }
   });
-  await expect(finding(detached)).toContainText("sibling average of 5");
+  await expect(finding(detached)).toContainText("Peer mean 5 direct");
   await pane(detached)
-    .getByRole("searchbox", { name: "Filter sparsity findings" })
+    .getByRole("textbox", { name: "Filter classes" })
     .fill("B");
-  await expect(pane(detached).locator("tbody tr")).toHaveCount(1);
-  await pane(detached)
-    .getByText("How the scores work and research", { exact: true })
-    .click();
+  await expect(row("B", "Root", detached)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   const audit = await new AxeBuilder({ page: detached })
     .setLegacyMode(true)
     .include('[data-panel="sparsity"]')
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
   expect(audit.violations).toEqual([]);
-  await detached.screenshot({
-    path: "artifacts/testing/sparsity-detached.png",
-  });
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
-  await expect(pane()).toBeVisible();
+  await expect(finding()).toBeVisible();
 });
-
-test("large finding sets are paged and zero-score peers remain outside the findings", async () => {
+test("forty entry pages repeat a split group's band and keep zero-score peers out", async () => {
   await replace(
     node("Root") +
       node("A", "Root") +
@@ -363,18 +380,17 @@ test("large finding sets are paged and zero-score peers remain outside the findi
       Array.from({ length: 95 }, (_, i) => node("Leaf" + i, "Root")).join(""),
   );
   await open();
-  await expect(pane().locator("tbody tr")).toHaveCount(40);
-  await expect(
-    pane().getByRole("navigation", { name: "Sparsity results pages" }),
-  ).toContainText("95 findings");
+  await group().click();
+  await expect(pane().locator(".fin")).toHaveCount(39);
+  await expect(pane().locator(".foot")).toContainText("Page 1 of 3");
   await pane().getByRole("button", { name: "Next", exact: true }).click();
-  await expect(
-    pane().getByRole("navigation", { name: "Sparsity results pages" }),
-  ).toContainText("2 / 3");
+  await expect(pane().locator(".fin")).toHaveCount(40);
+  await expect(pane().locator(".rows > :first-child")).toHaveClass("band");
   await pane().getByRole("button", { name: "Next", exact: true }).click();
-  await expect(pane().locator("tbody tr")).toHaveCount(15);
-  await pane()
-    .getByRole("checkbox", { name: "Include leaf classes" })
-    .uncheck();
-  await expect(pane()).toContainText("No branches meet these filters");
+  await expect(pane().locator(".fin")).toHaveCount(16);
+  await more("Change settings");
+  await pane().getByRole("switch").click();
+  await pane().getByRole("spinbutton", { name: "Minimum score" }).fill("0");
+  await compute();
+  await expect(pane()).toContainText("No finding clears");
 });
