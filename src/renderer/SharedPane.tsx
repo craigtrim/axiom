@@ -25,6 +25,11 @@ export interface SharedMenuAction {
   commandId?: string;
   /** Plain-letter activation, without splitting the visible label (#79). */
   accessKey?: string;
+  // craigtrim/axiom#88: structured history and persistent checkbox rows share menu behavior.
+  content?: ReactNode;
+  className?: string;
+  checkbox?: boolean;
+  keepOpen?: boolean;
 }
 export type SharedMenuItem = SharedMenuAction | { id: string; separator: true };
 const openMenus = new WeakMap<
@@ -39,6 +44,12 @@ export function SharedMenu({
   triggerContent,
   triggerClassName = "btn quiet iconbtn",
   hidden = false,
+  renderTrigger = true,
+  openKey = 0,
+  onOpenChange,
+  menuClassName = "",
+  minWidth = 190,
+  maxHeight,
 }: {
   items: readonly SharedMenuItem[];
   trigger: RefObject<HTMLButtonElement | null>;
@@ -47,6 +58,12 @@ export function SharedMenu({
   triggerContent?: ReactNode;
   triggerClassName?: string;
   hidden?: boolean;
+  renderTrigger?: boolean;
+  openKey?: number;
+  onOpenChange?: (open: boolean) => void;
+  menuClassName?: string;
+  minWidth?: number;
+  maxHeight?: number;
 }) {
   const id = useId();
   const menu = useRef<HTMLDivElement>(null);
@@ -65,15 +82,27 @@ export function SharedMenu({
       owner = trigger.current;
     if (!popup || !owner) return;
     const win = owner.ownerDocument.defaultView!;
-    const scale = owner.getBoundingClientRect().width / owner.offsetWidth || 1;
+    // craigtrim/axiom#88: offsetWidth rounds fractional buttons and invents zoom.
+    const style = win.getComputedStyle(owner);
+    const width =
+      parseFloat(style.width) +
+      (style.boxSizing === "border-box"
+        ? 0
+        : parseFloat(style.paddingLeft) +
+          parseFloat(style.paddingRight) +
+          parseFloat(style.borderLeftWidth) +
+          parseFloat(style.borderRightWidth));
+    const scale =
+      Math.round((owner.getBoundingClientRect().width / width) * 10000) /
+        10000 || 1;
     const box = owner.getBoundingClientRect();
     const vw = win.innerWidth / scale,
       vh = win.innerHeight / scale;
     popup.style.maxWidth = `${Math.max(0, vw - 8)}px`;
-    popup.style.minWidth = `${Math.min(190, Math.max(0, vw - 8))}px`;
-    popup.style.maxHeight = `${Math.max(0, vh - 8)}px`;
-    const w = popup.getBoundingClientRect().width / scale;
-    const h = popup.getBoundingClientRect().height / scale;
+    popup.style.minWidth = `${Math.min(minWidth, Math.max(0, vw - 8))}px`;
+    popup.style.maxHeight = `${Math.min(maxHeight ?? Infinity, Math.max(0, vh - 8))}px`;
+    const w = Math.round(popup.getBoundingClientRect().width / scale);
+    const h = Math.round(popup.getBoundingClientRect().height / scale);
     popup.style.left = `${Math.max(4, Math.min(box.right / scale - w, vw - w - 4))}px`;
     popup.style.top = `${
       box.bottom / scale + 2 + h <= vh - 4
@@ -98,10 +127,16 @@ export function SharedMenu({
     setOpen(true);
     (
       popup.querySelector<HTMLElement>(
-        '[role="menuitem"]:not([aria-disabled="true"])',
+        '[role^="menuitem"]:not([aria-disabled="true"])',
       ) ?? popup
     ).focus();
   };
+  useLayoutEffect(() => {
+    if (openKey) show();
+  }, [openKey]);
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
   useLayoutEffect(() => {
     if (recovery || hidden) close();
     else if (menu.current?.matches(":popover-open")) position();
@@ -128,52 +163,56 @@ export function SharedMenu({
   }, [open]);
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className={triggerClassName}
-        hidden={hidden}
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-controls={id}
-        aria-expanded={open}
-        onClick={show}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            show();
-          }
-        }}
-      >
-        {triggerContent ?? (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            aria-hidden="true"
-            focusable="false"
-          >
-            {[5, 12, 19].map((cx) => (
-              <circle
-                key={cx}
-                cx={cx}
-                cy="12"
-                r="1.3"
-                fill="currentColor"
-                stroke="none"
-              />
-            ))}
-          </svg>
-        )}
-      </button>
+      {renderTrigger && (
+        <button
+          ref={trigger}
+          type="button"
+          className={triggerClassName}
+          hidden={hidden}
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-controls={id}
+          aria-expanded={open}
+          onClick={show}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              show();
+            }
+          }}
+        >
+          {triggerContent ?? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              {[5, 12, 19].map((cx) => (
+                <circle
+                  key={cx}
+                  cx={cx}
+                  cy="12"
+                  r="1.3"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              ))}
+            </svg>
+          )}
+        </button>
+      )}
       {/* Issue 85 scopes menu tokens without changing the owner's typography. */}
       <span className="shared-layer" style={{ display: "contents" }}>
         <div
           ref={menu}
           id={id}
           popover="manual"
-          className="menu"
+          className={"menu " + menuClassName}
           role="menu"
           aria-label={label}
           tabIndex={-1}
@@ -181,7 +220,9 @@ export function SharedMenu({
           onKeyDown={(event) => {
             const popup = menu.current!;
             const buttons = [
-              ...popup.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+              ...popup.querySelectorAll<HTMLButtonElement>(
+                '[role^="menuitem"]',
+              ),
             ];
             const index = buttons.indexOf(
               popup.ownerDocument.activeElement as HTMLButtonElement,
@@ -220,7 +261,7 @@ export function SharedMenu({
                 event.preventDefault();
                 event.stopPropagation();
                 if (!action.disabled) {
-                  close(true);
+                  if (!action.keepOpen) close(true);
                   action.run();
                 }
               }
@@ -234,7 +275,9 @@ export function SharedMenu({
               <button
                 key={item.id}
                 type="button"
-                role="menuitem"
+                role={item.checkbox ? "menuitemcheckbox" : "menuitem"}
+                aria-checked={item.checkbox ? !!item.checked : undefined}
+                className={item.className}
                 tabIndex={-1}
                 data-shared-overflow={item.commandId}
                 data-action={item.id}
@@ -245,13 +288,17 @@ export function SharedMenu({
                 title={item.reason}
                 onClick={() => {
                   if (!item.disabled) {
-                    close(true);
+                    if (!item.keepOpen) close(true);
                     item.run();
                   }
                 }}
               >
-                {item.checked ? "✓ " : ""}
-                {item.label}
+                {item.content ?? (
+                  <>
+                    {item.checked ? "✓ " : ""}
+                    {item.label}
+                  </>
+                )}
                 {item.shortcut && <span className="k">{item.shortcut}</span>}
               </button>
             ),
@@ -277,6 +324,10 @@ export function SharedActionRow({
   stateKind,
   items = [],
   label = "Actions",
+  afterState,
+  moreRef,
+  leadingItems = [],
+  separateOverflow = false,
 }: {
   primary: ReactNode;
   commands?: readonly SharedCommand[];
@@ -285,9 +336,14 @@ export function SharedActionRow({
   stateKind?: "warnink" | "okink" | "badink";
   items?: readonly SharedMenuItem[];
   label?: string;
+  afterState?: ReactNode;
+  moreRef?: RefObject<HTMLButtonElement | null>;
+  leadingItems?: readonly SharedMenuItem[];
+  separateOverflow?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null),
-    more = useRef<HTMLButtonElement>(null);
+    ownMore = useRef<HTMLButtonElement>(null);
+  const more = moreRef ?? ownMore;
   const stateSlot = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (stateSlot.current)
@@ -317,6 +373,7 @@ export function SharedActionRow({
           <span data-natural-width>{state}</span>
         </span>
       )}
+      {afterState != null && <div data-fixed-action>{afterState}</div>}
       <span className="od-fill" />
       {commands.map((command) => (
         <div
@@ -330,7 +387,20 @@ export function SharedActionRow({
           {command.content}
         </div>
       ))}
-      <SharedMenu trigger={more} items={[...overflow, ...items]} />
+      <SharedMenu
+        trigger={more}
+        items={[
+          ...leadingItems,
+          ...overflow,
+          ...(separateOverflow &&
+          overflow.length &&
+          items.length &&
+          !("separator" in items[0])
+            ? [{ id: "overflow-separator", separator: true as const }]
+            : []),
+          ...items,
+        ]}
+      />
     </div>
   );
 }
