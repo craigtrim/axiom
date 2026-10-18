@@ -7,6 +7,7 @@ import {
   type TouchpointProvider,
   type TouchpointResponse,
   type TouchpointSelection,
+  type TouchpointSearchResult,
 } from "../shared/touchpoints";
 
 export class TouchpointService {
@@ -17,7 +18,7 @@ export class TouchpointService {
     private insert: (
       context: TouchpointContext,
       statements: Triple[],
-    ) => Promise<number>,
+    ) => Promise<{ count: number; context: TouchpointContext }>,
     private compare?: (query: string, texts: string[]) => Promise<number[]>,
   ) {}
   async search(input: {
@@ -37,6 +38,28 @@ export class TouchpointService {
       query: input.query,
       refresh: input.refresh === true,
     });
+    return this.remember(context, input.query, result);
+  }
+  // craigtrim/axiom#92: opening a pane never falls through to a network request.
+  async saved(input: { iri: string; query: string }) {
+    if (
+      !input ||
+      typeof input.iri !== "string" ||
+      typeof input.query !== "string"
+    )
+      throw Error("Choose an entity and enter a query.");
+    const context = await this.context(input.iri);
+    const result = await this.provider.readSaved?.({
+      entityIri: input.iri,
+      query: input.query,
+    });
+    return result ? this.remember(context, input.query, result) : undefined;
+  }
+  private async remember(
+    context: TouchpointContext,
+    query: string,
+    result: TouchpointSearchResult,
+  ) {
     let candidates = result.candidates;
     let ranking: "model" | "wikipedia" = "wikipedia";
     if (this.compare && candidates.length) {
@@ -55,9 +78,9 @@ export class TouchpointService {
         ) {
           ranking = "model";
           candidates = candidates
-            .map((c, i) => ({ c, score: scores[i] }))
+            .map((c, i) => ({ c, score: Math.max(-1, Math.min(1, scores[i])) }))
             .sort((a, b) => b.score - a.score || a.c.rank - b.c.rank)
-            .map((r) => r.c);
+            .map((r) => ({ ...r.c, similarity: r.score }));
         }
       } catch {
         /* Missing or unavailable local inference preserves provider order. */
@@ -68,7 +91,7 @@ export class TouchpointService {
       ranking,
       candidates,
       context,
-      query: input.query,
+      query,
       token: randomUUID(),
     };
     this.responses.set(response.token, response);
@@ -111,21 +134,23 @@ export class TouchpointService {
       const object = touchpointObject(candidate, selection.object);
       if (!object) throw Error("This page has no Wikidata item.");
       if (
-        current.links.some((link) =>
-          [candidate.iri, candidate.url, candidate.wikidataIri].includes(
-            link.iri,
-          ),
+        current.links.some(
+          (link) =>
+            !link.literal &&
+            link.predicate === selection.predicate &&
+            link.iri === object,
         )
       )
-        throw Error("This entity already links to the selected page.");
+        throw Error(`${candidate.label} already has that statement.`);
       return {
         subject: current.iri,
         predicate: selection.predicate,
         object: { literal: false, value: object },
       };
     });
-    const count = await this.insert(response.context, statements);
-    this.responses.delete(token);
-    return count;
+    const applied = await this.insert(response.context, statements);
+    // The worker captures this context in the mutation, before another queued edit.
+    response.context = applied.context;
+    return applied.count;
   }
 }

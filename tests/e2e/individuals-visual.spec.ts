@@ -887,44 +887,5 @@ for (const theme of ["light", "dark"] as const) {
     await specimen.mouse.up();
   });
   // craigtrim/axiom#89: Inspector compares against its own pinned reference.
-  test(`Touchpoints reference ${theme}`, async () => {
-    test.setTimeout(180000);
-    await launch(
-      theme,
-      path.resolve("tests/fixtures/individuals-visual/eleven.ttl"),
-    );
-    await main.evaluate(
-      (iri) => window.axiom.request("select", { iri }),
-      base + "Q736674",
-    );
-    const id = "touchpoints:" + encodeURIComponent(base + "Q736674");
-    await detach(id, ".fld");
-    await pane().getByRole("button", { name: "Search", exact: true }).click();
-    await expect(pane().locator(".cand")).toHaveCount(4);
-    await pane()
-      .getByRole("checkbox", {
-        name: "Select University of Colorado",
-        exact: true,
-      })
-      .check();
-    await pane()
-      .getByLabel("Relationship for University of Colorado", { exact: true })
-      .selectOption("http://www.w3.org/2004/02/skos/core#closeMatch");
-    const ref = specimen.locator('section[aria-label="Touchpoints"]');
-    await ref
-      .locator(".state .word")
-      .evaluate(
-        (el, value) => (el.textContent = value),
-        await pane().locator(".state .word").innerText(),
-      );
-    for (const [shape, w, h] of shapes) {
-      await resize(ref, w, h, 33);
-      await compare(
-        `${theme}-touchpoints-${shape}`,
-        pane(),
-        ref,
-        "touchpoints",
-      );
-    }
-  });
+  // craigtrim/axiom#92: Touchpoints compares every shipping state in touchpoints-visual.spec.ts.
 }

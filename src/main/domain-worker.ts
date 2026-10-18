@@ -1157,6 +1157,16 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       );
       if (count)
         mutate("Added " + count + " touchpoints. Undo removes this batch.");
+      // craigtrim/axiom#92: capture the exact version produced by this batch.
+      if (a.returnContext === true)
+        return {
+          count,
+          context: touchpointContext(
+            store,
+            string(a, "iri", 10000),
+            datasetEpoch,
+          ),
+        };
       return count;
     }
     case "subclassSuggestions":

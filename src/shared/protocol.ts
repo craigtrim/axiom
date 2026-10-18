@@ -347,6 +347,12 @@ export interface AxiomBridge {
   assistants: { list(): Promise<import("./assistant").AssistantInfo[]> };
   external: { open(url: string): Promise<void> };
   touchpoints: {
+    // craigtrim/axiom#92: opening a pane can read disk without a search.
+    saved(input: {
+      iri: string;
+      query: string;
+    }): Promise<import("./touchpoints").TouchpointResponse | undefined>;
+    clear(iri: string): Promise<void>;
     search(input: {
       iri: string;
       query: string;

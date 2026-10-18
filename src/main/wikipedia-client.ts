@@ -1,5 +1,6 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { rm } from "node:fs/promises";
 import {
   atomicCacheFile,
   axiomCacheRoot,
@@ -143,6 +144,7 @@ interface Options {
   now?: () => number;
   wait?: (milliseconds: number) => Promise<void>;
   timeoutMs?: number;
+  changed?: (entityIri?: string) => void;
 }
 export class WikipediaClient implements TouchpointProvider {
   readonly id = "wikipedia";
@@ -153,6 +155,7 @@ export class WikipediaClient implements TouchpointProvider {
   private until = 0;
   private previousWait = 0;
   private generation = 0;
+  private subjectGenerations = new Map<string, number>();
   private writing: Promise<unknown> = Promise.resolve();
   constructor(private options: Options) {
     this.root = path.resolve(options.root ?? axiomCacheRoot());
@@ -176,6 +179,49 @@ export class WikipediaClient implements TouchpointProvider {
     ++this.generation;
     await this.writing;
     await clearCacheDirectory(this.root, "wikipedia");
+    this.options.changed?.();
+  }
+  // craigtrim/axiom#92: clearing one subject must not evict another subject's cache.
+  async clearSubject(entityIri: string) {
+    if (typeof entityIri !== "string" || !entityIri || entityIri.length > 10000)
+      throw Error("Choose an existing entity.");
+    this.subjectGenerations.set(
+      entityIri,
+      (this.subjectGenerations.get(entityIri) ?? 0) + 1,
+    );
+    await this.writing;
+    const parent = path.resolve(this.root, "wikipedia");
+    const target = path.resolve(parent, wikipediaEntityDirectory(entityIri));
+    if (path.dirname(target) !== parent)
+      throw Error("Invalid subject cache directory.");
+    await rm(target, { recursive: true, force: true });
+    this.options.changed?.(entityIri);
+  }
+  async readSaved(input: {
+    entityIri: string;
+    query: string;
+  }): Promise<TouchpointSearchResult | undefined> {
+    if (
+      !input ||
+      typeof input.entityIri !== "string" ||
+      !input.entityIri ||
+      input.entityIri.length > 10000 ||
+      typeof input.query !== "string" ||
+      !input.query.trim() ||
+      input.query.length > 500
+    )
+      throw Error(
+        "Enter a Wikipedia query of at most 500 characters for an existing entity.",
+      );
+    const entry = await this.cached(input.entityIri, input.query);
+    return entry
+      ? {
+          candidates: entry.result,
+          fetchedAt: entry.fetchedAt,
+          cached: true,
+          stale: false,
+        }
+      : undefined;
   }
   private async cached(
     entityIri: string,
@@ -252,6 +298,7 @@ export class WikipediaClient implements TouchpointProvider {
       : { candidates: [], cached: false, stale: false };
     if (entry && !input.refresh) return fallback;
     const generation = this.generation;
+    const subjectGeneration = this.subjectGenerations.get(input.entityIri) ?? 0;
     const operation = this.queue
       .catch(() => {})
       .then(async (): Promise<TouchpointSearchResult> => {
@@ -290,12 +337,14 @@ export class WikipediaClient implements TouchpointProvider {
             this.previousWait * 2,
             1,
           );
+          const firstWithoutRetryAfter = !header && this.previousWait === 0;
           this.previousWait = wait;
           this.until = this.now() + wait * 1000;
           return fail({
             kind: "rate-limit",
             message: `Wikipedia asked Axiom to wait ${wait} seconds.`,
             waitSeconds: wait,
+            firstWithoutRetryAfter,
             retryAt: new Date(this.until).toISOString(),
             status: 429,
           });
@@ -352,7 +401,11 @@ export class WikipediaClient implements TouchpointProvider {
           }
           this.previousWait = 0;
           const fetchedAt = new Date(this.now()).toISOString();
-          if (generation === this.generation) {
+          if (
+            generation === this.generation &&
+            subjectGeneration ===
+              (this.subjectGenerations.get(input.entityIri) ?? 0)
+          ) {
             this.writing = atomicCacheFile(
               this.cacheFile(input.entityIri, input.query),
               JSON.stringify({
@@ -365,6 +418,7 @@ export class WikipediaClient implements TouchpointProvider {
               } satisfies Entry),
             ).catch(() => {});
             await this.writing;
+            this.options.changed?.(input.entityIri);
           }
           return { candidates, fetchedAt, cached: false, stale: false };
         } catch {

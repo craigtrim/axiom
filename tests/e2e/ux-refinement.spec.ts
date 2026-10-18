@@ -1,3 +1,4 @@
+// craigtrim/axiom#92: use the Touchpoints pane's accessible name.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
@@ -496,7 +497,7 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
     .getByRole("menuitem", { name: "Touchpoints", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "Find Touchpoints", exact: true }),
+    page.getByRole("region", { name: "Touchpoints", exact: true }),
   ).toBeVisible();
 });
 

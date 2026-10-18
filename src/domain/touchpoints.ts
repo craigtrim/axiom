@@ -45,7 +45,11 @@ export function touchpointContext(
       .filter(
         (t) => !t.object.literal || t.object.datatype === NS.xsd + "anyURI",
       )
-      .map((t) => ({ predicate: t.predicate, iri: t.object.value })),
+      .map((t) => ({
+        predicate: t.predicate,
+        iri: t.object.value,
+        ...(t.object.literal ? { literal: true as const } : {}),
+      })),
   };
 }
 export function applyTouchpoints(
@@ -111,6 +115,9 @@ export function applyTouchpoints(
           e.object.value === t.object.value,
       ),
   );
+  // craigtrim/axiom#92: duplicate statements reject the whole batch before any write.
+  if (additions.length !== statements.length)
+    throw Error("A selected resource statement already exists.");
   if (additions.length) store.updateEntity(iri, [...existing, ...additions]);
   return additions.length;
 }

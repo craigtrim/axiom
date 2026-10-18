@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom Touchpoints</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* ===========================================================================
+   AXIOM SHARED LAYER v1
+   One palette, one component set. Declared here and byte identical in every
+   file of this delivery. In Axiom this block belongs at :root in styles.css,
+   once, and every feature stylesheet references rather than redeclares it.
+   =========================================================================== */
+:root {
+  color-scheme: light;
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+  --border-ctl:    #7d868f;
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+  --accent:        #0b5fd0;
+  --accent-fg:     #ffffff;
+  --accent-soft:   #eaf2fd;
+  --ok:            #0a7a3d;
+  --ok-soft:       #e8f5ed;
+  --warn:          #8a6116;
+  --warn-soft:     #fdf5e3;
+  --bad:           #a4201a;
+  --bad-soft:      #fdecea;
+  --idle:          #57606a;
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+  --chrome:        #eceff3;
+  --chrome-hover:  #dfe4ea;
+  --chrome-border: #d7dce2;
+  --sel:           rgba(11, 95, 208, .26);
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px;
+
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* geometry shared by every pane */
+  --h-tabs: 28px;   /* the dock strip, owned by the shell */
+  --h-bar:  28px;   /* a view's entire chrome: one action row */
+  --h-foot: 22px;   /* a status or footer line, where a view has one */
+  --row:    26px;   /* a list or table row */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+  --ok: #4ade80; --ok-soft: #0f2a1b;
+  --warn: #e3b341; --warn-soft: #2b2211;
+  --bad: #ff8d81; --bad-soft: #3a1a17;
+  --idle: #9ba7b4;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+  --sel: rgba(76, 154, 255, .30);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+    --ok: #4ade80; --ok-soft: #0f2a1b;
+    --warn: #e3b341; --warn-soft: #2b2211;
+    --bad: #ff8d81; --bad-soft: #3a1a17;
+    --idle: #9ba7b4;
+    --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+    --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+    --sel: rgba(76, 154, 255, .30);
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; padding: var(--sp-5);
+  background: var(--surface); color: var(--text);
+  font: 13px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl); }
+
+/* ------------------------------------------------------------------ dock -- */
+/* A docked pane is resized by dragging the dock splitter, so these grips are
+   the real workbench affordance rather than a size picker. */
+.rig { display: grid; grid-template-columns: auto 6px; grid-template-rows: auto 6px; width: max-content; max-width: 100%; }
+.dock {
+  display: grid; grid-template-rows: var(--h-tabs) minmax(0, 1fr);
+  width: 900px; height: 560px; min-width: 180px; min-height: 110px; max-width: 100%;
+  background: var(--ground); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); overflow: hidden;
+}
+.grip { background: none; border: 0; padding: 0; }
+.grip.v { cursor: col-resize; } .grip.h { cursor: row-resize; } .grip.c { cursor: nwse-resize; }
+.grip::after { content: ""; display: block; width: 100%; height: 100%; background: var(--border-strong); border-radius: var(--r-pill); opacity: .5; }
+.grip:hover::after, .grip:focus-visible::after { opacity: 1; background: var(--accent); }
+
+.tabs { display: flex; align-items: stretch; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative; flex: none; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); border: 0; border-inline-end: 1px solid var(--border);
+  background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.tab:hover { background: var(--row-hover); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--ground); color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; height: 2px; background: var(--accent); }
+
+/* ------------------------------------------------------------------ pane -- */
+.pane { container-type: size; container-name: pane; display: grid; grid-template-rows: var(--h-bar) minmax(0, 1fr); min-height: 0; background: var(--ground); }
+.pane.footed { grid-template-rows: var(--h-bar) minmax(0, 1fr) var(--h-foot); }
+
+/* a view's entire chrome: one row, measured overflow, no second band */
+.bar {
+  display: flex; align-items: center; gap: var(--sp-1);
+  height: var(--h-bar); padding-inline: var(--sp-2) var(--sp-1);
+  background: var(--chrome); border-bottom: 1px solid var(--chrome-border);
+  overflow: hidden; white-space: nowrap;
+}
+.bar > * { flex: none; }
+.bar .od-fill { flex: 1 1 0; min-width: 0; }
+.state { font-size: 12px; color: var(--text-muted); padding-inline: var(--sp-1); font-variant-numeric: tabular-nums; }
+.state.warnink { color: var(--warn); } .state.okink { color: var(--ok); } .state.badink { color: var(--bad); }
+.state .num { color: var(--text); }
+
+.foot {
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--h-foot); padding-inline: var(--sp-2);
+  background: var(--chrome); border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden;
+}
+.foot .num { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------- controls -- */
+.btn {
+  height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text);
+  font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn:disabled { color: var(--idle); background: none; cursor: default; }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: none; }
+.btn.quiet:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn svg { width: 13px; height: 13px; display: block; }
+.iconbtn { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; }
+
+.sel {
+  height: 22px; max-width: 200px; padding: 0 var(--sp-1); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px; cursor: pointer;
+}
+.fld {
+  height: 22px; min-width: 0; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px;
+}
+.fld::placeholder { color: var(--idle); }
+
+.seg { display: inline-flex; border: 1px solid var(--border-ctl); border-radius: var(--r-ctl); overflow: hidden; height: 22px; }
+.seg button { border: 0; background: var(--ground); color: var(--text-muted); font-size: 12px; padding: 0 var(--sp-2); cursor: pointer; white-space: nowrap; }
+.seg button + button { border-inline-start: 1px solid var(--border-ctl); }
+.seg button:hover { background: var(--chrome-hover); color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+
+/* a chip states its own count; a zero count is shown and is not selectable */
+.chip {
+  height: 20px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-pill); background: var(--ground); color: var(--text);
+  font-size: 11px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+}
+.chip .n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chip:hover:not([aria-disabled="true"]) { background: var(--chrome-hover); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.chip[aria-pressed="true"]::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.chip[aria-disabled="true"] { color: var(--idle); cursor: default; }
+.chip[aria-disabled="true"] .n { color: var(--idle); }
+
+.sw { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2) 0 4px; border: 1px solid transparent; border-radius: var(--r-pill); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
+.sw:hover { background: var(--chrome-hover); }
+.sw .track { position: relative; width: 26px; height: 14px; border-radius: var(--r-pill); background: var(--idle); transition: background var(--t-fast); flex: none; }
+.sw .knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ground); transition: transform var(--t-fast); }
+.sw[aria-checked="true"] .track { background: var(--accent); }
+.sw[aria-checked="true"] .knob { transform: translateX(12px); }
+.sw[aria-checked="true"] { border-color: var(--border-ctl); background: var(--accent-soft); }
+
+/* ------------------------------------------------------------------ list -- */
+.grid { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.grid th, .grid td { text-align: start; padding: 0 var(--sp-2); height: var(--row); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border-strong); }
+.grid th button { all: unset; cursor: pointer; display: block; width: 100%; }
+.grid tbody tr { cursor: pointer; }
+.grid tbody tr:hover { background: var(--row-hover); }
+.grid tbody tr[aria-selected="true"] { background: var(--row-selected); }
+.grid tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.grid td.n { text-align: end; font-variant-numeric: tabular-nums; }
+.grid td .mono, .grid th .mono { font-family: var(--mono); font-size: 12px; }
+.grid .muted { color: var(--text-muted); }
+
+.rows { min-height: 0; overflow: auto; }
+.empty { padding: var(--sp-5) var(--sp-3); color: var(--text-muted); font-size: 12px; max-width: 72ch; }
+.empty b { color: var(--text); font-weight: 600; }
+
+/* severity and status read as a word plus a shape, never colour alone */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
+.tag .gl { width: 9px; height: 9px; flex: none; }
+.tag.err { color: var(--bad); } .tag.wrn { color: var(--warn); } .tag.inf { color: var(--text-muted); } .tag.good { color: var(--ok); }
+.tag.err .gl { background: var(--bad); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tag.wrn .gl { background: var(--warn); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tag.inf .gl { background: var(--idle); border-radius: 50%; }
+.tag.good .gl { background: var(--ok); border-radius: 2px; }
+
+/* ------------------------------------------------------------------ menu -- */
+.menu { position: fixed; z-index: 60; min-width: 190px; padding: var(--sp-1) 0; background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--r-panel); box-shadow: var(--shadow-pop); }
+.menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: 26px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font-size: 13px; text-align: start; white-space: nowrap; cursor: default; }
+.menu button:hover:not([aria-disabled="true"]), .menu button[data-active="true"] { background: var(--row-selected); }
+.menu button[aria-disabled="true"] { color: var(--idle); }
+.menu button .k { margin-inline-start: auto; color: var(--text-muted); font-size: 11px; }
+.menu .sep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+.toast { position: absolute; inset-inline-start: var(--sp-3); inset-block-end: var(--sp-3); z-index: 40; max-width: calc(100% - var(--sp-6)); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow-pop); font-size: 12px; }
+.toast b { font-weight: 600; } .toast .sub { color: var(--text-muted); }
+
+/* ------------------------------------------------------- recovery, shared -- */
+.recov { display: none; place-content: center; gap: var(--sp-2); padding: var(--sp-3); text-align: center; }
+.recov .id { font-size: 12px; font-weight: 600; }
+.recov .why { font-size: 11px; color: var(--text-muted); }
+
+/* the published ladder. 600 and 400 with 616 and 416 exits, recovery below
+   240 wide, 210 high when narrow and 180 otherwise. No number here is new. */
+@container pane (max-width: 239px), pane (max-height: 179px) {
+  .bar, .body, .foot { display: none; }
+  .pane, .pane.footed { grid-template-rows: minmax(0, 1fr); }
+  .recov { display: grid; }
+}
+
+
+/* /AXIOM SHARED LAYER v1 */
+/* ----------------------------------------------------------------- notes -- */
+/* Outside the dock. Implementer material, not application UI. */
+.notes { max-width: 880px; margin-top: var(--sp-6); color: var(--text-muted); }
+.notes h1 { margin: 0 0 var(--sp-2); font-size: 15px; font-weight: 600; color: var(--text); }
+.notes h2 { margin: var(--sp-5) 0 var(--sp-2); font-size: 13px; font-weight: 600; color: var(--text); }
+.notes p { margin: 0 0 var(--sp-3); max-width: 72ch; }
+.notes b { color: var(--text); font-weight: 600; }
+.notes code { font: 12px var(--mono); background: var(--sunken); padding: 1px 4px; border-radius: 3px; }
+.notes table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: var(--sp-3); }
+.notes th, .notes td { text-align: start; padding: 5px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: top; }
+.notes th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.notes td.n { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notes tr:last-child td { border-bottom: 0; }
+.notes .q { border-inline-start: 2px solid var(--border-strong); padding-inline-start: var(--sp-3); font-style: italic; margin: 0 0 var(--sp-2); max-width: 72ch; }
+
+/* ------------------------------------------------------------ touchpoints -- */
+/* The published layout for this view: the search field, Search and Refresh
+   stay above the results scroller, candidate rows wrap their descriptions and
+   IRIs, selected rows expose their relationship and target, and the footer
+   keeps the selection count and the Apply action. Nothing withdraws on height,
+   because the policy row says header, query and footer all remain. */
+.pin { display: inline-flex; align-items: center; gap: 5px; flex: none; max-width: 190px; font-size: 12px; font-weight: 600; }
+.pin .pk { font-size: 10px; font-weight: 400; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 0 5px; }
+.pin .pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qf { flex: 1 1 auto; min-width: 72px; }
+
+.cand { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border); }
+.cand:hover { background: var(--row-hover); }
+.cand[aria-selected="true"] { background: var(--row-selected); box-shadow: inset 2px 0 0 var(--accent); }
+.cand.dis { background: none; }
+.cand.dis .ctitle { color: var(--text-muted); }
+
+.pick { width: 15px; height: 15px; margin-top: 3px; padding: 0; border: 1px solid var(--border-ctl); border-radius: 3px; background: var(--ground); display: grid; place-items: center; cursor: pointer; }
+.pick svg { width: 11px; height: 11px; display: none; }
+.pick[aria-checked="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.pick[aria-checked="true"] svg { display: block; }
+.pick[aria-disabled="true"] { border-style: dashed; cursor: not-allowed; background: var(--sunken); }
+
+.cbody { min-width: 0; display: grid; gap: 3px; }
+.ctitle { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+.cdesc { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.copt { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding-top: 2px; }
+.clabel { font-size: 11px; color: var(--text-muted); }
+.ciri { font: 11px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+.rank { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* the layout lives on an inner element, never on .body itself: the shared
+   recovery rule hides .body, and an inline or own display would outrank it */
+.stack { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; min-height: 0; }
+
+.why2 { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border); font-size: 12px; }
+.why2 b { font-weight: 600; }
+.why2.bad { background: var(--bad-soft); color: var(--bad); }
+.why2.ok { background: var(--ok-soft); color: var(--text); }
+
+@container pane (max-width: 599px) {
+  .ciri { display: none; }
+  .copt .sel { max-width: 124px; }
+  .pin { max-width: 120px; }
+}
+/* Search and Refresh must stay visible in every working layout, so below 400
+   the action row takes a second line instead of pushing anything into an
+   overflow menu. Guarded above 240 so the shared recovery template still wins. */
+@container pane (max-width: 399px) and (min-width: 240px) {
+  .pane.footed { grid-template-rows: auto minmax(0, 1fr) var(--h-foot); }
+  .bar { height: auto; min-height: var(--h-bar); flex-wrap: wrap; align-content: center; padding-block: 3px; row-gap: 3px; }
+  .pin { max-width: 100%; }
+  .qf { flex: 1 1 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <div class="dock" id="dock">
+    <div class="tabs" id="tabs" role="tablist">
+      <button class="tab" type="button" role="tab" data-pane="cls" aria-selected="true" aria-controls="pane">Touchpoints, Journal Article</button>
+      <button class="tab" type="button" role="tab" data-pane="ind" aria-selected="false" aria-controls="pane">Touchpoints, Marie Curie</button>
+    </div>
+
+    <div class="pane footed" id="pane" role="tabpanel">
+      <div class="bar" id="bar" aria-label="Touchpoints actions">
+        <span class="pin" id="pin"></span>
+        <input class="fld qf" id="q" aria-label="Wikipedia query">
+        <button class="btn primary" type="button" id="aSearch">Search</button>
+        <button class="btn quiet" type="button" id="aRefresh">Refresh</button>
+        <button class="btn quiet iconbtn" type="button" id="aMore" aria-haspopup="true" aria-expanded="false" aria-label="More actions"></button>
+      </div>
+
+      <div class="body" id="body">
+        <div class="stack">
+          <div id="note"></div>
+          <div class="rows" id="rows" role="listbox" aria-label="Wikipedia candidates" aria-multiselectable="true"></div>
+        </div>
+      </div>
+
+      <div class="foot" id="foot"></div>
+
+      <div class="recov">
+        <div class="id" id="recovId">Touchpoints</div>
+        <div class="why" id="recovWhy">Too little room to review candidates.</div>
+        <div><button class="btn primary" type="button" id="recovBtn">Maximise pane</button></div>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+  </div>
+  <button class="grip v" id="gripV" aria-label="Resize pane width" title="Drag to resize the pane"></button>
+  <button class="grip h" id="gripH" aria-label="Resize pane height" title="Drag to resize the pane"></button>
+  <button class="grip c" id="gripC" aria-label="Resize pane"></button>
+</div>
+
+<div class="notes">
+  <h1>Touchpoints</h1>
+  <p>Two tabs, because <code>docs/touchpoints.md</code> says each subject has one pane and separate subjects get separate panes. The class tab opens on a <b>saved result from March</b>, which is the behaviour the document is most emphatic about: Wikipedia results have <b>no automatic expiry</b> and a valid saved entry is reused regardless of its age. The individual tab has no saved entry, so it shows what an unsearched pane looks like.</p>
+
+  <h2>Things worth doing in it</h2>
+  <table>
+    <tbody>
+      <tr><td style="width:30%"><b>Press Refresh on the class tab</b></td><td>The first attempt is throttled. The saved rows stay on screen, the error says how long the wait is and that a repeat doubles it, and nothing is retried automatically. Press it again and it succeeds, the fetch date becomes now, and one candidate appears that the saved copy did not have.</td></tr>
+      <tr><td><b>Select a row</b></td><td>Its relationship and target controls appear inside the row, and the statement it will write is printed underneath. A title, alias or redirect match starts at <code>skos:exactMatch</code>; everything else starts at <code>skos:closeMatch</code>.</td></tr>
+      <tr><td><b>Switch a relationship to rdfs:seeAlso</b></td><td>The target changes to Wikipedia, because that is the documented default for that predicate. Wikidata is only offered when Wikipedia reported an item ID.</td></tr>
+      <tr><td><b>Select Scholarly communication and apply</b></td><td>It has no DBpedia resource. The <b>whole batch</b> is rejected and the row is named, because validation rejects the batch if any selected statement is unavailable or invalid. Change its target to Wikipedia and the batch applies.</td></tr>
+      <tr><td><b>Use the menu to change the ontology, then apply</b></td><td>Apply refuses and asks you to search again, which is the documented rule for a store that moved under a result.</td></tr>
+      <tr><td><b>Turn the local model off in the menu</b></td><td>The ranking column disappears and the order reverts to Wikipedia's. With MPNet present the rows are reordered using the label, parents and description. Neither path calls Claude or Codex.</td></tr>
+      <tr><td><b>Try the disambiguation row</b></td><td>It cannot be selected, and the row says so rather than failing at apply time.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why nothing withdraws when the pane gets shallow</h2>
+  <p>Every other view in this set drops a region on height. This one must not. Its policy row reads <span class="q">"Header, query and footer remain around results"</span>, and the acceptance line is blunter: <span class="q">"With Touchpoints ready, Search and Refresh remain visible without scrolling. Selected candidates have a reachable Apply action."</span> So the results scroller absorbs the whole loss and the three bands stay. On width, the target IRI withdraws below 600 and the relationship control narrows, which is the published narrow behaviour.</p>
+
+  <h2>One published number this does not follow</h2>
+  <p>The document says Touchpoints, Inspector and Individuals <span class="q">"register recovery below 240 pixels wide or 120 pixels tall"</span>, while the shared ladder in the same document gives recovery <span class="q">"below 240 wide, 210 high when narrow, 180 otherwise"</span>. Those two sentences disagree about height. This file uses the shared ladder, 240 and 180, because the whole point of the set is one measurement model; the pane also keeps the subject and the query visible in recovery, which is what the Touchpoints clause was protecting. If you want the 120 instead, it is one number in one container query.</p>
+
+  <h2>What is simulated rather than live</h2>
+  <p>No request leaves this file. The candidate lists, their descriptions, item IDs, redirect flags and existing links are seeded, the first Refresh is a scripted 429, and the search has a short artificial delay so the in flight state is visible. The cache path, the User-Agent policy and the fifteen second timeout are quoted in the footer and the menu rather than performed.</p>
+</div>
+<script>
+/* AXIOM SHARED LAYER v1: the helpers every pane in this delivery uses.
+   Identical in every file, so one fix lands everywhere. */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function num(n) { return Number(n).toLocaleString("en-US"); }
+var ICON = {
+  run: '<path d="M7 4.5 19 12 7 19.5z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+  more: '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>',
+  down: '<path d="M5 9l7 7 7-7"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20.5 20.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+  warn: '<path d="M12 3.4 22 20.6H2z"/><path d="M12 10v4.6M12 17.6v.1"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/>',
+  grid: '<path d="M3 5h18v14H3z"/><path d="M3 10h18M3 15h18M9 5v14"/>',
+  tree: '<path d="M4 3h6v4H4z"/><path d="M14 10h6v4h-6z"/><path d="M14 17h6v4h-6z"/><path d="M7 7v12M7 12h7M7 19h7"/>',
+  code: '<path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>',
+  link: '<path d="M10 13.5a4 4 0 0 0 5.7.3l3-3a4 4 0 1 0-5.7-5.7L11.6 6.5"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-3 3a4 4 0 1 0 5.7 5.7L12.4 17.5"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>',
+  panel: '<path d="M4 4h16v16H4z"/><path d="M4 8.5h16M8 12.5h8M8 16.5h5"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4.5-5"/>',
+  undo: '<path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/>'
+};
+function svg(n, w) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 1.7) +
+    '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICON[n] + "</svg>";
+}
+
+/* one transient status line per pane, announced politely */
+var _toastTimer = null;
+function toast(head, sub) {
+  var t = $("#toast");
+  if (!t) return;
+  t.innerHTML = "<b>" + esc(head) + "</b>" + (sub ? ' <span class="sub">' + esc(sub) + "</span>" : "");
+  t.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.hidden = true; }, 4200);
+}
+
+/* a row of actions that moves what does not fit into the overflow, in one
+   order that never reshuffles. No breakpoint of its own. */
+function fitBar(barSel, order) {
+  var fitting = false, collapsed = [];
+  function fit() {
+    if (fitting) return;
+    fitting = true;
+    var bar = $(barSel);
+    order.forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = false; });
+    collapsed = [];
+    for (var i = 0; i < order.length; i++) {
+      if (bar.scrollWidth <= bar.clientWidth) break;
+      var el = document.getElementById(order[i]);
+      if (el) { el.hidden = true; collapsed.push(order[i]); }
+    }
+    fitting = false;
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe($(barSel));
+  window.addEventListener("resize", fit);
+  fit();
+  return { fit: fit, collapsed: function () { return collapsed.slice(); } };
+}
+
+/* one popup implementation, keyboard complete */
+var _menu = null;
+function closeMenu(restore) {
+  if (!_menu) return;
+  var owner = _menu.owner;
+  _menu.el.remove(); _menu = null;
+  if (owner) { owner.setAttribute("aria-expanded", "false"); if (restore) owner.focus(); }
+}
+function openMenu(owner, items, run) {
+  closeMenu(false);
+  var el = document.createElement("div");
+  el.className = "menu"; el.setAttribute("role", "menu"); el.tabIndex = -1;
+  el.innerHTML = items.map(function (it, i) {
+    if (it.sep) return '<div class="sep" role="separator"></div>';
+    return '<button type="button" role="menuitem" data-i="' + i + '"' +
+      (it.dis ? ' aria-disabled="true"' : "") + ">" +
+      (it.checked ? "&#10003; " : "") + esc(it.l) +
+      (it.k ? '<span class="k">' + esc(it.k) + "</span>" : "") + "</button>";
+  }).join("");
+  document.body.appendChild(el);
+  var r = owner.getBoundingClientRect();
+  var x = Math.max(4, Math.min(r.right - el.offsetWidth, window.innerWidth - el.offsetWidth - 4));
+  var y = r.bottom + 2;
+  if (y + el.offsetHeight > window.innerHeight - 4) y = Math.max(4, r.top - el.offsetHeight - 2);
+  el.style.left = x + "px"; el.style.top = y + "px";
+  owner.setAttribute("aria-expanded", "true");
+  _menu = { el: el, owner: owner };
+
+  function list() { return $$("[data-i]", el); }
+  el.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-i]") : null;
+    if (!b || b.getAttribute("aria-disabled") === "true") return;
+    var it = items[+b.getAttribute("data-i")];
+    closeMenu(true); run(it);
+  });
+  el.addEventListener("keydown", function (e) {
+    var l = list(), i = l.indexOf(document.activeElement);
+    if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); l[(i + 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); l[(i - 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "Home") { e.preventDefault(); l[0].focus(); return; }
+    if (e.key === "End") { e.preventDefault(); l[l.length - 1].focus(); return; }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (i < 0 || l[i].getAttribute("aria-disabled") === "true") return;
+      var it = items[+l[i].getAttribute("data-i")];
+      closeMenu(true); run(it);
+    }
+  });
+  var first = el.querySelector("[data-i]:not([aria-disabled])");
+  if (first) first.focus();
+}
+document.addEventListener("pointerdown", function (e) {
+  if (_menu && !(e.target.closest && (e.target.closest(".menu") || e.target === _menu.owner || (_menu.owner.contains && _menu.owner.contains(e.target))))) closeMenu(false);
+});
+
+/* the dock splitters */
+function grips() {
+  var d = $("#dock");
+  function bind(el, axis) {
+    if (!el) return;
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      var x0 = e.clientX, y0 = e.clientY, w0 = d.offsetWidth, h0 = d.offsetHeight;
+      function move(ev) {
+        if (axis !== "h") d.style.width = Math.max(180, w0 + (ev.clientX - x0)) + "px";
+        if (axis !== "v") d.style.height = Math.max(110, h0 + (ev.clientY - y0)) + "px";
+      }
+      function up(ev) {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
+      }
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
+    });
+    el.addEventListener("keydown", function (e) {
+      var s = e.shiftKey ? 40 : 10, w = d.offsetWidth, h = d.offsetHeight;
+      if (axis !== "h" && e.key === "ArrowLeft") { e.preventDefault(); d.style.width = Math.max(180, w - s) + "px"; }
+      if (axis !== "h" && e.key === "ArrowRight") { e.preventDefault(); d.style.width = (w + s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowUp") { e.preventDefault(); d.style.height = Math.max(110, h - s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowDown") { e.preventDefault(); d.style.height = (h + s) + "px"; }
+    });
+  }
+  bind($("#gripV"), "v"); bind($("#gripH"), "h"); bind($("#gripC"), "both");
+  var rb = $("#recovBtn");
+  if (rb) rb.addEventListener("click", function () { d.style.width = "900px"; d.style.height = "560px"; });
+}
+
+/* ------------------------------------------------------- Touchpoints view -- */
+(function () {
+  "use strict";
+
+  /* title, description, wikidata id, flags: x exact candidate, l already linked,
+     d disambiguation, u no DBpedia resource, r arrived only on a refresh */
+  var CLS = [
+    ["Academic journal", "Periodical publication in which scholarship relating to a particular academic discipline is published.", "Q737498", "x"],
+    ["Scientific literature", "Scholarly publications that report original empirical and theoretical work.", "Q12271", ""],
+    ["Article (publishing)", "Written work published in a print or electronic medium.", "Q191067", "x"],
+    ["Journal", "Several types of periodical publication, listed by sense.", "", "d"],
+    ["Peer review", "Evaluation of work by people with similar competences.", "Q656365", ""],
+    ["Open access", "Research output distributed online free of cost.", "Q232932", ""],
+    ["Preprint", "Version of a scholarly paper preceding formal peer review.", "Q580922", ""],
+    ["Scholarly communication", "Creation, evaluation and preservation of scholarly research.", "", "u"],
+    ["Impact factor", "Measure reflecting the yearly average number of citations.", "Q243545", ""],
+    ["Academic publishing", "Subfield of publishing distributing academic research.", "Q1156854", ""],
+    ["Scientific journal", "Redirects to Academic journal.", "Q737498", "x"],
+    ["Review article", "Article that summarises the current state of understanding on a topic.", "Q7318358", ""],
+    ["Research", "Creative and systematic work undertaken to increase knowledge.", "Q42240", "l"],
+    ["Citation", "Reference to a source.", "Q1713", ""],
+    ["Digital object identifier", "Persistent identifier standardised by ISO.", "Q25670", ""],
+    ["International Standard Serial Number", "Eight digit serial number identifying a periodical.", "Q131276", ""],
+    ["Bibliographic database", "Database of bibliographic records.", "Q1361872", ""],
+    ["Abstract (summary)", "Brief summary of a research article or other work.", "Q333291", ""],
+    ["Manuscript", "Document written by hand or typewritten.", "Q87167", ""],
+    ["Publication", "Act of making content available to the public.", "Q732577", ""],
+    ["Learned society", "Organisation that exists to promote an academic discipline.", "Q955824", "r"]
+  ];
+  var IND = [
+    ["Marie Curie", "Polish and French physicist and chemist, 1867 to 1934.", "Q7186", "x"],
+    ["Pierre Curie", "French physicist, 1859 to 1906.", "Q37463", ""],
+    ["Curie", "Surname, unit of radioactivity and several places.", "", "d"],
+    ["Radium", "Chemical element with atomic number 88.", "Q1121", ""],
+    ["Polonium", "Chemical element with atomic number 84.", "Q871", ""],
+    ["Nobel Prize in Physics", "Annual award for outstanding contributions to physics.", "Q38104", ""],
+    ["Nobel Prize in Chemistry", "Annual award for outstanding contributions to chemistry.", "Q44585", ""],
+    ["Curie Institute (Paris)", "French research centre and hospital for cancer treatment.", "Q1142326", ""],
+    ["Joliot-Curie family", "French family of scientists over three generations.", "", "u"],
+    ["Radioactive decay", "Process by which an unstable nucleus loses energy.", "Q11448", "l"],
+    ["University of Paris", "French university, 1150 to 1970.", "Q209842", ""],
+    ["Curie temperature", "Temperature above which a material loses its permanent magnetism.", "Q187526", ""],
+    ["Henri Becquerel", "French physicist, 1852 to 1908.", "Q41269", ""],
+    ["History of science", "Study of the development of science over time.", "Q201486", ""]
+  ];
+
+  var REL_BASE = ["skos:exactMatch", "skos:closeMatch", "skos:broadMatch", "skos:narrowMatch", "skos:relatedMatch", "rdfs:seeAlso"];
+
+  function cands(rows) {
+    return rows.map(function (r, i) {
+      var f = r[3] || "";
+      return {
+        title: r[0], desc: r[1], qid: r[2],
+        exact: f.indexOf("x") >= 0, linked: f.indexOf("l") >= 0,
+        dis: f.indexOf("d") >= 0, nodb: f.indexOf("u") >= 0, fresh: f.indexOf("r") >= 0,
+        wiki: i, rank: 0, rel: null, tgt: null
+      };
+    });
+  }
+
+  /* two subjects, two panes, as the document requires */
+  var P = {
+    cls: {
+      label: "Journal Article", kind: "class", q: "Journal Article",
+      rows: cands(CLS).filter(function (c) { return !c.fresh; }),
+      fetched: "2 March 2026, 14:11", refreshes: 0, note: null, model: true, stale: false, sel: {}
+    },
+    ind: {
+      label: "Marie Curie", kind: "individual", q: "Marie Curie",
+      rows: null, fetched: null, refreshes: 0, note: null, model: true, stale: false, sel: {}
+    }
+  };
+  var tab = "cls", busy = false;
+  function V() { return P[tab]; }
+
+  function rels() { return V().kind === "individual" ? REL_BASE.concat(["owl:sameAs"]) : REL_BASE; }
+  function targets(c) {
+    var t = ["DBpedia"];
+    if (c.qid) t.push("Wikidata");
+    t.push("Wikipedia");
+    return t;
+  }
+  function iriFor(c, tgt) {
+    var slug = c.title.replace(/ /g, "_");
+    if (tgt === "Wikidata") return "http://www.wikidata.org/entity/" + c.qid;
+    if (tgt === "Wikipedia") return "https://en.wikipedia.org/wiki/" + slug;
+    return "http://dbpedia.org/resource/" + slug;
+  }
+  function defaults(c) {
+    c.rel = c.exact ? "skos:exactMatch" : "skos:closeMatch";
+    c.tgt = "DBpedia";
+  }
+
+  /* the local model reorders what Wikipedia returned; without it the order
+     Wikipedia gave is retained */
+  function order(v) {
+    var list = v.rows.slice();
+    if (!v.model) return list.sort(function (a, b) { return a.wiki - b.wiki; });
+    var q = v.label.toLowerCase();
+    list.forEach(function (c) {
+      var s = 0;
+      if (c.title.toLowerCase() === q) s += 60;
+      if (c.exact) s += 25;
+      if (c.title.toLowerCase().indexOf(q.split(" ")[0]) >= 0) s += 12;
+      if (c.qid) s += 6;
+      if (c.dis) s -= 40;
+      s += Math.max(0, 14 - c.wiki);
+      c.rank = s;
+    });
+    return list.sort(function (a, b) { return b.rank - a.rank || a.wiki - b.wiki; });
+  }
+
+  /* ---------------------------------------------------------------- render -- */
+  function renderPin() {
+    var v = V();
+    $("#pin").innerHTML = '<span class="pn">' + esc(v.label) + '</span><span class="pk">' + v.kind + "</span>";
+    $("#recovId").textContent = "Touchpoints, " + v.label;
+    $("#recovWhy").textContent = v.fetched
+      ? 'Too little room to review candidates. The query "' + v.q + '" and its results from ' + v.fetched + " are retained."
+      : "Too little room to review candidates. The query is retained and nothing has been fetched yet.";
+    $("#q").value = v.q;
+  }
+
+  function renderNote() {
+    var v = V(), n = $("#note");
+    if (busy) { n.innerHTML = '<div class="why2"><b>Searching English Wikipedia.</b> One request, up to twenty candidates, fifteen second timeout.</div>'; return; }
+    n.innerHTML = v.note || "";
+  }
+
+  function renderRows() {
+    var v = V(), box = $("#rows");
+    if (busy) { box.innerHTML = ""; return; }
+    if (!v.rows) {
+      box.innerHTML = '<div class="empty"><b>Nothing fetched yet for ' + esc(v.label) + '.</b> ' +
+        "The query starts as the preferred label and stays editable. Typing sends nothing; press Enter or choose Search to fetch up to twenty English Wikipedia candidates. " +
+        "Search does not invoke Claude or Codex, and it never writes to the ontology.</div>";
+      return;
+    }
+    box.innerHTML = order(v).map(function (c) {
+      var on = !!v.sel[c.title];
+      var tags = "";
+      if (c.dis) tags += '<span class="tag wrn"><span class="gl"></span>disambiguation, cannot be selected</span>';
+      if (c.linked) tags += '<span class="tag good"><span class="gl"></span>Linked</span>';
+      if (c.exact && !c.dis) tags += '<span class="tag inf"><span class="gl"></span>title, alias or redirect match</span>';
+      if (c.nodb) tags += '<span class="tag err"><span class="gl"></span>no DBpedia resource</span>';
+      var opt = "";
+      if (on) {
+        opt = '<div class="copt"><span class="clabel">asserts</span>' +
+          '<select class="sel" data-rel="' + esc(c.title) + '" aria-label="Relationship for ' + esc(c.title) + '">' +
+          rels().map(function (r) { return '<option' + (r === c.rel ? " selected" : "") + ">" + r + "</option>"; }).join("") +
+          "</select>" +
+          '<span class="clabel">pointing at</span>' +
+          '<select class="sel" data-tgt="' + esc(c.title) + '" aria-label="Target for ' + esc(c.title) + '">' +
+          targets(c).map(function (t) { return '<option' + (t === c.tgt ? " selected" : "") + ">" + t + "</option>"; }).join("") +
+          "</select>" +
+          '<span class="ciri">' + esc(iriFor(c, c.tgt)) + "</span></div>";
+      }
+      return '<div class="cand' + (c.dis ? " dis" : "") + '" role="option" data-c="' + esc(c.title) +
+        '" aria-selected="' + (on ? "true" : "false") + '">' +
+        '<button class="pick" type="button" role="checkbox" aria-checked="' + (on ? "true" : "false") + '"' +
+        (c.dis ? ' aria-disabled="true"' : "") + ' aria-label="Select ' + esc(c.title) + '">' + svg("check", 2.6) + "</button>" +
+        '<div class="cbody"><div class="ctitle">' + esc(c.title) + tags +
+        (v.model ? '<span class="rank">rank ' + c.rank + "</span>" : "") + "</div>" +
+        '<div class="cdesc">' + esc(c.desc) + "</div>" + opt + "</div></div>";
+    }).join("");
+  }
+
+  var bar;
+  function renderBar() {
+    $("#aRefresh").disabled = busy || !V().rows;
+    $("#aSearch").disabled = busy;
+    $$("#tabs .tab").forEach(function (b) {
+      b.setAttribute("aria-selected", b.getAttribute("data-pane") === tab ? "true" : "false");
+    });
+    bar.fit();
+  }
+
+  function renderFoot() {
+    var v = V(), n = Object.keys(v.sel).length;
+    var f = [];
+    f.push('<span><span class="num">' + n + "</span> selected</span>");
+    f.push('<span><button class="btn primary" type="button" id="apply">Apply selected touchpoints</button></span>');
+    if (v.rows) f.push("<span>" + num(v.rows.length) + " candidates, fetched " + esc(v.fetched) + "</span>");
+    f.push('<span>query "' + esc(v.q) + '"</span>');
+    f.push("<span>" + (v.model ? "ranked by the local MPNet model" : "Wikipedia order, local model unavailable") + "</span>");
+    f.push("<span>saved under ~/.axiom/wikipedia, no automatic expiry</span>");
+    $("#foot").innerHTML = f.join("");
+    $("#apply").disabled = !n;
+    $("#apply").addEventListener("click", apply);
+  }
+
+  function render() { renderPin(); renderNote(); renderBar(); renderRows(); renderFoot(); }
+
+  /* ----------------------------------------------------------- operations -- */
+  function search(kind) {
+    var v = V();
+    if (busy) return;
+    busy = true; v.note = null;
+    render();
+    setTimeout(function () {
+      busy = false;
+      if (kind === "refresh") {
+        v.refreshes++;
+        if (v.refreshes === 1) {
+          /* a scripted 429 without Retry-After: the saved rows are kept */
+          v.note = '<div class="why2 bad"><b>Wikipedia returned HTTP 429.</b> No Retry-After header, so the first wait is five seconds and ' +
+            "each consecutive throttle doubles it. The request is not retried automatically and the saved results below are unchanged.</div>";
+          render();
+          toast("Refresh was throttled.", "The rows on screen are still the saved ones from " + v.fetched + ".");
+          return;
+        }
+      }
+      var full = tab === "cls" ? cands(CLS) : cands(IND);
+      v.rows = kind === "refresh" ? full : full.filter(function (c) { return !c.fresh; });
+      v.fetched = "just now";
+      v.stale = false;
+      v.sel = {};
+      v.note = kind === "refresh"
+        ? '<div class="why2 ok"><b>Refreshed.</b> One new candidate arrived that the saved copy did not have, and the saved entry has been replaced.</div>'
+        : null;
+      render();
+      toast(kind === "refresh" ? "Refreshed from Wikipedia." : "Fetched " + v.rows.length + " candidates.",
+        v.model ? "Ranked locally using the label, parents and description." : "Wikipedia order retained, the local model is unavailable.");
+    }, 420);
+  }
+
+  function apply() {
+    var v = V(), picked = Object.keys(v.sel).map(function (t) {
+      return v.rows.filter(function (c) { return c.title === t; })[0];
+    }).filter(Boolean);
+    if (!picked.length) return;
+    if (v.stale) {
+      v.note = '<div class="why2 bad"><b>The ontology changed after this search.</b> Search again before applying, ' +
+        "so the statements are validated against the store you are actually writing to. Your selection and choices are kept.</div>";
+      render();
+      toast("Nothing was applied.", "The result is older than the store.");
+      return;
+    }
+    var bad = picked.filter(function (c) { return c.nodb && c.tgt === "DBpedia"; });
+    if (bad.length) {
+      v.note = '<div class="why2 bad"><b>The whole batch was rejected.</b> ' + esc(bad[0].title) +
+        " has no DBpedia resource, so that statement is unavailable. Validation rejects the batch rather than writing part of it. " +
+        "Change its target to Wikipedia, or deselect it, and apply again.</div>";
+      render();
+      toast("Nothing was applied.", picked.length + " selected, 1 unavailable.");
+      return;
+    }
+    picked.forEach(function (c) { c.linked = true; });
+    v.sel = {};
+    v.note = '<div class="why2 ok"><b>Added ' + picked.length + " resource " + (picked.length === 1 ? "statement" : "statements") +
+      " as one Undo operation.</b> " + picked.map(function (c) { return esc(c.rel + " " + iriFor(c, c.tgt)); }).join(", ") + "</div>";
+    render();
+    toast("Applied " + picked.length + ".", "One Undo reverses the whole batch.");
+  }
+
+  /* ----------------------------------------------------------------- wire -- */
+  function boot() {
+    $("#aMore").innerHTML = svg("more");
+    /* nothing in this row may collapse: the published acceptance line keeps
+       Search and Refresh visible without scrolling */
+    bar = fitBar("#bar", []);
+    render();
+
+    $("#tabs").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-pane]") : null;
+      if (!b || busy) return;
+      tab = b.getAttribute("data-pane");
+      render();
+    });
+
+    $("#q").addEventListener("input", function () { V().q = this.value; renderFoot(); });
+    $("#q").addEventListener("keydown", function (e) { if (e.key === "Enter") search("search"); });
+    $("#aSearch").addEventListener("click", function () { search("search"); });
+    $("#aRefresh").addEventListener("click", function () { search("refresh"); });
+
+    $("#rows").addEventListener("click", function (e) {
+      var row = e.target.closest ? e.target.closest("[data-c]") : null;
+      if (!row) return;
+      var v = V(), title = row.getAttribute("data-c");
+      var c = v.rows.filter(function (x) { return x.title === title; })[0];
+      if (!c) return;
+      if (c.dis) {
+        toast("A disambiguation page cannot be selected.", "It names several subjects, so no single resource statement would be true.");
+        return;
+      }
+      if (v.sel[title]) delete v.sel[title];
+      else { v.sel[title] = 1; defaults(c); }
+      renderRows(); renderFoot();
+    });
+
+    $("#rows").addEventListener("change", function (e) {
+      var v = V();
+      var rel = e.target.getAttribute("data-rel"), tgt = e.target.getAttribute("data-tgt");
+      var title = rel || tgt;
+      if (!title) return;
+      var c = v.rows.filter(function (x) { return x.title === title; })[0];
+      if (rel) {
+        c.rel = e.target.value;
+        /* Wikipedia is the documented default target for rdfs:seeAlso */
+        if (c.rel === "rdfs:seeAlso") c.tgt = "Wikipedia";
+      } else c.tgt = e.target.value;
+      renderRows(); renderFoot();
+    });
+
+    $("#aMore").addEventListener("click", function () {
+      if (_menu) { closeMenu(true); return; }
+      var v = V();
+      var items = bar.collapsed().map(function (id) {
+        return { l: document.getElementById(id).textContent, act: id };
+      });
+      if (items.length) items.push({ sep: 1 });
+      items.push({ l: v.model ? "Simulate the local model being unavailable" : "Restore the local MPNet model", act: "model" });
+      items.push({ l: "Simulate an ontology change after the search", act: "stale", dis: !v.rows || v.stale });
+      items.push({ sep: 1 });
+      items.push({ l: "Select every selectable candidate", act: "all", dis: !v.rows });
+      items.push({ l: "Clear the selection", act: "none", dis: !Object.keys(v.sel).length });
+      items.push({ sep: 1 });
+      items.push({ l: "Clear the Wikipedia cache for this subject", act: "clear", dis: !v.rows });
+      openMenu(this, items, function (it) {
+        if (it.act === "model") { v.model = !v.model; render(); }
+        else if (it.act === "stale") {
+          v.stale = true;
+          render();
+          toast("The store moved under this result.", "Apply will refuse until you search again.");
+        } else if (it.act === "all") {
+          v.rows.forEach(function (c) { if (!c.dis) { v.sel[c.title] = 1; defaults(c); } });
+          renderRows(); renderFoot();
+        } else if (it.act === "none") { v.sel = {}; renderRows(); renderFoot(); }
+        else if (it.act === "clear") {
+          v.rows = null; v.fetched = null; v.sel = {}; v.note = null; v.refreshes = 0;
+          render();
+          toast("Saved entry removed.", "Edit, Settings, Clear Wikipedia cache does this for every subject at once.");
+        } else { var el = document.getElementById(it.act); el.hidden = false; el.focus(); }
+      });
+    });
+
+    grips();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

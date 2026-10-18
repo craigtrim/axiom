@@ -22,8 +22,7 @@ function Recovery({ name }: { name: string }) {
 }
 for (const [id, name] of [
   ["individuals", "Individuals"],
-  // craigtrim/axiom#89: Inspector registers its own body at the shared thresholds.
-  ["touchpoints", "Touchpoints"],
+  // craigtrim/axiom#92: Touchpoints now registers its own shared recovery body.
 ])
   registerPaneRecovery(id, {
     height: 120,

@@ -95,6 +95,9 @@ const bridge: AxiomBridge = {
   assistants: { list: () => invoke("assistants:list") },
   external: { open: (url) => invoke("external:open", url) },
   touchpoints: {
+    // craigtrim/axiom#92: saved reads and scoped clears stay in the main process.
+    saved: (input) => invoke("touchpoints:saved", input),
+    clear: (iri) => invoke("touchpoints:clear", iri),
     search: (input) => invoke("touchpoints:search", input),
     apply: (token, selections) =>
       invoke("touchpoints:apply", token, selections),

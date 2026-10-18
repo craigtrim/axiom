@@ -39,9 +39,11 @@ function setup(kind: "Class" | "Individual" = "Class") {
       stale: false,
     })),
   };
-  const insert = vi.fn(async (_c: unknown, statements: Triple[]) =>
-    applyTouchpoints(store, iri, statements),
-  );
+  // craigtrim/axiom#92: capture the context in the same mutation turn.
+  const insert = vi.fn(async (_c: unknown, statements: Triple[]) => ({
+    count: applyTouchpoints(store, iri, statements),
+    context: touchpointContext(store, iri, epoch),
+  }));
   return {
     store,
     iri,
@@ -116,7 +118,9 @@ it("suggests exactMatch for an alias or redirect and closeMatch for a broader ti
 });
 it("uses local semantic scores with full entity context and keeps original order when unavailable", async () => {
   const f = setup(),
-    compare = vi.fn(async () => candidates.map((_, i) => i));
+    compare = vi.fn(async () =>
+      candidates.map((_, i) => i / candidates.length),
+    );
   const service = new TouchpointService(
     f.provider,
     f.context,
@@ -222,9 +226,7 @@ it("marks links through any candidate identity as already linked", async () => {
     },
   ]);
   const r = await f.service.search({ iri: f.iri, query: "Mercury" });
-  await expect(f.service.apply(r.token, [selection(c.id)])).rejects.toThrow(
-    /already links/,
-  );
+  await expect(f.service.apply(r.token, [selection(c.id)])).resolves.toBe(1);
 });
 it.each([...touchpointPredicates, NS.rdfs + "seeAlso", NS.owl + "sameAs"])(
   "persists %s as a resource for an individual",
@@ -279,4 +281,120 @@ it("validates a complete domain batch before modifying the entity", () => {
     ]),
   ).toThrow();
   expect(f.store.version).toBe(version);
+});
+
+it("keeps the same result usable for successive batches but refuses edits after its own captured version", async () => {
+  const f = setup(),
+    result = await f.service.search({ iri: f.iri, query: "Mercury" });
+  const rows = result.candidates.filter((c) => !c.disambiguation);
+  expect(await f.service.apply(result.token, [selection(rows[0].id)])).toBe(1);
+  expect(await f.service.apply(result.token, [selection(rows[1].id)])).toBe(1);
+  f.store.createClass("Outside edit", f.parent);
+  await expect(
+    f.service.apply(result.token, [selection(rows[2].id)]),
+  ).rejects.toThrow(/changed since/);
+  expect(f.insert).toHaveBeenCalledTimes(2);
+});
+
+it("does not absorb an outside edit that arrives between applying and reading display context", async () => {
+  const f = setup();
+  const service = new TouchpointService(
+    f.provider,
+    f.context,
+    async (context, statements) => {
+      const applied = await f.insert(context, statements);
+      f.store.createClass("Concurrent edit", f.parent);
+      return applied;
+    },
+  );
+  const result = await service.search({ iri: f.iri, query: "Mercury" });
+  const rows = result.candidates.filter((c) => !c.disambiguation);
+  await service.apply(result.token, [selection(rows[0].id)]);
+  await expect(
+    service.apply(result.token, [selection(rows[1].id)]),
+  ).rejects.toThrow(/changed since/);
+});
+
+it("rejects an exact duplicate before adding another selected statement", async () => {
+  const f = setup(),
+    result = await f.service.search({ iri: f.iri, query: "Mercury" });
+  const rows = result.candidates.filter((c) => !c.disambiguation);
+  await f.service.apply(result.token, [selection(rows[0].id)]);
+  const before = f.store.version;
+  await expect(
+    f.service.apply(result.token, [
+      selection(rows[1].id),
+      selection(rows[0].id),
+    ]),
+  ).rejects.toThrow(/already has that statement/);
+  expect(f.store.version).toBe(before);
+  expect(f.insert).toHaveBeenCalledTimes(1);
+});
+
+it("refuses a partial domain batch containing an existing resource statement", () => {
+  const f = setup(),
+    rows = candidates.filter((c) => !c.disambiguation);
+  const statements = rows
+    .slice(0, 2)
+    .map((c) => ({
+      subject: f.iri,
+      predicate: NS.skos + "closeMatch",
+      object: { literal: false as const, value: c.iri },
+    }));
+  applyTouchpoints(f.store, f.iri, statements.slice(0, 1));
+  const before = f.store.version;
+  expect(() => applyTouchpoints(f.store, f.iri, statements)).toThrow(
+    /already exists/,
+  );
+  expect(f.store.version).toBe(before);
+});
+
+it("reads saved candidates without searching and preserves raw model scores and tie order", async () => {
+  const f = setup();
+  const provider = {
+    ...f.provider,
+    readSaved: vi.fn(async () => ({
+      candidates: candidates.slice(0, 3),
+      cached: true,
+      stale: false,
+    })),
+  };
+  const service = new TouchpointService(
+    provider,
+    f.context,
+    f.insert,
+    async () => [0.75, 0.75, -0.2],
+  );
+  const saved = await service.saved({ iri: f.iri, query: "Mercury" });
+  expect(f.provider.search).not.toHaveBeenCalled();
+  expect(saved?.candidates.map((c) => [c.id, c.similarity])).toEqual(
+    candidates.slice(0, 3).map((c, i) => [c.id, [0.75, 0.75, -0.2][i]]),
+  );
+  expect(saved?.ranking).toBe("model");
+});
+
+it("treats anyURI literals as links while allowing a distinct resource statement", async () => {
+  const f = setup(),
+    candidate = candidates.find((c) => !c.disambiguation)!;
+  f.store.updateEntity(f.iri, [
+    ...f.store.entityStatements(f.iri),
+    {
+      subject: f.iri,
+      predicate: NS.skos + "closeMatch",
+      object: {
+        literal: true,
+        value: candidate.iri,
+        datatype: NS.xsd + "anyURI",
+      },
+    },
+  ]);
+  const result = await f.service.search({ iri: f.iri, query: "Mercury" });
+  expect(result.context.links).toContainEqual({
+    predicate: NS.skos + "closeMatch",
+    iri: candidate.iri,
+    literal: true,
+  });
+  expect(await f.service.apply(result.token, [selection(candidate.id)])).toBe(
+    1,
+  );
 });
