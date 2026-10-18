@@ -1,3 +1,4 @@
+// craigtrim/axiom#91: drag feedback uses the action row and allowed/blocked target tints.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
@@ -203,29 +204,29 @@ test("hovering expands a closed destination and dropping on its child reparents 
   const transfer = await page.evaluateHandle(() => new DataTransfer());
   await row("Child").dispatchEvent("dragstart", { dataTransfer: transfer });
   await row("Collapsed").dispatchEvent("dragover", { dataTransfer: transfer });
-  await expect(row("Collapsed")).toHaveClass(/taxonomy-drop-target/);
+  await expect(row("Collapsed")).toHaveClass(/\bdrop\b/);
   await expect(row("Nested")).toBeVisible();
   await row("Nested").dispatchEvent("dragover", { dataTransfer: transfer });
   await row("Nested").dispatchEvent("drop", { dataTransfer: transfer });
   await expect.poll(() => parents()).toEqual([base + "Nested"]);
   await expect.poll(() => shownParent("Child")).toBe(base + "Nested");
-  await expect(page.locator(".taxonomy-drop-hint")).toHaveCount(0);
+  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText("Child");
 });
 test("self and descendant drops are rejected and stale drag data cannot edit a newer ontology", async () => {
   const transfer = await page.evaluateHandle(() => new DataTransfer());
   await row("A").dispatchEvent("dragstart", { dataTransfer: transfer });
   await row("Child").dispatchEvent("dragover", { dataTransfer: transfer });
-  await expect(page.locator(".taxonomy-drop-hint")).toContainText(
-    "descendants",
+  await expect(page.locator(".hierarchy-panel .bar .state")).toContainText(
+    "inside the branch being moved",
   );
-  await expect(row("Child")).not.toHaveClass(/taxonomy-drop-target/);
+  await expect(row("Child")).toHaveClass(/\bnodrop\b/);
   await row("A").dispatchEvent("dragend", { dataTransfer: transfer });
   const stale = await page.evaluateHandle(() => new DataTransfer());
   await row("Child").dispatchEvent("dragstart", { dataTransfer: stale });
   await request("rename", { iri: base + "B", name: "B changed" });
   await row("Z").dispatchEvent("drop", { dataTransfer: stale });
   await expect.poll(() => parents()).toEqual([base + "A"]);
-  await expect(page.locator(".taxonomy-drop-target")).toHaveCount(0);
+  await expect(page.locator(".hierarchy-panel .tr.drop")).toHaveCount(0);
   const result = await page.evaluate(
     async ({ iri, parent }) => {
       const s = await window.axiom.request<Snapshot>("state");
@@ -297,5 +298,5 @@ test("dragging near the tree edge scrolls a long taxonomy and cancellation stops
   });
   expect(positions[0]).toBe(positions[1]);
   expect(await parents()).toEqual([base + "A"]);
-  await expect(page.locator(".taxonomy-drop-hint")).toHaveCount(0);
+  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText("Child");
 });

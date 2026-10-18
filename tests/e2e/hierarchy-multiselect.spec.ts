@@ -1,3 +1,5 @@
+// craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
+import { hierarchyFilter } from "./hierarchy-controls";
 // Reference control names and retained review behavior (craigtrim/axiom#82).
 import {
   test,
@@ -63,7 +65,7 @@ async function launch() {
 }
 async function select(ids: string[]) {
   await menu("view.hierarchy");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Subject");
+  await (await hierarchyFilter(page)).fill("Subject");
   await row(ids[0]).click();
   for (const id of ids.slice(1))
     await row(id).click({ modifiers: ["Control"] });
@@ -232,8 +234,8 @@ test("keyboard ranges, Ctrl+Space, Ctrl+A and filtering use visible rows only", 
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(5);
   await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Beta");
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(1);
-  await page.getByRole("button", { name: /^Properties ·/ }).click();
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Subject");
+  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await (await hierarchyFilter(page)).fill("Subject");
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(0);
   await row("PropertyA").click();
   await row("PropertyB").click({ modifiers: ["Control"] });

@@ -87,13 +87,16 @@ export const menuTree: MenuDefinition[] = [
     c("entity.search", "Find...", "Edit", app("Ctrl+F")),
     c("entity.createClass", "New class", "Edit", app("Ctrl+Shift+N")),
     c("entity.createIndividual", "New individual", "Edit", app("Ctrl+Shift+I")),
-    c("entity.edit", "Details", "Edit", app("Alt+Enter")),
+    // craigtrim/axiom#91: Enter opens the focused Hierarchy row in Details.
+    c("entity.edit", "Details", "Edit", [
+      ...app("Alt+Enter"),
+      ...at("hierarchy", "Enter"),
+    ]),
     c("entity.createProperty", "New property", "Edit"),
     c("entity.rename", "Rename entity", "Edit", app("F2")),
     c("entity.delete", "Delete class...", "Edit", at("hierarchy", "Delete")),
     c("entity.showGraph", "Show selected entity in graph", "Edit", [
       ...app("Ctrl+G"),
-      ...at("hierarchy", "Enter"),
     ]),
     c("entity.showInstances", "Show instances", "Edit"),
     c("touchpoints.open", "Find Touchpoints for selected entity...", "Edit"),

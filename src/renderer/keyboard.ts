@@ -92,6 +92,14 @@ export function installKeyboard(doc: Document) {
       return;
     }
     if (!match.command) return;
+    // craigtrim/axiom#91: the row knows its focus even after Ctrl+Arrow or a range selection.
+    if (
+      hierarchyTree &&
+      match.command === "entity.edit" &&
+      stroke === "Enter" &&
+      !context.text
+    )
+      return;
     if (
       hierarchyTree &&
       Number(hierarchyTree.getAttribute("data-selection-count")) > 1 &&
@@ -142,6 +150,11 @@ export function installKeyboard(doc: Document) {
               ? "textanalysis.find"
               : "query.find",
       );
+    else if (
+      match.command === "entity.showGraph" &&
+      context.scope === "hierarchy"
+    )
+      command("hierarchy.graph");
     else if (match.command === "edit.undo" || match.command === "edit.redo")
       command(match.command);
     else (win.axiom ?? window.axiom).command(match.command);

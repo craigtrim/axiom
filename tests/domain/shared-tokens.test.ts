@@ -46,9 +46,18 @@ it("removes only equal duplicate declarations and retains deferred private palet
         "find-reference.css",
         "entity-extend.css",
         "text-analysis.css",
+        "hierarchy-reference.css",
       ].includes(d.file),
   );
   expect(prior).toHaveLength(197);
+  // craigtrim/axiom#91: Hierarchy adds only indentation geometry, never palette overrides.
+  expect(
+    new Set(
+      declarations
+        .filter((d) => d.file === "hierarchy-reference.css")
+        .map((d) => d.name),
+    ),
+  ).toEqual(new Set(["--ind-step", "--ind-depth"]));
   // craigtrim/axiom#79 adds six editor tints per theme, not another palette.
   expect(
     new Set(

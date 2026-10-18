@@ -26,7 +26,7 @@ Dragging from an unselected node draws an edge; dragging an already selected nod
 
 ## Counts and action availability
 
-Actions that open an existing collection show its current count and remain visible but disabled when that count is zero. Show instances uses the same direct-membership count in hierarchy and graph menus, the graph selection button, Inspector, Edit and the command palette. Labels read Show instances (527) or Show instances (0). Hierarchy and Inspector shortcuts show the number directly. Class choices in the report and Individuals filters also show counts and disable empty choices.
+Actions that open an existing collection show its current count and remain visible but disabled when that count is zero. Show instances uses the same direct-membership count in hierarchy and graph menus, the graph selection button, Inspector, Edit and the command palette. Labels read Show instances (527) or Show instances (0). Inspector shortcuts show the number directly. Hierarchy counts are plain text and omit zero; its row menu retains Show instances (#91). Class choices in the report and Individuals filters also show counts and disable empty choices.
 
 Counts update after edits and Undo. Instance buttons and popup items explain the empty state in their tooltip, and the shared invocation guard blocks stale or remapped requests. A report already open remains available when its last instance disappears. The application menu updates labels and availability through Electron's [dynamic MenuItem properties](https://www.electronjs.org/docs/latest/api/menu-item#instance-properties).
 

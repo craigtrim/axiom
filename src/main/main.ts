@@ -245,6 +245,8 @@ const methods = new Set<DomainMethod>([
   "clear",
   "rename",
   "moveClass",
+  // craigtrim/axiom#91: validate and apply a multi-branch move in the domain worker.
+  "moveClasses",
   "createClass",
   "deleteClass",
   "editCell",

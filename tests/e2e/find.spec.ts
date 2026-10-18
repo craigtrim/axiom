@@ -1,4 +1,6 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
+// craigtrim/axiom#91: reveal the narrow Hierarchy filter through More actions.
+import { hierarchyFilter } from "./hierarchy-controls";
 import {
   test,
   expect,
@@ -1537,9 +1539,7 @@ test("automatic Find enriches an unseen query and preserves field and type facet
 
 test("Find similar starts from a taxonomy node and excludes the source entity", async () => {
   await menu("view.hierarchy");
-  await page
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("Basic English");
+  await (await hierarchyFilter(page)).fill("Basic English");
   const row = page.locator(".tree-row").filter({
     has: page.locator(".tree-name", { hasText: /^Basic English$/ }),
   });
@@ -1816,9 +1816,7 @@ async function visibleTaxonomySelection(iri: string, target = page) {
 }
 test("quick Find clears a taxonomy filter and reveals the selection in the visible tree", async () => {
   const hierarchy = page.locator('[data-panel="hierarchy"]');
-  await hierarchy
-    .getByPlaceholder("Filter hierarchy")
-    .fill("English Course 122");
+  await (await hierarchyFilter(page)).fill("English Course 122");
   await find("Basic English");
   await expect(hierarchy.getByPlaceholder("Filter hierarchy")).toHaveValue("");
   await visibleTaxonomySelection(base + "Basic");

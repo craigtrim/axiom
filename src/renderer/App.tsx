@@ -67,7 +67,7 @@ import {
   type QueryResultDocument,
 } from "../shared/query-history";
 import { flushQueryHistory, historyState } from "./query-history";
-import { beginCreation, takeEditorIri } from "./authoring";
+import { beginCreation, takeEditorIri, hasEditorIri } from "./authoring";
 import { ProvenancePanel } from "./ProvenancePanel";
 import { DetailsPanel } from "./EntityEditor";
 import { startInlineRename } from "./InlineRename";
@@ -998,6 +998,7 @@ export function App() {
       if (
         hierarchyTree &&
         Number(hierarchyTree.getAttribute("data-selection-count")) > 1 &&
+        !(id === "entity.edit" && hasEditorIri()) &&
         [
           "entity.edit",
           "entity.rename",
@@ -1183,9 +1184,21 @@ export function App() {
           })
           .catch((e) => report(e.message, true));
       } else if (id === "entity.showGraph") {
+        const hierarchy = focusedDocument().activeElement?.closest(
+          '[data-panel="hierarchy"]',
+        );
+        const iris = hierarchy
+          ? [
+              ...hierarchy.querySelectorAll<HTMLElement>(
+                '[role="treeitem"][aria-selected="true"]',
+              ),
+            ].map((e) => e.dataset.entityIri!)
+          : state?.selected
+            ? [state.selected]
+            : [];
         show("graph");
-        if (state?.selected)
-          void act("seed", { iris: [state.selected] }).then(() =>
+        if (iris.length)
+          void act("seed", { iris, expand: iris.length === 1 }).then(() =>
             command("graph.fit"),
           );
       } else if (id === "entity.showInstances") {
@@ -1394,6 +1407,8 @@ export function App() {
                   paneId={n.getId()}
                   visual={n.getComponent() === "graph"}
                   shared={[
+                    // craigtrim/axiom#91: Hierarchy shares recovery and presentation thresholds.
+                    "hierarchy",
                     // craigtrim/axiom#90: Sparsity uses the common recovery and chrome.
                     "sparsity",
                     "inspector",

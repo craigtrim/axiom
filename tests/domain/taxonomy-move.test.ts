@@ -2,8 +2,12 @@ import { it, expect } from "vitest";
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
 import { NS, SUBCLASS, THING } from "../../src/domain/model";
 import { taxonomyRows } from "../../src/domain/taxonomy-rows";
-import { classMoveIssue } from "../../src/domain/taxonomy-move";
+import {
+  classMoveIssue,
+  classMovesIssue,
+} from "../../src/domain/taxonomy-move";
 const base = "https://example.org/move#";
+// craigtrim/axiom#91: a multiple-branch drop is atomic and preserves RDF provenance.
 const prefixes =
   "@prefix : <" +
   base +
@@ -177,4 +181,126 @@ it("retains every visible class while choosing a forest in cyclic data", async (
   expect(new Set(rows.map((r) => r.iri)).size).toBe(rows.length);
   for (const name of ["A", "B", "Z", "Child", "Leaf"])
     expect(rows.some((r) => r.iri === base + name)).toBe(true);
+});
+
+it("moves two branches with one version, one Undo, one Redo and no lost graph provenance", async () => {
+  const s = await fixture(
+    ":Other a owl:Class; rdfs:subClassOf :A. :g { :Other rdfs:subClassOf :A. }",
+    "batch.trig",
+  );
+  const before = structuredClone(s.tbox),
+    version = s.version;
+  expect(
+    s.moveClasses(
+      [
+        { iri: base + "Child", fromParent: base + "A" },
+        { iri: base + "Other", fromParent: base + "A" },
+      ],
+      base + "Z",
+    ),
+  ).toBe(true);
+  expect(s.version).toBe(version + 1);
+  expect(s.undoStack).toHaveLength(1);
+  expect(parents(s, base + "Other")).toEqual([base + "Z", base + "Z"]);
+  expect(s.undoStack[0].label).toBe("Move 2 branches under Z");
+  const after = structuredClone(s.tbox);
+  s.undo();
+  expect(s.tbox).toEqual(before);
+  s.redo();
+  expect(s.tbox).toEqual(after);
+});
+it("validates every member before a multi-branch transaction", async () => {
+  const s = await fixture(),
+    before = structuredClone(s.tbox);
+  for (const moves of [
+    [
+      { iri: base + "Child", fromParent: base + "A" },
+      { iri: base + "Z", fromParent: base + "missing" },
+    ],
+    [
+      { iri: base + "Child", fromParent: base + "A" },
+      { iri: THING, fromParent: null },
+    ],
+    [
+      { iri: base + "Child", fromParent: base + "A" },
+      { iri: base + "Child", fromParent: base + "A" },
+    ],
+  ])
+    expect(() => s.moveClasses(moves, base + "B")).toThrow();
+  expect(s.tbox).toEqual(before);
+  expect(s.undoStack).toHaveLength(0);
+  expect(s.version).toBe(0);
+});
+it("moves a large branch selection in one transaction without truncating it", async () => {
+  const ids = Array.from({ length: 5000 }, (_, i) => "Branch" + i);
+  const s = await fixture(
+    ids.map((id) => `:${id} a owl:Class; rdfs:subClassOf :A.`).join("\n"),
+  );
+  const before = structuredClone(s.tbox);
+  s.moveClasses(
+    ids.map((id) => ({ iri: base + id, fromParent: base + "A" })),
+    base + "Z",
+  );
+  expect(ids.every((id) => parents(s, base + id).join() === base + "Z")).toBe(
+    true,
+  );
+  expect(s.version).toBe(1);
+  expect(s.undoStack).toHaveLength(1);
+  s.undo();
+  expect(s.tbox).toEqual(before);
+}, 15000);
+it("prunes nested branches and leaves children below the moved ancestor", async () => {
+  const s = await fixture();
+  s.moveClasses(
+    [
+      { iri: base + "Child", fromParent: base + "A" },
+      { iri: base + "Leaf", fromParent: base + "Child" },
+    ],
+    base + "Z",
+  );
+  expect(parents(s)).toEqual([base + "Z"]);
+  expect(parents(s, base + "Leaf")).toEqual([base + "Child"]);
+  expect(s.undoStack).toHaveLength(1);
+});
+it("blocks an existing parent only when every independent branch already sits there", async () => {
+  const s = await fixture();
+  expect(
+    classMovesIssue(
+      s.entities,
+      [{ iri: base + "Child", fromParent: base + "A" }],
+      base + "A",
+    ),
+  ).toBe("A is already the parent");
+  expect(
+    classMovesIssue(
+      s.entities,
+      [
+        { iri: base + "Child", fromParent: base + "A" },
+        { iri: base + "Z", fromParent: null },
+      ],
+      base + "A",
+    ),
+  ).toBeUndefined();
+  s.moveClasses(
+    [
+      { iri: base + "Child", fromParent: base + "A" },
+      { iri: base + "Z", fromParent: null },
+    ],
+    base + "A",
+  );
+  expect(parents(s)).toEqual([base + "A"]);
+  expect(parents(s, base + "Z")).toEqual([base + "A"]);
+});
+it("counts asserted property uses independently of class membership and restores them on Undo", async () => {
+  const s = await fixture(":p a owl:ObjectProperty. :Instance :p :A, :B.");
+  expect(s.assertionCounts.get(base + "p")).toBe(2);
+  s.updateEntity(
+    base + "Instance",
+    s
+      .entityStatements(base + "Instance")
+      .filter((t) => t.predicate !== base + "p"),
+  );
+  expect(s.assertionCounts.get(base + "p") ?? 0).toBe(0);
+  s.undo();
+  expect(s.assertionCounts.get(base + "p")).toBe(2);
 });

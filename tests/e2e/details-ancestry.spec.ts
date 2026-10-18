@@ -1,4 +1,6 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
+// craigtrim/axiom#91: reveal the filter through overflow without resizing the tree.
+import { hierarchyFilter } from "./hierarchy-controls";
 import {
   test,
   expect,
@@ -510,7 +512,7 @@ test("Details scrolling and content changes leave a completed hierarchy reveal i
     .getByRole("button", { name: /more ancestry stages/ })
     .click();
   await expectStableScroll(tree(), before);
-  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await (await hierarchyFilter(page)).focus();
   await tree().evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -551,7 +553,7 @@ test("hierarchy property clicks retain the filter and scroll position", async ()
     name: "Property hierarchy",
     exact: true,
   });
-  const filter = hierarchy().getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.fill("P50");
   const row = properties.locator('[data-entity-iri="' + base + 'P505"]');
   await expect(row).toBeInViewport();
@@ -566,16 +568,17 @@ test("selection and Back align the hierarchy with Details and reveal collapsed, 
   await showTaxonomy();
   await select("A500");
   await expect.poll(() => alignmentError("A500")).toBeLessThan(2);
-  await hierarchy()
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("no matches");
+  await (await hierarchyFilter(page)).fill("no matches");
   await select("BasicEnglish");
   await expect(treeRow("BasicEnglish")).toHaveAttribute(
     "aria-selected",
     "true",
   );
   await expect(
-    hierarchy().getByRole("textbox", { name: "Filter hierarchy" }),
+    hierarchy().getByRole("textbox", {
+      name: "Filter hierarchy",
+      includeHidden: true,
+    }),
   ).toHaveValue("");
   await expect.poll(() => alignmentError("BasicEnglish")).toBeLessThan(2);
   await details().getByRole("button", { name: "Back", exact: true }).click();
@@ -590,7 +593,7 @@ test("selection and Back align the hierarchy with Details and reveal collapsed, 
       ),
     )
     .toBe(true);
-  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await (await hierarchyFilter(page)).focus();
   await tree().evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -656,7 +659,7 @@ test("reopening Hierarchy centers Details without reopening it on selection", as
   await showTaxonomy();
   await select("A600");
   await expect.poll(() => alignmentError("A600")).toBeLessThan(2);
-  await hierarchy().getByRole("textbox", { name: "Filter hierarchy" }).focus();
+  await (await hierarchyFilter(page)).focus();
   await menu("pane.close");
   await expect(hierarchy()).toHaveCount(0);
   await select("A700");
@@ -690,9 +693,7 @@ test("property selection switches hierarchy type and centers without an ancestry
 test("ancestry navigation aligns the taxonomy row with the selected card and respects pane zoom", async () => {
   await showTaxonomy();
   await select("BasicEnglish");
-  await hierarchy()
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("no matches");
+  await (await hierarchyFilter(page)).fill("no matches");
   await ancestry()
     .getByRole("button", { name: "View English Language details", exact: true })
     .click();
@@ -701,7 +702,10 @@ test("ancestry navigation aligns the taxonomy row with the selected card and res
     base + "EnglishLanguage",
   );
   await expect(
-    hierarchy().getByRole("textbox", { name: "Filter hierarchy" }),
+    hierarchy().getByRole("textbox", {
+      name: "Filter hierarchy",
+      includeHidden: true,
+    }),
   ).toHaveValue("");
   await expect(treeRow("EnglishLanguage")).toHaveAttribute(
     "aria-selected",
@@ -743,16 +747,8 @@ test("ancestry navigation aligns the taxonomy row with the selected card and res
   await ancestry()
     .getByRole("button", { name: "View Course details", exact: true })
     .click();
-  const card = (await ancestry()
-    .locator('[aria-current="page"]')
-    .boundingBox())!;
-  const viewport = (await tree().boundingBox())!;
-  const selected = (await treeRow("Course").boundingBox())!;
-  // At this zoom the card is above the tree's first fully visible row.
-  expect(card.y + card.height / 2).toBeLessThan(
-    viewport.y + selected.height / 2,
-  );
-  await expect.poll(() => alignmentError("Course", page, true)).toBeLessThan(2);
+  // The shorter action row can now leave the card inside the zoomed tree.
+  await expect.poll(() => alignmentError("Course")).toBeLessThan(2);
   await page.screenshot({
     path: "artifacts/testing/ancestry-taxonomy-zoom.png",
   });

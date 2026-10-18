@@ -260,6 +260,8 @@ const pendingUi: {
   after: unknown;
 }[] = [];
 let uiTimer: ReturnType<typeof setTimeout> | undefined;
+// craigtrim/axiom#91: a mutation waits for UI history already being sent, too.
+let uiFlushing: Promise<void> = Promise.resolve();
 export function recordUiChange(
   key: string,
   before: unknown,
@@ -300,5 +302,9 @@ export function recordUiChange(
 export async function flushUiHistory() {
   clearTimeout(uiTimer);
   const entries = pendingUi.splice(0);
-  for (const entry of entries) await window.axiom.request("uiHistory", entry);
+  const batch = uiFlushing.then(async () => {
+    for (const entry of entries) await window.axiom.request("uiHistory", entry);
+  });
+  uiFlushing = batch.catch(() => {});
+  return batch;
 }

@@ -1,3 +1,5 @@
+// craigtrim/axiom#91: Hierarchy counts are text; instance reports remain in the row menu.
+import { hierarchyFilter } from "./hierarchy-controls";
 // Issue 87 exercises instance commands through the installed-menu palette.
 import { launchExample } from "./example-fixture";
 import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
@@ -59,9 +61,9 @@ async function menu(id: string) {
   }, id);
 }
 async function row(iri = NS.pizza + "Giardiniera", target = page) {
-  await target
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill(iri.slice(iri.lastIndexOf("#") + 1));
+  await (
+    await hierarchyFilter(target)
+  ).fill(iri.slice(iri.lastIndexOf("#") + 1));
   return target
     .locator(".tree-row")
     .filter({ has: target.locator('[data-rename-iri="' + iri + '"]') });
@@ -276,23 +278,20 @@ test("instance report finds aliases, typos and reordered words only among the cl
   await expect(report()).toContainText("No instances match");
   await expect(filter).toBeFocused();
   await menu("view.hierarchy");
-  await page
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("Hamburger");
+  await (await hierarchyFilter(page)).fill("Hamburger");
   await expect(
     page.locator(".tree-row").filter({ hasText: "Hamburger University" }),
   ).toHaveCount(0);
 });
 
-test("hierarchy count, graph menu, graph action, and existing class filter open the same report", async () => {
+test("hierarchy menu, graph menu, graph action, and existing class filter open the same report", async () => {
   const iri = NS.pizza + "Giardiniera";
-  const count = (await row()).getByRole("button", {
-    name: "Show 527 direct instances of Giardiniera",
-    exact: true,
-  });
-  await expect(count).toHaveAttribute("title", /527 direct instances/);
+  await expect((await row()).locator(".cnt")).toHaveText("527 instances");
   const before = graphKeys(await state());
-  await count.click();
+  await (await row()).click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Show instances (527)", exact: true })
+    .click();
   await expect(report().getByRole("status")).toContainText(
     "527 direct instances",
   );
@@ -626,12 +625,7 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   await expect(report()).toHaveCount(0);
   await menu("view.hierarchy");
   const tree = await row(iri);
-  await expect(
-    tree.getByRole("button", {
-      name: "Show 0 direct instances of Cheesy Pizza",
-      exact: true,
-    }),
-  ).toBeDisabled();
+  await expect(tree.locator(".cnt")).toHaveCount(0);
   await tree.click({ button: "right" });
   await expect(
     page.getByRole("menuitem", { name: "Show instances (0)", exact: true }),
