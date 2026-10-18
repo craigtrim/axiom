@@ -14,6 +14,7 @@ import {
   evidenceTriples,
   completionTriples,
   ntriples,
+  FS,
 } from "../domain/provenance";
 import type {
   ProvenanceStatus,
@@ -34,6 +35,9 @@ parentPort!.on("message", () => {
   reader.close();
 });
 const s: ProvenanceStatus = {
+  // craigtrim/axiom#94: counts describe actual metadata observations, not fixture ticks.
+  observations: 0,
+  options,
   id,
   root,
   status: "running",
@@ -54,26 +58,34 @@ async function record(e: FileEvidence, metadataOnly = false) {
     if (e.directory) s.directories++;
     else s.files++;
   }
-  const id = (e.metadata.windows as any)?.native?.value?.fileId?.value
+  const fileId = (e.metadata.windows as any)?.native?.value?.fileId?.value
     ?.fileId128;
-  if (id) {
+  if (fileId) {
     const volume = path.parse(e.path).root;
     const ids = fileIds.get(volume) ?? new Set<string>();
-    ids.add(id);
+    ids.add(fileId);
     fileIds.set(volume, ids);
   }
   s.issues += e.issues.length;
   s.current = e.path;
+  const triples = evidenceTriples(e, id);
+  const observations = triples.filter((t) =>
+    t.predicate.startsWith(FS + "metadata:"),
+  ).length;
+  s.observations = (s.observations ?? 0) + observations;
   s.recent = [
     {
       path: e.path,
       status: e.issues.length ? "Review coverage" : "Collected",
       issues: e.issues.length,
+      kind: e.directory ? ("folder" as const) : ("file" as const),
+      observations,
+      coverage: e.issues.join("; "),
     },
     ...s.recent,
   ].slice(0, 30);
   await appendFile(s.evidencePath!, JSON.stringify(e) + "\n");
-  await appendFile(s.rdfPath!, ntriples(evidenceTriples(e, id)));
+  await appendFile(s.rdfPath!, ntriples(triples));
   publish();
 }
 async function walk(file: string, parent?: string) {

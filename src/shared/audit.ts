@@ -4,6 +4,11 @@ export interface AuditEvent {
   detail?: string;
 }
 export interface AuditRecord {
+  // craigtrim/axiom#94: older records remain readable without length metadata.
+  detailLengths?: Record<
+    string,
+    { original: number; retained: number; tail?: boolean; truncated?: boolean }
+  >;
   id: string;
   operation: string;
   startedAt: string;
@@ -19,7 +24,7 @@ export interface AuditRecord {
 }
 export type AuditSummary = Omit<
   AuditRecord,
-  "events" | "details" | "metadata"
+  "events" | "details" | "metadata" | "detailLengths"
 > & {
   provider?: string;
   entity?: string;

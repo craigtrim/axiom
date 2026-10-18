@@ -277,6 +277,9 @@ export class LocalAssistantRunner {
     let dir: string | undefined;
     let diagnosticStdout = "",
       diagnosticStderr = "";
+    // craigtrim/axiom#94: count complete streams before retaining their bounded excerpts.
+    let stdoutLength = 0,
+      stderrLength = 0;
     try {
       auditMetadata({ provider });
       auditDetail("Prompt", prompt);
@@ -322,6 +325,8 @@ export class LocalAssistantRunner {
           },
         );
         job.child = child;
+        child.stdout!.setEncoding("utf8");
+        child.stderr!.setEncoding("utf8");
         let stdout = "",
           stderr = "",
           failure: Error | undefined;
@@ -330,10 +335,9 @@ export class LocalAssistantRunner {
           this.cancel();
         }, this.timeoutMs);
         child.stdout!.on("data", (data) => {
+          stdoutLength += data.toString().length;
           stdout += data.toString();
-          diagnosticStdout =
-            stdout.slice(0, 262144) +
-            (stdout.length > 262144 ? "\n[Output truncated]" : "");
+          diagnosticStdout = stdout.slice(0, 262144);
           if (stdout.length > 2000000 && !failure) {
             failure = Error("Assistant output exceeded the size limit.");
             this.cancel();
@@ -341,6 +345,7 @@ export class LocalAssistantRunner {
           stdout = stdout.slice(0, 2000001);
         });
         child.stderr!.on("data", (data) => {
+          stderrLength += data.toString().length;
           stderr = (stderr + data.toString()).slice(-8000);
           diagnosticStderr = stderr;
         });
@@ -401,8 +406,13 @@ export class LocalAssistantRunner {
         },
       };
     } finally {
-      auditDetail("Process stdout", diagnosticStdout);
-      auditDetail("Process stderr (last 8,000 characters)", diagnosticStderr);
+      auditDetail("Process stdout", diagnosticStdout, {
+        originalLength: stdoutLength,
+      });
+      auditDetail("Process stderr (last 8,000 characters)", diagnosticStderr, {
+        originalLength: stderrLength,
+        tail: true,
+      });
       this.active = undefined;
       if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
     }

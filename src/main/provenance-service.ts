@@ -6,6 +6,8 @@ import {
   type ProvenanceStatus,
 } from "../shared/provenance";
 export class ProvenanceService {
+  // craigtrim/axiom#94: resetting waits for the worker to save its partial evidence.
+  private resetting = false;
   private worker?: Worker;
   private selectedRoot?: string;
   private value: ProvenanceStatus = {
@@ -23,7 +25,7 @@ export class ProvenanceService {
     private notify: (s: ProvenanceStatus) => void,
   ) {}
   select(root: string) {
-    if (this.worker)
+    if (this.worker || this.resetting)
       throw Error(
         "Cancel the current collection before choosing another folder.",
       );
@@ -36,6 +38,7 @@ export class ProvenanceService {
       directories: 0,
       issues: 0,
       recent: [],
+      options: this.value.options,
     };
     this.notify(this.value);
     return this.selectedRoot;
@@ -44,7 +47,8 @@ export class ProvenanceService {
     return structuredClone(this.value);
   }
   start(input: unknown) {
-    if (this.worker) throw Error("Collection is already running.");
+    if (this.worker || this.resetting)
+      throw Error("Collection is already running.");
     if (!this.selectedRoot) throw Error("Choose a folder first.");
     const options = validateProvenanceOptions(input),
       id = randomUUID();
@@ -57,6 +61,8 @@ export class ProvenanceService {
       directories: 0,
       issues: 0,
       recent: [],
+      observations: 0,
+      options,
     };
     this.notify(this.value);
     const w = new Worker(
@@ -95,6 +101,34 @@ export class ProvenanceService {
   }
   cancel() {
     this.worker?.postMessage("cancel");
+  }
+  async reset() {
+    this.resetting = true;
+    try {
+      const worker = this.worker;
+      if (worker) {
+        const exited = new Promise<void>((resolve) =>
+          worker.once("exit", () => resolve()),
+        );
+        this.cancel();
+        await exited;
+      }
+      this.value = {
+        status: "idle",
+        root: this.selectedRoot,
+        options: this.value.options,
+        entries: 0,
+        observations: 0,
+        files: 0,
+        directories: 0,
+        issues: 0,
+        recent: [],
+      };
+      this.notify(this.value);
+      return this.status();
+    } finally {
+      this.resetting = false;
+    }
   }
   close() {
     this.cancel();

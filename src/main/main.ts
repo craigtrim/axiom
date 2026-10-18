@@ -1589,6 +1589,10 @@ app.whenReady().then(async () => {
     await importOntologyFile(s.rdfPath);
     return true;
   });
+  handle("provenance:reset", (event) => {
+    authorised(event);
+    return provenance.reset();
+  });
   handle("provenance:reveal", (event) => {
     authorised(event);
     const file = provenance.status().evidencePath;
@@ -1730,6 +1734,12 @@ app.whenReady().then(async () => {
   handle("suggestions:definitions", (event) => {
     authorised(event);
     return suggestions.listDefinitions();
+  });
+  // craigtrim/axiom#94: only a known batch can be cleared; the service owns its path.
+  handle("suggestions:clearBatch", (event, batchId) => {
+    authorised(event);
+    if (typeof batchId !== "string") throw Error("Choose a suggestion batch.");
+    return suggestionBatches.clear(batchId);
   });
   handle("suggestions:saveDefinition", async (event, input) => {
     authorised(event);

@@ -121,6 +121,42 @@ it("isolates overlapping operations and preserves only failed operations", async
   expect(auditId()).toBeUndefined();
 });
 
+it("counts full UTF-8 streams before retaining stdout and the stderr tail", async () => {
+  const script = path.join(root, "long-streams.cjs"),
+    stdout = "🙂".repeat(160000),
+    stderr = "warning ".repeat(2000);
+  await writeFile(
+    script,
+    'if(process.argv.includes("--version")){console.log("fixture 1");process.exit(0);}process.stdin.resume();process.stdin.on("end",()=>{const bytes=Buffer.from(' +
+      JSON.stringify(stdout) +
+      ");process.stdout.write(bytes.subarray(0,3));setTimeout(()=>{process.stdout.write(bytes.subarray(3));process.stderr.write(" +
+      JSON.stringify(stderr) +
+      ");process.exitCode=7;},10);});",
+  );
+  const runner = new LocalAssistantRunner(path.join(root, "runs"), async () => [
+    { id: "codex", file: process.execPath, args: [script] },
+  ]);
+  const audit = new AuditLog(path.join(root, "logs"));
+  await expect(
+    audit.run("Long response", {}, () => runner.run("codex", "prompt", null)),
+  ).rejects.toThrow("code 7");
+  const record = await new AuditLog(path.join(root, "logs")).read(
+    (await audit.list())[0].id,
+  );
+  expect(record.details["Process stdout"]).toBe(stdout.slice(0, 262144));
+  expect(record.details["Process stderr (last 8,000 characters)"]).toBe(
+    stderr.slice(-8000),
+  );
+  expect(record.detailLengths?.["Process stdout"]).toEqual({
+    original: 320000,
+    retained: 262144,
+    truncated: true,
+  });
+  expect(
+    record.detailLengths?.["Process stderr (last 8,000 characters)"],
+  ).toEqual({ original: 16000, retained: 8000, truncated: true, tail: true });
+});
+
 it("redacts recognized credentials in files, summaries and copied reports, and marks truncated output", async () => {
   const audit = new AuditLog(path.join(root, "logs"));
   const token = "sk-ant-" + "a".repeat(30);
@@ -149,7 +185,14 @@ it("redacts recognized credentials in files, summaries and copied reports, and m
     expect(auditReport(record)).not.toContain(value);
   }
   expect(stored).toContain("[redacted]");
-  expect(record.details.large).toContain("Truncated");
+  // craigtrim/axiom#94: truncation metadata states the exact retained and original lengths.
+  expect(record.details.large).toHaveLength(262144);
+  expect(record.detailLengths?.large).toEqual({
+    original: 300000,
+    retained: 262144,
+    truncated: true,
+  });
+  expect(record.detailLengths?.response?.truncated).toBe(false);
 });
 
 it("retains readable diagnostics if disk writes fail and rejects arbitrary file paths", async () => {
