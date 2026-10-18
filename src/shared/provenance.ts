@@ -4,6 +4,9 @@ export interface ProvenanceOptions {
   timeoutSeconds: number;
 }
 export interface ProvenanceStatus {
+  // craigtrim/axiom#94: the walk's evidence counts and options survive pane changes.
+  observations?: number;
+  options?: ProvenanceOptions;
   id?: string;
   root?: string;
   status: "idle" | "running" | "complete" | "cancelled" | "error";
@@ -17,7 +20,14 @@ export interface ProvenanceStatus {
   message?: string;
   evidencePath?: string;
   rdfPath?: string;
-  recent: { path: string; status: string; issues: number }[];
+  recent: {
+    path: string;
+    status: string;
+    issues: number;
+    kind?: "folder" | "file";
+    observations?: number;
+    coverage?: string;
+  }[];
 }
 export interface FileEvidence {
   path: string;

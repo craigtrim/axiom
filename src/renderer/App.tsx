@@ -144,7 +144,7 @@ const names: Record<string, string> = {
   suggestionruns: "Suggestion runs",
   errorlog: "Error log",
   find: "Find",
-  tabhistory: "Tab History",
+  tabhistory: "Tab history",
   sparsity: "Sparsity",
   quality: "Ontology Quality",
   textanalysis: "Text Analysis",
@@ -1415,6 +1415,12 @@ export function App() {
                   paneId={n.getId()}
                   visual={n.getComponent() === "graph"}
                   shared={[
+                    // craigtrim/axiom#94: utility panes share tokens and recovery.
+                    "source",
+                    "provenance",
+                    "suggestionruns",
+                    "errorlog",
+                    "tabhistory",
                     // craigtrim/axiom#91: Hierarchy shares recovery and presentation thresholds.
                     "hierarchy",
                     // craigtrim/axiom#90: Sparsity uses the common recovery and chrome.
@@ -1652,7 +1658,7 @@ export function App() {
                   setTabRename({ id: n.getId(), name: n.getName() });
               },
             },
-            { label: "Tab History", key: "H", run: () => show("tabhistory") },
+            { label: "Tab history", key: "H", run: () => show("tabhistory") },
             null,
             { label: "Close tab", key: "C", run: () => closeTab(tabMenu.id) },
           ]}

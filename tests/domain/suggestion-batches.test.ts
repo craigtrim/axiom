@@ -15,6 +15,7 @@ import {
   SuggestionBatches,
   type BatchRunner,
 } from "../../src/main/suggestion-batches";
+import { AuditLog } from "../../src/main/audit-log";
 
 let root: string, s: Snapshot, service: SuggestionBatches, runner: BatchRunner;
 const services: SuggestionBatches[] = [];
@@ -189,7 +190,8 @@ describe("suggestions for explicit selected nodes", () => {
     expect(runner.cancel).not.toHaveBeenCalled();
     expect(runner.run).toHaveBeenCalledTimes(1);
   });
-  it("cancels an active request and all remaining rows without losing prior results", async () => {
+  // craigtrim/axiom#94: stop queued targets while preserving the active result.
+  it("lets an active request finish and cancels all remaining rows", async () => {
     let resolve: (n: number) => void = () => {};
     vi.mocked(runner.run).mockImplementation(
       () =>
@@ -200,10 +202,55 @@ describe("suggestions for explicit selected nodes", () => {
     const batch = await service.enqueue(input());
     await vi.waitFor(() => expect(runner.run).toHaveBeenCalledTimes(1));
     await service.cancel(batch.id);
+    await wait(["running", "cancelled"]);
     resolve(1);
-    await wait(["cancelled", "cancelled"]);
-    expect(runner.cancel).toHaveBeenCalledTimes(1);
+    await wait(["completed", "cancelled"]);
+    expect((await service.history())[0].runs[0].count).toBe(1);
+    expect(runner.cancel).not.toHaveBeenCalled();
     expect(runner.run).toHaveBeenCalledTimes(1);
+  });
+  it("keeps a failed run's exact error record after restarting", async () => {
+    const audit = new AuditLog(path.join(root, "logs"));
+    runner.run = () =>
+      audit.run("Batch target", {}, () => {
+        throw Error("same message");
+      });
+    await service.enqueue(input());
+    await wait(["failed", "failed"]);
+    const saved = (await service.history())[0];
+    expect(saved.runs[0].auditId).toBeTruthy();
+    expect(saved.runs[0].auditId).not.toBe(saved.runs[1].auditId);
+    service.close();
+    service = create();
+    expect((await service.history())[0]).toEqual(saved);
+    expect((await audit.read(saved.runs[0].auditId!)).operation).toBe(
+      "Batch target",
+    );
+  });
+  it("clears saved batches without resurrecting them when the active result finishes", async () => {
+    let finish!: (count: number) => void;
+    runner.run = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    runner.hasRun = vi.fn(async () => true);
+    const batch = await service.enqueue(input());
+    await vi.waitFor(() => expect(runner.run).toHaveBeenCalledOnce());
+    await service.clear(batch.id);
+    expect(await service.history()).toEqual([]);
+    finish(7);
+    await vi.waitFor(() => expect(runner.hasRun).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(await service.history()).toEqual([]);
+    await expect(
+      readFile(path.join(root, batch.id + ".json")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(runner.run).toHaveBeenCalledOnce();
+    service.close();
+    service = create();
+    expect(await service.history()).toEqual([]);
   });
   it("cancels pending work when the workspace changes, even with the same namespace", async () => {
     runner.busy = () => true;

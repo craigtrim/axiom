@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: open one record in place, with bounded diagnostic lengths and native copy.
 import { useEffect, useState } from "react";
 import {
   auditReport,
@@ -5,197 +6,243 @@ import {
   type AuditSummary,
 } from "../shared/audit";
 import { useAuditErrors, useAuditSelection, selectAudit } from "./audit-state";
+import {
+  UtilityFrame,
+  UtilityRow,
+  UtilityTag,
+  UtilityToolbar,
+  useUtilityToast,
+} from "./UtilityPane";
+const time = (value: string) =>
+  new Date(value).toLocaleTimeString("en-GB", { hour12: false });
+const date = (value: string) => {
+  const d = new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${time(value)}`;
+};
 export function ErrorLogPanel() {
   const updates = useAuditErrors(),
     selected = useAuditSelection();
-  const [items, setItems] = useState<AuditSummary[]>([]);
-  const [record, setRecord] = useState<AuditRecord>();
-  const [filter, setFilter] = useState("");
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [items, setItems] = useState<AuditSummary[]>([]),
+    [record, setRecord] = useState<AuditRecord>(),
+    [error, setError] = useState("");
+  const { toast, notify } = useUtilityToast();
   useEffect(() => {
     let live = true;
     void window.axiom.audit
       .list()
-      .then((entries) => {
-        if (!live) return;
-        setItems(entries);
-        if (!selected && entries.length) selectAudit(entries[0].id);
-      })
+      .then((entries) => live && setItems(entries))
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [updates, selected]);
+  }, [updates]);
   useEffect(() => {
     let live = true;
     setRecord(undefined);
     setError("");
-    setCopied(false);
     if (selected)
       void window.axiom.audit
         .read(selected)
-        .then((e) => live && setRecord(e))
+        .then((r) => live && setRecord(r))
         .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
   }, [selected, updates]);
-  const visible = items.filter((e) =>
-    [e.operation, e.entity, e.provider, e.message]
-      .join(" ")
-      .toLowerCase()
-      .includes(filter.toLowerCase()),
-  );
+  const copy = () => {
+    if (record)
+      void window.axiom
+        .copy(auditReport(record))
+        .then(() =>
+          notify(
+            "Report copied.",
+            "Credentials were already redacted, and the copy is exactly what is displayed.",
+          ),
+        )
+        .catch((e) => setError(e.message));
+  };
+  const reveal = () => {
+    if (record)
+      void window.axiom.audit
+        .reveal(record.id)
+        .catch((e) => setError(e.message));
+  };
+  const clear = () => selectAudit("");
   return (
-    <section
-      className="panel error-log-panel"
-      data-panel="errorlog"
-      aria-label="Error log"
+    <UtilityFrame
+      id="errorlog"
+      label="Error log"
+      toast={toast}
+      toolbar={
+        <UtilityToolbar
+          label="Error log actions"
+          state={`${items.length} entries, ${items.filter((e) => e.outcome === "cancelled").length} cancelled`}
+          actions={[
+            {
+              id: "copy",
+              label: "Copy report",
+              priority: 1,
+              disabled: !record,
+              run: copy,
+            },
+            {
+              id: "reveal",
+              label: "Show log file",
+              priority: 2,
+              disabled: !record?.file || !!record?.storageError,
+              run: reveal,
+            },
+          ]}
+          items={[
+            {
+              id: "collapse",
+              label: "Collapse the open entry",
+              disabled: !selected,
+              run: clear,
+            },
+          ]}
+        />
+      }
+      head={
+        <>
+          <div className="note2">
+            <b>
+              Recognized credentials are redacted before a record is written,
+              shown or copied.
+            </b>
+            {
+              " Environment variables are never recorded. A report does include the prompt and the ontology context that were sent, so copying one copies that content."
+            }
+          </div>
+          {error && (
+            <div className="note2 bad3" role="alert">
+              {error}
+            </div>
+          )}
+        </>
+      }
+      footer={
+        <>
+          <span>
+            <span className="num">{items.length}</span> entries
+          </span>
+          <span>error-logs in the local user data directory</span>
+          <span>a retry never overwrites an earlier error</span>
+          <span>successful operations create no record</span>
+        </>
+      }
     >
-      <header className="error-log-heading">
-        <div className="error-log-actions">
-          <input
-            aria-label="Filter error history"
-            placeholder="Filter errors"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <button
-            disabled={!record}
-            onClick={() =>
-              record &&
-              void window.axiom
-                .copy(auditReport(record))
-                .then(() => setCopied(true))
-                .catch((e) => setError(e.message))
-            }
-          >
-            {copied ? "Copied" : "Copy report"}
-          </button>
-          <button
-            disabled={!record?.file}
-            onClick={() =>
-              record &&
-              void window.axiom.audit
-                .reveal(record.id)
-                .catch((e) => setError(e.message))
-            }
-          >
-            Show log file
-          </button>
+      {!items.length && !error && (
+        <div className="empty">
+          <b>No recorded errors.</b> Errors from older versions may not have a
+          saved log.
         </div>
-        <label>
-          Error history
-          <select
-            aria-label="Error history"
-            value={selected}
-            onChange={(e) => selectAudit(e.target.value)}
+      )}
+      {items.map((e) => (
+        <div
+          className="ent"
+          data-audit-id={e.id}
+          data-open={selected === e.id}
+          key={e.id}
+        >
+          <button
+            className="eh"
+            aria-expanded={selected === e.id}
+            onClick={() => selectAudit(selected === e.id ? "" : e.id)}
           >
-            {!visible.some((e) => e.id === selected) && (
-              <option value={selected}>
-                {selected ? "Selected error" : "No recorded errors"}
-              </option>
-            )}
-            {visible.map((e) => (
-              <option key={e.id} value={e.id}>
-                {new Date(e.startedAt).toLocaleString()} ·{" "}
-                {e.entity ?? e.operation} · {e.message}
-              </option>
-            ))}
-          </select>
-        </label>
-      </header>
-      <div className="error-log-content">
-        {error && <p role="alert">{error}</p>}
-        {!items.length && !error && (
-          <p>
-            No recorded errors. Errors from older versions may not have a saved
-            log.
-          </p>
-        )}
-        {record && (
-          <>
-            <h3>{record.message}</h3>
-            {record.metadata.evidence && <p>{record.metadata.evidence}</p>}
-            <dl className="error-log-facts">
-              <dt>When</dt>
-              <dd>{new Date(record.startedAt).toLocaleString()}</dd>
-              <dt>Operation</dt>
-              <dd>{record.operation}</dd>
-              <dt>Failed at</dt>
-              <dd>{record.stage}</dd>
-              {record.metadata.provider && (
-                <>
-                  <dt>Assistant</dt>
-                  <dd>{record.metadata.provider}</dd>
-                </>
-              )}
-              {record.metadata.entity && (
-                <>
-                  <dt>Entity</dt>
-                  <dd>{record.metadata.entity}</dd>
-                </>
-              )}
-              <dt>Reference</dt>
-              <dd>{record.id}</dd>
-              {record.file && (
-                <>
-                  <dt>Log file</dt>
-                  <dd>{record.file}</dd>
-                </>
-              )}
-            </dl>
-            {record.storageError && (
-              <p role="alert">
-                {record.storageError} Copy report is still available.
-              </p>
-            )}
-            <details open>
-              <summary>Timeline</summary>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Step</th>
-                    <th>Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {record.events.map((e, i) => (
-                    <tr key={i}>
-                      <td>{new Date(e.time).toLocaleTimeString()}</td>
-                      <td>{e.stage}</td>
-                      <td>{e.detail}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </details>
-            {Object.entries(record.details).map(([name, value]) => (
-              <details key={name}>
-                <summary>{name}</summary>
-                <pre>{value || "No output recorded."}</pre>
-              </details>
-            ))}
-            <details>
-              <summary>Application and request details</summary>
-              <dl className="error-log-facts">
-                {Object.entries(record.metadata).map(([name, value]) => (
-                  <div key={name}>
-                    <dt>{name}</dt>
-                    <dd>{String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </details>
-            <p className="muted">
-              Saved locally. Copy report includes the prompt and assistant
-              output shown here. Recognized credentials are redacted.
-            </p>
-          </>
-        )}
+            <span className="et">{e.operation}</span>
+            <UtilityTag kind={e.outcome === "cancelled" ? "wrn" : "err"}>
+              {e.outcome}
+            </UtilityTag>
+            <span className="ew">{e.stage}</span>
+            <span className="ew">{date(e.completedAt)}</span>
+          </button>
+          {selected === e.id && record?.id === e.id && (
+            <RecordBody key={e.id} record={record} />
+          )}
+        </div>
+      ))}
+    </UtilityFrame>
+  );
+}
+function RecordBody({ record: r }: { record: AuditRecord }) {
+  const process =
+    Object.hasOwn(r.metadata, "exitCode") || !!r.metadata.executable;
+  const titles: Record<string, string> = {
+    Prompt: "Prompt and ontology context",
+    "Process stderr (last 8,000 characters)": "Process stderr",
+  };
+  return (
+    <div className="ebody">
+      <div className="tl">
+        {r.events.map((e, i) => (
+          <div className="ts" key={i}>
+            <b>{time(e.time)}</b>
+            {" " + e.stage + (e.detail ? ", " + e.detail : "")}
+          </div>
+        ))}
+        <div className="ts">
+          <b>{time(r.completedAt)}</b>
+          {" " + r.message}
+        </div>
       </div>
-    </section>
+      {r.storageError && (
+        <div className="note2 bad3">
+          <b>This record could not be saved.</b>
+          {
+            " It is still here in memory and can be copied, and it did not replace the original operation error."
+          }
+        </div>
+      )}
+      {Object.entries(r.details)
+        .filter(([name]) => name !== "Arguments")
+        .map(([name, text]) => {
+          const title = titles[name] ?? name,
+            length = r.detailLengths?.[name],
+            original = length?.original ?? text.length,
+            retained = length?.retained ?? text.length;
+          const tail = length?.tail || name.startsWith("Process stderr");
+          const head =
+            (length?.truncated ?? original > retained)
+              ? `${title}, ${tail ? "last " : "retained "}${retained.toLocaleString()} of ${original.toLocaleString()} characters${tail ? "" : ", truncated"}`
+              : `${title}, ${retained.toLocaleString()} characters`;
+          return (
+            <details className="dsec" key={name}>
+              <summary>{head}</summary>
+              <pre className="dc">
+                {text.slice(0, 1400)}
+                {text.length > 1400
+                  ? `\n... ${(text.length - 1400).toLocaleString()} more characters retained`
+                  : ""}
+              </pre>
+            </details>
+          );
+        })}
+      {process && (
+        <>
+          <UtilityRow label="Exit information">
+            <span className="path">
+              {r.metadata.exitCode == null
+                ? "no exit code, the process did not run to completion"
+                : "exit code " + r.metadata.exitCode}
+            </span>
+          </UtilityRow>
+          {r.metadata.executable && (
+            <UtilityRow label="Executable">
+              <span className="path" title={String(r.metadata.executable)}>
+                {r.metadata.executable}
+              </span>
+            </UtilityRow>
+          )}
+          {r.details.Arguments !== undefined && (
+            <UtilityRow label="Arguments">
+              <span className="path" title={r.details.Arguments}>
+                {r.details.Arguments}
+              </span>
+            </UtilityRow>
+          )}
+        </>
+      )}
+    </div>
   );
 }

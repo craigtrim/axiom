@@ -1,6 +1,7 @@
 import { parseRdf, writeRdf } from "./rdf-io";
 import {
   sourceFormats,
+  invalidSourcePrefix,
   type SourceDocument,
   type SourceFormat,
   type LinkedFile,
@@ -55,13 +56,20 @@ export async function applySource(
   };
   check();
   if (typeof input.text !== "string") throw Error("Invalid source text.");
+  // craigtrim/axiom#94: every RDF parser reports Invalid without classifying message wording.
+  const format = sourceFormat(input.format);
   const parsed = await parseRdf(
     input.text,
     "source",
     store.ontology.source?.baseIRI ?? store.ontology.namespace,
-    sourceFormat(input.format),
+    format,
     { allowEmpty: true, preserveBlankNodes: true },
-  );
+  ).catch((error) => {
+    throw Error(
+      invalidSourcePrefix +
+        (error instanceof Error ? error.message : String(error)),
+    );
+  });
   check();
   store.replaceRdf(parsed.triples);
   return {

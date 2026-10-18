@@ -251,6 +251,8 @@ export interface AxiomBridge {
       input: import("./suggestion-batches").BatchRequest,
     ): Promise<import("./suggestion-batches").SuggestionBatch>;
     cancelBatch(batchId: string, runId?: string): Promise<void>;
+    // craigtrim/axiom#94: clearing the queue also removes its saved batch.
+    clearBatch(batchId: string): Promise<void>;
     definitions(): Promise<import("./suggestions").SuggestionDefinition[]>;
     saveDefinition(
       input: import("./suggestions").SuggestionDefinition,
@@ -291,6 +293,7 @@ export interface AxiomBridge {
     thumbnail(iri: string): Promise<import("./source").FilePreview>;
   };
   provenance: {
+    reset(): Promise<import("./provenance").ProvenanceStatus>;
     choose(): Promise<string | null>;
     start(
       options: import("./provenance").ProvenanceOptions,

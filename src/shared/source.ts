@@ -1,4 +1,6 @@
 import { NS } from "../domain/model";
+// craigtrim/axiom#94: preserve parser failure identity through Electron's message-only errors.
+export const invalidSourcePrefix = "Invalid source: ";
 export const sourcePrefixes: Record<string, string> = {
   dc: NS.dc,
   dcterms: NS.dcterms,
