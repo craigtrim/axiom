@@ -16,6 +16,27 @@ const tab = {
   panelState: { "graph.camera.graph:abc": { x: 30, y: 40, zoom: 0.4 } },
 };
 describe("workspace tab history", () => {
+  // craigtrim/axiom#92: migrating generated titles must not overwrite a person's saved name.
+  it("updates old Touchpoints titles and preserves deliberately named tabs", () => {
+    for (const named of [false, true]) {
+      const archive = readTabHistory({
+        version: 1,
+        counters: {},
+        entries: [
+          {
+            ...tab,
+            id: "touchpoints",
+            type: "touchpoints",
+            name: "Touchpoints · Mercury",
+            named,
+          },
+        ],
+      });
+      expect(archive.entries[0].name).toBe(
+        named ? "Touchpoints · Mercury" : "Touchpoints, Mercury",
+      );
+    }
+  });
   it("migrates saved Research tabs without restoring retired prompts", () => {
     const archive = readTabHistory({
       version: 1,

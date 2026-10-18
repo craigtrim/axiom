@@ -1,3 +1,4 @@
+/* craigtrim/axiom#92: Touchpoints styling lives with its own shared-token pane. */
 /* craigtrim/axiom#89: Inspector-specific rules moved to inspector-reference.css. */
 /* Individuals uses the shared palette and the two governing references (#86). */
 .individuals-surface.individuals-surface {
@@ -611,61 +612,6 @@
     background: var(--ground);
     border-bottom-color: var(--accent);
   }
-  .tpbar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex: none;
-    min-height: 28px;
-    padding: 0 var(--sp-3);
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--sunken);
-    border-bottom: 1px solid var(--border);
-  }
-  .tpbar .pin {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex: none;
-    color: var(--text);
-    font-weight: 600;
-  }
-  .tpq {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex: none;
-    padding: var(--sp-2) var(--sp-3);
-    border-bottom: 1px solid var(--border);
-  }
-  .cand {
-    display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) 150px 110px;
-    gap: var(--sp-2);
-    align-items: center;
-    padding: var(--sp-2) var(--sp-3);
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .cand .ttl2 {
-    font-weight: 600;
-  }
-  .cand .ds {
-    font-size: 11.5px;
-    color: var(--text-muted);
-  }
-  .cand .iri2 {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .cand.linked {
-    background: var(--sunken);
-  }
   .pill {
     display: inline-flex;
     align-items: center;
@@ -687,16 +633,6 @@
     background: var(--sunken);
     border: 1px solid var(--border-strong);
   }
-  .tpfoot {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex: none;
-    min-height: 36px;
-    padding: 0 var(--sp-3);
-    border-top: 1px solid var(--border);
-  }
-
   .legend {
     display: flex;
     flex-wrap: wrap;
@@ -742,12 +678,6 @@
   .fwrap {
     max-width: none;
   }
-  .cand {
-    grid-template-columns: 20px minmax(0, 1fr) 110px;
-  }
-  .cand .iri2 {
-    display: none;
-  }
 }
 [data-pane-shallow="true"] > .adaptive-pane-content .individuals-surface {
   .gstat {
@@ -783,12 +713,6 @@
 }
 .adaptive-pane:has(.individuals-surface) > .adaptive-pane-content {
   position: relative;
-}
-.adaptive-pane[data-pane-id^="touchpoints:"]
-  > :is(.adaptive-pane-content, .pane-recovery-own),
-.adaptive-pane[data-pane-id^="touchpoints:"] .individuals-surface.pane {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
 }
 .individuals-surface.individuals-surface {
   .vh {

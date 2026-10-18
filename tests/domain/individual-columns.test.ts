@@ -131,10 +131,12 @@ it("restores valid layout settings while retiring missing columns", () => {
   expect(restored.visible).toEqual(["subject", columns[2].key]);
   expect(restored.widths[columns[2].key]).toBe(720);
 });
+// craigtrim/axiom#92: literal links remain visible without masquerading as resource statements.
 it("recognizes xsd:anyURI literals as existing touchpoint links", () => {
   expect(touchpointContext(store, base + "Q736674", 1).links).toContainEqual({
     predicate: NS.owl + "sameAs",
     iri: "http://www.wikidata.org/entity/Q736674",
+    literal: true,
   });
 });
 it("serializes per-class layouts and filters through the workspace preference boundary", () => {

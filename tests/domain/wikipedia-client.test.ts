@@ -25,6 +25,54 @@ const input = {
   entityIri: "https://example.org/#SustainableBusiness",
   query: "sustainable business",
 };
+// craigtrim/axiom#92: exercise cache-only opening, scoped clearing and in-flight writes.
+it("opens saved entries without fetching, including empty results and cache misses", async () => {
+  const { client, fetch } = setup(async () =>
+    Response.json({ batchcomplete: true }),
+  );
+  expect(await client.readSaved(input)).toBeUndefined();
+  expect(fetch).not.toHaveBeenCalled();
+  await client.search(input);
+  expect(await client.readSaved(input)).toMatchObject({
+    candidates: [],
+    cached: true,
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await alter(client, (entry) => {
+    entry.host = "unexpected.example";
+  });
+  expect(await client.readSaved(input)).toBeUndefined();
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("clears every query for one subject and preserves another subject", async () => {
+  const { client, fetch } = setup();
+  const other = { ...input, entityIri: input.entityIri + "Other" };
+  await client.search(input);
+  await client.search({ ...input, query: "another query" });
+  await client.search(other);
+  await client.clearSubject(input.entityIri);
+  expect(await client.readSaved(input)).toBeUndefined();
+  expect(
+    await client.readSaved({ ...input, query: "another query" }),
+  ).toBeUndefined();
+  expect((await client.readSaved(other))?.candidates).toHaveLength(20);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
+it("does not restore a subject's cleared entry from an outstanding response", async () => {
+  let finish!: (response: Response) => void;
+  const { client, fetch } = setup(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const pending = client.search(input);
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  await client.clearSubject(input.entityIri);
+  finish(Response.json(fixture));
+  expect((await pending).candidates).toHaveLength(20);
+  expect(await client.readSaved(input)).toBeUndefined();
+});
 function setup(
   responses: () => Promise<Response> = async () => Response.json(fixture),
 ) {

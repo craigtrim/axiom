@@ -7,6 +7,8 @@ export interface TouchpointCandidate {
   description: string;
   url: string;
   rank: number;
+  // craigtrim/axiom#92: preserve Wikipedia order separately from the local similarity.
+  similarity?: number;
   wikidataIri?: string;
   disambiguation: boolean;
   redirects: string[];
@@ -17,6 +19,7 @@ export interface WikipediaError {
   status?: number;
   retryAt?: string;
   waitSeconds?: number;
+  firstWithoutRetryAfter?: boolean;
 }
 export interface TouchpointSearchResult {
   candidates: TouchpointCandidate[];
@@ -27,6 +30,10 @@ export interface TouchpointSearchResult {
 }
 export interface TouchpointProvider {
   id: string;
+  readSaved?(input: {
+    entityIri: string;
+    query: string;
+  }): Promise<TouchpointSearchResult | undefined>;
   search(input: {
     entityIri: string;
     query: string;
@@ -42,7 +49,7 @@ export interface TouchpointContext {
   kind: string;
   aliases: string[];
   parents: string[];
-  links: { predicate: string; iri: string }[];
+  links: { predicate: string; iri: string; literal?: true }[];
 }
 export const touchpointPredicates = [
   "exactMatch",
