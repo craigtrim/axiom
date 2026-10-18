@@ -294,8 +294,9 @@ for (const surface of ["hierarchy", "graph"] as const) {
       exact: true,
     });
     await expect(
-      report.getByRole("heading", { name: "Root", exact: true }),
-    ).toBeVisible();
+      // craigtrim/axiom#90: the context command computes the grouped report immediately.
+      report.locator(".bar .state"),
+    ).toContainText("measured, highest");
     await expect(page.getByRole("menu")).toHaveCount(0);
     expect((await state()).version).toBe(before.version);
     expect((await state()).tripleCount).toBe(before.tripleCount);
@@ -416,6 +417,6 @@ test("detached graph submenus fit both themes, restore focus and target the sele
   await expect(
     detached
       .getByRole("region", { name: "Sparsity analysis", exact: true })
-      .getByRole("heading", { name: "Root", exact: true }),
-  ).toBeVisible();
+      .locator(".bar .state"),
+  ).toContainText("measured, highest");
 });

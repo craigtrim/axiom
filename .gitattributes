@@ -29,3 +29,5 @@ tests/fixtures/quality-visual/visual-reference-v2.html -text
 tests/fixtures/query-visual/visual-reference.html -text
 # Craig's Inspector reference, hash-pinned (craigtrim/axiom#89).
 tests/fixtures/inspector-visual/visual-reference.html -text
+# Craig's Sparsity reference, hash-pinned (craigtrim/axiom#90).
+tests/fixtures/sparsity-visual/visual-reference.html -text
