@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom Sparsity</title>
+<style>
+/* OD-LAYOUT-PRIMITIVES v1. Structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* ===========================================================================
+   AXIOM SHARED LAYER v1
+   One palette, one component set. Declared here and byte identical in every
+   file of this delivery. In Axiom this block belongs at :root in styles.css,
+   once, and every feature stylesheet references rather than redeclares it.
+   =========================================================================== */
+:root {
+  color-scheme: light;
+  --ground:        #ffffff;
+  --surface:       #f6f7f9;
+  --raised:        #ffffff;
+  --sunken:        #f0f2f5;
+  --border:        #e1e4e8;
+  --border-strong: #d0d7de;
+  --border-ctl:    #7d868f;
+  --text:          #1b1f24;
+  --text-muted:    #57606a;
+  --accent:        #0b5fd0;
+  --accent-fg:     #ffffff;
+  --accent-soft:   #eaf2fd;
+  --ok:            #0a7a3d;
+  --ok-soft:       #e8f5ed;
+  --warn:          #8a6116;
+  --warn-soft:     #fdf5e3;
+  --bad:           #a4201a;
+  --bad-soft:      #fdecea;
+  --idle:          #57606a;
+  --row-hover:     #f6f7f9;
+  --row-selected:  #eaf2fd;
+  --focus:         #0b5fd0;
+  --shadow-pop:    0 8px 24px rgba(27, 31, 36, .18);
+  --chrome:        #eceff3;
+  --chrome-hover:  #dfe4ea;
+  --chrome-border: #d7dce2;
+  --sel:           rgba(11, 95, 208, .26);
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px;
+
+  --r-ctl: 4px; --r-panel: 6px; --r-pill: 999px;
+  --t-fast: 120ms; --t-enter: 180ms;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* geometry shared by every pane */
+  --h-tabs: 28px;   /* the dock strip, owned by the shell */
+  --h-bar:  28px;   /* a view's entire chrome: one action row */
+  --h-foot: 22px;   /* a status or footer line, where a view has one */
+  --row:    26px;   /* a list or table row */
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+  --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+  --text: #e6edf3; --text-muted: #9ba7b4;
+  --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+  --ok: #4ade80; --ok-soft: #0f2a1b;
+  --warn: #e3b341; --warn-soft: #2b2211;
+  --bad: #ff8d81; --bad-soft: #3a1a17;
+  --idle: #9ba7b4;
+  --row-hover: #161b22; --row-selected: #12243a;
+  --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+  --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+  --sel: rgba(76, 154, 255, .30);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+    --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
+    --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
+    --text: #e6edf3; --text-muted: #9ba7b4;
+    --accent: #4c9aff; --accent-fg: #06192e; --accent-soft: #12243a;
+    --ok: #4ade80; --ok-soft: #0f2a1b;
+    --warn: #e3b341; --warn-soft: #2b2211;
+    --bad: #ff8d81; --bad-soft: #3a1a17;
+    --idle: #9ba7b4;
+    --row-hover: #161b22; --row-selected: #12243a;
+    --focus: #6aabff; --shadow-pop: 0 8px 24px rgba(0, 0, 0, .55);
+    --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
+    --sel: rgba(76, 154, 255, .30);
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; padding: var(--sp-5);
+  background: var(--surface); color: var(--text);
+  font: 13px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl); }
+
+/* ------------------------------------------------------------------ dock -- */
+/* A docked pane is resized by dragging the dock splitter, so these grips are
+   the real workbench affordance rather than a size picker. */
+.rig { display: grid; grid-template-columns: auto 6px; grid-template-rows: auto 6px; width: max-content; max-width: 100%; }
+.dock {
+  display: grid; grid-template-rows: var(--h-tabs) minmax(0, 1fr);
+  width: 900px; height: 560px; min-width: 180px; min-height: 110px; max-width: 100%;
+  background: var(--ground); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); overflow: hidden;
+}
+.grip { background: none; border: 0; padding: 0; }
+.grip.v { cursor: col-resize; } .grip.h { cursor: row-resize; } .grip.c { cursor: nwse-resize; }
+.grip::after { content: ""; display: block; width: 100%; height: 100%; background: var(--border-strong); border-radius: var(--r-pill); opacity: .5; }
+.grip:hover::after, .grip:focus-visible::after { opacity: 1; background: var(--accent); }
+
+.tabs { display: flex; align-items: stretch; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative; flex: none; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); border: 0; border-inline-end: 1px solid var(--border);
+  background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.tab:hover { background: var(--row-hover); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--ground); color: var(--text); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; height: 2px; background: var(--accent); }
+
+/* ------------------------------------------------------------------ pane -- */
+.pane { container-type: size; container-name: pane; display: grid; grid-template-rows: var(--h-bar) minmax(0, 1fr); min-height: 0; background: var(--ground); }
+.pane.footed { grid-template-rows: var(--h-bar) minmax(0, 1fr) var(--h-foot); }
+
+/* a view's entire chrome: one row, measured overflow, no second band */
+.bar {
+  display: flex; align-items: center; gap: var(--sp-1);
+  height: var(--h-bar); padding-inline: var(--sp-2) var(--sp-1);
+  background: var(--chrome); border-bottom: 1px solid var(--chrome-border);
+  overflow: hidden; white-space: nowrap;
+}
+.bar > * { flex: none; }
+.bar .od-fill { flex: 1 1 0; min-width: 0; }
+.state { font-size: 12px; color: var(--text-muted); padding-inline: var(--sp-1); font-variant-numeric: tabular-nums; }
+.state.warnink { color: var(--warn); } .state.okink { color: var(--ok); } .state.badink { color: var(--bad); }
+.state .num { color: var(--text); }
+
+.foot {
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--h-foot); padding-inline: var(--sp-2);
+  background: var(--chrome); border-top: 1px solid var(--chrome-border);
+  color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden;
+}
+.foot .num { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------- controls -- */
+.btn {
+  height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text);
+  font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn:disabled { color: var(--idle); background: none; cursor: default; }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: none; }
+.btn.quiet:hover:not(:disabled) { background: var(--chrome-hover); }
+.btn svg { width: 13px; height: 13px; display: block; }
+.iconbtn { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; }
+
+.sel {
+  height: 22px; max-width: 200px; padding: 0 var(--sp-1); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px; cursor: pointer;
+}
+.fld {
+  height: 22px; min-width: 0; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl); background: var(--ground); color: var(--text); font-size: 12px;
+}
+.fld::placeholder { color: var(--idle); }
+
+.seg { display: inline-flex; border: 1px solid var(--border-ctl); border-radius: var(--r-ctl); overflow: hidden; height: 22px; }
+.seg button { border: 0; background: var(--ground); color: var(--text-muted); font-size: 12px; padding: 0 var(--sp-2); cursor: pointer; white-space: nowrap; }
+.seg button + button { border-inline-start: 1px solid var(--border-ctl); }
+.seg button:hover { background: var(--chrome-hover); color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+
+/* a chip states its own count; a zero count is shown and is not selectable */
+.chip {
+  height: 20px; padding: 0 var(--sp-2); border: 1px solid var(--border-ctl);
+  border-radius: var(--r-pill); background: var(--ground); color: var(--text);
+  font-size: 11px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+}
+.chip .n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chip:hover:not([aria-disabled="true"]) { background: var(--chrome-hover); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.chip[aria-pressed="true"]::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.chip[aria-disabled="true"] { color: var(--idle); cursor: default; }
+.chip[aria-disabled="true"] .n { color: var(--idle); }
+
+.sw { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2) 0 4px; border: 1px solid transparent; border-radius: var(--r-pill); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
+.sw:hover { background: var(--chrome-hover); }
+.sw .track { position: relative; width: 26px; height: 14px; border-radius: var(--r-pill); background: var(--idle); transition: background var(--t-fast); flex: none; }
+.sw .knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ground); transition: transform var(--t-fast); }
+.sw[aria-checked="true"] .track { background: var(--accent); }
+.sw[aria-checked="true"] .knob { transform: translateX(12px); }
+.sw[aria-checked="true"] { border-color: var(--border-ctl); background: var(--accent-soft); }
+
+/* ------------------------------------------------------------------ list -- */
+.grid { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.grid th, .grid td { text-align: start; padding: 0 var(--sp-2); height: var(--row); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface); color: var(--text-muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border-strong); }
+.grid th button { all: unset; cursor: pointer; display: block; width: 100%; }
+.grid tbody tr { cursor: pointer; }
+.grid tbody tr:hover { background: var(--row-hover); }
+.grid tbody tr[aria-selected="true"] { background: var(--row-selected); }
+.grid tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.grid td.n { text-align: end; font-variant-numeric: tabular-nums; }
+.grid td .mono, .grid th .mono { font-family: var(--mono); font-size: 12px; }
+.grid .muted { color: var(--text-muted); }
+
+.rows { min-height: 0; overflow: auto; }
+.empty { padding: var(--sp-5) var(--sp-3); color: var(--text-muted); font-size: 12px; max-width: 72ch; }
+.empty b { color: var(--text); font-weight: 600; }
+
+/* severity and status read as a word plus a shape, never colour alone */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
+.tag .gl { width: 9px; height: 9px; flex: none; }
+.tag.err { color: var(--bad); } .tag.wrn { color: var(--warn); } .tag.inf { color: var(--text-muted); } .tag.good { color: var(--ok); }
+.tag.err .gl { background: var(--bad); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tag.wrn .gl { background: var(--warn); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tag.inf .gl { background: var(--idle); border-radius: 50%; }
+.tag.good .gl { background: var(--ok); border-radius: 2px; }
+
+/* ------------------------------------------------------------------ menu -- */
+.menu { position: fixed; z-index: 60; min-width: 190px; padding: var(--sp-1) 0; background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--r-panel); box-shadow: var(--shadow-pop); }
+.menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: 26px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font-size: 13px; text-align: start; white-space: nowrap; cursor: default; }
+.menu button:hover:not([aria-disabled="true"]), .menu button[data-active="true"] { background: var(--row-selected); }
+.menu button[aria-disabled="true"] { color: var(--idle); }
+.menu button .k { margin-inline-start: auto; color: var(--text-muted); font-size: 11px; }
+.menu .sep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+.toast { position: absolute; inset-inline-start: var(--sp-3); inset-block-end: var(--sp-3); z-index: 40; max-width: calc(100% - var(--sp-6)); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow-pop); font-size: 12px; }
+.toast b { font-weight: 600; } .toast .sub { color: var(--text-muted); }
+
+/* ------------------------------------------------------- recovery, shared -- */
+.recov { display: none; place-content: center; gap: var(--sp-2); padding: var(--sp-3); text-align: center; }
+.recov .id { font-size: 12px; font-weight: 600; }
+.recov .why { font-size: 11px; color: var(--text-muted); }
+
+/* the published ladder. 600 and 400 with 616 and 416 exits, recovery below
+   240 wide, 210 high when narrow and 180 otherwise. No number here is new. */
+@container pane (max-width: 239px), pane (max-height: 179px) {
+  .bar, .body, .foot { display: none; }
+  .pane, .pane.footed { grid-template-rows: minmax(0, 1fr); }
+  .recov { display: grid; }
+}
+
+
+/* /AXIOM SHARED LAYER v1 */
+/* ----------------------------------------------------------------- notes -- */
+/* Outside the dock. Implementer material, not application UI. */
+.notes { max-width: 880px; margin-top: var(--sp-6); color: var(--text-muted); }
+.notes h1 { margin: 0 0 var(--sp-2); font-size: 15px; font-weight: 600; color: var(--text); }
+.notes h2 { margin: var(--sp-5) 0 var(--sp-2); font-size: 13px; font-weight: 600; color: var(--text); }
+.notes p { margin: 0 0 var(--sp-3); max-width: 72ch; }
+.notes b { color: var(--text); font-weight: 600; }
+.notes code { font: 12px var(--mono); background: var(--sunken); padding: 1px 4px; border-radius: 3px; }
+.notes table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: var(--sp-3); }
+.notes th, .notes td { text-align: start; padding: 5px var(--sp-2); border-bottom: 1px solid var(--border); vertical-align: top; }
+.notes th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.notes td.n { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notes tr:last-child td { border-bottom: 0; }
+.notes .q { border-inline-start: 2px solid var(--border-strong); padding-inline-start: var(--sp-3); font-style: italic; margin: 0 0 var(--sp-2); max-width: 72ch; }
+
+/* -------------------------------------------------------------- sparsity -- */
+/* The settings region holds 164 px at every width: four rows at 32 plus an
+   action line at 36. A row never wraps; its content column scrolls. That is
+   what makes the height budget enforceable rather than aspirational. */
+.setup { display: grid; grid-template-rows: repeat(4, 32px) 36px; align-content: start; border-bottom: 1px solid var(--border); }
+.srow { display: flex; align-items: center; gap: var(--sp-2); padding-inline: var(--sp-3); min-width: 0; }
+.srow > .lbl { flex: none; width: 104px; font-size: 11px; color: var(--text-muted); }
+.srow > .rail {
+  display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
+  padding-inline-end: var(--sp-4); scroll-padding-inline: var(--sp-2);
+}
+.srow > .rail::-webkit-scrollbar { display: none; }
+.srow > .rail > * { flex: none; scroll-snap-align: start; }
+.hint { font-size: 11px; color: var(--text-muted); }
+.actline { display: flex; align-items: center; gap: var(--sp-2); padding-inline: var(--sp-3); }
+.limits { padding: var(--sp-2) var(--sp-3); font-size: 12px; color: var(--text-muted); max-width: 74ch; }
+.limits b { color: var(--text); font-weight: 600; }
+
+/* findings, grouped by the sibling group that produced the comparison */
+.band { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 0 var(--sp-3); height: var(--row); border: 0; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; text-align: start; cursor: pointer; }
+.band:hover { background: var(--chrome-hover); }
+.band .caret { width: 10px; flex: none; color: var(--text-muted); font-size: 10px; }
+.band .bn { margin-inline-start: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.fin { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 0 var(--sp-3) 0 var(--sp-5); height: var(--row); border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); font-size: 13px; text-align: start; cursor: pointer; }
+.fin:hover { background: var(--row-hover); }
+.fin[aria-selected="true"] { background: var(--row-selected); box-shadow: inset 2px 0 0 var(--accent); }
+.fin .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin .sc { flex: none; font-variant-numeric: tabular-nums; font-size: 12px; width: 108px; text-align: end; }
+.fin .ct { flex: none; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* the score bar is a second channel, never the only one */
+.meter { flex: none; width: 56px; height: 6px; border-radius: var(--r-pill); background: var(--sunken); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--text-muted); }
+.meter.hot i { background: var(--warn); }
+.meter.cold i { background: var(--ok); }
+
+/* the sibling baseline the score was taken against, shown on selection */
+.sibs { padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--border); background: var(--sunken); display: grid; gap: var(--sp-1); }
+.sibs .hd { font-size: 11px; color: var(--text-muted); }
+.sib { display: flex; align-items: center; gap: var(--sp-2); font-size: 12px; }
+.sib .sn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+.sib .sv { flex: none; width: 150px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.sib.me .sn, .sib.me .sv { color: var(--text); font-weight: 600; }
+.sib .bars { flex: none; width: 90px; height: 8px; background: var(--sunken); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.sib .bars i { display: block; height: 100%; background: var(--border-ctl); }
+.sib.me .bars i { background: var(--warn); }
+.sibs .mean { font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-ctl); padding-top: var(--sp-1); }
+
+.pager { display: flex; align-items: center; gap: var(--sp-2); }
+/* the layout lives on an inner element, never on .body itself: the shared
+   recovery rule hides .body, and an inline or own display would outrank it */
+.stack { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; min-height: 0; }
+
+@container pane (max-width: 599px) {
+  .srow > .lbl { width: 72px; }
+  .fin .meter, .fin .ct { display: none; }
+  .sib .sv { width: 96px; }
+  .hint { display: none; }
+}
+@container pane (max-height: 399px) { .limits { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <div class="dock" id="dock">
+    <div class="tabs">
+      <button class="tab" type="button" role="tab" aria-selected="true" aria-controls="pane">Sparsity</button>
+    </div>
+
+    <div class="pane footed" id="pane" role="tabpanel">
+      <div class="bar" id="bar" aria-label="Sparsity actions">
+        <button class="btn primary" type="button" id="run">Compute</button>
+        <span class="state" id="state"></span>
+        <span class="od-fill"></span>
+        <input class="fld" id="filter" placeholder="Filter classes" size="13" aria-label="Filter classes">
+        <button class="btn quiet" type="button" id="aHier">Show in Hierarchy</button>
+        <button class="btn quiet" type="button" id="aDetails">Open in Details</button>
+        <button class="btn quiet iconbtn" type="button" id="aMore" aria-haspopup="true" aria-expanded="false" aria-label="More actions"></button>
+      </div>
+
+      <div class="body" id="body">
+        <div class="stack">
+          <div id="head"></div>
+          <div class="rows" id="rows"></div>
+        </div>
+      </div>
+
+      <div class="foot" id="foot"></div>
+
+      <div class="recov">
+        <div class="id">Sparsity</div>
+        <div class="why">Too little room to read a ranking. The report and its settings are retained.</div>
+        <div><button class="btn primary" type="button" id="recovBtn">Maximise pane</button></div>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+  </div>
+  <button class="grip v" id="gripV" aria-label="Resize pane width" title="Drag to resize the pane"></button>
+  <button class="grip h" id="gripH" aria-label="Resize pane height" title="Drag to resize the pane"></button>
+  <button class="grip c" id="gripC" aria-label="Resize pane"></button>
+</div>
+
+<div class="notes">
+  <h1>Sparsity</h1>
+  <p>Axiom's other analysis pane. It and Ontology Quality do the same shape of work and looked nothing alike: <b>51 of its rules still came from the original <code>styles.css</code></b>, it has no row in the per view policy table, and <code>SparsityPanel.tsx</code> never wraps <code>AdaptivePane</code>, so it had no size behaviour at all. This makes the two read as one family.</p>
+
+  <h2>The settings region is the Quality geometry, reused rather than reinvented</h2>
+  <p>Four rows at 32 pixels plus an action line at 36, <b>164 pixels at every width</b>. A settings row never wraps; its content column scrolls. Drag the pane narrow and watch a row scroll rather than double in height, which is the only reason a height budget can be enforced at all. The action sits at the end of the settings it commits, not pushed to the far edge by a flexible spacer.</p>
+
+  <h2>The method is the published one, implemented</h2>
+  <p>This is not a stand in score. <code>docs/sparsity-analysis.md</code> specifies the measure and the pane computes it: for each candidate among the children of a parent, the direct child count against the mean of its <b>other</b> siblings, the descendants at shortest distances 2, 3 and 4 discounted by 1, 0.5 and 0.25 against the same baseline, each deficit as <code>max(0, 1 - candidate / peer mean)</code>, and the score as 100 times the weighted mean. Descendant influence is adjustable from 0 to 40 percent and, as written, <b>a zero deeper peer mean puts the whole weight on direct children</b>. The worked example in that document holds here: a root with A at five children and B at one gives B 80 and A 0.</p>
+  <p>The rest of the published behaviour is intact: ranked findings, select to inspect, navigation to Hierarchy or Details, text filtering, a minimum score defaulting to 25, leaf inclusion, <b>paging in groups of 40</b>, settings retained with the workspace, and a worker that makes no RDF edits. Classes in cycles are excluded and the exclusion is <b>reported</b> rather than silently applied, and a lone child is left unscored because it has no baseline.</p>
+
+  <h2>Three things the rebuild adds</h2>
+  <table>
+    <tbody>
+      <tr><td style="width:28%"><b>The baseline is visible</b></td><td>Select a finding and the sibling group it was measured against opens underneath it, with every sibling's direct child count and the mean. The published document asks for exactly this: <span class="q">"Select a finding to see its direct child count beside its siblings."</span> Without it a score is an assertion. With it the reading <i>small peer groups and unusually large siblings should be considered</i> becomes something you can actually do.</td></tr>
+      <tr><td><b>The score is never colour alone</b></td><td>Every row carries the number, a bar and a word. The bar is the fastest to scan and the least reliable, so it is third in the reading order and the first thing to withdraw when the pane narrows.</td></tr>
+      <tr><td><b>Findings are grouped by the comparison that produced them</b></td><td>Every score is relative to one sibling group, so the group is the row's context, not decoration. It also makes multiple inheritance legible: a class under two parents is compared once under each, and appears under both.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What is seeded rather than read from your store</h2>
+  <p>The taxonomy here is generated: 12 top branches, deliberately uneven development, one class with two parents and one two class cycle so the exclusion path is real rather than described. Every number on screen is computed from that tree by the method above, including the breadth first descendant counts. Against your ontology the numbers would differ; the measure would not.</p>
+</div>
+<script>
+/* AXIOM SHARED LAYER v1: the helpers every pane in this delivery uses.
+   Identical in every file, so one fix lands everywhere. */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function num(n) { return Number(n).toLocaleString("en-US"); }
+var ICON = {
+  run: '<path d="M7 4.5 19 12 7 19.5z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+  more: '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>',
+  down: '<path d="M5 9l7 7 7-7"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20.5 20.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+  warn: '<path d="M12 3.4 22 20.6H2z"/><path d="M12 10v4.6M12 17.6v.1"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/>',
+  grid: '<path d="M3 5h18v14H3z"/><path d="M3 10h18M3 15h18M9 5v14"/>',
+  tree: '<path d="M4 3h6v4H4z"/><path d="M14 10h6v4h-6z"/><path d="M14 17h6v4h-6z"/><path d="M7 7v12M7 12h7M7 19h7"/>',
+  code: '<path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>',
+  link: '<path d="M10 13.5a4 4 0 0 0 5.7.3l3-3a4 4 0 1 0-5.7-5.7L11.6 6.5"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-3 3a4 4 0 1 0 5.7 5.7L12.4 17.5"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>',
+  panel: '<path d="M4 4h16v16H4z"/><path d="M4 8.5h16M8 12.5h8M8 16.5h5"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4.5-5"/>',
+  undo: '<path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/>'
+};
+function svg(n, w) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 1.7) +
+    '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICON[n] + "</svg>";
+}
+
+/* one transient status line per pane, announced politely */
+var _toastTimer = null;
+function toast(head, sub) {
+  var t = $("#toast");
+  if (!t) return;
+  t.innerHTML = "<b>" + esc(head) + "</b>" + (sub ? ' <span class="sub">' + esc(sub) + "</span>" : "");
+  t.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.hidden = true; }, 4200);
+}
+
+/* a row of actions that moves what does not fit into the overflow, in one
+   order that never reshuffles. No breakpoint of its own. */
+function fitBar(barSel, order) {
+  var fitting = false, collapsed = [];
+  function fit() {
+    if (fitting) return;
+    fitting = true;
+    var bar = $(barSel);
+    order.forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = false; });
+    collapsed = [];
+    for (var i = 0; i < order.length; i++) {
+      if (bar.scrollWidth <= bar.clientWidth) break;
+      var el = document.getElementById(order[i]);
+      if (el) { el.hidden = true; collapsed.push(order[i]); }
+    }
+    fitting = false;
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe($(barSel));
+  window.addEventListener("resize", fit);
+  fit();
+  return { fit: fit, collapsed: function () { return collapsed.slice(); } };
+}
+
+/* one popup implementation, keyboard complete */
+var _menu = null;
+function closeMenu(restore) {
+  if (!_menu) return;
+  var owner = _menu.owner;
+  _menu.el.remove(); _menu = null;
+  if (owner) { owner.setAttribute("aria-expanded", "false"); if (restore) owner.focus(); }
+}
+function openMenu(owner, items, run) {
+  closeMenu(false);
+  var el = document.createElement("div");
+  el.className = "menu"; el.setAttribute("role", "menu"); el.tabIndex = -1;
+  el.innerHTML = items.map(function (it, i) {
+    if (it.sep) return '<div class="sep" role="separator"></div>';
+    return '<button type="button" role="menuitem" data-i="' + i + '"' +
+      (it.dis ? ' aria-disabled="true"' : "") + ">" +
+      (it.checked ? "&#10003; " : "") + esc(it.l) +
+      (it.k ? '<span class="k">' + esc(it.k) + "</span>" : "") + "</button>";
+  }).join("");
+  document.body.appendChild(el);
+  var r = owner.getBoundingClientRect();
+  var x = Math.max(4, Math.min(r.right - el.offsetWidth, window.innerWidth - el.offsetWidth - 4));
+  var y = r.bottom + 2;
+  if (y + el.offsetHeight > window.innerHeight - 4) y = Math.max(4, r.top - el.offsetHeight - 2);
+  el.style.left = x + "px"; el.style.top = y + "px";
+  owner.setAttribute("aria-expanded", "true");
+  _menu = { el: el, owner: owner };
+
+  function list() { return $$("[data-i]", el); }
+  el.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-i]") : null;
+    if (!b || b.getAttribute("aria-disabled") === "true") return;
+    var it = items[+b.getAttribute("data-i")];
+    closeMenu(true); run(it);
+  });
+  el.addEventListener("keydown", function (e) {
+    var l = list(), i = l.indexOf(document.activeElement);
+    if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); l[(i + 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); l[(i - 1 + l.length) % l.length].focus(); return; }
+    if (e.key === "Home") { e.preventDefault(); l[0].focus(); return; }
+    if (e.key === "End") { e.preventDefault(); l[l.length - 1].focus(); return; }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (i < 0 || l[i].getAttribute("aria-disabled") === "true") return;
+      var it = items[+l[i].getAttribute("data-i")];
+      closeMenu(true); run(it);
+    }
+  });
+  var first = el.querySelector("[data-i]:not([aria-disabled])");
+  if (first) first.focus();
+}
+document.addEventListener("pointerdown", function (e) {
+  if (_menu && !(e.target.closest && (e.target.closest(".menu") || e.target === _menu.owner || (_menu.owner.contains && _menu.owner.contains(e.target))))) closeMenu(false);
+});
+
+/* the dock splitters */
+function grips() {
+  var d = $("#dock");
+  function bind(el, axis) {
+    if (!el) return;
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      var x0 = e.clientX, y0 = e.clientY, w0 = d.offsetWidth, h0 = d.offsetHeight;
+      function move(ev) {
+        if (axis !== "h") d.style.width = Math.max(180, w0 + (ev.clientX - x0)) + "px";
+        if (axis !== "v") d.style.height = Math.max(110, h0 + (ev.clientY - y0)) + "px";
+      }
+      function up(ev) {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
+      }
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
+    });
+    el.addEventListener("keydown", function (e) {
+      var s = e.shiftKey ? 40 : 10, w = d.offsetWidth, h = d.offsetHeight;
+      if (axis !== "h" && e.key === "ArrowLeft") { e.preventDefault(); d.style.width = Math.max(180, w - s) + "px"; }
+      if (axis !== "h" && e.key === "ArrowRight") { e.preventDefault(); d.style.width = (w + s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowUp") { e.preventDefault(); d.style.height = Math.max(110, h - s) + "px"; }
+      if (axis !== "v" && e.key === "ArrowDown") { e.preventDefault(); d.style.height = (h + s) + "px"; }
+    });
+  }
+  bind($("#gripV"), "v"); bind($("#gripH"), "h"); bind($("#gripC"), "both");
+  var rb = $("#recovBtn");
+  if (rb) rb.addEventListener("click", function () { d.style.width = "900px"; d.style.height = "560px"; });
+}
+
+/* --------------------------------------------------------- Sparsity view -- */
+(function () {
+  "use strict";
+
+  var PAGE = 40;      /* docs/sparsity-analysis.md: results render 40 rows per page */
+  var LEVELW = [1, 0.5, 0.25];   /* shortest distance 2, 3, 4 */
+
+  /* ------------------------------------------------- the seeded taxonomy -- */
+  /* Deliberately uneven, so the deficits are real. One class carries two
+     parents and one pair forms a cycle; both paths run, they are not described. */
+  var TOP = ["Business", "Social Science", "Natural Science", "Humanities", "Engineering",
+             "Health", "Education", "Law", "Agriculture", "Design", "Transport", "Archive"];
+  var NOUN = ["Process", "Agent", "Artifact", "Method", "Policy", "Role", "Event", "Measure",
+              "Resource", "System", "Record", "Standard", "Practice", "Theory", "Instrument", "Facility"];
+  var DEV = [9, 8, 7, 5, 8, 4, 6, 3, 4, 2, 1, 0];   /* per branch development */
+
+  var N = {};   /* name -> { kids: [], parents: [] } */
+  function node(n) { return N[n] || (N[n] = { name: n, kids: [], parents: [] }); }
+  function link(p, c) {
+    var a = node(p), b = node(c);
+    if (a.kids.indexOf(c) < 0) a.kids.push(c);
+    if (b.parents.indexOf(p) < 0) b.parents.push(p);
+  }
+  (function seed() {
+    var s = 20261016;
+    function rnd() { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }
+    node("owl:Thing");
+    TOP.forEach(function (t, ti) {
+      link("owl:Thing", t);
+      (function grow(parent, depth, budget) {
+        if (depth > 4 || budget <= 0) return;
+        var k = Math.round(rnd() * budget);
+        for (var i = 0; i < k; i++) {
+          var nm = t.split(" ")[0] + " " + NOUN[Math.floor(rnd() * NOUN.length)] + " " + depth + "." + (i + 1);
+          link(parent, nm);
+          grow(nm, depth + 1, budget - 1 - (depth > 2 ? 1 : 0));
+        }
+      })(t, 1, DEV[ti]);
+    });
+    /* multiple inheritance: one shared class under two parents */
+    link("Business", "Health Record 1.1");
+    link("Health", "Health Record 1.1");
+    /* a two class cycle, which must be excluded from scoring */
+    link("Archive", "Archive Loop A");
+    link("Archive Loop A", "Archive Loop B");
+    link("Archive Loop B", "Archive Loop A");
+  })();
+
+  /* classes in cycles, found with an iterative traversal */
+  var CYCLE = (function () {
+    var state = {}, bad = {};
+    Object.keys(N).forEach(function (root) {
+      if (state[root]) return;
+      var stack = [[root, 0]], path = [];
+      while (stack.length) {
+        var fr = stack[stack.length - 1], n = fr[0];
+        if (fr[1] === 0) {
+          if (state[n] === 1) {
+            for (var i = path.indexOf(n); i >= 0 && i < path.length; i++) bad[path[i]] = 1;
+            stack.pop(); continue;
+          }
+          if (state[n] === 2) { stack.pop(); continue; }
+          state[n] = 1; path.push(n);
+        }
+        var kids = N[n].kids;
+        if (fr[1] < kids.length) { fr[1]++; stack.push([kids[fr[1] - 1], 0]); continue; }
+        state[n] = 2; path.pop(); stack.pop();
+      }
+    });
+    return bad;
+  })();
+
+  /* discounted descendant count at shortest distances 2, 3, 4 (bounded BFS) */
+  function nearby(n) {
+    var seen = {}, frontier = [n], total = 0;
+    seen[n] = 1;
+    for (var d = 1; d <= 4; d++) {
+      var next = [];
+      frontier.forEach(function (x) {
+        if (CYCLE[x] && d > 1) return;
+        N[x].kids.forEach(function (k) { if (!seen[k]) { seen[k] = 1; next.push(k); } });
+      });
+      if (d >= 2) total += next.length * LEVELW[d - 2];
+      frontier = next;
+      if (!frontier.length) break;
+    }
+    return total;
+  }
+  function branchHasCycle(n) {
+    var seen = {}, st = [n];
+    while (st.length) {
+      var x = st.pop();
+      if (seen[x]) continue;
+      seen[x] = 1;
+      if (CYCLE[x]) return true;
+      N[x].kids.forEach(function (k) { if (!seen[k]) st.push(k); });
+    }
+    return false;
+  }
+
+  /* ---------------------------------------------------------------- state -- */
+  var S = {
+    scope: "owl:Thing", infl: 20, min: 25, leaves: true,
+    report: null, sel: null, open: {}, page: 0, filter: ""
+  };
+
+  function inScope(n) {
+    if (S.scope === "owl:Thing") return true;
+    var seen = {}, st = [S.scope];
+    while (st.length) {
+      var x = st.pop();
+      if (seen[x]) continue;
+      seen[x] = 1;
+      if (x === n) return true;
+      N[x].kids.forEach(function (k) { st.push(k); });
+    }
+    return false;
+  }
+
+  function compute() {
+    var wD = S.infl / 100, groups = [], lone = 0, cyc = 0, scanned = 0, measured = 0;
+    Object.keys(N).filter(function (p) {
+      return N[p].kids.length && inScope(p);
+    }).forEach(function (p) {
+      var kids = N[p].kids.slice();
+      scanned += kids.length;
+      var m = kids.map(function (v) {
+        return { name: v, c: N[v].kids.length, d: nearby(v), cyc: !!CYCLE[v] || branchHasCycle(v) };
+      });
+      var usable = m.filter(function (x) { return !x.cyc; });
+      cyc += m.length - usable.length;
+      /* a lone child has no sibling baseline and is left unscored */
+      if (usable.length < 2) { lone += usable.length; return; }
+      var rows = usable.map(function (v) {
+        var others = usable.filter(function (o) { return o !== v; });
+        var mc = others.reduce(function (a, o) { return a + o.c; }, 0) / others.length;
+        var md = others.reduce(function (a, o) { return a + o.d; }, 0) / others.length;
+        var defC = mc > 0 ? Math.max(0, 1 - v.c / mc) : 0;
+        var defD = md > 0 ? Math.max(0, 1 - v.d / md) : 0;
+        /* a zero deeper peer mean puts the whole weight on direct children */
+        var w = md > 0 ? wD : 0;
+        return {
+          name: v.name, c: v.c, d: v.d, mc: mc, md: md, peers: others.length,
+          score: Math.round(100 * ((1 - w) * defC + w * defD)), leaf: v.c === 0
+        };
+      });
+      measured += rows.length;
+      rows.sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
+      groups.push({
+        parent: p, rows: rows, all: usable,
+        mc: usable.reduce(function (a, o) { return a + o.c; }, 0) / usable.length
+      });
+    });
+    groups.sort(function (a, b) {
+      return (b.rows[0] ? b.rows[0].score : 0) - (a.rows[0] ? a.rows[0].score : 0) || a.parent.localeCompare(b.parent);
+    });
+    S.report = { groups: groups, lone: lone, cyc: cyc, scanned: scanned, measured: measured, at: new Date() };
+    S.page = 0;
+    S.sel = null;
+  }
+
+  function cls(s) { return s >= 60 ? "hot" : s > 0 ? "" : "cold"; }
+
+  /* ----------------------------------------------------------------- head -- */
+  function renderHead() {
+    if (S.report) { $("#head").innerHTML = ""; return; }
+    var scopes = ["owl:Thing"].concat(TOP).map(function (t) {
+      return '<option value="' + esc(t) + '"' + (S.scope === t ? " selected" : "") + ">" +
+        (t === "owl:Thing" ? "Whole taxonomy" : esc(t) + " branch") + "</option>";
+    }).join("");
+    var infl = [0, 10, 20, 30, 40].map(function (v) {
+      return '<button class="chip" type="button" data-infl="' + v + '" aria-pressed="' +
+        (S.infl === v ? "true" : "false") + '">' + v + " percent</button>";
+    }).join("");
+    $("#head").innerHTML =
+      '<div class="setup">' +
+        '<div class="srow"><span class="lbl">Scope</span><div class="rail">' +
+          '<select class="sel" id="scope" aria-label="Scope">' + scopes + "</select>" +
+          '<span class="hint">Analyze selected changes this from Hierarchy</span></div></div>' +
+        '<div class="srow"><span class="lbl">Descendant influence</span><div class="rail">' + infl +
+          '<span class="hint">direct children take the rest</span></div></div>' +
+        '<div class="srow"><span class="lbl">Minimum score</span><div class="rail">' +
+          '<input class="fld" id="min" value="' + S.min + '" size="3" inputmode="numeric" aria-label="Minimum score">' +
+          '<span class="hint">0 to 100, published default 25</span></div></div>' +
+        '<div class="srow"><span class="lbl">Leaf candidates</span><div class="rail">' +
+          '<button class="sw" type="button" id="leaves" role="switch" aria-checked="' + (S.leaves ? "true" : "false") + '">' +
+            '<span class="track"><span class="knob"></span></span>Include classes with no children</button>' +
+          '<span class="hint">a leaf beside a developed sibling scores high and is often correct</span></div></div>' +
+        '<div class="actline"><button class="btn primary" type="button" id="go">Compute sparsity</button>' +
+          '<span class="state"><span class="num">' + num(Object.keys(N).length - 1) +
+          "</span> named classes in the store</span></div>" +
+      "</div>" +
+      '<div class="limits"><b>This is a relative review measure.</b> It compares siblings under the same parent. ' +
+      "It cannot tell you whether an ontology needs more concepts, or whether two subjects deserve equal detail, " +
+      "and it infers nothing. A small peer group or one unusually large sibling will move a score, so the peer " +
+      "count and the mean are on every finding.</div>";
+  }
+
+  /* ----------------------------------------------------------------- rows -- */
+  function flatten() {
+    if (!S.report) return [];
+    var f = S.filter.trim().toLowerCase(), out = [];
+    S.report.groups.forEach(function (g) {
+      var rows = g.rows.filter(function (r) {
+        if (r.score < S.min) return false;
+        if (!S.leaves && r.leaf) return false;
+        if (f && r.name.toLowerCase().indexOf(f) < 0 && g.parent.toLowerCase().indexOf(f) < 0) return false;
+        return true;
+      });
+      if (!rows.length) return;
+      out.push({ g: g, n: rows.length });
+      if (S.open[g.parent]) rows.forEach(function (r) {
+        out.push({ g: g, r: r });
+        if (S.sel === g.parent + "|" + r.name) out.push({ g: g, r: r, sibs: 1 });
+      });
+    });
+    return out;
+  }
+
+  function r2(v) { return Math.round(v * 100) / 100; }
+
+  function sibsHtml(g, r) {
+    var max = Math.max.apply(null, g.all.map(function (o) { return o.c; }).concat([1]));
+    var rows = g.all.slice().sort(function (a, b) { return b.c - a.c; }).map(function (o) {
+      var me = o.name === r.name;
+      return '<div class="sib' + (me ? " me" : "") + '"><span class="sn">' + esc(o.name) + "</span>" +
+        '<span class="bars"><i style="width:' + Math.round(o.c / max * 100) + '%"></i></span>' +
+        '<span class="sv">' + o.c + " direct, " + r2(o.d) + " nearby</span></div>";
+    }).join("");
+    return '<div class="sibs"><div class="hd">Measured against the other children of ' + esc(g.parent) +
+      ", with " + esc(r.name) + " excluded from its own baseline</div>" + rows +
+      '<div class="mean">Peer mean ' + r2(r.mc) + " direct over " + r.peers + " peers, " + r2(r.md) +
+      " discounted descendants. " +
+      (r.md > 0 ? "Weighting " + (100 - S.infl) + " direct to " + S.infl + " descendants." :
+                  "The deeper peer mean is zero, so direct children carry the whole weight.") +
+      "</div></div>";
+  }
+
+  function renderRows() {
+    if (!S.report) { $("#rows").innerHTML = ""; return; }
+    var flat = flatten();
+    var pages = Math.max(1, Math.ceil(flat.length / PAGE));
+    if (S.page >= pages) S.page = pages - 1;
+    if (!flat.length) {
+      $("#rows").innerHTML = '<div class="empty"><b>No finding clears the current report settings.</b> ' +
+        num(S.report.measured) + " candidates were measured in " + num(S.report.groups.length) +
+        " sibling groups. Lower the minimum score, or include leaf candidates, to see the rest. " +
+        "A score of zero means evenly developed, which is a result and not the absence of one.</div>";
+      return;
+    }
+    $("#rows").innerHTML = flat.slice(S.page * PAGE, S.page * PAGE + PAGE).map(function (it) {
+      if (it.sibs) return sibsHtml(it.g, it.r);
+      if (it.r) {
+        var r = it.r;
+        return '<button class="fin" type="button" role="option" data-row="' + esc(it.g.parent + "|" + r.name) +
+          '" aria-selected="' + (S.sel === it.g.parent + "|" + r.name ? "true" : "false") + '">' +
+          '<span class="nm">' + esc(r.name) + (r.leaf ? " (leaf)" : "") + "</span>" +
+          '<span class="meter ' + cls(r.score) + '" aria-hidden="true"><i style="width:' + r.score + '%"></i></span>' +
+          '<span class="sc">' + r.score + " of 100</span>" +
+          '<span class="ct">' + r.c + " direct of " + r2(r.mc) + " peer mean</span></button>";
+      }
+      var g = it.g;
+      return '<button class="band" type="button" data-band="' + esc(g.parent) + '" aria-expanded="' +
+        (S.open[g.parent] ? "true" : "false") + '">' +
+        '<span class="caret" aria-hidden="true">' + (S.open[g.parent] ? "v" : ">") + "</span>" +
+        "<span>children of " + esc(g.parent) + "</span>" +
+        '<span class="bn">' + num(it.n) + " of " + num(g.rows.length) + " listed, peer mean " +
+        r2(g.mc) + " direct</span></button>";
+    }).join("");
+  }
+
+  /* ------------------------------------------------------------ bar, foot -- */
+  var bar;
+  function renderBar() {
+    var st = $("#state");
+    if (!S.report) { st.className = "state"; st.textContent = "Not computed yet"; }
+    else {
+      var top = 0;
+      S.report.groups.forEach(function (g) { g.rows.forEach(function (r) { if (r.score > top) top = r.score; }); });
+      st.className = "state" + (top >= 60 ? " warnink" : "");
+      st.innerHTML = '<span class="num">' + num(S.report.measured) + "</span> measured, highest " + top;
+    }
+    $("#aHier").disabled = !S.sel;
+    $("#aDetails").disabled = !S.sel;
+    $("#filter").disabled = !S.report;
+    $("#run").textContent = S.report ? "Recompute" : "Compute";
+    bar.fit();
+  }
+
+  function renderFoot() {
+    var f = [];
+    if (!S.report) f.push("<span>Settings are kept with the workspace</span>");
+    else {
+      var pages = Math.max(1, Math.ceil(flatten().length / PAGE));
+      f.push('<span>Page <span class="num">' + (S.page + 1) + '</span> of <span class="num">' + pages + "</span></span>");
+      f.push('<span class="pager"><button class="btn quiet" type="button" id="prev">Previous</button>' +
+             '<button class="btn quiet" type="button" id="next">Next</button></span>');
+      f.push('<span><span class="num">' + num(S.report.scanned) + "</span> compared</span>");
+      if (S.report.lone) f.push('<span class="tag inf"><span class="gl"></span>' + num(S.report.lone) + " unscored, no sibling baseline</span>");
+      if (S.report.cyc) f.push('<span class="tag wrn"><span class="gl"></span>' + num(S.report.cyc) + " excluded, in a cycle</span>");
+      f.push("<span>no RDF was changed</span>");
+    }
+    $("#foot").innerHTML = f.join("");
+    if ($("#prev")) {
+      var p2 = Math.max(1, Math.ceil(flatten().length / PAGE));
+      $("#prev").disabled = S.page === 0;
+      $("#next").disabled = S.page >= p2 - 1;
+      $("#prev").addEventListener("click", function () { S.page--; renderRows(); renderFoot(); });
+      $("#next").addEventListener("click", function () { S.page++; renderRows(); renderFoot(); });
+    }
+  }
+
+  function render() { renderHead(); renderBar(); renderRows(); renderFoot(); }
+
+  /* ----------------------------------------------------------------- wire -- */
+  function run(first) {
+    compute(); render();
+    toast(first ? "Measured " + num(S.report.measured) + " candidates." : "Recomputed.",
+      num(S.report.groups.length) + " sibling groups compared, nothing in the ontology was changed.");
+  }
+
+  function boot() {
+    $("#aMore").innerHTML = svg("more");
+    bar = fitBar("#bar", ["aHier", "aDetails", "filter"]);
+    render();
+
+    $("#head").addEventListener("click", function (e) {
+      var c = e.target.closest ? e.target.closest("[data-infl]") : null;
+      if (c) { S.infl = +c.getAttribute("data-infl"); renderHead(); return; }
+      if (e.target.closest && e.target.closest("#leaves")) { S.leaves = !S.leaves; renderHead(); return; }
+      if (e.target.id === "go") run(true);
+    });
+    $("#head").addEventListener("change", function (e) {
+      if (e.target.id === "scope") S.scope = e.target.value;
+      if (e.target.id === "min") { S.min = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)); e.target.value = S.min; }
+    });
+
+    $("#run").addEventListener("click", function () { run(!S.report); });
+    $("#filter").addEventListener("input", function () { S.filter = this.value; S.page = 0; renderRows(); renderFoot(); });
+
+    $("#rows").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-band]") : null;
+      if (b) { var p = b.getAttribute("data-band"); S.open[p] = !S.open[p]; renderRows(); renderFoot(); return; }
+      var r = e.target.closest ? e.target.closest("[data-row]") : null;
+      if (!r) return;
+      var key = r.getAttribute("data-row");
+      S.sel = S.sel === key ? null : key;
+      renderRows(); renderBar(); renderFoot();
+    });
+
+    $("#aHier").addEventListener("click", function () {
+      toast("Hierarchy reveals " + S.sel.split("|")[1] + ".", "Focus stays here so you can keep working down the ranking.");
+    });
+    $("#aDetails").addEventListener("click", function () {
+      toast("Details opens " + S.sel.split("|")[1] + ".", "The same Details tab is reused.");
+    });
+    $("#aMore").addEventListener("click", function () {
+      if (_menu) { closeMenu(true); return; }
+      var items = bar.collapsed().map(function (id) {
+        var el = document.getElementById(id);
+        return { l: el.tagName === "INPUT" ? "Filter classes" : el.textContent, act: id };
+      });
+      if (items.length) items.push({ sep: 1 });
+      items.push({ l: "Expand every group", act: "all", dis: !S.report });
+      items.push({ l: "Collapse every group", act: "none", dis: !S.report });
+      items.push({ sep: 1 });
+      items.push({ l: "Change settings", act: "back", dis: !S.report });
+      openMenu(this, items, function (it) {
+        if (it.act === "all") { S.report.groups.forEach(function (g) { S.open[g.parent] = true; }); S.page = 0; renderRows(); renderFoot(); }
+        else if (it.act === "none") { S.open = {}; S.page = 0; renderRows(); renderFoot(); }
+        else if (it.act === "back") { S.report = null; S.sel = null; render(); }
+        else { var el = document.getElementById(it.act); el.hidden = false; el.focus(); }
+      });
+    });
+
+    grips();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

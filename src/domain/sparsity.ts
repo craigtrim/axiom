@@ -167,12 +167,16 @@ function measure(store: Store, root: string): SparsityReport {
   }
   const rows: SparsityRow[] = [];
   let groups = 0,
-    unpaired = 0;
+    unpaired = 0,
+    excluded = 0,
+    compared = 0;
   const deficit = (count: number, reference: number) =>
     reference > 0 ? Math.max(0, 1 - count / reference) : 0;
   for (const [parent, ids] of children) {
-    if (cyclic.has(parent)) continue;
+    // craigtrim/axiom#90: count every comparison, including clean children of cyclic parents.
     const peers = ids.filter((iri) => metrics.has(iri));
+    compared += ids.length;
+    excluded += ids.length - peers.length;
     if (peers.length < 2) {
       if (peers.length === 1) unpaired++;
       continue;
@@ -185,7 +189,7 @@ function measure(store: Store, root: string): SparsityReport {
       totalChildren += m.children;
       totalDiscounted += m.discounted;
     }
-    for (const iri of peers) {
+    for (const [siblingOrder, iri] of peers.entries()) {
       const m = metrics.get(iri)!,
         n = peers.length - 1;
       const peerChildren = (totalChildren - m.children) / n,
@@ -196,7 +200,7 @@ function measure(store: Store, root: string): SparsityReport {
         parent,
         parentName:
           parent === THING
-            ? "Whole taxonomy"
+            ? "owl:Thing"
             : displayName(store.entities.get(parent)!),
         ...m,
         peerChildren,
@@ -206,6 +210,7 @@ function measure(store: Store, root: string): SparsityReport {
         directDeficit: deficit(m.children, peerChildren),
         descendantDeficit: deficit(m.discounted, peerDiscounted),
         score: 0,
+        siblingOrder,
       });
     }
   }
@@ -216,8 +221,8 @@ function measure(store: Store, root: string): SparsityReport {
     classes: children.size - (whole ? 1 : 0),
     groups,
     unpaired,
-    cycleClasses: cyclic.size,
-    excludedBranches: affected.size,
+    excluded,
+    compared,
     sharedClasses: [...parents.values()].filter((p) => p.length > 1).length,
     elapsedMs: performance.now() - started,
     rows,
