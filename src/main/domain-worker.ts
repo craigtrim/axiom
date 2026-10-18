@@ -431,6 +431,7 @@ const tracked = new Set<DomainMethod>([
   "clear",
   "rename",
   "moveClass",
+  "moveClasses",
   "createClass",
   "createProperty",
   "updateEntity",
@@ -641,6 +642,8 @@ function snapshot(): Snapshot {
     entities: [...store.entities.values()].map((e) => ({
       ...e,
       instances: store.instanceCount(e.iri),
+      // craigtrim/axiom#91: the Hierarchy property tree counts asserted uses.
+      assertions: store.assertionCounts.get(e.iri) ?? 0,
       descendants: store.descendantCount(e.iri),
     })),
     customers: store.customers,
@@ -2037,17 +2040,33 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       mutate("Entity renamed.");
       return next;
     }
+    case "moveClasses":
     case "moveClass": {
       if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
         throw Error("The ontology changed. Drag the class again.");
-      const iri = string(a, "iri"),
-        parent = string(a, "parent");
-      const fromParent = a.fromParent === null ? null : string(a, "fromParent");
-      if (!store.moveClass(iri, parent, fromParent)) return false;
-      selected = iri;
+      const parent = string(a, "parent");
+      const moves =
+        method === "moveClasses"
+          ? a.moves
+          : [
+              {
+                iri: string(a, "iri"),
+                fromParent:
+                  a.fromParent === null ? null : string(a, "fromParent"),
+              },
+            ];
+      if (
+        !store.moveClasses(moves as Parameters<Store["moveClasses"]>[0], parent)
+      )
+        return false;
+      const iri = (moves as { iri: string }[])[0].iri;
+      // The multi-selection is owned by Hierarchy; moving it does not retarget Details.
+      if (method === "moveClass") selected = iri;
       mutate(
         "Moved " +
-          store.label(iri) +
+          ((moves as unknown[]).length === 1
+            ? store.label(iri)
+            : (moves as unknown[]).length + " branches") +
           " under " +
           store.label(parent) +
           ". Undo restores the previous parent.",

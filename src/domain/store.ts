@@ -1,4 +1,4 @@
-import { classMoveIssue } from "./taxonomy-move";
+import { classMoveIssue, branchRoots, type ClassMove } from "./taxonomy-move";
 import { removeRedundantThingParents } from "./class-parents";
 import { simplifySubclassIntersections } from "./intersection-definitions";
 import { discardUnusedIntersection } from "./intersection-cleanup";
@@ -74,6 +74,8 @@ export class Store {
   namedByType = new Map<string, string[]>();
   bySubject = new Map<string, Triple[]>();
   byPredicate = new Map<string, Triple[]>();
+  // craigtrim/axiom#91: counts exclude inferred restriction projections in rbox.
+  assertionCounts = new Map<string, number>();
   reverse = new Map<string, Neighbour[]>();
   private intersections = {
     lists: new Set<string>(),
@@ -236,6 +238,12 @@ export class Store {
     this.reverse = new Map();
     this.bySubject = new Map();
     this.byPredicate = new Map();
+    this.assertionCounts = new Map();
+    for (const t of this.tbox)
+      this.assertionCounts.set(
+        t.predicate,
+        (this.assertionCounts.get(t.predicate) ?? 0) + 1,
+      );
     for (const e of this.entities.values()) {
       e.children = [];
       for (const r of [...e.restrictions, ...e.equivalents]) {
@@ -829,6 +837,83 @@ export class Store {
     );
   }
   moveClass(iri: string, parent: string, fromParent: string | null) {
+    return this.moveClasses([{ iri, fromParent }], parent);
+  }
+  moveClasses(moves: ClassMove[], parent: string) {
+    if (
+      !Array.isArray(moves) ||
+      !moves.length ||
+      moves.some(
+        (m) =>
+          !m ||
+          typeof m.iri !== "string" ||
+          !(m.fromParent === null || typeof m.fromParent === "string"),
+      ) ||
+      new Set(moves.map((m) => m.iri)).size !== moves.length
+    )
+      throw Error("Choose distinct existing ontology classes.");
+    // Validate even nested members before pruning them: a stale drag never partly applies.
+    for (const { iri, fromParent } of moves) {
+      const issue = classMoveIssue(this.entities, iri, parent);
+      if (issue) throw Error(issue);
+      const e = this.entities.get(iri)!;
+      if (
+        fromParent !== null &&
+        !(e.taxonomyParents ?? e.parents).includes(fromParent)
+      )
+        throw Error("The original parent changed. Drag the class again.");
+    }
+    const roots = new Set(
+      branchRoots(
+        this.entities,
+        moves.map((m) => m.iri),
+      ),
+    );
+    const changes = moves
+      .filter((m) => roots.has(m.iri))
+      .flatMap(({ iri, fromParent }) => {
+        const next = this.planClassMove(iri, parent, fromParent);
+        return next ? [{ iri, next }] : [];
+      });
+    if (!changes.length) return false;
+    const before = this.schemaState();
+    const subjects = new Set(changes.map((m) => m.iri));
+    const label =
+      "Move " +
+      (roots.size === 1
+        ? this.label([...roots][0])
+        : roots.size + " branches") +
+      " under " +
+      this.label(parent);
+    this.record(
+      label,
+      () => {
+        const next = this.tbox
+          .filter((t) => !subjects.has(t.subject))
+          .concat(changes.flatMap((m) => structuredClone(m.next)));
+        const seen = new Set<string>();
+        this.tbox = next.filter((t) => {
+          const key = statementKey(t);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const projected = projectEntities(this.tbox);
+        if (this.ontology.assertedOnly) this.entities = projected;
+        else
+          for (const { iri } of changes)
+            this.entities.set(iri, projected.get(iri)!);
+        this.rebuildSchema();
+      },
+      () => this.restoreSchema(before),
+    );
+    return true;
+  }
+  private planClassMove(
+    iri: string,
+    parent: string,
+    fromParent: string | null,
+  ) {
     const issue = classMoveIssue(this.entities, iri, parent);
     if (issue) throw Error(issue);
     const entity = this.entities.get(iri)!;
@@ -867,10 +952,7 @@ export class Store {
       ),
     ];
     if (JSON.stringify(next) === JSON.stringify(statements)) return false;
-    this.updateEntity(iri, next);
-    this.undoStack[this.undoStack.length - 1].label =
-      "Move " + this.label(iri) + " under " + this.label(parent);
-    return true;
+    return next;
   }
   addClassParents(owner: string, members: string[]) {
     const e = this.entities.get(owner);
