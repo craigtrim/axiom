@@ -135,9 +135,13 @@ test("source edits update the graph and taxonomy, inspector edits update source,
   await page.evaluate(() =>
     window.axiom.request("select", { iri: "https://example.org/Course" }),
   );
-  const fields = page.getByRole("form", { name: "Edit entity properties" });
+  // craigtrim/axiom#89: the Inspector's Name field edits the preferred label.
+  const fields = page.getByRole("region", {
+    name: "Entity inspector",
+    exact: true,
+  });
   await fields
-    .getByRole("textbox", { name: "Entity label", exact: true })
+    .getByRole("textbox", { name: "Name", exact: true })
     .fill("Course from inspector");
   await page
     .getByRole("region", { name: "Entity inspector", exact: true })

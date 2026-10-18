@@ -1,0 +1,280 @@
+/* craigtrim/axiom#89: Inspector uses the shared palette and measured size tiers. */
+.inspector-surface {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+}
+@scope (.inspector-surface) {
+  :scope :is(input, button) {
+    min-height: 0;
+  }
+  .inspector-content-grid {
+    grid-row: 1 / -1;
+    display: grid;
+    grid-template-rows: var(--h-bar) minmax(0, 1fr);
+    min-height: 0;
+  }
+  .ibody {
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .inspector-save-gap {
+    padding-inline-start: 4px;
+    flex: none;
+    display: flex;
+  }
+  .bar .state {
+    flex-shrink: 1;
+  }
+  .bar .btn.primary:disabled {
+    color: var(--idle);
+    background: none;
+  }
+  .inspector-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 20px 12px;
+  }
+  .ident {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 2px;
+  }
+  .ident .nm {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .ident .nm input {
+    min-height: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: var(--r-ctl);
+    background: none;
+    padding: 0 var(--sp-1);
+  }
+  .ident .nm input:hover {
+    border-color: var(--border-ctl);
+  }
+  .ident .nm input:focus {
+    border-color: var(--accent);
+    background: var(--ground);
+  }
+  .ident .kind {
+    flex: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    padding: 1px 7px;
+  }
+  .ident .iri {
+    font: 12px var(--mono);
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* usage reports only what the subject's kind can actually have */
+  .usage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+  }
+  .usage .u {
+    display: grid;
+    gap: 1px;
+  }
+  .usage .u .v {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .usage .u .k {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .usage .u.zero .v {
+    color: var(--text-muted);
+  }
+
+  .sect {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  }
+  .sect .t {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .sect .n {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .sect .sp {
+    margin-inline-start: auto;
+  }
+
+  /* the grouped statement table: a predicate once, its values stacked */
+  .st {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed;
+  }
+  .st th {
+    text-align: start;
+    padding: 0 var(--sp-3);
+    height: 22px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .st td {
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .st td.p {
+    width: 150px;
+    padding: 5px var(--sp-3);
+    font: 12px var(--mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .st td.v {
+    padding: 4px var(--sp-3) 4px 0;
+  }
+  .vstack {
+    display: grid;
+    gap: 3px;
+  }
+  .vstack.multi {
+    border-inline-start: 2px solid var(--border-strong);
+    padding-inline-start: var(--sp-2);
+    margin-inline-start: calc(var(--sp-2) * -1);
+  }
+  .vrow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+  :scope .vrow .val {
+    min-height: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 560px;
+    height: 22px;
+    border: 1px solid transparent;
+    border-radius: var(--r-ctl);
+    background: none;
+    padding: 0 var(--sp-1);
+    font: 13px var(--font);
+  }
+  :scope .vrow .val:hover {
+    border-color: var(--border-ctl);
+  }
+  :scope .vrow .val:focus {
+    border-color: var(--accent);
+    background: var(--ground);
+  }
+  :scope .vrow .val[readonly] {
+    color: var(--text-muted);
+  }
+  .vrow .rm {
+    opacity: 0;
+    flex: none;
+  }
+  .vrow:hover .rm,
+  .vrow:focus-within .rm {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .vrow .rm {
+      opacity: 1;
+    }
+  }
+  .vtools {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding-top: 2px;
+  }
+  :scope .lnk {
+    white-space: normal;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  :scope .lnk:hover {
+    background: none;
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .inf {
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-ctl);
+    border-radius: var(--r-pill);
+    padding: 0 6px;
+    flex: none;
+  }
+  /* The Inspector specimen uses the focus ring, not a selected-row fill, for menu focus. */
+  :scope .menu button[data-active="true"]:not(:hover) {
+    background: none;
+  }
+
+  .st th:first-child {
+    width: 150px;
+  }
+  .vstack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  input:focus {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+}
+.adaptive-pane[data-pane-narrow="true"] .inspector-surface .ident .iri {
+  display: none;
+}
+.adaptive-pane[data-pane-narrow="true"]
+  .inspector-surface
+  .st
+  :is(th:first-child, td.p) {
+  width: 118px;
+}
+.adaptive-pane[data-pane-shallow="true"] .inspector-surface .usage {
+  display: none;
+}
+.inspector-recovery .id {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.inspector-recovery .why {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}

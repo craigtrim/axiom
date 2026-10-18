@@ -467,7 +467,8 @@ test("Inspector retains a subject draft and typing during Apply, with one Undo p
   await label.fill("Typed during save");
   await releaseRequests(d.app);
   await expect(label).toHaveValue("Typed during save");
-  await expect(pane.locator(".state .word")).toHaveText("Draft");
+  // craigtrim/axiom#89: the action row owns the Inspector's retained draft state.
+  await expect(pane.locator(".bar .state")).toHaveText("Unapplied changes");
   await expect
     .poll(
       async () =>
@@ -479,7 +480,7 @@ test("Inspector retains a subject draft and typing during Apply, with one Undo p
   await pane
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  await expect(pane.locator(".state .word")).toHaveText("Saved");
+  await expect(pane.locator(".bar .state")).toHaveText("Saved");
   await d.menu("edit.undo");
   await expect(label).toHaveValue("Draft name");
   await d.menu("edit.undo");
@@ -495,21 +496,15 @@ test("Inspector rename and grouped additions retain drafts and identify refused 
   await d.request("select", { iri: base + "S0" });
   await d.menu("view.inspector");
   const pane = inspector(d);
-  await pane.getByRole("button", { name: "More actions" }).click();
-  await pane.getByRole("button", { name: "Rename", exact: true }).click();
   await pane
-    .getByRole("textbox", { name: "Rename entity" })
+    .getByRole("textbox", { name: "Name", exact: true })
     .fill("Renamed header");
-  await pane.getByRole("textbox", { name: "Rename entity" }).press("Enter");
   await expect(
     pane.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
   ).toHaveValue("Renamed header");
-  await pane.getByRole("button", { name: "Add row", exact: true }).click();
-  const predicate = pane.getByRole("textbox", {
-    name: "Predicate for new row",
-  });
-  await predicate.fill("rdfs:seeAlso");
-  await predicate.press("Enter");
+  await pane
+    .getByRole("button", { name: "Add value for rdfs:seeAlso", exact: true })
+    .click();
   await expect(
     pane.getByRole("textbox", { name: "rdfs:seeAlso value 3", exact: true }),
   ).toHaveValue("");
@@ -519,7 +514,7 @@ test("Inspector rename and grouped additions retain drafts and identify refused 
   await pane
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  await expect(pane.locator(".state .word")).toHaveText("Saved");
+  await expect(pane.locator(".bar .state")).toHaveText("Saved");
   await pane
     .getByRole("textbox", { name: "rdfs:label value 1", exact: true })
     .fill("Pending");

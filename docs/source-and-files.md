@@ -1,6 +1,6 @@
 # Source editing and linked files
 
-Open **View > Source** (Ctrl+7), or choose **View source** in the Inspector. The Source pane shows the complete asserted RDF document, including filesystem metadata that previously filled the Inspector's Values section. **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, syntax coloring, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
+Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, syntax coloring, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
 
 ## One ontology across views
 
