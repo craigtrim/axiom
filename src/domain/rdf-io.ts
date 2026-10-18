@@ -3,6 +3,7 @@ import { Parser, Writer, DataFactory } from "n3";
 import { sourcePrefixes } from "../shared/source";
 import { RdfXmlParser } from "rdfxml-streaming-parser";
 import { JsonLdParser } from "jsonld-streaming-parser";
+import { SaxesParser } from "saxes";
 import type { Quad, Term as RdfTerm } from "@rdfjs/types";
 import { Store } from "./store";
 import { NS, type Triple, type Term } from "./model";
@@ -121,6 +122,18 @@ export async function parseRdf(
       throw Error("The ontology exceeds one million statements.");
   };
   if (format === "rdfxml" || format === "jsonld") {
+    const input = format === "rdfxml" ? xmlEntities(text) : text;
+    if (format === "rdfxml") {
+      // craigtrim/axiom#94: the RDF stream parser does not finalize XML syntax at EOF.
+      // Reject unfinished documents before any source edit can replace the store.
+      const xml = new SaxesParser({ xmlns: true });
+      xml.on("error", (error) => {
+        throw Error(
+          `RDF/XML parse failed on line ${xml.line}: ${error.message}`,
+        );
+      });
+      xml.write(input).close();
+    }
     const parser =
       format === "rdfxml"
         ? new RdfXmlParser({ baseIRI, trackPosition: true })
@@ -144,7 +157,7 @@ export async function parseRdf(
       });
       parser.on("error", reject);
       parser.on("end", resolve);
-      parser.end(format === "rdfxml" ? xmlEntities(text) : text);
+      parser.end(input);
     });
   } else {
     const parser = new Parser({
