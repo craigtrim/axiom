@@ -96,6 +96,9 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  // craigtrim/axiom#93: Add entity validates and commits a complete nested draft.
+  | "addEntityCheck"
+  | "addEntityCreate"
   | "qualityCensus"
   | "qualityStart"
   | "qualityStatus"

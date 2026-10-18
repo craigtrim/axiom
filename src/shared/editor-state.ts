@@ -1,4 +1,5 @@
 import type { Entity, Triple } from "../domain/model";
+import { readSavedAddEntity, type SavedAddEntity } from "./add-entity";
 import { editorStatements } from "./statement-values";
 import {
   sourceFormats,
@@ -34,6 +35,8 @@ export interface EntitySourceDraft {
   stale?: boolean;
 }
 export interface SavedEditorDrafts {
+  // craigtrim/axiom#93: Add entity drafts belong to the saved workspace.
+  addEntity?: SavedAddEntity;
   version: 1;
   storeVersion: number;
   entities: EditorDraft[];
@@ -96,5 +99,6 @@ export function readEditorDrafts(
     JSON.stringify(d).length > 128 * 1024 * 1024
   )
     throw Error("Invalid saved editor drafts.");
+  if (d.addEntity !== undefined) readSavedAddEntity(d.addEntity);
   return structuredClone(d);
 }

@@ -1421,6 +1421,8 @@ export function App() {
                     "sparsity",
                     // craigtrim/axiom#92: Touchpoints uses the shared recovery ladder.
                     "touchpoints",
+                    // craigtrim/axiom#93: Add entity joins the shared pane layer.
+                    "textentities",
                     "inspector",
                     "taxonomy",
                     "textanalysis",

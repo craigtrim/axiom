@@ -476,7 +476,8 @@ test("Recent searches and More disclose by keyboard and remain open across resiz
   await expect(query()).toHaveValue("Topic 010");
 });
 
-test("near-match creation remains reachable in a shallow detached pane (#48)", async () => {
+// craigtrim/axiom#93: Find retains its own layout while authoring moves to Add entity.
+test("near-match creation in a shallow detached Find opens the shared form", async () => {
   await query().fill("Topic Certification");
   await settled();
   await size(360, 260);
@@ -487,154 +488,74 @@ test("near-match creation remains reachable in a shallow detached pane (#48)", a
       exact: true,
     })
     .click();
-  await expect(create().getByLabel("Class label", { exact: true })).toHaveValue(
-    "Topic Certification",
-  );
-  await create()
-    .getByLabel("Class label", { exact: true })
+  const form = main.getByRole("region", {
+    name: "Add entity view",
+    exact: true,
+  });
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Topic Certification");
+  await form
+    .getByRole("textbox", { name: "Name", exact: true })
     .fill("Topic Specialization");
   await size(1100, 660);
-  await expect(create().getByLabel("Class label", { exact: true })).toHaveValue(
-    "Topic Specialization",
-  );
-  await size(360, 260);
-  await create().getByLabel("Class label", { exact: true }).press("Escape");
-  await expect(create()).toHaveCount(0);
   await expect(
-    pane().getByRole("button", { name: "More", exact: true }),
-  ).toBeFocused();
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Topic Specialization");
   await noOverflow();
 });
-
-test("zero-state scope copy, remedies and one creation affordance survive all sizes", async () => {
+test("zero-state copy, remedies and one Add entity action survive all usable sizes", async () => {
   await query().fill("Absent Unicorn");
   await settled();
   await expect(pane().getByRole("heading", { level: 3 })).toHaveText(
     /Nothing matched in 2 of \d+ fields\./,
   );
-  await expect(
-    pane().getByRole("button", {
-      name: "Open results in new graph",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    pane().getByRole("button", { name: /Include all entity types/ }),
-  ).toHaveCount(0);
   await pane().getByRole("button", { name: "More", exact: true }).click();
   await pane().getByRole("button", { name: "All fields", exact: true }).click();
   await settled();
   await expect(pane().getByRole("heading", { level: 3 })).toHaveText(
     "Nothing matched anywhere in the ontology.",
   );
-  await expect(
-    pane().getByRole("group", { name: "Search remedies" }).getByRole("button"),
-  ).toHaveCount(0);
-  await create().getByLabel("Class label", { exact: true }).fill("Kept draft");
-  await create()
-    .getByLabel("Class comment", { exact: true })
-    .fill("Description survives");
-  await query().focus();
-  await size(360, 260);
-  await expect(create()).toBeHidden();
-  const button = pane().getByRole("button", {
-    name: "Add entity",
-    exact: true,
-  });
-  await expect(button).toBeVisible();
-  await button.click();
-  await expect(button).toBeHidden();
-  await expect(create()).toBeVisible();
-  await expect(create().getByLabel("Class label", { exact: true })).toHaveValue(
-    "Kept draft",
-  );
-  await create().getByLabel("Class label", { exact: true }).press("Escape");
-  await expect(button).toBeFocused();
-  await size(1100, 660);
-  await expect(button).toBeHidden();
-  await expect(create()).toBeVisible();
-  await expect(
-    create().getByLabel("Class comment", { exact: true }),
-  ).toHaveValue("Description survives");
+  for (const [w, h] of [
+    [1100, 660],
+    [600, 400],
+    [360, 260],
+    [240, 210],
+  ]) {
+    await size(w, h);
+    await expect(
+      pane().getByRole("button", { name: "Add entity", exact: true }),
+    ).toBeVisible();
+    await expect(pane().locator(".find-create")).toHaveCount(0);
+    await noOverflow();
+  }
 });
-
-test("recovery keeps the exact creation editor inert and restores it with Maximize pane", async () => {
+test("Find recovery retains its query and returns focus through Maximize pane", async () => {
   await query().fill("Absent Unicorn");
-  await settled();
-  // Recovery removes the retained region from the accessibility tree.
-  const input = pane().locator('.find-create input[aria-label="Class label"]');
-  await input.fill("Draft in recovery");
-  await input.evaluate((el) => ((window as any).__findInput = el));
+  await query().evaluate((el) => {
+    (window as any).__findQuery = el;
+  });
   await size(238, 660);
   await expect(host()).toHaveAttribute("data-pane-recovery", "true");
-  await expect(
-    page.getByRole("button", { name: "Maximize pane", exact: true }),
-  ).toBeFocused();
-  expect(await input.evaluate((el) => !!el.closest("[inert]"))).toBe(true);
   await page
     .getByRole("button", { name: "Maximize pane", exact: true })
     .click();
   await expect(host()).toHaveAttribute("data-pane-recovery", "false");
-  await expect(input).toHaveValue("Draft in recovery");
-  expect(await input.evaluate((el) => el === (window as any).__findInput)).toBe(
-    true,
-  );
-  await expect(input).toBeFocused();
-  await size(360, 208);
-  await expect(host()).toHaveAttribute("data-pane-recovery", "true");
-  await size(616, 178);
-  await expect(host()).toHaveAttribute("data-pane-recovery", "true");
+  await expect(query()).toHaveValue("Absent Unicorn");
+  expect(
+    await query().evaluate((el) => el === (window as any).__findQuery),
+  ).toBe(true);
+  for (const [w, h] of [
+    [360, 208],
+    [616, 178],
+  ]) {
+    await size(w, h);
+    await expect(host()).toHaveAttribute("data-pane-recovery", "true");
+  }
   await size(616, 416);
-  await expect(host()).toHaveAttribute("data-pane-recovery", "false");
-  await expect(input).toHaveValue("Draft in recovery");
+  await expect(query()).toHaveValue("Absent Unicorn");
 });
-
-test("normalized names warn and create separately while exact names and occupied IRIs block", async () => {
-  await query().fill("Absent Unicorn");
-  await settled();
-  const input = create().getByLabel("Class label", { exact: true });
-  const save = create().getByRole("button", {
-    name: "Create class",
-    exact: true,
-  });
-  await input.fill("Reading Comprehension");
-  await expect(save).toBeDisabled();
-  await expect(
-    create().getByRole("button", {
-      name: "Open Reading Comprehension",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await input.fill("reading comprehension");
-  await expect(save).toBeEnabled();
-  await expect(create().locator(".find-collision")).toContainText(
-    "is very close to",
-  );
-  await expect(create().getByLabel("Subject IRI", { exact: true })).toHaveValue(
-    base + "ReadingComprehension2",
-  );
-  await create()
-    .getByLabel("Subject IRI", { exact: true })
-    .fill(base + "ReadingComprehension");
-  await expect(save).toBeDisabled();
-  await create()
-    .getByRole("button", { name: "Use label for IRI", exact: true })
-    .click();
-  await expect(save).toBeEnabled();
-  await save.click();
-  await expect
-    .poll(
-      async () =>
-        (
-          await main.evaluate(() => window.axiom.request<Snapshot>("state"))
-        ).entities.filter((e) =>
-          e.iri.startsWith(base + "ReadingComprehension"),
-        ).length,
-    )
-    .toBe(2);
-});
-
-test("focused scope and creation fields stay mounted, while withdrawn pager focus returns to the query", async () => {
+test("focused scope stays mounted and withdrawn pager focus returns to the query", async () => {
   const field = pane().getByRole("checkbox", { name: "IRI", exact: true });
   await field.focus();
   await size(360, 660);
@@ -648,64 +569,6 @@ test("focused scope and creation fields stay mounted, while withdrawn pager focu
     .focus();
   await size(1100, 180);
   await expect(query()).toBeFocused();
-  await size(1100, 660);
-  await query().fill("Absent Unicorn");
-  await settled();
-  const input = create().getByLabel("Class label", { exact: true });
-  await input.fill("Unfinished creation");
-  await input.evaluate((el: HTMLInputElement) => {
-    (window as any).__findDraftInput = el;
-    el.setSelectionRange(4, 4);
-  });
-  await size(360, 260);
-  await expect(input).toBeFocused();
-  expect(
-    await input.evaluate((el: HTMLInputElement) => [
-      el === (window as any).__findDraftInput,
-      el.selectionStart,
-    ]),
-  ).toEqual([true, 4]);
-  await expect(
-    pane().getByRole("button", {
-      name: "Add entity",
-      exact: true,
-    }),
-  ).toBeHidden();
-  await size(1100, 660);
-  await expect(input).toBeFocused();
-});
-
-test("Find measures its detached window independently and keeps a normalized-name warning through Add entity", async () => {
-  await size(360, 660);
-  await (
-    await app.browserWindow(main)
-  ).evaluate((win) => win.setContentSize(1400, 900));
-  await expect(host()).toHaveAttribute("data-pane-layout", "narrow");
-  await size(1100, 660);
-  await query().fill("Absent Unicorn");
-  await settled();
-  await create()
-    .getByLabel("Class label", { exact: true })
-    .fill("reading comprehension");
-  await expect(
-    create().getByRole("button", { name: "Create class", exact: true }),
-  ).toBeEnabled();
-  await create()
-    .getByRole("button", { name: "Continue in Add entity", exact: true })
-    .click();
-  const editor = main.getByRole("region", { name: "Add entity", exact: true });
-  await expect(editor).toContainText("You can still create a separate class");
-  await expect(editor.getByLabel("Subject IRI", { exact: true })).toHaveValue(
-    base + "ReadingComprehension2",
-  );
-  await editor.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect
-    .poll(async () =>
-      (
-        await main.evaluate(() => window.axiom.request<Snapshot>("state"))
-      ).entities.some((e) => e.iri === base + "ReadingComprehension2"),
-    )
-    .toBe(true);
 });
 
 for (const theme of ["light", "dark"] as const)

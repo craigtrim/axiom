@@ -265,8 +265,8 @@ test.beforeEach(async ({}, info) => {
     "false",
   );
   await expect(
-    pane().getByRole("textbox", { name: "Class label", exact: true }),
-  ).toHaveValue("Synaptic Plasticity");
+    pane().getByRole("button", { name: "Add entity", exact: true }),
+  ).toBeVisible();
   await app.evaluate(
     ({ BrowserWindow }, data) =>
       BrowserWindow.getAllWindows().forEach((win) => {
@@ -404,222 +404,9 @@ test.afterEach(async () => {
   await app?.close();
 });
 
-for (const theme of ["light", "dark"] as const) {
-  for (const kind of ["exact", "normalized"] as const) {
-    test(`reference ${theme} ${kind} collision notice`, async ({}, info) => {
-      await menu(`theme.${theme}`);
-      await app.evaluate(({ ipcMain }, kind) => {
-        const original = (ipcMain as any)._invokeHandlers.get("domain:request");
-        ipcMain.removeHandler("domain:request");
-        ipcMain.handle("domain:request", async (event, method, args) => {
-          const result = await original(event, method, args);
-          return method === "findCreatePreview"
-            ? {
-                ...result,
-                errors: [],
-                collisions: [
-                  {
-                    iri: "https://axiom.test/onto/SynapticPlasticity",
-                    label: "Synaptic Plasticity",
-                    path: "Course › Science › Biology › Neuroscience",
-                    kind,
-                  },
-                ],
-              }
-            : result;
-        });
-      }, kind);
-      const label = pane().getByRole("textbox", {
-        name: "Class label",
-        exact: true,
-      });
-      await label.fill("temporary label");
-      await label.fill(
-        kind === "exact" ? "Synaptic Plasticity" : "synaptic plasticity",
-      );
-      const actualNotice = pane().locator(".find-collision");
-      await expect(actualNotice).toHaveClass(
-        new RegExp(kind === "exact" ? "block" : "caution"),
-      );
-      await expect(
-        pane().getByRole("button", { name: "Create class", exact: true }),
-      ).toBeEnabled({ enabled: kind === "normalized" });
-      await specimen.evaluate((theme) => {
-        document.documentElement.dataset.theme = theme;
-        document.body.style.background = "var(--bg)";
-      }, theme);
-      const expectedNotice = specimen
-        .locator("h2#f + p + div .guard")
-        .nth(kind === "exact" ? 0 : 1);
-      for (const [notice, application] of [
-        [expectedNotice, false],
-        [actualNotice, true],
-      ] as const)
-        await notice.evaluate((el, application) => {
-          const wrapper = document.createElement("div");
-          if (application) wrapper.className = "find-panel";
-          wrapper.classList.add("capture-notice");
-          Object.assign(wrapper.style, {
-            position: "fixed",
-            left: "24px",
-            top: "24px",
-            padding: "4px",
-            width: "704px",
-            height: "auto",
-            display: "block",
-            background: "var(--bg, var(--ground))",
-            zIndex: "9999",
-          });
-          document.body.append(wrapper);
-          wrapper.append(el);
-          Object.assign((el as HTMLElement).style, {
-            width: "696px",
-            margin: "0",
-          });
-        }, application);
-      await page.mouse.move(0, 0);
-      await specimen.mouse.move(0, 0);
-      const expected = await capture(
-          specimen.locator(".capture-notice .guard"),
-          "reference",
-        ),
-        actual = await capture(
-          page.locator(".capture-notice .guard"),
-          "application",
-        );
-      const filename = `${theme}-${kind}-collision.png`;
-      if (process.env.AXIOM_UPDATE_REFERENCE === "1")
-        await writeFile(info.snapshotPath(filename), expected);
-      expect(expected).toMatchSnapshot(filename, {
-        threshold: 0,
-        maxDiffPixels: 0,
-      });
-      expect
-        .soft(actual)
-        .toMatchSnapshot(filename, { threshold: 0, maxDiffPixels: 0 });
-      const baseline = await readFile(info.snapshotPath(filename));
-      const equal = await app.evaluate(
-        ({ nativeImage }, buffers) => {
-          const [expected, actual, baseline] = buffers.map((s) =>
-            nativeImage.createFromBuffer(Buffer.from(s, "base64")).toBitmap(),
-          );
-          return {
-            application: actual.equals(expected),
-            baseline: baseline.equals(expected),
-          };
-        },
-        [expected, actual, baseline].map((b) => b.toString("base64")),
-      );
-      expect(equal).toEqual({ application: true, baseline: true });
-    });
-  }
-}
-
-// Compose the two governing results specimens: Find supplies the pane and
-// extend v3 supplies the selected row's remembered split (craigtrim/axiom#83).
-for (const theme of ["light", "dark"] as const) {
-  test(`reference ${theme} 21-value group`, async ({}, info) => {
-    await menu(`theme.${theme}`);
-    await resize(1178, 758);
-    const html = await readFile(groupedReference, "utf8");
-    const values: string[] = JSON.parse(
-      html.match(/var seeAlso = (\[[\s\S]*?\]);/)![1],
-    );
-    await pane()
-      .getByRole("button", { name: "+ Add row", exact: true })
-      .click();
-    await pane()
-      .getByRole("combobox", { name: "Predicate 1", exact: true })
-      .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");
-    const group = pane().locator(
-      'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
-    );
-    for (const [index, value] of values.entries()) {
-      if (index)
-        await group
-          .getByRole("button", { name: "+ Add value", exact: true })
-          .click();
-      await group.getByRole("textbox").last().fill(value);
-    }
-    await group
-      .getByRole("button", { name: "Show fewer", exact: true })
-      .click();
-    await expect(group.getByRole("textbox")).toHaveCount(3);
-    await expect(
-      group.getByRole("button", { name: "18 more", exact: true }),
-    ).toBeVisible();
-    await (
-      await app.browserWindow(specimen)
-    ).evaluate((win, file) => win.loadFile(file), groupedReference);
-    await specimen.addStyleTag({ content: sharedReferencePalette });
-    await specimen.evaluate((theme) => {
-      document.documentElement.dataset.theme = theme;
-    }, theme);
-    const expectedGroup = specimen
-      .locator("#ed-group table.st tbody tr")
-      .last();
-    // The standalone exhibit has document typography. Its table is used inside
-    // Find, so inherit the pinned pane's type as the other editor variants do.
-    await specimen.locator("#ed-group").evaluate((el) => {
-      el.classList.add("pane");
-      Object.assign((el as HTMLElement).style, {
-        position: "fixed",
-        left: "24px",
-        top: "24px",
-        width: "720px",
-        height: "auto",
-        transform: "translateZ(0)",
-      });
-    });
-    for (const row of [group, expectedGroup]) {
-      await row.evaluate((el) => {
-        const table = el.closest("table")!;
-        table.querySelector("thead")?.remove();
-        table.querySelectorAll("tbody tr").forEach((other) => {
-          if (other !== el) other.remove();
-        });
-        Object.assign(table.style, {
-          position: "fixed",
-          left: "24px",
-          top: "24px",
-          width: "680px",
-          zIndex: "9999",
-          background: "var(--bg, var(--ground))",
-        });
-      });
-    }
-    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
-    await page.mouse.move(0, 0);
-    await specimen.mouse.move(0, 0);
-    const expected = await capture(expectedGroup, "reference"),
-      actual = await capture(group, "application");
-    const filename = `${theme}-21-values.png`;
-    if (process.env.AXIOM_UPDATE_REFERENCE === "1")
-      await writeFile(info.snapshotPath(filename), expected);
-    expect(expected).toMatchSnapshot(filename, {
-      threshold: 0,
-      maxDiffPixels: 0,
-    });
-    expect
-      .soft(actual)
-      .toMatchSnapshot(filename, { threshold: 0, maxDiffPixels: 0 });
-    const baseline = await readFile(info.snapshotPath(filename));
-    const equal = await app.evaluate(
-      ({ nativeImage }, buffers) => {
-        const [expected, actual, baseline] = buffers.map((s) =>
-          nativeImage.createFromBuffer(Buffer.from(s, "base64")).toBitmap(),
-        );
-        return {
-          application: actual.equals(expected),
-          baseline: baseline.equals(expected),
-        };
-      },
-      [expected, actual, baseline].map((b) => b.toString("base64")),
-    );
-    expect(equal).toEqual({ application: true, baseline: true });
-  });
-}
-
+// craigtrim/axiom#93: the former inline class editor, grouped aliases and
+// collision frames are superseded by add-entity-visual.spec.ts. Property editing
+// retains its native transaction coverage in find.spec.ts.
 for (const theme of ["light", "dark"] as const) {
   for (const [name, frame] of [
     ["expanded", "fr-exp"],
@@ -961,82 +748,39 @@ for (const theme of ["light", "dark"] as const) {
   });
 }
 
-for (const theme of ["light", "dark"] as const) {
+// Decision 12 replaces only the zero state's inline editor with its existing
+// Add entity affordance. The pinned reference bytes and results frames stay intact.
+for (const theme of ["light", "dark"] as const)
   for (const [name, frame] of [
     ["wide", "fr-zero"],
-    ["wide-bottom", "fr-zero"],
     ["narrow", "fr-edit"],
-    ["narrow-bottom", "fr-edit"],
     ["shallow", "fr-edit-s"],
     ["extra-wide", "fr-wide"],
-    ["extra-wide-bottom", "fr-wide"],
-    ["chain-wide", "fr-zero"],
-    ["chain-wide-bottom", "fr-zero"],
-    ["chain-narrow", "fr-edit"],
-    ["chain-narrow-bottom", "fr-edit"],
   ] as const) {
-    test(`reference ${theme} ${name} zero state`, async ({}, info) => {
+    test(`reference ${theme} ${name} zero state`, async () => {
       await menu(`theme.${theme}`);
-      if (name.startsWith("chain")) {
-        await pane()
-          .getByRole("combobox", { name: "Parent classes" })
-          .fill("Neuroscience");
-        await page.getByRole("option", { name: /Neuroscience/ }).click();
-        await pane()
-          .getByRole("button", { name: "+ Add row", exact: true })
-          .click();
-        await pane()
-          .getByRole("combobox", { name: "Predicate 1", exact: true })
-          .selectOption("http://www.w3.org/2000/01/rdf-schema#seeAlso");
-        await pane()
-          .getByRole("textbox", { name: "Value 1", exact: true })
-          .fill("Long Term Potentiation");
-        const group = pane().locator(
-          'tr[data-predicate="http://www.w3.org/2000/01/rdf-schema#seeAlso"]',
-        );
-        for (const value of [
-          "Hebbian Learning",
-          "LTP",
-          "Synaptic Scaling",
-          "Spike Timing Dependent Plasticity",
-          "STDP",
-        ]) {
-          await group
-            .getByRole("button", { name: "+ Add value", exact: true })
-            .click();
-          await group.getByRole("textbox").last().fill(value);
-        }
-        await group
-          .getByRole("button", { name: "Show fewer", exact: true })
-          .click();
-      }
       await specimen.evaluate(
-        ({ theme, frame, name }) => {
+        ({ theme, frame }) => {
           document.documentElement.dataset.theme = theme;
           const selected = document.getElementById(frame)!;
-          // The resizable exhibit frame is outside the Find design. Its native
-          // grip otherwise paints over the bottom-right pixels of the pane crop.
-          selected.style.resize = "none";
           Object.assign(selected.style, {
+            resize: "none",
             position: "absolute",
             left: "24px",
             top: "24px",
           });
-          if (name.startsWith("chain"))
-            selected
-              .querySelector(".zero-editor")!
-              .replaceChildren(document.querySelector("#ed-chain .ed-wrap")!);
-          // #34's only exception: word match modes remain removed.
-          selected.querySelectorAll(".rem").forEach((button) => {
-            if (button.textContent?.startsWith("Match any word"))
-              button.remove();
+          selected.querySelectorAll(".rem").forEach((el) => {
+            if (el.textContent?.startsWith("Match any word")) el.remove();
           });
+          selected.querySelector(".zero-editor")?.remove();
+          const offer = selected.querySelector<HTMLElement>(".zero-create")!;
+          offer.style.setProperty("display", "block", "important");
           document.body.replaceChildren(selected);
         },
-        { theme, frame, name },
+        { theme, frame },
       );
-      const expectedPane = specimen.locator(".pane");
-      const dimensions = (await expectedPane.boundingBox())!;
+      const expectedPane = specimen.locator(".pane"),
+        dimensions = (await expectedPane.boundingBox())!;
       await resize(dimensions.width, dimensions.height);
       await (
         await app.browserWindow(specimen)
@@ -1049,180 +793,32 @@ for (const theme of ["light", "dark"] as const) {
       );
       await page.mouse.move(0, 0);
       await specimen.mouse.move(0, 0);
-      await pane()
-        .locator(".find-results-scroll")
-        .evaluate(
-          (el, bottom) => (el.scrollTop = bottom ? el.scrollHeight : 0),
-          name.endsWith("bottom"),
-        );
-      await expectedPane
-        .locator(".rbody")
-        .evaluate(
-          (el, bottom) => (el.scrollTop = bottom ? el.scrollHeight : 0),
-          name.endsWith("bottom"),
-        );
-      // #36 changes the context band only. Keep this evidence separate from
-      // the full-pane pixel comparison, which also covers the statement editor.
-      const contextGeometry = (root: Locator, selectors: string[]) =>
-        root.evaluate((el, selectors) => {
-          const origin = el.getBoundingClientRect();
-          return selectors.map((selector) => {
-            const node = el.querySelector<HTMLElement>(selector)!;
-            if (!node.checkVisibility({ visibilityProperty: true }))
-              return null;
-            const r = node.getBoundingClientRect();
-            return {
-              x: r.x - origin.x,
-              y: r.y - origin.y,
-              width: r.width,
-              height: r.height,
-            };
-          });
-        }, selectors);
-      await expect(pane().locator(".find-inspector")).toHaveCount(0);
-      await expect(expectedPane.locator(".ctx")).toHaveCount(0);
-      const context = {
-        expected: await contextGeometry(expectedPane, [
-          ".rbody",
-          ".rfoot",
-          ".store",
-        ]),
-        actual: await contextGeometry(pane(), [
-          ".find-results-scroll",
-          ".find-pagination",
-          ".find-store",
-        ]),
-      };
-      expect(context.actual).toEqual(context.expected);
-      await mkdir("artifacts/issue-36", { recursive: true });
+      const expected = await capture(expectedPane, "reference"),
+        actual = await capture(pane(), "application");
+      await mkdir("artifacts/issue-93", { recursive: true });
       await writeFile(
-        `artifacts/issue-36/context-${theme}-${name}.json`,
-        JSON.stringify(context, null, 2),
-      );
-      const expected = await capture(expectedPane, "reference");
-      const expectedPath = info.snapshotPath(`${theme}-${name}.png`);
-      if (process.env.AXIOM_UPDATE_REFERENCE === "1") {
-        await mkdir(path.dirname(expectedPath), { recursive: true });
-        await writeFile(expectedPath, expected);
-      }
-      // A missing reference baseline is an error, never a request to bless Axiom.
-      const baseline = await readFile(expectedPath);
-      const actual = await capture(pane(), "application");
-      await info.attach("reference", {
-        body: expected,
-        contentType: "image/png",
-      });
-      await info.attach("application", {
-        body: actual,
-        contentType: "image/png",
-      });
-      await mkdir("artifacts/issue-34", { recursive: true });
-      await writeFile(`artifacts/issue-34/actual-${theme}-${name}.png`, actual);
-      await writeFile(
-        `artifacts/issue-34/expected-${theme}-${name}.png`,
+        `artifacts/issue-93/find-${theme}-${name}-expected.png`,
         expected,
       );
-      const moreIconMetrics: unknown[] = [];
-      for (const [label, target, root] of [
-        ["actual", page, '[data-panel="find"]'],
-        ["expected", specimen, ".pane"],
-      ] as const) {
-        const metrics = await target.locator(root).evaluate((el) =>
-          [el, ...el.querySelectorAll("*")].map((node) => {
-            const r = node.getBoundingClientRect(),
-              origin = el.getBoundingClientRect(),
-              s = getComputedStyle(node);
-            return {
-              tag: node.tagName,
-              cls: node.className,
-              text: node.children.length ? undefined : node.textContent,
-              x: r.x - origin.x,
-              y: r.y - origin.y,
-              w: r.width,
-              h: r.height,
-              font: s.font,
-              color: s.color,
-              bg: s.backgroundColor,
-              padding: s.padding,
-              border: s.border,
-              display: s.display,
-              inputStyle:
-                node instanceof HTMLInputElement
-                  ? Object.fromEntries(
-                      [...s].map((key) => [key, s.getPropertyValue(key)]),
-                    )
-                  : undefined,
-              moreIcon: !!node.closest('button[aria-label="More"]'),
-              svg:
-                "getScreenCTM" in node
-                  ? {
-                      matrix: (() => {
-                        const m = (node as SVGGraphicsElement).getScreenCTM()!;
-                        return [m.a, m.b, m.c, m.d, m.e, m.f];
-                      })(),
-                      attributes: Object.fromEntries(
-                        [...node.attributes].map((a) => [a.name, a.value]),
-                      ),
-                      fill: s.fill,
-                      stroke: s.stroke,
-                      strokeWidth: s.strokeWidth,
-                      shapeRendering: s.shapeRendering,
-                    }
-                  : undefined,
-            };
-          }),
-        );
-        await writeFile(
-          `artifacts/issue-34/${label}-${theme}-${name}.json`,
-          JSON.stringify(metrics, null, 2),
-        );
-        moreIconMetrics.push(metrics.filter((node) => node.moreIcon));
-      }
-      expect(moreIconMetrics[0]).toEqual(moreIconMetrics[1]);
-      expect(expected).toMatchSnapshot(`${theme}-${name}.png`, {
-        threshold: 0,
-        maxDiffPixels: 0,
-      });
-      expect(actual).toMatchSnapshot(`${theme}-${name}.png`, {
-        threshold: 0,
-        maxDiffPixels: 0,
-      });
-      // Playwright's comparator can disregard antialiased edge pixels even at
-      // threshold zero. Require full bitmap equality as well.
-      const differences = await app.evaluate(
-        ({ nativeImage }, images) => {
-          const [reference, actual, baseline] = images.map((data) =>
-            nativeImage.createFromBuffer(Buffer.from(data, "base64")),
-          );
-          const compare = (image: typeof reference) => {
-            const size = image.getSize(),
-              expectedSize = reference.getSize();
-            if (
-              size.width !== expectedSize.width ||
-              size.height !== expectedSize.height
-            )
-              return -1;
-            const a = reference.toBitmap(),
-              b = image.toBitmap();
-            let different = 0;
-            for (let offset = 0; offset < a.length; offset += 4)
-              if (a.readUInt32LE(offset) !== b.readUInt32LE(offset))
-                different++;
-            return different;
-          };
-          return { reference: compare(baseline), application: compare(actual) };
-        },
-        [
-          expected.toString("base64"),
-          actual.toString("base64"),
-          baseline.toString("base64"),
-        ],
+      await writeFile(
+        `artifacts/issue-93/find-${theme}-${name}-actual.png`,
+        actual,
       );
-      await info.attach("raw-pixel-differences", {
-        body: JSON.stringify(differences, null, 2),
-        contentType: "application/json",
-      });
-      expect(differences).toEqual({ reference: 0, application: 0 });
+      const diff = await app.evaluate(
+        ({ nativeImage }, images) => {
+          const [e, a] = images.map((x) =>
+              nativeImage.createFromBuffer(Buffer.from(x, "base64")),
+            ),
+            eb = e.toBitmap(),
+            ab = a.toBitmap();
+          if (eb.length !== ab.length) return -1;
+          let n = 0;
+          for (let i = 0; i < ab.length; i += 4)
+            if (ab.readUInt32LE(i) !== eb.readUInt32LE(i)) n++;
+          return n;
+        },
+        [expected.toString("base64"), actual.toString("base64")],
+      );
+      expect(diff).toBe(0);
     });
   }
-}

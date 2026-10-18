@@ -146,80 +146,54 @@ async function openNetworkFixture() {
   await expect(pane()).toBeVisible();
 }
 
-for (const chosenParent of [false, true]) {
-  test(`near-match results offer a new class with ${chosenParent ? "a chosen parent" : "Thing"}, preserving results and supporting undo (#48)`, async () => {
+// craigtrim/axiom#93: class and individual doors now open the persistent Add entity form.
+const addForm = () =>
+  page.getByRole("region", { name: "Add entity view", exact: true });
+for (const chosenParent of [false, true])
+  test(`near-match Add entity preserves results and creates with ${chosenParent ? "Course" : "Thing"}`, async () => {
     await openNetworkFixture();
-    const query = pane().getByRole("searchbox", {
-      name: "Search the ontology",
-    });
-    await query.fill("Network Certification");
+    await pane()
+      .getByRole("searchbox", { name: "Search the ontology" })
+      .fill("Network Certification");
     await setPageSize("25");
     await pane()
       .getByRole("button", { name: "Next results page", exact: true })
       .click();
     await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
     const table = pane().locator(".find-results");
-    const row = table.locator("tbody tr").nth(3);
-    await row.locator(".find-result-name").click();
-    const selectedName = await row.locator(".find-result-name").innerText();
+    await table.locator("tbody tr").nth(3).locator(".find-result-name").click();
     const before = await table.innerText();
-    const offer = pane().getByRole("button", {
-      name: 'Add "Network Certification" as a new class',
-      exact: true,
-    });
-    await expect(offer).toBeEnabled();
-    await expect(table.locator(".find-synonym").first()).toContainText(
-      "Synonym",
-    );
-    await offer.click();
-    const form = pane().getByRole("region", {
-      name: "Add to the ontology",
-      exact: true,
-    });
-    await expect(
-      form.getByRole("textbox", { name: "Class label", exact: true }),
-    ).toHaveValue("Network Certification");
-    await expect(table).toHaveAttribute("inert", "");
-    await form
-      .getByRole("textbox", { name: "Class comment", exact: true })
-      .fill("Retained draft description");
     await pane()
-      .getByRole("button", { name: "Back to results", exact: true })
+      .getByRole("button", {
+        name: 'Add "Network Certification" as a new class',
+        exact: true,
+      })
       .click();
-    await expect(offer).toBeFocused();
+    const form = addForm();
+    await expect(
+      form.getByRole("textbox", { name: "Name", exact: true }),
+    ).toHaveValue("Network Certification");
+    await form
+      .getByRole("textbox", { name: "Comment", exact: true })
+      .fill("Retained draft description");
+    await menu("view.find");
     expect(await table.innerText()).toBe(before);
     await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
+    await menu("view.textentities");
     await expect(
-      table.locator('tr[data-selected="true"] .find-result-name'),
-    ).toHaveText(selectedName);
-    await offer.click();
-    await expect(
-      form.getByRole("textbox", { name: "Class comment", exact: true }),
+      form.getByRole("textbox", { name: "Comment", exact: true }),
     ).toHaveValue("Retained draft description");
-    await form
-      .getByRole("textbox", { name: "Class label", exact: true })
-      .press("Escape");
-    await expect(form).toHaveCount(0);
-    await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
-    await offer.click();
     if (chosenParent) {
       await form
-        .getByRole("combobox", { name: "Parent classes", exact: true })
+        .getByRole("combobox", { name: "Add a parent", exact: true })
         .fill("Course");
-      await page
-        .getByRole("listbox", { name: "Parent classes" })
+      await form
         .getByRole("option")
         .filter({ hasText: /^Course/ })
         .first()
         .click();
     }
-    await page.screenshot({
-      path: `artifacts/testing/issue48-create-${chosenParent ? "parent" : "root"}.png`,
-    });
-    await form
-      .getByRole("button", { name: "Create class", exact: true })
-      .click();
-    await expect(form).toHaveCount(0);
+    await form.getByRole("button", { name: "Create", exact: true }).click();
     await expect
       .poll(
         async () =>
@@ -232,82 +206,55 @@ for (const chosenParent of [false, true]) {
       (e) => e.label === "Network Certification",
     )!;
     expect(entity.comment).toBe("Retained draft description");
-    await expect(
-      pane().getByRole("button", {
-        name: "Network Certification already exists",
-        exact: true,
-      }),
-    ).toBeDisabled();
-    await page.evaluate(() => window.axiom.request("undo"));
+    await menu("edit.undo");
     await expect
       .poll(async () =>
         (await state()).entities.some((e) => e.iri === entity.iri),
       )
       .toBe(false);
-    await expect(offer).toBeEnabled();
-    await offer.click();
-    await expect(
-      form.getByRole("textbox", { name: "Class label", exact: true }),
-    ).toHaveValue("Network Certification");
-    await pane()
-      .getByRole("button", { name: "Back to results", exact: true })
-      .click();
+    await menu("edit.redo");
+    await expect
+      .poll(async () =>
+        (await state()).entities.some((e) => e.iri === entity.iri),
+      )
+      .toBe(true);
   });
-}
-
-test("Find creation checks exact and IRI collisions, allows normalized warnings and preserves zero state (#48)", async () => {
+test("Find offers authoring for a near match and Add entity blocks normalized duplicates", async () => {
   await openNetworkFixture();
   const query = pane().getByRole("searchbox", { name: "Search the ontology" });
-  await query.fill("Network Security");
-  await expect(
-    pane().getByRole("button", {
-      name: "Network Security already exists",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await expect(
-    pane().getByRole("button", {
-      name: "Network Security already exists",
-      exact: true,
-    }),
-  ).toHaveAttribute("title", "Network Security already exists");
-  await query.fill("Blocked Name");
-  await expect(
-    pane().getByRole("button", {
-      name: "Different Existing Label already exists",
-      exact: true,
-    }),
-  ).toBeDisabled();
+  for (const [text, label] of [
+    ["Network Security", "Network Security"],
+    ["Blocked Name", "Different Existing Label"],
+  ]) {
+    await query.fill(text);
+    await expect(
+      pane().getByRole("button", {
+        name: label + " already exists",
+        exact: true,
+      }),
+    ).toBeDisabled();
+  }
   await query.fill("Network Qualification");
-  const offer = pane().getByRole("button", {
-    name: 'Add "Network Qualification" as a new class',
-    exact: true,
-  });
-  await expect(offer).toBeEnabled();
-  await offer.click();
-  const form = pane().getByRole("region", {
-    name: "Add to the ontology",
-    exact: true,
-  });
-  await expect(form).toContainText("network qualification");
-  await expect(
-    form.getByRole("button", { name: "Create class", exact: true }),
-  ).toBeEnabled();
   await pane()
-    .getByRole("button", { name: "Back to results", exact: true })
+    .getByRole("button", {
+      name: 'Add "Network Qualification" as a new class',
+      exact: true,
+    })
     .click();
-  await query.fill("");
-  await expect(pane().locator(".find-result-actions .ib")).toHaveCount(0);
+  await expect(addForm().locator(".vmsg")).toContainText(
+    "network qualification already exists",
+  );
+  await expect(
+    addForm().getByRole("button", { name: "Create", exact: true }),
+  ).toBeDisabled();
+  await menu("view.find");
   await query.fill("asdfasdf");
-  await expect(form).toBeVisible();
   await expect(
-    form.getByRole("textbox", { name: "Class label", exact: true }),
-  ).toHaveValue("Asdfasdf");
-  await expect(
-    pane().getByRole("button", { name: "Back to results", exact: true }),
-  ).toHaveCount(0);
+    pane().getByRole("button", { name: "Add entity", exact: true }),
+  ).toBeVisible();
   await expect(pane().locator(".find-result-actions")).toHaveCount(0);
 });
+
 async function types(selected: string[]) {
   for (const label of ["Classes", "Instances", "Properties", "Other entities"])
     await pane()
@@ -379,10 +326,53 @@ for (const [target, door, noun, predicate, kind] of [
     "AnnotationProperty",
   ],
 ] as const) {
-  test(`#49 ${door} creates a ${kind} with its relation, custom IRI and one Undo`, async () => {
+  test(`#49 ${door} creates a ${kind} with its relation and one Undo`, async () => {
     await openExtendFixture();
     await extendMenu(target);
     await page.getByRole("menuitem", { name: new RegExp("^" + door) }).click();
+    if (door !== "Subproperty") {
+      const form = addForm(),
+        name = "New " + kind,
+        iri = extendBase + "New" + kind,
+        targetIri = (await state()).entities.find(
+          (e) => (e.label || e.name) === target,
+        )!.iri;
+      await expect(
+        form.getByRole("textbox", { name: "Name", exact: true }),
+      ).toHaveValue("Psy");
+      await expect(
+        form.getByRole("button", { name: "Remove " + target, exact: true }),
+      ).toBeVisible();
+      await form.getByRole("textbox", { name: "Name", exact: true }).fill(name);
+      await form
+        .getByRole("textbox", { name: "Comment", exact: true })
+        .fill("Created from Find");
+      await form.getByRole("button", { name: "Create", exact: true }).click();
+      await expect
+        .poll(
+          async () => (await state()).entities.find((e) => e.iri === iri)?.kind,
+        )
+        .toBe(kind);
+      const doc = await page.evaluate(
+        (iri) => window.axiom.request<any>("entityDocument", { iri }),
+        iri,
+      );
+      expect(doc.statements).toContainEqual(
+        expect.objectContaining({
+          predicate,
+          object: expect.objectContaining({ literal: false, value: targetIri }),
+        }),
+      );
+      await menu("edit.undo");
+      await expect
+        .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+        .toBe(false);
+      await menu("edit.redo");
+      await expect
+        .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+        .toBe(true);
+      return;
+    }
     const form = pane().getByRole("region", {
       name: "Add to the ontology",
       exact: true,
@@ -390,17 +380,21 @@ for (const [target, door, noun, predicate, kind] of [
     const label = form.getByRole("textbox", {
       name: new RegExp("^" + noun + " label$", "i"),
     });
+    await expect(
+      form
+        .getByRole("combobox", { name: "rdf:type", exact: true })
+        .locator("option"),
+    ).toHaveText([
+      "owl:ObjectProperty",
+      "owl:DatatypeProperty",
+      "owl:AnnotationProperty",
+    ]);
     await expect(label).toHaveValue("Psy");
     await expect(pane().locator(".extend-context")).toContainText(target);
     await expect(
       form.getByRole("combobox", { name: "rdf:type", exact: true }),
     ).toHaveValue(
-      NS.owl +
-        (kind === "Individual"
-          ? "NamedIndividual"
-          : kind === "DataProperty"
-            ? "DatatypeProperty"
-            : kind),
+      NS.owl + (kind === "DataProperty" ? "DatatypeProperty" : kind),
     );
     const name = "New " + kind;
     await label.fill(name);
@@ -432,10 +426,9 @@ for (const [target, door, noun, predicate, kind] of [
         object: expect.objectContaining({ literal: false, value: targetIri }),
       }),
     );
-    if (kind !== "Class")
-      expect(
-        doc.statements.some((t: any) => t.predicate === NS.rdfs + "subClassOf"),
-      ).toBe(false);
+    expect(
+      doc.statements.some((t: any) => t.predicate === NS.rdfs + "subClassOf"),
+    ).toBe(false);
     await pane().getByRole("searchbox").blur();
     await menu("edit.undo");
     await expect
@@ -497,36 +490,21 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   );
   await extendMenu("Psychology");
   await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  const label = pane().getByRole("textbox", {
-    name: "Class label",
-    exact: true,
-  });
+  const label = addForm().getByRole("textbox", { name: "Name", exact: true });
   await label.fill("Retained class draft");
-  await label.press("Escape");
-  await expect(first).toBeFocused();
-  await first.click();
+  await menu("view.find");
+  await menu("view.textentities");
+  await expect(label).toHaveValue("Retained class draft");
+  await menu("view.find");
+  await extendMenu("Psychology");
   await page.getByRole("menuitem", { name: /^Instance/ }).click();
   await expect(
-    pane().getByRole("textbox", { name: "Individual label", exact: true }),
-  ).toHaveValue("Psy");
-  await pane()
-    .getByRole("button", { name: "Remove this rdf:type value", exact: true })
-    .click();
+    addForm().getByRole("button", { name: "Individual", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(label).toHaveValue("Psy");
   await expect(
-    pane().getByRole("button", { name: "Create individual", exact: true }),
-  ).toBeDisabled();
-  await expect(pane()).toContainText(
-    "Choose an existing class as the individual's type.",
-  );
-  await expect(
-    pane().getByRole("combobox", { name: "rdf:type", exact: true }),
-  ).toHaveValue(NS.owl + "NamedIndividual");
-  await pane()
-    .getByRole("button", { name: "Back to results", exact: true })
-    .click();
-  await first.click();
-  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  await expect(label).toHaveValue("Retained class draft");
+    addForm().getByRole("button", { name: "Remove Psychology", exact: true }),
+  ).toBeVisible();
 });
 
 test("the narrow split reserves 148 pixels and lists Synonym before relations", async () => {
@@ -579,199 +557,103 @@ test("#70 uppercase sibling label previews and saves a PascalCase ID", async () 
   await openExtendFixture();
   await extendMenu("Clinical Psychology");
   await page.getByRole("menuitem", { name: /^Sibling/ }).click();
-  const form = pane().getByRole("region", { name: "Add to the ontology" });
-  const label = form.getByRole("textbox", { name: "Class label", exact: true });
-  const subject = form.getByRole("textbox", {
-    name: "Subject IRI",
-    exact: true,
-  });
-  const iri = extendBase + "CreativeThinking";
+  const form = addForm(),
+    label = form.getByRole("textbox", { name: "Name", exact: true }),
+    iri = extendBase + "CreativeThinking";
   for (const input of [
     "creative thinking",
     "Creative Thinking",
     "CREATIVE THINKING",
   ]) {
     await label.fill(input);
-    await expect(subject).toHaveValue(iri);
+    await expect(form.locator(".fnote .mono").first()).toHaveText(iri);
     await expect(
-      form.getByRole("button", { name: "Create class", exact: true }),
+      form.getByRole("button", { name: "Create", exact: true }),
     ).toBeEnabled();
-    await expect(label).toHaveValue(input);
   }
-  await form.getByRole("button", { name: "Create class", exact: true }).click();
+  await form.getByRole("button", { name: "Create", exact: true }).click();
   await expect
     .poll(
-      async () => (await state()).entities.find((e) => e.iri === iri)?.label,
+      async () => (await state()).entities.find((e) => e.iri === iri)?.parents,
     )
-    .toBe("CREATIVE THINKING");
-  const doc = await page.evaluate(
-    async (iri) => window.axiom.request<any>("entityDocument", { iri }),
-    iri,
-  );
-  expect(doc.statements).toContainEqual(
-    expect.objectContaining({
-      subject: iri,
-      predicate: NS.rdfs + "subClassOf",
-      object: expect.objectContaining({
-        value: extendBase + "Psychology",
-        literal: false,
-      }),
-    }),
-  );
-  await resultAction("Details");
-  await expect(page.locator('[data-panel="details"]')).toHaveAttribute(
-    "data-entity-iri",
-    iri,
-  );
+    .toEqual([extendBase + "Psychology"]);
   await menu("edit.undo");
   await expect
     .poll(async () => (await state()).entities.some((e) => e.iri === iri))
     .toBe(false);
 });
-
-for (const count of [0, 1, 2]) {
-  test(`#55 Sibling shares ${count} named parents in Details and undoes every statement`, async () => {
+for (const count of [0, 1, 2])
+  test(`#55 Sibling shares ${count} named parents and undoes every statement`, async () => {
     await openExtendFixture(
       count === 2
-        ? `:ClinicalPsychology rdfs:subClassOf :GeneralPsychology,
-            [a owl:Restriction; owl:onProperty :teaches; owl:someValuesFrom :Psychology].`
+        ? `:ClinicalPsychology rdfs:subClassOf :GeneralPsychology, [a owl:Restriction; owl:onProperty :teaches; owl:someValuesFrom :Psychology].`
         : "",
     );
-    const target = count ? "Clinical Psychology" : "Psychology";
-    const parents =
-      count === 2
-        ? ["Psychology", "General Psychology"]
-        : count
-          ? ["Psychology"]
-          : [];
+    const target = count ? "Clinical Psychology" : "Psychology",
+      parents =
+        count === 2
+          ? ["Psychology", "General Psychology"]
+          : count
+            ? ["Psychology"]
+            : [];
     await extendMenu(target);
     await page.getByRole("menuitem", { name: /^Sibling/ }).click();
-    const form = pane().getByRole("region", { name: "Add to the ontology" });
+    const form = addForm();
     await expect(
-      form.getByRole("textbox", { name: "Class label", exact: true }),
+      form.getByRole("textbox", { name: "Name", exact: true }),
     ).toHaveValue("Psy");
-    await expect(pane().locator(".extend-context")).toHaveText(
-      `Back to resultsNew class, sibling of ${target}, under ${parents.join(", ") || "owl:Thing"}, asserted with rdfs:subClassOf`,
-    );
-    await expect(
-      form.getByRole("button", {
-        name: "Remove this rdfs:subClassOf value",
-        exact: true,
-        includeHidden: true,
-      }),
-    ).toHaveCount(count);
-    const iri = extendBase + "Sibling";
+    for (const parent of parents)
+      await expect(
+        form.getByRole("button", { name: "Remove " + parent, exact: true }),
+      ).toBeVisible();
     await form
-      .getByRole("textbox", { name: "Class label", exact: true })
+      .getByRole("textbox", { name: "Name", exact: true })
       .fill("Sibling subject");
-    await form
-      .getByRole("textbox", { name: "Subject IRI", exact: true })
-      .fill(iri);
-    await form
-      .getByRole("button", { name: "Create class", exact: true })
-      .click();
+    await form.getByRole("button", { name: "Create", exact: true }).click();
+    const iri = extendBase + "SiblingSubject",
+      expected = parents.length
+        ? parents.map((p) => extendBase + p.replaceAll(" ", "")).sort()
+        : [NS.owl + "Thing"];
     await expect
-      .poll(
-        async () => (await state()).entities.find((e) => e.iri === iri)?.label,
+      .poll(async () =>
+        (await state()).entities.find((e) => e.iri === iri)?.parents?.sort(),
       )
-      .toBe("Sibling subject");
-    await expect(pane()).toContainText(
-      count
-        ? `Sibling subject added as a class under ${parents.join(", ")}`
-        : "Sibling subject added under owl:Thing",
+      .toEqual(expected);
+    await menu("view.details");
+    await expect(page.locator('[data-panel="details"]')).toHaveAttribute(
+      "data-entity-iri",
+      iri,
     );
-    await resultAction("Details");
-    const details = page.locator('[data-panel="details"]');
-    await expect(details).toHaveAttribute("data-entity-iri", iri);
-    const relations = details.locator(
-      `tr[data-predicate="${NS.rdfs}subClassOf"]`,
-    );
-    const parentFields = relations.getByRole("combobox", {
-      name: /^rdfs:subClassOf value \d+$/,
-    });
-    await expect(parentFields).toHaveCount(count || 1);
-    const values = await parentFields.evaluateAll((inputs) =>
-      inputs.map((input) => (input as HTMLInputElement).value).sort(),
-    );
-    expect(values).toEqual(count ? [...parents].sort() : ["owl:Thing"]);
-    const expected = count
-      ? parents.map((label) => extendBase + label.replaceAll(" ", ""))
-      : [NS.owl + "Thing"];
-    const readParents = () =>
-      page.evaluate(async (iri) => {
-        const doc = await window.axiom.request<any>("entityDocument", { iri });
-        return doc.statements
-          .filter(
-            (t: any) =>
-              t.predicate === "http://www.w3.org/2000/01/rdf-schema#subClassOf",
-          )
-          .map((t: any) => t.object.value)
-          .sort();
-      }, iri);
-    expect(await readParents()).toEqual([...expected].sort());
-    await details.locator(".scount").click();
     await menu("edit.undo");
     await expect
       .poll(async () => (await state()).entities.some((e) => e.iri === iri))
       .toBe(false);
-    const undone = await page.evaluate(() =>
-      window.axiom.request<{ text: string }>("sourceDocument", {
-        format: "ntriples",
-      }),
-    );
-    expect(undone.text).not.toContain(`<${iri}>`);
     await menu("edit.redo");
-    await expect.poll(readParents).toEqual([...expected].sort());
+    await expect
+      .poll(async () =>
+        (await state()).entities.find((e) => e.iri === iri)?.parents?.sort(),
+      )
+      .toEqual(expected);
   });
-}
-
-test("#55 Escape and Back to results preserve separate Sibling and Subclass drafts", async () => {
+test("#55 Sibling and Subclass hand off their own parent chips", async () => {
   await openExtendFixture();
-  const trigger = await extendMenu("Clinical Psychology");
-  const label = pane().getByRole("textbox", {
-    name: "Class label",
-    exact: true,
-  });
-  const context = pane().locator(".extend-context");
+  await extendMenu("Clinical Psychology");
   await page.getByRole("menuitem", { name: /^Sibling/ }).click();
-  await label.fill("Retained sibling");
-  await pane()
-    .locator(`tr[data-predicate="${NS.rdfs}subClassOf"]`)
-    .getByRole("combobox", { name: "Parent classes", exact: true })
-    .focus();
-  await pane()
-    .getByRole("button", {
-      name: "Remove this rdfs:subClassOf value",
+  await expect(
+    addForm().getByRole("button", { name: "Remove Psychology", exact: true }),
+  ).toBeVisible();
+  await menu("view.find");
+  await extendMenu("Clinical Psychology");
+  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await expect(
+    addForm().getByRole("button", {
+      name: "Remove Clinical Psychology",
       exact: true,
-    })
-    .click();
-  await expect(context).toContainText(
-    "sibling of Clinical Psychology, under owl:Thing",
-  );
-  await label.press("Escape");
-  await expect(trigger).toBeFocused();
-  await trigger.click();
-  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  await expect(label).toHaveValue("Psy");
-  await expect(context).toContainText("subclass of Clinical Psychology");
-  await label.fill("Retained subclass");
-  await pane()
-    .getByRole("button", { name: "Back to results", exact: true })
-    .click();
-  await expect(trigger).toBeFocused();
-  await trigger.click();
-  await page.getByRole("menuitem", { name: /^Sibling/ }).click();
-  await expect(label).toHaveValue("Retained sibling");
-  await expect(context).toContainText(
-    "sibling of Clinical Psychology, under owl:Thing",
-  );
-  await pane()
-    .getByRole("button", { name: "Back to results", exact: true })
-    .click();
-  await trigger.click();
-  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  await expect(label).toHaveValue("Retained subclass");
-  await expect(context).toContainText("subclass of Clinical Psychology");
+    }),
+  ).toBeVisible();
+  await expect(
+    addForm().getByRole("button", { name: "Remove Psychology", exact: true }),
+  ).toHaveCount(0);
 });
 
 for (const mode of ["expanded", "narrow", "constrained"] as const) {
@@ -843,13 +725,9 @@ test("#49 a row door preserves the results page, scroll, selection and its draft
     .locator(".find-results-scroll")
     .evaluate((el) => el.scrollTop);
   await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  const label = pane().getByRole("textbox", {
-    name: "Class label",
-    exact: true,
-  });
+  const label = addForm().getByRole("textbox", { name: "Name", exact: true });
   await label.fill("Page two draft");
-  await label.press("Escape");
-  await expect(trigger).toBeFocused();
+  await menu("view.find");
   await expect(pane().locator(".pg")).toHaveText("Page 2 of 3");
   expect(
     await pane()
@@ -859,17 +737,8 @@ test("#49 a row door preserves the results page, scroll, selection and its draft
   await expect(
     pane().locator('tr[data-selected="true"] .find-result-name'),
   ).toHaveText(selected);
-  await trigger.click();
-  await page.getByRole("menuitem", { name: /^Subclass/ }).click();
+  await menu("view.textentities");
   await expect(label).toHaveValue("Page two draft");
-  await pane()
-    .getByRole("button", { name: "Back to results", exact: true })
-    .click();
-  expect(
-    await pane()
-      .locator(".find-results-scroll")
-      .evaluate((el) => el.scrollTop),
-  ).toBe(scroll);
 });
 
 test("#49 shallow rows stay stable when the toolbar must withdraw", async () => {

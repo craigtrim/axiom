@@ -195,6 +195,9 @@ const pending = new Map<
   { resolve: (v: any) => void; reject: (e: Error) => void }
 >();
 const methods = new Set<DomainMethod>([
+  // craigtrim/axiom#93: authorized Add entity calls use the domain worker.
+  "addEntityCheck",
+  "addEntityCreate",
   "qualityCensus",
   "qualityStart",
   "qualityStatus",

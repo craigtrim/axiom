@@ -516,7 +516,8 @@ describe("shared Text Analysis session", () => {
       textEntityConcepts(parsed, { ...parsed.entities[0], label: "__proto__" }),
     ).toEqual([]);
   });
-  it("retains a creation draft through ontology edits but clears it on a new dataset or text edit", async () => {
+  // craigtrim/axiom#93: text edits preserve the separate Add entity draft.
+  it("retains a creation draft through ontology and text edits but clears it on a new dataset", async () => {
     const { session } = setup();
     await ready(session);
     session.create("New Systems");
@@ -532,7 +533,7 @@ describe("shared Text Analysis session", () => {
     });
     session.create("More Systems");
     session.update(input("Cat", 2, 2));
-    expect(session.getSnapshot().creation).toBeUndefined();
+    expect(session.getSnapshot().creation?.phrase).toBe("More Systems");
     session.dispose();
   });
   it("retains an unfinished class draft across subscriber changes and clears it with its selection", async () => {
