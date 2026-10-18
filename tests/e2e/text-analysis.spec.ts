@@ -1790,39 +1790,37 @@ async function addFromOverflow() {
   await panel().locator(".menu [data-action=add]").click();
 }
 
+// craigtrim/axiom#93: nested rows replace the old frame stack and assistant.
+// Pending validation, recursive rollback, recovery and restart are exercised in
+// add-entity-reference.spec.ts; these cases retain Text Analysis integration.
 async function selectForCreation(text: string) {
   await enter(text);
   await editor().focus();
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
-  await expect(panel().locator(".menu [data-action=add]")).not.toHaveAttribute(
-    "aria-disabled",
-    "true",
-  );
   await addFromOverflow();
-  return entitiesPane().getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
+  const form = entitiesPane();
+  await expect(
+    form.getByRole("textbox", { name: "Name", exact: true }),
+  ).toBeVisible();
+  return form;
 }
-
 async function createParent(
   form: import("@playwright/test").Locator,
   label: string,
 ) {
   await form
-    .getByRole("combobox", { name: "Parent classes", exact: true })
+    .getByRole("combobox", { name: "Add a parent", exact: true })
     .fill(label);
-  await page
-    .getByRole("listbox", { name: "Parent classes", exact: true })
-    .getByRole("option")
-    .filter({ hasText: `Create “${label}” as a new parent` })
+  await form
+    .getByRole("option", {
+      name: new RegExp("^Draft a new parent named " + label),
+    })
     .click();
   await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue(label);
+    form.getByRole("combobox", { name: "Parent for " + label, exact: true }),
+  ).toBeVisible();
 }
-
 test("parent search shares Find normalization and typo ranking without duplicate creation (#47)", async () => {
   await writeFile(
     file,
@@ -1836,15 +1834,9 @@ test("parent search shares Find normalization and typo ranking without duplicate
       ).entities.some((e) => e.iri === base + "Abstract_Course"),
     )
     .toBe(true);
-  const form = await selectForCreation("Specialized Seminar");
-  const input = form.getByRole("combobox", {
-    name: "Parent classes",
-    exact: true,
-  });
-  const list = page.getByRole("listbox", {
-    name: "Parent classes",
-    exact: true,
-  });
+  const form = await selectForCreation("Specialized Seminar"),
+    input = form.getByRole("combobox", { name: "Add a parent", exact: true }),
+    list = form.getByRole("listbox", { name: "Matching classes" });
   for (const query of [
     "Abstract Course",
     "abstract course",
@@ -1860,815 +1852,104 @@ test("parent search shares Find normalization and typo ranking without duplicate
     ).toBeVisible();
     if (!["abstr cour", "Abstrct Course"].includes(query))
       await expect(
-        list.getByRole("option").filter({ hasText: "Create “" }),
+        list.getByRole("option").filter({ hasText: "Draft a new parent" }),
       ).toHaveCount(0);
   }
   await input.fill("Abstract Course");
   await list.getByRole("option").filter({ hasText: "Abstract_Course" }).click();
-  await expect(
-    form.getByRole("button", { name: "Remove Abstract_Course", exact: true }),
-  ).toBeVisible();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
-  const snapshot = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  expect(
-    snapshot.entities.find((e) => e.label === "Specialized Seminar")?.parents,
-  ).toEqual([base + "Abstract_Course"]);
-  expect(
-    snapshot.entities.filter((e) => e.label === "Abstract_Course"),
-  ).toHaveLength(1);
-  await page.evaluate(() => window.axiom.request("undo"));
-  expect(
-    (
-      await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-    ).entities.some((e) => e.label === "Specialized Seminar"),
-  ).toBe(false);
-});
-
-test("parent search ignores stale replies and cannot create while lookup is pending (#47)", async () => {
-  const form = await selectForCreation("Specialized Seminar");
-  const input = form.getByRole("combobox", {
-    name: "Parent classes",
-    exact: true,
-  });
-  const list = page.getByRole("listbox", {
-    name: "Parent classes",
-    exact: true,
-  });
-  await holdRequests(app, ["resourceSuggestions"]);
-  await input.fill("Dog");
-  await waitForHeld(app);
-  await input.fill("Computing");
-  await waitForHeld(app, 2);
-  await expect(list).toHaveAttribute("aria-busy", "true");
-  await input.press("Enter");
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Specialized Seminar");
-  await releaseRequests(app, { reverse: true });
-  await expect(
-    list.getByRole("option").filter({ hasText: "Computing" }),
-  ).toBeVisible();
-  await expect(list.getByRole("option").filter({ hasText: "Dog" })).toHaveCount(
-    0,
-  );
-  await expect(
-    list.getByRole("option").filter({ hasText: "Create “" }),
-  ).toHaveCount(0);
-  await input.press("ArrowDown");
-  await input.press("Enter");
-  await expect(
-    form.getByRole("button", { name: "Remove Computing", exact: true }),
-  ).toBeVisible();
-});
-async function chooseParent(
-  form: import("@playwright/test").Locator,
-  label: string,
-) {
-  await form
-    .getByRole("combobox", { name: "Parent classes", exact: true })
-    .fill(label);
-  await page
-    .getByRole("listbox", { name: "Parent classes", exact: true })
-    .getByRole("option")
-    .filter({ hasText: label })
-    .first()
-    .click();
-  await expect(
-    form.getByRole("button", { name: "Remove " + label, exact: true }),
-  ).toBeVisible();
-}
-
-test("name collisions preserve editing, focus, caret and quiet validation", async () => {
-  const form = await selectForCreation("Advanced Systems");
-  const name = form.getByRole("textbox", { name: "Name", exact: true });
-  const add = form.getByRole("button", { name: "Add class", exact: true });
-  await expect(add).toBeEnabled();
-  await name.fill("Systems");
-  await expect(form.locator(".text-create-validation")).toContainText(
-    "Systems already exists",
-  );
-  await expect(name).toBeFocused();
-  await expect(name).toBeEditable();
-  await expect(add).toBeDisabled();
-  await name.press("End");
-  await name.pressSequentially(" engineering");
-  await expect(add).toBeEnabled();
-  await expect(name).toHaveValue("Systems engineering");
-  await expect(name).toBeFocused();
-  expect(
-    await name.evaluate((el) => (el as HTMLInputElement).selectionStart),
-  ).toBe(19);
-  const description = form.getByRole("textbox", {
-    name: "Description",
-    exact: true,
-  });
-  const before = await description.boundingBox();
-  await holdRequests(app, ["textAnalysisDraft"]);
-  await name.pressSequentially(" seminar");
-  await waitForHeld(app);
-  await expect(add).toBeEnabled();
-  await expect(form).not.toContainText("Checking name");
-  expect((await description.boundingBox())!.y).toBe(before!.y);
-  await releaseRequests(app, { reverse: true });
-  await expect(name).toHaveValue("Systems engineering seminar");
-  await expect(add).toBeEnabled();
-});
-
-for (const [label, collision] of [
-  ["Systems", true],
-  ["Quantum Systems", false],
-] as const) {
-  test(`a pending Add class click waits for ${collision ? "a collision and refuses it" : "fresh validation and commits once"}`, async () => {
-    const form = await selectForCreation("Fresh course");
-    const add = form.getByRole("button", { name: "Add class", exact: true });
-    await expect(add).toBeEnabled();
-    await holdRequests(app, ["textAnalysisDraft"]);
-    await form.getByRole("textbox", { name: "Name", exact: true }).fill(label);
-    await add.click();
-    await add.click();
-    await waitForHeld(app);
-    expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
-    await expect(add).toBeEnabled();
-    await releaseRequests(app);
-    if (collision) {
-      await expect(add).toBeDisabled();
-      await expect(form).toContainText("already exists");
-      expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
-    } else {
-      await expect(form).toHaveCount(0);
-      expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
-      const created = (
-        await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-      ).entities.find((entity) => entity.label === label)!;
-      expect(created.parents).toEqual([base + "Systems"]);
-    }
-  });
-}
-
-test("editing after a pending commit cancels that intent and stale replies cannot create either draft", async () => {
-  const form = await selectForCreation("Fresh course");
-  const name = form.getByRole("textbox", { name: "Name", exact: true });
-  const add = form.getByRole("button", { name: "Add class", exact: true });
-  await expect(add).toBeEnabled();
-  await holdRequests(app, ["textAnalysisDraft"]);
-  await name.fill("First course");
-  await add.click();
-  await waitForHeld(app);
-  await name.fill("Second course");
-  await waitForHeld(app, 2);
-  await releaseRequests(app, { reverse: true });
-  await expect(name).toHaveValue("Second course");
-  await expect(add).toBeEnabled();
-  expect(await requestCount(app, "textAnalysisCreate")).toBe(0);
-  await add.click();
-  await expect(form).toHaveCount(0);
-  expect(await requestCount(app, "textAnalysisCreate")).toBe(1);
-});
-
-test("name-check failures remain visible through edits until a successful response", async () => {
-  const form = await selectForCreation("Fresh course");
-  const name = form.getByRole("textbox", { name: "Name", exact: true });
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeEnabled();
-  await holdRequests(app, ["textAnalysisDraft"]);
-  await name.fill("Failing course");
-  await waitForHeld(app);
-  await releaseRequests(app, { fail: true, keepHolding: true });
-  await expect(form.getByRole("alert")).toContainText(
-    "Controlled preview failure",
-  );
-  await name.fill("Recovered course");
-  await waitForHeld(app);
-  await expect(form.getByRole("alert")).toContainText(
-    "Controlled preview failure",
-  );
-  await releaseRequests(app);
-  await expect(form.getByRole("alert")).toHaveCount(0);
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeEnabled();
-});
-
-test("a nested alias collision keeps its form and offers the existing class as parent", async () => {
-  const form = await selectForCreation("Fresh course");
-  await createParent(form, "canine");
-  await expect(form.locator(".text-create-validation")).toContainText(
-    "Dog already exists",
-  );
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toBeEditable();
-  await expect(
-    form.getByRole("button", { name: "Use as parent", exact: true }),
-  ).toBeDisabled();
-  await form
-    .getByRole("button", { name: "Use Dog as parent", exact: true })
-    .click();
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Fresh Course");
-  await expect(
-    form.getByRole("button", { name: "Remove Dog", exact: true }),
-  ).toBeVisible();
-});
-
-test("editing the name and description preserves an assistant run and its completed suggestions", async () => {
-  const form = await selectForCreation("Digital workplace tools");
-  await form
-    .getByRole("combobox", { name: "Assistant", exact: true })
-    .selectOption("codex");
-  await form.getByRole("button", { name: "Suggest", exact: true }).click();
-  await expect(
-    form.getByRole("button", { name: "Thinking…", exact: true }),
-  ).toBeVisible();
-  const name = form.getByRole("textbox", { name: "Name", exact: true });
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Revised while the assistant works.");
-  await name.fill("Digital workplace practice");
-  await expect(
-    form.getByRole("button", { name: "Run again", exact: true }),
-  ).toBeVisible();
-  await expect(name).toBeFocused();
-  await name.pressSequentially(" course");
-  await form
-    .getByRole("combobox", { name: "Parent classes", exact: true })
-    .focus();
-  await expect(
-    page.getByRole("listbox", { name: "Parent classes" }),
-  ).toContainText("Suggested by Codex");
-  const runs = await page.evaluate(() => window.axiom.suggestions.history());
-  expect(runs).toHaveLength(1);
-  expect(runs[0].state).toBe("completed");
-  expect(runs[0].prompt).toContain("Digital Workplace Tools");
-});
-
-test("draft parent suggestions call Codex, expose the prompt and require the user's parent selection", async () => {
-  const form = await selectForCreation("Digital workplace tools");
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Using technology in the office.");
-  await form
-    .getByRole("combobox", { name: "Assistant", exact: true })
-    .selectOption("codex");
-  await form.getByRole("button", { name: "Prompt", exact: true }).click();
-  const prompt = await form
-    .getByRole("textbox", { name: "Parent prompt" })
-    .inputValue();
-  expect(prompt).toContain("Using technology in the office.");
-  expect(prompt).toContain("Computing");
-  const before = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  await form.getByRole("button", { name: "Suggest", exact: true }).click();
-  await expect(
-    form.getByRole("button", { name: "Thinking…", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    form.getByRole("textbox", { name: "Description", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    form.getByRole("combobox", { name: "Parent classes", exact: true }),
-  ).toBeEnabled();
-  await chooseParent(form, "Systems");
-  await expect(
-    form.getByRole("textbox", { name: "Parent prompt" }),
-  ).toHaveValue(prompt);
-  await form
-    .getByRole("button", { name: "Remove Systems", exact: true })
-    .click();
-  await expect(
-    page.getByRole("listbox", { name: "Parent classes" }),
-  ).toContainText("Suggested by Codex");
-  await expect(
-    form.getByRole("combobox", { name: "Parent classes", exact: true }),
-  ).toBeFocused();
-  const [run] = await page.evaluate(() => window.axiom.suggestions.history());
-  expect(run.provider).toBe("codex");
-  expect(run.prompt.startsWith(prompt)).toBe(true);
-  expect(run.prompt.slice(prompt.length)).toMatch(
-    /^\n\nContext identity: [a-f0-9]{32}$/,
-  );
-  expect(await readFile(path.join(profile, "parent-prompt.txt"), "utf8")).toBe(
-    run.prompt,
-  );
-  expect(
-    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
-      .tripleCount,
-  ).toBe(before.tripleCount);
-  await expect(
-    form.getByRole("button", { name: "Remove Computing", exact: true }),
-  ).toHaveCount(0);
-  await page
-    .getByRole("listbox", { name: "Parent classes", exact: true })
-    .getByRole("option")
-    .filter({ hasText: "Computing" })
-    .click();
-  await expect(
-    form.getByRole("button", { name: "Remove Computing", exact: true }),
-  ).toBeVisible();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
+  await form.getByRole("button", { name: "Create", exact: true }).click();
   await expect
     .poll(
       async () =>
         (
           await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-        ).entities.find((e) => e.label === "Digital Workplace Tools")?.parents,
+        ).entities.find((e) => e.label === "Specialized Seminar")?.parents,
     )
-    .toEqual([base + "Computing"]);
-});
-
-test("a selected phrase becomes a class under Systems and immediately gains its own highlight", async () => {
-  const phrase = "Electronic Surveillance Systems",
-    form = await selectForCreation(phrase);
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue(phrase);
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
-  ).toBeVisible();
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeInViewport();
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("A course in electronic surveillance systems.");
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .setLegacyMode(true)
-        .include('[aria-label="Add entity"]')
-        .withTags(["wcag2a", "wcag2aa"])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-  await page.screenshot({
-    path: "artifacts/testing/text-analysis-add-entity.png",
-  });
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
-  const added = (
-    await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-  ).entities.find((e) => e.label === phrase)!;
-  expect(added.parents).toEqual([base + "Systems"]);
-  expect(added.comment).toBe("A course in electronic surveillance systems.");
-  const canonical = added.iri
-    .slice(added.iri.lastIndexOf("#") + 1)
-    .toLowerCase();
-  await expect(chip(canonical)).toBeAttached({ timeout: 20000 });
-  await expect.poll(() => highlighted(canonical)).toBe(phrase);
-  await page.evaluate(() => window.axiom.request("undo"));
-  await expect(entitiesPane().locator(".text-analysis-created")).toHaveCount(0);
-  await expect(chip("systems")).toBeAttached({ timeout: 20000 });
-  await page.evaluate(() => window.axiom.request("redo"));
-  await expect(chip(canonical)).toBeAttached({ timeout: 20000 });
-  await selectForCreation(phrase);
-  await expect(form).toContainText("already exists in this ontology");
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toBeEditable();
-  await form
-    .getByRole("button", {
-      name: /^Open Electronic Surveillance Systems in Taxonomy$/,
-    })
-    .click();
-  await expect(
-    page
-      .getByRole("region", { name: "Hierarchy panel" })
-      .locator(`[data-entity-iri="${added.iri}"]`),
-  ).toHaveAttribute("aria-selected", "true");
-});
-
-test("parent choices can be changed and cancelling a selected phrase leaves the ontology unchanged", async () => {
-  const before = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  const form = await selectForCreation("Advanced Systems");
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
-  ).toBeVisible();
-  const input = form.getByRole("combobox", {
-    name: "Parent classes",
-    exact: true,
-  });
-  await input.fill("Animal");
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("listbox", { name: "Parent classes", exact: true })
-    .getByRole("option")
-    .filter({ hasText: "Animal" })
-    .click();
-  await expect(input).toBeFocused();
-  await expect(input).toHaveValue("");
-  await expect(
-    form.getByRole("button", { name: "Remove Animal", exact: true }),
-  ).toBeVisible();
-  await form
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill("Revised topic");
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
-  ).toBeVisible();
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
-  expect(
-    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
-      .version,
-  ).toBe(before.version);
-});
-
-test("suggested parents are independently selected and all are asserted", async () => {
-  const form = await selectForCreation("Computer Software Applications");
-  await expect(
-    form.getByRole("button", { name: "Remove Computing", exact: true }),
-  ).toBeVisible();
-  const input = form.getByRole("combobox", {
-    name: "Parent classes",
-    exact: true,
-  });
-  await input.click();
-  await expect(
-    page.getByRole("listbox", { name: "Parent classes" }),
-  ).toContainText("From the phrase");
-  await expect(
-    page
-      .getByRole("listbox", { name: "Parent classes", exact: true })
-      .getByRole("option")
-      .filter({ hasText: "Computing" }),
-  ).toHaveCount(0);
-  await page
-    .getByRole("listbox", { name: "Parent classes", exact: true })
-    .getByRole("option")
-    .filter({ hasText: "Software" })
-    .click();
-  await form
-    .getByRole("button", { name: "Remove Software", exact: true })
-    .click();
-  await chooseParent(form, "Software");
-  await chooseParent(form, "Systems");
-  await form
-    .getByRole("button", { name: "Remove Systems", exact: true })
-    .click();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
-  const added = (
-    await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-  ).entities.find((e) => e.label === "Computer Software Applications")!;
-  expect(added.parents.sort()).toEqual(
-    [base + "Computing", base + "Software"].sort(),
-  );
-});
-
-test("new parents can have multiple parents and new grandparents, saved with one undo", async () => {
-  const before = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  const form = await selectForCreation("Advanced Computing Applications");
-  await expect(
-    form.getByRole("button", { name: "Remove Computing", exact: true }),
-  ).toBeVisible();
-  await createParent(form, "Applied Systems");
-  await expect(form.locator(".text-create-context")).toContainText(
-    "Advanced Computing Applications",
-  );
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
-  ).toBeVisible();
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("New parent description");
-  await createParent(form, "Applied Technology");
-  await expect(
-    form.getByRole("button", { name: "Use as parent", exact: true }),
-  ).toBeEnabled();
-  await expect(form).toContainText("Will be added under Thing");
-  expect(
-    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
-      .version,
-  ).toBe(before.version);
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
-  await expect(form.locator(".text-parent-chip[data-new]")).toContainText(
-    "Applied Technology",
-  );
-  await form
-    .getByRole("button", { name: "Applied Technology", exact: true })
-    .click();
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("New grandparent description");
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
-  await expect(
-    form.getByRole("button", {
-      name: "Remove Applied Technology",
-      exact: true,
-    }),
-  ).toHaveCount(1);
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
-  await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Advanced Computing Applications");
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
-  const after = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  const find = (label: string) =>
-    after.entities.find((e) => e.label === label)!;
-  const child = find("Advanced Computing Applications"),
-    parent = find("Applied Systems"),
-    grandparent = find("Applied Technology");
-  expect(after.version).toBe(before.version + 1);
-  expect(child.parents.sort()).toEqual([base + "Computing", parent.iri].sort());
-  expect(parent.parents.sort()).toEqual(
-    [base + "Systems", grandparent.iri].sort(),
-  );
-  expect(grandparent.parents).toEqual(["http://www.w3.org/2002/07/owl#Thing"]);
-  expect(parent.comment).toBe("New parent description");
-  expect(grandparent.comment).toBe("New grandparent description");
-  for (const item of [child, parent, grandparent])
-    await expect(
-      entitiesPane().locator(".text-analysis-created"),
-    ).toContainText("Added " + item.label + " under");
-  await page.evaluate(() => window.axiom.request("undo"));
-  const undone = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  for (const item of [child, parent, grandparent])
-    expect(undone.entities.some((e) => e.iri === item.iri)).toBe(false);
-  await expect(entitiesPane().locator(".text-analysis-created")).toHaveCount(0);
-  await page.evaluate(() => window.axiom.request("redo"));
-  const redone = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  for (const item of [child, parent, grandparent])
-    expect(
-      redone.entities.find((e) => e.iri === item.iri)?.parents.sort(),
-    ).toEqual(item.parents.sort());
-});
-
-test("parent drafts can be cancelled, and existing names can be reused without duplicates", async () => {
-  const before = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  const form = await selectForCreation("New topic");
-  await createParent(form, "NEW TOPIC");
-  await expect(form.getByRole("alert")).toContainText("own ancestor");
-  await expect(
-    form.getByRole("button", { name: "Use as parent", exact: true }),
-  ).toBeDisabled();
-  await form
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill("Systems");
-  await expect(
-    form.getByRole("button", { name: "Use as parent", exact: true }),
-  ).toBeDisabled();
-  await form
-    .getByRole("button", { name: "Use Systems as parent", exact: true })
-    .click();
-  await createParent(form, "Temporary category");
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
-  await form
-    .getByRole("button", { name: "Temporary category", exact: true })
-    .click();
-  await form
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill("Systems");
-  await form
-    .getByRole("button", { name: "Use Systems as parent", exact: true })
-    .click();
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
-  ).toHaveCount(1);
-  await createParent(form, "Unwanted parent");
-  await createParent(form, "Unwanted grandparent");
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
-  await form
-    .locator(".text-create-context")
-    .getByRole("button", { name: "New Topic", exact: true })
-    .click();
-  await expect(form).not.toContainText("Unwanted parent");
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
-  expect(
-    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
-      .version,
-  ).toBe(before.version);
-});
-
-test("Add entity handles wrapping keyboard options, empty names and Escape before cancelling the frame", async () => {
-  const form = await selectForCreation("New topic");
-  const name = form.getByRole("textbox", { name: "Name", exact: true }),
-    input = form.getByRole("combobox", { name: "Parent classes", exact: true });
-  await name.fill("");
-  await expect(name).toHaveAttribute("aria-invalid", "true");
-  await expect(form).toContainText("A class needs a name.");
-  await name.press("Enter");
-  await expect(form).toBeVisible();
-  await name.fill("New topic");
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeEnabled();
-  await input.focus();
-  await input.press("Escape");
-  await input.press("ArrowDown");
-  const list = page.getByRole("listbox", { name: "Parent classes" });
-  const options = list.getByRole("option");
-  await expect(options.first()).toHaveAttribute("aria-selected", "true");
-  await input.press("ArrowUp");
-  await expect(options.last()).toHaveAttribute("aria-selected", "true");
-  await input.press("ArrowDown");
-  await expect(options.first()).toHaveAttribute("aria-selected", "true");
-  await input.fill("New unmatched parent");
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeDisabled();
-  await input.press("Escape");
-  await expect(input).toHaveValue("");
-  await expect(list).toHaveCount(0);
-  await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
-  ).toBeEnabled();
-  await input.press("Escape");
-  await expect(form).toHaveCount(0);
-});
-
-test("Add entity preserves source context and its footer at 375px and a short pane", async () => {
-  await enter("Introduction to Smoked Pizza today");
-  await editor().focus();
-  await page.keyboard.press("Control+Home");
-  for (let i = 0; i < 16; i++) await page.keyboard.press("ArrowRight");
-  for (let i = 0; i < 12; i++) await page.keyboard.press("Shift+ArrowRight");
-  await page.keyboard.press("Alt+Enter");
-  const form = entitiesPane().getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
-  await expect(form.locator(".text-create-context")).toContainText(
-    "Introduction to Smoked Pizza today",
-  );
-  await expect(form.locator("mark")).toHaveText("Smoked Pizza");
-  const split = page.getByRole("separator", {
-    name: "Resize the text and entity panes. Arrow keys resize.",
-    exact: true,
-  });
-  await split.focus();
-  await split.press("Enter");
-  await expect(split).toHaveAttribute("aria-valuenow", "52");
-  await split.press("ArrowUp");
-  await expect(split).toHaveAttribute("aria-valuenow", "55");
-  for (let i = 0; i < 20; i++) await split.press("ArrowDown");
-  await expect(split).toHaveAttribute("aria-valuenow", "22");
-  await split.press("Enter");
-  await form.getByRole("textbox", { name: "Name", exact: true }).focus();
-  const popup = app.waitForEvent("window");
-  await menu("pane.detach");
-  const detached = await popup;
-  await expect(entitiesPane(detached)).toBeVisible();
-  await app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getAllWindows().find((w) =>
-      w.webContents.getURL().includes("popout"),
-    )!;
-    win.setFocusable(false);
-    win.setMinimumSize(300, 160);
-    win.setContentSize(375, 220);
-  });
-  await expect
-    .poll(() =>
-      detached.evaluate(
-        () =>
-          Math.abs(window.innerWidth - 375) <= 1 && window.innerHeight === 220,
-      ),
-    )
-    .toBe(true);
-  const small = entitiesPane(detached),
-    commit = small.getByRole("button", { name: "Add class", exact: true });
-  await expect(commit).toBeInViewport({ ratio: 1 });
-  await expect(small.locator(".text-create-context")).toBeInViewport();
-  const before = await commit.boundingBox();
-  await small.locator(".text-create-scroll").evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
-  await expect(commit).toBeInViewport({ ratio: 1 });
-  expect((await commit.boundingBox())!.y).toBe(before!.y);
-  expect(await small.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
-    true,
-  );
-  await detached.screenshot({
-    path: "artifacts/testing/text-create-375-short.png",
-  });
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()
-      .find((w) => w.webContents.getURL().includes("popout"))!
-      .setContentSize(1100, 600);
-  });
-  await expect
-    .poll(() =>
-      detached.evaluate(
-        () =>
-          Math.abs(window.innerWidth - 1100) <= 1 && window.innerHeight === 600,
-      ),
-    )
-    .toBe(true);
-  await small.locator(".text-create-scroll").evaluate((el) => {
-    el.scrollTop = 0;
-  });
-  const identity = await small.locator(".text-create-identity").boundingBox(),
-    parents = await small.locator(".text-create-parents").boundingBox();
-  expect(parents!.x).toBeGreaterThan(identity!.x + identity!.width);
-  await detached.screenshot({ path: "artifacts/testing/text-create-wide.png" });
-  await menu("theme.dark");
-  await small
-    .getByRole("combobox", { name: "Parent classes", exact: true })
-    .click();
-  expect(
-    (
-      await new AxeBuilder({ page: detached })
-        .setLegacyMode(true)
-        .include('[data-panel="textentities"]')
-        .include(".text-parent-listbox")
-        .withTags(["wcag2a", "wcag2aa"])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-});
-
-test("Pizza authoring fixture adds Smoked Pizza and its drafted parent together", async () => {
-  const fixture = path.join(profile, "pizza-fixture.cjs");
-  await build({
-    stdin: {
-      contents: `import { buildStore } from './src/domain/fixture';
-        import { writeRdf } from './src/domain/rdf-io';
-        export const turtle = writeRdf(buildStore(0).tbox, 'turtle');`,
-      resolveDir: process.cwd(),
-    },
-    outfile: fixture,
-    bundle: true,
-    packages: "external",
-    platform: "node",
-    format: "cjs",
-  });
-  await writeFile(
-    file,
-    await (
-      await import(pathToFileURL(fixture).href)
-    ).turtle,
-  );
-  await menu("file.open");
+    .toEqual([base + "Abstract_Course"]);
+  await menu("edit.undo");
   await expect
     .poll(async () =>
       (
         await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-      ).entities.some((e) => e.name === "Pizza"),
+      ).entities.some((e) => e.label === "Specialized Seminar"),
     )
-    .toBe(true);
-  const form = await selectForCreation("Smoked Pizza");
+    .toBe(false);
+});
+test("a selected phrase becomes a class under Systems and immediately gains its own highlight", async () => {
+  const form = await selectForCreation("Electronic Surveillance Systems");
   await expect(
-    form.getByRole("button", { name: "Remove Pizza", exact: true }),
+    form.getByRole("button", { name: "Remove Systems", exact: true }),
   ).toBeVisible();
-  await createParent(form, "Smoked Food");
-  await expect(
-    form.getByRole("button", { name: "Remove Food", exact: true }),
-  ).toBeVisible();
+  await form.getByRole("button", { name: "Create", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+        ).entities.find((e) => e.label === "Electronic Surveillance Systems")
+          ?.parents,
+    )
+    .toEqual([base + "Systems"]);
+  await showSummary();
+  await expect(chip("electronicsurveillancesystems")).toBeVisible({
+    timeout: 20000,
+  });
+  await showText();
+  await expect
+    .poll(() => highlighted("electronicsurveillancesystems"))
+    .toBe("Electronic Surveillance Systems");
+});
+test("two selected parents are asserted and removing a drafted branch leaves the ontology unchanged", async () => {
+  const form = await selectForCreation("Novel Study"),
+    before = await page.evaluate(() => window.axiom.request<Snapshot>("state"));
+  for (const name of ["Computing", "Software"]) {
+    await form
+      .getByRole("combobox", { name: "Add a parent", exact: true })
+      .fill(name);
+    await form.getByRole("option").filter({ hasText: name }).first().click();
+  }
+  await createParent(form, "Temporary Parent");
   await form
-    .getByRole("button", { name: "Use as parent", exact: true })
+    .getByRole("button", { name: "Remove Temporary Parent", exact: true })
     .click();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
-  const snapshot = await page.evaluate(() =>
-    window.axiom.request<Snapshot>("state"),
-  );
-  const root = snapshot.entities.find((e) => e.label === "Smoked Pizza")!,
-    parent = snapshot.entities.find((e) => e.label === "Smoked Food")!;
-  expect(root.parents).toContain(parent.iri);
-  expect(parent.parents).toEqual([
-    snapshot.entities.find((e) => e.name === "Food")!.iri,
-  ]);
-  await expect(entitiesPane().locator(".text-analysis-created")).toContainText(
-    "Added Smoked Food under",
-  );
-  await expect(entitiesPane().locator(".text-analysis-created")).toContainText(
-    "Added Smoked Pizza under",
-  );
+  expect(
+    (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
+      .version,
+  ).toBe(before.version);
+  await form.getByRole("button", { name: "Create", exact: true }).click();
+  await expect
+    .poll(async () =>
+      (
+        await page.evaluate(() => window.axiom.request<Snapshot>("state"))
+      ).entities
+        .find((e) => e.label === "Novel Study")
+        ?.parents?.sort(),
+    )
+    .toEqual([base + "Computing", base + "Software"]);
+});
+test("name collisions retain the Name field, caret and editable text", async () => {
+  const form = await selectForCreation("Advanced Systems"),
+    name = form.getByRole("textbox", { name: "Name", exact: true });
+  await name.fill("Systems");
+  await expect(form.locator(".vmsg")).toContainText("already exists");
+  await expect(name).toBeFocused();
+  await expect(name).toBeEditable();
+  await name.evaluate((el: HTMLInputElement) => {
+    (window as any).__addName = el;
+    el.setSelectionRange(3, 3);
+  });
+  await page.keyboard.insertText(" X ");
+  await expect(name).toHaveValue("Sys X tems");
+  expect(
+    await name.evaluate((el: HTMLInputElement) => [
+      el === (window as any).__addName,
+      el.selectionStart,
+    ]),
+  ).toEqual([true, 6]);
+  await expect(form.locator(".vmsg")).toHaveCount(0);
+  await expect(
+    form.getByRole("button", { name: "Create", exact: true }),
+  ).toBeEnabled();
 });
 
 test("stale and duplicate text creation requests cannot mutate the ontology", async () => {
@@ -2759,14 +2040,13 @@ for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
       await page.keyboard.press("End");
       await page.keyboard.press("Enter");
     }
-    const form = entitiesPane().getByRole("region", {
-      name: "Add entity",
-      exact: true,
-    });
+    const form = entitiesPane();
     await expect(
       form.getByRole("textbox", { name: "Name", exact: true }),
     ).toHaveValue("PhD Seminar in GIS Systems");
-    await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
+    await expect(
+      form.locator(".fields > .frow").nth(1).locator(".fnote"),
+    ).toContainText(phrase);
     await expect(
       form.getByRole("button", { name: "Remove Systems", exact: true }),
     ).toBeVisible();
@@ -2789,9 +2069,15 @@ for (const [phrase, seeded] of [
     await expect(
       form.getByRole("textbox", { name: "Name", exact: true }),
     ).toHaveValue(seeded);
-    await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
-    await form.getByRole("button", { name: "Add class", exact: true }).click();
-    await expect(form).toHaveCount(0);
+    await expect(
+      form.locator(".fields > .frow").nth(1).locator(".fnote"),
+    ).toContainText(phrase);
+    await form
+      .getByRole("button", { name: /^Create(?: both| all)?$/, exact: true })
+      .click();
+    await expect(form.locator(".foot")).toContainText(
+      "created, and selected in Hierarchy",
+    );
     const state = await page.evaluate(() =>
       window.axiom.request<Snapshot>("state"),
     );
@@ -2808,9 +2094,6 @@ test("selected-name casing preserves edits through parent creation and pane remo
   await expect(name).toHaveValue("Intro to HIV Systems");
   await name.fill("my CUSTOM phd child");
   await createParent(form, "my CUSTOM parent");
-  await form
-    .getByRole("button", { name: "Use as parent", exact: true })
-    .click();
   await expect(name).toHaveValue("my CUSTOM phd child");
   await expect(
     form.getByRole("button", { name: "Remove my CUSTOM parent", exact: true }),
@@ -2820,9 +2103,15 @@ test("selected-name casing preserves edits through parent creation and pane remo
   await expect(entitiesPane()).toHaveCount(0);
   await menu("view.textentities");
   await expect(name).toHaveValue("my CUSTOM phd child");
-  await expect(form.locator(".text-create-source mark")).toHaveText(phrase);
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
+  await expect(
+    form.locator(".fields > .frow").nth(1).locator(".fnote"),
+  ).toContainText(phrase);
+  await form
+    .getByRole("button", { name: /^Create(?: both| all)?$/, exact: true })
+    .click();
+  await expect(form.locator(".foot")).toContainText(
+    "created, and selected in Hierarchy",
+  );
   const state = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
@@ -2843,8 +2132,12 @@ test("selected-name casing retains strict duplicate detection after creation", a
   await expect(
     form.getByRole("button", { name: "Remove Systems", exact: true }),
   ).toBeVisible();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(form).toHaveCount(0);
+  await form
+    .getByRole("button", { name: /^Create(?: both| all)?$/, exact: true })
+    .click();
+  await expect(form.locator(".foot")).toContainText(
+    "created, and selected in Hierarchy",
+  );
   const state = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
@@ -2856,14 +2149,14 @@ test("selected-name casing retains strict duplicate detection after creation", a
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Advanced Systems");
-  await expect(form.locator(".text-create-source mark")).toHaveText(
-    "ADVANCED SYSTEMS",
-  );
-  await expect(form.locator(".text-create-validation")).toContainText(
-    "Advanced Systems already exists",
+  await expect(
+    form.locator(".fields > .frow").nth(1).locator(".fnote"),
+  ).toContainText("ADVANCED SYSTEMS");
+  await expect(form.locator(".validation-band")).toContainText(
+    "A class named Advanced Systems already exists.",
   );
   await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
+    form.getByRole("button", { name: /^Create(?: both| all)?$/, exact: true }),
   ).toBeDisabled();
 });
 
@@ -2873,17 +2166,16 @@ test("selected text opens the add pane from Alt+Enter and the editor context men
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Shift+End");
   await page.keyboard.press("Alt+Enter");
-  const form = entitiesPane().getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
+  const form = entitiesPane();
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Electronic Surveillance Systems");
   await expect(
     form.getByRole("button", { name: "Remove Systems", exact: true }),
   ).toBeVisible();
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Discard draft", exact: true })
+    .click();
   await editor().focus();
   await page.keyboard.press("Shift+F10");
   await expect(
@@ -3042,151 +2334,95 @@ test("Summary belongs to Text Analysis and survives closing, reopening and resta
   await expect.poll(() => highlighted("dog")).toBe("canine");
 });
 
-test("a detached Add entity view retains nested drafts and can add a selected class", async () => {
-  await enter("canine");
-  await expect(chip("dog")).toBeAttached({ timeout: 20000 });
-  const originalForm = await selectForCreation("Draft Systems");
-  await originalForm
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Retain this description when docking changes.");
-  await createParent(originalForm, "Draft parent");
-  await originalForm
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Nested description survives docking.");
+test("a detached Add entity view retains nested drafts and creates the hierarchy", async () => {
+  const form = await selectForCreation("Draft Systems");
+  await form
+    .getByRole("textbox", { name: "Comment", exact: true })
+    .fill("Retain this description.");
+  await createParent(form, "Draft parent");
+  await form
+    .getByRole("combobox", { name: "Parent for Draft parent", exact: true })
+    .fill("Life");
+  await form.getByRole("option").filter({ hasText: "Life" }).first().click();
   await menu("view.textentities");
   const popup = app.waitForEvent("window");
   await menu("pane.detach");
   const detached = await popup;
-  detached.on("pageerror", (error) => errors.push(error.message));
-  await expect(
-    detached.getByRole("tabpanel", {
-      name: /^Add entity(?:_\d+)?$/,
-      exact: true,
-    }),
-  ).toBeVisible();
-  const recovery = detached.getByRole("button", {
-    name: "Maximize pane",
-    exact: true,
-  });
-  if (await recovery.isVisible()) await recovery.click();
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()
-      .find((w) => w.webContents.getURL().includes("popout"))
-      ?.setSize(600, 800);
-  });
-  await expect(entitiesPane(detached)).toBeVisible();
-  const retained = entitiesPane(detached).getByRole("region", {
-    name: "Add entity",
-    exact: true,
+  detached.on("pageerror", (e) => errors.push(e.message));
+  await expect(detached.locator('[data-pane-id="textentities"]')).toBeVisible();
+  await (
+    await app.browserWindow(detached)
+  ).evaluate((win) => {
+    win.setFocusable(false);
+    win.unmaximize();
+    win.setSize(900, 700);
   });
   await expect(
-    retained.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Draft parent");
-  await expect(
-    retained.getByRole("textbox", { name: "Description", exact: true }),
-  ).toHaveValue("Nested description survives docking.");
-  await retained
-    .getByRole("button", { name: "Discard parent", exact: true })
-    .click();
+    detached.locator('[data-pane-id="textentities"]'),
+  ).toHaveAttribute("data-pane-recovery", "false");
+  const retained = entitiesPane(detached);
   await expect(
     retained.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Draft Systems");
   await expect(
-    retained.getByRole("textbox", { name: "Description", exact: true }),
-  ).toHaveValue("Retain this description when docking changes.");
-  await retained.getByRole("button", { name: "Cancel", exact: true }).click();
-  await enter("Electronic Surveillance Systems");
-  await expect(chip("systems")).toBeAttached({ timeout: 20000 });
-  await editor().focus();
-  await page.keyboard.press("Control+Home");
-  await page.keyboard.press("Control+Shift+End");
-  await addFromOverflow();
-  const form = entitiesPane(detached).getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
+    retained.getByRole("textbox", { name: "Comment", exact: true }),
+  ).toHaveValue("Retain this description.");
   await expect(
-    form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Electronic Surveillance Systems");
-  await expect(
-    form.getByRole("button", { name: "Remove Systems", exact: true }),
+    retained.getByRole("button", { name: "Remove Life", exact: true }),
   ).toBeVisible();
-  await form.getByRole("button", { name: "Add class", exact: true }).click();
-  await expect(entitiesPane(detached)).toContainText(
-    "Added Electronic Surveillance Systems under Systems.",
+  await retained
+    .getByRole("button", { name: "Create both", exact: true })
+    .click();
+  await expect(retained.locator(".foot")).toContainText(
+    "created, and selected in Hierarchy",
   );
-  await expect
-    .poll(async () =>
-      (
-        await page.evaluate(() => window.axiom.request<Snapshot>("state"))
-      ).entities.some((e) => e.label === "Electronic Surveillance Systems"),
-    )
-    .toBe(true);
-  await menu("theme.dark");
+  const snapshot = await page.evaluate(() =>
+    window.axiom.request<Snapshot>("state"),
+  );
   expect(
-    (
-      await new AxeBuilder({ page: detached })
-        .setLegacyMode(true)
-        .include('[data-panel="textentities"]')
-        .withTags(["wcag2a", "wcag2aa"])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-  await detached.screenshot({
-    path: "artifacts/testing/text-entities-detached.png",
-  });
-  await menu("pane.reattach");
-  await expect(entitiesPane()).toBeVisible();
-  await expect(entitiesPane()).toContainText(
-    "Added Electronic Surveillance Systems under Systems.",
+    snapshot.entities.find((e) => e.label === "Draft Systems")?.parents,
+  ).toContain(snapshot.entities.find((e) => e.label === "Draft parent")!.iri);
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()
+      .find((w) => w.webContents.getURL().includes("popout"))!
+      .close(),
   );
+  await menu("view.textentities");
+  await expect(
+    entitiesPane().getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Draft Systems");
 });
 
 test("Summary toggling preserves the editor model, selection, undo and nested entity drafts", async () => {
   const form = await selectForCreation("Draft Systems");
   await form
-    .getByRole("textbox", { name: "Description", exact: true })
+    .getByRole("textbox", { name: "Comment", exact: true })
     .fill("Keep this description");
   await createParent(form, "Draft parent");
-  await form
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Keep nested description");
   await showSummary();
-  await expect(editor()).toHaveCount(0);
-  await expect(
-    panel().getByRole("region", { name: "Text Analysis summary" }),
-  ).toBeVisible();
   await expect(chip("systems")).toBeVisible({ timeout: 20000 });
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("Draft parent");
-  await page.screenshot({
-    path: "artifacts/testing/text-summary-and-add-entity.png",
-  });
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .setLegacyMode(true)
-        .include('[data-panel="textanalysis"]')
-        .withTags(["wcag2a", "wcag2aa"])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  ).toHaveValue("Draft Systems");
+  await expect(
+    form.getByRole("combobox", {
+      name: "Parent for Draft parent",
+      exact: true,
+    }),
+  ).toBeVisible();
   await showText();
   await expect(
-    form.getByRole("textbox", { name: "Description", exact: true }),
-  ).toHaveValue("Keep nested description");
-  await form
-    .getByRole("button", { name: "Discard parent", exact: true })
-    .click();
-  await expect(
-    form.getByRole("textbox", { name: "Description", exact: true }),
+    form.getByRole("textbox", { name: "Comment", exact: true }),
   ).toHaveValue("Keep this description");
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
-  // Replacing the still-selected phrase verifies that selection survived both presentations.
   await editor().focus();
   await page.keyboard.insertText("Replacement");
   await expect(panel().locator(".view-lines")).toHaveText("Replacement");
+  await expect(
+    form.getByRole("combobox", {
+      name: "Parent for Draft parent",
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.keyboard.press("Control+Z");
   await expect(panel().locator(".view-lines")).toHaveText("Draft Systems");
 });
@@ -3198,23 +2434,22 @@ test("View Add entity starts a blank standalone form without changing analysis t
     window.axiom.request<Snapshot>("state"),
   );
   await menu("view.textentities");
-  const form = entitiesPane().getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
+  const form = entitiesPane();
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("");
   await expect(
-    form.getByRole("button", { name: "Add class", exact: true }),
+    form.getByRole("button", { name: /^Create(?: both| all)?$/, exact: true }),
   ).toBeDisabled();
   await expect(entitiesPane().getByRole("tab")).toHaveCount(0);
   await expect(chip("dog")).toBeVisible({ timeout: 20000 });
   await form
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Uncommitted class");
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(editor()).toBeVisible();
+  await form
+    .getByRole("button", { name: "Discard draft", exact: true })
+    .click();
+  await showText();
   await expect(panel().locator(".view-lines")).toHaveText("canine");
   expect(
     (await page.evaluate(() => window.axiom.request<Snapshot>("state")))
@@ -3251,14 +2486,13 @@ test("editor right-click letters invoke Find and Add entity with visible unique 
   await editor().focus();
   await page.keyboard.press("Shift+F10");
   await page.keyboard.press("a");
-  const form = entitiesPane().getByRole("region", {
-    name: "Add entity",
-    exact: true,
-  });
+  const form = entitiesPane();
   await expect(
     form.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Fresh Systems");
-  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Discard draft", exact: true })
+    .click();
   await editor().focus();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Shift+F10");

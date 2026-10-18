@@ -35,3 +35,6 @@ tests/fixtures/inspector-visual/visual-reference.html -text
 tests/fixtures/sparsity-visual/visual-reference.html -text
 # Craig's Touchpoints reference, hash-pinned (craigtrim/axiom#92).
 tests/fixtures/touchpoints-visual/visual-reference.html -text
+
+# Issue 93 keeps the published reference bytes unchanged.
+tests/fixtures/add-entity-visual/visual-reference.html -text
