@@ -311,14 +311,17 @@ export function FindCreatePanel({
                       });
                     }}
                   >
-                    {findCreationKinds.map((k) => (
-                      <option key={k} value={creationType(k)}>
-                        {compactIri(
-                          creationType(k),
-                          snapshot.ontology.namespace,
-                        )}
-                      </option>
-                    ))}
+                    {/* craigtrim/axiom#93: classes and individuals use Add entity. */}
+                    {findCreationKinds
+                      .filter((k) => k !== "Class" && k !== "Individual")
+                      .map((k) => (
+                        <option key={k} value={creationType(k)}>
+                          {compactIri(
+                            creationType(k),
+                            snapshot.ontology.namespace,
+                          )}
+                        </option>
+                      ))}
                   </select>
                   <span className="find-value-action-slot" />
                   {/* Kind remains a single choice; reserve the same space as the

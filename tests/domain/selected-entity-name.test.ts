@@ -1,3 +1,4 @@
+// craigtrim/axiom#93: OWL, MPNet and XSD join the canonical dictionary cases.
 import { describe, expect, it } from "vitest";
 import dictionary from "../../src/shared/title-case-acronyms.json";
 import { selectedEntityName } from "../../src/shared/selected-entity-name";
@@ -95,7 +96,7 @@ describe("selected phrase title casing", () => {
     ["TCPA COMPLIANCE", "Tcpa Compliance"],
     ["WHAT IS IT", "What Is It"],
     ["LEONARDO DA VINCI", "Leonardo Da Vinci"],
-    ["OWL AND STEM", "Owl and Stem"],
+    ["OWL AND STEM", "OWL and Stem"],
     ["iphone and mcgraw", "Iphone and Mcgraw"],
     ["iPhone AND McGraw", "iPhone and McGraw"],
     ["eBay iPhone McGraw eLearning", "eBay iPhone McGraw eLearning"],

@@ -17,6 +17,12 @@ import {
 import { analysisResult } from "./live-analysis";
 import type { TextEntityClassDraft } from "./text-analysis-session";
 import type { TextEntity, TextAnalysisResult } from "../shared/text-analysis";
+import {
+  readSavedAddEntity,
+  type SavedAddEntity,
+  type AddEntityNode,
+} from "../shared/add-entity";
+import { selectedEntityName } from "../shared/selected-entity-name";
 
 export const textAnalysisSession = new TextAnalysisSession((input) =>
   window.axiom.textAnalysis.parse(input),
@@ -96,6 +102,67 @@ export function openClassDraft(
   });
   textAnalysisSession.openDraft(draft, parentLabel);
   command("view.textentities");
+}
+// craigtrim/axiom#93: Find and saved workspaces open the same persistent form.
+export function openAddEntityFromFind(
+  phrase: string,
+  kind: "class" | "individual" = "class",
+  parents: string[] = [],
+) {
+  ensureEntityDraft();
+  textAnalysisSession.restoreCreation(phrase, {
+    kind,
+    origin: "find",
+    phrase,
+    frames: [
+      {
+        value: {
+          label: selectedEntityName(phrase),
+          comment: "",
+          parents: parents.map((iri) => ({ iri })),
+          manualParents: !!parents.length,
+        },
+      },
+    ],
+  });
+  command("view.textentities");
+}
+export function captureAddEntityDraft(): SavedAddEntity | undefined {
+  const creation = textAnalysisSession.getSnapshot().creation;
+  if (!creation || creation.datasetEpoch !== state?.datasetEpoch) return;
+  const draft = creation.draft;
+  return readSavedAddEntity({
+    phrase: draft?.phrase ?? creation.phrase,
+    origin: draft?.origin ?? (creation.phrase ? "selection" : "blank"),
+    kind: draft?.kind ?? "class",
+    root: draft?.frames[0].value ?? {
+      label: selectedEntityName(creation.phrase),
+      comment: "",
+      parents: [],
+      manualParents: false,
+    },
+    created: draft?.created,
+    error: draft?.error,
+  });
+}
+export function restoreAddEntityDraft(value: SavedAddEntity) {
+  initialize();
+  const saved = readSavedAddEntity(value);
+  const node = (n: AddEntityNode): TextEntityClassDraft => ({
+    ...n,
+    manualParents: n.manualParents ?? true,
+    parents: n.parents.map((p) =>
+      "iri" in p ? p : { create: node(p.create) },
+    ),
+  });
+  textAnalysisSession.restoreCreation(saved.phrase, {
+    kind: saved.kind,
+    origin: saved.origin,
+    phrase: saved.phrase,
+    created: saved.created,
+    error: saved.error,
+    frames: [{ value: node(saved.root) }],
+  });
 }
 export function syncTextAnalysisContext() {
   if (state?.selected || state?.graph.selectedEdge)

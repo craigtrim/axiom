@@ -112,8 +112,8 @@ export function AdaptivePane({
           Math.round(height),
           old,
         ).recovery;
-        // Text Entities keeps its action footer usable while the form scrolls.
-        if (visual || paneId === "textentities") next.recovery = false;
+        // craigtrim/axiom#93: Add entity uses the shared recovery thresholds.
+        if (visual) next.recovery = false;
         // Ontology Quality renders working content down to 120 tall (craigtrim/axiom#44).
         const own =
           recoveries.get(paneId) ?? recoveries.get(paneId.split(":")[0]);

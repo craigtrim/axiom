@@ -34,6 +34,7 @@ import { usePaneLayout } from "./AdaptivePane";
 import { FindPopover } from "./FindPopover";
 import "./find-editor.css";
 import "./find-reference.css";
+import { openAddEntityFromFind } from "./text-analysis-state";
 import { FindGlyph } from "./FindGlyph";
 import {
   defaultFindOptions,
@@ -381,12 +382,8 @@ export function FindPanel() {
     if (!offerReady) return;
     createReturnFocus.current = null;
     openFindCreation({ door: "header" });
-    setCreateOpen(true);
-    root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
-      root.current
-        ?.querySelector<HTMLInputElement>('[aria-label="Class label"]')
-        ?.focus(),
-    );
+    // craigtrim/axiom#93: class and individual authoring share the Add entity pane.
+    openAddEntityFromFind(options.text);
   };
   const openRelatedCreation = (
     row: FindRow,
@@ -396,6 +393,14 @@ export function FindPanel() {
     if (!ready) return;
     createReturnFocus.current = trigger;
     openFindCreation({ door: relation.door, target: row.iri }, relation.kind);
+    if (relation.kind === "Class" || relation.kind === "Individual") {
+      openAddEntityFromFind(
+        options.text,
+        relation.kind === "Individual" ? "individual" : "class",
+        findState().draft.parents.filter(Boolean),
+      );
+      return;
+    }
     setCreateOpen(true);
     root.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
       root.current
@@ -1402,26 +1407,13 @@ export function FindPanel() {
                   </div>
                   <hr className="rule" />
                 </div>
-                <div
-                  className="find-create-entry"
-                  hidden={!layout.shallow || createOpen}
-                >
+                <div className="find-create-entry">
                   <button
                     className="btn primary"
                     ref={createTrigger}
                     type="button"
-                    hidden={!layout.shallow || createOpen}
-                    aria-expanded={createOpen}
-                    aria-controls={createId}
                     onClick={() => {
-                      setCreateOpen(true);
-                      requestAnimationFrame(() =>
-                        root.current
-                          ?.querySelector<HTMLInputElement>(
-                            '[aria-label="Class label"]',
-                          )
-                          ?.focus(),
-                      );
+                      if (ready) openAddEntityFromFind(options.text);
                     }}
                   >
                     <FindGlyph name="plus" />
@@ -1429,7 +1421,6 @@ export function FindPanel() {
                   </button>
                   <span>{`Carries "${displayedOptions.text.trim()}" across.`}</span>
                 </div>
-                {creationEditor}
               </fieldset>
             )}
             {data && !rows.length && !displayedOptions.text.trim() && (
