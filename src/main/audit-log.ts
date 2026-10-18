@@ -32,10 +32,6 @@ export function redactDiagnostic(text: string) {
     )
     .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[redacted]@");
 }
-const bounded = (text: string) =>
-  text.length > limit
-    ? text.slice(0, limit) + "\n[Truncated after " + limit + " characters]"
-    : text;
 export function auditId() {
   return contexts.getStore()?.id;
 }
@@ -46,21 +42,36 @@ export function auditStep(stage: string, detail?: string) {
   if (record.events.length < 200)
     record.events.push({ time: new Date().toISOString(), stage, detail });
 }
-export function auditDetail(name: string, value: unknown) {
+// craigtrim/axiom#94: count before truncation, retaining exactly the bounded redacted text.
+export function auditDetail(
+  name: string,
+  value: unknown,
+  retention?: { originalLength: number; tail?: boolean },
+) {
   const record = contexts.getStore();
   if (!record) return;
   const text =
     typeof value === "string"
       ? value
       : (JSON.stringify(value, null, 2) ?? String(value));
-  record.details[name] = bounded(text);
+  const clean = redactDiagnostic(text);
+  const retained = retention?.tail ? clean.slice(-8000) : clean.slice(0, limit);
+  record.details[name] = retained;
+  (record.detailLengths ??= {})[name] = {
+    original: Math.max(text.length, retention?.originalLength ?? 0),
+    retained: retained.length,
+    truncated:
+      clean.length > retained.length ||
+      (retention?.originalLength ?? 0) > text.length,
+    ...(retention?.tail ? { tail: true } : {}),
+  };
 }
 export function auditMetadata(values: AuditRecord["metadata"]) {
   const record = contexts.getStore();
   if (record) Object.assign(record.metadata, values);
 }
 function summary(e: AuditRecord): AuditSummary {
-  const { events, details, metadata, ...rest } = e;
+  const { events, details, metadata, detailLengths, ...rest } = e;
   return {
     ...rest,
     provider:

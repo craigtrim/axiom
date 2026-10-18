@@ -11,7 +11,8 @@ import {
   applySource,
   linkedFile,
 } from "../../src/domain/source";
-import { sourceFormats } from "../../src/shared/source";
+// craigtrim/axiom#94: identify invalid input independently of parser-specific wording.
+import { sourceFormats, invalidSourcePrefix } from "../../src/shared/source";
 import { Viewport } from "../../src/domain/viewport";
 import { NS, type Triple } from "../../src/domain/model";
 import { pathToFileURL } from "node:url";
@@ -33,6 +34,22 @@ const canonical = async (ts: Triple[]) =>
     inputFormat: "application/n-quads",
   });
 describe("shared source authoring", () => {
+  it.each(sourceFormats)(
+    "identifies invalid $id without mutating the store",
+    async ({ id }) => {
+      const store = await make(),
+        doc = await sourceDocument(store, 4, id),
+        before = await canonical([...store.scan()]);
+      await expect(
+        applySource(store, 4, {
+          ...doc,
+          text: id === "jsonld" ? '{"@id":' : "<broken",
+        }),
+      ).rejects.toThrow(invalidSourcePrefix);
+      expect(store.version).toBe(0);
+      expect(await canonical([...store.scan()])).toBe(before);
+    },
+  );
   it.each(sourceFormats)(
     "round trips $id without losing RDF semantics or changing the live store",
     async ({ id }) => {

@@ -11,6 +11,8 @@ export type BatchMode = keyof typeof batchModes;
 export type BatchRunState =
   "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 export interface BatchRun {
+  // craigtrim/axiom#94: retain the exact audit record across a restart.
+  auditId?: string;
   id: string;
   iri: string;
   label: string;

@@ -1,6 +1,14 @@
 // Issue 87 validation retains the existing fix for completion-before-persistence.
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile, rename } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  writeFile,
+  rename,
+  unlink,
+} from "node:fs/promises";
+import { auditFailureId } from "./audit-log";
 import path from "node:path";
 import type { Snapshot } from "../shared/protocol";
 import { displayName } from "../domain/rdf-model";
@@ -27,6 +35,8 @@ export interface BatchRunner {
 
 /** Owns the queue outside any pane. A target list is captured once, never expanded. */
 export class SuggestionBatches {
+  // craigtrim/axiom#94: a cleared active batch must never be republished by its completion.
+  private cleared = new Set<string>();
   private batches: SuggestionBatch[] = [];
   private published = new Map<string, SuggestionBatch>();
   private ready?: Promise<void>;
@@ -94,6 +104,7 @@ export class SuggestionBatches {
     const write = this.writes
       .catch(() => {})
       .then(async () => {
+        if (this.cleared.has(batch.id)) return;
         const target = path.join(this.root, batch.id + ".json");
         const temp = target + ".tmp";
         await writeFile(temp, json, "utf8");
@@ -160,12 +171,37 @@ export class SuggestionBatches {
     const batch = this.batches.find((b) => b.id === batchId);
     if (!batch) throw Error("This suggestion batch is no longer available.");
     for (const run of batch.runs)
-      if ((!runId || run.id === runId) && pendingBatchRun(run)) {
+      if ((!runId || run.id === runId) && run.state === "queued") {
         run.state = "cancelled";
         run.finishedAt = Date.now();
-        if (this.active?.run === run) this.runner.cancel(batch, run);
+        run.error = "The batch was stopped before this target started.";
       }
     await this.save(batch);
+  }
+  async clear(batchId: string) {
+    await this.load();
+    const batch = this.batches.find((b) => b.id === batchId);
+    if (!batch) throw Error("This suggestion batch is no longer available.");
+    await this.cancel(batchId);
+    this.cleared.add(batchId);
+    const remove = this.writes
+      .catch(() => {})
+      .then(async () => {
+        await unlink(path.join(this.root, batch.id + ".json")).catch((e) => {
+          if (e.code !== "ENOENT") throw e;
+        });
+        this.batches = this.batches.filter((b) => b !== batch);
+        this.published.delete(batchId);
+        this.changed();
+      });
+    this.writes = remove;
+    try {
+      await remove;
+    } catch (e) {
+      this.cleared.delete(batchId);
+      await this.save(batch).catch(this.reportError);
+      throw e;
+    }
   }
   workspaceChanged(epoch: number, namespace?: string) {
     for (const batch of this.batches) {
@@ -242,8 +278,10 @@ export class SuggestionBatches {
               : /cancelled|canceled/i.test((e as Error).message)
                 ? "cancelled"
                 : "failed";
-          if (run.state !== "queued") run.error = (e as Error).message;
-          else delete run.startedAt;
+          if (run.state !== "queued") {
+            run.error = (e as Error).message;
+            run.auditId = auditFailureId(e);
+          } else delete run.startedAt;
         }
       } finally {
         if (run.state !== "queued") run.finishedAt = Date.now();

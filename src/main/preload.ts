@@ -29,6 +29,8 @@ const bridge: AxiomBridge = {
     enqueue: (input) => invoke("suggestions:enqueue", input),
     cancelBatch: (batchId, runId) =>
       invoke("suggestions:cancelBatch", batchId, runId),
+    // craigtrim/axiom#94: use the same authorized IPC boundary as batch actions.
+    clearBatch: (batchId) => invoke("suggestions:clearBatch", batchId),
     definitions: () => invoke("suggestions:definitions"),
     saveDefinition: (input) => invoke("suggestions:saveDefinition", input),
     history: () => invoke("suggestions:history"),
@@ -60,6 +62,7 @@ const bridge: AxiomBridge = {
     start: (o) => invoke("provenance:start", o),
     status: () => invoke("provenance:status"),
     cancel: () => invoke("provenance:cancel"),
+    reset: () => invoke("provenance:reset"),
     open: () => invoke("provenance:open"),
     reveal: () => invoke("provenance:reveal"),
   },

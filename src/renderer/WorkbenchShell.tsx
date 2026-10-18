@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: keep the utility title in sentence case.
 import { useEffect, useRef, useState } from "react";
 import type { Snapshot } from "../shared/protocol";
 import type { ChromeMenuItem } from "../shared/window-chrome";
@@ -38,7 +39,7 @@ const otherPanes: Record<string, { label: string; icon: ChromeIcon }> = {
   inspector: { label: "Inspector", icon: "panel" },
   touchpoints: { label: "Touchpoints", icon: "find" },
   suggestionruns: { label: "Suggestion runs", icon: "bulb" },
-  tabhistory: { label: "Tab History", icon: "panel" },
+  tabhistory: { label: "Tab history", icon: "panel" },
   sparsity: { label: "Sparsity", icon: "grid" },
   textentities: { label: "Add entity", icon: "text" },
   provenance: { label: "Filesystem provenance", icon: "text" },

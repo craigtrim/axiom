@@ -23,7 +23,10 @@ const resources = new Set([
   ].map((n) => NS.owl + n),
 ]);
 export const resourcePredicate = (predicate: string, kind?: Kind) =>
-  resources.has(predicate) || kind === "ObjectProperty";
+  // craigtrim/axiom#94: imported rdf:Property labels must retain their literal editor contract.
+  predicate !== NS.rdfs + "label" &&
+  predicate !== NS.rdfs + "comment" &&
+  (resources.has(predicate) || kind === "ObjectProperty");
 /** Add row creates a UI placeholder, not an RDF assertion. */
 export const emptyEditorStatement = (t: Triple) =>
   !t.predicate &&

@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: the Source action row reports draft state directly.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
@@ -125,7 +126,7 @@ async function incompleteRow() {
 }
 async function enterSource(text: string) {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   const editor = source().getByRole("textbox", {
     name: "Ontology source",
     exact: true,
@@ -133,7 +134,7 @@ async function enterSource(text: string) {
   await editor.focus();
   await editor.press("Control+a");
   await page.keyboard.insertText(text);
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Draft pending");
 }
 async function history() {
   const s = await state();
@@ -242,7 +243,9 @@ for (const kind of ["valid", "invalid", "stale"] as const)
       expect(await history()).toEqual(original);
       expect((await sourceDocument()).text).toBe(before.text);
       if (closed) await menu("view.source");
-      await expect(source().getByRole("status")).toContainText("Unapplied");
+      await expect(source().getByRole("status")).toHaveText(
+        kind === "stale" ? "Draft is stale" : "Draft pending",
+      );
       await expect(source().locator(".monaco-editor")).toContainText(
         kind === "invalid" ? "broken source draft" : "Unapplied course",
       );
@@ -302,7 +305,7 @@ test("canceling export leaves simultaneous grid and source drafts and Undo histo
   expect(await readFile(file, "utf8").catch(() => null)).toBeNull();
   expect((await sourceDocument()).text).toBe(before.text);
   expect(await history()).toEqual(original);
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Draft pending");
   await menu("view.details");
   await expect(
     details()

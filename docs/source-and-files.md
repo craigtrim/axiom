@@ -1,6 +1,6 @@
 # Source editing and linked files
 
-Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, syntax coloring, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
+Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, plain monospace text, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
 
 ## One ontology across views
 
@@ -8,7 +8,7 @@ The graph, taxonomy, entity editors and Source pane edit the same ontology. Chan
 
 Workspace Save commits complete grid edits and retains unfinished rows and unapplied source drafts in the workspace, including drafts whose panes have been closed. Choosing another source format first applies a valid draft, then renders the resulting ontology in the selected format. Closing the pane does not discard its pending text.
 
-Invalid text stays in the editor with an error and leaves the ontology unchanged. If another view changes the ontology while a source draft is pending, the draft is retained and cannot overwrite that newer version. Copy any edits you want to keep, then choose **Discard draft and reload** to work from the current ontology.
+The action row reports **Clean**, **Draft pending**, **Invalid on line N** (or **Invalid** when the parser names no line), or **Draft is stale**. Parsing runs when you apply or change format. Invalid text stays in the editor with an error and leaves the ontology unchanged. If another view changes the ontology while a source draft is pending, the draft is retained and cannot overwrite that newer version. The overflow menu keeps **Reload from ontology** available after a failed load. Copy any edits you want to keep, then choose **Discard draft and reload** to work from the current ontology.
 
 **File > Export ontology** captures the committed ontology before opening the file dialog. It includes changes already applied to the ontology even if the workspace has not been saved to disk. Export leaves unfinished rows, pending grid edits and unapplied source text in their editors without applying them or warning about drafts. An automatic edit committed after the export snapshot is captured belongs to the next export. Canceling export also leaves drafts and the ontology untouched.
 
@@ -27,7 +27,7 @@ Details source snippets start with the entity's statements. Turtle/TriG prefix d
 | N-Quads | .nq | Yes |
 | TriG | .trig | Yes |
 
-Documents containing named graphs open as TriG by default. Formats that cannot retain those graphs are disabled. Format conversion preserves RDF statements, including language tags, datatypes and blank-node relationships. It regenerates whitespace and prefix choices; it is not a byte-for-byte source-file editor. Source comments are not retained in the ontology or regenerated output.
+Documents containing named graphs open as TriG by default. Formats that cannot retain those graphs are disabled and say "cannot keep named graphs". Format conversion preserves RDF statements, including language tags, datatypes and blank-node relationships. It regenerates whitespace and prefix choices; it is not a byte-for-byte source-file editor. Source comments are not retained in the ontology or regenerated output.
 
 OWL axioms represented in RDF remain available in these serializations. OWL/XML, Manchester and OWL Functional Syntax are not implemented. A .owl file containing Turtle is recognized when its content begins with a prefix or base declaration. File > Export ontology writes a separate ontology file; workspace Save writes the .axiom workspace.
 

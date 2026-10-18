@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: use the utility view name throughout tab history.
 export const tabTypes: Record<string, string> = {
   graph: "Graph",
   find: "Find",
@@ -17,7 +18,7 @@ export const tabTypes: Record<string, string> = {
   source: "Source",
   provenance: "Filesystem provenance",
   errorlog: "Error log",
-  tabhistory: "Tab History",
+  tabhistory: "Tab history",
 };
 export type TabSavePolicy = "named" | "all";
 export interface SavedTab {

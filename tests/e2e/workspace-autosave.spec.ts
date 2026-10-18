@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: the Source action row reports draft state directly.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import {
   test,
@@ -306,29 +307,30 @@ for (const stale of [false, true])
       const iri = await create();
       await menu("view.source");
       const pane = page.getByRole("region", { name: "Ontology source editor" });
-      await expect(pane.getByRole("status")).toContainText("Synchronized");
+      await expect(pane.getByRole("status")).toContainText("Clean");
       const editor = pane.getByRole("textbox", {
         name: "Ontology source",
         exact: true,
       });
       await editor.focus();
       await editor.press("Control+a");
-      await page.keyboard.insertText(
+      const draftText =
         "<" +
-          iri +
-          '> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Pending source" .',
-      );
-      await expect(pane.getByRole("status")).toContainText("Unapplied");
+        iri +
+        '> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Pending source" .';
+      await page.keyboard.insertText(draftText);
+      await expect(editor).toHaveValue(draftText);
+      await expect(pane.getByRole("status")).toContainText("Draft pending");
       if (stale) await request("rename", { iri, name: "Newer ontology edit" });
       await close();
-      expect((await stored()).editorDrafts.source.text).toContain(
-        "Pending source",
-      );
+      expect((await stored()).editorDrafts.source.text).toBe(draftText);
       await launch();
       const restored = page.getByRole("region", {
         name: "Ontology source editor",
       });
-      await expect(restored.getByRole("status")).toContainText("Unapplied");
+      await expect(restored.getByRole("status")).toHaveText(
+        stale ? "Draft is stale" : "Draft pending",
+      );
       const apply = restored.getByRole("button", {
         name: "Apply changes",
         exact: true,
@@ -336,7 +338,7 @@ for (const stale of [false, true])
       if (stale) {
         await expect(apply).toBeDisabled();
         await expect(restored.getByRole("alert")).toContainText(
-          "ontology changed",
+          "Another view changed the ontology while this draft was pending.",
         );
         expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
           "Newer ontology edit",
@@ -417,7 +419,7 @@ test("switching workspaces archives source drafts with their own ontology and le
   await create("Draft owner");
   await menu("view.source");
   const pane = page.getByRole("region", { name: "Ontology source editor" });
-  await expect(pane.getByRole("status")).toContainText("Synchronized");
+  await expect(pane.getByRole("status")).toContainText("Clean");
   const editor = pane.getByRole("textbox", {
     name: "Ontology source",
     exact: true,
@@ -427,7 +429,7 @@ test("switching workspaces archives source drafts with their own ontology and le
   await page.keyboard.insertText(
     "unfinished source belonging to the previous ontology",
   );
-  await expect(pane.getByRole("status")).toContainText("Unapplied");
+  await expect(pane.getByRole("status")).toContainText("Draft pending");
   await menu("file.close");
   await expect
     .poll(async () =>

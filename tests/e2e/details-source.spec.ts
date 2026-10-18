@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: the Source action row reports draft state directly.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
@@ -445,7 +446,7 @@ test("Source saves only explicitly, updates the grid and graph, validates syntax
   const fullSource = page.getByRole("region", {
     name: "Ontology source editor",
   });
-  await expect(fullSource.getByRole("status")).toContainText("Synchronized");
+  await expect(fullSource.getByRole("status")).toContainText("Clean");
   await expect(fullSource.locator(".view-lines")).toContainText("@prefix");
 });
 test("source drafts survive navigation and reject overwriting later grid edits", async () => {

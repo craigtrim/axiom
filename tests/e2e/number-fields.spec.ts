@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: provenance options remain visible above the evidence scroller.
 import { test, expect } from "./modal-fixture";
 import type { Snapshot } from "../../src/shared/protocol";
 import { readFile } from "node:fs/promises";
@@ -130,7 +131,6 @@ test("Provenance number edits retain their text and block collection until valid
   await panel
     .getByRole("button", { name: "Choose folder", exact: true })
     .click();
-  await panel.getByText("Collection options", { exact: true }).click();
   const collect = panel.getByRole("button", {
     name: "Collect metadata",
     exact: true,

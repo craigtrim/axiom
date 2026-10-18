@@ -38,3 +38,6 @@ tests/fixtures/touchpoints-visual/visual-reference.html -text
 
 # Issue 93 keeps the published reference bytes unchanged.
 tests/fixtures/add-entity-visual/visual-reference.html -text
+
+# Issue 94 pins the utility reference bytes.
+tests/fixtures/utility-visual/visual-reference.html -text
