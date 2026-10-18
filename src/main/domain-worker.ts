@@ -1787,10 +1787,14 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         e = store.resolve(iri);
       if (!e) return null;
       const order = store.individualIndex.get(iri);
+      // craigtrim/axiom#89: usage tiles report different counts for different kinds.
+      const incoming = [
+        ...store.scan(undefined, undefined, { literal: false, value: iri }),
+      ].filter((t) => t.subject !== iri);
       const data: InspectorData = {
-        referencedBy: [
-          ...store.scan(undefined, undefined, { literal: false, value: iri }),
-        ].filter((t) => t.subject !== iri).length,
+        referencedBy: incoming.length,
+        referencingSubjects: new Set(incoming.map((t) => t.subject)).size,
+        usedAsPredicate: [...store.scan(undefined, iri)].length,
         entity: e,
         instances: store.instanceCount(iri),
         descendants: store.descendantCount(iri),

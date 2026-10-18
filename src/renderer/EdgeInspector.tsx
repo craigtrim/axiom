@@ -138,7 +138,8 @@ export function EdgeInspector({
   const edge = s.graph.edges.find((e) => edgeKey(e) === edgeId);
   return (
     <section
-      className="panel inspector-panel"
+      // craigtrim/axiom#89: retain the edge layout while inheriting the shared tokens.
+      className="panel inspector-panel shared-layer"
       data-panel={panelId}
       aria-label={panelId === "inspector" ? "Edge inspector" : "Details"}
     >

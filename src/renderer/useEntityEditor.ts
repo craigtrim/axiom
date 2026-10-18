@@ -45,9 +45,10 @@ export function useEntityEditor(
     setDraft(value);
   };
   const reload = async (discard = false) => {
-    const ticket = ++generation.current;
     setError("");
     if (discard) discardEditorDraft(iri, s.datasetEpoch);
+    // Discard broadcasts synchronously; this explicit reload owns the final result.
+    const ticket = ++generation.current;
     const pending = getEditorDraft(iri, s.datasetEpoch);
     if (
       pending &&
@@ -56,7 +57,7 @@ export function useEntityEditor(
         isEditorSaving(iri, s.datasetEpoch))
     ) {
       accept(pending);
-      return;
+      return true;
     }
     try {
       const loaded = await request<DocumentData>("entityDocument", { iri });
@@ -64,7 +65,7 @@ export function useEntityEditor(
         ticket !== generation.current ||
         loaded.datasetEpoch !== s.datasetEpoch
       )
-        return;
+        return false;
       const retained = getEditorDraft(iri, s.datasetEpoch);
       const next =
         retained &&
@@ -84,8 +85,10 @@ export function useEntityEditor(
       accept(next);
       if ((retained && next !== retained) || (next.automaticIri && !retained))
         rememberEditorDraft(next);
+      return true;
     } catch (e) {
       if (ticket === generation.current) setError((e as Error).message);
+      return false;
     }
   };
   useEffect(() => {
@@ -106,8 +109,9 @@ export function useEntityEditor(
   useEffect(() => {
     void reload();
   }, [s.version]);
+  const busy = saving || isEditorSaving(iri, s.datasetEpoch);
   const update = (change: (d: EditorDraft) => EditorDraft) => {
-    if (!current.current || (saving && !automatic && !allowTypingDuringSave))
+    if (!current.current || (busy && !automatic && !allowTypingDuringSave))
       return;
     ++generation.current;
     const next = normalize(change(current.current));
@@ -150,9 +154,10 @@ export function useEntityEditor(
           );
     });
   const changed = !!draft && editorDraftChanged(draft);
-  async function save() {
+  // craigtrim/axiom#89: the Inspector announces only a completed Apply or Discard.
+  async function save(reportSuccess = true) {
     const pending = current.current;
-    if (!pending || (saving && !automatic)) return;
+    if (!pending || (busy && !automatic)) return false;
     if (
       automatic &&
       editorStatements(pending.statements).some(
@@ -164,17 +169,18 @@ export function useEntityEditor(
           ),
       )
     )
-      return;
+      return false;
     if (
       !editorDraftChanged(pending) &&
       !isEditorSaving(pending.iri, pending.loaded.datasetEpoch)
     )
-      return;
+      return false;
     setSaving(true);
     setError("");
     try {
       await applyEditorDraft(pending, automatic);
-      report("Entity changes applied.");
+      if (reportSuccess) report("Entity changes applied.");
+      return true;
     } catch (e) {
       setError(
         (e as Error).message.replace(
@@ -182,6 +188,7 @@ export function useEntityEditor(
           "",
         ),
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -197,7 +204,7 @@ export function useEntityEditor(
     setLiteral,
     changed,
     error,
-    saving,
+    saving: busy,
     save,
     reload,
     stale:

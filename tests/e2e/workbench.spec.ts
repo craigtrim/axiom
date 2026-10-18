@@ -261,7 +261,7 @@ test("drag a tab into another group, detach and reattach a pane", async () => {
   await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Details", exact: true })
+    .getByRole("textbox", { name: "Name", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
@@ -546,31 +546,30 @@ test("create an individual with validation and undo, and delete a class with und
 });
 
 test("a detached inspector renames in place and restores GPU context", async () => {
+  // craigtrim/axiom#89: the always-visible Name field stages the label before Apply.
   await page
     .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Details", exact: true })
+    .getByRole("textbox", { name: "Name", exact: true })
     .focus();
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
   const child = application.windows().find((w) => w !== page)!;
   child.on("pageerror", (e) => errors.push(e.message));
   await child.bringToFront();
-  await child.getByRole("button", { name: "More inspector actions" }).click();
-  await child
-    .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "Rename", exact: true })
-    .click();
   const rename = child.getByRole("textbox", {
-    name: "Rename entity",
+    name: "Name",
     exact: true,
   });
   await expect(rename).toBeVisible();
   await expect(child.getByRole("dialog")).toHaveCount(0);
   await rename.fill("Pizza Renamed");
-  await rename.press("Enter");
-  await expect(child.locator(".inspector-content")).toContainText(
-    "Pizza Renamed",
-  );
+  await child
+    .getByRole("button", { name: "Apply changes", exact: true })
+    .click();
+  await expect(
+    child.locator('[data-panel="inspector"] .bar .state'),
+  ).toHaveText("Saved");
+  await expect(rename).toHaveValue("Pizza Renamed");
   await menu("Return all panes to main window");
   await expect.poll(() => application.windows().length).toBe(1);
   const canvas = page.getByTestId("graph-canvas");

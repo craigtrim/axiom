@@ -120,6 +120,8 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   });
   submitted.set(operation, d);
   saving.set(k, operation);
+  // craigtrim/axiom#89: save ownership survives leaving and returning to a subject.
+  notify();
   void operation
     .finally(() => {
       if (saving.get(k) !== operation) return;
@@ -128,6 +130,7 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
       // failed, the reversal may already match the unchanged document.
       const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
       if (latest && !editorDraftChanged(latest)) rememberEditorDraft(latest);
+      else notify();
     })
     .catch(() => undefined);
   return operation;

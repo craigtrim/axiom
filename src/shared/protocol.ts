@@ -65,6 +65,9 @@ export interface EdgeDocument {
 }
 export interface InspectorData {
   referencedBy: number;
+  // craigtrim/axiom#89: distinguish incoming statements, subjects and predicate usage.
+  referencingSubjects: number;
+  usedAsPredicate: number;
   entity: Entity;
   instances: number;
   descendants: number;
