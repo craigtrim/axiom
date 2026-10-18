@@ -366,17 +366,30 @@ const wikipedia = new WikipediaClient({
     net.fetch(input instanceof URL ? input.href : input, init),
   version: app.getVersion(),
   electronVersion: process.versions.electron,
+  // craigtrim/axiom#92: every subject pane observes cache changes without fetching.
+  changed: (iri) => {
+    for (const window of BrowserWindow.getAllWindows())
+      if (!window.isDestroyed())
+        window.webContents.send("domain:event", {
+          type: "wikipedia-cache",
+          data: { iri },
+        });
+  },
 });
 const modelCache = new ModelCache(axiomCacheRoot(), app.getVersion());
 const touchpoints = new TouchpointService(
   wikipedia,
   (iri) => request("touchpointContext", { iri }),
   (context, statements) =>
-    request("applyTouchpoints", {
+    request<{
+      count: number;
+      context: import("../shared/touchpoints").TouchpointContext;
+    }>("applyTouchpoints", {
       iri: context.iri,
       datasetEpoch: context.datasetEpoch,
       version: context.version,
       statements,
+      returnContext: true,
     }),
   async (query, texts) =>
     (
@@ -1817,6 +1830,15 @@ app.whenReady().then(async () => {
   handle("touchpoints:search", (event, input) => {
     authorised(event);
     return touchpoints.search(input);
+  });
+  handle("touchpoints:saved", (event, input) => {
+    authorised(event);
+    return touchpoints.saved(input);
+  });
+  handle("touchpoints:clear", async (event, iri) => {
+    authorised(event);
+    await request("touchpointContext", { iri });
+    await wikipedia.clearSubject(iri);
   });
   handle("touchpoints:apply", (event, token, selections) => {
     authorised(event);
