@@ -1,3 +1,4 @@
+// craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
@@ -69,8 +70,9 @@ const select = (iri: string) =>
 async function prepare() {
   await menu("file.new");
   await expect(
-    page.getByRole("button", { name: "Classes · 1", exact: true }),
+    page.getByRole("button", { name: "Classes", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".hierarchy-panel .foot .num").last()).toHaveText("1");
   const ids = await page.evaluate(async () => {
     const root = "http://www.w3.org/2002/07/owl#Thing";
     const a = await window.axiom.request<string>("createClass", {
@@ -493,8 +495,9 @@ test("single-click label editing also works in a detached graph", async () => {
 test("default identifiers follow label drafts in both editors and become stable after Apply", async () => {
   await menu("file.new");
   await expect(
-    page.getByRole("button", { name: "Classes · 1", exact: true }),
+    page.getByRole("button", { name: "Classes", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".hierarchy-panel .foot .num").last()).toHaveText("1");
   const old = await page.evaluate(() =>
     window.axiom.request<string>("createClass", {
       name: "New class",
@@ -541,8 +544,9 @@ test("default identifiers follow label drafts in both editors and become stable 
 test("a delayed Details reveal preserves the field and its uncommitted identifier draft", async () => {
   await menu("file.new");
   await expect(
-    page.getByRole("button", { name: "Classes · 1", exact: true }),
+    page.getByRole("button", { name: "Classes", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".hierarchy-panel .foot .num").last()).toHaveText("1");
   const old = await page.evaluate(() =>
     window.axiom.request<string>("createClass", {
       name: "New class",
@@ -643,8 +647,9 @@ test("a saved placeholder mismatch is recognized by its spelling and its repair 
 test("workspace Save promotes related default nodes together and resolves a label collision", async () => {
   await menu("file.new");
   await expect(
-    page.getByRole("button", { name: "Classes · 1", exact: true }),
+    page.getByRole("button", { name: "Classes", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".hierarchy-panel .foot .num").last()).toHaveText("1");
   const { a, b, existing } = await page.evaluate(async () => {
     const root = "http://www.w3.org/2002/07/owl#Thing";
     const existing = await window.axiom.request<string>("createClass", {
