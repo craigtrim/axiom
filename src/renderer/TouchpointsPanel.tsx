@@ -1,16 +1,44 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { NS, shorten } from "../domain/model";
 import {
   suggestedTouchpointPredicate,
   touchpointPredicates,
+  touchpointObject,
+  type TouchpointCandidate,
   type TouchpointContext,
   type TouchpointObject,
   type TouchpointResponse,
   type TouchpointSelection,
+  type WikipediaError,
 } from "../shared/touchpoints";
 import { request, useSnapshot } from "./client";
-import { IndividualPaneHeader, LinkedPill } from "./IndividualsChrome";
-import { entityNamespace } from "../shared/terms";
+import { registerPaneRecovery, usePaneLayout } from "./AdaptivePane";
+import { SharedMenu, SharedPane, usePaneToast } from "./SharedPane";
+import "./touchpoints-reference.css";
+
+// craigtrim/axiom#92: each pinned subject keeps its query, choices and request through recovery.
+registerPaneRecovery("touchpoints", {
+  Body: ({ maximize }) => (
+    <div className="touchpoints-recovery">
+      <div className="touchpoints-recovery-copy" />
+      <div>{maximize}</div>
+    </div>
+  ),
+});
+type Note = { head: string; tail?: string; kind?: "bad" | "ok" };
+export function touchpointDate(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Date.now() - date.getTime() < 60000) return "just now";
+  return `${date.getDate()} ${date.toLocaleString("en-GB", { month: "long" })} ${date.getFullYear()}, ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+const kindWord = (kind?: string) =>
+  ["Class", "Defined", "Intersection"].includes(kind ?? "")
+    ? "class"
+    : kind?.endsWith("Property")
+      ? "property"
+      : (kind ?? "resource").toLowerCase();
 
 export function TouchpointsPanel({
   subject,
@@ -19,20 +47,53 @@ export function TouchpointsPanel({
   subject?: string;
   panelId?: string;
 }) {
-  const snapshot = useSnapshot()!;
+  return (
+    <section
+      className="panel shared-layer touchpoints-panel"
+      data-panel={panelId}
+      aria-label="Touchpoints"
+    >
+      <SharedPane className="footed touchpoints-surface">
+        <TouchpointsContent subject={subject} />
+      </SharedPane>
+    </section>
+  );
+}
+function TouchpointsContent({ subject }: { subject?: string }) {
+  const snapshot = useSnapshot()!,
+    layout = usePaneLayout(),
+    notify = usePaneToast();
   const [pinned] = useState(subject ?? snapshot.selected);
   const [context, setContext] = useState<TouchpointContext>();
   const [query, setQuery] = useState("");
+  const queryRef = useRef("");
+  queryRef.current = query;
   const [response, setResponse] = useState<TouchpointResponse>();
   const [selected, setSelected] = useState<Record<string, TouchpointSelection>>(
     {},
   );
   const [busy, setBusy] = useState(false),
     [applying, setApplying] = useState(false);
-  const [error, setError] = useState(""),
-    [message, setMessage] = useState("");
-  const ticket = useRef(0),
-    reserved = useRef(false);
+  const [note, setNote] = useState<Note>();
+  const reserved = useRef(false),
+    ticket = useRef(0),
+    more = useRef<HTMLButtonElement>(null);
+  const anchor = useRef<HTMLSpanElement>(null),
+    [recoveryTarget, setRecoveryTarget] = useState<Element | null>(null);
+  useLayoutEffect(() => {
+    setRecoveryTarget(
+      layout.recovery
+        ? (anchor.current
+            ?.closest(".adaptive-pane")
+            ?.querySelector(".touchpoints-recovery-copy") ?? null)
+        : null,
+    );
+  }, [layout.recovery]);
+  useLayoutEffect(() => {
+    const pane = anchor.current?.closest<HTMLElement>(".touchpoints-surface");
+    if (pane)
+      pane.dataset.wrap = String(layout.width < 400 && layout.width >= 240);
+  }, [layout.width]);
   useEffect(() => {
     const current = ++ticket.current;
     reserved.current = false;
@@ -40,40 +101,109 @@ export function TouchpointsPanel({
     setQuery("");
     setResponse(undefined);
     setSelected({});
-    setChoices({});
-    setError("");
-    setMessage("");
+    setNote(undefined);
     setBusy(false);
     setApplying(false);
     if (!pinned) return;
-    void request<TouchpointContext>("touchpointContext", {
-      iri: pinned,
-    })
-      .then((value) => {
+    void request<TouchpointContext>("touchpointContext", { iri: pinned })
+      .then(async (value) => {
         if (ticket.current !== current) return;
         setContext(value);
         setQuery(value.label);
+        queryRef.current = value.label;
+        const saved = await window.axiom.touchpoints.saved({
+          iri: pinned,
+          query: value.label,
+        });
+        if (ticket.current === current) setResponse(saved);
       })
-      .catch((e) => {
-        if (ticket.current === current) setError((e as Error).message);
+      .catch((error) => {
+        if (ticket.current === current)
+          setNote({ head: error.message, kind: "bad" });
       });
+    const unsubscribe = window.axiom.onEvent(({ type, data }) => {
+      if (
+        type !== "wikipedia-cache" ||
+        (data.iri && data.iri !== pinned) ||
+        reserved.current ||
+        !queryRef.current.trim()
+      )
+        return;
+      const read = ++ticket.current;
+      void window.axiom.touchpoints
+        .saved({ iri: pinned, query: queryRef.current })
+        .then((saved) => {
+          if (ticket.current !== read) return;
+          setResponse(saved);
+          if (saved) setContext(saved.context);
+          setSelected((old) =>
+            Object.fromEntries(
+              Object.entries(old).filter(([id]) =>
+                saved?.candidates.some((c) => c.id === id),
+              ),
+            ),
+          );
+          setNote(undefined);
+        })
+        .catch((error) => {
+          if (ticket.current === read)
+            setNote({ head: error.message, kind: "bad" });
+        });
+    });
     return () => {
       ++ticket.current;
+      unsubscribe();
     };
   }, [pinned, snapshot.datasetEpoch]);
-  const stale =
-    !!response &&
-    (response.context.version !== snapshot.version ||
-      response.context.datasetEpoch !== snapshot.datasetEpoch);
+  const date = touchpointDate(response?.fetchedAt),
+    count = Object.keys(selected).length;
+  const disabled = busy || applying;
+  const linked = (candidate: TouchpointCandidate) =>
+    context?.links.some((link) =>
+      [candidate.iri, candidate.url, candidate.wikidataIri].includes(link.iri),
+    );
+  const defaults = (candidate: TouchpointCandidate): TouchpointSelection => ({
+    id: candidate.id,
+    predicate: suggestedTouchpointPredicate(response!.context, candidate),
+    object: "dbpedia",
+  });
+  const showFailure = (
+    error: WikipediaError,
+    refresh: boolean,
+    saved: boolean,
+  ) => {
+    const retained = saved ? " The saved results below are unchanged." : "";
+    if (error.kind === "rate-limit") {
+      setNote({
+        kind: "bad",
+        head: "Wikipedia returned HTTP 429.",
+        tail:
+          (error.firstWithoutRetryAfter
+            ? "No Retry-After header, so the first wait is five seconds and each consecutive throttle doubles it."
+            : `Wikipedia asked Axiom to wait ${error.waitSeconds} seconds, and each consecutive throttle doubles the wait.`) +
+          " The request is not retried automatically" +
+          (saved ? " and the saved results below are unchanged." : "."),
+      });
+      if (refresh && saved)
+        notify(
+          "Refresh was throttled.",
+          `The rows on screen are still the saved ones from ${date}.`,
+        );
+    } else setNote({ kind: "bad", head: error.message, tail: retained.trim() });
+  };
   const run = async (refresh = false) => {
-    if (!context || reserved.current || !query.trim()) return;
+    if (
+      !context ||
+      reserved.current ||
+      !query.trim() ||
+      (refresh && !response?.fetchedAt)
+    )
+      return;
     reserved.current = true;
-    const current = ++ticket.current;
+    const current = ++ticket.current,
+      previous = response;
     setBusy(true);
-    setError("");
-    setMessage("");
-    setSelected({});
-    setChoices({});
+    setNote(undefined);
     try {
       const value = await window.axiom.touchpoints.search({
         iri: context.iri,
@@ -81,11 +211,53 @@ export function TouchpointsPanel({
         refresh,
       });
       if (ticket.current !== current) return;
-      setResponse(value);
-      setContext(value.context);
-      setError(value.error?.message ?? "");
-    } catch (e) {
-      if (ticket.current === current) setError((e as Error).message);
+      if (value.error) {
+        if (!previous?.fetchedAt && value.fetchedAt) {
+          setResponse(value);
+          setContext(value.context);
+        }
+        showFailure(
+          value.error,
+          refresh,
+          !!(previous?.fetchedAt || value.fetchedAt),
+        );
+      } else {
+        setResponse(value);
+        setContext(value.context);
+        setSelected({});
+        if (refresh) {
+          const added = value.candidates.filter(
+            (c) => !previous?.candidates.some((old) => old.id === c.id),
+          ).length;
+          setNote({
+            kind: "ok",
+            head: "Refreshed.",
+            tail:
+              added === 1
+                ? "One new candidate arrived that the saved copy did not have, and the saved entry has been replaced."
+                : added > 1
+                  ? `${added} new candidates arrived that the saved copy did not have, and the saved entry has been replaced.`
+                  : "The saved entry has been replaced.",
+          });
+        }
+        notify(
+          refresh
+            ? "Refreshed from Wikipedia."
+            : `Fetched ${value.candidates.length} candidates.`,
+          value.ranking === "model"
+            ? "Ranked locally using the label, parents and description."
+            : "Wikipedia order retained, the local model is unavailable.",
+        );
+      }
+    } catch (error) {
+      if (ticket.current === current)
+        setNote({
+          kind: "bad",
+          head: (error as Error).message,
+          tail: previous?.fetchedAt
+            ? "The saved results below are unchanged."
+            : undefined,
+        });
     } finally {
       if (ticket.current === current) {
         reserved.current = false;
@@ -93,29 +265,83 @@ export function TouchpointsPanel({
       }
     }
   };
+  const staleNote = () => {
+    setNote({
+      kind: "bad",
+      head: "The ontology changed after this search.",
+      tail: "Search again before applying, so the statements are validated against the store you are actually writing to. Your selection and choices are kept.",
+    });
+    notify("Nothing was applied.", "The result is older than the store.");
+  };
   const apply = async () => {
-    if (!response || reserved.current || stale || !Object.keys(selected).length)
+    if (!response || reserved.current || !count) return;
+    if (
+      response.context.version !== snapshot.version ||
+      response.context.datasetEpoch !== snapshot.datasetEpoch
+    ) {
+      staleNote();
       return;
+    }
+    const picked = response.candidates.filter((c) => selected[c.id]);
+    const invalid = picked.filter((c) =>
+      response.context.links.some(
+        (link) =>
+          !link.literal &&
+          link.predicate === selected[c.id].predicate &&
+          link.iri === touchpointObject(c, selected[c.id].object),
+      ),
+    );
+    if (invalid.length) {
+      setNote({
+        kind: "bad",
+        head: "The whole batch was rejected.",
+        tail: `${invalid[0].label} already has that statement, so it is invalid. Validation rejects the batch rather than writing part of it. Change its relationship or target, or deselect it, and apply again.`,
+      });
+      notify(
+        "Nothing was applied.",
+        `${count} selected, ${invalid.length} invalid.`,
+      );
+      return;
+    }
     reserved.current = true;
-    const current = ticket.current;
     setApplying(true);
-    setError("");
+    const current = ticket.current;
     try {
-      const count = await window.axiom.touchpoints.apply(
+      const added = await window.axiom.touchpoints.apply(
         response.token,
-        Object.values(selected),
+        picked.map((c) => selected[c.id]),
       );
       const next = await request<TouchpointContext>("touchpointContext", {
         iri: response.context.iri,
       });
       if (ticket.current !== current) return;
       setContext(next);
+      // This read updates display links; the service still guards the exact mutation version.
+      setResponse({ ...response, context: next });
       setSelected({});
-      setMessage(
-        `Added ${count} ${count === 1 ? "touchpoint" : "touchpoints"}. Undo removes this batch.`,
-      );
-    } catch (e) {
-      if (ticket.current === current) setError((e as Error).message);
+      setNote({
+        kind: "ok",
+        head: `Added ${added} resource statement${added === 1 ? "" : "s"} as one Undo operation.`,
+        tail: picked
+          .map(
+            (c) =>
+              `${shorten(selected[c.id].predicate)} ${touchpointObject(c, selected[c.id].object)}`,
+          )
+          .join(", "),
+      });
+      notify(`Applied ${added}.`, "One Undo reverses the whole batch.");
+    } catch (error) {
+      if (ticket.current === current) {
+        if ((error as Error).message.includes("ontology changed")) staleNote();
+        else {
+          setNote({
+            kind: "bad",
+            head: "The whole batch was rejected.",
+            tail: (error as Error).message,
+          });
+          notify("Nothing was applied.");
+        }
+      }
     } finally {
       if (ticket.current === current) {
         reserved.current = false;
@@ -123,262 +349,330 @@ export function TouchpointsPanel({
       }
     }
   };
-  const disabled = busy || applying;
-  const linkedTo = (
-    candidate: NonNullable<typeof response>["candidates"][number],
-  ) =>
-    context?.links.find((link) =>
-      [candidate.iri, candidate.url, candidate.wikidataIri].includes(link.iri),
-    );
-  const age = () => {
-    const seconds = Math.max(
-      0,
-      Math.floor((Date.now() - Date.parse(response?.fetchedAt ?? "")) / 1000),
-    );
-    const days = Math.floor(seconds / 86400),
-      hours = Math.floor(seconds / 3600),
-      minutes = Math.floor(seconds / 60);
-    return days
-      ? `${days} ${days === 1 ? "day" : "days"} ago`
-      : hours
-        ? `${hours} ${hours === 1 ? "hour" : "hours"} ago`
-        : minutes
-          ? `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`
-          : "just now";
+  const toggle = (candidate: TouchpointCandidate) => {
+    if (disabled) return;
+    if (candidate.disambiguation) {
+      notify(
+        "A disambiguation page cannot be selected.",
+        "It names several subjects, so no single resource statement would be true.",
+      );
+      return;
+    }
+    setSelected((old) => {
+      const next = { ...old };
+      if (next[candidate.id]) delete next[candidate.id];
+      else next[candidate.id] = defaults(candidate);
+      return next;
+    });
   };
-  const [choices, setChoices] = useState<Record<string, TouchpointSelection>>(
-    {},
-  );
-  const count = Object.keys(selected).length;
-  const namespace = entityNamespace(
-    context?.iri ?? "",
-    snapshot.ontology.namespace,
-  );
-  const localName = context?.iri.startsWith(namespace)
-    ? ":" + context.iri.slice(namespace.length)
-    : shorten(context?.iri ?? "");
+  const clear = async () => {
+    if (!context || reserved.current) return;
+    reserved.current = true;
+    const current = ++ticket.current;
+    try {
+      await window.axiom.touchpoints.clear(context.iri);
+      if (ticket.current !== current) return;
+      setResponse(undefined);
+      setSelected({});
+      setNote(undefined);
+      notify(
+        "Saved entry removed.",
+        "Edit, Settings, Clear Wikipedia cache does this for every subject at once.",
+      );
+    } catch (error) {
+      if (ticket.current === current)
+        setNote({ kind: "bad", head: (error as Error).message });
+    } finally {
+      if (ticket.current === current) reserved.current = false;
+    }
+  };
+  const visibleNote: Note | undefined = busy
+    ? {
+        head: "Searching English Wikipedia.",
+        tail: "One request, up to twenty candidates, fifteen second timeout.",
+      }
+    : (note ??
+      (response?.candidates.length && response.candidates.every(linked)
+        ? { kind: "ok", head: "Every candidate is already linked." }
+        : undefined));
   return (
-    <section
-      className="individuals-surface pane"
-      data-panel={panelId}
-      aria-label="Touchpoints"
-    >
-      <IndividualPaneHeader>
-        <span className="name">Touchpoints</span>
-        <span className="state">
-          {response?.fetchedAt && <span className="word">Fetched {age()}</span>}
-          <button
-            className="btn"
-            disabled={!context || !query.trim() || disabled}
-            onClick={() => void run(true)}
-          >
-            Refresh
-          </button>
-        </span>
-      </IndividualPaneHeader>
-      <div className="tpbar">
-        <span className="pin">{context?.label}</span>
-        <span className="dot">·</span>
-        <span>{localName}</span>
-        <span className="dot">·</span>
-        <span>pinned to this subject</span>
-        {response?.ranking === "wikipedia" && (
+    <>
+      <span ref={anchor} hidden />
+      {recoveryTarget &&
+        createPortal(
           <>
-            <span className="dot">·</span>
-            <span>Ranked by Wikipedia. The local model is unavailable.</span>
-          </>
+            <div className="id">Touchpoints, {context?.label}</div>
+            <div className="why">
+              {response?.fetchedAt
+                ? `Too little room to review candidates. The query "${query}" and its results from ${date} are retained.`
+                : "Too little room to review candidates. The query is retained and nothing has been fetched yet."}
+            </div>
+          </>,
+          recoveryTarget,
         )}
-      </div>
-      <form
-        className="tpq"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setChoices({});
-          void run();
-        }}
-      >
-        <label
-          htmlFor={panelId + "-query"}
-          style={{ fontSize: 12, color: "var(--text-muted)" }}
-        >
-          Query
-        </label>
+      <div className="bar" role="group" aria-label="Touchpoints actions">
+        <span className="pin">
+          <span className="pn">{context?.label}</span>
+          <span className="pk">{kindWord(context?.kind)}</span>
+        </span>
         <input
-          id={panelId + "-query"}
-          className="fld"
-          aria-label="Query"
+          className="fld qf"
+          aria-label="Wikipedia query"
           value={query}
-          style={{ maxWidth: 360 }}
           maxLength={500}
-          disabled={!context || disabled}
+          disabled={!context}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void run();
+            }
+          }}
         />
         <button
-          className="btn"
+          className="btn primary"
           disabled={!context || !query.trim() || disabled}
+          onClick={() => void run()}
         >
           Search
         </button>
-        <span className="flex" />
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          {response?.candidates.length ?? 0} candidates
-        </span>
-      </form>
-      <div className="pbody" aria-busy={busy}>
-        {busy && <p role="status">Searching Wikipedia…</p>}
-        {error && <p role="alert">{error}</p>}
-        {stale && (
-          <p role="status">
-            The ontology changed. Search again before applying.
-          </p>
-        )}
-        {message && <p role="status">{message}</p>}
-        {response &&
-          !response.candidates.length &&
-          !busy &&
-          !response.error && <p>No candidate was returned for this query.</p>}
-        {response &&
-          response.candidates.length > 0 &&
-          response.candidates.every(linkedTo) && (
-            <p>Every candidate is already linked.</p>
-          )}
-        {response?.candidates.map((candidate) => {
-          const linked = linkedTo(candidate),
-            choice = choices[candidate.id] ??
-              selected[candidate.id] ?? {
-                id: candidate.id,
-                predicate: suggestedTouchpointPredicate(
-                  response.context,
-                  candidate,
-                ),
-                object: "dbpedia" as TouchpointObject,
-              };
-          const change = (update: Partial<TouchpointSelection>) => {
-            const next = { ...choice, ...update };
-            setChoices((old) => ({ ...old, [candidate.id]: next }));
-            if (selected[candidate.id])
-              setSelected((old) => ({ ...old, [candidate.id]: next }));
-          };
-          return (
-            <div
-              className={"cand" + (linked ? " linked" : "")}
-              key={candidate.id}
-              aria-label={candidate.label}
-              role="article"
-            >
-              {linked ? (
-                <span className="pill no2">✓</span>
-              ) : candidate.disambiguation ? (
-                <span className="pill no2">×</span>
-              ) : (
-                <input
-                  type="checkbox"
-                  checked={!!selected[candidate.id]}
-                  aria-label={`Select ${candidate.label}`}
-                  disabled={disabled || stale}
-                  onChange={(e) =>
-                    setSelected((old) => {
-                      const next = { ...old };
-                      if (e.target.checked) next[candidate.id] = choice;
-                      else delete next[candidate.id];
-                      return next;
-                    })
-                  }
-                />
-              )}
-              <span>
-                <span className="ttl2">{candidate.label}</span>
-                <br />
-                <span className="ds">{candidate.description}</span>
-              </span>
-              {linked ? (
-                <>
-                  <span>
-                    <LinkedPill />
-                  </span>
-                  <span className="iri2">
-                    {linked.iri.replace(/^https?:\/\/(www\.)?/, "")}
-                  </span>
-                </>
-              ) : candidate.disambiguation ? (
-                <>
-                  <span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      not selectable
-                    </span>
-                  </span>
-                  <span className="iri2" />
-                </>
-              ) : (
-                <>
-                  <span>
-                    <select
-                      className="sel"
-                      aria-label={`Relationship for ${candidate.label}`}
-                      value={choice.predicate}
-                      disabled={disabled || stale}
-                      onChange={(e) =>
-                        change({
-                          predicate: e.target.value,
-                          object:
-                            e.target.value === NS.rdfs + "seeAlso"
-                              ? "wikipedia"
-                              : "dbpedia",
-                        })
-                      }
-                    >
-                      {[
-                        ...[...touchpointPredicates].sort(),
-                        NS.rdfs + "seeAlso",
-                        ...(context?.kind === "Individual"
-                          ? [NS.owl + "sameAs"]
-                          : []),
-                      ].map((p) => (
-                        <option key={p} value={p}>
-                          {shorten(p)}
-                        </option>
-                      ))}
-                    </select>
-                  </span>
-                  <span>
-                    <select
-                      className="sel"
-                      aria-label={`Target for ${candidate.label}`}
-                      value={choice.object}
-                      disabled={disabled || stale}
-                      onChange={(e) =>
-                        change({ object: e.target.value as TouchpointObject })
-                      }
-                    >
-                      <option value="dbpedia">DBpedia</option>
-                      <option
-                        value="wikidata"
-                        disabled={!candidate.wikidataIri}
-                      >
-                        Wikidata
-                      </option>
-                      <option value="wikipedia">Wikipedia</option>
-                    </select>
-                  </span>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="tpfoot">
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          {count} selected. Applying adds it as one Undo operation.
-        </span>
-        <span className="flex" />
         <button
-          className="btn primary"
-          disabled={disabled || stale || !count}
-          onClick={() => void apply()}
+          className="btn quiet"
+          disabled={!response?.fetchedAt || disabled || !query.trim()}
+          onClick={() => void run(true)}
         >
-          Apply selected touchpoints
+          Refresh
         </button>
+        <SharedMenu
+          trigger={more}
+          items={[
+            {
+              id: "all",
+              label: "Select every selectable candidate",
+              disabled: !response?.fetchedAt || disabled,
+              run: () =>
+                setSelected(
+                  Object.fromEntries(
+                    response!.candidates
+                      .filter((c) => !c.disambiguation)
+                      .map((c) => [c.id, defaults(c)]),
+                  ),
+                ),
+            },
+            {
+              id: "none",
+              label: "Clear the selection",
+              disabled: !count || disabled,
+              run: () => setSelected({}),
+            },
+            { id: "separator", separator: true },
+            {
+              id: "clear",
+              label: "Clear the Wikipedia cache for this subject",
+              disabled: !response?.fetchedAt || disabled,
+              run: () => void clear(),
+            },
+          ]}
+        />
       </div>
-    </section>
+      <div className="body" aria-busy={busy}>
+        <div className="stack">
+          <div className="touchpoints-note">
+            {visibleNote && (
+              <div
+                className={"why2 " + (visibleNote.kind ?? "")}
+                role={visibleNote.kind === "bad" ? "alert" : "status"}
+              >
+                <b>{visibleNote.head}</b>
+                {visibleNote.tail && ` ${visibleNote.tail}`}
+              </div>
+            )}
+          </div>
+          <div
+            className="rows"
+            role={!busy && response?.candidates.length ? "list" : "group"}
+            aria-label="Wikipedia candidates"
+          >
+            {!busy &&
+              (!response?.fetchedAt ? (
+                <div className="empty">
+                  <b>{`Nothing fetched yet for ${context?.label}.`}</b>
+                  {
+                    " The query starts as the preferred label and stays editable. Typing sends nothing; press Enter or choose Search to fetch up to twenty English Wikipedia candidates. Search does not invoke Claude or Codex, and it never writes to the ontology."
+                  }
+                </div>
+              ) : !response.candidates.length ? (
+                <div className="empty">
+                  <b>No candidate was returned for this query.</b>
+                </div>
+              ) : (
+                response.candidates.map((candidate) => {
+                  const choice = selected[candidate.id];
+                  const change = (update: Partial<TouchpointSelection>) =>
+                    setSelected((old) => ({
+                      ...old,
+                      [candidate.id]: { ...old[candidate.id], ...update },
+                    }));
+                  return (
+                    <div
+                      key={candidate.id}
+                      className={
+                        "cand" + (candidate.disambiguation ? " dis" : "")
+                      }
+                      data-selected={!!choice}
+                      role="listitem"
+                      aria-label={candidate.label}
+                      onClick={(e) => {
+                        if (!(e.target as Element).closest("button,select"))
+                          toggle(candidate);
+                      }}
+                    >
+                      <button
+                        className="pick"
+                        type="button"
+                        role="checkbox"
+                        aria-checked={!!choice}
+                        aria-disabled={
+                          candidate.disambiguation || disabled || undefined
+                        }
+                        aria-label={`Select ${candidate.label}`}
+                        onClick={() => toggle(candidate)}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
+                        </svg>
+                      </button>
+                      <div className="cbody">
+                        <div className="ctitle">
+                          {candidate.label}
+                          {candidate.disambiguation && (
+                            <span className="tag wrn">
+                              <span className="gl" />
+                              disambiguation, cannot be selected
+                            </span>
+                          )}
+                          {linked(candidate) && (
+                            <span className="tag good">
+                              <span className="gl" />
+                              Linked
+                            </span>
+                          )}
+                          {!candidate.disambiguation &&
+                            suggestedTouchpointPredicate(
+                              response.context,
+                              candidate,
+                            ) ===
+                              NS.skos + "exactMatch" && (
+                              <span className="tag inf">
+                                <span className="gl" />
+                                title, alias or redirect match
+                              </span>
+                            )}
+                          {candidate.similarity !== undefined &&
+                            response.ranking === "model" && (
+                              <span className="rank">
+                                {`rank ${Math.round(candidate.similarity * 100)}`}
+                              </span>
+                            )}
+                        </div>
+                        <div className="cdesc">{candidate.description}</div>
+                        {choice && (
+                          <div className="copt">
+                            <span className="clabel">asserts</span>
+                            <select
+                              className="sel"
+                              aria-label={`Relationship for ${candidate.label}`}
+                              value={choice.predicate}
+                              disabled={disabled}
+                              onChange={(e) =>
+                                change({
+                                  predicate: e.target.value,
+                                  ...(e.target.value === NS.rdfs + "seeAlso"
+                                    ? { object: "wikipedia" as const }
+                                    : {}),
+                                })
+                              }
+                            >
+                              {[
+                                ...touchpointPredicates,
+                                NS.rdfs + "seeAlso",
+                                ...(context?.kind === "Individual"
+                                  ? [NS.owl + "sameAs"]
+                                  : []),
+                              ].map((p) => (
+                                <option key={p} value={p}>
+                                  {shorten(p)}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="clabel">pointing at</span>
+                            <select
+                              className="sel"
+                              aria-label={`Target for ${candidate.label}`}
+                              value={choice.object}
+                              disabled={disabled}
+                              onChange={(e) =>
+                                change({
+                                  object: e.target.value as TouchpointObject,
+                                })
+                              }
+                            >
+                              <option value="dbpedia">DBpedia</option>
+                              {candidate.wikidataIri && (
+                                <option value="wikidata">Wikidata</option>
+                              )}
+                              <option value="wikipedia">Wikipedia</option>
+                            </select>
+                            <span className="ciri">
+                              {touchpointObject(candidate, choice.object)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ))}
+          </div>
+        </div>
+      </div>
+      <div className="foot">
+        <span>
+          <span className="num">{count}</span> selected
+        </span>
+        <span>
+          <button
+            className="btn primary"
+            disabled={disabled || !count}
+            onClick={() => void apply()}
+          >
+            Apply selected touchpoints
+          </button>
+        </span>
+        {response?.fetchedAt && (
+          <span>
+            {`${response.candidates.length} candidates, fetched ${date}`}
+          </span>
+        )}
+        <span>{`query "${query}"`}</span>
+        {response && (
+          <span>
+            {response?.ranking === "model"
+              ? "ranked by the local MPNet model"
+              : "Wikipedia order, local model unavailable"}
+          </span>
+        )}
+        <span>saved under ~/.axiom/wikipedia, no automatic expiry</span>
+      </div>
+    </>
   );
 }

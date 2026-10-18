@@ -22,6 +22,7 @@ import {
 import {
   emptyTabHistory,
   entityTabName,
+  touchpointTabName,
   type SavedTab,
 } from "../shared/tab-history";
 import { ContextMenu } from "./ContextMenu";
@@ -166,7 +167,7 @@ const tab = (id: string) => ({
     : id.startsWith("taxonomy:")
       ? "Suggestions"
       : id.startsWith("touchpoints:")
-        ? "Touchpoints · " +
+        ? "Touchpoints, " +
           (state?.entities.find(
             (e) => e.iri === decodeURIComponent(id.slice(12)),
           )?.label ??
@@ -295,6 +296,13 @@ export function restoreLayout(value: unknown): Model {
         node.component = "touchpoints";
         if (node.id === "research") node.id = "touchpoints";
         if (node.name === "Research") node.name = "Find Touchpoints";
+      }
+      if (node.component === "touchpoints") {
+        const metadata = node.config?.axiomTab;
+        if (typeof node.name === "string")
+          node.name = touchpointTabName(node.name, metadata?.named === true);
+        if (typeof metadata?.defaultName === "string")
+          metadata.defaultName = touchpointTabName(metadata.defaultName, false);
       }
       for (const value of Object.values(node))
         if (Array.isArray(value)) value.forEach(migrate);
@@ -627,7 +635,7 @@ export function App() {
       id = "touchpoints:" + encodeURIComponent(state.selected);
       const subject = state.selected;
       report(
-        "Opened Touchpoints · " +
+        "Opened Touchpoints, " +
           (state.entities.find((e) => e.iri === subject)?.label ??
             state.entities.find((e) => e.iri === subject)?.name ??
             subject),
@@ -1411,6 +1419,8 @@ export function App() {
                     "hierarchy",
                     // craigtrim/axiom#90: Sparsity uses the common recovery and chrome.
                     "sparsity",
+                    // craigtrim/axiom#92: Touchpoints uses the shared recovery ladder.
+                    "touchpoints",
                     "inspector",
                     "taxonomy",
                     "textanalysis",

@@ -93,7 +93,12 @@ export function readTabHistory(value: unknown): TabHistory {
     return {
       id: v.id,
       type: v.type,
-      name: v.type === "textentities" ? entityTabName(v.name, v.named) : v.name,
+      name:
+        v.type === "textentities"
+          ? entityTabName(v.name, v.named)
+          : v.type === "touchpoints"
+            ? touchpointTabName(v.name, v.named)
+            : v.name,
       named: v.named,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt,
@@ -128,6 +133,10 @@ export function readTabHistory(value: unknown): TabHistory {
     )
       counters[type] = n;
   return { version: 1, entries, counters };
+}
+// craigtrim/axiom#92: update generated Touchpoints titles while preserving user names.
+export function touchpointTabName(name: string, named: boolean) {
+  return named ? name : name.replace(/^Touchpoints · /, "Touchpoints, ");
 }
 export function tabDate(iso: string) {
   const d = new Date(iso);

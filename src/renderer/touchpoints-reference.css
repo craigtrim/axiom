@@ -1,0 +1,218 @@
+/* craigtrim/axiom#92: Touchpoints uses the shared tokens and one action row. */
+.touchpoints-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+}
+@scope (.touchpoints-surface) {
+  :scope :is(button, input, select) {
+    min-height: 0;
+  }
+  :scope .fld {
+    width: auto;
+    height: 22px;
+    padding: 0 var(--sp-2);
+    border: 1px solid var(--border-ctl);
+    border-radius: var(--r-ctl);
+    background: var(--ground);
+    color: var(--text);
+    font: 12px/1.45 var(--font);
+  }
+  :scope .sel {
+    height: 22px;
+    max-width: 200px;
+    padding: 0 var(--sp-1);
+    border: 1px solid var(--border-ctl);
+    border-radius: var(--r-ctl);
+    background: var(--ground);
+    color: var(--text);
+    font: 12px/1.45 var(--font);
+  }
+  .pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    max-width: 190px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pin .pk {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    padding: 0 5px;
+  }
+  .pin .pn {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .qf {
+    flex: 1 1 auto;
+    min-width: 72px;
+  }
+  .cand {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+  }
+  .cand:hover {
+    background: var(--row-hover);
+  }
+  .cand[data-selected="true"] {
+    background: var(--row-selected);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .cand.dis {
+    background: none;
+  }
+  .cand.dis .ctitle {
+    color: var(--text-muted);
+  }
+  .pick {
+    width: 15px;
+    height: 15px;
+    margin-top: 3px;
+    padding: 0;
+    border: 1px solid var(--border-ctl);
+    border-radius: 3px;
+    background: var(--ground);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .pick svg {
+    width: 11px;
+    height: 11px;
+    display: none;
+  }
+  .pick[aria-checked="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  .pick[aria-checked="true"] svg {
+    display: block;
+  }
+  .pick[aria-disabled="true"] {
+    border-style: dashed;
+    cursor: not-allowed;
+    background: var(--sunken);
+  }
+  .cbody {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .ctitle {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cdesc {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+  }
+  .copt {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    padding-top: 2px;
+  }
+  .clabel {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .ciri {
+    font: 11px var(--mono);
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+  }
+  .rank {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .stack {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+  .why2 {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .why2 b {
+    font-weight: 600;
+  }
+  .why2.bad {
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+  .why2.ok {
+    background: var(--ok-soft);
+    color: var(--text);
+  }
+  .empty {
+    text-align: start;
+  }
+  :scope > .toast {
+    inset-block-end: calc(var(--h-foot) + var(--sp-3));
+  }
+}
+.adaptive-pane[data-pane-narrow="true"] .touchpoints-surface {
+  .ciri {
+    display: none;
+  }
+  .copt .sel {
+    max-width: 124px;
+  }
+  .pin {
+    max-width: 120px;
+  }
+}
+.touchpoints-surface.pane[data-wrap="true"] {
+  grid-template-rows: auto minmax(0, 1fr) var(--h-foot);
+  .bar {
+    height: auto;
+    min-height: var(--h-bar);
+    flex-wrap: wrap;
+    align-content: center;
+    padding-block: 3px;
+    row-gap: 3px;
+  }
+  .pin {
+    max-width: 100%;
+  }
+  .qf {
+    flex: 1 1 100%;
+  }
+}
+.touchpoints-recovery {
+  display: grid;
+  gap: var(--sp-2);
+}
+.touchpoints-recovery-copy {
+  display: contents;
+}
+.touchpoints-recovery .id {
+  font-size: 12px;
+  font-weight: 600;
+}
+.touchpoints-recovery .why {
+  font-size: 11px;
+  color: var(--text-muted);
+}
