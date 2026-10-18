@@ -637,28 +637,7 @@ a {
   background: transparent;
   border: 0;
 }
-.hierarchy-panel [role="tree"] {
-  flex: 1;
-  overflow: auto;
-  padding: 5px 3px;
-}
-.hierarchy-panel [role="treeitem"] {
-  min-height: 29px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 8px;
-  cursor: pointer;
-  white-space: nowrap;
-  border-radius: 3px;
-  outline-offset: -2px;
-}
-.hierarchy-panel [role="treeitem"]:hover {
-  background: var(--layer-hover);
-}
-.hierarchy-panel [role="treeitem"][aria-selected="true"] {
-  background: var(--layer-selected);
-}
+/* craigtrim/axiom#91: Hierarchy geometry lives in hierarchy-reference.css. */
 .tree-expander {
   border: 0 !important;
   background: transparent !important;
@@ -1722,8 +1701,6 @@ a {
   )
   button:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible),
 .entity-context-menu button:focus:not(:disabled),
-.hierarchy-panel
-  [role="treeitem"]:not([aria-disabled="true"]):is(:hover, :focus-visible),
 .flexlayout__popup_menu_item:not(.flexlayout__popup_menu_item--disabled):is(
     :hover,
     :focus-visible
@@ -1738,7 +1715,6 @@ a {
     .keyboard-command-list
   )
   button:not(:disabled):not([aria-disabled="true"]):active,
-.hierarchy-panel [role="treeitem"]:not([aria-disabled="true"]):active,
 .flexlayout__popup_menu_item:not(
     .flexlayout__popup_menu_item--disabled
   ):active {

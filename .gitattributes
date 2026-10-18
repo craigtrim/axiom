@@ -11,6 +11,8 @@ tests/fixtures/extend-visual/visual-reference-v2.html -text
 tests/fixtures/extend-visual/visual-reference-v3.html -text
 # Craig's Details reference, hash-pinned (craigtrim/axiom#57).
 tests/fixtures/details-visual/visual-reference.html -text
+# Craig's Hierarchy reference, hash-pinned (craigtrim/axiom#91).
+tests/fixtures/hierarchy-visual/visual-reference.html -text
 # craigtrim/axiom#79: preserve the exact published Text Analysis reference.
 tests/fixtures/text-analysis-visual/visual-reference.html -text
 tests/fixtures/individuals-visual/visual-reference.html -text

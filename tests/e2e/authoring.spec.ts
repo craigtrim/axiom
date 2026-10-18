@@ -1,3 +1,5 @@
+// craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
+import { hierarchyFilter } from "./hierarchy-controls";
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import {
@@ -73,8 +75,11 @@ test("natural labels create in the taxonomy and full entity details open beside 
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await menu("file.new");
   await expect(
-    page.getByRole("button", { name: "Classes · 1", exact: true }),
+    page.getByRole("button", { name: "Classes", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".hierarchy-panel .foot .num").last()).toHaveText(
+    "1",
+  );
   await menu("entity.createClass");
   const form = page.getByRole("form", { name: "Create entity" });
   await expect(form).toBeVisible();
@@ -412,10 +417,7 @@ test("canvas creation respects refusal at a full graph budget and stale workspac
 
 test("taxonomy dragging opens entity details and all report formats produce files", async () => {
   await menu("file.new");
-  await page
-    .getByRole("button", { name: "New class", exact: true })
-    .first()
-    .click();
+  await menu("entity.createClass");
   const form = page.getByRole("form", { name: "Create entity" });
   await form
     .getByRole("textbox", { name: "New entity label" })
@@ -526,7 +528,7 @@ test("graph creation dismisses with Escape, close, Cancel or an outside click wi
   await menu("file.new");
   const canvas = page.getByTestId("graph-canvas"),
     popup = page.locator(".graph-create"),
-    filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+    filter = await hierarchyFilter(page);
   for (const action of [
     "escape",
     "close",

@@ -41,7 +41,12 @@ export interface Snapshot {
   orderCount: number;
   customerCount: number;
   tripleCount: number;
-  entities: (Entity & { instances: number; descendants: number })[];
+  // craigtrim/axiom#91: property counts describe asserted predicates, not typed instances.
+  entities: (Entity & {
+    instances: number;
+    descendants: number;
+    assertions?: number;
+  })[];
   customers: Customer[];
   types: string[];
   canUndo: boolean;
@@ -168,6 +173,7 @@ export type DomainMethod =
   | "clear"
   | "rename"
   | "moveClass"
+  | "moveClasses"
   | "createClass"
   | "deleteClass"
   | "editCell"

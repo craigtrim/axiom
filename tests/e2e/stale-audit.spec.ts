@@ -164,6 +164,8 @@ test("all 16 specified guards preserve messages and mark stale worker replies", 
     ["individualGrid", {}, "Filter the current individuals again."],
     ["instances", {}, "Filter the current instances again."],
     ["moveClass", {}, "Drag the class again."],
+    // craigtrim/axiom#91: the batch operation preserves the local stale-error contract.
+    ["moveClasses", {}, "Drag the class again."],
   ];
   // applyTouchpoints is intentionally private to the main process. Exercise the
   // actual worker transport without widening the renderer's allowed methods.

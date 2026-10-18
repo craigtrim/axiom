@@ -1,30 +1,35 @@
-import { classMoveIssue } from "../domain/taxonomy-move";
+import { branchRoots, classMovesIssue } from "../domain/taxonomy-move";
 import { taxonomyRows } from "../domain/taxonomy-rows";
 import {
   alignTaxonomyRow,
   completeTaxonomyReveal,
   currentTaxonomyReveal,
   takeTaxonomyReveal,
-  revealInTaxonomy,
 } from "./taxonomy-navigation";
 import {
   namedClass,
   taxonomyParents,
   taxonomyChildren,
 } from "../domain/class-expressions";
-import { instanceAction } from "../shared/action-state";
-import { showInstances } from "./instance-report";
-import { PaneToolbar } from "./AdaptivePane";
+import { registerPaneRecovery } from "./AdaptivePane";
+import {
+  SharedPane,
+  SharedMenu,
+  usePaneToast,
+  type SharedMenuItem,
+} from "./SharedPane";
+import { useActionOverflow } from "./useActionOverflow";
 import { InlineCreate } from "./InlineCreate";
 import {
   takeCreation,
+  editEntity,
   entityDragType,
   taxonomyDragType,
   type TaxonomyDrag,
   type Creation,
 } from "./authoring";
 import { displayName } from "../domain/rdf-model";
-import { Fragment } from "react";
+import { Fragment, type RefObject, type CSSProperties } from "react";
 import { EditableEntityName } from "./InlineRename";
 import { EntityMenu } from "./EntityMenu";
 import { openTaxonomy } from "./taxonomy-view";
@@ -46,10 +51,46 @@ import {
   pruneHierarchySelection,
   type HierarchySelection,
 } from "./hierarchy-selection";
+import "./hierarchy-reference.css";
+
+// craigtrim/axiom#91: shared chrome surrounds the existing authoring and reveal behavior.
+registerPaneRecovery("hierarchy", {
+  Body: ({ maximize }) => (
+    <div className="hierarchy-recovery">
+      <div className="id">Hierarchy</div>
+      <div className="why">
+        Too little room to read a tree. Expansion, selection and filter are
+        retained.
+      </div>
+      <div>{maximize}</div>
+    </div>
+  ),
+});
 export function HierarchyPanel() {
+  const rootRef = useRef<HTMLElement>(null);
+  return (
+    <section
+      ref={rootRef}
+      className="panel shared-layer hierarchy-panel"
+      data-panel="hierarchy"
+      aria-label="Hierarchy panel"
+      onPointerDownCapture={() => setSelectionOrigin("hierarchy")}
+    >
+      <SharedPane className="footed hierarchy-surface">
+        <HierarchyContent rootRef={rootRef} />
+      </SharedPane>
+    </section>
+  );
+}
+function HierarchyContent({
+  rootRef,
+}: {
+  rootRef: RefObject<HTMLElement | null>;
+}) {
+  const notify = usePaneToast();
   const s = useSnapshot()!,
     [tab, setTab] = useState(panel("hierarchy.tab", "classes")),
-    [filter, setFilter] = useState(""),
+    [filter, setFilter] = useState(panel("hierarchy.filter", "")),
     [draft, setDraft] = useState<Creation | null>(null),
     [context, setContext] = useState<{
       iri: string;
@@ -70,7 +111,18 @@ export function HierarchyPanel() {
           ]),
         ),
     );
-  const rootRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLDivElement>(null),
+    moreRef = useRef<HTMLButtonElement>(null),
+    filterRef = useRef<HTMLInputElement>(null);
+  const [filterPinned, setFilterPinned] = useState(false);
+  const [undoOffer, setUndoOffer] = useState<{
+    label: string;
+    version: number;
+  } | null>(null);
+  const [lifted, setLifted] = useState<string[]>([]);
+  useEffect(() => {
+    savePanel("hierarchy.filter", filter, false);
+  }, [filter]);
   const [selection, setSelection] = useState(() =>
     singleHierarchySelection(s.selected),
   );
@@ -86,6 +138,7 @@ export function HierarchyPanel() {
   useEffect(() => {
     updateSelection(singleHierarchySelection(s.selected));
     setContext(null);
+    setUndoOffer(null);
   }, [s.datasetEpoch]);
   const revealRef = useRef<ReturnType<typeof takeTaxonomyReveal>>(null);
   const [revealTick, setRevealTick] = useState(0);
@@ -237,7 +290,9 @@ export function HierarchyPanel() {
       timer: ReturnType<typeof setTimeout>;
     } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null),
-    [dropMessage, setDropMessage] = useState("");
+    [dropMessage, setDropMessage] = useState(""),
+    [dropBlocked, setDropBlocked] = useState(false),
+    [emptyDrop, setEmptyDrop] = useState(false);
   const allowed = useRef(new Map<string, string | undefined>());
   const scroll = useRef<{
     win: Window;
@@ -255,13 +310,16 @@ export function HierarchyPanel() {
     allowed.current.clear();
     setDropTarget(null);
     setDropMessage("");
+    setDropBlocked(false);
+    setEmptyDrop(false);
+    setLifted([]);
     if (scroll.current)
       scroll.current.win.cancelAnimationFrame(scroll.current.frame);
     scroll.current = null;
   };
   useEffect(() => {
     stopDrag();
-  }, [s.datasetEpoch]);
+  }, [s.datasetEpoch, s.version]);
   useEffect(
     () => () => {
       clearHover();
@@ -270,7 +328,7 @@ export function HierarchyPanel() {
     },
     [],
   );
-  const over = (ev: React.DragEvent, parent: string) => {
+  const over = (ev: React.DragEvent, parent: string, empty = false) => {
     if (
       draft ||
       properties ||
@@ -281,12 +339,32 @@ export function HierarchyPanel() {
     if (!target || !namedClass(target)) return;
     ev.preventDefault();
     const source = dragging.current;
+    if (
+      !source ||
+      source.version !== s.version ||
+      source.datasetEpoch !== s.datasetEpoch
+    )
+      return;
     if (source && !allowed.current.has(parent))
-      allowed.current.set(parent, classMoveIssue(map, source.iri, parent));
+      allowed.current.set(
+        parent,
+        classMovesIssue(map, source.moves ?? [source], parent),
+      );
     const issue = source ? allowed.current.get(parent) : undefined;
     ev.dataTransfer.dropEffect = issue ? "none" : "move";
-    setDropTarget(issue ? null : parent);
-    setDropMessage(issue ?? "Move under " + displayName(target));
+    setDropTarget(parent);
+    setDropBlocked(!!issue);
+    setEmptyDrop(empty);
+    const moves = source.moves ?? [source];
+    setDropMessage(
+      issue ??
+        "Move " +
+          (moves.length === 1
+            ? displayName(map.get(moves[0].iri)!)
+            : moves.length + " branches") +
+          " under " +
+          displayName(target),
+    );
     if (hover.current?.iri !== parent) {
       clearHover();
       if (!issue && !open.has(parent) && taxonomyChildren(target).length)
@@ -298,7 +376,7 @@ export function HierarchyPanel() {
               savePanel("hierarchy.open", [...next], false);
               return next;
             });
-          }, 650),
+          }, 600),
         };
     }
   };
@@ -325,7 +403,41 @@ export function HierarchyPanel() {
       !(source.fromParent === null || typeof source.fromParent === "string")
     )
       return;
-    const moved = await act("moveClass", { ...source, parent });
+    if (
+      source.version !== s.version ||
+      source.datasetEpoch !== s.datasetEpoch
+    ) {
+      notify(
+        "That move is blocked.",
+        "The ontology changed. Drag the class again.",
+      );
+      return;
+    }
+    const moves = source.moves ?? [source];
+    if (
+      !Array.isArray(moves) ||
+      !moves.length ||
+      moves.some(
+        (m) =>
+          !m ||
+          typeof m.iri !== "string" ||
+          !(m.fromParent === null || typeof m.fromParent === "string"),
+      )
+    )
+      return;
+    const issue = classMovesIssue(map, moves, parent);
+    if (issue) {
+      notify("That move is blocked.", issue + ".");
+      return;
+    }
+    const label =
+      "Move " +
+      (moves.length === 1
+        ? displayName(map.get(moves[0].iri)!)
+        : moves.length + " branches") +
+      " under " +
+      displayName(map.get(parent)!);
+    const moved = await act("moveClasses", { ...source, moves, parent });
     if (moved) {
       setFilter("");
       setOpen((previous) => {
@@ -333,10 +445,26 @@ export function HierarchyPanel() {
         savePanel("hierarchy.open", [...next], false);
         return next;
       });
-      revealInTaxonomy(source.iri);
+      updateSelection({
+        ids: moves.map((m) => m.iri),
+        anchor: source.iri,
+        focus: source.iri,
+      });
+      setUndoOffer({ label, version: source.version + 1 });
+      notify(
+        label.replace(/^Move /, "Moved ") + ".",
+        "Other parents, children, instances and OWL definitions are intact. One Undo reverses it.",
+      );
     }
   };
   const toggle = (iri: string) => {
+    if (filter.trim()) {
+      notify(
+        "Expansion is held open while a filter is active.",
+        "Clear the filter to collapse branches again.",
+      );
+      return;
+    }
     setOpen((previous) => {
       savePanel("hierarchy.open", [...previous], false);
       const next = new Set(previous);
@@ -378,6 +506,7 @@ export function HierarchyPanel() {
           setOpen(new Set([THING]));
         }
         if (id === "hierarchy.search") {
+          setFilterPinned(true);
           command("view.hierarchy");
           setTimeout(
             () =>
@@ -388,6 +517,15 @@ export function HierarchyPanel() {
                 ?.focus(),
             30,
           );
+        }
+        if (id === "hierarchy.graph") {
+          const ids = selectionRef.current.ids;
+          if (ids.length) {
+            void act("seed", { iris: ids, expand: ids.length === 1 }).then(() =>
+              command("graph.fit"),
+            );
+            command("view.graph");
+          }
         }
       }),
     [],
@@ -417,77 +555,239 @@ export function HierarchyPanel() {
     parents(iri);
     if (next.size !== open.size) setOpen(next);
   }, [s.selected, s.entities, draft?.parent, revealTick]);
+  const canUndo =
+    !!undoOffer &&
+    s.undoLabel === undoOffer.label &&
+    s.version === undoOffer.version;
+  const undoMove = async () => {
+    if (!canUndo) return;
+    if (await act("undo")) {
+      setUndoOffer(null);
+      notify("Move reversed.", "Redo would reapply it.");
+    }
+  };
+  const switchTab = (next: string) => {
+    if (tab === next) return;
+    stopDrag();
+    setTab(next);
+    setUndoOffer(null);
+    setContext(null);
+    updateSelection(singleHierarchySelection(null));
+    savePanel("hierarchy.tab", next);
+  };
+  const showGraph = () => {
+    void act("seed", {
+      iris: selection.ids,
+      expand: selection.ids.length === 1,
+    }).then(() => command("graph.fit"));
+    command("view.graph");
+  };
+  const showFilter = () => {
+    setFilterPinned(true);
+    setTimeout(() => filterRef.current?.focus(), 0);
+  };
+  const create = () =>
+    command(properties ? "entity.createProperty" : "entity.createClass");
+  const details = () => {
+    if (selection.ids.length === 1) editEntity(selection.ids[0]);
+  };
+  const actions = [
+    {
+      id: "details",
+      priority: 4,
+      label: "Open in Details",
+      disabled: selection.ids.length !== 1,
+      run: details,
+    },
+    {
+      id: "graph",
+      priority: 3,
+      label: "Show in graph",
+      disabled: !selection.ids.length,
+      run: showGraph,
+    },
+    {
+      id: "new",
+      priority: 2,
+      label: properties ? "New property" : "New class",
+      run: create,
+    },
+    { id: "filter", priority: 1, label: "Filter hierarchy", run: showFilter },
+  ];
+  const pinnedFilter = filterPinned || !!filter;
+  const hidden = useActionOverflow(
+    barRef,
+    moreRef,
+    actions.filter((a) => !pinnedFilter || a.id !== "filter"),
+    "shared",
+  );
+  const isHidden = (id: string) =>
+    hidden.has(id) && !(id === "filter" && (filterPinned || !!filter));
+  const setAllBranches = (expand: boolean) => {
+    if (filter.trim()) {
+      notify(
+        "Expansion is held open while a filter is active.",
+        "Clear the filter to collapse branches again.",
+      );
+      return;
+    }
+    const next = new Set(expand ? entities.map((e) => e.iri) : []);
+    setOpen(next);
+    savePanel("hierarchy.open", [...next]);
+  };
+  const overflow = actions.filter((a) => isHidden(a.id));
+  const menu: SharedMenuItem[] = [
+    ...overflow,
+    ...(overflow.length
+      ? [{ id: "hidden-separator", separator: true as const }]
+      : []),
+    {
+      id: "expand",
+      label: "Expand every branch",
+      run: () => setAllBranches(true),
+    },
+    {
+      id: "collapse",
+      label: "Collapse every branch",
+      run: () => setAllBranches(false),
+    },
+    {
+      id: "all",
+      label: "Select every visible row",
+      run: () =>
+        updateSelection({
+          ids: [...visibleIds],
+          anchor: selection.focus ?? visibleIds[0],
+          focus: selection.focus ?? visibleIds[0],
+        }),
+    },
+    { id: "undo-separator", separator: true },
+    {
+      id: "undo",
+      label: "Undo the last move",
+      disabled: !canUndo,
+      run: () => void undoMove(),
+    },
+  ];
+  const selectedName =
+    selection.ids.length === 1 && map.has(selection.ids[0])
+      ? displayName(map.get(selection.ids[0])!)
+      : "";
+  const stateText =
+    dropMessage ||
+    (selection.ids.length > 1
+      ? selection.ids.length + " selected"
+      : selectedName || "Nothing selected");
   return (
-    <section
-      ref={rootRef}
-      className="panel hierarchy-panel"
-      data-panel="hierarchy"
-      aria-label="Hierarchy panel"
-      onPointerDownCapture={() => setSelectionOrigin("hierarchy")}
-    >
-      <div className="hierarchy-controls">
-        <PaneToolbar label="Hierarchy type">
+    <>
+      <div
+        ref={barRef}
+        className="bar"
+        role="group"
+        aria-label="Hierarchy actions"
+      >
+        <span
+          className="seg"
+          data-fixed-action
+          role="group"
+          aria-label="Hierarchy type"
+        >
           <button
+            type="button"
             aria-pressed={!properties}
-            onClick={() => {
-              savePanel("hierarchy.tab", tab, false);
-              setTab("classes");
-              savePanel("hierarchy.tab", "classes");
-            }}
+            onClick={() => switchTab("classes")}
           >
-            Classes · {s.classCount}
+            Classes
           </button>
           <button
+            type="button"
             aria-pressed={properties}
-            onClick={() => {
-              savePanel("hierarchy.tab", tab, false);
-              setTab("properties");
-              savePanel("hierarchy.tab", "properties");
-            }}
+            onClick={() => switchTab("properties")}
           >
-            Properties · {s.propertyCount}
+            Properties
           </button>
-        </PaneToolbar>
-        <PaneToolbar label="Hierarchy filter">
+        </span>
+        <span
+          className={"state" + (dropMessage && dropBlocked ? " badink" : "")}
+          title={stateText}
+          data-fixed-action={!pinnedFilter ? "" : undefined}
+        >
+          <span data-natural-width>
+            {!dropMessage && selection.ids.length > 1 ? (
+              <>
+                <span className="num">{selection.ids.length}</span>
+                {" selected"}
+              </>
+            ) : (
+              stateText
+            )}
+          </span>
+        </span>
+        <span className="od-fill" />
+        <div
+          className="shared-command"
+          data-shared-command={!pinnedFilter ? "filter" : undefined}
+          data-fixed-action={pinnedFilter ? "" : undefined}
+          data-overflowed={isHidden("filter")}
+          inert={isHidden("filter")}
+          aria-hidden={isHidden("filter") || undefined}
+        >
           <input
+            ref={filterRef}
+            className="fld"
+            size={13}
             aria-label="Filter hierarchy"
             placeholder="Filter hierarchy"
             value={filter}
+            onFocus={() => setFilterPinned(true)}
+            onBlur={() => setFilterPinned(false)}
             onChange={(e) => {
               setSelectionOrigin("hierarchy");
               setFilter(e.target.value);
             }}
           />
-          <button
-            title="New class"
-            aria-label="New class"
-            onClick={() =>
-              command(
-                properties ? "entity.createProperty" : "entity.createClass",
-              )
-            }
-          >
-            +
-          </button>
-        </PaneToolbar>
+        </div>
+        {[...actions]
+          .reverse()
+          .filter((a) => a.id !== "filter")
+          .map((a) => (
+            <div
+              key={a.id}
+              className="shared-command"
+              data-shared-command={a.id}
+              data-overflowed={isHidden(a.id)}
+              inert={isHidden(a.id)}
+              aria-hidden={isHidden(a.id) || undefined}
+            >
+              <button
+                className="btn quiet"
+                type="button"
+                disabled={a.disabled}
+                onClick={a.run}
+              >
+                {a.label}
+              </button>
+            </div>
+          ))}
+        <SharedMenu trigger={moreRef} items={menu} />
       </div>
       <div
-        role="tree"
-        aria-multiselectable="true"
+        role={rows.length || draft ? "tree" : "region"}
+        aria-multiselectable={rows.length || draft ? true : undefined}
         data-selection-count={selection.ids.length}
         aria-description="Ctrl-click toggles a node. Shift-click selects a visible range. Ctrl+A selects all visible rows."
         aria-label={properties ? "Property hierarchy" : "Class hierarchy"}
-        className="tree"
+        className="body tree"
         onDragOver={(ev) => {
           if (!ev.dataTransfer.types.includes(taxonomyDragType)) return;
           const tree = ev.currentTarget,
             rect = tree.getBoundingClientRect(),
             win = tree.ownerDocument.defaultView!;
           const speed =
-            ev.clientY < rect.top + 36
-              ? -10
-              : ev.clientY > rect.bottom - 36
-                ? 10
+            ev.clientY < rect.top + 28
+              ? -Math.min(10, Math.ceil((28 - (ev.clientY - rect.top)) / 3))
+              : ev.clientY > rect.bottom - 28
+                ? Math.min(10, Math.ceil((28 - (rect.bottom - ev.clientY)) / 3))
                 : 0;
           if (scroll.current) scroll.current.speed = speed;
           else if (speed) {
@@ -508,7 +808,8 @@ export function HierarchyPanel() {
               frame: win.requestAnimationFrame(tick),
             };
           }
-          if (!(ev.target as Element).closest(".tree-row")) over(ev, THING);
+          if (!(ev.target as Element).closest(".tree-row"))
+            over(ev, THING, true);
         }}
         onDragLeave={(ev) => {
           if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) {
@@ -525,7 +826,19 @@ export function HierarchyPanel() {
         )}
         {rows.map(({ iri, depth }, index) => {
           const e = map.get(iri)!,
-            expanded = open.has(iri) || !!filter;
+            expanded = open.has(iri) || !!filter.trim(),
+            extraParents = e.parents.filter(
+              (p) =>
+                p !== rowParents.get(iri) &&
+                map.has(p) &&
+                namedClass(map.get(p)!),
+            ),
+            count = properties ? (e.assertions ?? 0) : e.instances,
+            hit =
+              !!filter.trim() &&
+              (e.name + " " + (e.label ?? "") + " " + e.iri)
+                .toLowerCase()
+                .includes(filter.trim().toLowerCase());
           return (
             <Fragment key={iri}>
               <div
@@ -543,30 +856,53 @@ export function HierarchyPanel() {
                 }
                 key={iri}
                 className={
-                  "tree-row " +
-                  (selectedSet.has(iri) ? "selected " : "") +
-                  (dropTarget === iri ? "taxonomy-drop-target" : "")
+                  "tree-row tr " +
+                  (lifted.includes(iri) ? "lift " : "") +
+                  (dropTarget === iri && !emptyDrop
+                    ? dropBlocked
+                      ? "nodrop"
+                      : "drop"
+                    : "")
                 }
-                style={{ paddingLeft: 8 + depth * 16 }}
-                draggable={!draft && selection.ids.length <= 1}
+                draggable={!draft}
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData(entityDragType, iri);
                   ev.dataTransfer.setData("text/plain", iri);
                   ev.dataTransfer.effectAllowed = "copyMove";
-                  if (!properties && namedClass(e) && iri !== THING) {
-                    const source = {
-                      iri,
-                      fromParent: rowParents.get(iri) ?? null,
-                      version: s.version,
-                      datasetEpoch: s.datasetEpoch,
-                    };
-                    dragging.current = source;
-                    allowed.current.clear();
-                    ev.dataTransfer.setData(
-                      taxonomyDragType,
-                      JSON.stringify(source),
+                  const ids = selectedSet.has(iri) ? selection.ids : [iri];
+                  if (!selectedSet.has(iri)) choose(iri);
+                  if (properties) return;
+                  if (ids.includes(THING)) {
+                    ev.preventDefault();
+                    notify(
+                      displayName(map.get(THING)!) + " cannot be moved.",
+                      "It is the root of the taxonomy, so it has no parent to replace.",
                     );
+                    return;
                   }
+                  const roots = branchRoots(map, ids);
+                  if (!roots.length) {
+                    ev.preventDefault();
+                    return;
+                  }
+                  const moves = roots.map((id) => ({
+                    iri: id,
+                    fromParent: rowParents.get(id) ?? null,
+                  }));
+                  const source = {
+                    iri,
+                    fromParent: rowParents.get(iri) ?? null,
+                    moves,
+                    version: s.version,
+                    datasetEpoch: s.datasetEpoch,
+                  };
+                  dragging.current = source;
+                  allowed.current.clear();
+                  setLifted(roots);
+                  ev.dataTransfer.setData(
+                    taxonomyDragType,
+                    JSON.stringify(source),
+                  );
                 }}
                 onDragOver={(ev) => over(ev, iri)}
                 onDragLeave={(ev) => {
@@ -623,6 +959,7 @@ export function HierarchyPanel() {
                     ev.key === "Escape"
                   ) {
                     ev.preventDefault();
+                    if (ev.key === "Enter") editEntity(iri);
                     choose(iri, {
                       toggle: ev.key === " " && control,
                       range: ev.key === " " && ev.shiftKey,
@@ -647,7 +984,7 @@ export function HierarchyPanel() {
                     ev.preventDefault();
                     if (taxonomyChildren(e).length && !open.has(iri))
                       toggle(iri);
-                    else if (rows[index + 1]) {
+                    else if (rows[index + 1]?.depth > depth) {
                       const next = rows[index + 1].iri;
                       choose(next, {
                         range: ev.shiftKey,
@@ -703,57 +1040,75 @@ export function HierarchyPanel() {
                   }
                 }}
               >
-                <button
-                  onDoubleClick={(ev) => ev.stopPropagation()}
-                  className="tree-expander"
-                  tabIndex={-1}
-                  aria-label={(expanded ? "Collapse " : "Expand ") + e.name}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    toggle(iri);
-                  }}
-                >
-                  {taxonomyChildren(e).length ? (expanded ? "⌄" : "›") : ""}
-                </button>
                 <span
-                  className={"entity-marker " + e.kind}
-                  title={kindLabel(e.kind)}
-                >
-                  {e.kind === "Defined"
-                    ? "⊞"
-                    : e.kind.endsWith("Property")
-                      ? "◇"
-                      : "□"}
-                </span>
-                <EditableEntityName
-                  iri={iri}
-                  name={e.name}
-                  className="tree-name"
-                >
-                  {displayName(e)}
-                </EditableEntityName>
-                {instanceAction(e).visible && (
+                  className="ind"
+                  style={{ "--ind-depth": depth } as CSSProperties}
+                />
+                {taxonomyChildren(e).length ? (
                   <button
-                    className="muted count instance-count"
-                    disabled={!instanceAction(e).enabled}
-                    title={instanceAction(e).title}
+                    onDoubleClick={(ev) => ev.stopPropagation()}
+                    className="exp"
+                    tabIndex={-1}
+                    aria-expanded={expanded}
                     aria-label={
-                      "Show " +
-                      e.instances.toLocaleString("en-GB") +
-                      " direct instances of " +
-                      displayName(e)
+                      (expanded ? "Collapse " : "Expand ") + displayName(e)
                     }
                     onClick={(ev) => {
                       ev.stopPropagation();
-                      showInstances(iri);
-                    }}
-                    onDoubleClick={(ev) => ev.stopPropagation()}
-                    onKeyDown={(ev) => {
-                      if (["Enter", " "].includes(ev.key)) ev.stopPropagation();
+                      toggle(iri);
                     }}
                   >
-                    {e.instances.toLocaleString("en-GB")}
+                    <i />
                   </button>
+                ) : (
+                  <span className="exp leaf" aria-hidden="true">
+                    <i />
+                  </span>
+                )}
+                <span
+                  className={
+                    "mk " +
+                    (e.kind === "ObjectProperty"
+                      ? "obj"
+                      : e.kind.endsWith("Property")
+                        ? "dat"
+                        : "cls")
+                  }
+                  title={kindLabel(e.kind)}
+                  aria-hidden="true"
+                />
+                <EditableEntityName
+                  iri={iri}
+                  name={e.name}
+                  className="tree-name nm"
+                >
+                  {displayName(e)}
+                </EditableEntityName>
+                {hit && <span className="hit">match</span>}
+                {!!extraParents.length && (
+                  <span
+                    className="alt"
+                    title={
+                      "also under " +
+                      extraParents
+                        .map((p) => displayName(map.get(p)!))
+                        .join(", ")
+                    }
+                  >
+                    {"also under " +
+                      extraParents
+                        .map((p) => displayName(map.get(p)!))
+                        .join(", ")}
+                  </span>
+                )}
+                <span className="sp" />
+                {!!count && (
+                  <span className="cnt">
+                    {count.toLocaleString("en-US")}
+                    <span className="unit">
+                      {properties ? " assertions" : " instances"}
+                    </span>
+                  </span>
                 )}
               </div>
               {draft && !properties && draft.parent === iri && (
@@ -764,29 +1119,65 @@ export function HierarchyPanel() {
             </Fragment>
           );
         })}
-        {!rows.length && <p className="empty">No matching entities.</p>}
+        {!!rows.length && (
+          <div
+            className={
+              "rootdrop" +
+              (emptyDrop && dropTarget && !dropBlocked ? " drop" : "")
+            }
+            aria-hidden="true"
+          />
+        )}
+        {!rows.length && (
+          <div className="empty" role="note">
+            <b>Nothing in this hierarchy matches that filter.</b>
+            {
+              " Matching rows keep their ancestors so the indentation still tells you where they sit. Clear the filter to get the whole tree back."
+            }
+          </div>
+        )}
       </div>
-      {dropMessage && (
-        <div className="taxonomy-drop-hint" role="status">
-          {dropMessage}
-        </div>
-      )}
-      <div className="panel-toolbar bottom">
-        <button
-          disabled={!selection.ids.length}
-          onClick={() => {
-            void act("seed", {
-              iris: selection.ids,
-              expand: selection.ids.length <= 1,
-            }).then(() => command("graph.fit"));
-            command("view.graph");
-          }}
-        >
-          Show in graph
-        </button>
-        <span className="hierarchy-selection-count" role="status">
-          {selection.ids.length > 1 ? selection.ids.length + " selected" : ""}
+      <div className="foot">
+        <span>
+          <span className="num">{rows.length.toLocaleString("en-US")}</span>
+          {" rows shown of "}
+          <span className="num">
+            {(properties ? s.propertyCount : s.classCount).toLocaleString(
+              "en-US",
+            )}
+          </span>
         </span>
+        <span className="keys">
+          <span>
+            <b>Ctrl</b>
+            {" click toggles a row"}
+          </span>
+          <span>
+            <b>Shift</b>
+            {" click selects a range"}
+          </span>
+          <span>
+            <b>Ctrl A</b>
+            {" selects every visible row"}
+          </span>
+          {!properties && (
+            <span>
+              <b>Drag</b>
+              {" a row onto a class to reparent it"}
+            </span>
+          )}
+        </span>
+        {canUndo && (
+          <span className="undo">
+            <button
+              className="btn quiet"
+              type="button"
+              onClick={() => void undoMove()}
+            >
+              Undo move
+            </button>
+          </span>
+        )}
       </div>
       {context && (
         <EntityMenu
@@ -823,6 +1214,6 @@ export function HierarchyPanel() {
           }
         />
       )}
-    </section>
+    </>
   );
 }

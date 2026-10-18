@@ -1,3 +1,5 @@
+// craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
+import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
 import {
@@ -181,14 +183,15 @@ journey(
     "edit.redo",
   ],
   async () => {
-    await page
-      .getByRole("textbox", { name: "Filter hierarchy" })
-      .fill("NotInNextDocument");
+    await (await hierarchyFilter(page)).fill("NotInNextDocument");
     await menu("file.new");
     await expect.poll(async () => (await state()).classCount).toBe(1);
     expect((await state()).individualCount).toBe(0);
     await expect(
-      page.getByRole("textbox", { name: "Filter hierarchy" }),
+      page.getByRole("textbox", {
+        name: "Filter hierarchy",
+        includeHidden: true,
+      }),
     ).toHaveValue("");
     await expect(page.getByRole("treeitem")).toHaveCount(1);
     await expect.poll(() => enabled("entity.delete")).toBe(false);
@@ -1200,9 +1203,7 @@ test("taxonomy double-click expands only the branch and every node exposes a key
     page.getByRole("menuitem", { name: "Find", exact: true }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
-  await page
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("NutTopping");
+  await (await hierarchyFilter(page)).fill("NutTopping");
   const leaf = page
     .getByRole("treeitem")
     .filter({ hasText: "Nut Topping" })
@@ -1321,7 +1322,7 @@ test("a styled 3000-node graph stays bounded and the renderer answers during ELK
   expect((await state()).graph.nodes.length).toBe(3000);
   await request("layout", { mode: "elk-stress" });
   const started = Date.now();
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Pizza");
+  await (await hierarchyFilter(page)).fill("Pizza");
   await expect(
     page.getByRole("textbox", { name: "Filter hierarchy" }),
   ).toHaveValue("Pizza");
@@ -1448,6 +1449,8 @@ journey(
 
 test("inline hierarchy rename validates, cancels and saves without changing the branch", async () => {
   const iri = NS.pizza + "NamedPizza";
+  await request("select", { iri });
+  await menu("view.hierarchy");
   const row = page
     .locator('[data-panel="hierarchy"] [data-rename-iri="' + iri + '"]')
     .locator("..");
@@ -1470,6 +1473,12 @@ test("inline hierarchy rename validates, cancels and saves without changing the 
   await input.fill("");
   await input.press("Enter");
   await expect(row.getByRole("alert")).toContainText("required");
+  await expect(row.getByRole("alert")).toBeInViewport();
+  const validationBox = (await row.getByRole("alert").boundingBox())!;
+  const editingRow = (await row.boundingBox())!;
+  expect(validationBox.y + validationBox.height).toBeLessThanOrEqual(
+    editingRow.y + editingRow.height,
+  );
   await expect(input).toBeFocused();
   expect(await row.getAttribute("aria-expanded")).toBe(expanded);
   await input.fill("Cancelled label with spaces");
@@ -1497,7 +1506,7 @@ test("inline hierarchy rename validates, cancels and saves without changing the 
     .toBe("KeyboardNamedPizza");
   await page.keyboard.press("F2");
   await input.fill("BlurSavedPizza");
-  const filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.click();
   await expect
     .poll(async () => (await state()).entities.find((e) => e.iri === iri)!.name)
@@ -1517,6 +1526,8 @@ test("context Rename stays in the hierarchy and supports remapped keys and prope
       '[data-panel="hierarchy"] [data-rename-iri="' + iri + '"]',
     ),
     row = label.locator("..");
+  await request("select", { iri });
+  await menu("view.hierarchy");
   await page.getByTestId("graph-canvas").focus();
   await row.click({ button: "right" });
   await page
@@ -1546,7 +1557,8 @@ test("context Rename stays in the hierarchy and supports remapped keys and prope
   const property = (await state()).entities.find((e) =>
     e.kind.endsWith("Property"),
   )!;
-  await page.getByRole("button", { name: /^Properties ·/ }).click();
+  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await request("select", { iri: property.iri });
   const propertyRow = page
     .locator(
       '[data-panel="hierarchy"] [data-rename-iri="' + property.iri + '"]',

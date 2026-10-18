@@ -1,3 +1,4 @@
+// craigtrim/axiom#91: Hierarchy now uses the shared action row.
 // craigtrim/axiom#88: results keep More in their measured action row.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
@@ -28,7 +29,11 @@ async function menu(id: string) {
 async function detach(id: string) {
   await main.bringToFront();
   await menu(id === "provenance" ? "file.provenance" : "view." + id);
-  const pane = main.locator('[data-pane-id="' + id + '"]');
+  const pane = main.locator(
+    id === "touchpoints"
+      ? '[data-pane-id^="touchpoints:"]'
+      : '[data-pane-id="' + id + '"]',
+  );
   await expect(pane).toBeVisible();
   await pane.evaluate((el) => {
     el.setAttribute("tabindex", "-1");
@@ -239,7 +244,15 @@ test("Hierarchy, Individuals, Source and provenance keep usable actions in each 
       [1100, 300, "shallow"],
     ] as const) {
       await resize(child, width, height, mode);
-      const action = root.locator(".pane-primary button").first();
+      const action = root
+        .locator(
+          id === "hierarchy"
+            ? ".bar button"
+            : id === "individuals"
+              ? ".tbar button"
+              : ".pane-primary button",
+        )
+        .first();
       await fits(root, action);
       expect(await root.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(
         false,
@@ -365,7 +378,7 @@ test("Entity statements and query results retain their working content when resi
 });
 
 test("Compact edge actions, overflow and recovery remain keyboard accessible", async () => {
-  await main.evaluate(async () => {
+  const parent = await main.evaluate(async () => {
     const a = await window.axiom.request<string>("createClass", {
       name: "Parent",
       parent: "http://www.w3.org/2002/07/owl#Thing",
@@ -383,6 +396,7 @@ test("Compact edge actions, overflow and recovery remain keyboard accessible", a
         a,
       ]),
     });
+    return a;
   });
   let child = await detach("inspector");
   const root = child.locator(".adaptive-pane");
@@ -434,6 +448,7 @@ test("Compact edge actions, overflow and recovery remain keyboard accessible", a
   await menu("pane.reattach");
   await expect.poll(() => app.windows().length).toBe(1);
   await main.evaluate(() => window.axiom.request("selectEdge", { key: null }));
+  await main.evaluate((iri) => window.axiom.request("select", { iri }), parent);
   for (const id of ["touchpoints", "source"]) {
     child = await detach(id);
     await resize(child, 360, 740, "narrow");
