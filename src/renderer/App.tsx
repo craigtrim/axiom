@@ -734,6 +734,15 @@ export function App() {
         const recovery = content
           ?.closest('.adaptive-pane[data-pane-recovery="true"]')
           ?.querySelector<HTMLElement>(".pane-recovery button");
+        // A delayed pane reveal must not blur a field the user already reached (#89).
+        const focused = content?.ownerDocument
+          .activeElement as HTMLElement | null;
+        if (
+          focused &&
+          content?.contains(focused) &&
+          focused.getBoundingClientRect().width > 0
+        )
+          return true;
         const target =
           recovery ??
           content?.querySelector<HTMLElement>(
@@ -1385,6 +1394,7 @@ export function App() {
                   paneId={n.getId()}
                   visual={n.getComponent() === "graph"}
                   shared={[
+                    "inspector",
                     "taxonomy",
                     "textanalysis",
                     "query",

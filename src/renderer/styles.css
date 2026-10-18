@@ -1,3 +1,4 @@
+/* craigtrim/axiom#89: removed the unused EntityInspectorFields form rules. */
 /* craigtrim/axiom#88: Query presentation now lives in query-reference.css. */
 /* Shared palette and opt-in components: craigtrim/axiom#81. Text Analysis adopts them in #79. */
 :root {
@@ -1831,84 +1832,6 @@ a {
   white-space: nowrap;
 }
 
-.inspector-fields {
-  margin-top: 16px;
-}
-.inspector-fields fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  min-width: 0;
-}
-.inspector-fields .entity-fields {
-  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-}
-.inspector-fields input,
-.inspector-fields select,
-.inspector-fields textarea {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.inspector-fields textarea {
-  resize: vertical;
-}
-.inspector-fields small {
-  font-size: 11px;
-}
-.inspector-identifier,
-.inspector-extra-fields {
-  margin-top: 12px;
-}
-.inspector-fields summary {
-  cursor: pointer;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-.inspector-relation {
-  margin-top: 12px;
-}
-.inspector-field-heading,
-.inspector-save-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.inspector-field-heading {
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.inspector-field-heading button,
-.inspector-relation-row button {
-  padding: 4px 8px;
-}
-.inspector-relation-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.inspector-relation-row small {
-  grid-column: 1 / -1;
-  overflow-wrap: anywhere;
-}
-.inspector-save-actions {
-  margin-top: 14px;
-  position: sticky;
-  bottom: 0;
-  background: var(--surface);
-  padding: 8px 0;
-  z-index: 1;
-}
-.inspector-save-actions [role="status"] {
-  font-size: 11px;
-}
-
-.inspector-identifier > button {
-  margin-top: 6px;
-}
-
 .graph-create.compact-callout .inline-create-heading {
   position: static;
 }
@@ -2204,15 +2127,6 @@ a {
   flex: 1;
   min-height: 0;
 }
-.inspector-footer .inspector-save-actions {
-  position: static;
-  margin: 0;
-  padding: 6px 10px;
-}
-.inspector-footer .inspector-save-actions > p {
-  flex-basis: 100%;
-  margin: 0;
-}
 .inspector-content .pane-details {
   margin: 10px 0;
 }
@@ -2229,18 +2143,6 @@ a {
 }
 .adaptive-pane[data-pane-narrow="true"] :is(.entity-fields, .statement-editor) {
   grid-template-columns: minmax(0, 1fr);
-}
-.adaptive-pane[data-pane-narrow="true"] .inspector-fields .entity-fields {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.adaptive-pane[data-pane-layout="shallow"] .inspector-fields > fieldset {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 8px 18px;
-}
-.adaptive-pane[data-pane-layout="shallow"] .inspector-fields .entity-fields {
-  grid-row: 1 / span 3;
 }
 .statement-metadata {
   grid-column: 1 / -1;

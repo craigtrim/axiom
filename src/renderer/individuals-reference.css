@@ -1,3 +1,4 @@
+/* craigtrim/axiom#89: Inspector-specific rules moved to inspector-reference.css. */
 /* Individuals uses the shared palette and the two governing references (#86). */
 .individuals-surface.individuals-surface {
   color-scheme: light;
@@ -534,35 +535,6 @@
     color: var(--accent);
     font-weight: 600;
   }
-  .ident {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex: none;
-    min-height: 26px;
-    padding: var(--sp-1) var(--sp-3);
-    font-size: 12px;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    background: var(--sunken);
-  }
-  .ident .kind {
-    font-weight: 600;
-    color: var(--text);
-    flex: none;
-  }
-  .ident .qid {
-    font-family: var(--mono);
-    color: var(--text);
-    flex: none;
-  }
-  .ident .iri {
-    font-family: var(--mono);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .dot {
     flex: none;
     color: var(--border-strong);
@@ -571,41 +543,6 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-  }
-  .scount {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-2) var(--sp-3) var(--sp-1);
-    font-size: 12.5px;
-    color: var(--text-muted);
-    min-height: 26px;
-  }
-  table.st {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
-  table.st th {
-    padding: 4px var(--sp-3);
-    text-align: start;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-  }
-  table.st td {
-    padding: 3px var(--sp-3);
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-  table.st tr:last-child td {
-    border-bottom: 0;
-  }
-  .c-pred {
-    width: 158px;
   }
   .pred {
     display: flex;
@@ -627,47 +564,6 @@
     background: var(--warn-bg);
     border-radius: var(--r-ctl);
     padding: 0 4px;
-  }
-  .vals {
-    display: grid;
-    gap: 3px;
-    max-width: 560px;
-  }
-  .val {
-    display: block;
-    width: 100%;
-    min-height: 28px;
-    padding: 3px var(--sp-2);
-    font: inherit;
-    font-size: 13px;
-    color: var(--text);
-    background: var(--raised);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-ctl);
-  }
-  .val[readonly] {
-    background: var(--sunken);
-    color: var(--text-muted);
-  }
-  .usage {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--sp-1) var(--sp-3);
-    padding: var(--sp-2) var(--sp-3);
-    border-top: 1px solid var(--border);
-    font-size: 12.5px;
-    color: var(--text-muted);
-  }
-  .usage .u {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 5px;
-  }
-  .usage .u b {
-    color: var(--text);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
   }
   .gone {
     text-decoration: line-through;
@@ -846,15 +742,6 @@
   .fwrap {
     max-width: none;
   }
-  .c-pred {
-    width: 118px;
-  }
-  .vals {
-    max-width: none;
-  }
-  .ident .iri {
-    display: none;
-  }
   .cand {
     grid-template-columns: 20px minmax(0, 1fr) 110px;
   }
@@ -863,8 +750,7 @@
   }
 }
 [data-pane-shallow="true"] > .adaptive-pane-content .individuals-surface {
-  .gstat,
-  .usage {
+  .gstat {
     display: none;
   }
 }
@@ -1018,45 +904,10 @@
   .vpop li:nth-child(odd) {
     background: var(--sunken);
   }
-  .inspector-value {
-    position: relative;
-  }
-  .inspector-value .row-remove,
-  .single-add {
-    position: absolute;
-    right: 4px;
-    top: 3px;
-    visibility: hidden;
-  }
-  .inspector-value:focus-within .row-remove,
-  .inspector-value:hover .row-remove,
-  .vals:focus-within .single-add,
-  .vals:hover .single-add {
-    visibility: visible;
-  }
-  .single-add {
-    right: 36px;
-  }
-  .vals {
-    position: relative;
-  }
-  .inspector-message {
-    padding: 8px 12px;
-    color: var(--bad);
-  }
-  .inspector-predicate {
-    display: flex;
-    gap: 8px;
-    padding: 8px 12px;
-  }
 }
 @media (pointer: coarse) {
   .individuals-surface .moves {
     display: flex;
-  }
-  .individuals-surface .row-remove,
-  .individuals-surface .single-add {
-    visibility: visible;
   }
 }
 @media (prefers-reduced-motion: reduce) {
