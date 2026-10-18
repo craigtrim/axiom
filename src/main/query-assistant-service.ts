@@ -4,20 +4,32 @@ import {
   buildQueryPrompt,
   extractQueryProposal,
   querySchema,
+  QueryProposalError,
   type QueryContext,
   type QueryAssistantRequest,
   type QueryAssistantResponse,
   type QueryAssistantStatus,
 } from "../shared/query-assistant";
 import { formatQuery } from "../domain/query-format";
-import { parseQuery, queryIris } from "../domain/query-parser";
+import { parseSparql, queryIris } from "../domain/query-parser";
+import {
+  unboundProjection,
+  proposalIriSpellings,
+} from "../domain/query-proposal";
 import { NS } from "../domain/model";
 export function validateQueryProposal(
   text: string,
   context: QueryContext,
 ): string | null {
   try {
-    const parsed = parseQuery(text);
+    // craigtrim/axiom#88: report proposal refusals before any document is opened.
+    const parsed = parseSparql(text);
+    if (parsed.type !== "query")
+      return "That is an update, not a query. This panel never writes to the ontology.";
+    const unbound = unboundProjection(parsed);
+    if (unbound)
+      return `The projection selects ?${unbound}, which the pattern never binds.`;
+    const spellings = proposalIriSpellings(parsed);
     const known = new Set([
       ...context.terms.flatMap((t) => [
         t.iri,
@@ -35,7 +47,7 @@ export function validateQueryProposal(
         ![NS.rdf, NS.rdfs, NS.owl, NS.xsd].some((ns) => iri.startsWith(ns))
       )
         throw Error(
-          "The query uses an IRI absent from the supplied context: " + iri,
+          `${spellings.get(iri) ?? `<${iri}>`} is not in the context Axiom sent, so it was not checked against the ontology.`,
         );
     }
     return null;
@@ -129,7 +141,11 @@ export class QueryAssistantService {
       this.current = { running: false, response };
       return response;
     } catch (e) {
-      this.current = { running: false, error: (e as Error).message };
+      this.current = this.cancelled
+        ? { running: false }
+        : e instanceof QueryProposalError
+          ? { running: false, refusal: e.message }
+          : { running: false, error: (e as Error).message };
       throw e;
     }
   }

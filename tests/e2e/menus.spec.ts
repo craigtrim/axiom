@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -712,8 +713,8 @@ journey(
     await expect.poll(() => enabled("query.graph")).toBe(false);
     await menu("query.run");
     await expect(
-      page.locator(".query-results-panel:visible .query-summary"),
-    ).toContainText("103 displayed");
+      page.locator(".query-results-panel:visible .state"),
+    ).toContainText("103 rows");
     await menu("graph.clear");
     await page.locator(".monaco-editor textarea").focus();
     await menu("pane.close");
@@ -738,14 +739,21 @@ journey(
       "SELECT ?s ?p ?o ?other WHERE { ?s ?p ?o . ?other ?p ?o . }",
     );
     await menu("query.run");
+    // Large-store preparation precedes the worker's cancellable execution.
+    await expect
+      .poll(() => enabled("query.cancel"), { timeout: 30000 })
+      .toBe(true);
     await menu("query.cancel");
-    await expect(page.locator(".query-error")).toContainText("cancelled");
+    await expect(page.locator(".query-panel .state")).toContainText(
+      "cancelled",
+      { timeout: 20000 },
+    );
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await queryText("SELECT ?s WHERE { ?s a <" + NS.owl + "Class> . } LIMIT 5");
     await menu("query.run");
     await expect(
-      page.locator(".query-results-panel:visible .query-summary"),
-    ).toContainText("5 displayed");
+      page.locator(".query-results-panel:visible .state"),
+    ).toContainText("5 rows");
     await menu("query.graph");
     expect((await state()).graph.nodes.length).toBeLessThanOrEqual(
       (await state()).graph.budget,
@@ -909,20 +917,28 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
   await expect(dialog).toHaveCount(0);
   await menu("query.run");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("6 displayed");
-  await page.getByRole("button", { name: "More query actions" }).click();
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("6 rows");
+  await page
+    .locator(".query-panel")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
   await expect(
-    page.getByRole("combobox", { name: "Example query" }),
-  ).toBeDisabled();
+    page
+      .locator(".query-panel")
+      .getByRole("menuitem", {
+        name: "Named pizzas and their toppings",
+        exact: true,
+      }),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await queryText(
     "SELECT ?s WHERE { ?s a <http://example.org/ontology#Person> . }",
   );
   await menu("query.run");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("1 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("1 row");
   await expect(
     page.locator(".query-results-panel:visible .query-results"),
   ).toContainText("Alice");
@@ -980,14 +996,18 @@ test("New Workspace cancels an active query and clears old results", async () =>
   await menu("file.new");
   await expect.poll(async () => (await state()).classCount).toBe(1);
   await menu("view.query");
-  await expect(page.locator(".query-error")).toHaveCount(0);
+  await expect(page.locator(".query-panel .state")).not.toContainText(
+    "Not run:",
+  );
   await expect.poll(() => enabled("query.cancel")).toBe(false);
   await expect.poll(() => enabled("query.graph")).toBe(false);
   await menu("query.run");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("1 displayed");
-  await expect(page.locator(".query-error")).toHaveCount(0);
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("1 row");
+  await expect(page.locator(".query-panel .state")).not.toContainText(
+    "Not run:",
+  );
 });
 
 journey(

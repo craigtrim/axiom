@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: searchable Query history opens through More.
 import {
   test,
   expect,
@@ -89,7 +90,14 @@ for (const size of ["default", "short", "narrow"] as const) {
         });
     });
     await d.menu("view.query");
-    await d.page.getByRole("button", { name: "Browse query history" }).click();
+    await d.page
+      .locator(".query-panel")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await d.page
+      .locator(".query-panel")
+      .getByRole("menuitem", { name: "Find a query in history", exact: true })
+      .click();
     await d.resize(
       size === "narrow" ? 480 : 1280,
       size === "short" ? 450 : 900,
@@ -113,9 +121,18 @@ for (const size of ["default", "short", "narrow"] as const) {
     await input.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(
-      d.page.getByRole("button", { name: "Browse query history" }),
+      d.page
+        .locator(".query-panel")
+        .getByRole("button", { name: "More actions", exact: true }),
     ).toBeFocused();
-    await d.page.getByRole("button", { name: "Browse query history" }).click();
+    await d.page
+      .locator(".query-panel")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await d.page
+      .locator(".query-panel")
+      .getByRole("menuitem", { name: "Find a query in history", exact: true })
+      .click();
     await input.fill("Unique saved query");
     await dialog.getByRole("button", { name: /^Unique saved query/ }).click();
     await expect(dialog).toHaveCount(0);
@@ -125,7 +142,14 @@ test("query-history failure retains disabled rows and recovers on a new query", 
   desktop: d,
 }) => {
   await d.menu("view.query");
-  await d.page.getByRole("button", { name: "Browse query history" }).click();
+  await d.page
+    .locator(".query-panel")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await d.page
+    .locator(".query-panel")
+    .getByRole("menuitem", { name: "Find a query in history", exact: true })
+    .click();
   const dialog = d.page.getByRole("dialog", { name: "Query history" });
   await expect(dialog.locator(".query-history-list")).toHaveAttribute(
     "aria-busy",

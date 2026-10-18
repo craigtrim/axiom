@@ -10,7 +10,8 @@ vi.mock("../../src/renderer/client", () => ({
   state: null,
   report: () => {},
 }));
-it("retains a keystroke when generation arrives before the debounced disk save", async () => {
+// craigtrim/axiom#88: an explicit open saves pending text without automatic delivery.
+it("retains the last keystroke before explicitly opening a completed proposal", async () => {
   await mkdir("artifacts/testing", { recursive: true });
   const dir = await mkdtemp(path.resolve("artifacts/testing/query-client-"));
   let receive = (_event: unknown) => {};
@@ -35,7 +36,6 @@ it("retains a keystroke when generation arrives before the debounced disk save",
     const client = await import("../../src/renderer/query-history");
     await client.connectQueryHistory();
     const original = (await service.load()).activeId;
-    const baseline = await service.baseline();
     const response: QueryAssistantResponse = {
       completedAt: new Date().toISOString(),
       validation: null,
@@ -65,22 +65,24 @@ it("retains a keystroke when generation arrives before the debounced disk save",
         assumptions: [],
       },
     };
-    // Deliver immediately; the renderer's 250 ms save timer has not fired.
+    window.axiom.queryAssistant = {
+      open: async (completedAt) => {
+        expect(completedAt).toBe(response.completedAt);
+        expect((await service.load()).current.text).toContain("42");
+        return service.openProposal(response);
+      },
+    } as typeof window.axiom.queryAssistant;
+    // The completed response alone changes neither history nor the editor.
     client.editQuery(original, "ASK { VALUES ?n { 42 } }");
-    const delivered = await service.deliver(response, baseline);
     expect(client.historyState().view?.activeId).toBe(original);
     expect(client.historyState().view?.current.text).toContain("42");
-    await client.flushQueryHistory();
-    await vi.waitFor(async () => {
-      const saved = await service.load();
-      expect(saved.activeId).toBe(original);
-      expect(saved.pendingId).toBe(delivered.entries[1].id);
-      expect(saved.current.text).toContain("42");
-    });
-    await client.selectQuery(delivered.entries[1].id);
+    expect((await service.load()).entries).toHaveLength(1);
+    await client.openQueryProposal(response.completedAt);
     expect(client.historyState().view?.current.text).toBe(
       response.result.sparql,
     );
+    await client.selectQuery(original);
+    expect(client.historyState().view?.current.text).toContain("42");
   } finally {
     vi.unstubAllGlobals();
   }

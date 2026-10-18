@@ -77,6 +77,8 @@ const bridge: AxiomBridge = {
     search: (text) => invoke("queryHistory:search", text),
   },
   queryAssistant: {
+    // craigtrim/axiom#88: the renderer supplies an identity, never replacement query text.
+    open: (completedAt) => invoke("queryAssistant:open", completedAt),
     assistants: () => invoke("queryAssistant:assistants"),
     run: (r) => invoke("queryAssistant:run", r),
     cancel: () => invoke("queryAssistant:cancel"),
@@ -116,5 +118,6 @@ const bridge: AxiomBridge = {
   exportDocument: (input) => invoke("export:document", input),
   qualityExport: (input) => invoke("quality:export", input),
   copy: (text) => invoke("copy", text),
+  copyQueryCsv: (input) => invoke("query:copyCsv", input),
 };
 contextBridge.exposeInMainWorld("axiom", bridge);

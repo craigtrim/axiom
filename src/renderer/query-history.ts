@@ -27,8 +27,6 @@ const emit = (patch: Partial<ClientState>) => {
   current = { ...current, ...patch };
   for (const fn of listeners) fn();
 };
-let restoring: { id: string; entry: QueryEntry; pendingId: string } | undefined;
-let restoreTask: Promise<unknown> = Promise.resolve();
 function accept(view: QueryHistoryView) {
   if (
     current.view &&
@@ -36,53 +34,6 @@ function accept(view: QueryHistoryView) {
     current.view.revision > view.revision
   )
     return;
-  const previous = current.view;
-  if (
-    !restoring &&
-    previous &&
-    view.activeId !== previous.activeId &&
-    view.current.source === "agent" &&
-    drafts.has(previous.activeId) &&
-    !previous.entries.some((e) => e.id === view.activeId)
-  ) {
-    const target = {
-      id: previous.activeId,
-      entry: previous.current,
-      pendingId: view.activeId,
-    };
-    restoring = target;
-    // Delivery can arrive inside the local save debounce. Keep the editor in place
-    // until both the last keystroke and the retained selection reach the main process.
-    restoreTask = flushQueryHistory()
-      .then(() =>
-        window.axiom.queryHistory.apply({
-          type: "select",
-          id: target.id,
-          pendingId: target.pendingId,
-        }),
-      )
-      .then((saved) => {
-        restoring = undefined;
-        accept(saved);
-      })
-      .catch((error) => {
-        restoring = undefined;
-        emit({ error: error.message });
-      });
-  }
-  if (restoring) {
-    if (view.activeId === restoring.id) restoring = undefined;
-    else
-      view = {
-        ...view,
-        activeId: restoring.id,
-        pendingId: restoring.pendingId,
-        current:
-          previous?.current.id === restoring.id
-            ? previous.current
-            : restoring.entry,
-      };
-  }
   const draft = drafts.get(view.activeId);
   if (draft)
     view = {
@@ -174,7 +125,6 @@ export function flushQueryHistory(): Promise<void> {
 export async function changeQueryHistory(action: QueryHistoryAction) {
   await connectQueryHistory();
   await flushQueryHistory();
-  await restoreTask;
   try {
     const view = await window.axiom.queryHistory.apply(action);
     accept(view);
@@ -183,6 +133,14 @@ export async function changeQueryHistory(action: QueryHistoryAction) {
     emit({ error: (error as Error).message });
     throw error;
   }
+}
+// craigtrim/axiom#88: save the last local keystroke before explicitly opening a proposal.
+export async function openQueryProposal(completedAt: string) {
+  await connectQueryHistory();
+  await flushQueryHistory();
+  const view = await window.axiom.queryAssistant.open(completedAt);
+  accept(view);
+  return view;
 }
 export const selectQuery = (id: string) =>
   changeQueryHistory({ type: "select", id });

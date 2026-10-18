@@ -1,6 +1,35 @@
 import { TYPE, NS } from "./model";
 import type { Store } from "./store";
 import type { QueryContext } from "../shared/query-assistant";
+import type { QueryFields } from "../shared/query-fields";
+// craigtrim/axiom#88: Fields lists the entire schema; agent context stays bounded.
+export function queryFields(store: Store, datasetEpoch: number): QueryFields {
+  const counts = new Map<string, number>();
+  for (const triple of store.scan())
+    counts.set(triple.predicate, (counts.get(triple.predicate) ?? 0) + 1);
+  return {
+    datasetEpoch,
+    version: store.version,
+    namespace: store.ontology.namespace,
+    classes: [...store.entities.values()]
+      .filter((entity) =>
+        ["Class", "Defined", "Intersection"].includes(entity.kind),
+      )
+      .map((entity) => ({ iri: entity.iri, label: store.label(entity.iri) }))
+      .sort(
+        (a, b) => a.label.localeCompare(b.label) || a.iri.localeCompare(b.iri),
+      ),
+    predicates: [...counts]
+      .map(([iri, count]) => ({ iri, count }))
+      .sort(
+        (a, b) =>
+          Number(b.iri === NS.rdfs + "label") -
+            Number(a.iri === NS.rdfs + "label") ||
+          b.count - a.count ||
+          a.iri.localeCompare(b.iri),
+      ),
+  };
+}
 export function queryContext(
   store: Store,
   instructions: string,
@@ -72,6 +101,8 @@ export function queryContext(
     tripleCount: store.tripleCount,
     entityCount: entities.length,
     omitted: entities.length - terms.length,
+    // craigtrim/axiom#88: the disclosure counts both bounded lists.
+    omittedPredicates: counts.size - predicates.length,
     terms,
     predicates,
     types: [...types].sort().slice(0, 160),

@@ -188,7 +188,10 @@ export function AdaptivePane({
         data-pane-id={paneId}
         data-assistant-running={!!activity}
       >
-        <AssistantActivity kind={assistantKind} />
+        {/* craigtrim/axiom#88: Query owns its running row inside Describe. */}
+        {assistantKind !== "query" && (
+          <AssistantActivity kind={assistantKind} />
+        )}
         <div
           ref={content}
           className="adaptive-pane-content"

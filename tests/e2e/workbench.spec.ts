@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
 import AxeBuilder from "@axe-core/playwright";
 import {
@@ -103,11 +104,12 @@ test("native menus, fixture, table and query", async () => {
   await menu("Query");
   await expect(page.locator('[data-panel="query"]')).toBeVisible();
   await page
-    .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
+    .locator(".query-panel")
+    .getByRole("button", { name: "Run", exact: true })
     .click();
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed / 103 result rows");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows");
   await expect(
     page.locator(".query-results-panel:visible .query-results .ag-row").first(),
   ).toBeVisible();
@@ -347,8 +349,8 @@ test("keyboard commands, themes and accessible controls", async () => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+Enter");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows");
   await menu("Individuals");
   const results = await new AxeBuilder({ page }).setLegacyMode().analyze();
   await test.info().attach("accessibility", {
@@ -603,7 +605,7 @@ test("Monaco remains editable in a detached query pane", async () => {
   });
   if (await maximize.isVisible()) await maximize.click();
   await expect(
-    child.getByRole("textbox", { name: "SPARQL query editor" }),
+    child.getByRole("textbox", { name: "SPARQL query", exact: true }),
   ).toBeVisible();
   await child.locator(".monaco-editor textarea").focus();
   await child.keyboard.press("Control+A");
@@ -612,13 +614,13 @@ test("Monaco remains editable in a detached query pane", async () => {
   );
   await child.keyboard.press("Control+Enter");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("5 displayed / 5 result rows");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("5 rows");
   await menu("Return all panes to main window");
   await expect.poll(() => application.windows().length).toBe(1);
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("5 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("5 rows");
 });
 
 test("a running query can be cancelled and followed by a fresh query", async () => {
@@ -648,7 +650,8 @@ test("a running query can be cancelled and followed by a fresh query", async () 
     "SELECT ?s ?p ?o ?other WHERE { ?s ?p ?o . ?other ?p ?o . }",
   );
   await page
-    .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
+    .locator(".query-panel")
+    .getByRole("button", { name: "Run", exact: true })
     .click();
   await page
     .locator('[data-panel="query"]')
@@ -656,26 +659,37 @@ test("a running query can be cancelled and followed by a fresh query", async () 
     .click();
   // Large dataset preparation can delay processing the worker cancellation.
   // This checks the functional outcome, not a five-second performance target.
-  await expect(page.locator(".query-error")).toContainText("cancelled", {
+  await expect(page.locator(".query-panel .state")).toContainText("cancelled", {
     timeout: 20000,
   });
-  await page.getByRole("button", { name: "More query actions" }).click();
-  await page.getByRole("combobox", { name: "Example query" }).selectOption("0");
-  await page.keyboard.press("Escape");
   await page
-    .getByRole("button", { name: "Run Ctrl+Enter", exact: true })
+    .locator(".query-panel")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await page
+    .locator(".query-panel")
+    .getByRole("menuitem", {
+      name: "Named pizzas and their toppings",
+      exact: true,
+    })
+    .click();
+  await page
+    .locator(".query-panel")
+    .getByRole("button", { name: "Run", exact: true })
     .click();
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed / 103 result rows", { timeout: 30000 });
-  await expect(page.locator(".query-error")).toHaveCount(0);
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows", { timeout: 30000 });
+  await expect(page.locator(".query-panel .state")).not.toContainText(
+    "Not run:",
+  );
 });
 
 test("query menu can send retained results after its pane closes", async () => {
   await page.keyboard.press("Control+Enter");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows");
   await menu("Clear graph");
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "aria-label",

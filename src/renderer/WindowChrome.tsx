@@ -117,6 +117,8 @@ export function WindowChrome() {
       else bareAlt = false;
       if (
         event.altKey &&
+        // Query owns Shift+Alt+F; only bare Alt+letter opens a menu (#88).
+        !event.shiftKey &&
         !event.ctrlKey &&
         !event.metaKey &&
         event.key.length === 1 &&

@@ -1,8 +1,9 @@
 import { registerEditorMenu } from "./editor-menu-keys";
-import { ErrorNotice } from "./ErrorNotice";
-import { PaneToolbar, usePaneLayout } from "./AdaptivePane";
+import { usePaneLayout } from "./AdaptivePane";
+import { SharedPane, usePaneToast } from "./SharedPane";
+import { QueryActions, QueryFooter, queryCount } from "./QueryChrome";
 import { queryResultId, queryTitle } from "../shared/query-history";
-import { showQueryResults } from "./query-results";
+import { showQueryResults, copyQueryResults } from "./query-results";
 import { QueryHistoryDialog } from "./QueryHistoryDialog";
 import {
   useQueryHistory,
@@ -17,9 +18,7 @@ import {
   rememberQueryRun,
 } from "./query-history";
 import { QueryComposer } from "./QueryComposer";
-import { useDelayedBusy } from "./use-delayed-busy";
 import { formatQuery, sameQueryContent } from "../domain/query-format";
-import { keyHint } from "./keyboard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/format/browser/formatActions.js";
@@ -29,7 +28,6 @@ import "monaco-editor/editor/contrib/hover/browser/hoverContribution.js";
 import {
   useSnapshot,
   request,
-  act,
   onCommand,
   panel,
   savePanel,
@@ -44,79 +42,9 @@ window.MonacoEnvironment = {
   getWorker: () => new Worker(new URL("editor.worker.js", location.href)),
 };
 monaco.languages.register({ id: "sparql" });
+// The reference uses one ink; one token also avoids fractional glyph shifts at token boundaries (#88).
 monaco.languages.setMonarchTokensProvider("sparql", {
-  ignoreCase: true,
-  keywords: [
-    "SELECT",
-    "DISTINCT",
-    "WHERE",
-    "PREFIX",
-    "FILTER",
-    "ORDER",
-    "BY",
-    "ASC",
-    "DESC",
-    "LIMIT",
-    "OFFSET",
-    "BASE",
-    "REDUCED",
-    "OPTIONAL",
-    "UNION",
-    "MINUS",
-    "EXISTS",
-    "NOT",
-    "IN",
-    "VALUES",
-    "BIND",
-    "AS",
-    "UNDEF",
-    "GROUP",
-    "HAVING",
-    "ASK",
-    "CONSTRUCT",
-    "DESCRIBE",
-    "GRAPH",
-    "FROM",
-    "NAMED",
-    "SERVICE",
-    "SILENT",
-    "COUNT",
-    "SUM",
-    "AVG",
-    "MIN",
-    "MAX",
-    "SAMPLE",
-    "GROUP_CONCAT",
-    "STR",
-    "LANG",
-    "DATATYPE",
-    "STRSTARTS",
-    "STRENDS",
-    "CONTAINS",
-    "REGEX",
-    "REPLACE",
-    "LCASE",
-    "UCASE",
-    "COALESCE",
-    "IF",
-    "BOUND",
-    "true",
-    "false",
-    "a",
-  ],
-  tokenizer: {
-    root: [
-      [/#[^\n]*/, "comment"],
-      [/<[^>]*>/, "string"],
-      [/"(?:[^"\\]|\\.)*"/, "string"],
-      [/\?[\w]+/, "variable"],
-      [
-        /[\w:]+/,
-        { cases: { "@keywords": "keyword", "@default": "identifier" } },
-      ],
-      [/\d+(\.\d+)?/, "number"],
-    ],
-  },
+  tokenizer: { root: [[/.+/, ""]] },
 });
 monaco.languages.registerDocumentFormattingEditProvider("sparql", {
   provideDocumentFormattingEdits(model) {
@@ -130,13 +58,26 @@ const modelUri = (id: string) =>
 const modelOrder: string[] = [];
 const views = new Map<string, monaco.editor.ICodeEditorViewState>();
 export function QueryPanel() {
+  // craigtrim/axiom#88: a single shared row and footer surround the retained editor.
+  return (
+    <section
+      className="panel shared-layer query-panel"
+      data-panel="query"
+      aria-label="Query panel"
+    >
+      <SharedPane className="query-surface" footer={<QueryFooter />}>
+        <QueryEditor />
+      </SharedPane>
+    </section>
+  );
+}
+function QueryEditor() {
+  const notify = usePaneToast();
   const s = useSnapshot()!,
     history = useQueryHistory(),
     view = history.view,
     entry = view?.current;
-  const saving = useDelayedBusy(history.saving, entry?.id ?? "", 700);
-  const root = useRef<HTMLElement>(null),
-    host = useRef<HTMLDivElement>(null),
+  const host = useRef<HTMLDivElement>(null),
     editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const activeId = useRef(""),
     alive = useRef(true),
@@ -148,14 +89,14 @@ export function QueryPanel() {
     [error, setError] = useState("");
   const [composing, setComposing] = useState(panel("query.composing", false));
   const paneLayout = usePaneLayout();
-  const compact = paneLayout.width < 860 || paneLayout.shallow;
+  const compact = paneLayout.width < 860;
+  const compactNow = useRef(compact);
+  compactNow.current = compact;
+  const [mode, setMode] = useState<"fields" | "describe">("fields");
   const [choosing, setChoosing] = useState(false),
     [navigating, setNavigating] = useState(false);
   const running = !!history.runningId,
     text = entry?.text ?? "";
-  const example = examples.findIndex(
-    (e) => e.Text.replaceAll("\r\n", "\n") === text.replaceAll("\r\n", "\n"),
-  );
   const showComposer = (open: boolean) => {
     setComposing(open);
     savePanel("query.composing", open, false);
@@ -168,15 +109,20 @@ export function QueryPanel() {
     editQuery(activeId.current, e.getValue(), state);
   };
   const navigate = async (id: string) => {
-    if (navigating) return;
+    if (navigating) return false;
     setNavigating(true);
     persistEditor();
     focusNext.current = true;
-    if (compact) showComposer(false);
+    if (compactNow.current) showComposer(false);
     try {
       await selectQuery(id);
+      host.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+        editor.current?.focus(),
+      );
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       if (alive.current) setNavigating(false);
     }
@@ -186,15 +132,17 @@ export function QueryPanel() {
     title?: string,
     source: "manual" | "example" = "manual",
   ) => {
-    if (navigating) return;
+    if (navigating) return false;
     setNavigating(true);
     persistEditor();
     focusNext.current = true;
-    if (compact) showComposer(false);
+    if (compactNow.current) showComposer(false);
     try {
       await addQuery(value, title, source);
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       if (alive.current) setNavigating(false);
     }
@@ -214,7 +162,7 @@ export function QueryPanel() {
     try {
       insert(formatQuery(editor.current?.getValue() ?? ""));
       setError("");
-      report("SPARQL formatted.");
+      notify("SPARQL formatted.");
     } catch (e) {
       setError("Could not format this query: " + (e as Error).message);
     }
@@ -229,11 +177,8 @@ export function QueryPanel() {
       namespace = state?.ontology.namespace ?? "";
     if (!text.trim()) return;
     const proposal = selected.current.generation;
-    if (
-      proposal?.validation &&
-      sameQueryContent(text, proposal.result.sparql)
-    ) {
-      setError("Review this generated query: " + proposal.validation);
+    if (proposal?.validation && text === proposal.result.sparql) {
+      setError("");
       return;
     }
     busy.current = true;
@@ -258,6 +203,7 @@ export function QueryPanel() {
             : selected.current.title,
       };
       await rememberQueryRun(id, record);
+      savePanel("query.toastRun", queryResultId(record), false);
       showQueryResults(queryResultId(record));
       if (alive.current && activeId.current === id) {
         setSummary(r);
@@ -271,8 +217,10 @@ export function QueryPanel() {
         epoch === state?.datasetEpoch &&
         alive.current &&
         activeId.current === id
-      )
+      ) {
         setError((e as Error).message);
+        notify("The query was not run.", (e as Error).message);
+      }
     } finally {
       busy.current = false;
       endQueryRun();
@@ -293,15 +241,26 @@ export function QueryPanel() {
       editContext: false,
       theme:
         document.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
-      fontFamily: "Cascadia Mono, Consolas, monospace",
+      fontFamily: "Cascadia Mono, Cascadia Code, Consolas, monospace",
       fontSize: 13,
+      lineHeight: 20,
+      padding: { top: 8, bottom: 8 },
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       automaticLayout: false,
-      wordWrap: "on",
+      wordWrap: "off",
+      glyphMargin: false,
+      folding: false,
+      renderLineHighlight: "none",
+      lineDecorationsWidth: 20,
+      overviewRulerLanes: 0,
+      overviewRulerBorder: false,
+      hideCursorInOverviewRuler: true,
+      guides: { indentation: false, highlightActiveIndentation: false },
+      scrollbar: { useShadows: false },
       accessibilitySupport: "auto",
-      ariaLabel: "SPARQL query editor",
-      lineNumbersMinChars: 3,
+      ariaLabel: "SPARQL query",
+      lineNumbersMinChars: 4,
       tabSize: 2,
     });
     editor.current = e;
@@ -327,10 +286,18 @@ export function QueryPanel() {
       const pending = panel<string>("query.pending", "");
       savePanel("query.pending", "", false);
       if (pending === "query.format") format();
-      if (pending === "query.generate") showComposer(true);
+      if (pending === "query.generate") {
+        setMode("describe");
+        showComposer(true);
+      }
+      if (pending === "query.new") void create();
     };
     const un = onCommand((id) => {
       if (id === "query.authoring") authoring();
+      if (id === "query.focus") {
+        if (compactNow.current) showComposer(false);
+        e.focus();
+      }
       if (id === "query.execute") {
         takeQuery();
         void run();
@@ -429,11 +396,11 @@ export function QueryPanel() {
     };
   }, [entry?.id, entry?.lastRun?.summary.id, s.datasetEpoch, view?.session]);
   const selectedSummary = resultKey === entry?.id ? summary : null;
-  const index = view?.entries.findIndex((e) => e.id === view.activeId) ?? 0;
+
   const generation = entry?.generation;
   const validation = useMemo(
     () =>
-      generation?.validation && sameQueryContent(text, generation.result.sparql)
+      generation?.validation && text === generation.result.sparql
         ? generation.validation
         : null,
     [text, generation],
@@ -443,255 +410,153 @@ export function QueryPanel() {
       !!selectedSummary && !sameQueryContent(entry?.lastRun?.text ?? "", text),
     [!!selectedSummary, entry?.lastRun?.text, text],
   );
-  const contextChanged =
-    generation &&
-    (entry?.createdSession !== view?.session ||
-      generation.context.datasetEpoch !== s.datasetEpoch ||
-      generation.context.version !== s.version);
-  return (
-    <section
-      ref={root}
-      className={"panel query-panel" + (compact ? " is-compact" : "")}
-      data-panel="query"
-      aria-label="Query panel"
-      onFocusCapture={() => {
-        const selected = historyState().view;
-        if (!selected) return;
-        const last = selected.current.lastRun;
-        const available =
-          last?.session === selected.session &&
-          last.datasetEpoch === state?.datasetEpoch;
-        void request("queryActivate", {
-          key: last?.queryKey ?? selected.activeId,
-          id: available ? last!.summary.id : undefined,
-        }).catch((e) => setError(e.message));
-      }}
-    >
-      {view && entry ? (
-        <>
-          <nav
-            className="query-history-bar"
-            aria-label="Query history navigation"
-          >
-            <div className="query-history-controls">
-              <button
-                className="query-arrow"
-                aria-label="Previous query"
-                title="Previous query"
-                disabled={index <= 0 || navigating}
-                onClick={() => void navigate(view.entries[index - 1].id)}
-              >
-                ‹
-              </button>
-              <button
-                className="query-position"
-                aria-label="Browse query history"
-                title="Find a query in history"
-                onClick={() => setChoosing(true)}
-              >
-                {index + 1} / {view.entries.length}
-              </button>
-              <button
-                className="query-arrow"
-                aria-label="Next query"
-                title="Next query"
-                disabled={index >= view.entries.length - 1 || navigating}
-                onClick={() => void navigate(view.entries[index + 1].id)}
-              >
-                ›
-              </button>
-            </div>
-            <span className="query-entry-title" title={entry.title}>
-              {entry.title}
-            </span>
-            <button
-              className="query-new"
-              aria-label="New query"
-              title="Start a new query and keep this one"
-              disabled={navigating}
-              onClick={() => void create()}
-            >
-              <span aria-hidden="true">＋</span>
-              <span className="query-new-label">New query</span>
-            </button>
-          </nav>
-          {view.pendingId && (
-            <div className="query-arrival" role="status">
-              A generated query is ready.{" "}
-              <button onClick={() => void navigate(view.pendingId!)}>
-                Open generated query
-              </button>
-            </div>
-          )}
-          <PaneToolbar
-            label="Query actions"
-            className="query-actions"
-            secondary={
-              <>
-                <button
-                  onClick={format}
-                  disabled={!text.trim()}
-                  title={"Format SPARQL (" + keyHint("query.format") + ")"}
-                >
-                  Format
-                </button>{" "}
-                <select
-                  aria-label="Example query"
-                  disabled={!s.ontology.example}
-                  value={s.ontology.example ? example : -1}
-                  onChange={(e) => {
-                    const index = +e.target.value;
-                    if (index >= 0)
-                      void create(
-                        examples[index].Text,
-                        examples[index].Title,
-                        "example",
-                      );
-                  }}
-                >
-                  <option value={-1}>
-                    {s.ontology.example ? "Examples…" : "Custom ontology query"}
-                  </option>
-                  {examples.map((e, i) => (
-                    <option key={i} value={i}>
-                      {e.Title}
-                    </option>
-                  ))}
-                </select>
-              </>
-            }
-          >
-            <button
-              className="primary"
-              onClick={() => void run()}
-              disabled={running || !text.trim() || !!validation}
-            >
-              Run <kbd>{keyHint("query.run")}</kbd>
-            </button>
-            {running && (
-              <button onClick={() => void act("cancelQuery")}>Cancel</button>
-            )}
-
-            <button
-              aria-expanded={composing}
-              onClick={() => showComposer(!composing)}
-            >
-              Compose query
-            </button>
-          </PaneToolbar>
-          {history.error && (
-            <div className="query-error" role="alert">
-              {history.error}{" "}
-              <button onClick={() => void flushQueryHistory().catch(() => {})}>
-                Retry saving
-              </button>
-            </div>
-          )}
-          <div
-            className={"query-workspace" + (composing ? " is-composing" : "")}
-          >
-            {composing && (
-              <QueryComposer
-                text={text}
-                queryId={entry.id}
-                close={() => showComposer(false)}
-              />
-            )}
-            <div className="query-main">
-              <div className="query-document">
-                <div className="query-document-heading">
-                  <strong>SPARQL</strong>
-                  <span>
-                    {history.error
-                      ? "Not saved"
-                      : saving
-                        ? "Saving…"
-                        : "Saved locally"}
-                  </span>
-                </div>
-                {generation && (
-                  <details className="query-generation-details" key={entry.id}>
-                    <summary>
-                      Generated with{" "}
-                      {generation.request.provider === "codex"
-                        ? "Codex"
-                        : "Claude"}{" "}
-                      ·{" "}
-                      {contextChanged
-                        ? "Review ontology context"
-                        : entry.lastRun
-                          ? "Query details"
-                          : "Not run"}
-                    </summary>
-                    <p>{generation.result.explanation}</p>
-                    {generation.result.assumptions.length > 0 && (
-                      <ul>
-                        {generation.result.assumptions.map((a, i) => (
-                          <li key={i}>{a}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {contextChanged && (
-                      <p>
-                        The ontology may have changed since this query was
-                        generated. Review it before running.
-                      </p>
-                    )}
-                  </details>
-                )}
-                {validation && (
-                  <div className="query-error" role="alert">
-                    Review this generated query: {validation} Edit it here or
-                    generate again.
-                  </div>
-                )}
-                <div ref={host} className="query-editor" />
-              </div>
-              <div className="query-run-status" role="status">
-                {history.runningId === entry.id
-                  ? "Running query…"
-                  : entry.lastRun
-                    ? "Results opened in a separate tab."
-                    : generation
-                      ? "Generated query ready. Review the SPARQL and choose Run."
-                      : text.trim()
-                        ? "Ready to run."
-                        : "Write SPARQL or choose Compose query."}
-                {entry.lastRun && (
-                  <button
-                    onClick={() =>
-                      showQueryResults(queryResultId(entry.lastRun!))
-                    }
-                  >
-                    Open results
-                  </button>
-                )}
-                {queryChanged && (
-                  <span className="stale">
-                    The query changed. These results are from its previous run.
-                  </span>
-                )}
-              </div>
-              {error && <ErrorNotice className="query-error" error={error} />}
-            </div>
+  useEffect(() => {
+    editor.current?.updateOptions({
+      lineNumbers: paneLayout.shallow ? "off" : "on",
+      lineNumbersMinChars: 4,
+      lineDecorationsWidth: paneLayout.shallow ? 12 : 20,
+    });
+  }, [paneLayout.shallow, !!view]);
+  const backToEditor = () => {
+    if (compact) showComposer(false);
+    host.current?.ownerDocument.defaultView?.requestAnimationFrame(() =>
+      editor.current?.focus(),
+    );
+  };
+  const activate = () => {
+    const selected = historyState().view;
+    if (!selected) return;
+    const last = selected.current.lastRun;
+    const available =
+      last?.session === selected.session &&
+      last.datasetEpoch === state?.datasetEpoch;
+    void request("queryActivate", {
+      key: last?.queryKey ?? selected.activeId,
+      id: available ? last!.summary.id : undefined,
+    }).catch((e) => setError(e.message));
+  };
+  const count = selectedSummary?.rowCount ?? entry?.lastRun?.summary.rowCount;
+  const stateText = running
+    ? "Running"
+    : history.error
+      ? "Not saved"
+      : validation
+        ? "Generated query failed validation; edit it to run"
+        : error
+          ? "Not run: " + error.split(/\r?\n/)[0]
+          : count !== undefined
+            ? queryCount(count, "row") + (queryChanged ? ", out of date" : "")
+            : "Not run yet";
+  return view && entry ? (
+    <>
+      <QueryActions
+        state={stateText}
+        stateText={
+          history.error ||
+          error ||
+          (queryChanged
+            ? "The query changed. These results are from its previous run."
+            : stateText)
+        }
+        stateKind={
+          history.error || validation || error
+            ? "badink"
+            : queryChanged
+              ? "warnink"
+              : undefined
+        }
+        running={running}
+        disabled={!text.trim() || !!validation}
+        composing={!compact || composing}
+        run={() => void run()}
+        compose={() => {
+          setMode("describe");
+          showComposer(compact ? !composing : true);
+        }}
+        create={() => {
+          void create().then((created) => {
+            if (created)
+              notify("New query.", "The previous document stays in history.");
+          });
+        }}
+        select={navigate}
+        retry={
+          history.error
+            ? () => void flushQueryHistory().catch(() => {})
+            : undefined
+        }
+        copy={
+          !!selectedSummary?.rowCount && entry.lastRun
+            ? () => copyQueryResults(entry.lastRun!, entry.id)
+            : undefined
+        }
+        items={[
+          {
+            id: "format",
+            label: "Format SPARQL",
+            shortcut: "Shift+Alt+F",
+            disabled: !text.trim(),
+            run: format,
+          },
+          {
+            id: "search-history",
+            label: "Find a query in history",
+            run: () => setChoosing(true),
+          },
+          ...(s.ontology.example
+            ? examples.map((example, i) => ({
+                id: "example-" + i,
+                label: example.Title,
+                run: () => void create(example.Text, example.Title, "example"),
+              }))
+            : []),
+        ]}
+      />
+      <div className="body query-body" onFocusCapture={activate}>
+        <div
+          className="split"
+          data-compose={compact && composing ? "open" : "closed"}
+          data-compact={compact}
+        >
+          <div className="ed">
+            <div ref={host} className="query-editor" />
           </div>
-          <div className="panel-note query-footnote">
-            SPARQL 1.1 · Local asserted data
-          </div>
-          {choosing && (
-            <QueryHistoryDialog
-              history={view}
-              close={() => setChoosing(false)}
-              select={(id) => void navigate(id)}
-            />
-          )}
-        </>
-      ) : (
-        <div className="query-loading">
+          <QueryComposer
+            text={text}
+            queryId={entry.id}
+            mode={mode}
+            visible={!compact || composing}
+            setMode={setMode}
+            close={backToEditor}
+            write={(value) => {
+              insert(value);
+              backToEditor();
+            }}
+            opened={() => {
+              focusNext.current = true;
+              backToEditor();
+            }}
+          />
+        </div>
+      </div>
+      {choosing && (
+        <QueryHistoryDialog
+          history={view}
+          close={() => setChoosing(false)}
+          select={(id) => void navigate(id)}
+        />
+      )}
+    </>
+  ) : (
+    <>
+      <div className="bar" />
+      <div className="body">
+        <div className="empty">
           {history.error ? (
             <>
               <p role="alert">{history.error}</p>
               <button
+                className="btn"
                 onClick={() => void connectQueryHistory().catch(() => {})}
               >
                 Retry
@@ -701,7 +566,7 @@ export function QueryPanel() {
             "Loading query history…"
           )}
         </div>
-      )}
-    </section>
+      </div>
+    </>
   );
 }

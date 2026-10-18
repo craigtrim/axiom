@@ -1,642 +1,413 @@
-import { launchExample } from "./example-fixture";
-import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
+// craigtrim/axiom#88: retained documents and explicit proposals under the shared Query chrome.
+import { test, expect, _electron } from "@playwright/test";
 import {
-  test,
-  expect,
-  _electron,
-  type ElectronApplication,
-  type Page,
-} from "@playwright/test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import path from "node:path";
-let app: ElectronApplication, page: Page, bridgePage: Page;
-const errors: string[] = [];
-let launchEnv: Record<string, string>;
-async function launch(restoring = false) {
-  const options = {
-    executablePath: process.env.AXIOM_TEST_EXE,
-    args: process.env.AXIOM_TEST_EXE ? [] : ["."],
-    env: launchEnv,
-  };
-  app = restoring
-    ? await _electron.launch(options)
-    : await launchExample(options);
-  page = await app.firstWindow();
-  // Keep physical desktop input out of optional background validation runs.
-  if (process.env.AXIOM_TEST_BACKGROUND === "1")
-    await (
-      await app.browserWindow(page)
-    ).evaluate((win) => win.setFocusable(false));
-  bridgePage = page;
-  page.on("pageerror", (e) => errors.push(e.message));
-  await expect(page.getByTestId("graph-canvas")).toBeVisible();
-  await app.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 1,
-      checkboxChecked: false,
-    });
-  });
-}
-const query = "select ?s ?p ?o where { ?s ?p ?o . } limit 7";
-const text = () =>
-  bridgePage.evaluate(async () =>
-    String(
-      (await window.axiom.preferences.load()).panelState?.["query.text"] ?? "",
-    ).replaceAll("\r\n", "\n"),
-  );
-async function menu(id: string) {
-  await app.evaluate(({ Menu, BrowserWindow }, id) => {
-    const w =
-      BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-    Menu.getApplicationMenu()!
-      .getMenuItemById(id)!
-      .click({} as never, w, w.webContents as never);
-  }, id);
-}
-async function queryOptions() {
-  const more = page.getByRole("button", { name: "More query actions" });
-  if (
-    (await more.isVisible()) &&
-    (await more.getAttribute("aria-expanded")) !== "true"
-  )
-    await more.click();
-}
-async function formatQuery() {
-  await queryOptions();
-  await page.getByRole("button", { name: "Format", exact: true }).click();
-}
-async function enter(value: string) {
-  await page.locator(".monaco-editor textarea").focus();
-  await page.keyboard.press("Control+A");
-  await page.keyboard.insertText(value);
-  await expect.poll(text).toBe(value);
-}
+  launchQuery,
+  queryMenu,
+  starter,
+  type QueryFixture,
+} from "./query-reference-fixture";
+import { holdRequests, waitForHeld, releaseRequests } from "./held-requests";
+let f: QueryFixture;
 test.beforeEach(async () => {
-  errors.length = 0;
-  await mkdir("artifacts/testing", { recursive: true });
-  const profile = await mkdtemp(
-    path.resolve("artifacts/testing/query-authoring-"),
-  );
-  const bin = path.join(profile, "bin"),
-    folder = path.join(bin, "node_modules/@openai/codex/bin");
-  await mkdir(folder, { recursive: true });
-  await writeFile(
-    path.join(folder, "codex.js"),
-    `import fs from "node:fs";let s="";if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const match=s.match(/REQUEST\\n(.*)\\nONTOLOGY/);const input=JSON.parse(match[1]);const instructions=input.instructions;let r={status:"query",sparql:${JSON.stringify(query)},explanation:"Lists seven asserted triples.",assumptions:[]};if(instructions.includes("unsupported"))r={status:"unsupported",sparql:"",explanation:"Remote SERVICE is unavailable in local queries.",assumptions:[]};if(instructions.includes("invalid"))r.sparql="SELECT ?s WHERE { ?s <http://invented.org/property> ?o }";setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify(r)),instructions.includes("cancel")?20000:instructions.includes("slow")?2500:50);});`,
-  );
-  await writeFile(path.join(folder, "package.json"), '{"type":"module"}');
-  const env = {
-    ...process.env,
-    AXIOM_CACHE_HOME: path.join(profile, "cache"),
-    AXIOM_USER_DATA: profile,
-  } as Record<string, string>;
-  delete env.Path;
-  // Discovery must find only the fixture CLI, regardless of installed agents.
-  env.PATH =
-    bin +
-    path.delimiter +
-    path.join(process.env.SystemRoot ?? "C:/Windows", "System32");
-  delete env.ELECTRON_RUN_AS_NODE;
-  launchEnv = env;
-  await launch();
-  await menu("view.query");
-  await expect(page.locator(".monaco-editor")).toBeVisible();
+  f = await launchQuery();
 });
 test.afterEach(async () => {
-  if (app) await app.close();
-  expect(errors).toEqual([]);
+  await f?.app.close();
+  expect(f?.errors ?? []).toEqual([]);
 });
-
-test("formats with the toolbar and keyboard, supports Undo, and identifies custom queries", async () => {
-  await enter(query);
-  await queryOptions();
-  await expect(
-    page.getByRole("combobox", { name: "Example query" }),
-  ).toHaveValue("-1");
-  await formatQuery();
+const text = async () => (await f.history()).current.text;
+async function more(name: string) {
+  await f.pane
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await f.pane.getByRole("menuitem", { name }).click();
+}
+async function select(id: string) {
+  await f.pane.getByRole("button", { name: "History", exact: true }).click();
+  await f.pane.locator(`.hist [data-action="${id}"]`).click();
+  await expect.poll(async () => (await f.history()).activeId).toBe(id);
+}
+async function openProposal() {
+  await f.composer
+    .getByRole("button", { name: "Open in the editor", exact: true })
+    .click();
+  await expect(f.pane.locator(".toast")).toContainText("Opened as document");
+}
+async function preview() {
+  await f.describe("List classes");
+  await f.composer.locator(".ctxbox summary").click();
+  await expect(f.composer.locator(".cc")).toContainText("List classes");
+  return f.composer.getByRole("textbox", { name: "Describe the query" });
+}
+test("formatting is undoable from More and Shift+Alt+F, and preserves invalid text", async () => {
+  const source = "select ?s ?p ?o where { ?s ?p ?o . } limit 7";
+  await f.enter(source);
+  await more("Format SPARQL");
   await expect
     .poll(text)
     .toBe("SELECT ?s ?p ?o\nWHERE {\n  ?s ?p ?o .\n}\nLIMIT 7");
-  await page.keyboard.press("Control+z");
-  await expect.poll(text).toBe(query);
-  await page.keyboard.press("Alt+Shift+f");
-  await expect.poll(text).toContain("\n  ?s ?p ?o");
-  await enter("SELECT ?s WHERE {");
-  await formatQuery();
-  await expect(page.locator(".query-error")).toContainText("Could not format");
-  await expect.poll(text).toBe("SELECT ?s WHERE {");
+  await f.page.keyboard.press("Control+z");
+  await expect.poll(text).toBe(source);
+  await f.pane.locator(".monaco-editor textarea").press("Shift+Alt+F");
+  await expect.poll(text).toContain("\nLIMIT 7");
+  await f.enter("SELECT ?s WHERE {");
+  await more("Format SPARQL");
+  await expect(f.pane.locator(".state")).toContainText("Could not format");
+  expect(await text()).toBe("SELECT ?s WHERE {");
 });
-const history = () => page.evaluate(() => window.axiom.queryHistory.load());
-const composer = () =>
-  page.getByRole("region", { name: "Compose a SPARQL query" });
-async function compose(instructions: string) {
-  if (!(await composer().isVisible()))
-    await page
-      .getByRole("button", { name: "Compose query", exact: true })
-      .click();
-  await composer()
-    .getByRole("textbox", { name: "Describe your query" })
-    .fill(instructions);
-  await composer()
-    .getByRole("button", { name: /^Generate (query|again)$/ })
-    .click();
-}
-async function closeComposer() {
-  if (await composer().isVisible())
-    await composer()
-      .getByRole("button", { name: "Close query composer" })
-      .click();
-}
-
-async function previewComposer() {
-  await page
-    .getByRole("button", { name: "Compose query", exact: true })
-    .click();
-  const instructions = composer().getByRole("textbox", {
-    name: "Describe your query",
-  });
-  await instructions.fill("List classes");
-  await composer().locator(".query-context-details summary").click();
-  await expect(composer().locator(".query-context")).toContainText(
-    "List classes",
-  );
-  await expect(
-    composer().getByRole("button", { name: "Generate query", exact: true }),
-  ).toBeEnabled();
-  return instructions;
-}
-
-test("query context stays visible and an immediate Generate waits for the current description", async () => {
-  const instructions = await previewComposer();
-  const preview = composer().locator(".query-context");
-  const previous = await preview.innerText();
-  const summary = await composer()
-    .locator(".query-context-details summary")
-    .innerText();
-  const before = await history();
-  await holdRequests(app, ["queryContext"]);
-  await instructions.fill("List seven triples");
-  await expect(preview).toHaveText(previous);
-  await expect(composer().locator(".query-context-details summary")).toHaveText(
-    summary,
-  );
-  const generate = composer().getByRole("button", {
-    name: "Generate query",
-    exact: true,
-  });
-  await expect(generate).toBeEnabled();
-  await generate.evaluate((b) => {
-    (b as HTMLButtonElement).click();
-    (b as HTMLButtonElement).click();
-  });
-  await waitForHeld(app);
-  expect((await history()).entries).toHaveLength(before.entries.length);
-  await expect(preview).toHaveText(previous);
-  await releaseRequests(app);
-  await expect.poll(text).toContain("LIMIT 7");
-  const after = await history();
-  expect(after.entries).toHaveLength(before.entries.length + 1);
-  expect(after.current.generation?.request.instructions).toBe(
-    "List seven triples",
-  );
-});
-
-for (const cancel of ["edit", "close"] as const) {
-  test(`a ${cancel} cancels a Generate click waiting for ontology context`, async () => {
-    const instructions = await previewComposer();
-    const before = await history();
-    await holdRequests(app, ["queryContext"]);
-    await instructions.fill("List seven triples");
-    await composer()
-      .getByRole("button", { name: "Generate query", exact: true })
-      .click();
-    await waitForHeld(app);
-    if (cancel === "edit") await instructions.fill("List properties instead");
-    else await closeComposer();
-    await releaseRequests(app);
-    if (cancel === "edit")
-      await expect(composer().locator(".query-context")).toContainText(
-        "List properties instead",
-      );
-    else await expect(composer()).toHaveCount(0);
-    expect((await history()).entries).toHaveLength(before.entries.length);
-  });
-}
-
-test("query save status stays quiet for normal saves and reports slow saves and failure", async () => {
-  const status = page.locator(".query-document-heading span");
-  await expect(status).toHaveText("Saved locally");
-  await status.evaluate((el) => {
-    const seen: string[] = [];
-    (window as any).__saveLabels = seen;
-    new MutationObserver(() => seen.push(el.textContent ?? "")).observe(el, {
-      childList: true,
-      subtree: true,
-      characterData: true,
+test("retained context survives a pending preview and a repeated Generate waits for current intent", async () => {
+  const input = await preview(),
+    previewText = f.composer.locator(".cc");
+  const prior = await previewText.innerText(),
+    before = await f.history();
+  await holdRequests(f.app, ["queryContext"]);
+  await input.fill("courses with their credit values");
+  await expect(previewText).toHaveText(prior);
+  await f.composer
+    .getByRole("button", { name: "Generate", exact: true })
+    .evaluate((b: HTMLButtonElement) => {
+      b.click();
+      b.click();
     });
+  await waitForHeld(f.app);
+  expect((await f.history()).entries.length).toBe(before.entries.length);
+  await expect(previewText).toHaveText(prior);
+  await releaseRequests(f.app);
+  await expect(f.composer.locator(".prop")).toContainText(
+    "Validated against the query engine.",
+  );
+  expect((await f.history()).entries.length).toBe(before.entries.length);
+  await openProposal();
+  expect((await f.history()).current.generation?.request.instructions).toBe(
+    "courses with their credit values",
+  );
+  expect((await f.history()).entries.length).toBe(before.entries.length + 1);
+});
+for (const action of ["edit", "close"] as const)
+  test(`${action} cancels a Generate click waiting for context without cancelling an active job`, async () => {
+    if (action === "close") await f.size(798, 530);
+    const input = await preview();
+    const before = await f.history();
+    await holdRequests(f.app, ["queryContext"]);
+    await input.fill("courses with their credit values");
+    await f.composer
+      .getByRole("button", { name: "Generate", exact: true })
+      .click();
+    await waitForHeld(f.app);
+    if (action === "edit") await input.fill("synonyms instead");
+    else await input.press("Escape");
+    await releaseRequests(f.app);
+    await expect
+      .poll(() => f.page.evaluate(() => window.axiom.queryAssistant.status()))
+      .toMatchObject({ running: false });
+    if (action === "edit")
+      await expect(f.composer.locator(".cc")).toContainText("synonyms instead");
+    else await expect(f.composer).not.toBeVisible();
+    expect((await f.history()).entries.length).toBe(before.entries.length);
+    expect(
+      (await f.page.evaluate(() => window.axiom.queryAssistant.status()))
+        .response,
+    ).toBeUndefined();
   });
-  await enter(query);
-  await expect(status).toHaveText("Saved locally");
-  expect(await page.evaluate(() => (window as any).__saveLabels)).not.toContain(
-    "Saving…",
+test("save failures keep the draft and expose Retry saving first in More", async () => {
+  const original = await text();
+  await holdRequests(f.app, ["queryHistory:apply"], "queryHistory:apply");
+  await f.pane.locator(".monaco-editor textarea").focus();
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("\n# saved later");
+  await waitForHeld(f.app);
+  await expect(f.pane.locator(".state")).toHaveText("Not run yet");
+  await releaseRequests(f.app, { fail: true });
+  await expect(f.pane.locator(".state")).toHaveText("Not saved");
+  await expect(f.pane.locator(".state")).toHaveAttribute(
+    "title",
+    /Could not save query history/,
   );
-  await holdRequests(app, ["queryHistory:apply"], "queryHistory:apply");
-  await enter(query + "\n# new edit");
-  await waitForHeld(app);
-  await expect(status).toHaveText("Saving…");
-  await releaseRequests(app, { fail: true });
-  await expect(status).toHaveText("Not saved");
-  await expect(page.locator(".query-error")).toContainText(
-    "Could not save query history",
-  );
-  await page.getByRole("button", { name: "Retry saving", exact: true }).click();
-  await expect(status).toHaveText("Saved locally");
-});
-async function run(expected: string) {
-  await page.getByRole("button", { name: /^Run(?: |$)/ }).click();
-  await expect(
-    bridgePage.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText(expected);
-  await expect(page.locator(".query-error")).toHaveCount(0);
-}
-test("opens generated SPARQL in the main editor, preserves the source and keeps independent Undo", async () => {
-  const original = "SELECT ?s WHERE { ?s ?p ?o . } LIMIT 2";
-  await enter(original);
-  const first = await history();
-  await compose("List seven triples");
-  await expect.poll(text).toContain("LIMIT 7");
-  await expect(
-    page.getByRole("button", { name: "Use query", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    composer().locator("pre[aria-label='Generated SPARQL']"),
-  ).toHaveCount(0);
-  await expect(page.locator(".query-main .monaco-editor")).toBeVisible();
-  await expect(page.locator(".query-run-status")).toContainText(
-    "Generated query ready",
-  );
-  expect((await history()).entries).toHaveLength(first.entries.length + 1);
-  await closeComposer();
-  const generated = await text();
-  await page.locator(".monaco-editor textarea").focus();
-  await page.keyboard.press("Control+End");
-  await page.keyboard.insertText("x");
-  await expect.poll(text).toBe(generated + "x");
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
+  await f.pane
+    .getByRole("button", { name: "More actions", exact: true })
     .click();
-  await expect.poll(text).toBe(original);
-  await page.getByRole("button", { name: "Next query", exact: true }).click();
+  await expect(f.pane.getByRole("menuitem").first()).toHaveText("Retry saving");
+  await f.pane
+    .getByRole("menuitem", { name: "Retry saving", exact: true })
+    .click();
+  await expect.poll(text).toBe(original + "\n# saved later");
+  await expect(f.pane.locator(".state")).toHaveText("Not run yet");
+});
+test("opening proposals preserves source documents and independent Undo", async () => {
+  const first = await f.history();
+  await f.generate("credits");
+  await openProposal();
+  const generated = await text(),
+    second = (await f.history()).activeId;
+  await f.pane.locator(".monaco-editor textarea").focus();
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("x");
   await expect.poll(text).toBe(generated + "x");
-  await page.keyboard.press("Control+z");
+  await select(first.activeId);
+  await expect.poll(text).toBe(starter);
+  await select(second);
+  await expect.poll(text).toBe(generated + "x");
+  await f.page.keyboard.press("Control+z");
   await expect.poll(text).toBe(generated);
-  await run("7 displayed");
+  expect((await f.history()).current.lastRun).toBeUndefined();
 });
-test("a delayed agent response preserves newer edits and offers the new query", async () => {
-  await enter(query);
-  await compose("slow query");
-  await closeComposer();
-  await enter(query + "0");
+test("a failed save cannot announce that a new document was created", async () => {
+  const before = await f.history();
+  await holdRequests(f.app, ["queryHistory:apply"], "queryHistory:apply");
+  await f.pane.locator(".monaco-editor textarea").focus();
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("\n# pending");
+  await f.pane.getByRole("button", { name: "New query", exact: true }).click();
+  await waitForHeld(f.app);
+  await releaseRequests(f.app, { fail: true });
+  await expect(f.pane.locator(".state")).toHaveText("Not saved");
+  await expect(f.pane.locator(".toast")).toBeHidden();
+  const after = await f.history();
+  expect(after.activeId).toBe(before.activeId);
+  expect(after.entries.length).toBe(before.entries.length);
+});
+test("a failed draft flush reports the preparation error instead of redisplaying an older proposal", async () => {
+  await f.generate("credits");
+  await expect(f.composer.locator(".prop")).toContainText(
+    "Validated against the query engine.",
+  );
+  const prior = await f.page.evaluate(() =>
+    window.axiom.queryAssistant.status(),
+  );
+  await holdRequests(f.app, ["queryHistory:apply"], "queryHistory:apply");
+  await f.pane.locator(".monaco-editor textarea").focus();
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("\n# preserve this draft");
+  await f.composer
+    .getByRole("button", { name: "Generate", exact: true })
+    .click();
+  await waitForHeld(f.app);
+  await releaseRequests(f.app, { fail: true });
+  await expect(f.composer.locator(".prop")).toContainText("Generation failed.");
+  await expect(f.composer.locator(".prop")).toContainText(
+    "Controlled preview failure",
+  );
+  expect(
+    (await f.page.evaluate(() => window.axiom.queryAssistant.status())).response
+      ?.completedAt,
+  ).toBe(prior.response?.completedAt);
+});
+test("a delayed proposal survives closing Query and preserves later source edits", async () => {
+  await f.size(798, 530);
+  const first = (await f.history()).activeId;
+  await f.generate("slow credits");
   await expect(
-    page.getByRole("button", { name: "Open generated query" }),
+    f.composer.getByRole("button", { name: "Cancel generation" }),
   ).toBeVisible();
-  await expect.poll(text).toBe(query + "0");
-  await page.getByRole("button", { name: "Open generated query" }).click();
-  await expect.poll(text).toContain("LIMIT 7");
+  await f.composer
+    .getByRole("button", { name: "Cancel generation" })
+    .press("Escape");
+  await f.enter("ASK {} # later source");
+  await queryMenu(f.app, "pane.close");
+  await expect(f.page.locator(".query-panel")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      f.page.evaluate(
+        async () => (await window.axiom.queryAssistant.status()).running,
+      ),
+    )
+    .toBe(false);
+  await queryMenu(f.app, "view.query");
+  await f.size(898, 530);
+  await f.describe();
   await expect(
-    page.getByRole("button", { name: "Open generated query" }),
-  ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await expect.poll(text).toBe(query + "0");
-});
-test("unsupported requests keep the current query; invalid drafts open for correction", async () => {
-  await enter(query);
-  const before = await history();
-  await compose("unsupported remote SERVICE");
-  await expect(
-    composer().getByText("Remote SERVICE is unavailable in local queries.", {
-      exact: true,
-    }),
+    f.composer.getByRole("button", { name: "Open in the editor" }),
   ).toBeVisible();
-  expect((await history()).entries).toHaveLength(before.entries.length);
-  await expect.poll(text).toBe(query);
-  await compose("invalid property");
-  await expect(page.locator(".query-main .query-error")).toContainText(
-    "absent from the supplied context",
-  );
-  await expect(
-    page.getByRole("button", { name: /^Run(?: |$)/ }),
-  ).toBeDisabled();
-  await formatQuery();
-  await expect(
-    page.getByRole("button", { name: /^Run(?: |$)/ }),
-  ).toBeDisabled();
-  await page.keyboard.press("Control+Enter");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toHaveCount(0);
-  await closeComposer();
-  await enter(query);
-  await expect(page.getByRole("button", { name: /^Run(?: |$)/ })).toBeEnabled();
-  await run("7 displayed");
+  expect(await text()).toBe("ASK {} # later source");
+  await openProposal();
+  await select(first);
+  expect(await text()).toBe("ASK {} # later source");
 });
-test("cancels an agent and restores the composer when reopened", async () => {
-  await compose("cancel generation");
+for (const [description, copy, button] of [
+  ["weather", "Not supported by this context.", false],
+  [
+    "instructor",
+    "ax:Instructor is not in the context Axiom sent, so it was not checked against the ontology.",
+    true,
+  ],
+  [
+    "unbound",
+    "The projection selects ?who, which the pattern never binds.",
+    true,
+  ],
+  ["malformed", "The proposal failed validation.", false],
+  ["signed out", "Assistant exited with code 1.", false],
+] as const)
+  test(`Describe handles ${description} through the real gate without executing`, async () => {
+    const before = await f.history();
+    await f.generate(description);
+    await expect(f.composer.locator(".prop")).toContainText(copy);
+    expect((await f.history()).entries.length).toBe(before.entries.length);
+    expect(await text()).toBe(starter);
+    await expect(
+      f.composer.getByRole("button", { name: "Open it for correction" }),
+    ).toHaveCount(button ? 1 : 0);
+    if (button) {
+      await f.composer
+        .getByRole("button", { name: "Open it for correction" })
+        .click();
+      await expect(
+        f.pane.getByRole("button", { name: "Run", exact: true }),
+      ).toBeDisabled();
+      await f.pane.locator(".monaco-editor textarea").focus();
+      await f.page.keyboard.press("Control+End");
+      await f.page.keyboard.insertText(" ");
+      await expect(
+        f.pane.getByRole("button", { name: "Run", exact: true }),
+      ).toBeEnabled();
+    }
+    expect((await f.history()).current.lastRun).toBeUndefined();
+  });
+test("generation cancellation waits for process exit, survives mode changes and permits a new request", async () => {
+  await f.generate("cancel credits");
   await expect(
-    page.getByRole("button", { name: "Cancel generation", exact: true }),
+    f.composer.getByRole("button", { name: "Cancel generation" }),
   ).toBeVisible();
-  await closeComposer();
-  await page
-    .getByRole("button", { name: "Compose query", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Cancel generation", exact: true })
-    .click();
-  await expect(composer().getByRole("alert")).toContainText("cancelled");
+  await f.composer.getByRole("button", { name: "Fields", exact: true }).click();
+  expect(
+    (await f.page.evaluate(() => window.axiom.queryAssistant.status())).running,
+  ).toBe(true);
+  await f.describe();
+  await f.composer.getByRole("button", { name: "Cancel generation" }).click();
+  await expect(f.pane.locator(".toast")).toContainText("Generation cancelled.");
+  expect(
+    (await f.page.evaluate(() => window.axiom.queryAssistant.status())).running,
+  ).toBe(false);
+  await expect(f.composer.locator(".prop")).toHaveCount(0);
+  await f.generate("credits");
   await expect(
-    composer().getByRole("textbox", { name: "Describe your query" }),
-  ).toHaveValue("cancel generation");
-  await composer()
-    .getByRole("textbox", { name: "Describe your query" })
-    .fill("Try again");
+    f.composer.getByRole("button", { name: "Open in the editor" }),
+  ).toBeVisible();
+});
+test("refinement uses the exact disclosed prompt and records its source branch", async () => {
+  const source = (await f.history()).activeId;
+  await f.describe("credits");
+  await f.composer
+    .getByRole("switch", { name: "Refine the current query" })
+    .click();
+  await f.composer.locator(".ctxbox summary").click();
+  await expect
+    .poll(async () =>
+      JSON.parse(
+        (await f.composer.locator(".cc").innerText())
+          .split("REQUEST\n")[1]
+          .split("\nONTOLOGY CONTEXT")[0],
+      ).currentQuery.replaceAll("\r\n", "\n"),
+    )
+    .toBe(starter);
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(
+          (await f.composer.locator(".cc").innerText())
+            .split("REQUEST\n")[1]
+            .split("\nONTOLOGY CONTEXT")[0],
+        ).instructions,
+    )
+    .toBe("credits");
+  const shown = await f.composer.locator(".cc").innerText();
+  await f.composer
+    .getByRole("button", { name: "Generate", exact: true })
+    .click();
   await expect(
-    composer().getByRole("button", { name: "Generate query", exact: true }),
-  ).toBeEnabled();
-});
-test("shows generation context and flags later ontology changes", async () => {
-  await enter(query);
-  await page
-    .getByRole("button", { name: "Compose query", exact: true })
-    .click();
-  await composer()
-    .getByRole("textbox", { name: "Describe your query" })
-    .fill("List classes");
-  await composer()
-    .getByRole("checkbox", { name: "Refine the current query" })
-    .check();
-  await composer().locator(".query-context-details summary").click();
-  await expect(composer().locator(".query-context")).toContainText(query);
-  await composer()
-    .getByRole("button", { name: "Generate query", exact: true })
-    .click();
-  await expect.poll(text).toContain("LIMIT 7");
-  await page.evaluate(() =>
-    window.axiom.request("createClass", {
-      name: "Review changed",
-      parent: "http://www.w3.org/2002/07/owl#Thing",
-    }),
+    f.composer.getByRole("button", { name: "Open in the editor" }),
+  ).toBeVisible();
+  const response = (
+    await f.page.evaluate(() => window.axiom.queryAssistant.status())
+  ).response!;
+  expect(response.request.currentQuery.replaceAll("\r\n", "\n")).toBe(starter);
+  const { buildQueryPrompt } = await import("../../src/shared/query-assistant");
+  expect(shown.replaceAll("\r\n", "\n")).toBe(
+    buildQueryPrompt(response.context, response.request).replaceAll(
+      "\r\n",
+      "\n",
+    ),
   );
-  await expect(page.locator(".query-generation-details summary")).toContainText(
-    "Review ontology context",
-  );
-  await page.locator(".query-generation-details summary").click();
-  await expect(page.locator(".query-generation-details")).toContainText(
-    "Review it before running",
+  await openProposal();
+  expect((await f.history()).current.parentId).toBe(source);
+  await f.pane.getByRole("button", { name: "History", exact: true }).click();
+  await expect(f.pane.locator(".hist .br").first()).toContainText(
+    "branched from",
   );
 });
-test("New query and examples preserve forward history, and the chooser searches full query text", async () => {
-  const initialCount = (await history()).entries.length;
-  const first = "SELECT ?n WHERE { VALUES ?n { 1 } }";
-  const second = "# second draft\nSELECT ?rareTerm WHERE {}";
-  await enter(first);
-  await page.getByRole("button", { name: "New query", exact: true }).click();
+test("new documents preserve forward history and older drafts remain searchable", async () => {
+  const first = (await f.history()).activeId;
+  await f.pane.getByRole("button", { name: "New query", exact: true }).click();
+  await f.enter("# unique needle\nASK {}");
+  const second = (await f.history()).activeId;
+  await select(first);
+  await f.pane.getByRole("button", { name: "New query", exact: true }).click();
   await expect.poll(text).toBe("");
-  await enter(second);
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await expect.poll(text).toBe(first);
-  await page.getByRole("button", { name: "New query", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText(`${initialCount + 2} / ${initialCount + 2}`);
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await expect.poll(text).toBe(second);
-  await queryOptions();
-  await page.getByRole("combobox", { name: "Example query" }).selectOption("0");
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText(`${initialCount + 3} / ${initialCount + 3}`);
-  await page.getByRole("button", { name: "Browse query history" }).click();
-  const dialog = page.getByRole("dialog", {
+  expect((await f.history()).entries.some((e) => e.id === second)).toBe(true);
+  await more("Find a query in history");
+  const dialog = f.page.getByRole("dialog", {
     name: "Query history",
     exact: true,
   });
-  await expect(
-    dialog.getByRole("searchbox", { name: "Find queries" }),
-  ).toBeFocused();
-  await dialog
-    .getByRole("searchbox", { name: "Find queries" })
-    .fill("rareTerm");
+  await expect(dialog.getByRole("searchbox")).toBeFocused();
+  await dialog.getByRole("searchbox").fill("unique needle");
   await expect(dialog.locator(".query-history-list button")).toHaveCount(1);
   await dialog.locator(".query-history-list button").click();
-  await expect.poll(text).toBe(second);
-  await expect(
-    page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText(`${initialCount + 1} / ${initialCount + 3}`);
-  await page.getByRole("button", { name: "Browse query history" }).click();
-  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await f.history()).activeId).toBe(second);
+  await expect(f.pane.locator(".monaco-editor textarea")).toBeFocused();
+  await more("Find a query in history");
+  await f.page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Browse query history" }),
+    f.pane.getByRole("button", { name: "More actions", exact: true }),
   ).toBeFocused();
 });
-test("paging can reopen the correct results tab and identifies edits made after execution", async () => {
-  await enter('SELECT ?value WHERE { VALUES ?value { "first-result" } }');
-  await run("1 displayed");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toContainText("first-result");
-  await page.getByRole("button", { name: "New query", exact: true }).click();
-  await enter(
-    'SELECT ?value WHERE { VALUES ?value { "second-result" "another-result" } }',
+test("an immediate restart preserves the last unsaved keystroke without running it", async () => {
+  await f.pane.getByRole("button", { name: "New query", exact: true }).click();
+  await f.pane.locator(".monaco-editor textarea").focus();
+  await f.page.keyboard.insertText("SELECT ?unfinished WHERE {");
+  await f.app.close();
+  f.app = await _electron.launch({ args: ["."], env: f.env });
+  const page = await f.app.firstWindow();
+  await expect(page.locator(".docking-workspace")).toBeVisible();
+  const current = await page.evaluate(
+    async () => (await window.axiom.queryHistory.load()).current,
   );
-  await run("2 displayed");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toContainText("second-result");
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Open results", exact: true }).click();
-  await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("1 displayed");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toContainText("first-result");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).not.toContainText("second-result");
-  await enter("ASK {}");
-  await expect(page.locator(".query-run-status")).toContainText(
-    "These results are from its previous run",
-  );
-  await page.getByRole("button", { name: "Next query", exact: true }).click();
-  await page.getByRole("button", { name: "Open results", exact: true }).click();
-  await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("2 displayed");
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toContainText("second-result");
+  expect(current.text).toBe("SELECT ?unfinished WHERE {");
+  expect(current.lastRun).toBeUndefined();
 });
-test("drafts survive an immediate close and restart without executing queries", async () => {
-  const initialCount = (await history()).entries.length;
-  await enter(query);
-  await page.getByRole("button", { name: "New query", exact: true }).click();
-  await expect.poll(text).toBe("");
-  await page.locator(".monaco-editor textarea").focus();
-  await page.keyboard.insertText(
-    "# unfinished draft\nSELECT ?preserved WHERE {",
-  );
-  await app.close();
-  await launch(true);
-  await expect(page.locator(".monaco-editor")).toBeVisible();
-  await expect.poll(text).toBe("# unfinished draft\nSELECT ?preserved WHERE {");
-  await expect(
-    page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText(`${initialCount + 1} / ${initialCount + 1}`);
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await expect.poll(text).toBe(query);
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toHaveCount(0);
-});
-test("compact and maximized panes keep one editor and accessible history controls", async () => {
-  const initialCount = (await history()).entries.length;
-  await page.locator(".monaco-editor textarea").focus();
-  const waiting = app.waitForEvent("window");
-  await menu("pane.detach");
-  const mainPage = page;
-  page = await waiting;
-  page.on("pageerror", (e) => errors.push(e.message));
-  await expect(page.locator(".query-panel")).toBeAttached();
-  await (
-    await app.browserWindow(page)
-  ).evaluate((child) => {
-    if (process.env.AXIOM_TEST_BACKGROUND === "1") child.setFocusable(false);
-    child.unmaximize();
-    child.setMinimumSize(320, 300);
-    child.setContentSize(520, 660);
-  });
-  await expect(page.locator(".monaco-editor")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(860);
-  await expect(page.locator(".query-panel")).toHaveClass(/is-compact/);
-  await compose("List seven triples");
-  await expect.poll(text).toContain("LIMIT 7");
-  await expect(composer()).toHaveCount(0);
-  await expect(page.locator(".query-main .monaco-editor")).toBeVisible();
-  await run("7 displayed");
-  await page.screenshot({
-    path: "artifacts/testing/query-history-compact.png",
-  });
-  const overflow = await page
-    .locator(".query-panel")
-    .evaluate((el) => el.scrollWidth > el.clientWidth);
-  expect(overflow).toBe(false);
-  const arrows = page.locator(".query-arrow");
-  for (const arrow of await arrows.all()) {
-    const box = (await arrow.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(24);
-    expect(box.height).toBeGreaterThanOrEqual(24);
-  }
-  await (
-    await app.browserWindow(page)
-  ).evaluate((child) => child.setContentSize(1320, 840));
-  await expect(page.locator(".query-panel")).not.toHaveClass(/is-compact/);
-  await page
-    .getByRole("button", { name: "Compose query", exact: true })
-    .click();
-  await expect(composer()).toBeVisible();
-  await expect(page.locator(".query-main .monaco-editor")).toBeVisible();
-  const left = (await composer().boundingBox())!,
-    right = (await page.locator(".query-main").boundingBox())!;
-  expect(right.x).toBeGreaterThanOrEqual(left.x + left.width - 1);
-  await page.screenshot({ path: "artifacts/testing/query-history-wide.png" });
-  await closeComposer();
-  await page
-    .getByRole("button", { name: "Previous query", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Browse query history" }),
-  ).toHaveText(`${initialCount} / ${initialCount + 1}`);
-  await menu("pane.reattach");
-  page = mainPage;
-  await expect.poll(() => app.windows().length).toBe(1);
-  await page.locator(".monaco-editor textarea").focus();
-  await menu("pane.maximise");
-  await expect(page.locator(".query-panel")).not.toHaveClass(/is-compact/);
-  await page.screenshot({
-    path: "artifacts/testing/query-history-maximized.png",
-  });
-});
-
-test("formatting and comments keep results current while substantive edits and data changes remain visible", async () => {
-  const original =
+test("formatting and comments preserve result freshness while edits and data changes expose stale rows", async () => {
+  await f.host.evaluate((el) => el.removeAttribute("style"));
+  const source =
     'select ?value where { values ?value { "first result" } } limit 1';
-  await enter(original);
-  await run("1 displayed");
-  const executed = (await history()).current.lastRun;
-  const changed = page
-    .locator(".query-run-status .stale")
-    .filter({ hasText: "The query changed." });
-  await formatQuery();
-  await expect.poll(text).toContain("\nLIMIT 1");
-  await expect(changed).toHaveCount(0);
-  await expect(
-    page.locator(".query-results-panel:visible .query-results"),
-  ).toContainText("first result");
-  expect((await history()).current.lastRun).toEqual(executed);
-  await page.keyboard.press("Control+z");
-  await expect.poll(text).toBe(original);
-  await expect(changed).toHaveCount(0);
-  await page.keyboard.press("Alt+Shift+f");
-  await expect.poll(text).toContain("\nLIMIT 1");
-  await expect(changed).toHaveCount(0);
-
-  // A single real edit has its own Undo entry and must still make the old rows stale.
-  await page.locator(".monaco-editor textarea").focus();
-  await page.keyboard.press("Control+End");
-  await page.keyboard.insertText("0");
-  await expect.poll(text).toContain("LIMIT 10");
-  await expect(changed).toBeVisible();
-  await formatQuery();
-  await expect(changed).toBeVisible();
-  await page.locator(".monaco-editor textarea").focus();
-  await page.keyboard.press("Control+z");
-  await expect.poll(text).toMatch(/LIMIT 1$/);
-  await expect(changed).toHaveCount(0);
-  await page.keyboard.press("Control+y");
-  await expect(changed).toBeVisible();
-  await page.keyboard.press("Control+z");
-  await expect(changed).toHaveCount(0);
-
-  await page.keyboard.press("Control+End");
-  await page.keyboard.insertText("\n# explain the query without changing it");
-  await expect.poll(text).toContain("# explain the query");
-  await expect(changed).toHaveCount(0);
-  expect((await history()).current.lastRun).toEqual(executed);
-  await page.evaluate(() =>
+  await f.enter(source);
+  await f.pane.getByRole("button", { name: "Run", exact: true }).click();
+  const results = f.page.locator(".query-results-panel:visible");
+  await expect(results.locator(".state")).toHaveText("1 row");
+  const run = (await f.history()).current.lastRun;
+  await more("Format SPARQL");
+  await expect(f.pane.locator(".state")).toHaveText("1 row");
+  await f.page.keyboard.press("Control+z");
+  await expect.poll(text).toBe(source);
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("0");
+  await expect(f.pane.locator(".state")).toHaveText("1 row, out of date");
+  await f.page.keyboard.press("Control+z");
+  await expect(f.pane.locator(".state")).toHaveText("1 row");
+  await f.page.keyboard.press("Control+End");
+  await f.page.keyboard.insertText("\n# explanation");
+  await expect.poll(text).toContain("# explanation");
+  await expect(f.pane.locator(".state")).toHaveText("1 row");
+  await f.page.evaluate(() =>
     window.axiom.request("createClass", {
       name: "Data changed",
       parent: "http://www.w3.org/2002/07/owl#Thing",
     }),
   );
-  await expect(
-    page.locator(".query-results-panel:visible .query-summary .stale"),
-  ).toContainText("Data changed");
-  await formatQuery();
-  await expect(changed).toHaveCount(0);
-  await expect(
-    page.locator(".query-results-panel:visible .query-summary .stale"),
-  ).toContainText("Data changed");
-  expect((await history()).current.lastRun).toEqual(executed);
+  await expect(results.locator(".state")).toHaveText("1 row, out of date");
+  await expect(results.locator(".state")).toHaveAttribute(
+    "title",
+    "Data changed since this run. These results show the earlier data.",
+  );
+  expect((await f.history()).current.lastRun).toEqual(run);
 });

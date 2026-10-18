@@ -174,6 +174,8 @@ export type DomainMethod =
   | "query"
   | "cancelQuery"
   | "queryPage"
+  | "queryColumns"
+  | "queryCsv"
   | "queryActivate"
   | "queryResult"
   | "queryGraph"
@@ -186,6 +188,7 @@ export type DomainMethod =
   | "uiHistory"
   | "cancelLayout"
   | "queryContext"
+  | "queryFields"
   | "synonymContext"
   | "seeAlsoMatches"
   | "addFindSynonym"
@@ -309,6 +312,10 @@ export interface AxiomBridge {
     ): Promise<import("./query-history").QueryEntrySummary[]>;
   };
   queryAssistant: {
+    // craigtrim/axiom#88: opening a retained proposal is separate from generation.
+    open(
+      completedAt: string,
+    ): Promise<import("./query-history").QueryHistoryView>;
     assistants(): Promise<import("./assistant").AssistantInfo[]>;
     run(
       request: import("./query-assistant").QueryAssistantRequest,
@@ -366,6 +373,13 @@ export interface AxiomBridge {
     input: import("./export").ExportRequest,
   ): Promise<string | null>;
   copy(text: string): Promise<void>;
+  copyQueryCsv(input: {
+    id: number;
+    key: string;
+    epoch: number;
+    shown: number[];
+    sort?: import("./query-grid").QueryGridSort;
+  }): Promise<void>;
 }
 declare global {
   interface Window {

@@ -3314,7 +3314,7 @@ test("editor menu copy, cut and paste letters execute native editing commands", 
 });
 
 for (const [commandId, label] of [
-  ["view.query", "SPARQL query editor"],
+  ["view.query", "SPARQL query"], // Query's editor label follows its reference (#88).
   ["view.source", "Ontology source"],
 ]) {
   test(`letter access keys work in the ${label} context menu`, async () => {

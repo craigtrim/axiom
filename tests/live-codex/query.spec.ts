@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: live opt-in journeys explicitly open each retained proposal.
 import { launchExample } from "../e2e/example-fixture";
 import {
   test,
@@ -53,7 +54,9 @@ async function enter(text: string) {
   const region = page.getByRole("region", { name: "Compose a SPARQL query" });
   const reopen = await region.isVisible();
   if (reopen)
-    await region.getByRole("button", { name: "Close query composer" }).click();
+    await region
+      .getByRole("button", { name: "Describe", exact: true })
+      .press("Escape");
   await page.locator(".monaco-editor textarea").focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.insertText(text);
@@ -128,9 +131,7 @@ test.beforeEach(async ({}, info) => {
   expect(installed.find((a) => a.id === "codex")?.path).toBe(
     command!.args[0] ?? command!.file,
   );
-  await page
-    .getByRole("combobox", { name: "Query agent" })
-    .selectOption("codex");
+  await page.getByRole("combobox", { name: "Agent" }).selectOption("codex");
   await enter(initial);
 });
 test.afterEach(async ({}, info) => {
@@ -161,17 +162,18 @@ async function generate(instructions: string, info: TestInfo, refine = false) {
     await page
       .getByRole("button", { name: "Compose query", exact: true })
       .click();
+  await composer.getByRole("button", { name: "Describe", exact: true }).click();
   const before = await editorText();
   const original = await page.evaluate(() => window.axiom.queryHistory.load());
   await composer
-    .getByRole("textbox", { name: "Describe your query" })
+    .getByRole("textbox", { name: "Describe the query" })
     .fill(instructions);
-  await composer
-    .getByRole("checkbox", { name: "Refine the current query" })
-    .setChecked(refine);
-  await composer
-    .getByRole("button", { name: "Generate query", exact: true })
-    .click();
+  const refineSwitch = composer.getByRole("switch", {
+    name: "Refine the current query",
+  });
+  if ((await refineSwitch.getAttribute("aria-checked")) !== String(refine))
+    await refineSwitch.click();
+  await composer.getByRole("button", { name: "Generate", exact: true }).click();
   console.log("Prompt:", instructions);
   let status: QueryAssistantStatus = { running: true };
   await expect
@@ -193,7 +195,19 @@ async function generate(instructions: string, info: TestInfo, refine = false) {
   expect(status.error, "Codex CLI error").toBeUndefined();
   expect(status.response?.request.provider).toBe("codex");
   generated = status.response!;
+  expect(await editorText()).toBe(before);
+  expect(
+    (await page.evaluate(() => window.axiom.queryHistory.load())).entries,
+  ).toHaveLength(original.entries.length);
   if (generated.result.status === "query") {
+    await composer
+      .getByRole("button", {
+        name: generated.validation
+          ? "Open it for correction"
+          : "Open in the editor",
+        exact: true,
+      })
+      .click();
     await expect.poll(editorText).toBe(generated.result.sparql);
     const delivered = await page.evaluate(() =>
       window.axiom.queryHistory.load(),
@@ -210,23 +224,30 @@ async function generate(instructions: string, info: TestInfo, refine = false) {
     ).toHaveCount(0);
   }
   if (refine) expect(generated.request.currentQuery).toBe(before);
-  await expect(page.locator(".query-run-status")).not.toContainText(
-    "displayed",
-  );
+  if (generated.result.status === "query")
+    expect(
+      (await page.evaluate(() => window.axiom.queryHistory.load())).current
+        .lastRun,
+    ).toBeUndefined();
   return generated;
 }
 async function useAndRun(info: TestInfo): Promise<(Term | null)[][]> {
   expect(generated?.result.status, generated?.result.explanation).toBe("query");
   expect(generated?.validation, generated?.result.sparql).toBeNull();
-  await expect(page.locator(".query-main .monaco-editor")).toBeVisible();
+  await expect(page.locator(".query-panel .monaco-editor")).toBeVisible();
   await expect.poll(editorText).toBe(generated!.result.sparql);
-  await page.getByRole("button", { name: /^Run(?: |$)/ }).click();
+  await page
+    .locator(".query-panel")
+    .getByRole("button", { name: "Run", exact: true })
+    .click();
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("displayed", {
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText(/\d+ rows?/, {
     timeout: 20000,
   });
-  await expect(page.locator(".query-error")).toHaveCount(0);
+  await expect(page.locator(".query-panel .state")).not.toContainText(
+    "Not run:",
+  );
   // Retrieve results using the same worker route used by the grid, independently of variable names.
   const result = await execute(generated!.result.sparql);
   await attach(info, "executed-query-results", result);
