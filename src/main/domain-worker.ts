@@ -50,7 +50,9 @@ import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
 import { sourceDocument, applySource, linkedFile } from "../domain/source";
 import type { SourceDocument } from "../shared/source";
 import { validateStatement } from "../domain/rdf-model";
-import { queryContext } from "../domain/query-context";
+import { queryContext, queryFields } from "../domain/query-context";
+import { queryGridView } from "../domain/query-grid";
+import type { QueryGridSort } from "../shared/query-grid";
 import { touchpointContext, applyTouchpoints } from "../domain/touchpoints";
 import {
   taxonomyContext,
@@ -1067,6 +1069,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
         string(a, "instructions", 12000),
         datasetEpoch,
       );
+    case "queryFields":
+      return queryFields(store, datasetEpoch);
     case "synonymContext":
       return synonymContext(store, string(a, "iri", 10000), datasetEpoch);
     case "seeAlsoMatches":
@@ -2165,22 +2169,47 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       return cached ? querySummary(a.id as number, cached.result) : null;
     }
     case "queryPage": {
-      const pageResult =
+      const cached =
         typeof a.id === "number" &&
         (a.epoch === undefined || a.epoch === datasetEpoch)
           ? queryResults.get(
               a.id,
               typeof a.key === "string" ? a.key : undefined,
-            )?.result
+            )
           : undefined;
-      if (!pageResult) return { rows: [], total: 0, retained: false };
+      if (!cached) return { rows: [], total: 0, retained: false };
       const start = Math.floor(number(a, "start", 0, 200000)),
         end = Math.floor(number(a, "end", start, start + 1000));
       return {
         retained: true,
-        rows: pageResult.rows.slice(start, end),
-        total: pageResult.rows.length,
+        rows: queryGridView(cached.result, cached.text).page(
+          start,
+          end,
+          a.sort as QueryGridSort | undefined,
+        ),
+        total: cached.result.rows.length,
       };
+    }
+    // craigtrim/axiom#88: column census and CSV share the complete, identity-checked result.
+    case "queryColumns":
+    case "queryCsv": {
+      const cached =
+        typeof a.id === "number" && a.epoch === datasetEpoch
+          ? method === "queryColumns"
+            ? queryResults.peek(a.id, string(a, "key", 100))
+            : queryResults.get(a.id, string(a, "key", 100))
+          : undefined;
+      if (!cached) {
+        if (method === "queryCsv")
+          throw Error(
+            "These results are no longer retained. Open the query and run it again.",
+          );
+        return { retained: false, columns: [], prefixes: {} };
+      }
+      const grid = queryGridView(cached.result, cached.text);
+      return method === "queryColumns"
+        ? { retained: true, columns: grid.columns, prefixes: grid.prefixes }
+        : grid.csv(a.shown as number[], a.sort as QueryGridSort | undefined);
     }
     case "queryGraph": {
       const chosen =

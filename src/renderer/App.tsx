@@ -1215,7 +1215,8 @@ export function App() {
         else if (focused?.closest(".monaco-editor")) command("query.find");
         else setSearch(true);
       }
-      if (id === "query.format" || id === "query.generate") {
+      // craigtrim/axiom#88: results actions open the active Query document.
+      if (["query.format", "query.generate", "query.new"].includes(id)) {
         savePanel("query.pending", id, false);
         show("query");
         command("query.authoring");
@@ -1383,7 +1384,12 @@ export function App() {
                   name={n.getName()}
                   paneId={n.getId()}
                   visual={n.getComponent() === "graph"}
-                  shared={["taxonomy", "textanalysis"].includes(n.getComponent()!)} // Shared recovery for Suggestions and Text Analysis (#82, #79).
+                  shared={[
+                    "taxonomy",
+                    "textanalysis",
+                    "query",
+                    "queryResults",
+                  ].includes(n.getComponent()!)}
                   maximize={() => {
                     const owner = n.getWindow();
                     if (owner && owner !== window) {

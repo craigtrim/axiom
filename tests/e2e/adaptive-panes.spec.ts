@@ -1,3 +1,4 @@
+// craigtrim/axiom#88: results keep More in their measured action row.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
 import AxeBuilder from "@axe-core/playwright";
@@ -352,7 +353,7 @@ test("Entity statements and query results retain their working content when resi
     await expect(child.locator(".ag-root")).toBeVisible();
     await fits(
       child.locator(".adaptive-pane"),
-      child.getByRole("button", { name: "Open query", exact: true }),
+      child.getByRole("button", { name: "More actions", exact: true }),
     );
     expect(
       await child

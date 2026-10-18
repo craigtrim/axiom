@@ -6,7 +6,7 @@ Axiom should offer deterministic query formatting beside a bounded natural-langu
 
 The appropriate initial integration is a subprocess adapter for each CLI. A conversation server becomes useful when the product needs persistent discussions, streamed intermediate actions or interactive tool approvals. Those requirements do not follow from asking an agent to produce one query. Introducing them now would add lifecycle work without improving the central authoring interaction.
 
-The implementation follows this recommendation. Query has a Format button and Shift+Alt+F shortcut, a Compose query control, and an explicit review step. Codex is the initial preference; the selected provider is remembered, and an available provider is selected if the preference is missing. Public SPARQL skills inform the prompting approach, but none is installed or loaded automatically.
+The implementation follows this recommendation. Query has Format SPARQL in More with the Shift+Alt+F shortcut, a Compose query control, and an explicit proposal-opening step. Claude Code is the initial preference; the selected provider is remembered, and an available provider is selected if the preference is missing. Public SPARQL skills inform the prompting approach, but none is installed or loaded automatically.
 
 Axiom now uses Comunica for SPARQL 1.1 Query, with Traqula parsing and an N3 RDF/JS dataset. The agent receives that capability contract, and Axiom validates generated queries before insertion. Requests for ordinary prefix matching, aggregation or property paths can execute locally. Remote SERVICE and ontology modification remain outside the query panel.
 
@@ -131,23 +131,21 @@ The current contract is application code, not a separately installed skill. It g
 
 ## User experience
 
-Format is a visible toolbar action, and Compose query opens beside the editor in a wide pane. In a narrow pane, the composer temporarily uses the body and returns to the main editor after generation. The [query-history UX research](query-history-ux.md) records the responsive design and evidence.
+[Issue 88](https://github.com/craigtrim/axiom/issues/88) gives Query one shared action row and a composer with Fields and Describe modes. Fields writes deterministic SPARQL into the current document as one undoable edit. Describe contains the natural-language request and provider controls. At 860 px and above the composer occupies a 320 px column on the right. Below that width, Compose query toggles it into the body; Escape, writing Fields, creating or selecting a document, and opening a proposal return to the editor.
 
-The composer begins with a description field and a provider selector. The selector remembers the latest choice. Missing providers are labeled, and Refresh agents repeats PATH discovery. Setup guidance points to installation and terminal sign-in; there is no API-key field in the application.
+Agent options show Codex or Claude Code and the version parsed from the executable's `--version` output. Missing agents are disabled and named in the setup hint. Refresh agents repeats discovery. Finding a CLI does not prove its account is signed in. Axiom has no API-key field.
 
-“Refine the current query” is an explicit option. When enabled, the current editor text becomes part of the request. When disabled, generation uses the natural-language description and ontology context. This distinction lets the same interaction support both a new query and a revision without making users learn separate modes.
+Refine the current query is an explicit switch. When enabled, the editor text is included in the request. The What gets sent disclosure displays `buildQueryPrompt()` exactly and counts supplied terms plus predicates, omitted entities plus predicates, and the chosen executable path. The last context remains visible while a new preview loads; Generate waits for a context matching the current intent.
 
-Context is inspectable before generation. The expanded view includes the actual prompt and ontology data being sent, along with the selected executable path. Names and labels are included, while unrelated literal values and query results are excluded by default. Existing query text is included only through the refinement option.
+Generation displays elapsed time to one decimal and Cancel generation inside Describe. Closing the composer or changing mode preserves the running task. Reopening reads service status. The shell tab keeps its activity glyph, while Query has no extra assistant band. Cancellation waits for subprocess termination and release of the job reservation.
 
-Generation displays elapsed time and a Cancel generation action. Closing the composer does not lose the running job; reopening reads its status from the main process. The interface does not claim a percentage complete because neither adapter supplies a meaningful estimate of how much drafting remains.
+A response remains in the composer until Open in the editor or Open it for correction is pressed. The box shows the explanation and assumptions without duplicating editable SPARQL. Opening creates a retained document and preserves the current draft. Unsupported and malformed responses create no document. A refused proposal keeps Run disabled only while its text remains unchanged. Generation never executes a query.
 
-Generated SPARQL opens in the main editor as a new retained document. Explanation and assumptions appear in a disclosure beside that document. Unsupported requests create no empty page. Validation failures retain the generated text for correction and disable Run for the unchanged invalid proposal.
-
-Previous and Next browse retained query documents. New query and example selection preserve the current draft. The position indicator opens searchable history. Each recently used document has its own Monaco model and Undo stack. Run remains a separate action, with results attached to the selected document.
+History lists the newest twelve retained documents; More provides full-text history search and Format SPARQL. New query and the bundled example actions preserve earlier drafts. Run opens an independent results tab with whole-result sorting, a column chooser and CSV copying. The [query-history interaction contract](query-history-ux.md) describes persistence, responsive focus and result ownership.
 
 ## State, authentication and failure handling
 
-Each request records its ontology context and source query identifier and edit version. Changed ontology context is flagged in the generated document. If the user edited or navigated while generation was running, the response is retained as a new query and an Open generated query notice appears without switching the editor. The renderer also preserves unsaved keystrokes that precede the debounce timer.
+Each request records its ontology context and source query identifier. Completion retains the proposal in the service without editing, navigating or creating a document. Explicit opening flushes the current draft, including keystrokes still inside the autosave debounce. Refinements record their source as a parent. A repeated Open selects the document already created for that response.
 
 An executable on PATH is not proof of authentication or service availability. Discovery establishes that a candidate can be found. A real generation request can still fail because the CLI is signed out, a model is unavailable, a quota is exhausted or the network is interrupted. The interface should surface the available diagnostic and allow retry.
 
@@ -163,7 +161,7 @@ Tests should measure behavior at each boundary. Formatter tests compare parsed q
 
 Process tests use deterministic executable fixtures for both providers. They verify schema arguments, final-response handling and release of the run lock. Cancellation and timeout tests cover stalled subprocesses. These tests make failure handling repeatable without consuming a model request for every build.
 
-Desktop tests cover formatting and Undo, automatic delivery without execution, preservation of newer edits, unsupported requests, invented identifiers, cancellation and reopening. Query-history checks cover branching without truncating later entries, result ownership, full-text search, restart and compact versus wide layouts. The opt-in live suite uses only real Codex on PATH and verifies automatic delivery, source preservation and actual query results.
+Desktop tests cover formatting and Undo, explicit proposal opening without execution, preservation of newer edits, unsupported requests, invented identifiers, cancellation and reopening. Query-history checks cover branching without truncating later entries, result ownership, full-text search, restart and compact versus wide layouts. The opt-in live suite uses only real Codex on PATH and verifies explicit opening, source preservation and actual query results.
 
 The live suite contains twelve semantic cases, including the reported American prefix request, changes to the data after generation, case-insensitive matching, direct parents, refinement, instance types, COUNT, ASK, OPTIONAL, ancestor paths, grouped counts and imported labels. Assertions compare result sets with fixture-derived expectations rather than requiring one query spelling. Reports retain the provider version, requests, responses and result evidence. These cases establish observed behavior on controlled fixtures, not a general natural-language accuracy rate.
 

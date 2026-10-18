@@ -4,6 +4,8 @@ export interface AssistantInfo {
   name: string;
   available: boolean;
   path?: string;
+  // craigtrim/axiom#88: discovered CLI versions are shown beside the agent name.
+  version?: string;
   message?: string;
 }
 export interface AssistantCallMetadata {

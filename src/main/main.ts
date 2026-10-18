@@ -254,6 +254,8 @@ const methods = new Set<DomainMethod>([
   "query",
   "cancelQuery",
   "queryPage",
+  "queryColumns",
+  "queryCsv",
   "queryActivate",
   "queryResult",
   "queryGraph",
@@ -291,6 +293,7 @@ const methods = new Set<DomainMethod>([
   "uiHistory",
   "cancelLayout",
   "queryContext",
+  "queryFields",
   "synonymContext",
   "seeAlsoMatches",
   "addFindSynonym",
@@ -481,6 +484,7 @@ let queryAssistantJob:
       cancelled: boolean;
       startedAt: number;
       provider: import("../shared/assistant").AssistantId;
+      finished: Promise<void>;
     }
   | undefined;
 const provenance = new ProvenanceService(
@@ -1438,6 +1442,8 @@ app.whenReady().then(async () => {
         modalWindows.size ||
         input.type !== "keyDown" ||
         !input.alt ||
+        // Keep Shift+Alt+F available to Query formatting (craigtrim/axiom#88).
+        input.shift ||
         input.control ||
         input.meta ||
         input.key.length !== 1
@@ -1596,22 +1602,42 @@ app.whenReady().then(async () => {
   handle("queryAssistant:run", async (event, input) => {
     authorised(event);
     if (queryAssistantJob) throw Error("Query generation is already running.");
+    let finish!: () => void;
     const job = {
       cancelled: false,
       startedAt: Date.now(),
       provider: input?.provider,
+      finished: new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
     };
     queryAssistantJob = job;
     try {
-      const baseline = await queryHistory.baseline(input?.queryId);
+      await queryHistory.baseline(input?.queryId);
       if (job.cancelled) throw Error("Query generation cancelled.");
       const response = await queryAssistant.run(input);
       if (job.cancelled) throw Error("Query generation cancelled.");
-      await queryHistory.deliver(response, baseline);
       return response;
     } finally {
       queryAssistantJob = undefined;
+      finish();
     }
+  });
+  // craigtrim/axiom#88: the retained, checked response is opened only on request.
+  handle("queryAssistant:open", (event, completedAt) => {
+    authorised(event);
+    const status = queryAssistant.status();
+    if (
+      queryAssistantJob ||
+      status.running ||
+      !status.response ||
+      typeof completedAt !== "string" ||
+      status.response.completedAt !== completedAt ||
+      status.response.result.status !== "query" ||
+      !status.response.result.sparql
+    )
+      throw Error("That proposal is no longer available. Generate again.");
+    return queryHistory.openProposal(status.response);
   });
   handle("queryAssistant:status", (event) => {
     authorised(event);
@@ -1626,10 +1652,12 @@ app.whenReady().then(async () => {
         }
       : status;
   });
-  handle("queryAssistant:cancel", (event) => {
+  handle("queryAssistant:cancel", async (event) => {
     authorised(event);
-    if (queryAssistantJob) queryAssistantJob.cancelled = true;
+    const job = queryAssistantJob;
+    if (job) job.cancelled = true;
     queryAssistant.cancel();
+    await job?.finished;
   });
   handle("chrome:info", (event) => {
     authorised(event);
@@ -1979,6 +2007,12 @@ app.whenReady().then(async () => {
   handle("editors:readClipboard", (event) => {
     authorised(event);
     return clipboard.readText();
+  });
+  // Copy retained results without imposing the arbitrary-text clipboard limit (#88).
+  handle("query:copyCsv", async (event, input) => {
+    authorised(event);
+    const csv = await request<string>("queryCsv", input);
+    return clipboard.writeText(csv);
   });
   handle("quality:export", async (event, input) => {
     authorised(event);

@@ -37,10 +37,12 @@ export interface QueryEntry {
   generation?: QueryAssistantResponse;
   lastRun?: QueryRunRecord;
   restoredRunId?: string;
+  // craigtrim/axiom#88: creation ancestry, independent of edits or subsequent runs.
+  parentId?: string;
 }
 export type QueryEntrySummary = Pick<
   QueryEntry,
-  "id" | "title" | "source" | "createdAt" | "updatedAt" | "origin"
+  "id" | "title" | "source" | "createdAt" | "updatedAt" | "origin" | "parentId"
 > & { preview: string; rows?: number };
 export interface QueryHistoryView {
   revision: number;
