@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: provenance options remain visible above the evidence scroller.
 // craigtrim/axiom#91: Hierarchy now uses the shared action row.
 // craigtrim/axiom#88: results keep More in their measured action row.
 // Issue 85: Details fields use predicate names and per-group value numbers.
@@ -250,7 +251,7 @@ test("Hierarchy, Individuals, Source and provenance keep usable actions in each 
             ? ".bar button"
             : id === "individuals"
               ? ".tbar button"
-              : ".pane-primary button",
+              : ".bar .btn.primary",
         )
         .first();
       await fits(root, action);
@@ -269,8 +270,6 @@ test("Hierarchy, Individuals, Source and provenance keep usable actions in each 
       await expect(
         child.getByRole("button", { name: "Choose folder", exact: true }),
       ).toBeVisible();
-      await child.getByRole("button", { name: "Options", exact: true }).click();
-      await child.getByText("Collection options", { exact: true }).click();
       await child
         .getByRole("spinbutton", { name: "Collection entry limit" })
         .fill("123");

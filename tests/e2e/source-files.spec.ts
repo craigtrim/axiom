@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: the Source action row reports draft state directly.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -31,7 +32,7 @@ async function enter(text: string) {
     .focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.insertText(text);
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Draft pending");
 }
 async function openFile(file: string, command = "file.import") {
   const epoch = (await state()).datasetEpoch;
@@ -95,7 +96,7 @@ test.afterEach(async () => {
 
 test("source edits update the graph and taxonomy, inspector edits update source, and all formats preserve the document", async () => {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await enter(ttl.replace('"Course"', '"University Course"'));
   await source()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -113,7 +114,7 @@ test("source edits update the graph and taxonomy, inspector edits update source,
       (n) => n.iri === "https://example.org/Course",
     )?.label,
   ).toBe("University Course");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await menu("edit.undo");
   await expect
     .poll(
@@ -165,7 +166,7 @@ test("source edits update the graph and taxonomy, inspector edits update source,
     await expect(
       source().getByRole("combobox", { name: "Source format" }),
     ).toHaveValue(format);
-    await expect(source().getByRole("status")).toContainText("Synchronized");
+    await expect(source().getByRole("status")).toContainText("Clean");
     expect((await state()).tripleCount).toBe(baseline);
   }
   await page.screenshot({ path: path.join(profile, "source-editor.png") });
@@ -173,7 +174,7 @@ test("source edits update the graph and taxonomy, inspector edits update source,
 
 test("invalid and conflicting source drafts survive switching views and cannot overwrite other edits", async () => {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await enter("<broken");
   await source()
     .getByRole("button", { name: "Apply changes", exact: true })
@@ -185,7 +186,7 @@ test("invalid and conflicting source drafts survive switching views and cannot o
   ).toBe("Course");
   await menu("view.graph");
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Invalid");
   await enter(ttl.replace('"Course"', '"Draft Course"'));
   await page.evaluate(() =>
     window.axiom.request("rename", {
@@ -194,9 +195,12 @@ test("invalid and conflicting source drafts survive switching views and cannot o
     }),
   );
   await expect(
-    source().getByText("The ontology changed in another view.", {
-      exact: false,
-    }),
+    source().getByText(
+      "Another view changed the ontology while this draft was pending.",
+      {
+        exact: false,
+      },
+    ),
   ).toBeVisible();
   await expect(
     source().getByRole("button", { name: "Apply changes", exact: true }),
@@ -204,18 +208,62 @@ test("invalid and conflicting source drafts survive switching views and cannot o
   await expect(source().locator(".monaco-editor")).toContainText(
     "Draft Course",
   );
-  await source().getByRole("button", { name: "More source actions" }).click();
-  await source()
-    .getByRole("button", { name: "Discard draft and reload" })
-    .click();
+  const discard = source().getByRole("button", {
+    name: "Discard draft and reload",
+    exact: true,
+  });
+  if (await discard.isVisible()) await discard.click();
+  else {
+    await source()
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Discard draft and reload", exact: true })
+      .click();
+  }
   await expect(source().locator(".monaco-editor")).toContainText(
     "Changed elsewhere",
   );
 });
 
+test("XML and JSON parser failures retain Invalid state without changing the ontology", async () => {
+  await menu("view.source");
+  const formats = source().getByRole("combobox", { name: "Source format" });
+  for (const format of ["rdfxml", "jsonld"]) {
+    await formats.selectOption(format);
+    await expect(source().getByRole("status")).toHaveText("Clean");
+    const before = await state();
+    await enter(format === "rdfxml" ? "<rdf:RDF" : '{"@id":');
+    await source()
+      .getByRole("button", { name: "Apply changes", exact: true })
+      .click();
+    await expect(source().getByRole("status")).toContainText("Invalid");
+    await expect(source().getByRole("alert")).toContainText(
+      "The text stays here",
+    );
+    expect((await state()).version).toBe(before.version);
+    expect((await state()).tripleCount).toBe(before.tripleCount);
+    const discard = source().getByRole("button", {
+      name: "Discard draft and reload",
+      exact: true,
+    });
+    if (await discard.isVisible()) await discard.click();
+    else {
+      await source().getByRole("button", { name: "More actions" }).click();
+      await page
+        .getByRole("menuitem", {
+          name: "Discard draft and reload",
+          exact: true,
+        })
+        .click();
+    }
+    await expect(source().getByRole("status")).toHaveText("Clean");
+  }
+});
+
 test("saving a workspace preserves source drafts from a closed pane without applying them", async () => {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await enter(ttl.replace('"Course"', '"Saved source course"'));
   await menu("pane.close");
   await expect(source()).toHaveCount(0);
@@ -240,7 +288,7 @@ test("saving a workspace preserves source drafts from a closed pane without appl
       ?.label,
   ).toBe("Course");
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Draft pending");
   await expect(source().locator(".monaco-editor")).toContainText(
     "Saved source course",
   );
@@ -318,7 +366,7 @@ test("file observations offer opening, reveal and opt-in native thumbnails witho
 
 test("format switching applies valid drafts and preserves invalid drafts unchanged", async () => {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   const formats = source().getByRole("combobox", { name: "Source format" });
   await enter("<broken");
   await formats.selectOption("rdfxml");
@@ -332,7 +380,7 @@ test("format switching applies valid drafts and preserves invalid drafts unchang
   await enter(ttl.replace('"Course"', '"Converted source course"'));
   await formats.selectOption("rdfxml");
   await expect(formats).toHaveValue("rdfxml");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   expect(
     (await state()).entities.find((e) => e.iri === "https://example.org/Course")
       ?.label,
@@ -353,15 +401,15 @@ test("format switching applies valid drafts and preserves invalid drafts unchang
 
 test("native Undo, Redo and Find act on the focused source editor", async () => {
   await menu("view.source");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await source()
     .getByRole("textbox", { name: "Ontology source", exact: true })
     .focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText("temporary");
-  await expect(source().getByRole("status")).toContainText("Unapplied");
+  await expect(source().getByRole("status")).toContainText("Draft pending");
   await menu("edit.undo");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   expect(
     (await state()).entities.find((e) => e.iri === "https://example.org/Course")
       ?.label,
@@ -378,7 +426,7 @@ test("native Undo, Redo and Find act on the focused source editor", async () => 
   await source()
     .getByRole("button", { name: "Apply changes", exact: true })
     .click();
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await source()
     .getByRole("textbox", { name: "Ontology source", exact: true })
     .focus();
@@ -391,7 +439,7 @@ test("native Undo, Redo and Find act on the focused source editor", async () => 
         )?.label,
     )
     .toBe("Course");
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await menu("edit.redo");
   await expect
     .poll(
