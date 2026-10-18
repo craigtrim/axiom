@@ -1,6 +1,7 @@
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
+import { checkAddEntity, createAddEntity } from "../domain/add-entity";
 import {
   individualGridPage,
   individualGridFindOptions,
@@ -412,6 +413,7 @@ function runLayout(fresh = true) {
   message = "Computing " + layouts.choice + " layout...";
 }
 const tracked = new Set<DomainMethod>([
+  "addEntityCreate",
   "findCreate",
   "textAnalysisCreate",
   "seed",
@@ -978,6 +980,22 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       selected = createFindEntity(store, a.creation, datasetEpoch);
       mutate("Entity added from Find. Undo removes the addition.");
       return selected;
+    }
+    // craigtrim/axiom#93: both validation and mutation reject an outdated store.
+    case "addEntityCheck":
+    case "addEntityCreate": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw Error(
+          "The ontology changed. Review the draft before creating it.",
+        );
+      if (method === "addEntityCheck")
+        return checkAddEntity(store, a.creation, datasetEpoch);
+      const result = createAddEntity(store, a.creation, datasetEpoch);
+      selected = result.iri;
+      mutate(
+        "Entity and drafted parents created. Undo removes the transaction.",
+      );
+      return result;
     }
     case "textAnalysisDraft":
     case "textAnalysisCreatePreview":

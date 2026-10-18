@@ -50,6 +50,9 @@ import {
   type TableFilter,
 } from "./model";
 export interface ClassCreation {
+  // craigtrim/axiom#93: an individual and its drafted types share one transaction.
+  kind?: "class" | "individual";
+  language?: "en";
   id: string;
   name: string;
   comment: string;
@@ -1347,7 +1350,13 @@ export class Store {
       validLabel(item.name);
       if (!item.id || ids.has(item.id))
         throw Error("Duplicate class reference.");
-      if (!item.parents.length) throw Error("Choose an existing superclass.");
+      if (!item.parents.length && item.kind !== "individual")
+        throw Error("Choose an existing superclass.");
+      if (
+        item.kind !== undefined &&
+        !["class", "individual"].includes(item.kind)
+      )
+        throw Error("Invalid entity kind.");
       if (
         item.iri !== undefined &&
         (!validResource(item.iri, false) ||
@@ -1385,6 +1394,8 @@ export class Store {
         if ("id" in ref) {
           const parent = ids.get(ref.id);
           if (!parent) throw Error("A new superclass is missing.");
+          if (classes.find((c) => c.id === ref.id)?.kind === "individual")
+            throw Error("A parent must be a class.");
           parents.add(parent);
           pendingParents.add(ref.id);
         } else {
@@ -1395,13 +1406,29 @@ export class Store {
         }
       }
       dependencies.set(item.id, pendingParents);
-      if (parents.size > 1) parents.delete(THING);
+      if (parents.size > 1 && item.kind !== "individual") parents.delete(THING);
       statements.push(
-        { subject: iri, predicate: TYPE, object: iriTerm(NS.owl + "Class") },
-        { subject: iri, predicate: LABEL, object: literal(item.name.trim()) },
+        {
+          subject: iri,
+          predicate: TYPE,
+          object: iriTerm(
+            NS.owl + (item.kind === "individual" ? "NamedIndividual" : "Class"),
+          ),
+        },
+        {
+          subject: iri,
+          predicate: LABEL,
+          object: item.language
+            ? {
+                literal: true,
+                value: item.name.trim(),
+                language: item.language,
+              }
+            : literal(item.name.trim()),
+        },
         ...[...parents].map((parent) => ({
           subject: iri,
-          predicate: SUBCLASS,
+          predicate: item.kind === "individual" ? TYPE : SUBCLASS,
           object: iriTerm(parent),
         })),
       );
@@ -1409,7 +1436,13 @@ export class Store {
         statements.push({
           subject: iri,
           predicate: COMMENT,
-          object: literal(item.comment.trim()),
+          object: item.language
+            ? {
+                literal: true,
+                value: item.comment.trim(),
+                language: item.language,
+              }
+            : literal(item.comment.trim()),
         });
       for (const statement of item.statements ?? []) {
         if ([TYPE, LABEL, SUBCLASS, COMMENT].includes(statement.predicate))
