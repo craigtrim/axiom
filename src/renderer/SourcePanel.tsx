@@ -1,7 +1,9 @@
+// craigtrim/axiom#94: Monaco retains editing behavior inside the utility reference frame.
 import { registerEditorMenu } from "./editor-menu-keys";
 import { ErrorNotice } from "./ErrorNotice";
-import { ontologyLanguage } from "./ontology-language";
-import { PaneToolbar, PaneDetails } from "./AdaptivePane";
+import "./ontology-language";
+import { usePaneLayout } from "./AdaptivePane";
+import { UtilityFrame, UtilityToolbar } from "./UtilityPane";
 import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
@@ -13,13 +15,15 @@ import {
   applySourceDraft,
 } from "./source-draft";
 import {
-  sourceFormats,
+  invalidSourcePrefix,
   sourcePrefixes,
   type SourceDocument,
   type SourceFormat,
 } from "../shared/source";
 export function SourcePanel() {
   const snapshot = useSnapshot()!;
+  const layout = usePaneLayout();
+  const [notice, setNotice] = useState(false);
   const draft = useSourceDraft();
   const [doc, setDoc] = useState<SourceDocument>();
   const [format, setFormat] = useState<SourceFormat | undefined>(
@@ -30,6 +34,9 @@ export function SourcePanel() {
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const host = useRef<HTMLDivElement>(null);
+  const area = useRef<HTMLDivElement>(null);
+  const horizontal = useRef<HTMLDivElement>(null);
+  const extent = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const updating = useRef(false);
   const current = useRef(doc);
@@ -62,15 +69,38 @@ export function SourcePanel() {
   useEffect(() => {
     if (!host.current) return;
     const ownerDocument = host.current.ownerDocument;
-    const model = monaco.editor.createModel("", ontologyLanguage(format));
+    const model = monaco.editor.createModel("", "plaintext");
     const instance = monaco.editor.create(host.current, {
       model,
       editContext: false,
       automaticLayout: true,
       minimap: { enabled: false },
-      fontSize: 13,
+      autoIndent: "none",
+      formatOnPaste: false,
+      autoClosingBrackets: "never",
+      autoClosingQuotes: "never",
+      autoSurround: "never",
+      fontFamily: "Cascadia Mono, Cascadia Code, Consolas, monospace",
+      fontSize: 12,
+      lineHeight: 18,
+      padding: { top: 8, bottom: 8 },
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 26,
+      glyphMargin: false,
+      folding: false,
+      renderLineHighlight: "none",
+      overviewRulerLanes: 0,
+      overviewRulerBorder: false,
+      guides: { indentation: false, highlightActiveIndentation: false },
+      scrollbar: {
+        useShadows: false,
+        horizontal: "hidden",
+        horizontalScrollbarSize: 0,
+      },
+      scrollBeyondLastColumn: 2,
+      tabSize: 2,
       lineNumbers: "on",
-      wordWrap: "on",
+      wordWrap: "off",
       scrollBeyondLastLine: false,
       ariaLabel: "Ontology source",
       theme:
@@ -83,6 +113,7 @@ export function SourcePanel() {
     const change = instance.onDidChangeModelContent(() => {
       if (!updating.current && current.current) {
         setError("");
+        setNotice(false);
         setSourceDraft({ loaded: current.current, text: instance.getValue() });
       }
     });
@@ -124,7 +155,61 @@ export function SourcePanel() {
       editor.current = null;
     };
   }, []);
+  useEffect(() => {
+    const instance = editor.current;
+    if (!instance) return;
+    const gutter = layout.narrow ? 32 : 40;
+    // Leave eight pixels between the shared gutter and Monaco's text origin.
+    const numberWidth =
+      instance.getOption(monaco.editor.EditorOption.fontInfo)
+        .typicalHalfwidthCharacterWidth * 3;
+    instance.updateOptions({
+      lineDecorationsWidth: Math.max(0, gutter + 8 - numberWidth),
+    });
+    instance.updateOptions({
+      lineDecorationsWidth:
+        instance.getOption(monaco.editor.EditorOption.lineDecorationsWidth) +
+        gutter +
+        8 -
+        instance.getLayoutInfo().contentLeft,
+    });
+    host.current?.style.setProperty("--source-gutter", gutter + "px");
+  }, [layout.narrow]);
   const text = draft?.text ?? doc?.text ?? "";
+  useEffect(() => {
+    const instance = editor.current,
+      container = area.current,
+      rail = horizontal.current,
+      measure = extent.current;
+    if (!instance || !container || !rail || !measure) return;
+    // The native horizontal rail matches the plain editor and drives Monaco's retained viewport.
+    const size = () => {
+      const overflow = measure.getBoundingClientRect().width > rail.clientWidth;
+      container.style.setProperty(
+        "--source-scroll-height",
+        overflow ? "15px" : "0px",
+      );
+      rail.style.visibility = overflow ? "visible" : "hidden";
+      rail.scrollLeft = instance.getScrollLeft();
+    };
+    const scroll = () => instance.setScrollLeft(rail.scrollLeft);
+    rail.addEventListener("scroll", scroll);
+    const viewport = instance.onDidScrollChange((e) => {
+      if (e.scrollLeftChanged) rail.scrollLeft = e.scrollLeft;
+    });
+    const observer = new container.ownerDocument.defaultView!.ResizeObserver(
+      size,
+    );
+    observer.observe(container);
+    observer.observe(measure);
+    observer.observe(rail);
+    size();
+    return () => {
+      rail.removeEventListener("scroll", scroll);
+      viewport.dispose();
+      observer.disconnect();
+    };
+  }, [text, layout.narrow]);
   useEffect(() => {
     const instance = editor.current;
     if (instance && instance.getValue() !== text) {
@@ -135,13 +220,7 @@ export function SourcePanel() {
   }, [text]);
   useEffect(() => {
     editor.current?.updateOptions({ readOnly: loading || busy || !doc });
-    const model = editor.current?.getModel();
-    if (model)
-      monaco.editor.setModelLanguage(
-        model,
-        ontologyLanguage(draft?.loaded.format ?? doc?.format),
-      );
-  }, [loading, busy, doc?.format, draft?.loaded.format]);
+  }, [loading, busy, !!doc]);
   const apply = async () => {
     setBusy(true);
     setError("");
@@ -190,107 +269,222 @@ export function SourcePanel() {
         return;
       }
     }
-    setError(
-      "The selected entity has no explicit identifier in this serialization. Use Find to locate its label.",
-    );
+    setNotice(true);
   };
   const stale =
     !!draft &&
     (draft.loaded.version !== snapshot.version ||
       draft.loaded.datasetEpoch !== snapshot.datasetEpoch);
+  const invalid = !!draft && !!error && error.startsWith(invalidSourcePrefix);
+  const parserMessage = invalid
+    ? error.slice(invalidSourcePrefix.length)
+    : error;
+  const line = error.match(/(?:on\s+)?line\s+(\d+)/i)?.[1];
+  const formatId = draft?.loaded.format ?? doc?.format ?? "turtle";
+  const formats: {
+    id: SourceFormat;
+    name: string;
+    extension: string;
+    graphs: boolean;
+  }[] = [
+    { id: "trig", name: "TriG", extension: ".trig", graphs: true },
+    { id: "jsonld", name: "JSON-LD", extension: ".jsonld", graphs: true },
+    { id: "nquads", name: "N-Quads", extension: ".nq", graphs: true },
+    { id: "turtle", name: "Turtle", extension: ".ttl", graphs: false },
+    { id: "rdfxml", name: "RDF/XML", extension: ".rdf, .owl", graphs: false },
+    { id: "ntriples", name: "N-Triples", extension: ".nt", graphs: false },
+  ];
+  const selectedFormat = formats.find((f) => f.id === formatId)!;
+  const reloadSource = () => {
+    setSourceDraft();
+    setError("");
+    setNotice(false);
+    setReload((n) => n + 1);
+  };
+  const status = loading
+    ? "Loading source..."
+    : busy
+      ? "Applying source..."
+      : stale
+        ? "Draft is stale"
+        : invalid
+          ? line
+            ? `Invalid on line ${line}`
+            : "Invalid"
+          : draft
+            ? "Draft pending"
+            : !doc
+              ? "Source unavailable"
+              : "Clean";
   return (
-    <section
-      className="panel source-panel"
-      data-panel="source"
-      aria-label="Ontology source editor"
+    <UtilityFrame
+      id="source"
+      label="Ontology source editor"
+      toolbar={
+        <UtilityToolbar
+          label="Source actions"
+          primaryWidth={200}
+          primary={
+            <select
+              className="sel"
+              aria-label="Source format"
+              value={formatId}
+              disabled={busy || loading || stale}
+              onChange={(e) => void convert(e.target.value as SourceFormat)}
+            >
+              {formats.map((f) => (
+                <option
+                  key={f.id}
+                  value={f.id}
+                  disabled={doc?.namedGraphs && !f.graphs}
+                >
+                  {f.name}
+                  {doc?.namedGraphs && !f.graphs
+                    ? ", cannot keep named graphs"
+                    : ""}
+                </option>
+              ))}
+            </select>
+          }
+          state={
+            <span className="utility-source-status" role="status">
+              {status}
+            </span>
+          }
+          stateKind={
+            stale || invalid || (!loading && !doc)
+              ? "badink"
+              : draft
+                ? "warnink"
+                : ""
+          }
+          afterState={
+            <button
+              className="btn primary"
+              disabled={!draft || busy || loading || stale || invalid}
+              onClick={() => void apply()}
+            >
+              Apply changes
+            </button>
+          }
+          actions={[
+            {
+              id: "discard",
+              label: "Discard draft and reload",
+              priority: 1,
+              disabled: !draft || busy || loading,
+              run: reloadSource,
+            },
+            {
+              id: "find",
+              label: "Find selected entity",
+              priority: 2,
+              disabled: !snapshot.selected || loading,
+              run: findSelected,
+            },
+          ]}
+          items={[
+            {
+              id: "reload",
+              label: "Reload from ontology",
+              disabled: busy || loading,
+              run: reloadSource,
+            },
+          ]}
+        />
+      }
+      head={
+        stale ? (
+          <div className="note2 bad3" role="alert">
+            <b>
+              Another view changed the ontology while this draft was pending.
+            </b>
+            {
+              " The draft is kept and cannot overwrite the newer version. Copy anything you want, then discard and reload to work from the current ontology."
+            }
+          </div>
+        ) : error ? (
+          <div className="note2 bad3" role="alert">
+            {invalid ? (
+              <>
+                <b>{parserMessage}</b>
+                {
+                  " The text stays here and the ontology is unchanged until it parses."
+                }
+              </>
+            ) : (
+              <ErrorNotice error={error} />
+            )}
+          </div>
+        ) : draft ? (
+          <div className="note2 wrn3">
+            <b>Pending draft.</b>
+            {
+              " Typing does not change the ontology. Apply parses and validates the whole document, and a successful apply is one Undo operation. Closing the pane does not discard this text."
+            }
+          </div>
+        ) : notice ? (
+          <div className="note2">
+            <b>
+              The selected entity has no explicit identifier in this
+              serialization.
+            </b>
+            {" Use Find to locate its label."}
+          </div>
+        ) : null
+      }
+      footer={
+        <>
+          <span>
+            {selectedFormat.name + " "}
+            <span className="num">{selectedFormat.extension}</span>
+          </span>
+          <span>
+            {"named graphs " +
+              (selectedFormat.graphs ? "preserved" : "not preserved")}
+          </span>
+          <span>
+            <span className="num">
+              {text.split("\n").length.toLocaleString()}
+            </span>
+            {" lines, "}
+            <span className="num">{text.length.toLocaleString()}</span>
+            {" characters"}
+          </span>
+          <span>
+            {doc?.namedGraphs
+              ? "this document contains a named graph"
+              : "no named graphs"}
+          </span>
+          <span>
+            conversion regenerates whitespace and prefixes, and does not keep
+            comments
+          </span>
+        </>
+      }
     >
-      <PaneToolbar
-        label="Source actions"
-        secondary={
-          <>
-            <button
-              disabled={busy}
-              onClick={() => {
-                setSourceDraft();
-                setError("");
-                setReload((n) => n + 1);
-              }}
-            >
-              {draft ? "Discard draft and reload" : "Reload from ontology"}
-            </button>
-            <button
-              disabled={!snapshot.selected || loading}
-              onClick={findSelected}
-            >
-              Find selected entity
-            </button>
-            <button
-              disabled={busy || loading}
-              onClick={() => window.axiom.command("file.exportOntology")}
-            >
-              Export...
-            </button>
-          </>
+      <div
+        ref={area}
+        className="source-area"
+        style={
+          {
+            "--source-gutter": (layout.narrow ? 32 : 40) + "px",
+          } as React.CSSProperties
         }
       >
-        <button
-          disabled={!draft || busy || loading || stale}
-          onClick={() => void apply()}
+        <div className="source-focus-surface" aria-hidden="true" />
+        <div ref={host} className="source-editor" />
+        <div
+          ref={horizontal}
+          className="source-horizontal"
+          aria-hidden="true"
+          tabIndex={-1}
         >
-          Apply changes
-        </button>
-        <label>
-          Format{" "}
-          <select
-            aria-label="Source format"
-            value={doc?.format ?? "turtle"}
-            disabled={busy || loading}
-            onChange={(e) => void convert(e.target.value as SourceFormat)}
-          >
-            {sourceFormats.map((f) => (
-              <option
-                key={f.id}
-                value={f.id}
-                disabled={doc?.namedGraphs && !f.graphs}
-              >
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </PaneToolbar>
-      <div className="source-status" role="status">
-        {loading
-          ? "Loading source..."
-          : busy
-            ? "Applying source..."
-            : draft
-              ? "Unapplied source changes"
-              : !doc
-                ? "Source unavailable"
-                : "Synchronized with graph and taxonomy"}
-        {doc && !loading
-          ? " · " + doc.statements.toLocaleString() + " statements"
-          : ""}
+          <div ref={extent} className="source-extent">
+            {text}
+          </div>
+        </div>
       </div>
-      {stale && (
-        <p className="source-message" role="alert">
-          The ontology changed in another view. Your draft is preserved. Copy
-          any edits you want to keep before reloading the current document.
-        </p>
-      )}
-      {error && (
-        <ErrorNotice className="source-message field-error" error={error} />
-      )}
-      {doc?.namedGraphs && (
-        <PaneDetails title="Named graph formats" className="source-format-help">
-          <p className="source-message muted">
-            This document contains named graphs. TriG, N-Quads and JSON-LD
-            preserve them.
-          </p>
-        </PaneDetails>
-      )}
-      <div ref={host} className="source-editor" />
-    </section>
+    </UtilityFrame>
   );
 }

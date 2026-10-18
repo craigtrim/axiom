@@ -41,11 +41,14 @@ export function useActionOverflow(
             const ownStyle = win.getComputedStyle(el);
             return (
               width +
-              (content
-                ? content.getBoundingClientRect().width / scale +
-                  parseFloat(ownStyle.paddingLeft) +
-                  parseFloat(ownStyle.paddingRight)
-                : el.getBoundingClientRect().width / scale) +
+              // craigtrim/axiom#94: resizable primary fields retain their full allocation during overflow measurement.
+              (el.dataset.naturalActionWidth
+                ? Number(el.dataset.naturalActionWidth)
+                : content
+                  ? content.getBoundingClientRect().width / scale +
+                    parseFloat(ownStyle.paddingLeft) +
+                    parseFloat(ownStyle.paddingRight)
+                  : el.getBoundingClientRect().width / scale) +
               gap
             );
           }, 0),

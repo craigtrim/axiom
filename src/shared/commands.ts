@@ -1,3 +1,4 @@
+// craigtrim/axiom#94: keep the utility title in sentence case.
 import { layoutOptions } from "./layout-options";
 // Issue 87: the example dataset controls live in the installed Tools menu.
 export const datasetSizes = [1000, 12000, 50000, 100000];
@@ -132,7 +133,7 @@ export const menuTree: MenuDefinition[] = [
     ),
     null,
     c("view.find", "Find", "View"),
-    c("view.tabhistory", "Tab History", "View"),
+    c("view.tabhistory", "Tab history", "View"),
     c("view.sparsity", "Sparsity", "View"),
     c("view.quality", "Ontology Quality", "View"),
     c("view.textanalysis", "Text Analysis", "View"),

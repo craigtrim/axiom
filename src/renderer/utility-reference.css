@@ -1,0 +1,565 @@
+/* craigtrim/axiom#94: utility geometry uses the shared token layer. */
+@scope (.utility-surface) {
+  .stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* ---- Source: a gutter and a text area, nothing more */
+  .ed {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    min-height: 0;
+    height: 100%;
+  }
+  .gut {
+    overflow: hidden;
+    padding: var(--sp-2) 5px var(--sp-2) 0;
+    text-align: end;
+    font: 12px/1.5 var(--mono);
+    color: var(--idle);
+    background: var(--surface);
+    border-inline-end: 1px solid var(--border);
+    user-select: none;
+    white-space: pre;
+  }
+  .code {
+    min-height: 0;
+    padding: var(--sp-2);
+    border: 0;
+    outline: 0;
+    resize: none;
+    background: var(--ground);
+    color: var(--text);
+    font: 12px/1.5 var(--mono);
+    white-space: pre;
+    overflow: auto;
+    tab-size: 2;
+  }
+  .code:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--focus);
+  }
+
+  /* ---- Provenance: options, then progress, then evidence */
+  .prow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 26px;
+    padding: 2px var(--sp-3);
+  }
+  .prow > .pl {
+    flex: none;
+    width: 150px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .prow > .pv {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .path {
+    font: 12px var(--mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sum {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    padding: var(--sp-2) var(--sp-3);
+    border-block: 1px solid var(--border);
+  }
+  .sum .s1 {
+    display: grid;
+    gap: 1px;
+  }
+  .sum .s1 .sv2 {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .sum .s1 .sk {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .sum .s1.zero .sv2 {
+    color: var(--text-muted);
+  }
+  .prog {
+    height: 4px;
+    background: var(--sunken);
+    overflow: hidden;
+  }
+  .prog i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width var(--t-fast);
+  }
+
+  /* ---- Error log: an entry, then sections that stay shut until opened */
+  .ent {
+    border-bottom: 1px solid var(--border);
+  }
+  .ent > .eh {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: var(--row);
+    padding: 2px var(--sp-3);
+    border: 0;
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    text-align: start;
+    cursor: pointer;
+  }
+  .ent > .eh:hover {
+    background: var(--row-hover);
+  }
+  .ent[data-open="true"] > .eh {
+    background: var(--row-selected);
+    font-weight: 600;
+  }
+  .ent .et {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ent .ew {
+    flex: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .ebody {
+    padding: 0 var(--sp-3) var(--sp-2) var(--sp-3);
+    display: grid;
+    gap: var(--sp-1);
+  }
+  .tl {
+    display: grid;
+    gap: 2px;
+    padding-inline-start: var(--sp-2);
+    border-inline-start: 2px solid var(--border-strong);
+  }
+  .tl .ts {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .tl .ts b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .dsec {
+    border: 1px solid var(--border);
+    border-radius: var(--r-ctl);
+  }
+  .dsec > summary {
+    padding: 3px var(--sp-2);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .dsec > summary::marker {
+    color: var(--idle);
+  }
+  .dsec > .dc {
+    margin: 0;
+    padding: var(--sp-2);
+    border-top: 1px solid var(--border);
+    background: var(--sunken);
+    font: 11px/1.45 var(--mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 180px;
+    overflow: auto;
+  }
+
+  /* ---- Tab history: a two level tree, type then date */
+  .grp {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    height: var(--row);
+    padding: 0 var(--sp-3);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+  }
+  .grp .gn {
+    margin-inline-start: auto;
+    font-weight: 400;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .leaf {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    height: var(--row);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    text-align: start;
+    cursor: pointer;
+    padding: 0 var(--sp-3) 0 var(--sp-5);
+  }
+  .leaf:hover {
+    background: var(--row-hover);
+  }
+  .leaf[aria-pressed="true"] {
+    background: var(--row-selected);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .leaf .ln {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .leaf .ld {
+    flex: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .note2 {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .note2.bad3 {
+    background: var(--bad-soft);
+  }
+  .note2.wrn3 {
+    background: var(--warn-soft);
+  }
+  .note2 b {
+    font-weight: 600;
+  }
+
+  :scope {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    font: 13px/1.45 var(--font);
+  }
+  :scope .bar {
+    padding: 0 4px 0 8px;
+  }
+  :scope .utility-primary {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+  }
+  :scope[data-panel="source"] .utility-primary {
+    flex: 0 1 200px;
+    min-width: 72px;
+  }
+  :scope .sel {
+    width: 100%;
+    min-width: 72px;
+    max-width: 200px;
+    height: 22px;
+    padding: 0 4px;
+    border: 1px solid var(--border-ctl);
+    border-radius: 4px;
+    background: var(--ground);
+    color: var(--text);
+    font: 12px/1.45 var(--font);
+  }
+  :scope .fld {
+    width: auto;
+    height: 22px;
+    min-height: 0;
+    padding: 0 8px;
+    border: 1px solid var(--border-ctl);
+    border-radius: 4px;
+    background: var(--ground);
+    color: var(--text);
+    font: 12px/1.45 var(--font);
+  }
+  :scope .number-field {
+    flex: none;
+    width: 82.5px;
+  }
+  :scope .number-field .fld {
+    width: 82.5px;
+  }
+  :scope .number-field-error:empty {
+    display: none;
+  }
+  :scope .number-field:has([aria-invalid="true"]) {
+    width: auto;
+    display: grid;
+  }
+  :scope .number-field-error {
+    font-size: 11px;
+  }
+  :scope .source-editor {
+    height: calc(100% - var(--source-scroll-height, 0px));
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+  }
+  :scope .source-focus-surface {
+    position: absolute;
+    inset: 0 0 0 var(--source-gutter, 40px);
+    z-index: 2;
+    pointer-events: none;
+  }
+  :scope .source-area:focus-within .source-focus-surface {
+    box-shadow: inset 0 0 0 1px var(--focus);
+    border-radius: 4px;
+  }
+  :scope .source-editor .line-numbers {
+    color: var(--idle) !important;
+  }
+  :scope .rows > .grid {
+    min-width: 470px;
+  }
+  :scope .grid th,
+  :scope .grid td {
+    padding: 0 8px;
+  }
+  :scope .grid tr[tabindex="0"] {
+    cursor: pointer;
+  }
+  :scope .grid .error-details-button {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font: 12px/1.45 var(--font);
+  }
+  :scope .leaf[aria-disabled="true"] {
+    color: var(--idle);
+    cursor: default;
+  }
+  :scope .leaf[aria-disabled="true"]:hover {
+    background: none;
+  }
+  :scope .date {
+    padding-inline-start: 16px;
+  }
+  :scope .prog i.indeterminate {
+    width: 33.333%;
+    animation: utility-progress 1.3s linear infinite;
+  }
+  :scope .prog i.stopped {
+    animation-play-state: paused;
+  }
+  :scope .empty {
+    margin: 0;
+  }
+  :scope .tag {
+    flex: none;
+  }
+  :scope .state {
+    min-width: 0;
+  }
+  :scope .toast {
+    inset-block-end: 12px;
+  }
+  :scope .pane-alert {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+  :scope .rows {
+    min-width: 0;
+  }
+}
+.adaptive-pane[data-pane-narrow="true"] .utility-surface .prow > .pl {
+  width: 104px;
+}
+.adaptive-pane[data-pane-narrow="true"] .utility-surface .sum {
+  gap: 12px;
+}
+.adaptive-pane[data-pane-narrow="true"] .utility-surface .ent .ew {
+  display: none;
+}
+.adaptive-pane[data-pane-shallow="true"] .utility-surface .sum {
+  display: none;
+}
+@keyframes utility-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .utility-surface .prog i.indeterminate {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* Monaco shares a global theme; keep this view's plain token palette scoped. */
+.utility-surface .monaco-editor,
+.utility-surface .monaco-editor-background {
+  background: var(--ground) !important;
+}
+.utility-surface .monaco-editor .margin {
+  background: var(--ground) !important;
+  border: 0;
+}
+.utility-surface .monaco-editor .margin-view-overlays {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  width: var(--source-gutter, 40px) !important;
+}
+.utility-surface .monaco-editor .line-numbers {
+  left: 0 !important;
+  width: calc(var(--source-gutter, 40px) - 6px) !important;
+  color: var(--idle) !important;
+}
+.utility-surface .monaco-editor .view-line span {
+  color: var(--text) !important;
+}
+/* Chromium blends a dark inset shadow differently on a transparent layer.
+   Keep that focus surface opaque below the editor so its rounded edge matches
+   the native field; light fields retain the opaque editor text surface. */
+[data-theme="dark"] .utility-surface .source-focus-surface {
+  z-index: 0;
+  background: var(--ground);
+}
+[data-theme="dark"] .utility-surface .monaco-editor,
+[data-theme="dark"] .utility-surface .monaco-editor-background,
+[data-theme="dark"] .utility-surface .monaco-editor .margin {
+  background: transparent !important;
+}
+.utility-surface .monaco-editor .selected-text {
+  background: var(--sel) !important;
+}
+.utility-surface .monaco-editor .minimap {
+  display: none;
+}
+.utility-surface .utility-source-status {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: none;
+  border: 0;
+}
+.utility-surface :is(button, input, select) {
+  min-height: 0;
+}
+.utility-surface .body {
+  min-height: 0;
+  overflow: hidden;
+}
+.utility-surface .rows {
+  overflow: auto;
+  min-height: 0;
+}
+.utility-surface[data-panel="source"] .rows {
+  overflow: hidden;
+}
+.utility-surface {
+  grid-template-columns: minmax(0, 1fr);
+}
+.utility-surface .grid td.num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.utility-surface :is(.grp, .leaf, .eh) {
+  border-radius: 0;
+}
+.utility-surface .sw {
+  white-space: normal;
+}
+.utility-surface .sw:disabled {
+  opacity: 1;
+}
+.adaptive-pane:has(.utility-surface) > .pane-recovery .id {
+  font-size: 12px;
+  font-weight: 600;
+}
+.utility-surface .bar .state {
+  flex-shrink: 100000;
+}
+.utility-surface .shared-command[data-pinned="true"] {
+  flex: 0 1 115.5px;
+  min-width: 24px;
+  margin-left: auto;
+}
+.utility-surface .shared-command[data-pinned="true"] .fld {
+  width: 100%;
+  min-width: 0;
+}
+.utility-surface .bar:has([data-pinned="true"]) .state {
+  padding: 0;
+}
+.utility-surface .bar:has([data-pinned="true"]) .state > [data-natural-width] {
+  padding: 0 4px;
+}
+.utility-surface .bar:has([data-pinned="true"]) .od-fill {
+  display: none;
+}
+.utility-surface .source-area {
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+.utility-surface .source-area::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--source-gutter);
+  box-sizing: border-box;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.utility-surface .source-horizontal {
+  position: absolute;
+  bottom: 0;
+  left: var(--source-gutter);
+  right: 0;
+  height: 15px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  visibility: hidden;
+}
+.utility-surface .source-extent {
+  width: max-content;
+  height: 1px;
+  overflow: hidden;
+  padding: 0 0 0 8px;
+  white-space: pre;
+  font: 12px/18px var(--mono);
+  tab-size: 2;
+}
