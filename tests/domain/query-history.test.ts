@@ -137,56 +137,52 @@ describe("persistent query documents", () => {
     ).toBe("ASK {}");
   });
 });
-describe("agent delivery", () => {
-  it("opens the generated query while retaining the source, and delivers it once", async () => {
-    const first = await service.load(),
-      baseline = await service.baseline(first.activeId);
-    const delivered = await service.deliver(response(), baseline);
+// craigtrim/axiom#88: proposal documents are created only by an explicit Open action.
+describe("opening an agent proposal", () => {
+  it("opens the generated query while retaining the source, and opens it only once", async () => {
+    const first = await service.load();
+    const delivered = await service.openProposal(response());
     expect(delivered.entries).toHaveLength(2);
     expect(delivered.current.text).toBe(response().result.sparql);
     expect(delivered.current.generation?.result.explanation).toBe(
       "Lists classes.",
     );
-    expect((await service.deliver(response(), baseline)).entries).toHaveLength(
-      2,
-    );
+    expect((await service.openProposal(response())).entries).toHaveLength(2);
     expect(
       (await service.apply({ type: "select", id: first.activeId })).current
         .text,
     ).toBe(initial);
   });
-  it("preserves newer edits and offers the generated query as a new page", async () => {
-    const first = await service.load(),
-      baseline = await service.baseline(first.activeId);
+  it("preserves newer source edits when a proposal is explicitly opened", async () => {
+    const first = await service.load();
     await service.apply({
       type: "edit",
       id: first.activeId,
       text: "ASK {VALUES ?x {42}}",
     });
-    const delivered = await service.deliver(response(), baseline);
-    expect(delivered.activeId).toBe(first.activeId);
-    expect(delivered.current.text).toContain("42");
-    expect(delivered.pendingId).toBe(delivered.entries[1].id);
-    const opened = await service.apply({
-      type: "select",
-      id: delivered.pendingId!,
-    });
-    expect(opened.pendingId).toBeUndefined();
+    const opened = await service.openProposal(response());
     expect(opened.current.text).toBe(response().result.sparql);
+    expect(opened.pendingId).toBeUndefined();
+    expect(
+      (await service.apply({ type: "select", id: first.activeId })).current
+        .text,
+    ).toContain("42");
   });
-  it("does not take over a different query while generation is running", async () => {
-    const baseline = await service.baseline(),
-      other = await add("ASK {}");
-    const delivered = await service.deliver(response(), baseline);
-    expect(delivered.activeId).toBe(other.activeId);
+  it("opens a refinement and records its source while keeping other documents", async () => {
+    const first = await service.load();
+    await add("ASK {}");
+    const proposal = response();
+    proposal.request.queryId = first.activeId;
+    proposal.request.currentQuery = first.current.text;
+    const delivered = await service.openProposal(proposal);
+    expect(delivered.current.text).toBe(proposal.result.sparql);
+    expect(delivered.current.parentId).toBe(first.activeId);
+    expect(delivered.entries[2].parentId).toBe(first.activeId);
     expect(delivered.entries).toHaveLength(3);
-    expect(delivered.pendingId).toBeTruthy();
+    expect(delivered.pendingId).toBeUndefined();
   });
   it("keeps validation information with generated SPARQL for editing", async () => {
-    const v = await service.deliver(
-      response("Unknown property"),
-      await service.baseline(),
-    );
+    const v = await service.openProposal(response("Unknown property"));
     expect(v.current.generation?.validation).toBe("Unknown property");
     expect(v.current.text).toBe(response().result.sparql);
   });
@@ -198,7 +194,7 @@ describe("agent delivery", () => {
       explanation: "Remote service unavailable.",
       assumptions: [],
     };
-    const v = await service.deliver(r, await service.baseline());
+    const v = await service.openProposal(r);
     expect(v.entries).toHaveLength(1);
   });
 });

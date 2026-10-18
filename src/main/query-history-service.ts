@@ -125,6 +125,11 @@ export class QueryHistoryService {
       updatedAt: e.updatedAt,
       preview: e.text.replace(/\s+/g, " ").slice(0, 180),
       rows: e.lastRun?.summary.rowCount,
+      parentId:
+        e.parentId ??
+        (e.generation?.request.currentQuery
+          ? e.generation.request.queryId
+          : undefined),
     };
   }
   async load() {
@@ -253,6 +258,7 @@ export class QueryHistoryService {
             result.title,
           );
           source.restoredRunId = result.id;
+          source.parentId = result.queryId;
           source.lastRun = structuredClone(result.run);
           d.entries.push(source);
         }
@@ -310,21 +316,21 @@ export class QueryHistoryService {
     if (!e) throw Error("The source query is no longer available.");
     return { id: e.id, editVersion: e.editVersion };
   }
-  async deliver(
-    response: QueryAssistantResponse,
-    baseline: { id: string; editVersion: number },
-  ) {
+  // craigtrim/axiom#88: only an explicit Open action creates or selects the proposal.
+  async openProposal(response: QueryAssistantResponse) {
     if (response.result.status !== "query" || !response.result.sparql)
       return this.load();
     return this.change((d) => {
-      if (
-        d.entries.some(
-          (e) =>
-            e.generation?.completedAt === response.completedAt &&
-            e.generation.request.provider === response.request.provider,
-        )
-      )
+      const existing = d.entries.find(
+        (e) =>
+          e.generation?.completedAt === response.completedAt &&
+          e.generation.request.provider === response.request.provider,
+      );
+      if (existing) {
+        d.activeId = existing.id;
+        d.pendingId = undefined;
         return;
+      }
       const e = this.entry(
         response.result.sparql,
         "agent",
@@ -337,15 +343,10 @@ export class QueryHistoryService {
         ...response,
         context: { ...response.context, terms: [], predicates: [], types: [] },
       };
+      if (response.request.currentQuery) e.parentId = response.request.queryId;
       d.entries.push(e);
-      const origin = d.entries.find((e) => e.id === baseline.id);
-      if (
-        d.activeId === baseline.id &&
-        origin?.editVersion === baseline.editVersion
-      ) {
-        d.activeId = e.id;
-        d.pendingId = undefined;
-      } else d.pendingId = e.id;
+      d.activeId = e.id;
+      d.pendingId = undefined;
     });
   }
 }
