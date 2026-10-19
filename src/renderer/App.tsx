@@ -13,7 +13,8 @@ import {
 } from "./TabHistoryPanel";
 import {
   captureTab,
-  ensureTabMetadata,
+  availableTabName,
+  normalizeDefaultTabNames,
   syncTabHistory,
   renameTab,
   tabHistory,
@@ -272,6 +273,12 @@ export const screenProfile = (
 ): "standard" | "wide" =>
   width >= 1600 && width / height >= 1.7 ? "wide" : "standard";
 export function restoreLayout(value: unknown): Model {
+  // craigtrim/axiom#113: repair generated names once, when loading a layout.
+  const model = readLayout(value);
+  normalizeDefaultTabNames(model);
+  return model;
+}
+function readLayout(value: unknown): Model {
   try {
     if (!value)
       return Model.fromJson(
@@ -613,14 +620,25 @@ export function App() {
       m.getNodeById("graph")?.getParent() ??
       m.getNodeById("hierarchy")?.getParent() ??
       m.getRootRow()!;
+    const name =
+      saved.named || saved.type === "touchpoints"
+        ? saved.name
+        : availableTabName(m, saved.type);
     m.doAction(
       Actions.addTab(
         {
           type: "tab",
           id: saved.id,
           component: saved.type,
-          name: saved.name,
-          config: saved.config,
+          name,
+          config: {
+            ...saved.config,
+            axiomTab: {
+              createdAt: saved.createdAt,
+              defaultName: name,
+              named: saved.named,
+            },
+          },
         },
         target.getId(),
         DockLocation.CENTER,

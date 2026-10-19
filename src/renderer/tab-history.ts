@@ -47,12 +47,11 @@ export function ensureTabMetadata(model: Model, n: TabNode) {
   const type = n.getComponent()!;
   const history = tabHistory();
   const saved = history.entries.find((t) => t.id === n.getId());
-  const sequence = (history.counters[type] = (history.counters[type] ?? 0) + 1);
   const defaultName =
-    type === "touchpoints" ? n.getName() : defaultTabName(type, sequence);
+    type === "touchpoints" ? n.getName() : availableTabName(model, type, n);
   model.doAction(
     Actions.updateNodeAttributes(n.getId(), {
-      name: saved?.name ?? defaultName,
+      name: saved?.named ? saved.name : defaultName,
       config: {
         ...n.getConfig(),
         axiomTab: {
@@ -63,6 +62,45 @@ export function ensureTabMetadata(model: Model, n: TabNode) {
       },
     }),
   );
+}
+// craigtrim/axiom#113: borders and detached layouts reserve names too.
+export function availableTabName(
+  model: Model,
+  type: string,
+  exclude?: TabNode,
+) {
+  const names: string[] = [];
+  model.visitNodes((n) => {
+    if (n instanceof TabNode && n !== exclude) names.push(n.getName());
+  });
+  return defaultTabName(type, names);
+}
+export function normalizeDefaultTabNames(model: Model) {
+  const tabs: TabNode[] = [];
+  model.visitNodes((n) => {
+    if (n instanceof TabNode) tabs.push(n);
+  });
+  for (const n of tabs) ensureTabMetadata(model, n);
+  const automatic = tabs.filter(
+    (n) => metadata(n)?.named === false && n.getComponent() !== "touchpoints",
+  );
+  const pending = new Set(automatic);
+  const used = new Set(
+    tabs.filter((n) => !pending.has(n)).map((n) => n.getName()),
+  );
+  for (const n of automatic) {
+    const name = defaultTabName(n.getComponent()!, used);
+    used.add(name);
+    model.doAction(
+      Actions.updateNodeAttributes(n.getId(), {
+        name,
+        config: {
+          ...n.getConfig(),
+          axiomTab: { ...metadata(n), defaultName: name },
+        },
+      }),
+    );
+  }
 }
 export function captureTab(n: TabNode) {
   const type = n.getComponent()!,
