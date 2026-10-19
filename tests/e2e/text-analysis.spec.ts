@@ -19,6 +19,8 @@ import {
   requestCount,
 } from "./held-requests";
 import type { Snapshot } from "../../src/shared/protocol";
+// craigtrim/axiom#111: disambiguation identifiers use the shared syntax palette.
+import { assertCodeBothThemes } from "./syntax-assertions";
 const home =
   (process.env.AXIOM_TEST_EXE
     ? path.join(path.dirname(process.env.AXIOM_TEST_EXE), "resources/mutatoc")
@@ -1559,6 +1561,7 @@ test("shared canonical names offer their actual ontology entries in the existing
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   await clickHighlight("dog");
   await expect(details()).toContainText("shared by 2 ontology entries");
+  await assertCodeBothThemes(details(), ".text-span-choice code");
   await expect(
     details().getByRole("button", { name: "Open Dog", exact: true }),
   ).toBeVisible();
