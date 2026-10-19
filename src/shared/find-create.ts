@@ -1,5 +1,4 @@
 import { NS, SUBCLASS, TYPE, SUBPROPERTY, type Kind } from "../domain/model";
-import { findSynonymText } from "./find-synonyms";
 import type {
   TextAnalysisDraft,
   TextAnalysisClassInput,
@@ -57,9 +56,24 @@ export interface FindCollision {
   kind: "exact" | "normalized" | "iri";
   openable?: boolean;
 }
+// #127: new-class offers keep their own constraints; synonyms accept literal queries.
+function findCreationText(input: string): string | undefined {
+  const text = input.trim();
+  if (!text || text.length > 256) return;
+  if (
+    /(?:^|\s)[\p{L}_][\p{L}\p{N}_-]*(?::[\p{L}_][\p{L}\p{N}_-]*)?:/u.test(
+      text,
+    ) ||
+    /^<[^>]+>$|^\/.*\/[a-z]*$/iu.test(text) ||
+    /[\\^$*|]|\[[^\]]*\]|\(\?|\.\+|\{\d+(?:,\d*)?\}/u.test(text)
+  )
+    return;
+  return text;
+}
+
 /** Result count never decides whether a query can name a new class. */
 export function findCreationOffer(query: string, collisions: FindCollision[]) {
-  const text = findSynonymText(query);
+  const text = findCreationText(query);
   const label = text ? titleCaseQuery(text) : "";
   const collision = collisions.find((item) => item.kind !== "normalized");
   return {

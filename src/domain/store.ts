@@ -1625,8 +1625,8 @@ export class Store {
   addSynonym(iri: string, label: string, predicate = NS.skos + "altLabel") {
     if (!this.exists(iri)) throw Error("The entity no longer exists.");
     label = label.trim();
-    if (!label || label.length > 256)
-      throw Error("Enter a synonym of 1 to 256 characters.");
+    // #127: Find accepts the complete nonblank query as a synonym literal.
+    if (!label) throw Error("Enter a synonym.");
     if (
       this.tbox.some(
         (t) =>
