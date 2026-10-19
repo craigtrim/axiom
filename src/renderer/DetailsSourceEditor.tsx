@@ -44,7 +44,10 @@ export function DetailsSourceEditor({
   };
   useLayoutEffect(align, [value, format]);
   useEffect(() => {
-    const observer = new ResizeObserver(align);
+    // The editor resizes without a value change, and a detached pane's
+    // textarea reports only to its own window's observer.
+    const observer =
+      new editor.current!.ownerDocument.defaultView!.ResizeObserver(align);
     observer.observe(editor.current!);
     return () => observer.disconnect();
   }, []);
@@ -59,10 +62,14 @@ export function DetailsSourceEditor({
     const view = input.ownerDocument.defaultView!,
       css = view.getComputedStyle(input),
       area = body.getBoundingClientRect(),
-      box = stack.getBoundingClientRect();
+      box = stack.getBoundingClientRect(),
+      // Client rects carry the pane's CSS zoom; layout metrics and max-height do not.
+      zoom = Number(
+        body.closest<HTMLElement>(".adaptive-pane")?.dataset.paneZoom ?? 1,
+      );
     // Content coordinates, so scrolling the body never changes the answer.
-    const top = box.top - area.top - body.clientTop + body.scrollTop,
-      below = last.getBoundingClientRect().bottom - box.bottom,
+    const top = (box.top - area.top) / zoom - body.clientTop + body.scrollTop,
+      below = (last.getBoundingClientRect().bottom - box.bottom) / zoom,
       room =
         body.clientHeight -
         parseFloat(view.getComputedStyle(body).paddingBottom) -
@@ -81,9 +88,10 @@ export function DetailsSourceEditor({
     fit();
     const body = editor.current?.closest(".pbody");
     if (!body) return;
-    // The room changes with the body and with anything above the editor.
+    // The room changes with the body and with anything above the editor. A
+    // detached pane's elements report only to its own window's observer.
     fitting.current ??= {
-      observer: new ResizeObserver(fit),
+      observer: new body.ownerDocument.defaultView!.ResizeObserver(fit),
       seen: new WeakSet(),
     };
     for (const el of [body, ...body.children])

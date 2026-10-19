@@ -5,6 +5,7 @@ import {
   test,
   expect,
   type ElectronApplication,
+  type Locator,
   type Page,
 } from "@playwright/test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
@@ -232,47 +233,51 @@ test("source context-menu access keys preserve selection and edit the local draf
 });
 
 // craigtrim/axiom#118: wrapped text sizes the source up to the pane body's free room.
+const sizeDetails = (window: Page, width: number, height: number) =>
+  window.locator('.adaptive-pane[data-pane-id="details"]').evaluate(
+    (el, size) =>
+      Object.assign((el as HTMLElement).style, {
+        position: "fixed",
+        left: "20px",
+        top: "80px",
+        zIndex: "1000",
+        width: size.width + "px",
+        height: size.height + "px",
+      }),
+    { width, height },
+  );
+const sourceMetrics = (editor: Locator) =>
+  editor.evaluate((el: HTMLTextAreaElement) => {
+    const css = getComputedStyle(el),
+      body = el.closest(".pbody")!;
+    return {
+      lines: el.value.split("\n").length,
+      line: parseFloat(css.lineHeight),
+      chrome: parseFloat(css.paddingTop) + parseFloat(css.paddingBottom),
+      height: el.getBoundingClientRect().height,
+      scroll: el.scrollHeight,
+      client: el.clientHeight,
+      bodyScroll: body.scrollHeight,
+      bodyClient: body.clientHeight,
+      // Free space between the source region and the body's bottom edge, in
+      // client-rect pixels so pane zoom applies to both edges alike.
+      gap:
+        body.getBoundingClientRect().bottom -
+        body.lastElementChild!.getBoundingClientRect().bottom,
+    };
+  });
+const sourceRows = (m: { line: number; chrome: number }, n: number) =>
+  n * m.line + m.chrome;
+const longSource = (lines: number) =>
+  Array.from({ length: lines }, (_, i) => "# line " + i).join("\n");
+
 test("source grows with its wrapped text into the free pane height and keeps fourteen rows in a short pane", async () => {
   await openSource();
   const version = (await state()).version;
-  const host = page.locator('.adaptive-pane[data-pane-id="details"]');
   const size = (width: number, height: number) =>
-    host.evaluate(
-      (el, size) =>
-        Object.assign((el as HTMLElement).style, {
-          position: "fixed",
-          left: "20px",
-          top: "80px",
-          zIndex: "1000",
-          width: size.width + "px",
-          height: size.height + "px",
-        }),
-      { width, height },
-    );
-  const metrics = () =>
-    source().evaluate((el: HTMLTextAreaElement) => {
-      const css = getComputedStyle(el),
-        body = el.closest(".pbody")!,
-        area = body.getBoundingClientRect();
-      return {
-        lines: el.value.split("\n").length,
-        line: parseFloat(css.lineHeight),
-        chrome: parseFloat(css.paddingTop) + parseFloat(css.paddingBottom),
-        height: el.getBoundingClientRect().height,
-        scroll: el.scrollHeight,
-        client: el.clientHeight,
-        bodyScroll: body.scrollHeight,
-        bodyClient: body.clientHeight,
-        // Free space between the source region and the body's bottom edge.
-        gap:
-          area.top +
-          body.clientTop +
-          body.clientHeight -
-          body.lastElementChild!.getBoundingClientRect().bottom,
-      };
-    });
-  const rows = (m: { line: number; chrome: number }, n: number) =>
-    n * m.line + m.chrome;
+    sizeDetails(page, width, height);
+  const metrics = () => sourceMetrics(source());
+  const rows = sourceRows;
 
   // The issue's screenshot: N-Triples statements wrap, and a tall pane shows all of them.
   const format = details().getByRole("combobox", {
@@ -345,6 +350,84 @@ test("source grows with its wrapped text into the free pane height and keeps fou
   expect(cramped.bodyScroll).toBeGreaterThan(cramped.bodyClient);
   await expect(source()).toHaveValue(long);
   expect((await state()).version).toBe(version);
+});
+
+test("source sizing follows pane zoom and a statement group opened in detached Details", async () => {
+  await importText(
+    ttl +
+      '\n:Many a owl:Class; rdfs:label "Many"; rdfs:comment "c1", "c2", "c3", "c4", "c5", "c6" .',
+    "many.ttl",
+  );
+  await menu("view.details");
+  await select(base + "Many");
+  await expect(label()).toHaveValue("Many");
+  await openSource();
+  const filled = async (editor: Locator) => {
+    await expect
+      .poll(async () => {
+        const m = await sourceMetrics(editor);
+        return m.gap >= 0 && m.gap < 2;
+      })
+      .toBe(true);
+    const m = await sourceMetrics(editor);
+    expect(m.scroll).toBeGreaterThan(m.client);
+    expect(m.bodyScroll).toBeLessThanOrEqual(m.bodyClient);
+    return m;
+  };
+  const zoom = () =>
+    source().evaluate((el) =>
+      Number(el.closest<HTMLElement>(".adaptive-pane")!.dataset.paneZoom),
+    );
+  const wheel = (deltaY: number) =>
+    source().evaluate(
+      (el, deltaY) =>
+        el.dispatchEvent(
+          new WheelEvent("wheel", {
+            deltaY,
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+      deltaY,
+    );
+  await sizeDetails(page, 700, 2000);
+  await source().fill(longSource(200));
+  await wheel(-240);
+  await expect.poll(zoom).toBeGreaterThan(1.4);
+  await filled(source());
+  await wheel(480);
+  await expect.poll(zoom).toBeLessThan(0.75);
+  await filled(source());
+  await wheel(-240);
+  await expect.poll(zoom).toBeCloseTo(1, 2);
+
+  // Opening a statement group in detached Details takes its height from the source.
+  await menu("pane.detach");
+  await expect.poll(() => app.windows().length).toBe(2);
+  const child = app.windows().find((p) => p !== page)!;
+  child.on("pageerror", (error) => errors.push(error.message));
+  if (process.env.AXIOM_TEST_BACKGROUND === "1")
+    await (
+      await app.browserWindow(child)
+    ).evaluate((win) => win.setFocusable(false));
+  const pane = child.getByRole("region", { name: "Details", exact: true });
+  const detached = pane.getByRole("textbox", { name: /^Source for / });
+  await (
+    await app.browserWindow(child)
+  ).evaluate((win) => win.setContentSize(1000, 800));
+  await expect(detached).toBeEnabled();
+  await sizeDetails(child, 700, 1400);
+  await detached.fill(longSource(200));
+  const closed = await filled(detached);
+  await pane
+    .locator(`tr[data-predicate="${NS.rdfs}comment"]`)
+    .getByRole("button", { name: "3 more", exact: true })
+    .click();
+  await expect
+    .poll(async () => (await sourceMetrics(detached)).height)
+    .toBeLessThan(closed.height);
+  await filled(detached);
 });
 
 test("source format choices prevent losing named graphs and retain the native format", async () => {
