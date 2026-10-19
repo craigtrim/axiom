@@ -749,7 +749,7 @@ for (const action of ["highlight", "Summary"] as const)
         await panel()
           .locator(".view-lines .ta-match")
           .filter({ hasText: "canine" })
-          .click();
+          .click({ modifiers: ["Control"] });
       else {
         await showSummary();
         await chip("dog").click();
@@ -859,11 +859,11 @@ test("background analysis retains moved highlights, status and legend until one 
   await page.keyboard.insertText(" and Cat");
   await expect(chip("cat")).toHaveCount(0);
   await expect.poll(() => highlighted("dog")).toBe("canine");
-  // A click on the moved range must inspect Dog despite its old offsets.
+  // Ctrl+click on the moved range must inspect Dog despite its old offsets.
   await panel()
     .locator('.view-lines [class*="text-entity-"]')
     .filter({ hasText: "canine" })
-    .click();
+    .click({ modifiers: ["Control"] });
   await expect(status).toHaveText("Analyzing");
   await releaseRequests(app);
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
@@ -1436,7 +1436,39 @@ async function clickHighlight(label: string, occurrence = 0) {
   const className = (await chip(label).getAttribute("class"))!.match(
     /text-entity-\d+/,
   )![0];
-  await panel().locator(`.view-lines .${className}`).nth(occurrence).click();
+  // #128: opening Details from editable text takes an explicit Ctrl+click.
+  await panel()
+    .locator(`.view-lines .${className}`)
+    .nth(occurrence)
+    .click({ modifiers: ["Control"] });
+}
+
+for (const auto of [true, false]) {
+  test(`#128 plain highlight clicks keep the caret and focus with Auto ${auto ? "on" : "off"}`, async () => {
+    await enter("canine and Cat");
+    await expect(chip("dog")).toBeAttached();
+    const className = (await chip("dog").getAttribute("class"))!.match(
+      /text-entity-\d+/,
+    )![0];
+    if (!auto) await liveSwitch().click();
+    await editor().focus();
+    await page.keyboard.press("Control+End");
+    const highlight = panel().locator(`.view-lines .${className}`).first();
+    const point = await highlight.evaluate((element) => {
+      const range = document.createRange();
+      range.setStart(element.firstChild!, 3);
+      range.collapse(true);
+      const r = range.getBoundingClientRect();
+      return { x: r.left, y: r.top + r.height / 2 };
+    });
+    await page.mouse.click(point.x, point.y);
+    await expect(editor()).toBeFocused();
+    await expect(panel().locator(".ta-caret")).toHaveText("canine");
+    await expect(detailsTab()).toHaveCount(0);
+    await page.keyboard.insertText("_");
+    await expect(panel().locator(".view-lines")).toHaveText("can_ine and Cat");
+    await expect(detailsTab()).toHaveCount(0);
+  });
 }
 
 test("clicking a synonym reuses the editable Details tab for successive entities", async () => {
@@ -1768,7 +1800,9 @@ test("Add entity opens on demand and docks, resizes, closes and restores indepen
   await expect(entitiesPane()).toHaveCount(0);
   await expect(editor()).toBeVisible();
   await expect(panel().locator(`.view-lines .${className}`)).toBeVisible();
-  await panel().locator(`.view-lines .${className}`).click();
+  await panel()
+    .locator(`.view-lines .${className}`)
+    .click({ modifiers: ["Control"] });
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Dog");
   await expect(entitiesPane()).toHaveCount(0);
   await menu("view.details");

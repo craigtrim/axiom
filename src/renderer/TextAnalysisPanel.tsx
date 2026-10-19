@@ -291,6 +291,8 @@ export function TextAnalysisPanel() {
       down = undefined;
       if (
         !start ||
+        // #128: ordinary editor clicks only position the caret.
+        !event.event.ctrlKey ||
         !event.target.position ||
         event.event.detail !== 1 ||
         Math.hypot(start.x - event.event.posx, start.y - event.event.posy) > 4
@@ -520,13 +522,13 @@ export function TextAnalysisPanel() {
     <>
       {liveAnalysis ? (
         <>
-          Type or paste plain text. Matches update as you type. Click a
+          Type or paste plain text. Matches update as you type. Ctrl+click a
           highlight to open{" "}
         </>
       ) : (
         <>
           Type or paste plain text. Press <b>Analyze now</b> to update matches.
-          Click a highlight to open{" "}
+          Ctrl+click a highlight to open{" "}
         </>
       )}
       <b>Details</b>. Select a phrase and press <b>Alt+Enter</b>, or right click
