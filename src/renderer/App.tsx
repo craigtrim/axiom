@@ -42,7 +42,8 @@ import { SparsityPanel } from "./SparsityPanel";
 import { QualityPanel } from "./QualityPanel";
 import { requestQualitySettings } from "./quality-view";
 import { WarningSettings } from "./SeeAlsoWarning";
-import { captureWorkspaceDrafts } from "./workspace-drafts";
+// #123: autosave sends drafts only when their revision changes.
+import { captureDraftCheckpoint } from "./workspace-drafts";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
 import { WindowChrome } from "./WindowChrome";
@@ -1185,14 +1186,30 @@ export function App() {
           flushQueryHistory(),
           flushUiHistory(),
         ])
+          .then(
+            () =>
+              new Promise<void>((resolve) => {
+                // #123: capture the committed layout and its initial graph camera.
+                window.requestAnimationFrame(() =>
+                  window.requestAnimationFrame(() => resolve()),
+                );
+              }),
+          )
           .then(() => {
+            command("workspace.captureViews");
             syncTabHistory(modelRef.current);
             preferences.layout = modelRef.current.toJson();
           })
-          .then(() => captureWorkspaceDrafts())
-          .then((drafts) =>
-            window.axiom.preferences.save(preferences, true, drafts),
-          )
+          .then(() => captureDraftCheckpoint())
+          .then(async (checkpoint) => {
+            await window.axiom.preferences.save(
+              preferences,
+              true,
+              checkpoint.drafts,
+              checkpoint.revision,
+            );
+            checkpoint.acknowledge();
+          })
           .catch((e) => report(e.message, true));
       }
       if (id === "workspace.preferences")

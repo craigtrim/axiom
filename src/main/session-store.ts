@@ -18,6 +18,12 @@ export interface SavedSession {
   workbench: Preferences;
 }
 const limit = 256 * 1024 * 1024;
+// #123: an oversized revision is terminal until the saved content changes.
+export class SessionSizeError extends Error {
+  constructor() {
+    super("Saved session exceeds 256 MB.");
+  }
+}
 function readSession(value: unknown): SavedSession {
   const s = value as SavedSession;
   if (
@@ -46,15 +52,18 @@ export class SessionStore {
   readonly file: string;
   private queue = Promise.resolve();
   private previous: string | undefined;
-  constructor(directory: string) {
+  constructor(
+    directory: string,
+    private maxBytes = limit,
+  ) {
     this.file = path.join(directory, "last-session.json");
   }
   async restore(apply: (session: SavedSession) => Promise<void>) {
     const errors: string[] = [];
     for (const file of [this.file, this.file + ".bak"]) {
       try {
-        if ((await stat(file)).size > limit)
-          throw Error("Saved session exceeds 256 MB.");
+        if ((await stat(file)).size > this.maxBytes)
+          throw new SessionSizeError();
         const text = await readFile(file, "utf8");
         const session = readSession(JSON.parse(text));
         await apply(session);
@@ -69,8 +78,11 @@ export class SessionStore {
   }
   save(session: SavedSession) {
     const text = JSON.stringify(readSession(session));
-    if (Buffer.byteLength(text) > limit)
-      throw Error("Saved session exceeds 256 MB.");
+    return this.saveJson(text);
+  }
+  /** Trusted worker output; avoid parsing and stringifying the whole document again. */
+  saveJson(text: string) {
+    if (Buffer.byteLength(text) > this.maxBytes) throw new SessionSizeError();
     const operation = this.queue
       .catch(() => {})
       .then(async () => {

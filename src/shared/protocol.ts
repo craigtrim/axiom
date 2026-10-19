@@ -191,6 +191,9 @@ export type DomainMethod =
   | "queryActivate"
   | "queryResult"
   | "queryGraph"
+  // #123: cheap checkpoint revisions and worker-side JSON serialization.
+  | "sessionState"
+  | "serializeJson"
   | "serialize"
   | "load"
   | "markSaved"
@@ -380,6 +383,7 @@ export interface AxiomBridge {
       p: Preferences,
       captured?: boolean,
       drafts?: import("./editor-state").SavedEditorDrafts,
+      draftsRevision?: string,
     ): Promise<void>;
   };
   onEvent(fn: (event: { type: string; data: any }) => void): () => void;
@@ -408,4 +412,14 @@ declare global {
     MonacoEnvironment?: { getWorker: () => Worker };
     __axiom?: unknown;
   }
+}
+
+// #123: the ontology crosses IPC as JSON only when a checkpoint is needed.
+export interface SerializedCheckpoint {
+  text: string;
+  draftsText?: string;
+  storeVersion: number;
+  workspaceRevision: number;
+  datasetEpoch: number;
+  sessionRevision: number;
 }
