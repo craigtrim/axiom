@@ -416,18 +416,59 @@ test("source sizing follows pane zoom and a statement group opened in detached D
   await (
     await app.browserWindow(child)
   ).evaluate((win) => win.setContentSize(1000, 800));
+  // Mount the editor inside the popup, so reattaching adopts its DOM.
+  await select(base + "Alpha");
+  await expect(
+    pane.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
+  ).toHaveValue("Alpha");
+  await select(base + "Many");
   await expect(detached).toBeEnabled();
   await sizeDetails(child, 700, 1400);
   await detached.fill(longSource(200));
   const closed = await filled(detached);
-  await pane
-    .locator(`tr[data-predicate="${NS.rdfs}comment"]`)
+  const group = (root: Locator) =>
+    root.locator(`tr[data-predicate="${NS.rdfs}comment"]`);
+  await group(pane)
     .getByRole("button", { name: "3 more", exact: true })
     .click();
   await expect
     .poll(async () => (await sourceMetrics(detached)).height)
     .toBeLessThan(closed.height);
-  await filled(detached);
+  const opened = await filled(detached);
+  // Padding the statement count changes the height above the editor without a
+  // React render, so only the resize observer can report it.
+  const pad = async (root: Locator, editor: Locator) => {
+    const before = await filled(editor);
+    await root
+      .locator(".scount")
+      .evaluate((el) => ((el as HTMLElement).style.paddingBottom = "120px"));
+    await expect
+      .poll(async () => (await sourceMetrics(editor)).height)
+      .toBeLessThan(before.height - 100);
+    await filled(editor);
+    await root
+      .locator(".scount")
+      .evaluate((el) => ((el as HTMLElement).style.paddingBottom = ""));
+    await expect
+      .poll(async () => (await sourceMetrics(editor)).height)
+      .toBeCloseTo(before.height, 0);
+  };
+  await pad(pane, detached);
+
+  // Reattaching moves the popup's DOM back without a remount, and closing the
+  // group there hands its height back.
+  await menu("pane.reattach");
+  await expect.poll(() => app.windows().length).toBe(1);
+  await expect(source()).toHaveValue(longSource(200));
+  await sizeDetails(page, 700, 1400);
+  await pad(details(), source());
+  await group(details())
+    .getByRole("button", { name: "Show fewer", exact: true })
+    .click();
+  await expect
+    .poll(async () => (await sourceMetrics(source())).height)
+    .toBeGreaterThan(opened.height);
+  await filled(source());
 });
 
 test("source format choices prevent losing named graphs and retain the native format", async () => {

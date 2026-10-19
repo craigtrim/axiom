@@ -44,10 +44,7 @@ export function DetailsSourceEditor({
   };
   useLayoutEffect(align, [value, format]);
   useEffect(() => {
-    // The editor resizes without a value change, and a detached pane's
-    // textarea reports only to its own window's observer.
-    const observer =
-      new editor.current!.ownerDocument.defaultView!.ResizeObserver(align);
+    const observer = new ResizeObserver(align);
     observer.observe(editor.current!);
     return () => observer.disconnect();
   }, []);
@@ -88,10 +85,13 @@ export function DetailsSourceEditor({
     fit();
     const body = editor.current?.closest(".pbody");
     if (!body) return;
-    // The room changes with the body and with anything above the editor. A
-    // detached pane's elements report only to its own window's observer.
+    // The room changes with the body and with anything above the editor. The
+    // observer comes from the app window: FlexLayout moves a detached pane's
+    // DOM back without remounting it, and an observer made in the popup stops
+    // with the popup. No window is background-throttled (src/main/main.ts), so
+    // the app window keeps delivering while the pane is detached.
     fitting.current ??= {
-      observer: new body.ownerDocument.defaultView!.ResizeObserver(fit),
+      observer: new ResizeObserver(fit),
       seen: new WeakSet(),
     };
     for (const el of [body, ...body.children])
@@ -100,7 +100,7 @@ export function DetailsSourceEditor({
         (el === body || !el.contains(root.current))
       ) {
         fitting.current.seen.add(el);
-        fitting.current.observer.observe(el);
+        fitting.current.observer.observe(el, { box: "border-box" });
       }
   });
   useEffect(
