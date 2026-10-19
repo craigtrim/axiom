@@ -127,7 +127,7 @@ async function prepareReference(
       if(frame===13)D.stmts=[{p:'skos:altLabel',v:'Tech Writing'},{p:'rdfs:seeAlso',v:'https://en.wikipedia.org/wiki/Technical_writing'}];
       if(${JSON.stringify(context)}){D.context=${JSON.stringify(context)};D.name=T.titleCase(D.context);}
       T.render();
-      if(frame===18)document.querySelector('#aCreate').click();
+      if(frame===18){document.querySelector('#aCreate').click();document.querySelector('#vb').innerHTML='';const st=document.querySelector('#state');st.className='state okink';st.textContent='Created';}
       if(frame===19){document.querySelector('#aClear').click();[...document.querySelectorAll('.frow')].find(r=>r.querySelector('.flbl').textContent==='Context').querySelector('.fnote').textContent='nothing, this is a blank form';}
       if(frame===27)T.toast('The planned source is on the clipboard.','It includes every parent that does not exist yet.');
       window.dispatchEvent(new Event('resize'));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -387,7 +387,11 @@ for (const theme of ["light", "dark"])
         await expect(f.pane().locator(".foot")).toContainText(
           "created, and selected in Hierarchy",
         );
-        await expect(f.pane().locator(".vmsg")).toContainText("already exists");
+        // craigtrim/axiom#119: the new class is the draft's result, so the band is empty, the state reads Created and the reference's frame 18 is corrected to match.
+        await expect(
+          f.pane().locator('[data-shared-command="state"]'),
+        ).toHaveText("Created");
+        await expect(f.pane().locator(".vmsg")).toHaveCount(0);
       }
       if (frame === 19) {
         await f

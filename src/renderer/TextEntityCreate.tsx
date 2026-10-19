@@ -142,15 +142,22 @@ export function TextEntityCreate({
       }),
   );
   const findings = check.value?.findings ?? [],
-    errors = findings.filter((f) => f.kind === "bad2"),
-    warnings = findings.length - errors.length;
+    errors = findings.filter((f) => f.kind === "bad2");
+  // craigtrim/axiom#119: what this draft just wrote is its result, so the band leaves it out while Create stays blocked.
+  const shown = findings.filter(
+      (f) => !f.reveal || !value.created?.includes(f.reveal.iri),
+    ),
+    problems = shown.filter((f) => f.kind === "bad2").length,
+    warnings = shown.length - problems;
   const drafts = countDrafts(root),
     source = plannedEntitySource(creation, snapshot.ontology.namespace);
-  const stateText = errors.length
-    ? `${errors.length} problem${errors.length === 1 ? "" : "s"}`
+  const stateText = problems
+    ? `${problems} problem${problems === 1 ? "" : "s"}`
     : warnings
       ? `${warnings} note${warnings === 1 ? "" : "s"}`
-      : "Ready to create";
+      : shown.length < findings.length
+        ? "Created"
+        : "Ready to create";
   const changeRoot = (next: TextEntityClassDraft) =>
     setValue((v) => ({ ...v, created: undefined, frames: [{ value: next }] }));
   useEffect(() => {
@@ -487,7 +494,7 @@ export function TextEntityCreate({
           ))}
         </span>
         <span
-          className={`state shared-command ${errors.length ? "badink" : warnings ? "warnink" : "okink"}`}
+          className={`state shared-command ${problems ? "badink" : warnings ? "warnink" : "okink"}`}
           data-shared-command="state"
           data-overflowed={hidden.has("state")}
           aria-hidden={hidden.has("state") || undefined}
@@ -552,7 +559,7 @@ export function TextEntityCreate({
         <div className="work2">
           <div className="form">
             <div role="status" className="validation-band">
-              {findings.map((f, i) => (
+              {shown.map((f, i) => (
                 <div className={`vmsg ${f.kind}`} key={i}>
                   <span
                     className={`tag ${f.kind === "bad2" ? "err" : "wrn"}`}

@@ -369,3 +369,46 @@ test("creates a recursive draft atomically and retains the form after undo/redo"
     )
     .toBe(true);
 });
+// craigtrim/axiom#119: the class a Create wrote reads as its result, and the duplicate returns once the draft changes.
+test("a created class is not its own duplicate until the draft is edited", async () => {
+  f = await launchAddEntity();
+  await f.setName("Speed Reading");
+  const status = f.pane().locator('[data-shared-command="state"]'),
+    band = f.pane().locator(".validation-band"),
+    create = f.pane().getByRole("button", { name: "Create", exact: true }),
+    created = () =>
+      f
+        .state()
+        .then((s) => s.entities.some((e) => e.label === "Speed Reading"));
+  await expect(status).toHaveText("Ready to create");
+  await create.click();
+  await expect(f.pane().locator(".foot")).toContainText(
+    "created, and selected in Hierarchy",
+  );
+  await expect(status).toHaveText("Created");
+  await expect(status).toHaveClass(/okink/);
+  await expect(band.locator(".vmsg")).toHaveCount(0);
+  await expect(create).toBeDisabled();
+  await addEntityMenu(f.app, "edit.undo");
+  await expect.poll(created).toBe(false);
+  await expect(status).toHaveText("Ready to create");
+  await expect(create).toBeEnabled();
+  await addEntityMenu(f.app, "edit.redo");
+  await expect.poll(created).toBe(true);
+  await expect(status).toHaveText("Created");
+  await expect(create).toBeDisabled();
+  await f.setName("Speed Readings");
+  await f.setName("Speed Reading");
+  await expect(band.locator(".vmsg.bad2")).toContainText(
+    "A class named Speed Reading already exists.",
+  );
+  await expect(
+    band.getByRole("button", { name: "Reveal Speed Reading", exact: true }),
+  ).toBeVisible();
+  await expect(status).toHaveText("1 problem");
+  await expect(status).toHaveClass(/badink/);
+  await expect(create).toBeDisabled();
+  await expect(f.pane().locator(".foot")).not.toContainText(
+    "created, and selected in Hierarchy",
+  );
+});
