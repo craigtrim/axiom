@@ -240,6 +240,128 @@ let stylesheet = "",
   documentRevision = 0,
   savedRevision = 0,
   nextRevision = 0;
+// #123: autosave polls this small signature instead of cloning the ontology.
+let sessionRevision = 0,
+  sessionSignature = "",
+  settledPositionsRevision = 0;
+function sessionState() {
+  keepGraph();
+  const signature = JSON.stringify([
+    datasetEpoch,
+    store.version,
+    documentRevision,
+    selected,
+    stylesheet,
+    activeGraphId,
+    settledPositionsRevision,
+    [...graphSessions].map(([id, s]) => [
+      id,
+      s.view.revision,
+      s.view.selected,
+      s.view.selectedEdge,
+      s.view.budget,
+      s.view.evictionMode,
+      s.view.edgesVisible,
+      s.view.countsVisible,
+      s.layouts.choice,
+      s.layouts.spacing,
+      s.frozen,
+    ]),
+  ]);
+  if (signature !== sessionSignature) {
+    sessionSignature = signature;
+    sessionRevision++;
+  }
+  return { sessionRevision, datasetEpoch };
+}
+function serializeWorkspace() {
+  keepGraph();
+  return {
+    format: "axiom-workspace",
+    ontology: store.ontology,
+    storeVersion: store.version,
+    workspaceRevision: documentRevision,
+    datasetEpoch,
+    version: 1,
+    entities: [...store.entities.values()],
+    tbox: store.tbox,
+    individuals: store.individuals,
+    customers: store.customers,
+    activeGraphId,
+    archivedGraphs: Object.fromEntries(graphArchives),
+    graphs: Object.fromEntries(
+      [...graphSessions].map(([id, session]) => [
+        id,
+        {
+          iris: [...session.view.nodes.keys()],
+          selected: id === activeGraphId ? selected : session.view.selected,
+          selectedEdge: session.view.selectedEdge,
+          focus: [...session.view.focus],
+          pins: [...session.view.nodes.values()]
+            .filter((n) => n.pinned)
+            .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
+          positions: [...session.view.nodes.values()].map((n) => ({
+            iri: n.iri,
+            x: n.x,
+            y: n.y,
+          })),
+          budget: session.view.budget,
+          layout: session.layouts.choice,
+          evictionMode: session.view.evictionMode,
+          geometry: {
+            groups: session.layouts.groups,
+            rings: session.layouts.rings,
+            ringOrigin: session.layouts.ringOrigin,
+          },
+          spacing: session.layouts.spacing,
+          edgesVisible: session.view.edgesVisible,
+          countsVisible: session.view.countsVisible,
+          expanded: [...session.view.nodes.values()]
+            .filter((n) => n.expanded)
+            .map((n) => n.iri),
+          frozen: session.frozen,
+          routes: [...session.view.routes].map(([key, bend]) => ({
+            key,
+            ...bend,
+          })),
+          stylesheet,
+        },
+      ]),
+    ),
+    graph: {
+      iris: [...view.nodes.keys()],
+      selected,
+      selectedEdge: view.selectedEdge,
+      focus: [...view.focus],
+      pins: [...view.nodes.values()]
+        .filter((n) => n.pinned)
+        .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
+      budget: view.budget,
+      layout: layouts.choice,
+      evictionMode: view.evictionMode,
+      positions: [...view.nodes.values()].map((n) => ({
+        iri: n.iri,
+        x: n.x,
+        y: n.y,
+      })),
+      frozen,
+      geometry: {
+        groups: layouts.groups,
+        rings: layouts.rings,
+        ringOrigin: layouts.ringOrigin,
+      },
+      spacing: layouts.spacing,
+      edgesVisible: view.edgesVisible,
+      countsVisible: view.countsVisible,
+      expanded: [...view.nodes.values()]
+        .filter((n) => n.expanded)
+        .map((n) => n.iri),
+      routes: [...view.routes].map(([key, bend]) => ({ key, ...bend })),
+      stylesheet,
+    },
+    selected,
+  };
+}
 function captureView(v: Viewport, l: Layouts, isFrozen: boolean) {
   return {
     nodes: structuredClone([...v.nodes]),
@@ -2284,92 +2406,29 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       }
       return true;
     }
-    case "serialize":
+    case "sessionState":
+      return sessionState();
+    case "serializeJson": {
+      const document =
+        serializeWorkspace() as import("../domain/workspace").Workspace & {
+          storeVersion: number;
+          workspaceRevision: number;
+          datasetEpoch: number;
+        };
+      const drafts = a.editorDrafts as
+        import("../shared/editor-state").SavedEditorDrafts | undefined;
       return {
-        format: "axiom-workspace",
-        ontology: store.ontology,
-        storeVersion: store.version,
-        workspaceRevision: documentRevision,
-        datasetEpoch,
-        version: 1,
-        entities: [...store.entities.values()],
-        tbox: store.tbox,
-        individuals: store.individuals,
-        customers: store.customers,
-        activeGraphId,
-        archivedGraphs: Object.fromEntries(graphArchives),
-        graphs: Object.fromEntries(
-          [...graphSessions].map(([id, session]) => [
-            id,
-            {
-              iris: [...session.view.nodes.keys()],
-              selected: id === activeGraphId ? selected : session.view.selected,
-              selectedEdge: session.view.selectedEdge,
-              focus: [...session.view.focus],
-              pins: [...session.view.nodes.values()]
-                .filter((n) => n.pinned)
-                .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
-              positions: [...session.view.nodes.values()].map((n) => ({
-                iri: n.iri,
-                x: n.x,
-                y: n.y,
-              })),
-              budget: session.view.budget,
-              layout: session.layouts.choice,
-              evictionMode: session.view.evictionMode,
-              geometry: {
-                groups: session.layouts.groups,
-                rings: session.layouts.rings,
-                ringOrigin: session.layouts.ringOrigin,
-              },
-              spacing: session.layouts.spacing,
-              edgesVisible: session.view.edgesVisible,
-              countsVisible: session.view.countsVisible,
-              expanded: [...session.view.nodes.values()]
-                .filter((n) => n.expanded)
-                .map((n) => n.iri),
-              frozen: session.frozen,
-              routes: [...session.view.routes].map(([key, bend]) => ({
-                key,
-                ...bend,
-              })),
-              stylesheet,
-            },
-          ]),
-        ),
-        graph: {
-          iris: [...view.nodes.keys()],
-          selected,
-          selectedEdge: view.selectedEdge,
-          focus: [...view.focus],
-          pins: [...view.nodes.values()]
-            .filter((n) => n.pinned)
-            .map((n) => ({ iri: n.iri, x: n.x, y: n.y })),
-          budget: view.budget,
-          layout: layouts.choice,
-          evictionMode: view.evictionMode,
-          positions: [...view.nodes.values()].map((n) => ({
-            iri: n.iri,
-            x: n.x,
-            y: n.y,
-          })),
-          frozen,
-          geometry: {
-            groups: layouts.groups,
-            rings: layouts.rings,
-            ringOrigin: layouts.ringOrigin,
-          },
-          spacing: layouts.spacing,
-          edgesVisible: view.edgesVisible,
-          countsVisible: view.countsVisible,
-          expanded: [...view.nodes.values()]
-            .filter((n) => n.expanded)
-            .map((n) => n.iri),
-          routes: [...view.routes].map(([key, bend]) => ({ key, ...bend })),
-          stylesheet,
-        },
-        selected,
+        ...sessionState(),
+        storeVersion: document.storeVersion,
+        workspaceRevision: document.workspaceRevision,
+        text: JSON.stringify(document),
+        draftsText: drafts
+          ? JSON.stringify({ ...drafts, storeVersion: document.storeVersion })
+          : undefined,
       };
+    }
+    case "serialize":
+      return serializeWorkspace();
     case "markSaved":
       if (
         a.version === store.version &&
@@ -2480,6 +2539,7 @@ function simulate() {
   do {
     layouts.force.step(true);
   } while (view.alpha >= 0.004 && performance.now() - start < 8);
+  if (view.alpha < 0.004) settledPositionsRevision++;
   const now = performance.now();
   if ((!reducedMotion && now - lastPositions >= 16) || view.alpha < 0.004) {
     lastPositions = now;

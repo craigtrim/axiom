@@ -7,9 +7,18 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, readFile, readdir, rename } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
+import { schoolBase, schoolOntology } from "../fixtures/large-ontology";
 let app: ElectronApplication | undefined, page: Page, profile: string;
 const errors: string[] = [];
 const state = () =>
@@ -73,7 +82,9 @@ async function save(file: string) {
   await expect
     .poll(async () => (await stored().catch(() => ({}))).workspacePath)
     .toBe(file);
-  await expect.poll(async () => (await state()).dirty).toBe(false);
+  await expect
+    .poll(async () => (await state()).dirty, { timeout: 30000 })
+    .toBe(false);
 }
 async function create(name = "Alpha") {
   return request<string>("createClass", {
@@ -484,4 +495,115 @@ test("honours closing while a workspace is still opening and saves the completed
       (await state()).entities.some((e) => e.name === "Close after opening"),
     )
     .toBe(true);
+});
+
+// #123: observe actual timer ticks and disk metadata with the large fixture.
+test("#123 unchanged large workspaces skip serialization and disk writes across idle ticks", async ({}, info) => {
+  test.setTimeout(390000);
+  await app!.evaluate(() => {
+    const { Worker } = process.getBuiltinModule(
+      "worker_threads",
+    ) as typeof import("node:worker_threads");
+    const original = Worker.prototype.postMessage;
+    (globalThis as any).__checkpointCalls = {
+      serialize: 0,
+      serializeJson: 0,
+      sessionState: 0,
+    };
+    Worker.prototype.postMessage = function (message, ...rest) {
+      const counts = (globalThis as any).__checkpointCalls;
+      if (message?.method in counts) counts[message.method]++;
+      return original.call(this, message, ...rest);
+    };
+  });
+  const calls = () =>
+    app!.evaluate(() => ({ ...(globalThis as any).__checkpointCalls }));
+  const imported = path.join(profile, "schools.ttl");
+  await writeFile(imported, schoolOntology());
+  await app!.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, imported);
+  await menu("file.open");
+  await expect
+    .poll(
+      async () => (await stored().catch(() => ({}))).workspace?.ontology?.name,
+      { timeout: 30000 },
+    )
+    .toBe("schools.ttl");
+  expect(
+    (await state()).entities.filter((e) => e.kind === "Individual"),
+  ).toHaveLength(21461);
+  const sessionFile = path.join(profile, "last-session.json");
+  const samples: { named: boolean; workingSetKB: number }[] = [];
+  const idle = async (file?: string) => {
+    const before = await calls(),
+      sessionTime = (await stat(sessionFile)).mtimeMs;
+    const fileTime = file ? (await stat(file)).mtimeMs : undefined;
+    const summary = (s: any) => ({
+      ...s,
+      workspace: {
+        ...s.workspace,
+        tbox: undefined,
+        entities: undefined,
+        individuals: undefined,
+        customers: undefined,
+      },
+    });
+    const initial = summary(await stored());
+    for (let tick = 0; tick < 4; tick++) {
+      // This is the observation window, not a synchronization delay.
+      await new Promise((resolve) => setTimeout(resolve, 30500));
+      samples.push(
+        await app!.evaluate(
+          ({ app }, named) => ({
+            named,
+            workingSetKB: app.getAppMetrics().find((p) => p.type === "Browser")!
+              .memory.workingSetSize,
+          }),
+          !!file,
+        ),
+      );
+      if ((await stat(sessionFile)).mtimeMs !== sessionTime) {
+        await info.attach("checkpoint-change", {
+          body: JSON.stringify({
+            before: initial,
+            after: summary(await stored()),
+            calls: await calls(),
+          }),
+          contentType: "application/json",
+        });
+      }
+      expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
+      if (file) expect((await stat(file)).mtimeMs).toBe(fileTime);
+      expect((await calls()).serializeJson).toBe(before.serializeJson);
+      expect((await calls()).serialize).toBe(before.serialize);
+    }
+    expect((await calls()).sessionState).toBeGreaterThanOrEqual(
+      before.sessionState + 4,
+    );
+  };
+  await idle();
+  const file = path.join(profile, "schools.axiom");
+  await save(file);
+  await idle(file);
+  await writeFile(
+    info.outputPath("main-process-memory.json"),
+    JSON.stringify(samples),
+  );
+  await info.attach("main-process-memory", {
+    body: JSON.stringify(samples),
+    contentType: "application/json",
+  });
+  const before = await calls();
+  await request("select", { iri: schoolBase + "school42" });
+  await expect
+    .poll(async () => (await stored()).workspace.selected, { timeout: 35000 })
+    .toBe(schoolBase + "school42");
+  expect((await calls()).serializeJson).toBe(before.serializeJson + 1);
+  await close();
+  await launch();
+  expect((await state()).selected).toBe(schoolBase + "school42");
 });

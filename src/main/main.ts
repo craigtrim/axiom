@@ -17,10 +17,15 @@ import { SuggestionBatches } from "./suggestion-batches";
 import { AuditLog, auditFailureId } from "./audit-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
-import { SessionStore, type SavedSession } from "./session-store";
+import { SessionStore, SessionSizeError } from "./session-store";
+import {
+  AutosaveCheckpoint,
+  sessionJson,
+  workspaceJson,
+} from "./autosave-checkpoint";
+import type { SerializedCheckpoint } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import { startUpdates } from "./updates";
-import type { Workspace } from "../domain/workspace";
 import { instanceAction } from "../shared/action-state";
 import { QueryHistoryService } from "./query-history-service";
 import examples from "../domain/data/examples.json";
@@ -265,6 +270,8 @@ const methods = new Set<DomainMethod>([
   "queryResult",
   "queryGraph",
   "serialize",
+  "serializeJson",
+  "sessionState",
   "load",
   "importRdf",
   "rdfExport",
@@ -543,6 +550,10 @@ async function rememberFile(file: string) {
   installMenu();
 }
 const workspaceFiles = new WorkspaceFiles();
+// #123: only successful checkpoints or oversized content suppress an idle tick.
+const autosaveCheckpoint = new AutosaveCheckpoint();
+let capturedDraftRevision = "",
+  legacyDraftRevision = 0;
 let capturedDrafts: SavedEditorDrafts | undefined;
 let restoredDrafts: SavedEditorDrafts | undefined;
 let recoveryPath: string | undefined;
@@ -552,24 +563,46 @@ let closeAfterWorkspaceChange = false;
 let autosaveTimer: ReturnType<typeof setInterval> | undefined;
 let updates: ReturnType<typeof startUpdates> | undefined;
 const AUTOSAVE_INTERVAL = 30_000;
-async function checkpointSession(capture = true) {
-  if (capture) await capturePreferences();
-  const session: SavedSession = {
-    format: "axiom-session",
-    version: 1,
-    workspace: await request<Workspace>("serialize"),
+function checkpointKey(
+  state: { sessionRevision: number; datasetEpoch: number },
+  workbench: Preferences,
+  draftsRevision: string,
+) {
+  return JSON.stringify([
+    state.datasetEpoch,
+    state.sessionRevision,
+    workbench,
+    draftsRevision,
     workspacePath,
     recoveryPath,
+  ]);
+}
+async function checkpointSession(capture = true) {
+  if (capture) await capturePreferences();
+  const workbench = preferences,
+    draftsRevision = capturedDraftRevision;
+  const document = await request<SerializedCheckpoint>("serializeJson", {
     editorDrafts: capturedDrafts,
-    workbench: preferences,
-  };
-  await sessions.save(session);
+  });
+  const key = checkpointKey(document, workbench, draftsRevision);
+  try {
+    await sessions.saveJson(
+      sessionJson(document, workbench, workspacePath, recoveryPath),
+    );
+    autosaveCheckpoint.complete(key);
+  } catch (error) {
+    if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
+    throw error;
+  }
 }
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
 let saveQueue = Promise.resolve();
+let queuedPreferencesText: string | undefined;
 function savePreferences(p: Preferences) {
   preferences = readPreferences({ ...preferences, ...p, version: 1 });
   const content = JSON.stringify(preferences);
+  if (content === queuedPreferencesText) return saveQueue;
+  queuedPreferencesText = content;
   saveQueue = saveQueue
     .catch(() => {})
     .then(async () => {
@@ -597,6 +630,10 @@ function savePreferences(p: Preferences) {
           );
         }
       }
+    })
+    .catch((error) => {
+      if (queuedPreferencesText === content) queuedPreferencesText = undefined;
+      throw error;
     });
   return saveQueue;
 }
@@ -705,6 +742,22 @@ async function writeWorkspace(
     if (r.canceled || !r.filePath) return false;
     file = r.filePath;
   }
+  if (!automatic) await flushEditors();
+  if (capture) await capturePreferences();
+  const workbench = preferences,
+    draftsRevision = capturedDraftRevision;
+  const revision = await request<{
+    sessionRevision: number;
+    datasetEpoch: number;
+  }>("sessionState");
+  if (
+    automatic &&
+    !archive &&
+    !autosaveCheckpoint.needsSave(
+      checkpointKey(revision, workbench, draftsRevision),
+    )
+  )
+    return true;
   let lease = file ? await workspaceOwnership.claim(file) : undefined;
   if (file && !lease) {
     if (automatic)
@@ -714,27 +767,16 @@ async function writeWorkspace(
     return false;
   }
   let committed = false;
+  let key = checkpointKey(revision, workbench, draftsRevision);
   try {
-    if (!automatic) await flushEditors();
-    if (capture) await capturePreferences();
-    const document = await request<
-      Workspace & {
-        storeVersion: number;
-        datasetEpoch: number;
-        workspaceRevision: number;
-      }
-    >("serialize");
-    const editorDrafts = capturedDrafts && {
-      ...capturedDrafts,
-      storeVersion: document.storeVersion,
-    };
-    // Unnamed workspaces keep an independent copy when closing or changing workspaces.
-    // The single last-session checkpoint can then safely move to the next workspace.
+    const document = await request<SerializedCheckpoint>("serializeJson", {
+      editorDrafts: capturedDrafts,
+    });
     if (
       !file &&
       archive &&
       (lastState?.dirty ||
-        editorDrafts ||
+        document.draftsText ||
         lastState?.ontology.source ||
         lastState?.ontology.example ||
         lastState?.graph.nodes.length)
@@ -748,7 +790,6 @@ async function writeWorkspace(
     if (!file && recoveryPath) {
       lease = await workspaceOwnership.claim(recoveryPath, false);
       if (!lease) {
-        // A recovery copy can be explicitly opened in another instance too.
         recoveryPath = path.join(
           app.getPath("userData"),
           "workspaces",
@@ -759,40 +800,25 @@ async function writeWorkspace(
           throw Error("The recovery workspace could not be reserved.");
       }
     }
+    key = checkpointKey(document, workbench, draftsRevision);
     const destination = file ?? recoveryPath;
-    const session: SavedSession = {
-      format: "axiom-session",
-      version: 1,
-      workspace: document,
-      workspacePath,
-      recoveryPath,
-      workbench: preferences,
-      editorDrafts,
-    };
-    // Save recovery first, including when a named destination is unavailable.
-    await sessions.save(session);
+    // Recovery precedes the named file so a failed file write still retains edits.
+    await sessions.saveJson(
+      sessionJson(document, workbench, workspacePath, recoveryPath),
+    );
     if (destination) {
       await workspaceFiles.write(
         destination,
-        JSON.stringify({
-          ...document,
-          workbench: {
-            ...preferences,
-            keyboard: undefined,
-            panelState: {
-              ...preferences.panelState,
-              "warnings.seeAlso": undefined,
-              "find.extendActions": undefined,
-            },
-          },
-          editorDrafts,
-        }),
+        workspaceJson(document, workbench),
         !file,
       );
       if (file && workspacePath !== file) {
         setWorkspacePath(file, lease);
         committed = true;
-        await sessions.save({ ...session, workspacePath: file });
+        await sessions.saveJson(
+          sessionJson(document, workbench, file, recoveryPath),
+        );
+        key = checkpointKey(document, workbench, draftsRevision);
       }
       await request("markSaved", {
         version: document.storeVersion,
@@ -801,7 +827,11 @@ async function writeWorkspace(
       });
       if (!automatic || archive) await rememberFile(destination);
     }
+    autosaveCheckpoint.complete(key);
     return true;
+  } catch (error) {
+    if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
+    throw error;
   } finally {
     if (!committed) lease?.release();
   }
@@ -821,7 +851,7 @@ async function autosave() {
       saveWorkspace(false, true),
     );
   } catch (error) {
-    // AuditLog surfaces the failure with a link to diagnostics. Retry next interval.
+    // Size failures wait for a new revision; transient I/O failures retry next tick.
     console.warn("Workspace autosave failed:", cleanErrorMessage(error));
   }
 }
@@ -1513,6 +1543,8 @@ app.whenReady().then(async () => {
         !methods.has(method) ||
         [
           "serialize",
+          "serializeJson",
+          "sessionState",
           "load",
           "markSaved",
           "new",
@@ -1986,12 +2018,21 @@ app.whenReady().then(async () => {
       p: Preferences,
       captured?: boolean,
       drafts?: SavedEditorDrafts,
+      draftsRevision?: string,
     ) => {
       authorised(event);
       if (!p || p.version !== 1 || JSON.stringify(p).length > 16000000)
         throw Error("Invalid layout settings.");
       const previousTheme = preferences.theme;
-      if (captured === true) capturedDrafts = readEditorDrafts(drafts);
+      if (
+        captured === true &&
+        (draftsRevision === undefined ||
+          draftsRevision !== capturedDraftRevision)
+      ) {
+        capturedDrafts = readEditorDrafts(drafts);
+        capturedDraftRevision =
+          draftsRevision ?? `legacy:${++legacyDraftRevision}`;
+      }
       await savePreferences({
         ...p,
         bounds: mainWindow?.getNormalBounds() ?? p.bounds,
