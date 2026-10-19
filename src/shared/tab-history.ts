@@ -149,7 +149,12 @@ export function tabDate(iso: string) {
     String(d.getDate()).padStart(2, "0")
   );
 }
-export function defaultTabName(type: string, sequence: number) {
+// craigtrim/axiom#113: only names still open reserve a default tab number.
+export function defaultTabName(type: string, openNames: Iterable<string>) {
   const label = tabTypes[type] ?? type;
-  return label + (sequence > 1 ? "_" + sequence : "");
+  const used = new Set(openNames);
+  if (!used.has(label)) return label;
+  let number = 2;
+  while (used.has(label + "_" + number)) number++;
+  return label + "_" + number;
 }

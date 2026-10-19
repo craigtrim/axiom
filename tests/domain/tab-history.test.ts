@@ -80,10 +80,22 @@ describe("workspace tab history", () => {
     expect(p.tabHistory?.counters.graph).toBe(3);
   });
   it("uses stable type names and local calendar date groups", () => {
-    expect(defaultTabName("graph", 1)).toBe("Graph");
-    expect(defaultTabName("graph", 2)).toBe("Graph_2");
-    expect(defaultTabName("find", 3)).toBe("Find_3");
+    expect(defaultTabName("graph", [])).toBe("Graph");
+    expect(defaultTabName("graph", ["Graph"])).toBe("Graph_2");
+    expect(defaultTabName("find", ["Find", "Find_2"])).toBe("Find_3");
     expect(tabDate(new Date(2026, 8, 21, 12).toISOString())).toBe("2026-09-21");
+  });
+  // craigtrim/axiom#113: closed numbers are available, even below higher open names.
+  it.each([
+    [[], "Details"],
+    [["Details"], "Details_2"],
+    [["Details", "Details_2"], "Details_3"],
+    [["Details", "Details_3"], "Details_2"],
+    [["Details_6"], "Details"],
+    [["Details_2"], "Details"],
+    [["Details", "Details_02", "Details_20", "Find_2"], "Details_2"],
+  ])("chooses a free default with %j open", (names, expected) => {
+    expect(defaultTabName("details", names)).toBe(expected);
   });
   it("rejects corrupt archive records rather than silently losing saved tabs", () => {
     const archive = (entries: unknown[]) => ({

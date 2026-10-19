@@ -7,7 +7,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   Snapshot,
@@ -205,21 +205,49 @@ test("named graph tabs restore their name, geometry and camera from workspace hi
   ).toEqual([]);
 });
 
-test("all-tabs mode retains default numbered tabs and closing graphs frees open slots", async () => {
+// craigtrim/axiom#113: identical default names still represent distinct saved tabs.
+test("all-tabs mode reuses Graph_2 and retains each closed graph independently", async () => {
   await policy(true);
+  const ids: string[] = [];
   for (let i = 2; i <= 19; i++) {
     const id = await req<string>("graphCreate", {});
+    ids.push(id);
     await menu("view.graph");
     await expect(
-      page.getByRole("tab", { name: "Graph_" + i, exact: true }),
+      page.getByRole("tab", { name: "Graph_2", exact: true }),
     ).toBeVisible();
-    await closeTab("Graph_" + i);
+    await closeTab("Graph_2");
     expect(Object.keys((await state()).graphs!)).not.toContain(id);
   }
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /Graph_19.*closed/ }),
+    history().getByRole("button", { name: /Graph_2.*closed/ }),
+  ).toHaveCount(18);
+  await expect
+    .poll(
+      async () =>
+        (await prefs()).tabHistory!.entries.filter((entry) =>
+          ids.includes(entry.id),
+        ).length,
+    )
+    .toBe(18);
+  const entries = (await prefs()).tabHistory!.entries.filter((entry) =>
+    ids.includes(entry.id),
+  );
+  expect(new Set(entries.map((entry) => entry.id)).size).toBe(18);
+  expect(
+    entries.every(
+      (entry) =>
+        entry.name === "Graph_2" &&
+        Number.isFinite(Date.parse(entry.createdAt)),
+    ),
+  ).toBe(true);
+  await req("graphCreate", {});
+  await menu("view.graph");
+  await expect(
+    page.getByRole("tab", { name: "Graph_2", exact: true }),
   ).toBeVisible();
+  await showHistory();
   await history()
     .getByRole("button", { name: /Graph_2.*closed/, exact: false })
     .first()
@@ -228,13 +256,59 @@ test("all-tabs mode retains default numbered tabs and closing graphs frees open 
     .getByRole("button", { name: "Activate", exact: true })
     .click();
   await expect(
-    page.getByRole("tab", { name: "Graph_2", exact: true }),
+    page.getByRole("tab", { name: "Graph_3", exact: true }),
   ).toBeVisible();
   await policy(false);
   await showHistory();
   await expect(
-    history().getByRole("button", { name: /Graph_19.*closed/ }),
+    history().getByRole("button", { name: /Graph_2.*closed/ }),
+  ).toHaveCount(17);
+});
+
+test("a renamed tab reserves another view's name, and closing it frees that name", async () => {
+  await rename("Graph", "Details");
+  await menu("view.details");
+  await expect(
+    page.getByRole("tab", { name: "Details_2", exact: true }),
   ).toBeVisible();
+  await closeTab("Details_2");
+  await menu("view.details");
+  await expect(
+    page.getByRole("tab", { name: "Details_2", exact: true }),
+  ).toBeVisible();
+  await closeTab("Details_2");
+  await rename("Details", "My map");
+  await menu("view.details");
+  await expect(
+    page.getByRole("tab", { name: "Details", exact: true }),
+  ).toBeVisible();
+});
+
+test("relaunch normalizes a lone legacy Details_6 and preserves a user's numbered name", async () => {
+  await menu("view.details");
+  await rename("Graph", "Graph_12");
+  await app.close();
+  const file = path.join(profile, "last-session.json");
+  const saved = JSON.parse(await readFile(file, "utf8"));
+  const change = (value: any) => {
+    if (!value || typeof value !== "object") return;
+    if (value.component === "details") {
+      value.name = "Details_6";
+      value.config.axiomTab.defaultName = "Details_6";
+    }
+    Object.values(value).forEach(change);
+  };
+  change(saved.workbench.layout);
+  saved.workbench.tabHistory.counters.details = 6;
+  await writeFile(file, JSON.stringify(saved));
+  await launch();
+  await expect(
+    page.getByRole("tab", { name: "Details", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Graph_12", exact: true }),
+  ).toBeVisible();
+  expect((await prefs()).tabHistory!.counters.details).toBe(6);
 });
 
 test("unnamed tabs are omitted from history by default and inline renaming makes a tab persistent", async () => {
