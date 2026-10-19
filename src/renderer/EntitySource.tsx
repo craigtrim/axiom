@@ -1,3 +1,4 @@
+// craigtrim/axiom#111: source format controls the shared highlight grammar.
 import { useEffect, useRef, useState } from "react";
 import {
   sourceFormats,
@@ -247,6 +248,7 @@ export function EntitySource({
         </span>
       </div>
       <DetailsSourceEditor
+        format={source.loaded?.format ?? "turtle"}
         value={source.snippet.body}
         label={`Source for ${name}, ${format?.label ?? "Turtle"}`}
         disabled={!source.loaded || source.busy}

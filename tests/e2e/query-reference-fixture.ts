@@ -20,7 +20,7 @@ SELECT ?course ?name ?parent WHERE {
   ?course rdfs:label ?name .
   ?course rdfs:subClassOf ?parent .
 }`;
-export async function launchQuery(theme = "light") {
+export async function launchQuery(theme = "light", pixelComparison = false) {
   const bytes = await readFile(queryReference);
   expect(createHash("sha256").update(bytes).digest("hex")).toBe(
     "bba0d1c3b3ac1606bea5aa86c78c22cddb0532349f6519808f319c18711b19ff",
@@ -87,6 +87,14 @@ setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last
       "--force-device-scale-factor=1",
       "--disable-lcd-text",
       "--disable-gpu",
+      // craigtrim/axiom#111: complete each software raster before comparing pixels.
+      ...(pixelComparison
+        ? [
+            "--disable-partial-raster",
+            "--run-all-compositor-stages-before-draw",
+            "--disable-new-content-rendering-timeout",
+          ]
+        : []),
       "--force-color-profile=srgb",
     ],
     env,

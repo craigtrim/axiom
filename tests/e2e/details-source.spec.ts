@@ -12,6 +12,8 @@ import path from "node:path";
 import { parseRdf, writeRdf } from "../../src/domain/rdf-io";
 import { NS } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
+// craigtrim/axiom#111: verify native scrolling and detached syntax painting.
+import { assertCodeBothThemes } from "./syntax-assertions";
 const base = "https://example.test/details/";
 const ttl = `@prefix : <${base}> . @prefix owl: <${NS.owl}> . @prefix rdfs: <${NS.rdfs}> .
 :Alpha a owl:Class; rdfs:label "Alpha"@en; rdfs:comment "Original comment"; rdfs:subClassOf :Beta; rdfs:seeAlso :Gamma .
@@ -248,6 +250,18 @@ test("source grows with its content up to fourteen rows and scrolls beyond that 
     else {
       expect(metrics.height).toBe(previous);
       expect(metrics.scroll).toBeGreaterThan(metrics.client);
+      await source().evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+        el.dispatchEvent(new Event("scroll"));
+      });
+      await expect
+        .poll(() =>
+          details()
+            .locator(".source-highlight")
+            .evaluate((el) => el.scrollTop),
+        )
+        .toBe(await source().evaluate((el) => el.scrollTop));
+      await assertCodeBothThemes(details(), ".source-highlight");
     }
     previous = metrics.height;
     expect((await state()).version).toBe(version);
@@ -935,6 +949,10 @@ test("resource search supports mouse selection in detached Details", async () =>
       await app.browserWindow(child)
     ).evaluate((win) => win.setFocusable(false));
   const pane = child.getByRole("region", { name: "Details", exact: true });
+  await (
+    await app.browserWindow(child)
+  ).evaluate((win) => win.setContentSize(1000, 800));
+  await assertCodeBothThemes(pane, ".source-highlight");
   const parent = pane
     .locator('tr[data-predicate="' + NS.rdfs + 'subClassOf"]')
     .getByRole("combobox", { name: / value \d+$/ });

@@ -1,5 +1,11 @@
 // craigtrim/axiom#88: compare against the pinned reference with the approved data mappings.
 import { test, expect, type Page, type Locator } from "@playwright/test";
+// craigtrim/axiom#111: retain coloured evidence; normalize only ink for the pinned reference.
+import {
+  assertCodeSurfaces,
+  assertSyntaxPalette,
+  monochromeSource,
+} from "./syntax-assertions";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -25,7 +31,7 @@ const fixes = `.gutter{white-space:pre}@container pane (min-width:240px) and (mi
 /* Decision 22 discloses the real, potentially long executable path. */
 .comp .cbody > *{min-width:0}.ctxbox>summary{overflow-wrap:anywhere}`;
 async function open(theme: string) {
-  f = await launchQuery(theme);
+  f = await launchQuery(theme, true);
   await mkdir(output, { recursive: true });
   actualPane = f.host;
   const opened = f.app.waitForEvent("window");
@@ -186,20 +192,18 @@ async function compare(
     ),
   );
   const popupLayout = async (page: Page) =>
-    page
-      .locator(".menu:visible")
-      .evaluateAll((els) =>
-        els
-          .flatMap((el) => [el, ...el.querySelectorAll("*")])
-          .map((el) => ({
-            tag: el.tagName,
-            cls: el.className,
-            box: el.getBoundingClientRect().toJSON(),
-            font: getComputedStyle(el).font,
-            lineHeight: getComputedStyle(el).lineHeight,
-            padding: getComputedStyle(el).padding,
-          })),
-      );
+    page.locator(".menu:visible").evaluateAll((els) =>
+      els
+        .flatMap((el) => [el, ...el.querySelectorAll("*")])
+        .map((el) => ({
+          tag: el.tagName,
+          cls: el.className,
+          box: el.getBoundingClientRect().toJSON(),
+          font: getComputedStyle(el).font,
+          lineHeight: getComputedStyle(el).lineHeight,
+          padding: getComputedStyle(el).padding,
+        })),
+    );
   await writeFile(
     path.join(output, name + "-menus.json"),
     JSON.stringify(
@@ -212,15 +216,25 @@ async function compare(
     ),
   );
   const capture = async (root: Locator) =>
-    root
-      .page()
-      .screenshot({
-        clip: (await root.boundingBox())!,
-        animations: "disabled",
-        scale: "css",
-      });
-  const actual = await capture(actualRoot),
-    expected = await capture(expectedRoot);
+    root.page().screenshot({
+      clip: (await root.boundingBox())!,
+      animations: "disabled",
+      scale: "css",
+    });
+  await assertSyntaxPalette(actualRoot, 0);
+  await assertCodeSurfaces(actualRoot, "pre.cc");
+  const restoreColour = await monochromeSource(actualRoot);
+  let actual: Buffer;
+  try {
+    actual = await capture(actualRoot);
+  } finally {
+    await restoreColour();
+  }
+  await writeFile(
+    path.join(output, name + "-coloured.png"),
+    await capture(actualRoot),
+  );
+  const expected = await capture(expectedRoot);
   await writeFile(path.join(output, name + "-app.png"), actual);
   await writeFile(path.join(output, name + "-reference.png"), expected);
   // Keep the measured raster differences visible in the report, with no area mask.

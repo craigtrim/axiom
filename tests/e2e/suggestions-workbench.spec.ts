@@ -14,6 +14,9 @@ import { NS, TYPE, SUBCLASS } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
 import type { SuggestionDocument } from "../../src/shared/suggestions";
 import AxeBuilder from "@axe-core/playwright";
+// craigtrim/axiom#111: real suggestion results retain source colours in both themes.
+import { assertCodeBothThemes } from "./syntax-assertions";
+import { hierarchyFilter } from "./hierarchy-controls";
 const base = "https://example.org/courses#";
 const ttl =
   "@prefix : <" +
@@ -74,7 +77,7 @@ async function launch() {
 }
 async function suggest(name: string, action: string) {
   await menu("view.hierarchy");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill(name);
+  await (await hierarchyFilter(page)).fill(name);
   const row = page.locator(".tree-row").filter({
     has: page.locator(".tree-name", {
       hasText: new RegExp("^" + name + "$"),
@@ -308,6 +311,10 @@ test("uses the local assistant for parents in the shared view, keeps histories a
     "Alpha Beta Gamma rdfs:subClassOf Alpha Gamma",
   );
   const table = view().getByRole("table");
+  await assertCodeBothThemes(
+    view(),
+    ".ac-detail code, .ac-identifiers > div:last-child dd",
+  );
   const box = await table.boundingBox();
   await view().getByRole("button", { name: "Context", exact: true }).click();
   await expect(
@@ -319,6 +326,20 @@ test("uses the local assistant for parents in the shared view, keeps histories a
     const trigger = view().getByRole("button", { name, exact: true });
     await trigger.click();
     const popover = page.locator(".ac-popover");
+    if (name === "Prompt") {
+      await assertCodeBothThemes(popover, "pre");
+      const field = popover.locator("textarea"),
+        paint = popover.locator("pre");
+      expect(await paint.textContent()).toBe((await field.inputValue()) + "\n");
+      expect(await paint.boundingBox()).toEqual(await field.boundingBox());
+      await field.evaluate((el) => {
+        el.scrollTop = 160;
+        el.dispatchEvent(new Event("scroll"));
+      });
+      expect(await paint.evaluate((el) => el.scrollTop)).toBe(
+        await field.evaluate((el) => el.scrollTop),
+      );
+    }
     await expect(trigger).toBeFocused();
     expect(await table.boundingBox()).toEqual(box);
     const placement = await popover.evaluate((el) => {
@@ -488,6 +509,10 @@ test("saves custom suggestions globally, reviews values and confines child progr
       (t) => t.object.value === "Foundations of English",
     ),
   ).toBe(false);
+  await view()
+    .getByText("Instructions and context for this run", { exact: true })
+    .click();
+  await assertCodeBothThemes(view(), "pre.suggestion-prompt");
   await view()
     .getByRole("checkbox", { name: "Add Foundations of English", exact: true })
     .check();

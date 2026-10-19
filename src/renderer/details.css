@@ -22,7 +22,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
   overflow: hidden;
-  :is(.btn, .card, .chev, .lnk, .fmt, .src, .val),
+  :is(.btn, .card, .chev, .lnk, .fmt, .src, .source-highlight, .val),
   .statement-value-cell input {
     all: revert;
     box-sizing: border-box;
@@ -395,7 +395,8 @@
 
   /* The editor is sized by its content. rows is set from the line count, so four
    lines of Turtle is four lines and the pane keeps the rest. */
-  .src {
+  .src,
+  .source-highlight {
     display: block;
     width: 100%;
     max-width: 620px;
@@ -413,15 +414,15 @@
   }
   /* The draft is legible on the region itself, so the state reads without
    consulting the header. */
-  .srcwrap.pending .src {
+  .srcwrap.pending :is(.src, .source-highlight) {
     border-inline-start-color: var(--accent);
     background: var(--accent-tint);
   }
-  .srcwrap.invalid .src {
+  .srcwrap.invalid :is(.src, .source-highlight) {
     border-inline-start-color: var(--bad);
     background: var(--bad-soft);
   }
-  .srcwrap.stale .src {
+  .srcwrap.stale :is(.src, .source-highlight) {
     border-inline-start-color: var(--warn);
     background: var(--warn-soft);
   }
@@ -626,6 +627,35 @@
   .details-source-text {
     min-width: 0;
   }
+  /* craigtrim/axiom#111: native text metrics and scrolling also position the tokens. */
+  .details-source-stack {
+    position: relative;
+    max-width: 620px;
+  }
+  .source-highlight {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .src.source-input {
+    position: relative;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text);
+    -webkit-text-fill-color: transparent;
+  }
+  .srcwrap:is(.pending, .invalid, .stale) .src.source-input {
+    background: transparent;
+  }
+  .src.source-input::selection {
+    background: var(--sel);
+    color: transparent;
+  }
   .details-source-find {
     display: flex;
     flex-wrap: wrap;
@@ -683,6 +713,9 @@
   .statement-value-cell input,
   .statement-value-field,
   .src {
+    max-width: none;
+  }
+  .details-source-stack {
     max-width: none;
   }
   .phead .more {

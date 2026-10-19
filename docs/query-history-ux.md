@@ -20,7 +20,7 @@ History opens the newest twelve documents, the active document included. Each ro
 
 More contains Run with its Ctrl+Enter hint, Copy results as CSV, Format SPARQL with Shift+Alt+F, and Find a query in history. Example titles appear only for the bundled example ontology. A failed save puts Retry saving first. Find a query in history opens the existing searchable dialog, which searches complete query text, titles and origin information. It displays the newest hundred matches and keeps older documents searchable. The footer reports the current document's position, triple count, last completion time when present and total history size.
 
-Formatting is one undoable replacement of the document. It does not run the query. The editor uses Monaco models with a 13 px monospace font, 20 px lines, one text colour, a 38 px gutter and horizontal scrolling. Each recently visited document keeps its own Undo stack, cursor and scroll position.
+Formatting is one undoable replacement of the document. It does not run the query. The editor uses Monaco models with a 13 px monospace font, 20 px lines, the shared syntax palette, a 38 px gutter and horizontal scrolling. The same SPARQL grammar highlights the history list, compact history menu and result context line. Each recently visited document keeps its own Undo stack, cursor and scroll position.
 
 ## Composer and available space
 

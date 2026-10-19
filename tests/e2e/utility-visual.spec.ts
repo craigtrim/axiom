@@ -2,6 +2,8 @@
 import { tabTypes, tabDate } from "../../src/shared/tab-history";
 import { test, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
+// craigtrim/axiom#111: the reference comparison changes source ink only.
+import { assertSyntaxPalette, monochromeSource } from "./syntax-assertions";
 import {
   launchUtility,
   utilityReference,
@@ -290,11 +292,20 @@ async function compare(
         ),
       }));
     }, reference);
-  const actual = await shoot(false),
-    aStyles = await styles(false),
+  const coloured = await shoot(false);
+  await assertSyntaxPalette(f.host(), 0);
+  const restoreColour = await monochromeSource(f.host());
+  let actual: Buffer;
+  try {
+    actual = await shoot(false);
+  } finally {
+    await restoreColour();
+  }
+  const aStyles = await styles(false),
     expected = await shoot(true),
     eStyles = await styles(true),
     name = String(frame).padStart(2, "0") + "-" + theme;
+  await writeFile(`artifacts/issue-94/${name}-coloured.png`, coloured);
   await writeFile(`artifacts/issue-94/${name}-actual.png`, actual);
   await writeFile(`artifacts/issue-94/${name}-expected.png`, expected);
   await writeFile(

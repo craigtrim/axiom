@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
 import {
   useEffect,
   useId,
@@ -776,7 +778,9 @@ export function FindPanel() {
               {`, sibling of ${creationLabel(draft.origin.target ?? "")}, under `}
               <b>{creationParents || "owl:Thing"}</b>
               {", asserted with "}
-              <code>rdfs:subClassOf</code>
+              <code>
+                <Code>rdfs:subClassOf</Code>
+              </code>
             </span>
           ) : (
             <span>
@@ -788,11 +792,13 @@ export function FindPanel() {
               </b>
               {", asserted with "}
               <code>
-                {(draft.kind ?? "Class") === "Class"
-                  ? "rdfs:subClassOf"
-                  : draft.kind === "Individual"
-                    ? "rdf:type"
-                    : "rdfs:subPropertyOf"}
+                <Code>
+                  {(draft.kind ?? "Class") === "Class"
+                    ? "rdfs:subClassOf"
+                    : draft.kind === "Individual"
+                      ? "rdf:type"
+                      : "rdfs:subPropertyOf"}
+                </Code>
               </code>
             </span>
           )}

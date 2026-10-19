@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 import {
   useEffect,
   useLayoutEffect,
@@ -739,7 +741,7 @@ export function TextEntityCreate({
               <span className="sn2">{`${drafts + 1} ${drafts ? "entities" : "entity"}, one transaction`}</span>
             </div>
             <pre className="sc" aria-label="Planned source" tabIndex={0}>
-              {source}
+              <Code language="rdfxml">{source}</Code>
             </pre>
           </div>
         </div>

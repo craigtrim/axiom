@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 // craigtrim/axiom#94: open one record in place, with bounded diagnostic lengths and native copy.
 import { useEffect, useState } from "react";
 import {
@@ -210,7 +212,11 @@ function RecordBody({ record: r }: { record: AuditRecord }) {
             <details className="dsec" key={name}>
               <summary>{head}</summary>
               <pre className="dc">
-                {text.slice(0, 1400)}
+                {name === "Prompt" ? (
+                  <Code language="prompt">{text.slice(0, 1400)}</Code>
+                ) : (
+                  text.slice(0, 1400)
+                )}
                 {text.length > 1400
                   ? `\n... ${(text.length - 1400).toLocaleString()} more characters retained`
                   : ""}

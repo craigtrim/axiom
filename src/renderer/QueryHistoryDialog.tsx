@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Dialogs";
 import { useDelayedBusy } from "./use-delayed-busy";
@@ -93,7 +95,13 @@ export function QueryHistoryDialog({
                   · {new Date(item.createdAt).toLocaleString()}
                   {item.origin ? " · " + item.origin : ""}
                 </span>
-                <code>{item.preview || "Empty query"}</code>
+                <code>
+                  {item.preview ? (
+                    <Code language="sparql">{item.preview}</Code>
+                  ) : (
+                    "Empty query"
+                  )}
+                </code>
               </button>
             ))}
           {!busy && !error && !items.length && <p>No matching queries.</p>}

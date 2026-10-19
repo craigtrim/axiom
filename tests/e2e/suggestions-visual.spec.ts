@@ -1,3 +1,4 @@
+import { assertCodeSurfaces, monochromeSource } from "./syntax-assertions";
 import type {} from "../fixtures/suggestions-visual/workbench";
 import { test, expect, type Page } from "@playwright/test";
 import { build } from "esbuild";
@@ -242,8 +243,17 @@ for (const theme of ["light", "dark"] as const)
         await prepare(actualPage, true, frame === 28);
         await state(expectedPage, frame, false);
         await state(actualPage, frame, true);
+        // craigtrim/axiom#111: syntax colours change, reference geometry does not.
+        const root = actualPage.locator("body");
+        await assertCodeSurfaces(root, "code");
+        await writeFile(
+          info.outputPath("coloured.png"),
+          await actualPage.screenshot(),
+        );
+        const restore = await monochromeSource(root);
         const expected = await expectedPage.screenshot(),
           actual = await actualPage.screenshot();
+        await restore();
         await writeFile(info.outputPath("reference.png"), expected);
         await writeFile(info.outputPath("actual.png"), actual);
         const pixels = await actualPage.evaluate(

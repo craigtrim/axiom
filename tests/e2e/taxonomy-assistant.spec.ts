@@ -14,6 +14,8 @@ import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { THING, TYPE, SUBCLASS } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
+// craigtrim/axiom#111: instance proposals retain coloured identifiers and triples.
+import { assertCodeBothThemes } from "./syntax-assertions";
 let app: ElectronApplication,
   page: Page,
   bridge: Page,
@@ -194,6 +196,11 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   await expect(
     bridge.getByRole("group", { name: "Context sent to the assistant" }),
   ).toContainText("depth 2");
+  const context = bridge.getByRole("group", {
+    name: "Context sent to the assistant",
+  });
+  await context.getByText("Exact prompt", { exact: true }).click();
+  await assertCodeBothThemes(context, ".syntax-textarea pre");
   await bridge.keyboard.press("Escape");
   const prompt = await readFile(path.join(profile, "prompt.txt"), "utf8");
   expect(prompt).toContain("types that fit better inside an existing category");
@@ -236,6 +243,17 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
 });
 test("finds instances through a separate prompt and applies rdf:type without subclass assertions", async () => {
   const dialog = await ready("instances", true);
+  await dialog.locator(".taxonomy-suggestions details summary").first().click();
+  await assertCodeBothThemes(
+    dialog,
+    ".taxonomy-suggestions details[open] code, .taxonomy-suggestions details[open] p",
+  );
+  await dialog.locator(".taxonomy-context > summary").click();
+  await dialog.getByText("Exact prompt", { exact: true }).click();
+  await assertCodeBothThemes(
+    dialog.locator(".taxonomy-context"),
+    ".syntax-textarea pre",
+  );
   expect(await readFile(path.join(profile, "prompt.txt"), "utf8")).toContain(
     "Suggest real, named examples",
   );

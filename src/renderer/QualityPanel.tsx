@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 // Ontology Quality pane, rebuilt to Craig's visual reference: craigtrim/axiom#44.
 import {
   Fragment,
@@ -1445,7 +1447,9 @@ export function QualityPanel() {
           <span className="k">{t("detail.evidence")}</span>
           <span className="v">
             {f.evidence.length ? (
-              <pre>{turtleEvidence(f.evidence, base)}</pre>
+              <pre>
+                <Code>{turtleEvidence(f.evidence, base)}</Code>
+              </pre>
             ) : (
               <span className="na">{t("detail.noEvidence")}</span>
             )}
@@ -1459,7 +1463,7 @@ export function QualityPanel() {
                 ? rich("reading.alias", {
                     predicate: (
                       <code className="mono">
-                        {turtleTerm(alias.predicate, base)}
+                        <Code>{turtleTerm(alias.predicate, base)}</Code>
                       </code>
                     ),
                     eligible: <b>{t("reading.eligible")}</b>,
@@ -1468,7 +1472,7 @@ export function QualityPanel() {
                     name: <b>{name}</b>,
                     fragment: (
                       <code className="mono">
-                        {identifierParts(f.iri).name}
+                        <Code>{identifierParts(f.iri).name}</Code>
                       </code>
                     ),
                   })
@@ -1487,7 +1491,9 @@ export function QualityPanel() {
           <div className="kv">
             <span className="k">{t("detail.wouldAdd")}</span>
             <span className="v">
-              <pre className="preview">{wouldAdd}</pre>
+              <pre className="preview">
+                <Code>{wouldAdd}</Code>
+              </pre>
               <button
                 className="btn"
                 disabled={!canReview}
@@ -2125,7 +2131,7 @@ export function QualityPanel() {
               <span className="k">{t("detail.wouldAdd")}</span>
               <span className="v">
                 <pre className="preview">
-                  {turtleLines(preview.statements, base)}
+                  <Code>{turtleLines(preview.statements, base)}</Code>
                 </pre>
               </span>
             </div>

@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
 import { PaneToolbar } from "./AdaptivePane";
 import { DetailsBack } from "./DetailsNavigation";
 import { command } from "./client";
@@ -67,7 +69,9 @@ export function TextSpanDetails({
             <button onClick={() => void inspectTextEntity(entity, concept.iri)}>
               Open {concept.label}
             </button>
-            <code>{concept.iri}</code>
+            <code>
+              <Code>{concept.iri}</Code>
+            </code>
           </div>
         ))}
         {!concepts.length && (

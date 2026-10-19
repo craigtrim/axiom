@@ -1,4 +1,8 @@
 import { registerEditorMenu } from "./editor-menu-keys";
+// craigtrim/axiom#111: share SPARQL tokens and theme with query previews.
+import "./sparql-language";
+import { syntaxTheme } from "./syntax-theme";
+import { paintEditorSyntax } from "./syntax-paint";
 import { usePaneLayout } from "./AdaptivePane";
 import { SharedPane, usePaneToast } from "./SharedPane";
 import { QueryActions, QueryFooter, queryCount } from "./QueryChrome";
@@ -41,11 +45,6 @@ import examples from "../domain/data/examples.json";
 window.MonacoEnvironment = {
   getWorker: () => new Worker(new URL("editor.worker.js", location.href)),
 };
-monaco.languages.register({ id: "sparql" });
-// The reference uses one ink; one token also avoids fractional glyph shifts at token boundaries (#88).
-monaco.languages.setMonarchTokensProvider("sparql", {
-  tokenizer: { root: [[/.+/, ""]] },
-});
 monaco.languages.registerDocumentFormattingEditProvider("sparql", {
   provideDocumentFormattingEdits(model) {
     return [
@@ -239,8 +238,7 @@ function QueryEditor() {
     const e = monaco.editor.create(host.current, {
       model: null,
       editContext: false,
-      theme:
-        document.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
+      theme: syntaxTheme(host.current.ownerDocument),
       fontFamily: "Cascadia Mono, Cascadia Code, Consolas, monospace",
       fontSize: 13,
       lineHeight: 20,
@@ -264,6 +262,7 @@ function QueryEditor() {
       tabSize: 2,
     });
     editor.current = e;
+    const removeSyntax = paintEditorSyntax(host.current);
     const removeEditorMenu = registerEditorMenu(e);
     const change = e.onDidChangeModelContent(() => {
       if (activeId.current)
@@ -272,11 +271,7 @@ function QueryEditor() {
     const ro = new ResizeObserver(() => e.layout());
     ro.observe(host.current);
     const theme = new MutationObserver(() =>
-      monaco.editor.setTheme(
-        host.current?.ownerDocument.documentElement.dataset.theme === "dark"
-          ? "vs-dark"
-          : "vs",
-      ),
+      monaco.editor.setTheme(syntaxTheme(host.current!.ownerDocument)),
     );
     theme.observe(host.current.ownerDocument.documentElement, {
       attributes: true,
@@ -333,6 +328,7 @@ function QueryEditor() {
       theme.disconnect();
       un();
       removeEditorMenu();
+      removeSyntax();
       e.dispose();
       editor.current = null;
     };

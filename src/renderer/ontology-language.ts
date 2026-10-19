@@ -1,36 +1,30 @@
 import * as monaco from "monaco-editor/editor/editor.api.js";
-import "monaco-editor/languages/definitions/xml/register.js";
+import {
+  language as xml,
+  conf as xmlConfiguration,
+} from "monaco-editor/languages/definitions/xml/xml.js";
+import { rdfTokens, rdfStrings } from "./sparql-language";
 import type { SourceFormat } from "../shared/source";
 window.MonacoEnvironment ??= {
   getWorker: () => new Worker(new URL("editor.worker.js", location.href)),
 };
+// craigtrim/axiom#111: register eagerly so static text uses the editor's XML grammar too.
+monaco.languages.register({ id: "xml" });
+monaco.languages.setMonarchTokensProvider("xml", xml);
+monaco.languages.setLanguageConfiguration("xml", xmlConfiguration);
 monaco.languages.register({ id: "ontology-turtle" });
 monaco.languages.setMonarchTokensProvider("ontology-turtle", {
   unicode: true,
   tokenizer: {
     root: [
-      [/#.*$/, "comment"],
-      [/"""/, "string", "@longDouble"],
-      [/'''/, "string", "@longSingle"],
-      [/"(?:[^"\\]|\\.)*"/, "string"],
-      [/'(?:[^'\\]|\\.)*'/, "string"],
-      [/<[^>]*>/, "tag"],
+      [/\s+/, ""],
+      ...rdfTokens,
       [/@(?:prefix|base)\b|\b(?:PREFIX|BASE|GRAPH|a|true|false)\b/, "keyword"],
-      [/@[a-zA-Z]+(?:-[a-zA-Z0-9]+)*/, "annotation"],
-      [/(?:[\p{L}_][\p{L}\p{N}_.-]*)?:[^\s;,()\[\]{}]*/u, "type.identifier"],
-      [/[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/, "number"],
+      // Term previews also show the local part of a name without its prefix.
+      [/[\p{L}_][\p{L}\p{N}_.-]*/u, "prefixed"],
       [/[{}()[\];,.]|\^\^/, "delimiter"],
     ],
-    longDouble: [
-      [/"""/, "string", "@pop"],
-      [/\\./, "string.escape"],
-      [/./, "string"],
-    ],
-    longSingle: [
-      [/'''/, "string", "@pop"],
-      [/\\./, "string.escape"],
-      [/./, "string"],
-    ],
+    ...rdfStrings,
   },
 });
 monaco.languages.setLanguageConfiguration("ontology-turtle", {
@@ -50,8 +44,8 @@ monaco.languages.register({ id: "ontology-json" });
 monaco.languages.setMonarchTokensProvider("ontology-json", {
   tokenizer: {
     root: [
-      [/"(?:[^"\\]|\\.)*"(?=\s*:)/, "string.key.json"],
-      [/"(?:[^"\\]|\\.)*"/, "string.value.json"],
+      [/"(?:[^"\\]|\\.)*"(?=\s*:)/, "json-key"],
+      [/"(?:[^"\\]|\\.)*(?:"|$)/, "string"],
       [/\b(?:true|false|null)\b/, "keyword"],
       [/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/, "number"],
       [/[{}[\]:,]/, "delimiter"],

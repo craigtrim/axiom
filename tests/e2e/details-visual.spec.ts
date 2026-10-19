@@ -8,6 +8,8 @@ import {
   type Locator,
 } from "@playwright/test";
 import { createHash } from "node:crypto";
+// craigtrim/axiom#111: retain coloured evidence and compare the original ink geometry.
+import { assertSyntaxPalette, monochromeSource } from "./syntax-assertions";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
@@ -223,20 +225,34 @@ const layoutData = (root: Locator) =>
       .map((e) => {
         const b = e.getBoundingClientRect(),
           c = getComputedStyle(e);
+        const paint = e.matches("textarea.source-input")
+          ? getComputedStyle(e.previousElementSibling!)
+          : c;
         return [
           e.tagName,
           e.className,
           [b.x - o.x, b.y - o.y, b.width, b.height],
           c.font,
-          c.color,
-          c.backgroundColor,
+          paint.color,
+          paint.backgroundColor,
           c.padding,
         ];
       });
   });
 
 async function compare(name: string, focused = false) {
-  const actual = await capture(pane(), focused);
+  await assertSyntaxPalette(pane(), 0);
+  await writeFile(
+    `artifacts/issue-57/${name}-coloured.png`,
+    await capture(pane(), focused),
+  );
+  const restoreColour = await monochromeSource(pane());
+  let actual: Buffer;
+  try {
+    actual = await capture(pane(), focused);
+  } finally {
+    await restoreColour();
+  }
   const expected = await capture(specimen.locator(".pane"), focused);
   const appLayout = await layoutData(pane()),
     referenceLayout = await layoutData(specimen.locator(".pane"));

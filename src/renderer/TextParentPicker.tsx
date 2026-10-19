@@ -1,3 +1,6 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
+import { CodeTextarea } from "./CodeTextarea";
 import {
   Fragment,
   useEffect,
@@ -343,9 +346,8 @@ export function TextParentPicker({
       )}
       {showPrompt && (
         <div className="text-parent-prompt">
-          <textarea
+          <CodeTextarea
             aria-label="Parent prompt"
-            readOnly
             rows={8}
             value={assistant.prompt}
           />
@@ -411,7 +413,9 @@ export function TextParentPicker({
                   </span>
                   {option.iri && (
                     <code>
-                      {parentIri(option.iri, snapshot.ontology.namespace)}
+                      <Code>
+                        {parentIri(option.iri, snapshot.ontology.namespace)}
+                      </Code>
                     </code>
                   )}
                 </div>
