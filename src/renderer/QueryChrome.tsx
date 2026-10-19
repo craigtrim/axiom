@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+// craigtrim/axiom#111: the compact history menu is another SPARQL preview.
+import { Code } from "./Code";
 import {
   SharedActionRow,
   SharedMenu,
@@ -85,7 +87,7 @@ export function QueryFooter({
         </span>
         {" triples"}
       </span>
-      {time && <span>Ran {queryTime(time)}</span>}
+      {time && <span>{`Ran ${queryTime(time)}`}</span>}
       <span>
         <span className="num">{history.view?.entries.length ?? 0}</span>
         {" in history"}
@@ -144,7 +146,13 @@ export function QueryActions(props: {
       content: (
         <>
           <span className="hq">
-            {entry.preview.replace(/\s+/g, " ").slice(0, 70) || "New query"}
+            {entry.preview ? (
+              <Code language="sparql">
+                {entry.preview.replace(/\s+/g, " ").slice(0, 70)}
+              </Code>
+            ) : (
+              "New query"
+            )}
           </span>
           <span className="hm">
             {`document ${index + 1}, ${historyTime(entry.createdAt)}${entry.rows === undefined ? "" : ", " + queryCount(entry.rows, "row")}`}
