@@ -3,6 +3,12 @@ import { test, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { addEntityReference } from "../fixtures/add-entity-visual/fixture";
 import { entityIdentifier } from "../../src/shared/entity-names";
+// craigtrim/axiom#111: preserve coloured source while checking the pinned layout.
+import {
+  assertCodeSurfaces,
+  assertSyntaxPalette,
+  monochromeSource,
+} from "./syntax-assertions";
 import {
   launchAddEntity,
   type AddEntityFixture,
@@ -262,11 +268,21 @@ async function compare(
         ),
       }));
     }, reference);
-  const actual = await shoot(false),
-    actualStyles = await diagnostics(false),
+  const coloured = await shoot(false);
+  await assertSyntaxPalette(f.host(), 0);
+  await assertCodeSurfaces(f.host(), "pre.sc, .text-parent-option code");
+  const restoreColour = await monochromeSource(f.host());
+  let actual: Buffer;
+  try {
+    actual = await shoot(false);
+  } finally {
+    await restoreColour();
+  }
+  const actualStyles = await diagnostics(false),
     expected = await shoot(true),
     expectedStyles = await diagnostics(true),
     name = String(frame).padStart(2, "0") + "-" + theme;
+  await writeFile(`artifacts/issue-93/${name}-coloured.png`, coloured);
   await writeFile(`artifacts/issue-93/${name}-actual.png`, actual);
   await writeFile(`artifacts/issue-93/${name}-expected.png`, expected);
   await writeFile(

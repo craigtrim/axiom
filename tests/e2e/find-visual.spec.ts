@@ -1,3 +1,4 @@
+import { assertCodeSurfaces, monochromeSource } from "./syntax-assertions";
 import {
   test,
   expect,
@@ -36,7 +37,22 @@ const sharedReferencePalette = `
 .pane { background: var(--bg); transform: translateZ(0); }`;
 let app: ElectronApplication, page: Page, specimen: Page;
 const pane = () => page.locator('[data-panel="find"]');
+// craigtrim/axiom#111: keep colour evidence while comparing the original geometry.
 async function capture(root: Locator, label: string) {
+  if (root.page() !== page) return captureRaw(root, label);
+  await assertCodeSurfaces(root, "code, .entity-source pre");
+  await test.info().attach(`${label}-coloured`, {
+    body: await captureRaw(root, label),
+    contentType: "image/png",
+  });
+  const restore = await monochromeSource(root);
+  try {
+    return await captureRaw(root, label);
+  } finally {
+    await restore();
+  }
+}
+async function captureRaw(root: Locator, label: string) {
   // Give both independently rendered More glyphs the same paint boundary.
   // Otherwise Skia can batch their fractional circles with surrounding content
   // and round an edge differently despite identical SVG geometry.
