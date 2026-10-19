@@ -1,3 +1,6 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
+import { CodeTextarea } from "./CodeTextarea";
 // Real ontology identifiers and recorded context in the reference layout (craigtrim/axiom#82).
 import type { Entity } from "../domain/model";
 import { displayName, identifier, identifierParts } from "../domain/rdf-model";
@@ -109,19 +112,25 @@ export function ChildSuggestionDetails({
         <div>
           <dt>Normalized name</dt>
           <dd>
-            <code>{normalizedSuggestionName(item.label) || item.label}</code>
+            <code>
+              <Code>{normalizedSuggestionName(item.label) || item.label}</Code>
+            </code>
           </dd>
         </div>
         <div>
           <dt>Identifier</dt>
           <dd>
-            <code>{proposedIri}</code>
+            <code>
+              <Code>{proposedIri}</Code>
+            </code>
           </dd>
         </div>
         <div>
           <dt>Parent relation</dt>
           <dd>
-            <code>rdfs:subClassOf {item.parentIri}</code>
+            <code>
+              <Code>rdfs:subClassOf {item.parentIri}</Code>
+            </code>
           </dd>
         </div>
         {item.status === "exists" && (
@@ -236,9 +245,8 @@ function ContextContents({
       </details>
       <details>
         <summary>Exact prompt</summary>
-        <textarea
+        <CodeTextarea
           aria-label="Taxonomy prompt"
-          readOnly
           value={entry?.prompt ?? buildTaxonomyPrompt(context)}
           rows={12}
         />

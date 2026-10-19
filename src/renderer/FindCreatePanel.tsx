@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
 import { useEffect, useId, useRef, useState } from "react";
 import { NS, THING } from "../domain/model";
 import { entityIdentifier } from "../shared/entity-names";
@@ -287,7 +289,9 @@ export function FindCreatePanel({
           >
             <tr className="find-kind-row">
               <th scope="row">
-                <code>rdf:type</code>
+                <code>
+                  <Code>rdf:type</Code>
+                </code>
               </th>
               <td>
                 <div className="statement-value-line">
@@ -336,7 +340,9 @@ export function FindCreatePanel({
             <tr>
               <th scope="row">
                 <label htmlFor={id + "-label"}>
-                  <code>rdfs:label</code>
+                  <code>
+                    <Code>rdfs:label</Code>
+                  </code>
                 </label>
               </th>
               <td>
@@ -382,7 +388,11 @@ export function FindCreatePanel({
                 values: parentValues as [string, ...string[]],
               }}
               name={relationName}
-              predicate={<code>{relationName}</code>}
+              predicate={
+                <code>
+                  <Code>{relationName}</Code>
+                </code>
+              }
               valueKey={(value, index) => value || "parent-" + index}
               add={() => {
                 setActiveParent(parentValues.length);
@@ -476,7 +486,9 @@ export function FindCreatePanel({
             <tr>
               <th scope="row">
                 <label htmlFor={id + "-comment"}>
-                  <code>rdfs:comment</code>
+                  <code>
+                    <Code>rdfs:comment</Code>
+                  </code>
                 </label>
               </th>
               <td>
