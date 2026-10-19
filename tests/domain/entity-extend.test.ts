@@ -24,22 +24,26 @@ it.each(matrix)("offers only valid relations for %s", (kind, expected) => {
     expect(extendRelations(kind)[0].kind).toBe(kind);
 });
 for (const [kind, relations] of matrix) {
-  it.each([
-    "",
-    "  ",
-    "https://example.test/a",
-    "rdfs:label",
-    "/term/i",
-    "^term",
-    "a|b",
-    "x".repeat(257),
-  ])(`${kind} withdraws an invalid synonym %s`, (query) => {
+  // #127: punctuation and length never hide the synonym action.
+  it.each(["", "  "])(`${kind} withdraws a blank synonym %s`, (query) => {
     const control = extendControl(kind, query, "available");
     expect(control.synonym).toBe(false);
     expect(control.primary).toBe(relations[0]);
     expect(control.form).toBe(
       relations.length > 1 ? "split" : relations.length ? "main" : "empty",
     );
+  });
+  it.each([
+    "https://example.test/a",
+    "rdfs:label",
+    "/term/i",
+    "^term",
+    "a|b",
+    "x".repeat(257),
+  ])(`${kind} offers the literal synonym %s`, (query) => {
+    const control = extendControl(kind, query, "available");
+    expect(control.synonym).toBe(true);
+    expect(control.primary).toBe("synonym");
   });
   it.each(["label", "exists", "available"] as const)(
     `${kind} keeps %s synonyms available`,

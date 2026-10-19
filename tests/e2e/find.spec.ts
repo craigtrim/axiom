@@ -856,6 +856,31 @@ const synonymDocument = () =>
     base + "Developmental_Psychology",
   );
 
+// #127: a colon in a course title stays in the synonym added from Find.
+test("Find records a colon title as one synonym literal", async () => {
+  await openSynonymFixture();
+  const title = "Developmental Psychology: Body Structures";
+  await find(title);
+  const row = extendRow("Developmental Psychology");
+  const before = await synonymDocument();
+  await row
+    .getByRole("button", {
+      name: `Add ${title} as a synonym of Developmental Psychology`,
+      exact: true,
+    })
+    .click();
+  await expect
+    .poll(async () => (await synonymDocument()).statements)
+    .toEqual([
+      ...before.statements,
+      {
+        subject: base + "Developmental_Psychology",
+        predicate: NS.rdfs + "seeAlso",
+        object: { literal: true, value: title },
+      },
+    ]);
+});
+
 test("Find adds its search text as a synonym without clearing results and refreshes Details with Undo and Redo", async () => {
   await openSynonymFixture();
   await find("Developmental Psycho");
@@ -972,7 +997,7 @@ test("Find adds its search text as a synonym without clearing results and refres
   await page.screenshot({ path: "artifacts/testing/find-add-synonym.png" });
 });
 
-test("Find synonym action permits name and synonym matches, rejects query syntax and supports keyboard activation", async () => {
+test("Find synonym action permits name and synonym matches, withholds blank text and supports keyboard activation", async () => {
   await openSynonymFixture();
   await find("DEVELOPMENTAL PSYCHOLOGY");
   const p = pane(),
@@ -991,18 +1016,14 @@ test("Find synonym action permits name and synonym matches, rejects query syntax
   await expect(row.locator(".find-synonym")).toBeEnabled();
   await query.fill("developmental psyc");
   await expect(row.locator(".find-synonym")).toBeEnabled();
-  for (const text of ["label:Developmental", "/Developmental.*/i", ""]) {
-    await query.fill(text);
-    await expect(p.locator(".find-synonym")).toHaveCount(0);
-    if (!text) {
-      await expect(
-        p.getByRole("columnheader", { name: "Synonym", exact: true }),
-      ).toHaveCount(0);
-      await expect(p.locator(".find-empty")).toHaveText(
-        "Type to search names, aliases and IRIs.",
-      );
-    }
-  }
+  await query.fill("");
+  await expect(p.locator(".find-synonym")).toHaveCount(0);
+  await expect(
+    p.getByRole("columnheader", { name: "Synonym", exact: true }),
+  ).toHaveCount(0);
+  await expect(p.locator(".find-empty")).toHaveText(
+    "Type to search names, aliases and IRIs.",
+  );
   expect((await synonymDocument()).statements).toEqual(before.statements);
   expect((await synonymDocument()).version).toBe(before.version);
   await query.fill("Developmental Psycho");

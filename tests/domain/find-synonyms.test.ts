@@ -71,9 +71,19 @@ describe("synonyms from Find", () => {
     expect(store.version).toBe(version);
     expect(store.undoStack).toHaveLength(1);
   });
+  // #127: only blank input is withheld; every other query is a literal.
+  it.each(["", "  "])(
+    "rejects blank queries without writing: %s",
+    async (text) => {
+      const store = await fixture(),
+        before = structuredClone(store.tbox);
+      expect(findSynonymText(text)).toBeUndefined();
+      expect(() => addFindSynonym(store, iri, text)).toThrow("plain text");
+      expect(store.tbox).toEqual(before);
+    },
+  );
   it.each([
-    "",
-    "  ",
+    "Anatomy and Physiology: Body Structures",
     "label:Developmental",
     'rdfs:label:"Developmental Psycho"',
     "/Developmental.*/i",
@@ -81,22 +91,26 @@ describe("synonyms from Find", () => {
     "Developmental [Pp]sycho",
     "https://example.org/term",
     "x".repeat(257),
-  ])("rejects non-plain queries without writing: %s", async (text) => {
-    const store = await fixture(),
-      before = structuredClone(store.tbox);
-    expect(findSynonymText(text)).toBeUndefined();
-    expect(() => addFindSynonym(store, iri, text)).toThrow("plain text");
-    expect(store.tbox).toEqual(before);
-  });
-  it.each([
     "C++",
     "I/O",
     "R&D",
     "U.S. History",
     "History (to 1877)",
     "Children's Literature",
-  ])("keeps ordinary punctuation in %s", (text) => {
+  ])("records the complete literal query: %s", async (text) => {
+    const store = await fixture();
     expect(findSynonymText(text)).toBe(text);
+    expect(findSynonymStatus(store, iri, text)).toBe("available");
+    expect(addFindSynonym(store, iri, text)).toEqual({
+      added: true,
+      value: text,
+    });
+    expect(store.tbox).toContainEqual({
+      subject: iri,
+      predicate,
+      object: { literal: true, value: text },
+    });
+    expect(findSynonymStatus(store, iri, text)).toBe("exists");
   });
   it("does not offer edits for vanished or anonymous entries", async () => {
     const store = await fixture();
