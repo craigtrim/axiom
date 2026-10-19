@@ -64,9 +64,7 @@
 .query-panel .monaco-editor .minimap {
   display: none;
 }
-.query-panel .monaco-editor .view-line span {
-  color: var(--text) !important;
-}
+/* craigtrim/axiom#111: token colour comes from the shared Monaco theme. */
 .query-panel .monaco-editor .selected-text {
   background: var(--sel) !important;
 }

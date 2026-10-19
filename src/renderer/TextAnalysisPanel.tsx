@@ -1,4 +1,6 @@
 import { registerEditorMenu } from "./editor-menu-keys";
+// craigtrim/axiom#111: Monaco's global theme must preserve source colours in other panes.
+import { syntaxTheme } from "./syntax-theme";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
@@ -131,7 +133,7 @@ export function TextAnalysisPanel() {
       scrollBeyondLastLine: false,
       renderLineHighlight: "none",
       ariaLabel: "Text to analyze",
-      theme: owner.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
+      theme: syntaxTheme(owner),
     });
     editor.current = instance;
     const scroll = scrollHost.current!;
@@ -362,9 +364,7 @@ export function TextAnalysisPanel() {
         void instance.getAction("actions.find")?.run();
     });
     const observer = new MutationObserver(() =>
-      monaco.editor.setTheme(
-        owner.documentElement.dataset.theme === "dark" ? "vs-dark" : "vs",
-      ),
+      monaco.editor.setTheme(syntaxTheme(owner)),
     );
     observer.observe(owner.documentElement, {
       attributes: true,

@@ -1,5 +1,7 @@
 import { clearTaxonomyReveal } from "./taxonomy-navigation";
 import { pulseTab } from "./tab-pulse";
+// craigtrim/axiom#111: adopted panes register their ranges in the destination window.
+import { watchSyntaxDocument } from "./syntax-paint";
 import {
   installTextEntitySplitter,
   setTextEntitySplit,
@@ -452,6 +454,7 @@ export function applyTheme(doc: Document = document) {
     else root.style.setProperty("--" + k, v);
 }
 export function App() {
+  useEffect(() => watchSyntaxDocument(document), []);
   useAssistantActivityPolling();
   const s = useSnapshot()!,
     [model, setModel] = useState(() => restoreLayout(preferences.layout)),
@@ -1582,6 +1585,10 @@ export function App() {
               invalidateTabContentOnParentRender={true}
               onPopoutOpen={(_m, _w, d) => {
                 documents.add(d);
+                const removeSyntax = watchSyntaxDocument(d);
+                d.defaultView?.addEventListener("unload", removeSyntax, {
+                  once: true,
+                });
                 d.defaultView?.addEventListener("focus", () =>
                   rememberDocument(d),
                 );
