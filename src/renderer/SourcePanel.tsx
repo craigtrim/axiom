@@ -1,7 +1,9 @@
 // craigtrim/axiom#94: Monaco retains editing behavior inside the utility reference frame.
 import { registerEditorMenu } from "./editor-menu-keys";
 import { ErrorNotice } from "./ErrorNotice";
-import "./ontology-language";
+import { ontologyLanguage } from "./ontology-language";
+import { syntaxTheme } from "./syntax-theme";
+import { paintEditorSyntax } from "./syntax-paint";
 import { usePaneLayout } from "./AdaptivePane";
 import { UtilityFrame, UtilityToolbar } from "./UtilityPane";
 import { useEffect, useRef, useState } from "react";
@@ -69,7 +71,8 @@ export function SourcePanel() {
   useEffect(() => {
     if (!host.current) return;
     const ownerDocument = host.current.ownerDocument;
-    const model = monaco.editor.createModel("", "plaintext");
+    // craigtrim/axiom#111: format changes use the same grammar as static source.
+    const model = monaco.editor.createModel("", ontologyLanguage(format));
     const instance = monaco.editor.create(host.current, {
       model,
       editContext: false,
@@ -103,12 +106,10 @@ export function SourcePanel() {
       wordWrap: "off",
       scrollBeyondLastLine: false,
       ariaLabel: "Ontology source",
-      theme:
-        ownerDocument.documentElement.dataset.theme === "dark"
-          ? "vs-dark"
-          : "vs",
+      theme: syntaxTheme(ownerDocument),
     });
     editor.current = instance;
+    const removeSyntax = paintEditorSyntax(host.current);
     const removeEditorMenu = registerEditorMenu(instance);
     const change = instance.onDidChangeModelContent(() => {
       if (!updating.current && current.current) {
@@ -135,11 +136,7 @@ export function SourcePanel() {
       }
     });
     const observer = new MutationObserver(() =>
-      monaco.editor.setTheme(
-        ownerDocument.documentElement.dataset.theme === "dark"
-          ? "vs-dark"
-          : "vs",
-      ),
+      monaco.editor.setTheme(syntaxTheme(ownerDocument)),
     );
     observer.observe(ownerDocument.documentElement, {
       attributes: true,
@@ -150,6 +147,7 @@ export function SourcePanel() {
       observer.disconnect();
       change.dispose();
       removeEditorMenu();
+      removeSyntax();
       instance.dispose();
       model.dispose();
       editor.current = null;
@@ -176,6 +174,14 @@ export function SourcePanel() {
     host.current?.style.setProperty("--source-gutter", gutter + "px");
   }, [layout.narrow]);
   const text = draft?.text ?? doc?.text ?? "";
+  const language = ontologyLanguage(
+    draft?.loaded.format ?? doc?.format ?? format,
+  );
+  useEffect(() => {
+    const model = editor.current?.getModel();
+    if (model && model.getLanguageId() !== language)
+      monaco.editor.setModelLanguage(model, language);
+  }, [language]);
   useEffect(() => {
     const instance = editor.current,
       container = area.current,

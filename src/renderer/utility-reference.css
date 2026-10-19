@@ -427,7 +427,7 @@
   }
 }
 
-/* Monaco shares a global theme; keep this view's plain token palette scoped. */
+/* craigtrim/axiom#111: Monaco shares syntax colours while this view owns its frame. */
 .utility-surface .monaco-editor,
 .utility-surface .monaco-editor-background {
   background: var(--ground) !important;
@@ -445,9 +445,6 @@
   left: 0 !important;
   width: calc(var(--source-gutter, 40px) - 6px) !important;
   color: var(--idle) !important;
-}
-.utility-surface .monaco-editor .view-line span {
-  color: var(--text) !important;
 }
 /* Chromium blends a dark inset shadow differently on a transparent layer.
    Keep that focus surface opaque below the editor so its rounded edge matches

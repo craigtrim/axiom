@@ -1,6 +1,6 @@
 # Source editing and linked files
 
-Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, plain monospace text, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
+Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, monospace text highlighted with the shared syntax palette, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
 
 ## One ontology across views
 
@@ -14,7 +14,7 @@ The action row reports **Clean**, **Draft pending**, **Invalid on line N** (or *
 
 Typing in Source does not update the ontology on every keystroke. **Apply changes** and source format switching validate ontology source; **Save source** in the Details header applies an entity source draft as one Undo operation. The header also carries Discard, invalid-draft and stale-draft actions, including when a shallow pane hides the source region. Layout changes remain workbench state; moving a graph node does not invent an RDF statement.
 
-Details source snippets start with the entity's statements. Turtle/TriG prefix declarations and the RDF/XML document wrapper are hidden in this editor, but retained with its draft so editing and saving preserve namespace resolution. The editor grows to 14 lines and uses plain monospace text. Copying from the snippet editor copies only the displayed fragment. Details has its own format selection, which applies a valid draft before converting and leaves the ontology's native format unchanged. Invalid and stale drafts block conversion. Escape discards pending or invalid text only while focus is in this region. The full **View > Source** document and ontology exports include their serialization headers.
+Details source snippets start with the entity's statements. Turtle/TriG prefix declarations and the RDF/XML document wrapper are hidden in this editor, but retained with its draft so editing and saving preserve namespace resolution. The editor grows to 14 lines and uses monospace text highlighted with the shared syntax palette. Copying from the snippet editor copies only the displayed fragment. Details has its own format selection, which applies a valid draft before converting and leaves the ontology's native format unchanged. Invalid and stale drafts block conversion. Escape discards pending or invalid text only while focus is in this region. The full **View > Source** document and ontology exports include their serialization headers.
 
 ## Formats
 

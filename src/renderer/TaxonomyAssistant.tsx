@@ -1,3 +1,6 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
+import { CodeTextarea } from "./CodeTextarea";
 // Finished child runs remain editable while another target runs (craigtrim/axiom#82, #68).
 import {
   AddChildrenSuggestions,
@@ -575,9 +578,8 @@ export function TaxonomyAssistant({
             )}
             <details>
               <summary>Exact prompt</summary>
-              <textarea
+              <CodeTextarea
                 aria-label="Taxonomy prompt"
-                readOnly
                 value={entry?.prompt ?? buildTaxonomyPrompt(context)}
                 rows={12}
               />
@@ -687,11 +689,13 @@ export function TaxonomyAssistant({
                       <details>
                         <summary>Identifier and relationship</summary>
                         <code>
-                          {context!.ontology.namespace +
-                            identifier(suggestion.label)}
+                          <Code>
+                            {context!.ontology.namespace +
+                              identifier(suggestion.label)}
+                          </Code>
                         </code>
                         <p>
-                          {children ? "rdfs:subClassOf" : "rdf:type"} {name}
+                          <Code>{`${children ? "rdfs:subClassOf" : "rdf:type"} ${name}`}</Code>
                         </p>
                       </details>
                       {entry?.applied.includes(i) ? (

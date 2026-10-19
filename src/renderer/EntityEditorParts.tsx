@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 import { useId, type ReactNode } from "react";
 import { THING, type Entity } from "../domain/model";
 import type { Snapshot } from "../shared/protocol";
@@ -111,7 +113,11 @@ export function SourceDisclosure({
       </button>
       {open && (
         <pre id={id} aria-label="RDF/XML source" tabIndex={0}>
-          {source || "Complete the valid statements to preview RDF/XML."}
+          {source ? (
+            <Code language="rdfxml">{source}</Code>
+          ) : (
+            "Complete the valid statements to preview RDF/XML."
+          )}
         </pre>
       )}
     </div>

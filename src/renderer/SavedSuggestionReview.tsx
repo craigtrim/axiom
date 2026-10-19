@@ -1,3 +1,6 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
+import { CodeTextarea } from "./CodeTextarea";
 import type { Entity } from "../domain/model";
 import { useEffect, useState } from "react";
 import { request } from "./client";
@@ -43,9 +46,8 @@ export function SavedSuggestionReview(p: Props) {
           ? `Prompt recorded for this ${entry.provider === "codex" ? "Codex" : "Claude"} run.`
           : "Prompt for a new run with the current ontology."}
       </p>
-      <textarea
+      <CodeTextarea
         aria-label={parents ? "Parent prompt" : "Synonym prompt"}
-        readOnly
         value={prompt}
         rows={12}
       />
@@ -144,7 +146,9 @@ export function SavedSuggestionReview(p: Props) {
                   <div>
                     <dt>Selected class</dt>
                     <dd>
-                      <code>{entry.iri}</code>
+                      <code>
+                        <Code>{entry.iri}</Code>
+                      </code>
                     </dd>
                   </div>
                   <div>
@@ -243,17 +247,20 @@ export function SavedSuggestionReview(p: Props) {
               <div>
                 <dt>Identifier</dt>
                 <dd>
-                  <code>{item.value}</code>
+                  <code>
+                    <Code>{item.value}</Code>
+                  </code>
                 </dd>
               </div>
             )}
             <div>
               <dt>{parents ? "Parent relation" : "Annotation"}</dt>
               <dd>
-                {p.name} {parents ? "rdfs:subClassOf" : "rdfs:seeAlso"}{" "}
-                {parents ? item.label : `"${item.value}"`}
+                <Code>{`${p.name} ${parents ? "rdfs:subClassOf" : "rdfs:seeAlso"} ${parents ? item.label : `"${item.value}"`}`}</Code>
                 <br />
-                <code>{p.targetIri}</code>
+                <code>
+                  <Code>{p.targetIri}</Code>
+                </code>
               </dd>
             </div>
           </dl>

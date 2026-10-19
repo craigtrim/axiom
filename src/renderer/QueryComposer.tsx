@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 import { useEffect, useRef, useState } from "react";
 import { useAssistantProvider } from "./assistant-provider";
 import {
@@ -472,9 +474,11 @@ export function QueryComposer(props: {
         <details className="ctxbox">
           <summary>{`What gets sent: ${context ? context.terms.length + context.predicates.length : 0} context lines, ${(context?.omitted ?? 0) + (context?.omittedPredicates ?? 0)} omitted, from ${available?.path ?? "no executable"}`}</summary>
           <pre className="cc">
-            {context && input
-              ? buildQueryPrompt(context, input)
-              : "Loading ontology context..."}
+            {context && input ? (
+              <Code language="prompt">{buildQueryPrompt(context, input)}</Code>
+            ) : (
+              "Loading ontology context..."
+            )}
           </pre>
         </details>
         {running ? (

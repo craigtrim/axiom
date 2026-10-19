@@ -1,3 +1,4 @@
+import { assertCodeSurfaces, monochromeSource } from "./syntax-assertions";
 // Pixel comparison of the Ontology Quality pane against Craig's pinned visual
 // reference (craigtrim/axiom#44). The reference is rendered fresh in the same
 // Electron build for every case; the application is never used as a baseline.
@@ -974,6 +975,7 @@ async function shoot(
   }
   return out;
 }
+// craigtrim/axiom#111: source colours supersede the pinned one-ink reference.
 async function compare(name: string, full: boolean, regions: Region[]) {
   const info = test.info();
   await page.mouse.move(0, 0);
@@ -1011,7 +1013,14 @@ async function compare(name: string, full: boolean, regions: Region[]) {
   await showReference(false);
   await shoot(appRoot, pick(appRoot, false), "Axiom");
   const appStyle = probe ? await style(appRoot) : {};
+  await assertCodeSurfaces(
+    pane(),
+    '.fdet pre, .fdet .kv:has(.k:text-is("Reading")) code',
+  );
+  const coloured = await shoot(appRoot, pick(appRoot, false), "Axiom coloured");
+  const restoreSyntax = await monochromeSource(appRoot);
   const actual = await shoot(appRoot, pick(appRoot, false), "Axiom");
+  await restoreSyntax();
   await showReference(true);
   if (probe) {
     const specStyle = await style(specRoot);
@@ -1034,6 +1043,7 @@ async function compare(name: string, full: boolean, regions: Region[]) {
     const e = expected[region],
       a = actual[region];
     const file = `artifacts/issue-44/${name}-${region}`;
+    await writeFile(file + "-coloured.png", coloured[region].image);
     await writeFile(file + "-expected.png", e.image);
     await writeFile(file + "-actual.png", a.image);
     await info.attach(`${region} reference`, {

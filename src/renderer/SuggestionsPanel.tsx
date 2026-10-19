@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source terms use the shared grammar and palette.
+import { Code } from "./Code";
 // Keep each view's sort through target/run remounts (craigtrim/axiom#82).
 import type { SuggestionSort } from "./suggestion-workbench-model";
 import { synonymDefinition } from "../shared/synonyms";
@@ -718,7 +720,9 @@ function SavedSuggestionView({
         {entry?.prompt && (
           <details>
             <summary>Instructions and context for this run</summary>
-            <pre className="suggestion-prompt">{entry.prompt}</pre>
+            <pre className="suggestion-prompt">
+              <Code language="prompt">{entry.prompt}</Code>
+            </pre>
           </details>
         )}
         {!!entry?.excluded?.length && (
@@ -774,7 +778,11 @@ function SavedSuggestionView({
                   )}
                 </label>
                 <p>{v.reason}</p>
-                {parents && <code>{v.value}</code>}
+                {parents && (
+                  <code>
+                    <Code>{v.value}</Code>
+                  </code>
+                )}
               </li>
             ))}
           </ul>

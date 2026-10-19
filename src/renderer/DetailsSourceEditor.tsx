@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Code } from "./Code";
+import type { SourceFormat } from "../shared/source";
 import { onCommand, report } from "./client";
 import { ContextMenu } from "./ContextMenu";
 
@@ -6,22 +8,46 @@ import { ContextMenu } from "./ContextMenu";
  * and gives clipboard and undo/redo to the browser's text editing history. */
 export function DetailsSourceEditor({
   value,
+  format,
   label,
   disabled,
   change,
 }: {
   value: string;
+  format: SourceFormat;
   label: string;
   disabled?: boolean;
   change(value: string): void;
 }) {
   const root = useRef<HTMLDivElement>(null),
     editor = useRef<HTMLTextAreaElement>(null),
+    highlight = useRef<HTMLPreElement>(null),
     search = useRef<HTMLInputElement>(null);
   const [finding, setFinding] = useState(false),
     [query, setQuery] = useState("");
   const [result, setResult] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number }>();
+  // craigtrim/axiom#111: paint shared tokens behind the unchanged native editing surface.
+  const align = () => {
+    const input = editor.current,
+      pre = highlight.current;
+    if (!input || !pre) return;
+    const css = input.ownerDocument.defaultView!.getComputedStyle(input);
+    const scrollbar =
+      input.offsetWidth -
+      input.clientWidth -
+      parseFloat(css.borderLeftWidth) -
+      parseFloat(css.borderRightWidth);
+    pre.style.paddingRight = parseFloat(css.paddingRight) + scrollbar + "px";
+    pre.scrollTop = input.scrollTop;
+    pre.scrollLeft = input.scrollLeft;
+  };
+  useLayoutEffect(align, [value, format]);
+  useEffect(() => {
+    const observer = new ResizeObserver(align);
+    observer.observe(editor.current!);
+    return () => observer.disconnect();
+  }, []);
   const localCommand = (id: string) => {
     const el = editor.current!;
     el.focus();
@@ -145,32 +171,38 @@ export function DetailsSourceEditor({
           </span>
         </div>
       )}
-      <textarea
-        ref={editor}
-        className="src"
-        aria-label={label}
-        spellCheck={false}
-        disabled={disabled}
-        value={value}
-        rows={Math.min(14, Math.max(1, value.split("\n").length))}
-        onChange={(event) => change(event.target.value)}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setMenu({ x: event.clientX, y: event.clientY });
-        }}
-        onKeyDown={(event) => {
-          if (
-            (event.shiftKey && event.key === "F10") ||
-            event.key === "ContextMenu"
-          ) {
+      <div className="details-source-stack">
+        <pre ref={highlight} className="source-highlight" aria-hidden="true">
+          <Code language={format}>{value + "\n"}</Code>
+        </pre>
+        <textarea
+          ref={editor}
+          className="src source-input"
+          aria-label={label}
+          spellCheck={false}
+          disabled={disabled}
+          value={value}
+          rows={Math.min(14, Math.max(1, value.split("\n").length))}
+          onChange={(event) => change(event.target.value)}
+          onScroll={align}
+          onContextMenu={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            const box = event.currentTarget.getBoundingClientRect();
-            setMenu({ x: box.x + 12, y: box.y + 20 });
-          }
-        }}
-      />
+            setMenu({ x: event.clientX, y: event.clientY });
+          }}
+          onKeyDown={(event) => {
+            if (
+              (event.shiftKey && event.key === "F10") ||
+              event.key === "ContextMenu"
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              const box = event.currentTarget.getBoundingClientRect();
+              setMenu({ x: box.x + 12, y: box.y + 20 });
+            }
+          }}
+        />
+      </div>
       {menu && (
         <ContextMenu
           document={editor.current!.ownerDocument}

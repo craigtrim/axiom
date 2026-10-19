@@ -14,6 +14,8 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Snapshot } from "../../src/shared/protocol";
 import { NS } from "../../src/domain/model";
 import { extendBase, extendOntology } from "../fixtures/extend-visual/ontology";
+// craigtrim/axiom#111: retained property authoring previews keep source colours.
+import { assertCodeBothThemes } from "./syntax-assertions";
 const base = "https://example.test/courses#";
 let app: ElectronApplication, page: Page, profile: string;
 const errors: string[] = [];
@@ -405,6 +407,9 @@ for (const [target, door, noun, predicate, kind] of [
     await form
       .getByRole("textbox", { name: new RegExp("^" + noun + " comment$", "i") })
       .fill("Created from Find");
+    await form.getByRole("button", { name: "Source", exact: true }).click();
+    await expect(form.getByLabel("RDF/XML source")).toContainText("rdf:");
+    await assertCodeBothThemes(pane(), "code, .entity-source pre");
     const targetIri = (await state()).entities.find(
       (e) => (e.label || e.name) === target,
     )!.iri;

@@ -1,3 +1,5 @@
+// craigtrim/axiom#111: source uses the same tokens as the editable views.
+import { Code } from "./Code";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
@@ -387,7 +389,9 @@ function QueryResultsContent({
       >
         <div className="ctx">
           <span className="q" title={document.run.text}>
-            {document.run.text.replace(/\s+/g, " ").slice(0, 120)}
+            <Code language="sparql">
+              {document.run.text.replace(/\s+/g, " ").slice(0, 120)}
+            </Code>
           </span>
           <span className="opt">
             ran <span className="num">{queryTime(document.completedAt)}</span>
