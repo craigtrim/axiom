@@ -1,4 +1,5 @@
 import { clearTaxonomyReveal } from "./taxonomy-navigation";
+import { pulseTab } from "./tab-pulse";
 import {
   installTextEntitySplitter,
   setTextEntitySplit,
@@ -629,7 +630,12 @@ export function App() {
     show(saved.id, focusPanel, true);
     saveLayout(m);
   };
-  const show = (id: string, focusPanel = true, activate = focusPanel) => {
+  const show = (
+    id: string,
+    focusPanel = true,
+    activate = focusPanel,
+    fromRail = false,
+  ) => {
     if (id === "touchpoints") {
       if (!state?.selected || state.selected.startsWith("_:")) return;
       id = "touchpoints:" + encodeURIComponent(state.selected);
@@ -654,6 +660,7 @@ export function App() {
       });
       if (n) id = n.getId();
     }
+    const existing = n instanceof TabNode;
     if (!n) {
       const saved = tabHistory().entries.find((t) => t.id === id);
       if (saved) {
@@ -724,6 +731,8 @@ export function App() {
         m.doAction(Actions.maximizeToggle(maximised.getId(), n.getLayoutId()));
       if (focusPanel) n.getWindow()?.focus();
       m.doAction(Actions.selectTab(n.getId()));
+      // craigtrim/axiom#114: only a rail visit to an existing tab acknowledges the click.
+      if (fromRail && existing && n instanceof TabNode) pulseTab(n);
       if (activate) active.current = id;
       if (!focusPanel) {
         saveLayout(m);
@@ -1377,7 +1386,7 @@ export function App() {
         <PaneRail
           active={shellPane}
           badges={shellBadges}
-          open={(id) => show(id, false, true)}
+          open={(id) => show(id, false, true, true)}
         />
         <div className="workbench-stage">
           <DocumentTabs
