@@ -231,41 +231,120 @@ test("source context-menu access keys preserve selection and edit the local draf
   await expect(source()).toHaveValue(original);
 });
 
-test("source grows with its content up to fourteen rows and scrolls beyond that cap", async () => {
+// craigtrim/axiom#118: wrapped text sizes the source up to the pane body's free room.
+test("source grows with its wrapped text into the free pane height and keeps fourteen rows in a short pane", async () => {
   await openSource();
   const version = (await state()).version;
-  let previous = 0;
-  for (const lines of [1, 5, 14, 20]) {
+  const host = page.locator('.adaptive-pane[data-pane-id="details"]');
+  const size = (width: number, height: number) =>
+    host.evaluate(
+      (el, size) =>
+        Object.assign((el as HTMLElement).style, {
+          position: "fixed",
+          left: "20px",
+          top: "80px",
+          zIndex: "1000",
+          width: size.width + "px",
+          height: size.height + "px",
+        }),
+      { width, height },
+    );
+  const metrics = () =>
+    source().evaluate((el: HTMLTextAreaElement) => {
+      const css = getComputedStyle(el),
+        body = el.closest(".pbody")!,
+        area = body.getBoundingClientRect();
+      return {
+        lines: el.value.split("\n").length,
+        line: parseFloat(css.lineHeight),
+        chrome: parseFloat(css.paddingTop) + parseFloat(css.paddingBottom),
+        height: el.getBoundingClientRect().height,
+        scroll: el.scrollHeight,
+        client: el.clientHeight,
+        bodyScroll: body.scrollHeight,
+        bodyClient: body.clientHeight,
+        // Free space between the source region and the body's bottom edge.
+        gap:
+          area.top +
+          body.clientTop +
+          body.clientHeight -
+          body.lastElementChild!.getBoundingClientRect().bottom,
+      };
+    });
+  const rows = (m: { line: number; chrome: number }, n: number) =>
+    n * m.line + m.chrome;
+
+  // The issue's screenshot: N-Triples statements wrap, and a tall pane shows all of them.
+  const format = details().getByRole("combobox", {
+    name: "Source format",
+    exact: true,
+  });
+  await format.selectOption("ntriples");
+  await expect(source()).toHaveValue(/^<https:\/\/example\.test\/details\//);
+  for (const width of [700, 360]) {
+    await size(width, 1400);
+    await expect
+      .poll(async () => {
+        const m = await metrics();
+        return m.scroll - m.client;
+      })
+      .toBe(0);
+    const wrapped = await metrics();
+    expect(wrapped.height).toBeGreaterThan(rows(wrapped, wrapped.lines));
+  }
+
+  await size(700, 1400);
+  for (const lines of [1, 5]) {
     await source().fill(
       Array.from({ length: lines }, (_, i) => "# line " + i).join("\n"),
     );
-    const metrics = await source().evaluate((el: HTMLTextAreaElement) => ({
-      rows: el.rows,
-      height: el.getBoundingClientRect().height,
-      scroll: el.scrollHeight,
-      client: el.clientHeight,
-    }));
-    expect(metrics.rows).toBe(Math.min(lines, 14));
-    if (lines <= 14) expect(metrics.height).toBeGreaterThan(previous);
-    else {
-      expect(metrics.height).toBe(previous);
-      expect(metrics.scroll).toBeGreaterThan(metrics.client);
-      await source().evaluate((el) => {
-        el.scrollTop = el.scrollHeight;
-        el.dispatchEvent(new Event("scroll"));
-      });
-      await expect
-        .poll(() =>
-          details()
-            .locator(".source-highlight")
-            .evaluate((el) => el.scrollTop),
-        )
-        .toBe(await source().evaluate((el) => el.scrollTop));
-      await assertCodeBothThemes(details(), ".source-highlight");
-    }
-    previous = metrics.height;
-    expect((await state()).version).toBe(version);
+    const short = await metrics();
+    expect(short.height).toBeCloseTo(rows(short, lines), 1);
+    expect(short.scroll).toBe(short.client);
   }
+
+  const long = Array.from({ length: 80 }, (_, i) => "# line " + i).join("\n");
+  await source().fill(long);
+  await expect.poll(async () => (await metrics()).gap).toBeLessThan(1);
+  const tall = await metrics();
+  expect(tall.gap).toBeGreaterThanOrEqual(0);
+  expect(tall.height).toBeGreaterThan(rows(tall, 14));
+  expect(tall.scroll).toBeGreaterThan(tall.client);
+  expect(tall.bodyScroll).toBeLessThanOrEqual(tall.bodyClient);
+  await source().evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect
+    .poll(() =>
+      details()
+        .locator(".source-highlight")
+        .evaluate((el) => el.scrollTop),
+    )
+    .toBe(await source().evaluate((el) => el.scrollTop));
+  await assertCodeBothThemes(details(), ".source-highlight");
+
+  // A taller statement table above the editor leaves it less room.
+  await details()
+    .getByRole("button", { name: "+ Add row", exact: true })
+    .click();
+  await expect
+    .poll(async () => (await metrics()).height)
+    .toBeLessThan(tall.height);
+  const added = await metrics();
+  expect(added.gap).toBeGreaterThanOrEqual(0);
+  expect(added.gap).toBeLessThan(1);
+
+  // With less than fourteen rows of room, the editor keeps fourteen and the body scrolls.
+  await size(700, 450);
+  await expect
+    .poll(async () => (await metrics()).height)
+    .toBeCloseTo(rows(added, 14), 1);
+  const cramped = await metrics();
+  expect(cramped.scroll).toBeGreaterThan(cramped.client);
+  expect(cramped.bodyScroll).toBeGreaterThan(cramped.bodyClient);
+  await expect(source()).toHaveValue(long);
+  expect((await state()).version).toBe(version);
 });
 
 test("source format choices prevent losing named graphs and retain the native format", async () => {

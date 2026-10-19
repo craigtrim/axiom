@@ -393,8 +393,9 @@
     color: var(--text-muted);
   }
 
-  /* The editor is sized by its content. rows is set from the line count, so four
-   lines of Turtle is four lines and the pane keeps the rest. */
+  /* The editor is sized by its wrapped text, so four lines of Turtle is four
+   lines and the pane keeps the rest. craigtrim/axiom#118: longer text fills the
+   pane body's free room, never less than 14 rows, before it scrolls. */
   .src,
   .source-highlight {
     display: block;
@@ -644,6 +645,7 @@
   }
   .src.source-input {
     position: relative;
+    field-sizing: content;
     background: transparent;
     color: transparent;
     caret-color: var(--text);
