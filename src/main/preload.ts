@@ -114,7 +114,9 @@ const bridge: AxiomBridge = {
       p: Preferences,
       captured?: boolean,
       drafts?: import("../shared/editor-state").SavedEditorDrafts,
-    ) => invoke("preferences:save", p, captured, drafts),
+      // #123: unchanged drafts stay in the main process.
+      draftsRevision?: string,
+    ) => invoke("preferences:save", p, captured, drafts, draftsRevision),
   },
   onEvent: (fn) => listen("domain:event", fn),
   onCommand: (fn) => listen("command", fn),

@@ -4,6 +4,7 @@ import {
 } from "../shared/editor-state";
 import {
   editorDraftSnapshot,
+  editorDraftRevision,
   rememberEditorDraft,
   syncEditorEpoch,
 } from "./editor-drafts";
@@ -15,6 +16,7 @@ import {
 import { state, request, onCommand, report } from "./client";
 import {
   captureAddEntityDraft,
+  textAnalysisSession,
   restoreAddEntityDraft,
 } from "./text-analysis-state";
 let restoring: Promise<void> | undefined;
@@ -72,3 +74,28 @@ onCommand((id) => {
   if (id === "workspace.drafts")
     void restoreWorkspaceDrafts().catch((e) => report(e.message, true));
 });
+
+// #123: only a changed draft revision crosses IPC on workspace capture.
+let previousDraftKey = "",
+  previousCreation: unknown,
+  creationRevision = 0;
+let pendingDrafts: SavedEditorDrafts | undefined;
+export async function captureDraftCheckpoint() {
+  await restoring;
+  syncEditorEpoch(state!.datasetEpoch);
+  const creation = textAnalysisSession.getSnapshot().creation;
+  if (creation !== previousCreation) {
+    previousCreation = creation;
+    creationRevision++;
+  }
+  const revision = `${state!.datasetEpoch}:${editorDraftRevision()}:${creationRevision}`;
+  if (revision !== previousDraftKey)
+    pendingDrafts = await captureWorkspaceDrafts();
+  return {
+    revision,
+    drafts: revision === previousDraftKey ? undefined : pendingDrafts,
+    acknowledge: () => {
+      previousDraftKey = revision;
+    },
+  };
+}

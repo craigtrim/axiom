@@ -1,5 +1,7 @@
 # Source editing and linked files
 
+Axiom checks for autosave every 30 seconds and writes only when the workspace, selection, settled graph positions, view preferences or editor drafts changed since the last successful checkpoint (#123). File > Save still writes when requested. A session that exceeds the 256 MB limit reports one failure for that content revision and is retried after the content changes. File I/O failures remain retryable on the next tick. The session and `.axiom` formats are unchanged.
+
 Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Open in Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, monospace text highlighted with the shared syntax palette, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
 
 ## One ontology across views

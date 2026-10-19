@@ -638,6 +638,17 @@ function GraphContent() {
       attributeFilter: ["data-theme"],
     });
     const off = onCommand((id) => {
+      // #123: the import checkpoint includes the rendered camera before idle ticks.
+      if (
+        id === "workspace.captureViews" &&
+        canvas.clientWidth > 0 &&
+        canvas.clientHeight > 0
+      ) {
+        if (needsFit.current) {
+          fitNow();
+          needsFit.current = false;
+        } else savePanel(cameraKey, camera.current, false);
+      }
       if (id === "ui.restore:" + cameraKey) {
         camera.current = panel(cameraKey, camera.current);
         dirty.current = true;

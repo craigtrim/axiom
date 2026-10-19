@@ -27,7 +27,11 @@ let epoch: number | undefined;
 const key = (iri: string, e: number) => e + ":" + iri;
 export const isEditorSaving = (iri: string, e: number) =>
   saving.has(key(iri, e));
+// #123: draft persistence tracks mutations without comparing large source strings.
+let draftRevision = 0;
+export const editorDraftRevision = () => draftRevision;
 function notify() {
+  draftRevision++;
   window.axiom.editors.dirty(drafts.size + documentDrafts.size);
   window.dispatchEvent(new Event("axiom-editor-drafts"));
 }
