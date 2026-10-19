@@ -48,6 +48,68 @@ export function DetailsSourceEditor({
     observer.observe(editor.current!);
     return () => observer.disconnect();
   }, []);
+  // craigtrim/axiom#118: wrapped text sizes the editor; it stops at the pane
+  // body's free room, but never below the 14 rows it always had.
+  const fit = () => {
+    const input = editor.current,
+      stack = input?.parentElement,
+      body = input?.closest(".pbody"),
+      last = body?.lastElementChild;
+    if (!input?.offsetParent || !stack || !body || !last) return;
+    const view = input.ownerDocument.defaultView!,
+      css = view.getComputedStyle(input),
+      area = body.getBoundingClientRect(),
+      box = stack.getBoundingClientRect(),
+      // Client rects carry the pane's CSS zoom; layout metrics and max-height do not.
+      zoom = Number(
+        body.closest<HTMLElement>(".adaptive-pane")?.dataset.paneZoom ?? 1,
+      );
+    // Content coordinates, so scrolling the body never changes the answer.
+    const top = (box.top - area.top) / zoom - body.clientTop + body.scrollTop,
+      below = (last.getBoundingClientRect().bottom - box.bottom) / zoom,
+      room =
+        body.clientHeight -
+        parseFloat(view.getComputedStyle(body).paddingBottom) -
+        top -
+        below,
+      floor =
+        14 * parseFloat(css.lineHeight) +
+        parseFloat(css.paddingTop) +
+        parseFloat(css.paddingBottom);
+    input.style.maxHeight = Math.max(Math.floor(room), floor) + "px";
+  };
+  const fitting = useRef<{ observer: ResizeObserver; seen: WeakSet<Element> }>(
+    undefined,
+  );
+  useLayoutEffect(() => {
+    fit();
+    const body = editor.current?.closest(".pbody");
+    if (!body) return;
+    // The room changes with the body and with anything above the editor. The
+    // observer comes from the app window: FlexLayout moves a detached pane's
+    // DOM back without remounting it, and an observer made in the popup stops
+    // with the popup. No window is background-throttled (src/main/main.ts), so
+    // the app window keeps delivering while the pane is detached.
+    fitting.current ??= {
+      observer: new ResizeObserver(fit),
+      seen: new WeakSet(),
+    };
+    for (const el of [body, ...body.children])
+      if (
+        !fitting.current.seen.has(el) &&
+        (el === body || !el.contains(root.current))
+      ) {
+        fitting.current.seen.add(el);
+        fitting.current.observer.observe(el, { box: "border-box" });
+      }
+  });
+  useEffect(
+    () => () => {
+      fitting.current?.observer.disconnect();
+      fitting.current = undefined;
+    },
+    [],
+  );
   const localCommand = (id: string) => {
     const el = editor.current!;
     el.focus();
@@ -182,7 +244,6 @@ export function DetailsSourceEditor({
           spellCheck={false}
           disabled={disabled}
           value={value}
-          rows={Math.min(14, Math.max(1, value.split("\n").length))}
           onChange={(event) => change(event.target.value)}
           onScroll={align}
           onContextMenu={(event) => {
