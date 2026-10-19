@@ -40,6 +40,21 @@
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 
+  /* craigtrim/axiom#111: one syntax palette for editors, snippets and terms. */
+  --syntax-keyword: #6f2c91;
+  --syntax-prefixed: #0a5a75;
+  --syntax-iri: #164ba0;
+  --syntax-string: #8b3516;
+  --syntax-language: #7c386a;
+  --syntax-datatype: #7c386a;
+  --syntax-number: #704d00;
+  --syntax-comment: #3f4c45;
+  --syntax-punctuation: #3b4652;
+  --syntax-xml-tag: #6f2c91;
+  --syntax-xml-attribute: #0a5a75;
+  --syntax-json-key: #0a5a75;
+  --syntax-variable: #8b1962;
+
   /* geometry shared by every pane */
   --h-tabs: 28px;   /* the dock strip, owned by the shell */
   --h-bar:  28px;   /* a view's entire chrome: one action row */
@@ -47,6 +62,19 @@
   --row:    26px;   /* a list or table row */
 }
 :root[data-theme="dark"] {
+  --syntax-keyword: #d2a8ff;
+  --syntax-prefixed: #7ed6df;
+  --syntax-iri: #91bcff;
+  --syntax-string: #ffa985;
+  --syntax-language: #f2a6de;
+  --syntax-datatype: #f2a6de;
+  --syntax-number: #eac971;
+  --syntax-comment: #b2beb2;
+  --syntax-punctuation: #bac7d5;
+  --syntax-xml-tag: #d2a8ff;
+  --syntax-xml-attribute: #7ed6df;
+  --syntax-json-key: #7ed6df;
+  --syntax-variable: #f2a6de;
   color-scheme: dark;
   --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
   --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
@@ -63,6 +91,19 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
+    --syntax-keyword: #d2a8ff;
+    --syntax-prefixed: #7ed6df;
+    --syntax-iri: #91bcff;
+    --syntax-string: #ffa985;
+    --syntax-language: #f2a6de;
+    --syntax-datatype: #f2a6de;
+    --syntax-number: #eac971;
+    --syntax-comment: #b2beb2;
+    --syntax-punctuation: #bac7d5;
+    --syntax-xml-tag: #d2a8ff;
+    --syntax-xml-attribute: #7ed6df;
+    --syntax-json-key: #7ed6df;
+    --syntax-variable: #f2a6de;
     color-scheme: dark;
     --ground: #0d1117; --surface: #161b22; --raised: #1c2128; --sunken: #10151c;
     --border: #30363d; --border-strong: #3d444d; --border-ctl: #5f6a78;
@@ -77,6 +118,86 @@
     --chrome: #11161d; --chrome-hover: #212831; --chrome-border: #272e37;
     --sel: rgba(76, 154, 255, .30);
   }
+}
+
+.syntax-code {
+  color: var(--text);
+}
+.syntax-textarea {
+  position: relative;
+}
+.syntax-textarea > textarea {
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--text);
+}
+.syntax-textarea > textarea::selection {
+  background: var(--sel);
+}
+.syntax-textarea > pre {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  background: transparent;
+  border-style: solid;
+  border-color: transparent;
+  color: var(--text);
+}
+::highlight(axiom-keyword) {
+  color: var(--syntax-keyword);
+}
+::highlight(axiom-prefixed) {
+  color: var(--syntax-prefixed);
+}
+::highlight(axiom-iri) {
+  color: var(--syntax-iri);
+}
+::highlight(axiom-string) {
+  color: var(--syntax-string);
+}
+::highlight(axiom-language) {
+  color: var(--syntax-language);
+}
+::highlight(axiom-datatype) {
+  color: var(--syntax-datatype);
+}
+::highlight(axiom-number) {
+  color: var(--syntax-number);
+}
+::highlight(axiom-comment) {
+  color: var(--syntax-comment);
+}
+::highlight(axiom-punctuation) {
+  color: var(--syntax-punctuation);
+}
+::highlight(axiom-xml-tag) {
+  color: var(--syntax-xml-tag);
+}
+::highlight(axiom-xml-attribute) {
+  color: var(--syntax-xml-attribute);
+}
+::highlight(axiom-json-key) {
+  color: var(--syntax-json-key);
+}
+::highlight(axiom-variable) {
+  color: var(--syntax-variable);
+}
+/* Native text runs retain their original advance, including fractional pixels. */
+.syntax-editor .view-lines {
+  -webkit-text-fill-color: transparent;
+}
+.syntax-overlay {
+  position: absolute;
+  pointer-events: none;
+  color: var(--text);
+  white-space: pre;
+  z-index: 1;
+}
+.syntax-overlay .syntax-line {
+  position: absolute;
+  white-space: pre;
 }
 
 /* Scope proximity resolves equal-specificity legacy names without changing them. */
