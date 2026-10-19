@@ -9,6 +9,56 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
+import type { Locator } from "@playwright/test";
+
+// craigtrim/axiom#114: observe native animations so a saved class cannot fake rail feedback.
+const paneTab = (owner: Page, name: string) =>
+  owner.locator(".flexlayout__tab_button").filter({
+    has: owner.locator(".flexlayout__tab_button_content", {
+      hasText: new RegExp("^" + name + "(?:_\\d+)?$"),
+    }),
+  });
+async function pausePulse(tab: Locator) {
+  await expect
+    .poll(() =>
+      tab.evaluate((el) =>
+        el
+          .getAnimations()
+          .some((a) => (a as CSSAnimation).animationName === "rail-tab-pulse"),
+      ),
+    )
+    .toBe(true);
+  return tab.evaluate((el) => {
+    const animation = el
+      .getAnimations()
+      .find((a) => (a as CSSAnimation).animationName === "rail-tab-pulse")!;
+    animation.pause();
+    animation.currentTime = 180;
+    (window as any).__railPulse = animation;
+    const timing = animation.effect!.getTiming();
+    return {
+      duration: timing.duration,
+      iterations: timing.iterations,
+      shadow: getComputedStyle(el).boxShadow,
+    };
+  });
+}
+async function noPulse(owner: Page) {
+  await owner.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  expect(await owner.locator(".rail-tab-pulse").count()).toBe(0);
+  expect(
+    await owner.evaluate(() =>
+      document
+        .getAnimations()
+        .some((a) => (a as CSSAnimation).animationName === "rail-tab-pulse"),
+    ),
+  ).toBe(false);
+}
 
 let app: ElectronApplication, page: Page, profile: string;
 const errors: string[] = [];
@@ -287,6 +337,145 @@ test("the reference palette searches the installed menus and invokes enabled com
   await opener.click();
   await input.press("Escape");
   await expect(opener).toBeFocused();
+});
+
+for (const theme of ["light", "dark"])
+  test(`rail pulse restarts on an already-selected tab without moving or saving it in ${theme}`, async () => {
+    await launch(theme);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await menu("view.details");
+    const tab = paneTab(page, "Details");
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    const before = await tab.boundingBox();
+    await rail().locator('[data-pane="details"]').click();
+    const pulse = await pausePulse(tab);
+    expect(pulse.duration).toBe(360);
+    expect(pulse.iterations).toBe(2);
+    expect(pulse.shadow).toContain(
+      theme === "dark" ? "rgb(76, 154, 255)" : "rgb(11, 95, 208)",
+    );
+    expect(pulse.shadow).toContain(
+      theme === "dark" ? "rgb(18, 36, 58)" : "rgb(234, 242, 253)",
+    );
+    expect(await tab.boundingBox()).toEqual(before);
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    await expect
+      .poll(
+        async () =>
+          JSON.parse(
+            await readFile(path.join(profile, "workbench.json"), "utf8"),
+          ).layout,
+      )
+      .toBeTruthy();
+    expect(
+      await readFile(path.join(profile, "workbench.json"), "utf8"),
+    ).not.toContain("rail-tab-pulse");
+    await rail().locator('[data-pane="details"]').click();
+    await expect
+      .poll(() =>
+        tab.evaluate((el) => {
+          const old = (window as any).__railPulse as Animation;
+          const current = el
+            .getAnimations()
+            .find(
+              (a) => (a as CSSAnimation).animationName === "rail-tab-pulse",
+            );
+          return !!current && current !== old && old.playState === "idle";
+        }),
+      )
+      .toBe(true);
+    await pausePulse(tab);
+    await tab.evaluate(() => (window as any).__railPulse.finish());
+    await expect(tab).not.toHaveClass(/rail-tab-pulse/);
+    await noPulse(page);
+  });
+
+test("rail selection brings a covered Find tab forward and pulses it", async () => {
+  await launch();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await menu("view.find");
+  await menu("view.source");
+  const tab = paneTab(page, "Find");
+  await expect(tab).toHaveAttribute("aria-selected", "false");
+  await rail().locator('[data-pane="find"]').click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await pausePulse(tab);
+});
+
+test("a rail click opens closed Details without a pulse", async () => {
+  await launch();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await menu("view.details");
+  await paneTab(page, "Details").click({ button: "right" });
+  await page
+    .getByRole("menu", { name: "Tab actions" })
+    .getByRole("menuitem", { name: "Close tab", exact: true })
+    .click();
+  await expect(paneTab(page, "Details")).toHaveCount(0);
+  await rail().locator('[data-pane="details"]').click();
+  await expect(paneTab(page, "Details")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await noPulse(page);
+});
+
+test("menu commands and document tabs select existing panes without a pulse", async () => {
+  await launch();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await menu("view.details");
+  await menu("view.source");
+  await menu("view.details");
+  await expect(paneTab(page, "Details")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await noPulse(page);
+  await tabs().locator('[data-document-id="source"]').click();
+  await expect(paneTab(page, "Source")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await noPulse(page);
+});
+
+test("reduced motion suppresses rail pulses", async () => {
+  await launch();
+  await menu("view.details");
+  await rail().locator('[data-pane="details"]').click();
+  await expect(paneTab(page, "Details")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await noPulse(page);
+});
+
+test("an existing detached tab pulses in its own window without a focus request", async () => {
+  await launch();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await menu("view.details");
+  const pane = page.locator('[data-pane-id="details"]');
+  await pane.evaluate((el) => {
+    el.setAttribute("tabindex", "-1");
+    (el as HTMLElement).focus();
+  });
+  const waiting = app.waitForEvent("window");
+  await menu("pane.detach");
+  const child = await waiting;
+  child.on("pageerror", (error) => errors.push(error.message));
+  await child.emulateMedia({ reducedMotion: "no-preference" });
+  const tab = paneTab(child, "Details");
+  await expect(tab).toBeVisible();
+  await child.evaluate(() => {
+    (window as any).__focusCalls = 0;
+    window.focus = () => {
+      (window as any).__focusCalls++;
+    };
+  });
+  await rail().locator('[data-pane="details"]').click();
+  await pausePulse(tab);
+  expect(await child.evaluate(() => (window as any).__focusCalls)).toBe(0);
+  await noPulse(page);
 });
 
 async function mountReference(theme: string, paletteFilter?: string) {

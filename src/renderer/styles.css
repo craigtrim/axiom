@@ -1000,6 +1000,19 @@ a {
   background: var(--surface-alt) !important;
   border-top: 2px solid var(--accent) !important;
 }
+/* craigtrim/axiom#114: inset shadows tint behind the text without moving the tab. */
+.flexlayout__tab_button.rail-tab-pulse,
+.flexlayout__border_button.rail-tab-pulse {
+  animation: rail-tab-pulse calc(var(--t-enter) * 2) ease-in-out 2;
+}
+@keyframes rail-tab-pulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 100vmax transparent;
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 0 100vmax var(--accent-soft);
+  }
+}
 .flexlayout__splitter {
   background: var(--ground) !important;
   border-inline: 1px solid var(--stroke-divider);
