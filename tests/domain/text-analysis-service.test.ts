@@ -18,8 +18,8 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
           // craigtrim/axiom#40: parse results carry code point offsets.
-          // craigtrim/axiom#76: the fake engine reports the required 0.5.2.
-          if (input.op === "version") return "0.5.2";
+          // craigtrim/axiom#137: the fake engine reports the required 0.6.0.
+          if (input.op === "version") return "0.6.0";
           // craigtrim/axiom#136: read the stored rules once per loaded revision.
           if (input.op === "query") return {};
           if (input.op === "parse")
@@ -76,13 +76,22 @@ afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
 
 describe("analysis service scheduling and failures", () => {
-  it.each(["0.2.3", "0.3.0", "0.3.1", "0.4.0", "0.4.1", "0.5.0", "0.5.1"])(
+  it.each([
+    "0.2.3",
+    "0.3.0",
+    "0.3.1",
+    "0.4.0",
+    "0.4.1",
+    "0.5.0",
+    "0.5.1",
+    "0.5.2",
+  ])(
     "rejects incompatible runtime %s before loading and can recover",
     async (version) => {
       const pending = service.parse(input());
       current().request.mockResolvedValueOnce(version);
       await expect(pending).rejects.toThrow(
-        `requires Mutatoc 0.5.2; the configured runtime reports ${version}`,
+        `requires Mutatoc 0.6.0; the configured runtime reports ${version}`,
       );
       expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
         "version",
@@ -326,4 +335,121 @@ it("does not associate a model category with an unrelated ontology entry", async
     new MutatocError("Empty ontology", 4),
   );
   expect((await service.parse(input("London"))).concepts).toEqual({});
+});
+
+// craigtrim/axiom#137: observe the protocol boundary, including fallback and recovery.
+describe("incremental ontology revisions", () => {
+  const statement = (subject = "urn:dog", value = "Dog", literal = true) => ({
+    subject,
+    predicate: "urn:label",
+    object: { literal, value },
+  });
+  const revision = (
+    version: number,
+    statements = [statement()],
+    datasetEpoch = 1,
+  ) => ({
+    ...graph(version, datasetEpoch),
+    statements,
+  });
+  const ops = () => current().request.mock.calls.map(([call]) => call.op);
+  const start = async (value = revision(1)) => {
+    context.mockResolvedValue(value);
+    await service.parse(input());
+    current().request.mockClear();
+  };
+
+  it("replaces the entire edited subject and removes only absent subjects", async () => {
+    await start(revision(1, [statement(), statement("urn:cat", "Cat")]));
+    context.mockResolvedValue(
+      revision(4, [
+        statement("urn:dog", "Hound"),
+        { ...statement(), predicate: "urn:comment" },
+        statement("urn:bird", "Bird"),
+      ]),
+    );
+    await service.parse(input("Hound", 4));
+    expect(ops()).toEqual(["update", "query", "parse"]);
+    const update = current().request.mock.calls[0][0];
+    expect(update.remove).toEqual(["urn:cat"]);
+    expect(Object.keys(update.replace)).toEqual(["urn:dog", "urn:bird"]);
+    expect(update.replace["urn:dog"]).toContain('"Hound"');
+    expect(update.replace["urn:dog"]).toContain("<urn:comment>");
+    expect(update.replace["urn:dog"]).not.toContain("<urn:bird>");
+  });
+
+  it("loads a different dataset even when its version and subjects are identical", async () => {
+    await start();
+    context.mockResolvedValue(revision(1, [statement()], 2));
+    await service.parse(input("Dog", 1, 2));
+    expect(ops()).toEqual(["load", "query", "parse"]);
+  });
+
+  it.each([
+    [[statement()], [statement("urn:dog", "_:detail", false)]],
+    [[statement("urn:dog", "_:detail", false)], [statement()]],
+    [[statement("_:detail", "old")], [statement("_:detail", "new")]],
+    [[statement("_:detail")], []],
+    [[], [statement("_:detail")]],
+  ])(
+    "loads when changed statements contain blank nodes %#",
+    async (before, after) => {
+      await start(revision(1, before));
+      context.mockResolvedValue(revision(2, after));
+      await service.parse(input("Dog", 2));
+      expect(ops()).toEqual(["load", "query", "parse"]);
+    },
+  );
+
+  it("updates a named subject beside unchanged blank nodes", async () => {
+    const blank = statement("_:detail");
+    await start(revision(1, [statement(), blank]));
+    context.mockResolvedValue(
+      revision(2, [statement("urn:dog", "Hound"), blank]),
+    );
+    await service.parse(input("Hound", 2));
+    expect(ops()).toEqual(["update", "query", "parse"]);
+  });
+
+  it("skips native mutations when the exported statements did not change", async () => {
+    await start();
+    context.mockResolvedValue(revision(2));
+    await service.parse(input("Dog", 2));
+    expect(ops()).toEqual(["query", "parse"]);
+  });
+
+  it("falls back to exactly one load after a rejected update and uses the recovered baseline", async () => {
+    await start();
+    current().request.mockRejectedValueOnce(
+      new MutatocError("Invalid update", 4),
+    );
+    context.mockResolvedValue(revision(2, [statement("urn:dog", "Hound")]));
+    expect((await service.parse(input("Hound", 2))).entities).toHaveLength(1);
+    expect(ops()).toEqual(["update", "load", "query", "parse"]);
+    expect(current().close).not.toHaveBeenCalled();
+    current().request.mockClear();
+    context.mockResolvedValue(
+      revision(3, [statement("urn:dog", "Hound"), statement("urn:cat", "Cat")]),
+    );
+    await service.parse(input("Cat", 3));
+    expect(ops()).toEqual(["update", "query", "parse"]);
+    expect(Object.keys(current().request.mock.calls[0][0].replace)).toEqual([
+      "urn:cat",
+    ]);
+  });
+
+  it("discards a failed fallback and loads a fresh process on retry", async () => {
+    await start();
+    current()
+      .request.mockRejectedValueOnce(Error("update failed"))
+      .mockRejectedValueOnce(Error("load failed"));
+    context.mockResolvedValue(revision(2, [statement("urn:dog", "Hound")]));
+    await expect(service.parse(input("Hound", 2))).rejects.toThrow(
+      "load failed",
+    );
+    expect(ops()).toEqual(["update", "load"]);
+    expect(current().close).toHaveBeenCalledOnce();
+    await service.parse(input("Hound", 2));
+    expect(ops()).toEqual(["version", "load", "query", "parse"]);
+  });
 });

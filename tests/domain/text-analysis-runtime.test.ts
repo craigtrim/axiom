@@ -590,13 +590,19 @@ it.skipIf(!available)(
       expect(exact).toMatchObject({ label: "owlclass_123", method: "exact" });
       expect(exact.matchedWords).toBeUndefined();
       expect(exact.covered).toBeUndefined();
-      context = {
-        ...context,
-        version: context.version + 1,
-        turtle: content
-          .replaceAll("Digital_Circuit_Design", "Harbor_Vessel_Design")
-          .replace('"Digital Circuit Design"', '"Harbor Vessel Design"'),
-      };
+      // craigtrim/axiom#137: edit the store so Turtle and subject snapshots agree.
+      store.replaceRdf(
+        (
+          await parseRdf(
+            content
+              .replaceAll("Digital_Circuit_Design", "Harbor_Vessel_Design")
+              .replace('"Digital Circuit Design"', '"Harbor Vessel Design"'),
+            "explanation.ttl",
+            "https://example.org/",
+          )
+        ).triples,
+      );
+      context = await textAnalysisContext(store, 1);
       expect(
         (await parse("harbor one vessel two design")).entities[0].matchedWords,
       ).toEqual(["harbor", "vessel", "design"]);

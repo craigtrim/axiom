@@ -14,6 +14,11 @@ import {
   type TextAnalysisInput,
   type TextAnalysisResult,
 } from "../shared/text-analysis";
+import {
+  analysisSubjects,
+  textAnalysisUpdate,
+  type AnalysisSubjects,
+} from "./text-analysis-update";
 interface Job {
   input: TextAnalysisInput;
   resolve(value: TextAnalysisResult): void;
@@ -22,6 +27,8 @@ interface Job {
 export class TextAnalysisService {
   private client?: MutatocClient;
   private loaded = "";
+  private loadedEpoch?: number;
+  private subjects?: AnalysisSubjects;
   private emptyOntology = false;
   private verified = false;
   private spanRules: SpanRuleIndex = new Map();
@@ -73,6 +80,8 @@ export class TextAnalysisService {
           this.client?.close();
           this.client = undefined;
           this.loaded = "";
+          this.loadedEpoch = undefined;
+          this.subjects = undefined;
           this.verified = false;
           this.concepts = {};
           this.spanRules.clear();
@@ -105,13 +114,30 @@ export class TextAnalysisService {
           );
         this.verified = true;
       }
-      await this.client.request({
-        op: "load",
-        turtle: context.turtle,
-        name: context.name,
-        class_based: true,
-        interface: "data",
-      });
+      // craigtrim/axiom#137: keep the native graph current with complete subject edits.
+      const subjects = analysisSubjects(context.statements);
+      const update =
+        this.loadedEpoch === context.datasetEpoch && this.subjects && subjects
+          ? await textAnalysisUpdate(this.subjects, subjects)
+          : undefined;
+      let updated = false;
+      if (update) {
+        try {
+          if (Object.keys(update.replace).length || update.remove.length)
+            await this.client.request(update);
+          updated = true;
+        } catch {
+          // A rejected atomic batch or a stopped process gets one full-load attempt.
+        }
+      }
+      if (!updated)
+        await this.client.request({
+          op: "load",
+          turtle: context.turtle,
+          name: context.name,
+          class_based: true,
+          interface: "data",
+        });
       // craigtrim/axiom#136: cache generated rules with the same ontology revision.
       const spans = await this.client.request<
         Record<string, MutatocSpanRule[]>
@@ -123,6 +149,8 @@ export class TextAnalysisService {
       this.spanRules = indexSpanRules(spans);
       this.concepts = context.concepts ?? {};
       this.loaded = key;
+      this.loadedEpoch = context.datasetEpoch;
+      this.subjects = subjects;
       this.emptyOntology = false;
     }
     let parsed: { text: string; tokens: MutatocToken[] } | undefined;
