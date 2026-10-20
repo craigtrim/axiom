@@ -1,8 +1,11 @@
+// #125: view-only broadcasts retain the exact entity array used by memoized views.
+import { mergeState } from "../shared/state-update";
 import { rememberAudit } from "./audit-state";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { useSyncExternalStore } from "react";
 import type {
   Snapshot,
+  StateUpdate,
   Preferences,
   DomainMethod,
   GraphSnapshot,
@@ -108,7 +111,9 @@ export async function act(
     report(e instanceof Error ? e.message : String(e), true);
   }
 }
-export function setState(s: Snapshot) {
+export function setState(update: StateUpdate) {
+  const s = mergeState(state, update);
+  if (!s) return;
   if (
     state?.datasetEpoch !== s.datasetEpoch ||
     state?.selected !== s.selected ||
@@ -187,7 +192,7 @@ export async function initialise() {
     }
     if (type === "layout-finished" && data.fit !== false) command("graph.fit");
     if (type === "layout-error") report(data.message, true);
-    if (type === "state") setState(data as Snapshot);
+    if (type === "state") setState(data as StateUpdate);
     if (type === "selection" && state) {
       selectionRevision++;
       setSelectionOrigin(data.origin);
