@@ -27,7 +27,7 @@ The query harness checks bindings, unbound variables, cardinality and specified 
 
 Literal regressions cover string forms and escapes, Unicode, language tags, XSD numeric families, dates and durations, binary values, RDF XML/HTML/JSON, custom datatypes and ill-typed literals. They check import, query projection, STR, DATATYPE and LANG. Function cases cover string matching and replacement, casts, arithmetic, date parts, hashes, error propagation and unbound values. Tests also check final-result caps and REDUCED term identity.
 
-`artifacts/sparql-conformance.json` records the dedicated suite result. A finite corpus cannot establish correctness for every possible query or literal.
+`artifacts/reports/sparql-conformance.json` records the dedicated suite result. A finite corpus cannot establish correctness for every possible query or literal.
 
 ## Real Codex integration
 
@@ -49,11 +49,11 @@ Remove-Item Env:AXIOM_TEST_EXE
 
 Individual cases can be selected with `node scripts/test-codex.mjs --grep 'ancestor'`.
 
-Reports are written to `artifacts/codex-live-report/index.html` and `artifacts/codex-live-results.json`. Attachments retain the executable path, CLI version, prompt, response and actual result rows. Failed cases also retain a screenshot and trace. They contain the synthetic test ontology and generated content.
+Reports are written to `artifacts/codex-live-report/index.html` and `artifacts/reports/codex-live-results.json`. Attachments retain the executable path, CLI version, prompt, response and actual result rows. Failed cases also retain a screenshot and trace. They contain the synthetic test ontology and generated content.
 
 Ordinary desktop tests in tests/e2e/sparql.spec.ts cover query forms and result cells, read-only behavior, dataset refresh and recovery after errors. Query-authoring tests cover automatic delivery, independent Undo, query paging, result ownership, full-text search, restart and compact/wide layouts. Main-process and renderer tests cover persisted history and agent delivery during unsaved edits. Composer timing tests use deterministic provider fixtures, separate from the real Codex suite. tests/e2e/query-results.spec.ts checks separate result tabs, closing and reopening the Query pane, recovery without overwriting drafts, independent reruns, layout changes, detached windows, restart expiry and sending the chosen execution to the graph. tests/domain/query-results.test.ts covers immutable execution records, migration, continued numbering and source recovery.
 
-Running `npm run test:codex` without a file filter also includes the four opt-in [taxonomy cases](taxonomy-suggestions.md).
+Running `npm run test:codex` without a file filter also includes the four opt-in [taxonomy cases](../guides/taxonomy-suggestions.md).
 
 ## Execution boundaries
 

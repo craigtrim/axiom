@@ -18,7 +18,7 @@ The 2,429-character warm parse took about one tenth of its previous time. Source
 
 All nine measured ontology-span hashes agree between versions. Complete native output differs because 0.3.0 removes model fields and changes tokenization. This comparison checks the benchmark's ontology matches; the functional suite separately checks 168 original reference cases, 1,512 punctuation patterns and all 89 literal substitution entries. Native CTest performance passed separately from its 15 functional suites.
 
-Reports are `artifacts/mutatoc-030/axiom-benchmark-before.json`, `artifacts/mutatoc-030/axiom-benchmark.json` and `artifacts/mutatoc-030/benchmark-comparison.json`. The native performance log is `artifacts/mutatoc-030/native-performance.log`.
+Reports are `artifacts/history/2026-10-20/mutatoc-030/axiom-benchmark-before.json`, `artifacts/history/2026-10-20/mutatoc-030/axiom-benchmark.json` and `artifacts/history/2026-10-20/mutatoc-030/benchmark-comparison.json`. The native performance log is `artifacts/history/2026-10-20/mutatoc-030/native-performance.log`.
 
 ## Mutatoc 0.2.1
 
@@ -44,10 +44,10 @@ All nine measured outputs have identical SHA-256 hashes for complete native resu
 The reusable benchmark accepts an ontology, report path and optional engine executable:
 
 ```powershell
-node --import tsx scripts/benchmark-text-analysis.ts C:\path\courses.owl artifacts/text-analysis-benchmark.json
+node --import tsx scripts/benchmark-text-analysis.ts C:\path\courses.owl artifacts/benchmarks/text-analysis.json
 ```
 
-The benchmark reports ontology preparation, cold startup, warm parsing, tokenization, prepared-token matching and source mapping separately. It includes hashes of the source, executable, complete results and spans. Reports from this investigation are in `artifacts/analysis-benchmark-before.json`, `artifacts/analysis-benchmark-after.json`, `artifacts/analysis-desktop-before.json` and `artifacts/analysis-desktop-after.json`.
+The benchmark reports ontology preparation, cold startup, warm parsing, tokenization, prepared-token matching and source mapping separately. It includes hashes of the source, executable, complete results and spans. Reports from this investigation are in `artifacts/history/2026-10-20/analysis-benchmark-before.json`, `artifacts/history/2026-10-20/analysis-benchmark-after.json`, `artifacts/history/2026-10-20/analysis-desktop-before.json` and `artifacts/history/2026-10-20/analysis-desktop-after.json`.
 
 ## Mutatoc 0.2.3
 
@@ -64,4 +64,4 @@ Measurements on September 28, 2026 used the same local `courses.owl` and the sam
 | Full parse, 2,429 characters              |   221 ms |   148 ms |
 | Prepared-token matching, 2,429 characters |    91 ms |    16 ms |
 
-Tokenization through the spaCy model now accounts for most of a full parse (131 ms of the 148 ms at 2,429 characters). All nine measured outputs and source spans have the same SHA-256 hashes in both versions. The native text-analysis suite (314 tests) and the Text Analysis desktop tests (24 tests) pass with 0.2.3. The reports are `artifacts/index-benchmark-before.json` and `artifacts/index-benchmark-after.json`.
+Tokenization through the spaCy model now accounts for most of a full parse (131 ms of the 148 ms at 2,429 characters). All nine measured outputs and source spans have the same SHA-256 hashes in both versions. The native text-analysis suite (314 tests) and the Text Analysis desktop tests (24 tests) pass with 0.2.3. The reports are `artifacts/history/2026-10-20/index-benchmark-before.json` and `artifacts/history/2026-10-20/index-benchmark-after.json`.

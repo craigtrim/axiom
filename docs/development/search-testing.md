@@ -8,7 +8,7 @@ Run the focused suite with:
 npm run test:search:functional
 ```
 
-Vitest writes the named results to `artifacts/search-functional.json`. The same tests also run under `npm test`. They require no model files, inference service, network connection, or downloaded ontology. Semantic tests supply explicit scores so a failing result has a reproducible cause.
+Vitest writes the named results to `artifacts/reports/search-functional.json`. The same tests also run under `npm test`. They require no model files, inference service, network connection, or downloaded ontology. Semantic tests supply explicit scores so a failing result has a reproducible cause.
 
 Issue #59 adds `tests/domain/individual-search.test.ts` for the Individuals grid and instance report: the school alias fixture, typos, reordered and partial words, relevance with distractors, direct-class eligibility, hidden fields, local names, semantic admission, paging and index invalidation. `tests/domain/progressive-search.test.ts` covers cancellation and missing-model behavior for both consumers. Desktop cases in `background-inputs.spec.ts` and `instances-menu.spec.ts` cover the visible filters, scope, explicit sorting, retained rows and late replies.
 
@@ -38,13 +38,13 @@ Generate a complete review catalog with:
 npm run test:search:catalog
 ```
 
-`artifacts/search-query-catalog.json` lists every matrix case with its stable ID, purpose, exact query, expected first IRI, and the search surfaces exercised. Preferred-label cases also name a competing entity that must remain in the results. The generator reads the authored fixtures; it does not obtain expected answers by running search.
+`artifacts/catalogs/search-query-catalog.json` lists every matrix case with its stable ID, purpose, exact query, expected first IRI, and the search surfaces exercised. Preferred-label cases also name a competing entity that must remain in the results. The generator reads the authored fixtures; it does not obtain expected answers by running search.
 
 ## Vocabulary and expected answers
 
-[The catalog](../tests/fixtures/search/catalog.ts) defines 64 concepts across computing, sciences, public services, and the humanities. Each has an independently supplied alias, such as `Reading Comprehension` / `Text Understanding` or `Information Retrieval` / `Document Discovery`.
+[The catalog](../../tests/fixtures/search/catalog.ts) defines 64 concepts across computing, sciences, public services, and the humanities. Each has an independently supplied alias, such as `Reading Comprehension` / `Text Understanding` or `Information Retrieval` / `Document Discovery`.
 
-[The fixture](../tests/fixtures/search/fixture.ts) adds a competing `Extended <preferred label>` class for each concept and a common ancestor. It rotates aliases through `skos:altLabel`, `skos:prefLabel`, literal `rdfs:seeAlso`, and an additional language-tagged `rdfs:label`. Comments and custom catalog codes provide fields that can be selected independently.
+[The fixture](../../tests/fixtures/search/fixture.ts) adds a competing `Extended <preferred label>` class for each concept and a common ancestor. It rotates aliases through `skos:altLabel`, `skos:prefLabel`, literal `rdfs:seeAlso`, and an additional language-tagged `rdfs:label`. Comments and custom catalog codes provide fields that can be selected independently.
 
 Expected identities come from the vocabulary, not from a search snapshot. Each preferred-label case requires the canonical entity first, the competing entity somewhere in the result set, and no repeated identities. The same query must rank the canonical entity first in class resource suggestions. Alias cases require the canonical entity first through the name scope and through suggestions.
 

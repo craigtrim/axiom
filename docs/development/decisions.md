@@ -56,7 +56,7 @@ The original performance and accessibility requirements remain reference targets
 
 Find Touchpoints searches English Wikipedia and applies reviewed resource relationships. It replaces the former assistant research pane. The renderer and export paths share the same graph style rules. Taxonomy branch expansion is separate from explicit graph navigation.
 
-ELK layered, stress and tree layouts run in a disposable worker, with cancellation and a 30-second deadline. Circular layout joins the existing in-process algorithms. All algorithms receive only the admitted graph and retain its configured ceiling. Pins remain fixed when worker results are applied. [Graph editing and touchpoints](graph-editing.md) records the algorithm sources and usage.
+ELK layered, stress and tree layouts run in a disposable worker, with cancellation and a 30-second deadline. Circular layout joins the existing in-process algorithms. All algorithms receive only the admitted graph and retain its configured ceiling. Pins remain fixed when worker results are applied. [Graph editing and touchpoints](../guides/graph-editing.md) records the algorithm sources and usage.
 
 A unified session history records data commands and graph frames, with renderer-owned state restored through typed events. It groups a drag into one operation, keeps native text and Monaco editing local to their editors, and resets on workspace replacement. An estimated memory budget bounds retained history.
 
@@ -99,4 +99,4 @@ The [SPARQL authoring research](sparql-agent-integration.md) documents the alter
 Engine choice remains replaceable. If the external evaluator cannot meet Axiom's correctness, language coverage or performance requirements, a custom evaluation engine is an available design option. The shared conformance corpus should remain the acceptance boundary when comparing replacements. The current dependency choice does not make its limitations product requirements.
 
 
-Query documents use persistent creation order and a separate query-history.json file. Paging and creating from an older query never truncate newer documents. The worker caches results by query identity, while retained text survives result eviction and restart. The [query-history decision record](query-history-ux.md) explains responsive layouts, storage limits and the asynchronous delivery policy.
+Query documents use persistent creation order and a separate query-history.json file. Paging and creating from an older query never truncate newer documents. The worker caches results by query identity, while retained text survives result eviction and restart. The [query-history decision record](../guides/query-history-ux.md) explains responsive layouts, storage limits and the asynchronous delivery policy.

@@ -141,7 +141,7 @@ Generation displays elapsed time to one decimal and Cancel generation inside Des
 
 A response remains in the composer until Open in the editor or Open it for correction is pressed. The box shows the explanation and assumptions without duplicating editable SPARQL. Opening creates a retained document and preserves the current draft. Unsupported and malformed responses create no document. A refused proposal keeps Run disabled only while its text remains unchanged. Generation never executes a query.
 
-History lists the newest twelve retained documents; More provides full-text history search and Format SPARQL. New query and the bundled example actions preserve earlier drafts. Run opens an independent results tab with whole-result sorting, a column chooser and CSV copying. The [query-history interaction contract](query-history-ux.md) describes persistence, responsive focus and result ownership.
+History lists the newest twelve retained documents; More provides full-text history search and Format SPARQL. New query and the bundled example actions preserve earlier drafts. Run opens an independent results tab with whole-result sorting, a column chooser and CSV copying. The [query-history interaction contract](../guides/query-history-ux.md) describes persistence, responsive focus and result ownership.
 
 ## State, authentication and failure handling
 
