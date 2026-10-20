@@ -4,7 +4,11 @@ import { embeddingModel, type SemanticComparison } from "../shared/embeddings";
 export class EmbeddingService {
   private worker?: Worker;
   private nextId = 0;
-  private corpora = new Map<string, Promise<boolean>>();
+  // #124: update the texts of a resident field scope without replacing its vectors.
+  private corpora = new Map<
+    string,
+    { texts: string[]; promise: Promise<boolean> }
+  >();
   private pending = new Map<
     number,
     { resolve(value: any): void; reject(error: Error): void }
@@ -45,20 +49,33 @@ export class EmbeddingService {
     });
   }
   prepare(key: string, texts: string[]) {
-    let pending = this.corpora.get(key);
-    if (!pending) {
-      pending = this.request<boolean>({ type: "prepare", key, texts }).catch(
-        () => false,
-      );
-      this.corpora.set(key, pending);
-      if (this.corpora.size > 4) {
-        const oldest = this.corpora.keys().next().value!;
-        this.corpora.delete(oldest);
-        this.worker?.postMessage({ type: "release", key: oldest });
-      }
+    const previous = this.corpora.get(key);
+    if (
+      previous &&
+      (previous.texts === texts ||
+        (previous.texts.length === texts.length &&
+          texts.every((text, i) => previous.texts[i] === text)))
+    ) {
+      previous.texts = texts;
+      this.corpora.delete(key);
+      this.corpora.set(key, previous);
+      return previous.promise;
     }
-    return pending;
+    const promise = this.request<boolean>({
+      type: "prepare",
+      key,
+      texts,
+    }).catch(() => false);
+    this.corpora.delete(key);
+    this.corpora.set(key, { texts, promise });
+    if (this.corpora.size > 4) {
+      const oldest = this.corpora.keys().next().value!;
+      this.corpora.delete(oldest);
+      this.worker?.postMessage({ type: "release", key: oldest });
+    }
+    return promise;
   }
+
   reset() {
     this.corpora.clear();
     this.worker?.postMessage({ type: "reset" });
