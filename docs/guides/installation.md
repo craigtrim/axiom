@@ -16,7 +16,7 @@ npm run build:exe
 ```
 
 Use Node.js 22.12 or later. On a fresh checkout, first run `npm ci` and
-`npm run setup:mutatoc -- <extracted-mutatoc-0.6.0-folder>` to install dependencies
+`npm run setup:mutatoc -- <extracted-mutatoc-0.7.0-folder>` to install dependencies
 and the native runtime. Those are already set up in Craig's current checkout.
 Close any Axiom copy running from `artifacts\installer\win-unpacked` before
 rebuilding it. The helper builds the current files, including local edits.
@@ -45,7 +45,7 @@ Installer: D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
 Keep the entire `win-unpacked` folder together when using the application directly.
 The installer is the single file to use when installing or sharing a build.
 
-Builds require the complete Mutatoc 0.6.0 Windows package for Text Analysis (craigtrim/axiom#137). See [runtime setup](text-analysis.md#runtime) for the verified package and installation command.
+Builds require the complete Mutatoc 0.7.0 Windows package for Text Analysis (craigtrim/axiom#140). See [runtime setup](text-analysis.md#runtime) for the verified package and installation command.
 
 ## What the installer does
 

@@ -4,12 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const executable = process.platform === "win32" ? "mutatoc.exe" : "mutatoc";
-// craigtrim/axiom#137: the development fallback follows the bundled 0.6.0 runtime.
+// craigtrim/axiom#140: the development fallback follows the bundled 0.7.0 runtime.
 const candidates = process.env.AXIOM_MUTATOC_HOME
   ? [path.resolve(process.env.AXIOM_MUTATOC_HOME)]
   : [
       path.join(root, "vendor/mutatoc"),
-      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.6.0"),
+      path.resolve(root, "../mutatos/mutatoc/dist/mutatoc-win-x64-0.7.0"),
     ];
 const home = candidates.find((folder) =>
   existsSync(path.join(folder, executable)),
@@ -29,6 +29,8 @@ const child = spawn(
     "config/vitest.config.ts",
     "tests/domain/text-analysis.test.ts",
     "tests/domain/text-analysis-runtime.test.ts",
+    // craigtrim/axiom#135: exercise native line boundaries in the required suite.
+    "tests/domain/text-analysis-boundaries.test.ts",
     "tests/domain/text-analysis-punctuation.test.ts",
     "tests/domain/text-analysis-reference.test.ts",
     "tests/domain/text-analysis-service.test.ts",
