@@ -1,3 +1,4 @@
+import { StateUpdates } from "./state-updates";
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
@@ -737,6 +738,8 @@ function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
     frozen: isFrozen,
   };
 }
+// #125: cached catalogs support both full requests and incremental broadcasts.
+const stateUpdates = new StateUpdates();
 function snapshot(): Snapshot {
   for (const [id, session] of graphSessions) {
     if (session.view.store !== store) {
@@ -753,25 +756,7 @@ function snapshot(): Snapshot {
     ontology: store.ontology,
     datasetEpoch,
     version: store.version,
-    classCount: store.classCount,
-    propertyCount: store.propertyCount,
-    individualCount: store.individualCount,
-    orderCount: store.individuals.length,
-    customerCount: store.customers.length,
-    tripleCount: store.tripleCount,
-    entities: [...store.entities.values()].map((e) => ({
-      ...e,
-      instances: store.instanceCount(e.iri),
-      // craigtrim/axiom#91: the Hierarchy property tree counts asserted uses.
-      assertions: store.assertionCounts.get(e.iri) ?? 0,
-      descendants: store.descendantCount(e.iri),
-    })),
-    customers: store.customers,
-    types: store.ontology.example
-      ? [...store.byType.keys()]
-      : [...store.entities.values()]
-          .filter((e) => ["Class", "Defined"].includes(e.kind))
-          .map((e) => e.iri),
+    ...stateUpdates.catalog(store, datasetEpoch),
     canUndo: !!history.undoStack.length,
     canRedo: !!history.redoStack.length,
     undoLabel: history.undoStack.at(-1)?.label,
@@ -792,7 +777,7 @@ function snapshot(): Snapshot {
 function publish() {
   if (view.selectedEdge && !view.edges.has(view.selectedEdge))
     view.selectedEdge = null;
-  emit("state", snapshot());
+  emit("state", stateUpdates.event(snapshot()));
 }
 function changed(text: string, layout = false) {
   refreshSearch();
