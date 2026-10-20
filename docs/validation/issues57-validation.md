@@ -72,7 +72,7 @@ Reproduce the primary package audit with:
 ```powershell
 $env:AXIOM_TEST_BACKGROUND='1'
 $env:AXIOM_TEST_EXE='D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe'
-npx playwright test tests/e2e/details-visual.spec.ts tests/e2e/details-source.spec.ts tests/e2e/details-ancestry.spec.ts tests/e2e/statement-groups.spec.ts tests/e2e/workspace-autosave.spec.ts tests/e2e/ontology-export.spec.ts tests/e2e/adaptive-panes.spec.ts
+npm run test:desktop -- tests/e2e/details-visual.spec.ts tests/e2e/details-source.spec.ts tests/e2e/details-ancestry.spec.ts tests/e2e/statement-groups.spec.ts tests/e2e/workspace-autosave.spec.ts tests/e2e/ontology-export.spec.ts tests/e2e/adaptive-panes.spec.ts
 ```
 
 Run Electron suites sequentially to avoid Windows focus interference. Reference captures require no accepted baseline updates.

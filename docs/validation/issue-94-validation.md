@@ -30,7 +30,7 @@ Across the broader desktop suites, 157 distinct scenarios have passing results, 
 
 ## Reproduction
 
-The older Linked File desktop case still fails because the remote baseline does not mount `LinkedFileCard`. This is the same failure recorded in `docs/issue-89-validation.md`; its test remains unchanged and is not counted as passing. The commands below include that case so its result remains visible.
+The older Linked File desktop case still fails because the remote baseline does not mount `LinkedFileCard`. This is the same failure recorded in `docs/validation/issue-89-validation.md`; its test remains unchanged and is not counted as passing. The commands below include that case so its result remains visible.
 
 Run from a built checkout on Windows. Set `AXIOM_MUTATOC_HOME` to the installed local runtime when running the broader desktop suites.
 
@@ -38,8 +38,8 @@ Run from a built checkout on Windows. Set `AXIOM_MUTATOC_HOME` to the installed 
 npm run typecheck
 npm test
 npm run build
-npx playwright test tests/e2e/utility-visual.spec.ts tests/e2e/utility-reference.spec.ts
-npx playwright test tests/e2e/source-files.spec.ts tests/e2e/ontology-export.spec.ts tests/e2e/workspace-autosave.spec.ts tests/e2e/details-source.spec.ts tests/e2e/adaptive-panes.spec.ts tests/e2e/number-fields.spec.ts tests/e2e/ontology-lifecycle.spec.ts tests/e2e/hierarchy-multiselect.spec.ts tests/e2e/taxonomy-assistant.spec.ts tests/e2e/tab-history.spec.ts
+npm run test:desktop -- tests/e2e/utility-visual.spec.ts tests/e2e/utility-reference.spec.ts
+npm run test:desktop -- tests/e2e/source-files.spec.ts tests/e2e/ontology-export.spec.ts tests/e2e/workspace-autosave.spec.ts tests/e2e/details-source.spec.ts tests/e2e/adaptive-panes.spec.ts tests/e2e/number-fields.spec.ts tests/e2e/ontology-lifecycle.spec.ts tests/e2e/hierarchy-multiselect.spec.ts tests/e2e/taxonomy-assistant.spec.ts tests/e2e/tab-history.spec.ts
 ```
 
 The source branch passes TypeScript, the production build and 12,010 unit tests, with 182 optional native cases skipped in the isolated worktree. Logs and native evidence are retained in `C:\Users\Craig\AppData\Local\Temp\axiom-epic80`. Existing workspaces and older audit records remain readable without migration. Assistant behavior tests use local fixture processes. This change makes no external assistant calls and does not publish a release.

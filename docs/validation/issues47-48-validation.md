@@ -23,7 +23,7 @@ The pinned HTML reference was amended before the UI implementation, explicitly r
 - Broader Find desktop run: **82 of 83 passed** initially. The remaining synonym-undo test raced the asynchronous focus restoration after opening Find. Its test now waits for the search field's focus before explicitly focusing the result and issuing ontology Undo. It passed on the final packaged executable. The same original case passed separately on the issue 47 package.
 - Final combined packaged run: **11 of 11 passed** in 45.2 seconds, covering both #47 regressions, both #48 create/undo parent routes, collision rules, zero-state behavior, detached shallow creation, synonym undo/redo, new action visuals, and unchanged shallow zero-state visuals.
 
-Logs are in `artifacts/issues47-48-unit.log`, `artifacts/issue48-desktop.log`, `artifacts/issue48-synonym-baseline.log`, `artifacts/issue48-visual.log` and `artifacts/issues47-48-packaged-tests.log`. Visual evidence and computed geometry/paint properties are in `artifacts/issue-48`.
+Logs are in `artifacts/history/2026-10-20/issues47-48-unit.log`, `artifacts/history/2026-10-20/issue48-desktop.log`, `artifacts/history/2026-10-20/issue48-synonym-baseline.log`, `artifacts/history/2026-10-20/issue48-visual.log` and `artifacts/history/2026-10-20/issues47-48-packaged-tests.log`. Visual evidence and computed geometry/paint properties are in `artifacts/issue-48`.
 
 ## Package
 
@@ -33,4 +33,4 @@ Installer: D:\git\axiom\artifacts\installer-issues47-48\Axiom-Setup-1.0.0.exe
 
 Application build timestamp: `2026-10-04T03:55:20.418Z`. Packaging completed at `2026-10-04T03:59:25.967Z`. Both issues and the preceding text-view changes are included. The installer remains unsigned, as before.
 
-All 39 checked application bundles and build metadata files match the final build byte for byte. ASAR SHA-256: `b7742ee26e8cfd31eb50f6f38c4f6f11b19535ad3d8fb0e2794e0db738b047ca`. Verification is recorded in `artifacts/issues47-48-package-provenance.json`.
+All 39 checked application bundles and build metadata files match the final build byte for byte. ASAR SHA-256: `b7742ee26e8cfd31eb50f6f38c4f6f11b19535ad3d8fb0e2794e0db738b047ca`. Verification is recorded in `artifacts/history/2026-10-20/issues47-48-package-provenance.json`.

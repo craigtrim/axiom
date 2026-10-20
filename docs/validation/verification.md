@@ -14,7 +14,7 @@ All four opt-in taxonomy cases passed using the real Codex on PATH, codex-cli 0.
 D:\git\axiom\artifacts\electron-20260915T031422Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/taxonomy-delivery-verification.json) retains test reports and package hashes. All 24 compiled runtime files in the package matched the build. [Taxonomy suggestions](taxonomy-suggestions.md) documents context limits and proposal review. The [real Codex report](../artifacts/taxonomy-live-results.json) retains the prompts and responses.
+The [delivery record](../../artifacts/testing/taxonomy-delivery-verification.json) retains test reports and package hashes. All 24 compiled runtime files in the package matched the build. [Taxonomy suggestions](../guides/taxonomy-suggestions.md) documents context limits and proposal review. The [real Codex report](../../artifacts/history/2026-10-20/taxonomy-live-results.json) retains the prompts and responses.
 
 ## Source editor and linked files, 14 September 2026
 
@@ -26,7 +26,7 @@ All six Source and linked-file acceptance journeys passed against the portable e
 D:\git\axiom\artifacts\electron-20260914T233732Z\Axiom-win32-x64\Axiom.exe
 ```
 
-[Source and file delivery verification](../artifacts/testing/source-files-delivery-verification.json) records package hashes and coverage. [Packaged test results](../artifacts/testing/source-files-packaged-results.json) retain the six results. [Source editing and linked files](source-and-files.md) describes apply semantics, supported RDF formats, OWL syntax limits and preview caching.
+[Source and file delivery verification](../../artifacts/testing/source-files-delivery-verification.json) records package hashes and coverage. [Packaged test results](../../artifacts/testing/source-files-packaged-results.json) retain the six results. [Source editing and linked files](../guides/source-and-files.md) describes apply semantics, supported RDF formats, OWL syntax limits and preview caching.
 
 ## SPARQL engine and real Codex integration, 14 September 2026
 
@@ -36,7 +36,7 @@ All twelve opt-in real-Codex cases passed against the packaged executable using 
 
 Sixteen packaged desktop regressions passed, covering query forms, result cells, formatting, composer review, dataset refresh, detached panes, menu actions and cancellation with 100,000 generated orders. The full unrelated desktop suite was not repeated for this update.
 
-The [delivery verification record](../artifacts/testing/sparql-delivery-verification.json) records the executable path and package hashes. [SPARQL testing](sparql-testing.md) documents the offline corpus, live-test commands and execution boundaries. The observations below also retain evidence from earlier builds.
+The [delivery verification record](../../artifacts/testing/sparql-delivery-verification.json) records the executable path and package hashes. [SPARQL testing](../development/sparql-testing.md) documents the offline corpus, live-test commands and execution boundaries. The observations below also retain evidence from earlier builds.
 
 ## Reproduce
 
@@ -47,18 +47,18 @@ npm ci
 npm run verify
 npm run package
 $env:AXIOM_TEST_EXE=(Get-Content artifacts/latest-electron.json | ConvertFrom-Json).executable
-npx playwright test
+npm run test:desktop
 ```
 
-The earlier hover/focus build passes TypeScript strict checking and five existing desktop journeys covering graph popups, keyboard context menus, native Alt/F10, palette behavior and pane navigation. Focused interaction checks also passed for shared hover colors, disabled entries, pointer/keyboard agreement, search hover followed by Enter, light/dark/high-contrast themes and detached windows. [Hover verification](../artifacts/testing/hover-interaction-checks.json) records the EXE, hashes, observations and screenshots.
+The earlier hover/focus build passes TypeScript strict checking and five existing desktop journeys covering graph popups, keyboard context menus, native Alt/F10, palette behavior and pane navigation. Focused interaction checks also passed for shared hover colors, disabled entries, pointer/keyboard agreement, search hover followed by Enter, light/dark/high-contrast themes and detached windows. [Hover verification](../../artifacts/testing/hover-interaction-checks.json) records the EXE, hashes, observations and screenshots.
 
-The preceding graph-callout build passed all 151 domain tests across ten files and all 11 authoring/export desktop journeys. [Graph callout verification](../artifacts/testing/graph-callout-verification.json) retains those results. The complete domain and desktop suites were not repeated for this hover/focus update.
+The preceding graph-callout build passed all 151 domain tests across ten files and all 11 authoring/export desktop journeys. [Graph callout verification](../../artifacts/testing/graph-callout-verification.json) retains those results. The complete domain and desktop suites were not repeated for this hover/focus update.
 
-The earlier desktop inventory contained 89 journeys. The prior build had all 85 journeys verified: 84 passed in its full run, and the pane-focus journey passed unchanged in isolation after a Windows foreground-focus failure. Its runtime dependency audit reported zero known vulnerabilities. [Prior delivery verification](../artifacts/testing/authoring-provenance-delivery-verification.json) retains those results. Broader coverage and performance observations below include that earlier build; the complete desktop suite was not repeated for the current update.
+The earlier desktop inventory contained 89 journeys. The prior build had all 85 journeys verified: 84 passed in its full run, and the pane-focus journey passed unchanged in isolation after a Windows foreground-focus failure. Its runtime dependency audit reported zero known vulnerabilities. [Prior delivery verification](../../artifacts/testing/authoring-provenance-delivery-verification.json) retains those results. Broader coverage and performance observations below include that earlier build; the complete desktop suite was not repeated for the current update.
 
 Desktop tests launch Electron with isolated user-data directories. Most menu tests invoke native Electron menu callbacks and assert the resulting behavior. Open/Save dialog selections and About responses are controlled by tests; an OS accessibility driver does not operate those dialogs. Native Alt/F10 tests send Windows keystrokes only after checking the exact test window is foreground, and check focus before each send.
 
-All 101 actionable native menu entries have assigned outcome tests. The inventory fails when a command lacks a test assignment. [Menu coverage](../artifacts/testing/native-menu-coverage.json) records the mapping across File, Edit, View, Graph, Query, Research, Window and Help.
+All 101 actionable native menu entries have assigned outcome tests. The inventory fails when a command lacks a test assignment. [Menu coverage](../../artifacts/testing/native-menu-coverage.json) records the mapping across File, Edit, View, Graph, Query, Research, Window and Help.
 
 ## Authoring and exports
 
@@ -74,7 +74,7 @@ Export checks generate actual PNG, JPEG, WebP, SVG, PDF, TIFF and BMP files and 
 
 ## Published ontology corpus
 
-Twenty-nine source ontologies are retained with URLs, retrieval metadata and SHA-256 hashes in [the corpus manifest](../tests/fixtures/ontologies/manifest.json). They include RDF, RDFS, OWL, PROV, SKOS, SHACL, DCAT, Schema.org, FOAF, GoodRelations and other established vocabularies. Source files include Turtle and RDF/XML, including .owl documents.
+Twenty-nine source ontologies are retained with URLs, retrieval metadata and SHA-256 hashes in [the corpus manifest](../../tests/fixtures/ontologies/manifest.json). They include RDF, RDFS, OWL, PROV, SKOS, SHACL, DCAT, Schema.org, FOAF, GoodRelations and other established vocabularies. Source files include Turtle and RDF/XML, including .owl documents.
 
 Every vocabulary has domain and desktop import, bounded graph view, label edit, class creation, workspace save, close and reopen coverage. The domain suite also checks RDF round trips. Additional syntax fixtures cover N-Triples, N-Quads, TriG and JSON-LD, blank nodes, datatypes, language tags, named graphs and rejection of external entities. These are part of the standard test commands and run without downloading data again.
 
@@ -102,7 +102,7 @@ An axe scan checks the dark workbench for serious and critical issues. Theme tes
 
 Measurements were taken on an AMD Ryzen Threadripper 3960X with approximately 128 GB RAM and an NVIDIA RTX 4090. This is above the provisional minimum configuration. The host reports Windows 10; clean Windows 11 deployment and minimum-hardware performance remain external checks.
 
-Raw reports are generated at [domain.json](../artifacts/benchmarks/domain.json) and [desktop.json](../artifacts/benchmarks/desktop.json). The domain harness uses a warmup and five or seven measured samples. Its values below are p95 unless stated otherwise.
+Raw reports are generated at [domain.json](../../artifacts/benchmarks/domain.json) and [desktop.json](../../artifacts/benchmarks/desktop.json). The domain harness uses a warmup and five or seven measured samples. Its values below are p95 unless stated otherwise.
 
 | Operation                                  |       Observed |
 | ------------------------------------------ | -------------: |
@@ -138,11 +138,11 @@ The display limit is enforced independently of fixture size. The initial limit o
 
 ## Checklist verification
 
-The new domain checks cover CSS validation and cascading, circular layout, history limits, bounded contextual prompts, full-batch suggestion validation, annotation and individual creation, PATH discovery, structured subprocess responses and cancellation. Both CLI adapters are exercised with controlled subprocesses. The packaged app separately detects the installed Codex and Claude commands; [assistant detection](../artifacts/testing/installed-assistants.json) records that check. Those earlier checklist checks only detected providers. The current live query-generation checks are recorded separately below.
+The new domain checks cover CSS validation and cascading, circular layout, history limits, bounded contextual prompts, full-batch suggestion validation, annotation and individual creation, PATH discovery, structured subprocess responses and cancellation. Both CLI adapters are exercised with controlled subprocesses. The packaged app separately detects the installed Codex and Claude commands; [assistant detection](../../artifacts/testing/installed-assistants.json) records that check. Those earlier checklist checks only detected providers. The current live query-generation checks are recorded separately below.
 
 Desktop checks cover all added menu entries, ELK completion and cancellation, pinned coordinates, stylesheet validation and export, workspace and restart persistence, taxonomy double-click and context menus, research review, stale-batch rejection, real pointer and camera Undo, manual arrangement preservation and automatic widescreen switching. The research UI journey uses a controlled provider response; the subprocess adapters are tested separately.
 
-On the current packaged executable, the 3,000-node styled-graph diagnostic completed a hierarchy edit during ELK work in 106 ms. Across 120 warmed draw events, draw submission p95 was 22.1 ms. This exceeds the original 16.7 ms frame target at the maximum cap, and draw submission is not a compositor frame measurement. The default limit remains 1,000 and smaller limits remain available for clarity. [Diagnostic data](../artifacts/testing/styled-graph-performance.json) records the workload.
+On the current packaged executable, the 3,000-node styled-graph diagnostic completed a hierarchy edit during ELK work in 106 ms. Across 120 warmed draw events, draw submission p95 was 22.1 ms. This exceeds the original 16.7 ms frame target at the maximum cap, and draw submission is not a compositor frame measurement. The default limit remains 1,000 and smaller limits remain available for clarity. [Diagnostic data](../../artifacts/testing/styled-graph-performance.json) records the workload.
 
 ## Remaining acceptance work
 
@@ -160,9 +160,9 @@ The packaged application passed 21 desktop checks covering automatic delivery to
 
 The separately invoked live suite passed all 12 cases using Codex 0.154.0 found on PATH. Each generated query opened as a new document, preserved its source and required an explicit Run. The suite checked actual result semantics, including American-prefix matching, refinement, aggregates, optional labels, ancestor paths and imported labels.
 
-The raw records are artifacts/query-history-domain-results.json, artifacts/query-history-desktop-results.json and artifacts/codex-live-results.json. The live suite remains excluded from ordinary testing. These results apply to the query workflow and do not replace the earlier performance and release acceptance limits.
+The raw records are artifacts/history/2026-10-20/query-history-domain-results.json, artifacts/history/2026-10-20/query-history-desktop-results.json and artifacts/reports/codex-live-results.json. The live suite remains excluded from ordinary testing. These results apply to the query workflow and do not replace the earlier performance and release acceptance limits.
 
-See [Query history and responsive authoring](query-history-ux.md) for the cited UX research and inspected screenshots.
+See [Query history and responsive authoring](../guides/query-history-ux.md) for the cited UX research and inspected screenshots.
 
 ## Verified executable
 
@@ -170,11 +170,11 @@ See [Query history and responsive authoring](query-history-ux.md) for the cited 
 D:\git\axiom\artifacts\electron-20260914T232657Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The portable folder is approximately 414 MiB. Keep its DLLs, resources and locales beside the EXE. [Query-history delivery metadata](../artifacts/testing/query-history-delivery-verification.json) records the build, test results and SHA-256 hashes.
+The portable folder is approximately 414 MiB. Keep its DLLs, resources and locales beside the EXE. [Query-history delivery metadata](../../artifacts/testing/query-history-delivery-verification.json) records the build, test results and SHA-256 hashes.
 
 ## Archive integrity
 
-[winui-manifest.json](../archive/winui-manifest.json) lists 102 archived authored files and their SHA-256 hashes. Every ZIP entry was checked before retirement. The ZIP SHA-256 is:
+[winui-manifest.json](../../archive/winui-manifest.json) lists 102 archived authored files and their SHA-256 hashes. Every ZIP entry was checked before retirement. The ZIP SHA-256 is:
 
 ```text
 06dd6acb72a4ee12b4700502c05529c2ea9ce4b11769154186e1ecd469996170
@@ -194,7 +194,7 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260915T013411Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The delivery record is artifacts/testing/query-format-delivery-verification.json. Test reports are artifacts/query-format-identity-tests.json and artifacts/query-format-desktop-results.json.
+The delivery record is artifacts/testing/query-format-delivery-verification.json. Test reports are artifacts/history/2026-10-20/query-format-identity-tests.json and artifacts/history/2026-10-20/query-format-desktop-results.json.
 
 ## Query results as workbench tabs
 
@@ -226,11 +226,11 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260915T195959Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/adaptive-pane-delivery-verification.json) contains SHA-256 hashes and the runtime comparison. The [desktop report](../artifacts/adaptive-desktop-results.json) records the initial packaged run. The [follow-up report](../artifacts/adaptive-desktop-followup.json) and [final query checks](../artifacts/adaptive-desktop-final.json) cover the remaining cases. The initial run passed 140 cases; follow-ups updated the remaining compact-control interactions and repeated cases that received unexpected A/W text. The last two query checks used AXIOM_TEST_BACKGROUND=1 to isolate test windows from physical desktop input. The large-dataset query assertion allows 30 seconds for the same expected 103 rows. These are local artifacts. The [design research](adaptive-pane-ux.md) records sources, layout rules and remaining usability measurements. Real-assistant tests were not rerun for this layout change; ordinary desktop tests use controlled assistant responses.
+The [delivery record](../../artifacts/testing/adaptive-pane-delivery-verification.json) contains SHA-256 hashes and the runtime comparison. The [desktop report](../../artifacts/history/2026-10-20/adaptive-desktop-results.json) records the initial packaged run. The [follow-up report](../../artifacts/history/2026-10-20/adaptive-desktop-followup.json) and [final query checks](../../artifacts/history/2026-10-20/adaptive-desktop-final.json) cover the remaining cases. The initial run passed 140 cases; follow-ups updated the remaining compact-control interactions and repeated cases that received unexpected A/W text. The last two query checks used AXIOM_TEST_BACKGROUND=1 to isolate test windows from physical desktop input. The large-dataset query assertion allows 30 seconds for the same expected 103 rows. These are local artifacts. The [design research](../guides/adaptive-pane-ux.md) records sources, layout rules and remaining usability measurements. Real-assistant tests were not rerun for this layout change; ordinary desktop tests use controlled assistant responses.
 
 ## Assistant activity and duplicate-run protection
 
-Research, Query generation and both taxonomy suggestion actions now show a fixed activity strip on their owning pane, with assistant/task text, elapsed time and Cancel. A tab spinner remains visible when another tab is selected. Query feedback survives closing its composer, and reopening Research or Query restores the active request. Taxonomy repeats the status in its review dialog. All use the same synchronous launch reservation, with cancellation retaining the lock until the request settles. [Assistant activity behavior](assistant-activity.md) describes the lifecycle.
+Research, Query generation and both taxonomy suggestion actions now show a fixed activity strip on their owning pane, with assistant/task text, elapsed time and Cancel. A tab spinner remains visible when another tab is selected. Query feedback survives closing its composer, and reopening Research or Query restores the active request. Taxonomy repeats the status in its review dialog. All use the same synchronous launch reservation, with cancellation retaining the lock until the request settles. [Assistant activity behavior](../guides/assistant-activity.md) describes the lifecycle.
 
 The offline suite passes 1,940 tests across 23 files. The packaged executable passes all 32 desktop checks for adaptive panes, assistant activity, query authoring and taxonomy suggestions. The new cases exercise 100 repeated clicks and 100 direct IPC retries, cancellation, malformed output, reopening panes, both taxonomy modes, original entity attribution, detached narrow/shallow/recovery layouts, reduced motion and a targeted axe scan of the activity strip. Type checking and formatting pass. The package's 24 runtime files match the tested build byte for byte.
 
@@ -240,11 +240,11 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260915T221124Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/assistant-activity-delivery-verification.json) contains executable/archive hashes, runtime comparison and test results. The [packaged desktop report](../artifacts/assistant-activity-packaged.json) records all 32 passing cases. Desktop checks use controlled assistant subprocesses; live Codex and Claude services were not invoked.
+The [delivery record](../../artifacts/testing/assistant-activity-delivery-verification.json) contains executable/archive hashes, runtime comparison and test results. The [packaged desktop report](../../artifacts/history/2026-10-20/assistant-activity-packaged.json) records all 32 passing cases. Desktop checks use controlled assistant subprocesses; live Codex and Claude services were not invoked.
 
 ## Persistent Research cache
 
-Research now caches validated results by the MD5 hash of the exact prompt. An identical prompt reuses its original result before assistant discovery or launch. Cached results show their original assistant and completion time. Internal session/version counters remain local freshness checks, so unchanged prompts can survive workspace reopening and app restart. Prompt text, whitespace, ontology context and web-setting changes produce separate cache entries. [Cache behavior](assistant-activity.md#research-cache) describes persistence and failure handling.
+Research now caches validated results by the MD5 hash of the exact prompt. An identical prompt reuses its original result before assistant discovery or launch. Cached results show their original assistant and completion time. Internal session/version counters remain local freshness checks, so unchanged prompts can survive workspace reopening and app restart. Prompt text, whitespace, ontology context and web-setting changes produce separate cache entries. [Cache behavior](../guides/assistant-activity.md#research-cache) describes persistence and failure handling.
 
 All 1,958 offline tests pass across 24 files, including 18 new cache cases. The packaged executable passes 13 desktop checks covering Research cache reuse across workspace reopening and app restart, reuse when no CLI is reported available, changed prompts, assistant lifecycle and adaptive panes. Type checking and formatting pass. The package's 24 runtime files match the tested build.
 
@@ -254,7 +254,7 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260915T222516Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/research-cache-delivery-verification.json) contains hashes and validation results. The [packaged report](../artifacts/research-cache-packaged.json) records all 13 passing desktop cases. Tests use controlled local assistant subprocesses and do not invoke live Codex or Claude services.
+The [delivery record](../../artifacts/testing/research-cache-delivery-verification.json) contains hashes and validation results. The [packaged report](../../artifacts/history/2026-10-20/research-cache-packaged.json) records all 13 passing desktop cases. Tests use controlled local assistant subprocesses and do not invoke live Codex or Claude services.
 
 ## Plain-language taxonomy suggestions
 
@@ -270,13 +270,13 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260915T224749Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/taxonomy-language-delivery-verification.json) contains hashes and validation results. The [desktop report](../artifacts/taxonomy-language-desktop.json), [live Codex report](../artifacts/taxonomy-language-live.json) and [packaged report](../artifacts/taxonomy-language-packaged.json) retain the results. [Taxonomy suggestions](taxonomy-suggestions.md) describes the exchange and unchanged review workflow.
+The [delivery record](../../artifacts/testing/taxonomy-language-delivery-verification.json) contains hashes and validation results. The [desktop report](../../artifacts/history/2026-10-20/taxonomy-language-desktop.json), [live Codex report](../../artifacts/history/2026-10-20/taxonomy-language-live.json) and [packaged report](../../artifacts/history/2026-10-20/taxonomy-language-packaged.json) retain the results. [Taxonomy suggestions](../guides/taxonomy-suggestions.md) describes the exchange and unchanged review workflow.
 
 ## Instance reports and grouped menus
 
 Show instances opens one paged Individuals report from hierarchy and graph context menus, the graph selection bar, hierarchy counts, Inspector usage counts and the Edit menu. The existing Individuals class filters use the same report. Each page contains at most 100 direct instances; filtering and paging leave the graph unchanged. Named and generated records share the same membership lookup used by the hierarchy count. Report rows open Inspector details, and the report retains its class when selection changes or its pane is closed and reopened.
 
-The approved [menu design](menu-ux.md) is implemented with logical separators, checked pin state, conditional class commands and Delete class last. Window has a Move pane submenu. Context menus retain access keys, keyboard navigation and focus restoration; disabled items can receive focus without executing.
+The approved [menu design](../guides/menu-ux.md) is implemented with logical separators, checked pin state, conditional class commands and Delete class last. Window has a Move pane submenu. Context menus retain access keys, keyboard navigation and focus restoration; disabled items can receive focus without executing.
 
 All 1,999 offline tests pass across 26 files. Eight new desktop checks cover every report entry point, all 527 Giardiniera records, empty classes, ordinary ontologies, workspace replacement, detached panes and targeted accessibility scans in light, dark and forced colors. Nine related menu, keyboard and graph-editing regressions pass. The nine taxonomy assistant cases also pass in the earlier combined run. Type checking, formatting and the whitespace check pass.
 
@@ -288,15 +288,15 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260916T022626Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/instances-menu-delivery-verification.json) contains hashes and validation results. The [report and menu checks](../artifacts/instances-menu-desktop.json), [related regressions](../artifacts/instances-menu-regressions.json) and [packaged checks](../artifacts/instances-menu-packaged.json) retain the passing outcomes. The earlier combined run found an access-key label mismatch in the new menu tests; it was corrected before these final runs. Taxonomy regression tests use controlled assistant subprocesses.
+The [delivery record](../../artifacts/testing/instances-menu-delivery-verification.json) contains hashes and validation results. The [report and menu checks](../../artifacts/history/2026-10-20/instances-menu-desktop.json), [related regressions](../../artifacts/history/2026-10-20/instances-menu-regressions.json) and [packaged checks](../../artifacts/history/2026-10-20/instances-menu-packaged.json) retain the passing outcomes. The earlier combined run found an access-key label mismatch in the new menu tests; it was corrected before these final runs. Taxonomy regression tests use controlled assistant subprocesses.
 
 ## Counts and disabled collection actions
 
-Instance actions now show the direct-instance count everywhere they are offered. Show instances (0) remains visible and disabled; Show instances (527) opens the existing paged report. The shared rule covers hierarchy and graph menus, the graph selection button, hierarchy and Inspector counts, Edit, the command palette and class filters. Counts update after creation and Undo. Creation and discovery remain available for empty classes. The report and graph behavior are unchanged. [Menu design](menu-ux.md#counts-and-action-availability) records the rule and related branch and graph controls.
+Instance actions now show the direct-instance count everywhere they are offered. Show instances (0) remains visible and disabled; Show instances (527) opens the existing paged report. The shared rule covers hierarchy and graph menus, the graph selection button, hierarchy and Inspector counts, Edit, the command palette and class filters. Counts update after creation and Undo. Creation and discovery remain available for empty classes. The report and graph behavior are unchanged. [Menu design](../guides/menu-ux.md#counts-and-action-availability) records the rule and related branch and graph controls.
 
 All 1,999 offline tests pass across 26 files. Type checking, formatting and the whitespace check pass. The final outcomes of 22 packaged desktop checks pass, covering zero and positive counts, live creation/Undo, all report paths, disabled keyboard and palette invocation, class filters, graph preservation, detached panes and targeted accessibility scans in light, dark and forced colors. The checks also cover existing menu navigation, edge editing and taxonomy suggestions. The disabled zero-count menu was inspected visually.
 
-The first packaged run passed 21 checks; its remaining assertion used an exact palette label that omitted the displayed shortcut. The corrected assertion and the zero-count action test both passed on rerun. An earlier Windows keyboard run stopped when its window lost focus; the packaged run passed that check. These harness issues and final outcomes are recorded in the [delivery record](../artifacts/testing/instance-counts-delivery-verification.json), with the [packaged report](../artifacts/instance-counts-packaged.json) and [final control checks](../artifacts/instance-counts-final-controls.json).
+The first packaged run passed 21 checks; its remaining assertion used an exact palette label that omitted the displayed shortcut. The corrected assertion and the zero-count action test both passed on rerun. An earlier Windows keyboard run stopped when its window lost focus; the packaged run passed that check. These harness issues and final outcomes are recorded in the [delivery record](../../artifacts/testing/instance-counts-delivery-verification.json), with the [packaged report](../../artifacts/history/2026-10-20/instance-counts-packaged.json) and [final control checks](../../artifacts/history/2026-10-20/instance-counts-final-controls.json).
 
 The package's 24 runtime files match the tested build byte for byte.
 
@@ -320,7 +320,7 @@ Verified executable:
 D:\git\axiom\artifacts\electron-20260916T150132Z\Axiom-win32-x64\Axiom.exe
 ```
 
-The [delivery record](../artifacts/testing/research-form-delivery-verification.json) contains build hashes and verification results. The [packaged report](../artifacts/research-form-packaged.json) contains all six passing checks. [Adaptive pane behavior](adaptive-pane-ux.md#research-layouts) describes the revised layout.
+The [delivery record](../../artifacts/testing/research-form-delivery-verification.json) contains build hashes and verification results. The [packaged report](../../artifacts/history/2026-10-20/research-form-packaged.json) contains all six passing checks. [Adaptive pane behavior](../guides/adaptive-pane-ux.md#research-layouts) describes the revised layout.
 
 ## Graph relationship creation (16 September 2026)
 
@@ -357,7 +357,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260916T175642Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Verification record: `artifacts/testing/yed-gestures-delivery-verification.json`. Desktop results: `artifacts/yed-gestures-packaged.json`. Offline results: `artifacts/yed-gestures-unit.json`.
+Verification record: `artifacts/testing/yed-gestures-delivery-verification.json`. Desktop results: `artifacts/history/2026-10-20/yed-gestures-packaged.json`. Offline results: `artifacts/history/2026-10-20/yed-gestures-unit.json`.
 
 ## Endpoint circles removed (16 September 2026)
 
@@ -385,7 +385,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260916T192826Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Verification record: `artifacts/testing/details-delivery-verification.json`. Desktop results: `artifacts/details-packaged.json`. Targeted offline results: `artifacts/details-unit.json`.
+Verification record: `artifacts/testing/details-delivery-verification.json`. Desktop results: `artifacts/history/2026-10-20/details-packaged.json`. Targeted offline results: `artifacts/history/2026-10-20/details-unit.json`.
 
 ## OWL intersection delivery, 2026-09-16
 
@@ -395,7 +395,7 @@ Verification record: `artifacts/testing/details-delivery-verification.json`. Des
 - The packaged desktop suite passed 16 tests covering Details, node movement, edge creation, edge editing and the actual courses ontology. The final build passed the courses desktop test again after the caption placement and AND lettering adjustment.
 - All 24 packaged runtime files match the build output. The Desktop ontology's SHA-256 remains `01eb95296ba37c37911c73797b6c7715e47a98e0416f595f82440ef6a7935c4b`.
 - Final executable: `D:\git\axiom\artifacts\electron-20260916T200631Z\Axiom-win32-x64\Axiom.exe`.
-- Records: `artifacts/intersections-unit.json`, `artifacts/intersections-focused.json`, `artifacts/intersections-render.json`, `artifacts/intersections-packaged.json`, `artifacts/intersections-final-desktop.json`, and `artifacts/testing/intersections-delivery-verification.json`.
+- Records: `artifacts/history/2026-10-20/intersections-unit.json`, `artifacts/history/2026-10-20/intersections-focused.json`, `artifacts/history/2026-10-20/intersections-render.json`, `artifacts/history/2026-10-20/intersections-packaged.json`, `artifacts/history/2026-10-20/intersections-final-desktop.json`, and `artifacts/testing/intersections-delivery-verification.json`.
 
 ## Shared node and edge Details, 2026-09-16
 
@@ -403,7 +403,7 @@ Details now follows both node and edge selection in the same tab. Selecting an e
 
 Inspector and Details share retained edge drafts. Switching selection preserves those edits, and Save workspace applies them. Synthetic intersection member edges retain their read-only explanation. The edge routing instructions refer to the remaining bend handle and context-menu reconnection.
 
-Validation passed: TypeScript, 58 targeted domain tests, 12 packaged Details/edge desktop tests and the native edge-menu journey. The packaged runtime matches all 24 build files. Records are in `artifacts/edge-details-unit.json`, `artifacts/edge-details-packaged.json`, `artifacts/edge-details-menu-packaged.json` and `artifacts/testing/edge-details-delivery-verification.json`.
+Validation passed: TypeScript, 58 targeted domain tests, 12 packaged Details/edge desktop tests and the native edge-menu journey. The packaged runtime matches all 24 build files. Records are in `artifacts/history/2026-10-20/edge-details-unit.json`, `artifacts/history/2026-10-20/edge-details-packaged.json`, `artifacts/history/2026-10-20/edge-details-menu-packaged.json` and `artifacts/testing/edge-details-delivery-verification.json`.
 
 Executable: `D:\git\axiom\artifacts\electron-20260916T204248Z\Axiom-win32-x64\Axiom.exe`.
 
@@ -419,7 +419,7 @@ All 24 packaged runtime files match the build output. Package SHA-256: 205065463
 
 Executable: `D:\git\axiom\artifacts\electron-20260917T013410Z\Axiom-win32-x64\Axiom.exe`.
 
-Research and behavior: `docs/graph-appearance.md`. Records: `artifacts/graph-appearance-all-unit.json`, `artifacts/graph-appearance-final-unit.json`, `artifacts/graph-appearance-final-packaged.json`, `artifacts/testing/graph-appearance-analysis-performance.json`, and `artifacts/testing/graph-appearance-package-verification.json`.
+Research and behavior: `docs/guides/graph-appearance.md`. Records: `artifacts/history/2026-10-20/graph-appearance-all-unit.json`, `artifacts/history/2026-10-20/graph-appearance-final-unit.json`, `artifacts/history/2026-10-20/graph-appearance-final-packaged.json`, `artifacts/testing/graph-appearance-analysis-performance.json`, and `artifacts/testing/graph-appearance-package-verification.json`.
 
 ## Compact Details, graph tabs and intersection branches (16 September 2026)
 
@@ -446,7 +446,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T022357Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: `artifacts/ux-final-unit.json`, `artifacts/ux-final-packaged.json`, `artifacts/ux-final-taxonomy-packaged.json` and `artifacts/testing/ux-final-package-verification.json`.
+Records: `artifacts/history/2026-10-20/ux-final-unit.json`, `artifacts/history/2026-10-20/ux-final-packaged.json`, `artifacts/history/2026-10-20/ux-final-taxonomy-packaged.json` and `artifacts/testing/ux-final-package-verification.json`.
 
 ## Details Back navigation (16 September 2026)
 
@@ -464,7 +464,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T032028Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: `artifacts/details-back-packaged.json`, `artifacts/details-back-rerun-packaged.json`, `artifacts/testing/details-back-package-verification.json` and `artifacts/testing/details-back-delivery-verification.json`.
+Records: `artifacts/history/2026-10-20/details-back-packaged.json`, `artifacts/history/2026-10-20/details-back-rerun-packaged.json`, `artifacts/testing/details-back-package-verification.json` and `artifacts/testing/details-back-delivery-verification.json`.
 
 ## Details grid and editable native Source (16 September 2026)
 
@@ -487,7 +487,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T040351Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: `artifacts/details-source-unit.json`, `artifacts/details-source-packaged.json`, `artifacts/details-source-packaged-rerun.json`, `artifacts/details-source-packaged-authoring.json` and `artifacts/testing/details-source-delivery-verification.json`.
+Records: `artifacts/history/2026-10-20/details-source-unit.json`, `artifacts/history/2026-10-20/details-source-packaged.json`, `artifacts/history/2026-10-20/details-source-packaged-rerun.json`, `artifacts/history/2026-10-20/details-source-packaged-authoring.json` and `artifacts/testing/details-source-delivery-verification.json`.
 
 ## Last-session startup (17 September 2026)
 
@@ -507,7 +507,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T135625Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: `artifacts/session-all-unit.json`, `artifacts/session-final-packaged.json`, `artifacts/testing/session-package-verification.json` and `artifacts/testing/session-delivery-verification.json`.
+Records: `artifacts/history/2026-10-20/session-all-unit.json`, `artifacts/history/2026-10-20/session-final-packaged.json`, `artifacts/testing/session-package-verification.json` and `artifacts/testing/session-delivery-verification.json`.
 
 ## Details resource values and class parents (17 September 2026)
 
@@ -527,7 +527,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T151255Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/details-values-final-unit.json, artifacts/details-values-delivery-packaged.json and artifacts/testing/details-values-delivery-verification.json. Implementation notes: docs/details-editing.md.
+Records: artifacts/history/2026-10-20/details-values-final-unit.json, artifacts/history/2026-10-20/details-values-delivery-packaged.json and artifacts/testing/details-values-delivery-verification.json. Implementation notes: docs/guides/details-editing.md.
 
 ## File Open submenu (17 September 2026)
 
@@ -545,7 +545,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T155813Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/file-open-unit.json, artifacts/file-open-packaged.json, artifacts/file-open-menu-audit.json and artifacts/testing/file-open-delivery-verification.json.
+Records: artifacts/history/2026-10-20/file-open-unit.json, artifacts/history/2026-10-20/file-open-packaged.json, artifacts/history/2026-10-20/file-open-menu-audit.json and artifacts/testing/file-open-delivery-verification.json.
 
 ## Courses equivalence migration and graph refinements (17 September 2026)
 
@@ -563,7 +563,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T164622Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/graph-refinement-all-unit.json, artifacts/graph-refinement-packaged-ui.json, artifacts/graph-refinement-package-check.json and artifacts/testing/courses-equivalence-migration.json.
+Records: artifacts/history/2026-10-20/graph-refinement-all-unit.json, artifacts/history/2026-10-20/graph-refinement-packaged-ui.json, artifacts/history/2026-10-20/graph-refinement-package-check.json and artifacts/testing/courses-equivalence-migration.json.
 
 ## Absolute paths in Recent (17 September 2026)
 
@@ -577,7 +577,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T171831Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/recent-absolute-paths-packaged.json and artifacts/recent-absolute-paths-package-check.json.
+Records: artifacts/history/2026-10-20/recent-absolute-paths-packaged.json and artifacts/history/2026-10-20/recent-absolute-paths-package-check.json.
 
 ## Graph node spacing (17 September 2026)
 
@@ -591,7 +591,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T183907Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/graph-spacing-unit.json, artifacts/graph-spacing-packaged.json and artifacts/graph-spacing-package-check.json.
+Records: artifacts/history/2026-10-20/graph-spacing-unit.json, artifacts/history/2026-10-20/graph-spacing-packaged.json and artifacts/history/2026-10-20/graph-spacing-package-check.json.
 
 ## Graph edge visibility (17 September 2026)
 
@@ -605,7 +605,7 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T195430Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/edge-visibility-unit.json, artifacts/edge-visibility-packaged.json and artifacts/edge-visibility-package-check.json.
+Records: artifacts/history/2026-10-20/edge-visibility-unit.json, artifacts/history/2026-10-20/edge-visibility-packaged.json and artifacts/history/2026-10-20/edge-visibility-package-check.json.
 
 ## Graph node menu and local subclass suggestions
 
@@ -619,13 +619,13 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T213225Z\Axiom-win32-x64\Axiom.exe
 ```
 
-Records: artifacts/subclass-menu-unit.json, artifacts/subclass-menu-packaged.json and artifacts/subclass-menu-package-check.json.
+Records: artifacts/history/2026-10-20/subclass-menu-unit.json, artifacts/history/2026-10-20/subclass-menu-packaged.json and artifacts/history/2026-10-20/subclass-menu-package-check.json.
 
 ## Existing parent name matching
 
 The selected compound class is the child. Alpha Beta Gamma now finds Alpha Gamma and Beta Gamma as possible existing parents by matching shorter word sequences in order. Accepting both creates two ordinary rdfs:subClassOf links from the selected class. One Undo restores the prior statements.
 
-TypeScript, 17 focused domain tests and three packaged desktop tests passed. The review was visually checked, and all 33 packaged application files match the build. Records: artifacts/parent-suggestions-unit.json, artifacts/parent-suggestions-packaged.json and artifacts/parent-suggestions-package-check.json.
+TypeScript, 17 focused domain tests and three packaged desktop tests passed. The review was visually checked, and all 33 packaged application files match the build. Records: artifacts/history/2026-10-20/parent-suggestions-unit.json, artifacts/history/2026-10-20/parent-suggestions-packaged.json and artifacts/history/2026-10-20/parent-suggestions-package-check.json.
 
 Executable:
 
@@ -637,7 +637,7 @@ D:\git\axiom\artifacts\electron-20260917T213719Z\Axiom-win32-x64\Axiom.exe
 
 Show counts appears beside Show edges, checked by default. It hides the graph node number badges without changing RDF, node positions or edge visibility. Each graph saves its setting in workspaces and restored sessions, and Undo/Redo and image exports follow the setting.
 
-TypeScript, five focused domain tests and three packaged desktop tests passed. Visual inspection confirmed the checkbox and hidden badges. All 33 packaged application files match the build. Records: artifacts/count-visibility-unit.json, artifacts/count-visibility-packaged.json and artifacts/count-visibility-package-check.json.
+TypeScript, five focused domain tests and three packaged desktop tests passed. Visual inspection confirmed the checkbox and hidden badges. All 33 packaged application files match the build. Records: artifacts/history/2026-10-20/count-visibility-unit.json, artifacts/history/2026-10-20/count-visibility-packaged.json and artifacts/history/2026-10-20/count-visibility-package-check.json.
 
 Executable:
 
@@ -649,7 +649,7 @@ D:\git\axiom\artifacts\electron-20260917T214159Z\Axiom-win32-x64\Axiom.exe
 
 The graph toolbar now expands from all visible nodes breadth-first until the visible-node limit or reachable component is exhausted. Existing nodes are retained and stay fixed through layout. The action follows projected intersection branches, handles cycles and large adjacency lists, and is scoped to its graph tab. One Undo restores the previous view.
 
-TypeScript, 19 focused domain tests and two packaged desktop tests passed. Desktop checks cover the real toolbar, raising the node limit, Undo/Redo, empty and isolated maps, and independent graph tabs. All 33 packaged application files match the build. Records: artifacts/expand-max-unit.json, artifacts/expand-max-packaged.json and artifacts/expand-max-package-check.json.
+TypeScript, 19 focused domain tests and two packaged desktop tests passed. Desktop checks cover the real toolbar, raising the node limit, Undo/Redo, empty and isolated maps, and independent graph tabs. All 33 packaged application files match the build. Records: artifacts/history/2026-10-20/expand-max-unit.json, artifacts/history/2026-10-20/expand-max-packaged.json and artifacts/history/2026-10-20/expand-max-package-check.json.
 
 Executable:
 
@@ -661,7 +661,7 @@ D:\git\axiom\artifacts\electron-20260917T215851Z\Axiom-win32-x64\Axiom.exe
 
 The slider, numeric input, domain admission limit, preferences, saved graph collections and export validation share a maximum of 15,000 visible nodes. The initial value remains 1,000.
 
-TypeScript, 14 focused domain tests and three packaged desktop tests passed. The domain check expands an actual 15,000-node graph, restores its full saved node collections, accepts its export request and rejects oversized requests. Desktop checks cover the slider endpoint, restored workspace limit and Expand max. All 33 packaged application files match the build. Records: artifacts/graph-limit-15k-unit.json, artifacts/graph-limit-15k-packaged.json and artifacts/graph-limit-15k-package-check.json.
+TypeScript, 14 focused domain tests and three packaged desktop tests passed. The domain check expands an actual 15,000-node graph, restores its full saved node collections, accepts its export request and rejects oversized requests. Desktop checks cover the slider endpoint, restored workspace limit and Expand max. All 33 packaged application files match the build. Records: artifacts/history/2026-10-20/graph-limit-15k-unit.json, artifacts/history/2026-10-20/graph-limit-15k-packaged.json and artifacts/history/2026-10-20/graph-limit-15k-package-check.json.
 
 Executable:
 
@@ -673,13 +673,13 @@ D:\git\axiom\artifacts\electron-20260917T221126Z\Axiom-win32-x64\Axiom.exe
 
 Removed the 5% zoom-out floor from wheel zoom, keyboard zoom and Fit. Camera preferences accept the same small zoom levels for the original graph and additional graph tabs. A machine-precision lower bound keeps division finite. Wheel zoom preserves the pointer anchor, and keyboard zoom preserves the canvas centre. Fit also remains finite when a pane is temporarily collapsed.
 
-TypeScript, 29 focused domain tests and three packaged desktop tests passed. Checks cover repeated zoom-out and recovery, extreme wheel deltas, whole-graph fitting across large coordinate ranges, unchanged node positions and RDF, and independent camera restoration after restart. All 33 packaged runtime files match the build. Records: artifacts/graph-zoom-unit.json, artifacts/graph-zoom-packaged.json and artifacts/graph-zoom-package-check.json.
+TypeScript, 29 focused domain tests and three packaged desktop tests passed. Checks cover repeated zoom-out and recovery, extreme wheel deltas, whole-graph fitting across large coordinate ranges, unchanged node positions and RDF, and independent camera restoration after restart. All 33 packaged runtime files match the build. Records: artifacts/history/2026-10-20/graph-zoom-unit.json, artifacts/history/2026-10-20/graph-zoom-packaged.json and artifacts/history/2026-10-20/graph-zoom-package-check.json.
 
 ## Center graph
 
 Added Center beside Fit and Graph > Center graph. The camera moves to the first remaining starting node, or the node with the most visible connections if all starting nodes have been hidden. It preserves zoom, selection and node positions, works independently in each graph tab, and is disabled for empty graphs.
 
-TypeScript and 29 keyboard/menu checks passed. An isolated packaged desktop check verified the toolbar action with a different node selected, the menu fallback after hiding the starting node, independent graph cameras and empty-state disabling. All three packaged zoom regression tests passed. The toolbar was visually checked, and all 33 packaged runtime files match the build. Records: artifacts/graph-center-desktop.json, artifacts/graph-center-keyboard.json, artifacts/graph-center-zoom-regression.json and artifacts/graph-center-package-check.json.
+TypeScript and 29 keyboard/menu checks passed. An isolated packaged desktop check verified the toolbar action with a different node selected, the menu fallback after hiding the starting node, independent graph cameras and empty-state disabling. All three packaged zoom regression tests passed. The toolbar was visually checked, and all 33 packaged runtime files match the build. Records: artifacts/history/2026-10-20/graph-center-desktop.json, artifacts/history/2026-10-20/graph-center-keyboard.json, artifacts/history/2026-10-20/graph-center-zoom-regression.json and artifacts/history/2026-10-20/graph-center-package-check.json.
 
 ## Relevance-ranked graph labels
 
@@ -687,7 +687,7 @@ Crowded graph labels now use an equal-weight score from dataset-wide connectivit
 
 TypeScript, 40 focused domain tests and five packaged desktop tests passed. Coverage includes real label collisions, zoom-out and zoom-in behavior, full-dataset counts outside the map, cosmetic styles, deterministic ties, 15,000-node ranking reuse, edit and Undo invalidation, visible-label hit testing, export parity and restored cameras. An isolated copy of courses.owl expanded to 5,830 nodes and 7,299 relationships and completed 24 zoom steps without renderer errors. The Desktop source hash remained unchanged. Its diagnostic draw-submission p95 was 53.7 ms; this is not a compositor FPS measurement. All 33 packaged runtime files match the build.
 
-Records: artifacts/graph-relevance-unit.json, artifacts/graph-relevance-packaged.json, artifacts/graph-relevance-courses.json and artifacts/graph-relevance-package-check.json.
+Records: artifacts/history/2026-10-20/graph-relevance-unit.json, artifacts/history/2026-10-20/graph-relevance-packaged.json, artifacts/history/2026-10-20/graph-relevance-courses.json and artifacts/history/2026-10-20/graph-relevance-package-check.json.
 
 ## Persistent suggestion view
 
@@ -695,7 +695,7 @@ Add children and Find instances open the dockable Suggestions view. Each node op
 
 All 74 focused service, history, parsing, activity and preference checks pass. All 19 packaged desktop checks pass, including cancellation, repeated-run protection, stale results, separate node histories, choosing an older run on another node, closing a running pane, restart, reviewed insertion and Undo, detached windows, and Research/Query regressions. The test fixture explicitly selects its mock Codex provider. After widening the history selector, three packaged checks passed again for normal review, restart and a detached narrow view. TypeScript, formatting and the whitespace check pass. All 33 packaged runtime files match the build.
 
-Records: `artifacts/taxonomy-view-unit.json`, `artifacts/taxonomy-view-packaged.json`, `artifacts/taxonomy-view-final-layout.json` and `artifacts/taxonomy-view-package-check.json`. Screenshots: `artifacts/testing/taxonomy-view.png` and `artifacts/testing/taxonomy-view-detached.png`.
+Records: `artifacts/history/2026-10-20/taxonomy-view-unit.json`, `artifacts/history/2026-10-20/taxonomy-view-packaged.json`, `artifacts/history/2026-10-20/taxonomy-view-final-layout.json` and `artifacts/history/2026-10-20/taxonomy-view-package-check.json`. Screenshots: `artifacts/testing/taxonomy-view.png` and `artifacts/testing/taxonomy-view-detached.png`.
 
 ## Optional error audit logs
 
@@ -703,7 +703,7 @@ Failed assistant requests and desktop operations retain local audit records. Err
 
 All 118 focused unit checks and 22 packaged desktop checks pass. Coverage includes mock Claude and Codex failures, process exits, concurrent request separation, redaction, truncation, storage failure, restart persistence, optional opening, clipboard content, absolute log paths, generic ontology failures and native File Open failures. TypeScript, formatting and the whitespace check pass. Visual inspection confirmed the tab layout and collapsed raw-output sections. All 34 packaged runtime files match the build. The response from the older screenshot could not be recovered because that version deleted temporary assistant output.
 
-Records: artifacts/error-audit-unit.json, artifacts/error-audit-desktop.json, artifacts/error-audit-packaged.json and artifacts/error-audit-package-check.json. Screenshots: artifacts/testing/error-audit-summary.png and artifacts/testing/error-audit-view.png.
+Records: artifacts/history/2026-10-20/error-audit-unit.json, artifacts/history/2026-10-20/error-audit-desktop.json, artifacts/history/2026-10-20/error-audit-packaged.json and artifacts/history/2026-10-20/error-audit-package-check.json. Screenshots: artifacts/testing/error-audit-summary.png and artifacts/testing/error-audit-view.png.
 
 Executable:
 
@@ -717,7 +717,7 @@ Details now shows a responsive ancestry breadcrumb for classes and individuals. 
 
 All 25 focused domain checks pass. They cover diamond inheritance, multiple roots and instance types, equivalent-class definitions, cycles, unresolved references and traversal bounds over a dataset with 15,000 unrelated classes. Twenty-two existing Details/source desktop checks passed across the development runs; the intersection-edge fixture was updated to use an explicit equivalent-class definition. Seven packaged desktop checks pass for ancestry navigation and Back, responsive detached panes, instance/definition semantics, the inline row workflow, resized statement editing, class creation and compact grid editing. The breadcrumb accessibility scan found no serious or critical violations. TypeScript, formatting and scoped whitespace checks pass. Wide and tall screenshots were visually inspected. All 34 packaged runtime files match the build.
 
-Records: artifacts/details-ancestry-unit.json, artifacts/details-ancestry-desktop.json, artifacts/details-ancestry-focused.json, artifacts/details-ancestry-packaged.json and artifacts/details-ancestry-package-check.json. Final screenshots: artifacts/testing/details-breadcrumb-wide.png and artifacts/testing/details-breadcrumb-tall.png.
+Records: artifacts/history/2026-10-20/details-ancestry-unit.json, artifacts/history/2026-10-20/details-ancestry-desktop.json, artifacts/history/2026-10-20/details-ancestry-focused.json, artifacts/history/2026-10-20/details-ancestry-packaged.json and artifacts/history/2026-10-20/details-ancestry-package-check.json. Final screenshots: artifacts/testing/details-breadcrumb-wide.png and artifacts/testing/details-breadcrumb-tall.png.
 
 Executable:
 
@@ -735,10 +735,10 @@ D:\git\axiom\artifacts\electron-20260918T170631Z\Axiom-win32-x64\Axiom.exe
 Validation:
 
 - TypeScript, formatting and scoped whitespace checks passed.
-- 52 domain tests passed in artifacts/suggestions-unit.json.
-- 10 desktop checks passed against the final executable in artifacts/suggestions-final-desktop.json. These cover native Alt/F10 navigation, remapping, palette access, title formatting, text/resource annotation edits, language preservation, global definitions, review, independent tabs, workspace reopening, history restoration, progress placement and a focused accessibility scan.
-- All 16 existing taxonomy desktop regressions passed in the preceding full packaged run. That report also recorded the F10 failure subsequently fixed and covered by the final ten checks. See artifacts/suggestions-packaged.json and artifacts/suggestions-final-desktop.json.
-- All 34 packaged runtime files match the build: artifacts/suggestions-package-check.json.
+- 52 domain tests passed in artifacts/history/2026-10-20/suggestions-unit.json.
+- 10 desktop checks passed against the final executable in artifacts/history/2026-10-20/suggestions-final-desktop.json. These cover native Alt/F10 navigation, remapping, palette access, title formatting, text/resource annotation edits, language preservation, global definitions, review, independent tabs, workspace reopening, history restoration, progress placement and a focused accessibility scan.
+- All 16 existing taxonomy desktop regressions passed in the preceding full packaged run. That report also recorded the F10 failure subsequently fixed and covered by the final ten checks. See artifacts/history/2026-10-20/suggestions-packaged.json and artifacts/history/2026-10-20/suggestions-final-desktop.json.
+- All 34 packaged runtime files match the build: artifacts/history/2026-10-20/suggestions-package-check.json.
 - Assistant calls used controlled local fixtures. No live Claude or Codex request was made.
 
 Final executable: D:\git\axiom\artifacts\electron-20260918T182042Z\Axiom-win32-x64\Axiom.exe
@@ -749,7 +749,7 @@ Details now shows one ancestry trail from the selected entity toward the roots. 
 
 All eight focused domain tests and five packaged desktop tests passed. Coverage includes the exact Basic English definition and cycle, shared roots, multiple instance memberships, deep and broad taxonomies, responsive detached panes, navigation, live parent edits and a focused accessibility scan. Wide and tall screenshots were visually inspected. TypeScript and scoped formatting/whitespace checks passed. All 34 packaged runtime files match the build.
 
-Records: artifacts/ancestry-trail-unit.json, artifacts/ancestry-trail-packaged.json and artifacts/ancestry-trail-package-check.json. Screenshots: artifacts/testing/ancestry-trail-basic-english.png and artifacts/testing/ancestry-trail-tall.png.
+Records: artifacts/history/2026-10-20/ancestry-trail-unit.json, artifacts/history/2026-10-20/ancestry-trail-packaged.json and artifacts/history/2026-10-20/ancestry-trail-package-check.json. Screenshots: artifacts/testing/ancestry-trail-basic-english.png and artifacts/testing/ancestry-trail-tall.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260918T193959Z\Axiom-win32-x64\Axiom.exe
 
@@ -759,7 +759,7 @@ Selecting an ancestry card reveals the selected row in the taxonomy after the ne
 
 All nine focused desktop checks passed against the final executable, including a taxonomy with more than 2,000 classes, alignment after zoom, top and bottom scroll limits, detached panes, ancestry navigation, inline edits and the existing graph reveal action. An earlier run caught zoom rounding; the final build corrects the rendered row position after the initial scroll. TypeScript, scoped formatting and whitespace checks passed. All 34 packaged runtime files match the build. The aligned view was visually inspected.
 
-Records: artifacts/ancestry-taxonomy-final-packaged.json, artifacts/ancestry-taxonomy-zoom-final.json and artifacts/ancestry-taxonomy-package-check.json. Screenshots: artifacts/testing/ancestry-taxonomy-alignment.png and artifacts/testing/ancestry-taxonomy-zoom.png.
+Records: artifacts/history/2026-10-20/ancestry-taxonomy-final-packaged.json, artifacts/history/2026-10-20/ancestry-taxonomy-zoom-final.json and artifacts/history/2026-10-20/ancestry-taxonomy-package-check.json. Screenshots: artifacts/testing/ancestry-taxonomy-alignment.png and artifacts/testing/ancestry-taxonomy-zoom.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260918T222342Z\Axiom-win32-x64\Axiom.exe
 
@@ -769,7 +769,7 @@ Each new assistant run independently samples at most 20 direct children and 20 d
 
 All 67 focused unit checks and six packaged desktop checks passed. Coverage includes sample boundaries, distinct random samples, a branch beyond 1,500 classes, exact prompt capture, history persistence, duplicate prevention, stale results, partial application and undo/redo. One packaged check initially exceeded its five-second mock-assistant wait and passed unchanged on recheck. TypeScript, formatting and scoped whitespace checks passed. All 34 packaged runtime files match the build. Assistant calls used local mocks.
 
-Records: artifacts/taxonomy-sampling-unit.json, artifacts/taxonomy-sampling-desktop.json, artifacts/taxonomy-sampling-packaged.json, artifacts/taxonomy-sampling-review-recheck.json and artifacts/taxonomy-sampling-package-check.json. Screenshot: artifacts/testing/taxonomy-sampled-context.png.
+Records: artifacts/history/2026-10-20/taxonomy-sampling-unit.json, artifacts/history/2026-10-20/taxonomy-sampling-desktop.json, artifacts/history/2026-10-20/taxonomy-sampling-packaged.json, artifacts/history/2026-10-20/taxonomy-sampling-review-recheck.json and artifacts/history/2026-10-20/taxonomy-sampling-package-check.json. Screenshot: artifacts/testing/taxonomy-sampled-context.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260918T223901Z\Axiom-win32-x64\Axiom.exe
 
@@ -781,7 +781,7 @@ The pane shares the existing resource index with Details type-ahead. Full result
 
 All 18 focused domain checks and nine packaged desktop checks passed. Coverage includes aliases, accents, exact matching, entity filters, 15,025-result pagination, edits and undo, settings validation, keyboard focus and remapping, closing/reopening, saved workspace restart, detached panes, accessibility, native menu navigation, source-editor Find and graph export. The existing 100,000-class type-ahead performance check passed. Early desktop checks required Electron-compatible accessibility configuration and searchbox selectors; the corrected checks caught and verified the modal focus handoff fix. TypeScript, formatting and scoped whitespace checks passed. All 34 packaged runtime files match the build. The modal and results pane screenshots were visually inspected.
 
-Records: artifacts/find-unit.json, artifacts/find-desktop-final.json, artifacts/find-packaged.json and artifacts/find-package-check.json. Screenshots: artifacts/testing/find-quick.png, artifacts/testing/find-results.png and artifacts/testing/find-detached.png.
+Records: artifacts/history/2026-10-20/find-unit.json, artifacts/history/2026-10-20/find-desktop-final.json, artifacts/history/2026-10-20/find-packaged.json and artifacts/history/2026-10-20/find-package-check.json. Screenshots: artifacts/testing/find-quick.png, artifacts/testing/find-results.png and artifacts/testing/find-detached.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T022114Z\Axiom-win32-x64\Axiom.exe
 
@@ -793,7 +793,7 @@ Source and unfinished grid drafts are serialized separately and restored without
 
 Validation: 36 domain checks and 19 distinct packaged desktop checks passed across the save, startup and source suites. The final executable passed all nine autosave journeys, including the 30-second checkpoint followed by forced exit, exact graph restoration, unnamed recovery, entity and whole-source drafts, stale drafts, incomplete rows, failed destination recovery, overlapping Save as, and workspace isolation. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build.
 
-Records: artifacts/autosave-unit.json, artifacts/autosave-packaged.json, artifacts/autosave-final-packaged.json and artifacts/autosave-package-check.json.
+Records: artifacts/history/2026-10-20/autosave-unit.json, artifacts/history/2026-10-20/autosave-packaged.json, artifacts/history/2026-10-20/autosave-final-packaged.json and artifacts/history/2026-10-20/autosave-package-check.json.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T025252Z\Axiom-win32-x64\Axiom.exe
 
@@ -807,7 +807,7 @@ Testing also exposed a close request lost during workspace opening. Axiom now wa
 
 Validation: 65 unit checks and 10 packaged desktop journeys passed. Desktop checks include both menus, scoped progress, context inspection, exclusions, literal edits and Undo, history after restart, independent views, new runs, stale sibling aliases, existing custom and parent suggestions, accessibility, close during opening and failed-save recovery. Assistant responses were mocked; no live assistant was invoked. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build.
 
-Records: artifacts/synonyms-unit.json, artifacts/synonyms-final-packaged.json and artifacts/synonyms-package-check.json. Screenshot: artifacts/testing/synonyms-review.png.
+Records: artifacts/history/2026-10-20/synonyms-unit.json, artifacts/history/2026-10-20/synonyms-final-packaged.json and artifacts/history/2026-10-20/synonyms-package-check.json. Screenshot: artifacts/testing/synonyms-review.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T035603Z\Axiom-win32-x64\Axiom.exe
 
@@ -819,7 +819,7 @@ Destinations highlight during dragging, collapsed targets expand on hover, and d
 
 Validation: 18 unit checks and all 15 focused packaged desktop journeys passed. Coverage includes native drag gestures, multiple parents, equivalent definitions, graph and Details synchronization, Undo/Redo, saved workspace restart, hover expansion, edge scrolling and cancellation, named graph provenance, invalid drops, accessibility and existing ancestry navigation. The first broader run exposed a transient Details rapid-edit failure; the earlier package and repeated current-package runs passed without changing editor code. A scrolling fixture initially used a worker-only operation and was corrected to open its test file through File Open. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build. The move screenshot was visually inspected.
 
-Records: artifacts/taxonomy-move-unit.json, artifacts/taxonomy-move-final-packaged.json and artifacts/taxonomy-move-package-check.json. Screenshot: artifacts/testing/taxonomy-move.png.
+Records: artifacts/history/2026-10-20/taxonomy-move-unit.json, artifacts/history/2026-10-20/taxonomy-move-final-packaged.json and artifacts/history/2026-10-20/taxonomy-move-package-check.json. Screenshot: artifacts/testing/taxonomy-move.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260919T041414Z\Axiom-win32-x64\Axiom.exe
 
@@ -831,7 +831,7 @@ The pane provides ranked findings, comparison bars, peer counts and means, leaf 
 
 Validation: 30 unit checks and all nine packaged desktop journeys passed. Unit coverage includes the five-versus-one example, scope isolation, depth discounting, multiple inheritance, cycles, projected definitions, read-only behavior, edits and Undo, a 2,000-level chain, and 15,000 classes. Desktop coverage includes both menu entry points, explanation accuracy, keyboard controls, filters, live refresh, navigation, persisted scope, new-workspace isolation, paging, detached panes and accessibility in light and dark themes. Testing caught a missing-target case after creating a workspace; the pane now returns to its empty state. Electron accessibility checks use the supported legacy runner. TypeScript, formatting and scoped whitespace checks passed. All 38 packaged runtime files match the build. Both report screenshots were visually inspected.
 
-Method and references: docs/sparsity-analysis.md. Records: artifacts/sparsity-unit-final.json, artifacts/sparsity-packaged.json and artifacts/sparsity-package-check.json. Screenshots: artifacts/testing/sparsity-report.png and artifacts/testing/sparsity-detached.png.
+Method and references: docs/guides/sparsity-analysis.md. Records: artifacts/history/2026-10-20/sparsity-unit-final.json, artifacts/history/2026-10-20/sparsity-packaged.json and artifacts/history/2026-10-20/sparsity-package-check.json. Screenshots: artifacts/testing/sparsity-report.png and artifacts/testing/sparsity-detached.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260920T012025Z\Axiom-win32-x64\Axiom.exe
 
@@ -843,7 +843,7 @@ Reopening a pane, cloning a view, restoring a workspace and browsing history do 
 
 Validation: TypeScript, whitespace checks and all ten scheduling tests passed. All 26 focused desktop cases passed across the initial suite and queue follow-up, using isolated profiles and mocked assistants. The initial queue test timed out after five seconds while its second deliberately slow mock was running; allowing time for both runs resolved the test without a runtime change. Six core journeys also passed against the packaged executable: saved custom suggestions, graph synonyms, queued parents, queued children with duplicate clicks, detached Hierarchy and restored history. Existing review, cancellation, audit, context sampling, Undo and accessibility checks passed. No live assistant requests were made. All 38 packaged runtime files match the build.
 
-Records: artifacts/suggestion-starts-unit.json, artifacts/suggestion-autostart-desktop.json, artifacts/suggestion-autostart-queue.json, artifacts/suggestion-autostart-packaged.json and artifacts/suggestion-autostart-package-check.json.
+Records: artifacts/history/2026-10-20/suggestion-starts-unit.json, artifacts/history/2026-10-20/suggestion-autostart-desktop.json, artifacts/history/2026-10-20/suggestion-autostart-queue.json, artifacts/history/2026-10-20/suggestion-autostart-packaged.json and artifacts/history/2026-10-20/suggestion-autostart-package-check.json.
 
 Executable: D:\git\axiom\artifacts\electron-20260920T013904Z\Axiom-win32-x64\Axiom.exe
 
@@ -851,11 +851,11 @@ Executable: D:\git\axiom\artifacts\electron-20260920T013904Z\Axiom-win32-x64\Axi
 
 Find now offers cosine similarity in the quick dialog and dockable results pane. A typed query is compared with indexed entity values without requiring an existing entity. Type checkboxes independently select classes, instances, properties and other entities. Field checkboxes expose names, aliases, IRIs and all populated RDF predicates, including custom and generated instance fields. Results show scores and the matching field value, with a minimum-score slider, paging and existing navigation actions. Hierarchy and Graph node menus also offer Find similar, excluding the source entity.
 
-The reusable text index uses normalized TF-IDF vectors over word and within-word character-trigram features. Queries visit shared-feature postings and use the same weighting and normalization as indexed values. Unknown query features remain in the norm. Entity scoring takes the maximum matching value; indexes and ranked results are cached by field selection and dataset revision. Search is local and read-only. Method details and sources are in docs/find-similarity.md.
+The reusable text index uses normalized TF-IDF vectors over word and within-word character-trigram features. Queries visit shared-feature postings and use the same weighting and normalization as indexed values. Unknown query features remain in the norm. Entity scoring takes the maximum matching value; indexes and ranked results are cached by field selection and dataset revision. Search is local and read-only. Method details and sources are in docs/guides/find-similarity.md.
 
 Validation: TypeScript, whitespace checks and 22 focused unit tests passed. Coverage includes previously unseen queries, exact normalized cosine, word order, Unicode, empty vectors, unknown features, every predicate, generated instance values, class/instance facets, thresholds, edits, Undo and complete paging over 15,000 classes. Existing 100,000-class type-ahead coverage also passed. All eight packaged desktop journeys passed, covering quick Find, focus and shortcuts, field selection, score display, filtering, graph and taxonomy actions, restart persistence, detached panes and accessibility. The first desktop run exposed test selectors that also matched the new mode dropdown; selectors now target the result listbox. Visual inspection prompted a facet sidebar and compact narrow-pane layout to preserve result space. The packaged screenshot was inspected. All 38 packaged runtime files match the build. No model or network requests occur during searches.
 
-Records: artifacts/cosine-find-unit.json, artifacts/cosine-find-packaged.json and artifacts/cosine-find-package-check.json. Screenshot: artifacts/testing/find-cosine.png.
+Records: artifacts/history/2026-10-20/cosine-find-unit.json, artifacts/history/2026-10-20/cosine-find-packaged.json and artifacts/history/2026-10-20/cosine-find-package-check.json. Screenshot: artifacts/testing/find-cosine.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260921T155458Z\Axiom-win32-x64\Axiom.exe
 
@@ -865,7 +865,7 @@ Find now opens the complete filtered result set in a separate graph tab. Paginat
 
 Validation: TypeScript and 16 focused unit tests passed, covering all pages, cosine thresholds, fields and type facets, multiple roots, shared ancestors, cycles, equivalent intersections, generated instances, a 1,100-class ancestor chain and limit refusal. All ten packaged Find desktop tests passed, including repeated new tabs, unchanged original graph geometry, instance ancestry, empty results and workspace restart. A repeated-opening test found a snapshot timing race that could return focus to the previous graph. The action now loads the new graph snapshot before opening its tab and lets that canvas fit itself. Visual inspection prompted the radial default for broad result sets. All 38 packaged runtime files match the build.
 
-Records: artifacts/find-graph-unit.json, artifacts/find-graph-packaged.json and artifacts/find-graph-package-check.json. Screenshots: artifacts/testing/find-open-results.png and artifacts/testing/find-results-ancestry.png.
+Records: artifacts/history/2026-10-20/find-graph-unit.json, artifacts/history/2026-10-20/find-graph-packaged.json and artifacts/history/2026-10-20/find-graph-package-check.json. Screenshots: artifacts/testing/find-open-results.png and artifacts/testing/find-results-ancestry.png.
 
 Executable: D:\git\axiom\artifacts\electron-20260921T184719Z\Axiom-win32-x64\Axiom.exe
 
@@ -877,7 +877,7 @@ Closed graphs are archived in the workspace and release their live graph slot. R
 
 Validation: TypeScript, formatting and whitespace checks passed, along with 22 unit tests. All 28 packaged desktop tests passed across tab history, Find, graph zoom and workspace autosave. The five history tests passed again against the final executable after correcting activation of an already open graph and preservation of Details metadata. Coverage includes both rename methods, default retention, eighteen successive closed graphs, restart restoration, workspace isolation, policy persistence and accessibility. Testing also caught a pane-placement problem after closing the last graph and a restart graph-ID collision; both are fixed. The history screenshot was visually inspected. All 38 packaged runtime files match the build.
 
-Records: artifacts/tab-history-unit.json, artifacts/tab-history-packaged.json, artifacts/tab-history-final-packaged.json and artifacts/tab-history-package-check.json. Screenshot: artifacts/testing/tab-history.png. Usage: docs/tab-history.md.
+Records: artifacts/history/2026-10-20/tab-history-unit.json, artifacts/history/2026-10-20/tab-history-packaged.json, artifacts/history/2026-10-20/tab-history-final-packaged.json and artifacts/history/2026-10-20/tab-history-package-check.json. Screenshot: artifacts/testing/tab-history.png. Usage: docs/guides/tab-history.md.
 
 Executable: D:\git\axiom\artifacts\electron-20260921T210417Z\Axiom-win32-x64\Axiom.exe
 
@@ -897,7 +897,7 @@ npm run package now builds Axiom-Setup-<version>.exe with electron-builder and a
 
 Validation: TypeScript, formatting and 2262 unit tests passed, including eight that hold the installer configuration to per-user install, the application identifier the main process sets, the registry layout of both NSIS macros, shell notification on install and uninstall, and signing that stays off without an endpoint. The four launch desktop tests passed against the electron-builder output. A full install, association check, double-click and silent uninstall ran on Windows: the installer exited 0 without elevation, HKCU carried the ProgID and extension keys, the Start menu shortcut and the Apps and features entry appeared, double-clicking a workspace opened it in the installed copy, and uninstalling removed the ProgID and every artifact while leaving the extension Default value behind.
 
-Records: docs/installation.md. Retired: scripts/register-file-type.ps1 and its test, replaced by the installer.
+Records: docs/guides/installation.md. Retired: scripts/register-file-type.ps1 and its test, replaced by the installer.
 
 ## 2026-09-30: Automatic entity search and resident MPNet corpora (#17)
 
@@ -920,7 +920,7 @@ The first query, including index construction, took 313.72 ms. Warm p95 meets th
 
 MPNet was measured with batches of 8, 16 and 32 at 1, 2 and 4 CPU threads. Each configuration used a fresh cache and 64 short course labels; model loading was timed separately. With four threads, cold text preparation took 343.57, 307.85 and 305.41 ms respectively. Batch 16 is the default: its throughput was close to 32 while providing twice as many points to service cancellation and comparison requests. At batch 16/four threads, new query encoding took 15.74 to 17.32 ms. A separate scan of 6,000 normalized vectors took 9.35 ms p50 and 9.56 ms p95. That scan repeats measured vectors to isolate matrix cost; it is not a cold 6,000-text inference measurement.
 
-Records: `artifacts/benchmarks/search-worker.json` and `artifacts/benchmarks/search-mpnet.json`. Reproduction: `tests/performance/search-worker.ts` and `tests/performance/search-mpnet.ts`. Usage: [Find and resource search](find-similarity.md).
+Records: `artifacts/benchmarks/search-worker.json` and `artifacts/benchmarks/search-mpnet.json`. Reproduction: `tests/performance/search-worker.ts` and `tests/performance/search-mpnet.ts`. Usage: [Find and resource search](../guides/find-similarity.md).
 
 ## 2026-09-30: Expanded functional search coverage
 
@@ -934,7 +934,7 @@ Removed the 6,000-class latency assertion from the domain suite. One hundred num
 
 An isolated run on the AMD Ryzen Threadripper 3960X measured 13.12 ms warm p95 for Find and 10.72 ms for resource suggestions, both below the 30 ms budget. Maximums were 29.83 ms and 15.17 ms respectively; first query including index construction was 295.57 ms. These are measured samples, not universal latency bounds. The MPNet benchmark remains independently runnable with `npm run benchmark:search:mpnet`; its earlier measurements were not repeated for this test-only addition.
 
-Records: [functional coverage and case design](search-testing.md), `artifacts/search-functional.json`, `artifacts/search-query-catalog.json`, and `artifacts/benchmarks/search-worker.json`. Generate the complete query catalog with `npm run test:search:catalog`.
+Records: [functional coverage and case design](../development/search-testing.md), `artifacts/reports/search-functional.json`, `artifacts/catalogs/search-query-catalog.json`, and `artifacts/benchmarks/search-worker.json`. Generate the complete query catalog with `npm run test:search:catalog`.
 
 ## 2026-09-30: Packaged search release verification (#17)
 
@@ -942,7 +942,7 @@ Rebuilt the Windows installer and application from committed source revision `52
 
 All 42 desktop checks in `find.spec.ts` and `details-source.spec.ts` passed against the packaged executable using isolated profiles. These include real local MPNet synonym recognition and automatic enrichment, the missing-model fallback, the `reading and comp` acceptance case, result graphs, filtering, pagination, edits and Undo, detached panes, resource type-ahead, and predicate ordering. No tests were skipped. The existing 5,638 passing unit/integration tests and separate lexical benchmark remain the functional and performance evidence for this source revision.
 
-The installer is 273,257,395 bytes with SHA-256 `43EAD4D6C80060A5E1A0F2B03932C5CB38EF21E094A80A655DE18A47A3E8024D`. The receipt in `artifacts/issue-17-build.json` also records the executable and application archive hashes, source revision, and build time. Packaged test results are in `artifacts/packaged-search-results.json`.
+The installer is 273,257,395 bytes with SHA-256 `43EAD4D6C80060A5E1A0F2B03932C5CB38EF21E094A80A655DE18A47A3E8024D`. The receipt in `artifacts/history/2026-10-20/issue-17-build.json` also records the executable and application archive hashes, source revision, and build time. Packaged test results are in `artifacts/history/2026-10-20/packaged-search-results.json`.
 
 ## 2026-09-30: Find scope, remedies and inline class creation (#19)
 
@@ -970,7 +970,7 @@ All three warm p95 measurements met the 30 ms budget. Cold index construction an
 
 The final local, unsigned Windows package completed at 19:03:27 UTC. Its 48 bundled JavaScript, CSS and HTML files match the final build byte for byte. The installer is 273,261,165 bytes with SHA-256 `6ae8710759661f6ff3a1e7e3c117d1ee2497b75a9701267c488706eaba576563`. The build includes working-tree changes; its source manifest records 256 source and build inputs rather than attributing the executable solely to a committed revision.
 
-Records: `artifacts/issue-19-unit-results.json`, `artifacts/issue-19-desktop-results.json`, `artifacts/issue-19-followup-results.json`, `artifacts/issue-19-packaged-results.json`, `artifacts/issue-19-packaged-followup-results.json`, `artifacts/benchmarks/search-worker.json`, `artifacts/issue-19-package-check.json`, `artifacts/issue-19-source.json` and `artifacts/issue-19-build.json`. Usage and case design: [Find and resource search](find-similarity.md) and [functional search tests](search-testing.md).
+Records: `artifacts/history/2026-10-20/issue-19-unit-results.json`, `artifacts/history/2026-10-20/issue-19-desktop-results.json`, `artifacts/history/2026-10-20/issue-19-followup-results.json`, `artifacts/history/2026-10-20/issue-19-packaged-results.json`, `artifacts/history/2026-10-20/issue-19-packaged-followup-results.json`, `artifacts/benchmarks/search-worker.json`, `artifacts/history/2026-10-20/issue-19-package-check.json`, `artifacts/history/2026-10-20/issue-19-source.json` and `artifacts/history/2026-10-20/issue-19-build.json`. Usage and case design: [Find and resource search](../guides/find-similarity.md) and [functional search tests](../development/search-testing.md).
 
 ## 2026-09-30: Find Touchpoints and persistent caches (#20, #22, #23)
 
@@ -982,7 +982,7 @@ Model replies retain their exact prompt, response and execution metadata. Provid
 
 The full unit/integration suite passed **7,700 tests across 92 files**. New dedicated coverage comprises 44 Wikipedia client cases, 25 model-file cache cases, 12 cache/service integration cases, 26 Touchpoint cases and seven CLI runner cases. It covers serialized and coalesced requests, throttling, timeout and malformed response handling, cache corruption and interrupted writes, context and provider changes, deterministic sampling, all four model purposes, draft parents, invalid replies, cleared caches, stale selections, resource predicates and atomic Undo. Existing search coverage retains more than 1,000 distinct normalized query patterns. TypeScript and source/TypeScript/build-file formatting checks passed.
 
-The broad development desktop run passed 61 of 87 checks. Six failures involving changed menu paths, menu labels and the assistant selector were corrected and passed against the packaged executable. Twenty failures remain in the broader suite: keyboard focus and help navigation; File, View, Window, graph and query menu workflows; native command coverage assignments; hierarchy rename; edge menus; Individuals zoom and detachment; retired local subclass review expectations; and workbench pane recreation and query cancellation. These failures have not been classified by a baseline run, so this record does not claim they are all pre-existing or that the full desktop suite is clean. Exact names and errors are retained in `artifacts/issues-20-22-23-desktop-failures.json`.
+The broad development desktop run passed 61 of 87 checks. Six failures involving changed menu paths, menu labels and the assistant selector were corrected and passed against the packaged executable. Twenty failures remain in the broader suite: keyboard focus and help navigation; File, View, Window, graph and query menu workflows; native command coverage assignments; hierarchy rename; edge menus; Individuals zoom and detachment; retired local subclass review expectations; and workbench pane recreation and query cancellation. These failures have not been classified by a baseline run, so this record does not claim they are all pre-existing or that the full desktop suite is clean. Exact names and errors are retained in `artifacts/history/2026-10-20/issues-20-22-23-desktop-failures.json`.
 
 All **27 focused packaged desktop checks passed** with isolated profiles. They cover explicit search, persistent cache reuse and restart, failed Refresh, cache clearing, resource review and Apply/Undo, stale selection rejection, one request from 100 rapid Refresh clicks, cached synonym review and explicit reruns, parent and synonym review in detached narrow panes, local MPNet comparisons, cancellation, Find similar, and graph/taxonomy menu navigation. Wikipedia tests use recorded API responses through Electron's network adapter; assistant tests use fixture CLI subprocesses. They do not call live Wikipedia or paid model services.
 
@@ -990,7 +990,7 @@ Visual inspection found a narrow-pane title wrapping problem after that run. A C
 
 The final local, unsigned Windows package completed at 20:30:31 UTC. The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 273,264,037 bytes with SHA-256 `91b732ee7547c5941f04d021d2217068ff98f871542a7ef2ee88d6f2f2a4b0bf`. The receipt records the installer, executable and archive hashes. No release was uploaded.
 
-Records: `artifacts/issues-20-22-23-unit.json`, `artifacts/issues-20-22-23-desktop.json`, `artifacts/issues-20-22-23-followup.json`, `artifacts/issues-20-22-23-regression-status.json`, `artifacts/issues-20-22-23-packaged.json`, `artifacts/issues-20-22-23-final-packaged.json`, `artifacts/issues-20-22-23-layout.json`, `artifacts/issues-20-22-23-package-check.json`, `artifacts/issues-20-22-23-source.json` and `artifacts/issues-20-22-23-build.json`. Usage: [Find Touchpoints](touchpoints.md) and [model cache](model-cache.md).
+Records: `artifacts/history/2026-10-20/issues-20-22-23-unit.json`, `artifacts/history/2026-10-20/issues-20-22-23-desktop.json`, `artifacts/history/2026-10-20/issues-20-22-23-followup.json`, `artifacts/history/2026-10-20/issues-20-22-23-regression-status.json`, `artifacts/history/2026-10-20/issues-20-22-23-packaged.json`, `artifacts/history/2026-10-20/issues-20-22-23-final-packaged.json`, `artifacts/history/2026-10-20/issues-20-22-23-layout.json`, `artifacts/history/2026-10-20/issues-20-22-23-package-check.json`, `artifacts/history/2026-10-20/issues-20-22-23-source.json` and `artifacts/history/2026-10-20/issues-20-22-23-build.json`. Usage: [Find Touchpoints](../guides/touchpoints.md) and [model cache](../guides/model-cache.md).
 
 ## 2026-09-30: Analyze, Find and Suggest context menus (#18)
 
@@ -1010,7 +1010,7 @@ The local, unsigned Windows package completed at 21:25:21 UTC. Its 48 bundled Ja
 
 The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 273,264,168 bytes with SHA-256 `f6de21ef5b4c7377cd9048836282bfd669e072bc0d00ffdabdfc176d6a139063`. No release was uploaded.
 
-Records: `artifacts/issue-18-keyboard-unit.json`, `artifacts/issue-18-desktop.json`, `artifacts/issue-18-desktop-followup.json`, `artifacts/issue-18-detached-followup.json`, `artifacts/issue-18-final-menu.json`, `artifacts/issue-18-packaged.json`, `artifacts/issue-18-package-check.json`, `artifacts/issue-18-source.json` and `artifacts/issue-18-build.json`. Usage: [menu organization](menu-ux.md), [Sparsity analysis](sparsity-analysis.md) and [taxonomy suggestions](taxonomy-suggestions.md).
+Records: `artifacts/history/2026-10-20/issue-18-keyboard-unit.json`, `artifacts/history/2026-10-20/issue-18-desktop.json`, `artifacts/history/2026-10-20/issue-18-desktop-followup.json`, `artifacts/history/2026-10-20/issue-18-detached-followup.json`, `artifacts/history/2026-10-20/issue-18-final-menu.json`, `artifacts/history/2026-10-20/issue-18-packaged.json`, `artifacts/history/2026-10-20/issue-18-package-check.json`, `artifacts/history/2026-10-20/issue-18-source.json` and `artifacts/history/2026-10-20/issue-18-build.json`. Usage: [menu organization](../guides/menu-ux.md), [Sparsity analysis](../guides/sparsity-analysis.md) and [taxonomy suggestions](../guides/taxonomy-suggestions.md).
 
 ## 2026-09-30: Ontology export preserves editor drafts (#21)
 
@@ -1028,7 +1028,7 @@ The local, unsigned Windows package completed at 00:16:53 UTC on October 1. All 
 
 The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 273,264,299 bytes with SHA-256 `939412987906ceb4a66ca2a65935a3f7d1137349fadf6297804a3ddeb5676154`. No release was uploaded.
 
-Records: `artifacts/issue-21-review.json`, `artifacts/issue-21-unit.json`, `artifacts/issue-21-desktop.json`, `artifacts/issue-21-packaged.json`, `artifacts/issue-21-thumbnail-diagnostic.json`, `artifacts/issue-21-source-followup.json`, `artifacts/issue-21-package-check.json`, `artifacts/issue-21-source.json` and `artifacts/issue-21-build.json`. Usage: [source editing and linked files](source-and-files.md).
+Records: `artifacts/history/2026-10-20/issue-21-review.json`, `artifacts/history/2026-10-20/issue-21-unit.json`, `artifacts/history/2026-10-20/issue-21-desktop.json`, `artifacts/history/2026-10-20/issue-21-packaged.json`, `artifacts/history/2026-10-20/issue-21-thumbnail-diagnostic.json`, `artifacts/history/2026-10-20/issue-21-source-followup.json`, `artifacts/history/2026-10-20/issue-21-package-check.json`, `artifacts/history/2026-10-20/issue-21-source.json` and `artifacts/history/2026-10-20/issue-21-build.json`. Usage: [source editing and linked files](../guides/source-and-files.md).
 
 ## Mutatoc 0.3.0 upgrade: September 30, 2026
 
@@ -1040,7 +1040,7 @@ Highlights now represent ontology matches. Version 0.3.0 removes spaCy model ann
 
 All **317 dedicated Text Analysis tests across nine files passed**. These include 168 original Python reference cases and a matrix of 1,512 punctuation patterns with independently calculated source ranges. Every one of the 37 contractions and 52 abbreviations is checked through native tokenization; matching before and after each entry also verifies exact original positions with a leading emoji. Tests cover incompatible runtime rejection and recovery, ontology reloads, queue replacement, stale results, empty graphs, long documents, canonical identifiers, navigation and authoring. TypeScript, changed-file formatting and whitespace checks passed.
 
-All **15 native functional CTest suites passed**. Native performance was run separately and passed its own CTest target. Axiom's sequential benchmark of 0.2.3 and 0.3.0 used the same 23,836-triple courses ontology. The 2,429-character warm parse median fell from 154.01 ms to 15.21 ms; all nine ontology-span hashes agree. These measurements exclude desktop rendering and the typing debounce. [Performance details](text-analysis-performance.md) distinguish the changed model behavior and the limitations of the single cold measurement.
+All **15 native functional CTest suites passed**. Native performance was run separately and passed its own CTest target. Axiom's sequential benchmark of 0.2.3 and 0.3.0 used the same 23,836-triple courses ontology. The 2,429-character warm parse median fell from 154.01 ms to 15.21 ms; all nine ontology-span hashes agree. These measurements exclude desktop rendering and the typing debounce. [Performance details](../development/text-analysis-performance.md) distinguish the changed model behavior and the limitations of the single cold measurement.
 
 The first development desktop run passed 28 of 30 cases. One remaining assertion expected a removed Place annotation in the long-document case. The other expected the suggestion prompt before the context identity introduced by an earlier change. The revised assertion checks the identity suffix and verifies the complete prompt received by the mock CLI. Both corrected cases passed on the development build.
 
@@ -1050,7 +1050,7 @@ The unsigned Windows package completed at 01:04:09 UTC on October 1. All 48 bund
 
 The installer is `artifacts/installer/Axiom-Setup-1.0.0.exe`; the runnable application is `artifacts/installer/win-unpacked/Axiom.exe`. The installer is 208,643,448 bytes with SHA-256 `a377723670fca2d2d1e77efe6372ffd1d3efc477b0a6e208bd1399e7bc473423`. Existing application changes are included. This build does not replace the user's installed copy until its installer is run.
 
-Records are under `artifacts/mutatoc-030/`: `source.json`, `unit.json`, `desktop.json`, `desktop-followup.json`, `packaged.json`, `native-functional.log`, `native-performance.log`, `benchmark-comparison.json` and `build.json`. The package receipt includes executable, installer and archive hashes, every verified runtime file, and validation results. Usage: [Text Analysis](text-analysis.md).
+Records are under `artifacts/history/2026-10-20/mutatoc-030/`: `source.json`, `unit.json`, `desktop.json`, `desktop-followup.json`, `packaged.json`, `native-functional.log`, `native-performance.log`, `benchmark-comparison.json` and `build.json`. The package receipt includes executable, installer and archive hashes, every verified runtime file, and validation results. Usage: [Text Analysis](../guides/text-analysis.md).
 
 ## Issue 24: shared modal stability, September 30, 2026
 
@@ -1078,7 +1078,7 @@ The initial packaged run passed 90 of 99 cases. Existing fixtures needed correct
 
 TypeScript, changed-file formatting and whitespace checks passed. All 48 packaged JavaScript, CSS and HTML files match the build, and all 25 Mutatoc runtime files match their manifest. The engine reports 0.3.0. The unsigned installer completed at `2026-10-01T02:15:32.719Z`, is 208,644,084 bytes, and has SHA-256 `28cd9249f1c43c9ff4dff60c3ca3077b0044f90a5725f4d5fb66280142a8ee19`.
 
-The installer is `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`; the runnable application is `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`. Evidence is under `artifacts/issue-24/`: `unit.json`, `stability.json`, `packaged.json`, the three packaged follow-up reports, `after-900.json`, `after-short-window.json`, `after-modal-audit.json`, `source.json`, `verification-inputs.json` and `build.json`. The related inline-editor and nonmodal-list issues #27, #28 and #32 remain separate; this change fixes the empty-result editor's remounting but does not claim to resolve its separate draft-preview behavior.
+The installer is `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`; the runnable application is `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`. Evidence is under `artifacts/history/2026-10-20/issue-24/`: `unit.json`, `stability.json`, `packaged.json`, the three packaged follow-up reports, `after-900.json`, `after-short-window.json`, `after-modal-audit.json`, `source.json`, `verification-inputs.json` and `build.json`. The related inline-editor and nonmodal-list issues #27, #28 and #32 remain separate; this change fixes the empty-result editor's remounting but does not claim to resolve its separate draft-preview behavior.
 
 ## Mutatoc 0.3.1 upgrade: October 1, 2026
 
@@ -1092,7 +1092,7 @@ All **52 Text Analysis desktop cases passed**, including a new journey that veri
 
 The rebuilt engine reports `0.3.1` through the actual persistent protocol. All **25 native files** in the rebuilt app match the release manifest, and all **49 JavaScript, CSS, HTML and JSON build files** match their packaged copies. Bundled notices and licenses also match the workspace inputs. The unsigned installer completed at `2026-10-01T22:53:24.137Z`; its SHA-256 is `a5ad9b3ac6729d0e38dac329ce6482ff978941d4487c72d80667f61e59fa36c3`.
 
-The executable is `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`; the installer is `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`. Evidence is under `artifacts/mutatoc-031/`: the downloaded release and checksum, pinned source files, `native-integration.json`, `native-integration.log`, `desktop.log`, `packaged-desktop.log`, `typecheck.log`, `format.log`, `build.log`, `package.log` and `build.json`. The last file records the packaged engine version, every checked file and executable/archive/installer hashes.
+The executable is `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`; the installer is `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`. Evidence is under `artifacts/history/2026-10-20/mutatoc-031/`: the downloaded release and checksum, pinned source files, `native-integration.json`, `native-integration.log`, `desktop.log`, `packaged-desktop.log`, `typecheck.log`, `format.log`, `build.log`, `package.log` and `build.json`. The last file records the packaged engine version, every checked file and executable/archive/installer hashes.
 
 ## Mutatoc 0.4.0 upgrade: October 2, 2026
 
@@ -1154,4 +1154,4 @@ The combined checkout passed type checking, the build and **all 12,090 unit test
 
 All **83 Text Analysis desktop cases passed against the packaged executable** with development runtime overrides removed and PATH restricted to Windows System32 plus the test fixture's mock assistant directory. The comma-synonym screenshot shows one complete highlight and one match. The suite also covers manual editing, ontology changes, graph actions, nested class creation, Undo/Redo, persistence and detached panes. Assistant responses were mocked; no live assistant was invoked.
 
-The packaged engine reports `0.5.2`. All **29 native files** match the release manifest, with no extra runtime files, and all **49 application build files** match the validated build. The installer is D:\git\axiom\artifacts\build-76-mutatoc-20261016\Axiom-Setup-1.0.0.exe, with SHA-256 `43a4275149b8c9eee5040439d60efaace579256ba60b4338d7f1ed5c20f825a6`. Its source commit is `f9e28dad012a08209adc7ab630017430c9e06fb3`, which combines the scoped implementation with Craig's existing local work. Logs, the release archive and package receipt are retained under D:\git\axiom\artifacts\issue-76-mutatoc-20261016. The installer has not been executed against Craig's installation.
+The packaged engine reports `0.5.2`. All **29 native files** match the release manifest, with no extra runtime files, and all **49 application build files** match the validated build. The installer is D:\git\axiom\artifacts\build-76-mutatoc-20261016\Axiom-Setup-1.0.0.exe, with SHA-256 `43a4275149b8c9eee5040439d60efaace579256ba60b4338d7f1ed5c20f825a6`. Its source commit is `f9e28dad012a08209adc7ab630017430c9e06fb3`, which combines the scoped implementation with Craig's existing local work. Logs, the release archive and package receipt are retained under D:\git\axiom\artifacts\history\2026-10-20\issue-76-mutatoc-20261016. The installer has not been executed against Craig's installation.
