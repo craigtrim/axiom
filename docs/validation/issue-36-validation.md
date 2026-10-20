@@ -41,6 +41,6 @@ The original full-pane assertions retain zero pixel tolerance, without masks, sk
 - `tests/fixtures/find-visual/visual-reference.html`: removes the empty context from the zero frame.
 - `tests/fixtures/find-visual/README.md`: records the amendment and verification limits.
 - Twenty light/dark PNGs under `tests/e2e/find-visual.spec.ts-snapshots`: independently regenerated reference baselines.
-- `docs/issue-36-validation.md`: this report.
+- `docs/validation/issue-36-validation.md`: this report.
 
 The external reference and the user-owned files under `specs/` were not modified.

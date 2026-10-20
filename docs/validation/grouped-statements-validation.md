@@ -93,4 +93,4 @@ The existing Details statement-count toolbar remains above its table. Its placem
 | `tests/e2e/details-ancestry.spec.ts`    | Checks peer markup and grouped parent editing; normalizes the detached test window before resizing it. |
 | `tests/e2e/details.spec.ts`             | Updates the Add row accessible name in the detached-pane workflow.                                     |
 | `tests/e2e/find-redesign.spec.ts`       | Updates removal and Add row selectors for the required copy and grouped markup.                        |
-| `docs/grouped-statements-validation.md` | Records scope, model boundaries, acceptance evidence and remaining limitations.                        |
+| `docs/validation/grouped-statements-validation.md` | Records scope, model boundaries, acceptance evidence and remaining limitations.                        |

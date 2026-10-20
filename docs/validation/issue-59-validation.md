@@ -15,11 +15,11 @@ Issue 59's shared matching replaces the older grid's AND/phrase-preferred filter
 ## Domain and worker verification
 
 - `npm run typecheck` passed.
-- `npm test` passed: 115 files, 12,031 tests. Log: `artifacts/issue-59-unit.log`.
+- `npm test` passed: 115 files, 12,031 tests. Log: `artifacts/history/2026-10-20/issue-59-unit.log`.
 - `tests/domain/individual-search.test.ts` has 20 cases covering all issue examples, competing matches, class isolation, all four alias predicates, local names, hidden fields, semantic admission, generated rows, pagination, explicit sorting and index invalidation.
 - The census/preferences tests passed again after adding explicit-sort persistence coverage.
 - `tests/domain/progressive-search.test.ts` exercises cancellation and missing-model behavior for Find, resource suggestions and both instance consumers.
-- `node --import tsx tests/performance/individual-search-worker.ts` passed against the built worker. With the installed full-precision local MPNet model, `car` returned the direct Transport instance `Automobile` in both consumers after lexical search returned no matches. The same probe with a nonexistent model directory returned no semantic page and kept lexical results. It also checked in-flight cancellation and obsolete dataset rejection. Evidence: `artifacts/issue-59-worker/results.json` and `artifacts/issue-59-worker.log`.
+- `node --import tsx tests/performance/individual-search-worker.ts` passed against the built worker. With the installed full-precision local MPNet model, `car` returned the direct Transport instance `Automobile` in both consumers after lexical search returned no matches. The same probe with a nonexistent model directory returned no semantic page and kept lexical results. It also checked in-flight cancellation and obsolete dataset rejection. Evidence: `artifacts/issue-59-worker/results.json` and `artifacts/history/2026-10-20/issue-59-worker.log`.
 
 ## Desktop behavior
 
@@ -27,9 +27,9 @@ The six focused filter cases passed before packaging. These exercise the actual 
 
 Legacy instance-menu assertions were updated for issue 61's current surfaces: named ontologies scope the grid in place, and the Inspector shows a read-only direct-instance count. Existing report entry points remain covered for generated examples.
 
-All 43 selected packaged desktop cases have a passing final result. The broad run passed 41 cases; focused follow-ups passed the corrected alias-only fixture and native disabled-option assertion. A workspace-reopen race in the test was resolved by waiting for the new workspace checkpoint before issuing File > Open; the final five-case interaction run passed. The per-case aggregate retains the originating report for every result in `artifacts/issue-59-desktop-summary.json`. Full reports are `artifacts/issue-59-desktop.json`, `artifacts/issue-59-desktop-followup.json` and `artifacts/issue-59-desktop-final.json`.
+All 43 selected packaged desktop cases have a passing final result. The broad run passed 41 cases; focused follow-ups passed the corrected alias-only fixture and native disabled-option assertion. A workspace-reopen race in the test was resolved by waiting for the new workspace checkpoint before issuing File > Open; the final five-case interaction run passed. The per-case aggregate retains the originating report for every result in `artifacts/history/2026-10-20/issue-59-desktop-summary.json`. Full reports are `artifacts/history/2026-10-20/issue-59-desktop.json`, `artifacts/history/2026-10-20/issue-59-desktop-followup.json` and `artifacts/history/2026-10-20/issue-59-desktop-final.json`.
 
-The 12 unchanged issue 61 visual tests produced 72 comparisons across both themes and six sizes, all with zero differing pixels. The reference HTML and CSS were not changed. Captures use the existing compositor-normalized reference harness, without pixel masks or tolerance. `artifacts/issue-59-visual-summary.json` includes only comparison files written after this package was built. Images and geometry reports remain under `artifacts/issue-61/`.
+The 12 unchanged issue 61 visual tests produced 72 comparisons across both themes and six sizes, all with zero differing pixels. The reference HTML and CSS were not changed. Captures use the existing compositor-normalized reference harness, without pixel masks or tolerance. `artifacts/history/2026-10-20/issue-59-visual-summary.json` includes only comparison files written after this package was built. Images and geometry reports remain under `artifacts/issue-61/`.
 
 ## Build
 
@@ -40,4 +40,4 @@ D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe
 D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
 ```
 
-Package log: `artifacts/issue-59-package.log`. Build metadata: `artifacts/latest-electron.json`. The packaged main, domain worker, renderer JavaScript and CSS match the tested build byte-for-byte; hashes are recorded in `artifacts/issue-59-bundle-hashes.json`.
+Package log: `artifacts/history/2026-10-20/issue-59-package.log`. Build metadata: `artifacts/latest-electron.json`. The packaged main, domain worker, renderer JavaScript and CSS match the tested build byte-for-byte; hashes are recorded in `artifacts/history/2026-10-20/issue-59-bundle-hashes.json`.

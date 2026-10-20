@@ -27,7 +27,7 @@ Implementation commit: `5ea1aac` on `issue-44-codex-takeover`, preserving the in
 
 Windows package completed at `2026-10-04T01:50:18.889Z` with Electron 44.3.0 and verified Mutatoc 0.5.0 (28 files). The package is unsigned.
 
-Logs: `artifacts/issue-46-full-unit.log`, `artifacts/issue-46-typecheck.log`, `artifacts/issue-46-package.log` and `artifacts/issue-46-packaged-validation.log`. Visual comparison images and raw-pixel reports are in `artifacts/issue-44`; overflow and popup screenshots are in `artifacts/testing`.
+Logs: `artifacts/history/2026-10-20/issue-46-full-unit.log`, `artifacts/history/2026-10-20/issue-46-typecheck.log`, `artifacts/history/2026-10-20/issue-46-package.log` and `artifacts/history/2026-10-20/issue-46-packaged-validation.log`. Visual comparison images and raw-pixel reports are in `artifacts/issue-44`; overflow and popup screenshots are in `artifacts/testing`.
 
 ```text
 D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe

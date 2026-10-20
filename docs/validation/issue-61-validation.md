@@ -18,7 +18,7 @@ The eleven-row fixture comes from the reference's `ROWS`. The Inspector fixture 
 
 The six surfaces are Individuals, Columns, individual Inspector, class Inspector, Touchpoints and the shared legend. Each runs at 1100×660, 360×680, 1100×260, 360×260, 230×660 and 1100×110, in light and dark: 72 comparisons.
 
-All 72 comparisons pass against the packaged executable, with zero differing pixels. `artifacts/issue-61-visual-summary.json` records the result of each comparison.
+All 72 comparisons pass against the packaged executable, with zero differing pixels. `artifacts/history/2026-10-20/issue-61-visual-summary.json` records the result of each comparison.
 
 | Surface              | Comparisons | Differing pixels |
 | -------------------- | ----------: | ---------------: |
@@ -47,7 +47,7 @@ Screenshots were inspected by region in both themes, including expanded, narrow,
 ## Functional checks
 
 - Packaged desktop validation passes: 53 tests, with the development-only intercepted updater case skipped. That updater case passed in the source run. The packaged run includes all 12 visual tests (72 image pairs), four new behavior tests, eight Inspector tests, five Touchpoints tests, eight shared statement-group tests, ten background-input tests and six multi-instance tests.
-- The complete unit suite passes: 114 files, 12,005 tests (`artifacts/issue-61-unit-clean.log`). A concurrent Wikipedia-cache test now accepts either identical request finishing its initial disk lookup first, while still requiring exactly one fetch and one cache hit.
+- The complete unit suite passes: 114 files, 12,005 tests (`artifacts/history/2026-10-20/issue-61-unit-clean.log`). A concurrent Wikipedia-cache test now accepts either identical request finishing its initial disk lookup first, while still requiring exactly one fetch and one cache hit.
 - Column interaction tests exercise shown-field filtering, multivalue popovers and focus return, pointer resizing without row mutations, real header dragging, keyboard resizing/autofit/sorting/navigation, per-class layouts, close/reopen and workspace save/reopen.
 - Inspector tests exercise grouped additions/removals, metadata preservation, selection-retained drafts, typing during Apply, predicate-specific refusals, Rename/Discard and one Undo per Apply.
 - Touchpoints tests cover explicit search, persistent caching, failed Refresh retaining rows, linked targets, batch Apply/Undo, stale results, subject pinning and tab reuse without suffixes.
@@ -55,16 +55,16 @@ Screenshots were inspected by region in both themes, including expanded, narrow,
 
 ## Contrast audit
 
-The supplied colors are retained. Text, muted text, warning/Linked tags and primary buttons pass 4.5:1 in both themes. Focus against the ground is 5.90:1 light and 8.00:1 dark. The reference's idle control borders measure 1.45:1 light and 1.64:1 dark against their fields; these do not satisfy the prose's blanket 3:1 graphics target. The issue explicitly gives the rendered reference precedence. Measured pairs are in `artifacts/issue-61-contrast.json`.
+The supplied colors are retained. Text, muted text, warning/Linked tags and primary buttons pass 4.5:1 in both themes. Focus against the ground is 5.90:1 light and 8.00:1 dark. The reference's idle control borders measure 1.45:1 light and 1.64:1 dark against their fields; these do not satisfy the prose's blanket 3:1 graphics target. The issue explicitly gives the rendered reference precedence. Measured pairs are in `artifacts/history/2026-10-20/issue-61-contrast.json`.
 
 ## Build and delivery
 
-`npm run typecheck` and `npm run package` pass. The packaged main process, domain worker, renderer JavaScript and renderer CSS match `dist` byte for byte; SHA-256 values are in `artifacts/issue-61-bundle-hashes.json`.
+`npm run typecheck` and `npm run package` pass. The packaged main process, domain worker, renderer JavaScript and renderer CSS match `dist` byte for byte; SHA-256 values are in `artifacts/history/2026-10-20/issue-61-bundle-hashes.json`.
 
 - Executable: `D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe`
 - Installer: `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`
-- Package log: `artifacts/issue-61-package.log`
-- Packaged desktop log: `artifacts/issue-61-packaged-desktop.log`
+- Package log: `artifacts/history/2026-10-20/issue-61-package.log`
+- Packaged desktop log: `artifacts/history/2026-10-20/issue-61-packaged-desktop.log`
 
 The packaged build includes the preserved local multi-instance implementation from issue 60. The issue 61 commits are separated from that work; no remote publication was made.
 

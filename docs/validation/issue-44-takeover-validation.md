@@ -20,9 +20,9 @@ The two added desktop regression cases exercise real controls and the real worke
 - Packaged validation: **21 functional desktop cases and 46 exact-pixel cases passed** (67 total). Both themes, all scan states, reviewed additions, recovery and compact presentations are covered. No differing raw pixels were accepted.
 - The packaged executable scanned an isolated copy of `C:\Users\Craig\Desktop\courses.owl`: 5,879 eligible entities, 23,836 statements, 27 enabled checks and 6,747 findings, in approximately 2.55 seconds through the UI. Industrial Safety retains its missing-label, missing-description and analysis-exclusion findings. The three retired-entity checks were withdrawn by the census. There were no renderer errors; scanning preserved the Store revision and dirty state.
 
-The original ontology's SHA-256 before and after was `e4f06e10547551d84dcd6271f1f0156cb8867c2051db991537f2c1715f8443c8`. The report is in `artifacts/issue-44-takeover/packaged-real-check.json`; the packaged desktop log is `artifacts/issue-44-packaged-validation.log`. Light, dark, preview and real-ontology screenshots were visually inspected.
+The original ontology's SHA-256 before and after was `e4f06e10547551d84dcd6271f1f0156cb8867c2051db991537f2c1715f8443c8`. The report is in `artifacts/history/2026-10-20/issue-44-takeover/packaged-real-check.json`; the packaged desktop log is `artifacts/history/2026-10-20/issue-44-packaged-validation.log`. Light, dark, preview and real-ontology screenshots were visually inspected.
 
-An initial full unit run, concurrent with packaging, had one failure in the unchanged Wikipedia cache coalescing test. Its 44-test file passed on isolated rerun, and the subsequent full suite passed after packaging. No Wikipedia test or implementation was changed. Logs: `artifacts/issue-44-final-unit.log`, `artifacts/issue-44-wikipedia-recheck.log` and `artifacts/issue-44-final-unit-recheck.log`.
+An initial full unit run, concurrent with packaging, had one failure in the unchanged Wikipedia cache coalescing test. Its 44-test file passed on isolated rerun, and the subsequent full suite passed after packaging. No Wikipedia test or implementation was changed. Logs: `artifacts/history/2026-10-20/issue-44-final-unit.log`, `artifacts/history/2026-10-20/issue-44-wikipedia-recheck.log` and `artifacts/history/2026-10-20/issue-44-final-unit-recheck.log`.
 
 The visual reference and its pinned fixture retain SHA-256 `9eee75ead939e8c1e21a3bd9e23cf756091c57edc9006f1d0a239c58e4e79fe6`. The existing harness renders the reference afresh and requires zero differing raw pixels; no application screenshot became a baseline and no tolerance was added.
 
@@ -44,8 +44,8 @@ The pinned HTML is unchanged. The initial wrapping proposal below was captured b
 The comparison screenshots, inspected against the real ontology at 718 CSS pixels, are:
 
 ```text
-D:\git\axiom\artifacts\issue-44-takeover\toolbar-current-718.png
-D:\git\axiom\artifacts\issue-44-takeover\toolbar-wrapping-proposal-718.png
+D:\git\axiom\artifacts\history\2026-10-20\issue-44-takeover\toolbar-current-718.png
+D:\git\axiom\artifacts\history\2026-10-20\issue-44-takeover\toolbar-wrapping-proposal-718.png
 ```
 
 The second row in the proposal exposes Group by, Filter, Export and More. It is a design proposal, not a substitute baseline for the exact-reference tests.

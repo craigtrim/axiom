@@ -12,7 +12,7 @@ Validated on Windows on October 2, 2026. The packaged application was built at `
 - The native Text Analysis regression verifies that Industrial Safety initially has no match, a reviewed label addition makes it match the original exact IRI, and Undo removes that match. No analysis matching code was changed.
 - A batch of 137 additions verifies that repairs are not capped at 100 statements, preserve identifiers and existing statements, and undo/redo as one edit.
 
-The full results are in `artifacts/issue-42-full-unit-final.log`, `artifacts/issue-42-unit-final.log`, `artifacts/issue-42-desktop-final.log` and `artifacts/issue-42-packaged-desktop.log`. These generated artifacts are not committed.
+The full results are in `artifacts/history/2026-10-20/issue-42-full-unit-final.log`, `artifacts/history/2026-10-20/issue-42-unit-final.log`, `artifacts/history/2026-10-20/issue-42-desktop-final.log` and `artifacts/history/2026-10-20/issue-42-packaged-desktop.log`. These generated artifacts are not committed.
 
 ## Real ontology and visual verification
 
@@ -26,7 +26,7 @@ The original file's SHA-256 before and after was:
 e4f06e10547551d84dcd6271f1f0156cb8867c2051db991537f2c1715f8443c8
 ```
 
-Screenshots of the light docked scanner, dark detached scanner and packaged real-ontology scan were inspected. Evidence: `artifacts/testing/quality-light.png`, `artifacts/testing/quality-dark-detached.png`, `artifacts/issue-42/packaged-courses.png` and `artifacts/issue-42/packaged-real-check.json`.
+Screenshots of the light docked scanner, dark detached scanner and packaged real-ontology scan were inspected. Evidence: `artifacts/testing/quality-light.png`, `artifacts/testing/quality-dark-detached.png`, `artifacts/history/2026-10-20/issue-42/packaged-courses.png` and `artifacts/history/2026-10-20/issue-42/packaged-real-check.json`.
 
 ## Separate performance observations
 
@@ -43,7 +43,7 @@ Snapshot capture is synchronous; scanning then yields cooperatively on the domai
 
 The broader desktop run produced **29 passed and 11 failed**: all ten scanner tests passed, while the existing 30-test menu suite produced 19 passes and 11 failures. Building and testing an untouched archive of starting commit `2af16e8` reproduced the same eleven menu failures with the same required Mutatoc runtime. These are recorded separately from scanner verification and were not weakened or changed to make this feature pass.
 
-The failing menu cases concern file/title expectations, restoring panes, window focus, query actions, malformed input, detached graph actions, the menu coverage inventory, graph stylesheets, hierarchy renaming, context renaming and relationship editing. Baseline evidence: `artifacts/issue-42-baseline-menus.log`; current evidence: `artifacts/issue-42-desktop-final.log`.
+The failing menu cases concern file/title expectations, restoring panes, window focus, query actions, malformed input, detached graph actions, the menu coverage inventory, graph stylesheets, hierarchy renaming, context renaming and relationship editing. Baseline evidence: `artifacts/history/2026-10-20/issue-42-baseline-menus.log`; current evidence: `artifacts/history/2026-10-20/issue-42-desktop-final.log`.
 
 ## Deliverables
 
@@ -54,4 +54,4 @@ D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe
 D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
 ```
 
-Package metadata: `artifacts/latest-electron.json`. The unpacked executable was used for all ten packaged desktop tests and the real-ontology check. The scanner workflow, policy and limitations are documented in `docs/ontology-quality.md`.
+Package metadata: `artifacts/latest-electron.json`. The unpacked executable was used for all ten packaged desktop tests and the real-ontology check. The scanner workflow, policy and limitations are documented in `docs/guides/ontology-quality.md`.

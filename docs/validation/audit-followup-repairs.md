@@ -8,7 +8,7 @@ The reference hash now pins the already-authorized #58 copy edit: `0cdd5cc4925e8
 
 Both surfaces receive the same compositor treatment for the pane and rounded body controls. The harness first removes the preceding presentation's layers and waits two animation frames, then promotes the current presentation. This matters because React retains nodes across sizes and draft states while the reference recreates them. It fixes cached edge-rasterization differences without modifying geometry, colors, content, masks or expected images.
 
-All **64 source comparisons pass with zero differing pixels**: clean, pending, invalid and stale; light and dark; six sizes, with additional source-scroll comparisons. Computed geometry and styles remain exact assertions. Evidence: `artifacts/audit-repair-details-exact.json`, its log and `artifacts/audit-repair-details-source-pixels.json`.
+All **64 source comparisons pass with zero differing pixels**: clean, pending, invalid and stale; light and dark; six sizes, with additional source-scroll comparisons. Computed geometry and styles remain exact assertions. Evidence: `artifacts/history/2026-10-20/audit-repair-details-exact.json`, its log and `artifacts/history/2026-10-20/audit-repair-details-source-pixels.json`.
 
 ## Batch history publication
 
@@ -16,7 +16,7 @@ The queue previously exposed its mutable working record through `history()`. A r
 
 History now returns an isolated copy of the last successfully persisted record. Completion is published only after the final atomic replacement succeeds. A deterministic regression holds review metadata pending, verifies that history still says running, then confirms the published result equals the saved JSON. Existing cancellation, restart and sequential-queue tests remain.
 
-The full unit suite passes **12,034 tests across 115 files**, including all 25 batch cases. Evidence: `artifacts/audit-repair-unit-full.json` and its log. An initial sandboxed run could not start fixture subprocesses because Node could not resolve the user's directory; the complete authorized Windows run above passes. TypeScript passes.
+The full unit suite passes **12,034 tests across 115 files**, including all 25 batch cases. Evidence: `artifacts/history/2026-10-20/audit-repair-unit-full.json` and its log. An initial sandboxed run could not start fixture subprocesses because Node could not resolve the user's directory; the complete authorized Windows run above passes. TypeScript passes.
 
 ## Four desktop failures
 
@@ -24,7 +24,7 @@ The three File > Open tests still expected the pre-autosave workflow. They now v
 
 The empty-graph test now waits for File > New to finish and checks the context action appropriate to the root's actual expanded state. A degree-zero root may already be expanded. Its displayed operation, native Expand/Collapse controls and palette command must still be disabled.
 
-All five focused cases pass, including the fourth File > Open upgrade case. Evidence: `artifacts/audit-repair-file-menu.json` and its log.
+All five focused cases pass, including the fourth File > Open upgrade case. Evidence: `artifacts/history/2026-10-20/audit-repair-file-menu.json` and its log.
 
 ## Search acceptance still needs a decision (#59 / #61)
 
@@ -40,11 +40,11 @@ Local commits use the requested git-commit conventions. No push is performed.
 - `9cf9a23`: verify recovery saves and the actual graph menu state.
 - `c9751fd`: exact Details visual gate and amended reference provenance.
 
-The installer was built at **2026-10-08 03:49:43 UTC**. All 49 bundled runtime files match `dist` byte for byte; the receipt records all 310 source/build inputs. Size: **208,772,061 bytes**. SHA-256: `ecac732932b42484364c60078bfcc3de05070b110c07b4c270c8e4244a60085e`. Receipt: `artifacts/audit-repair-package-receipt.json`. Build log: `artifacts/audit-repair-package.log`.
+The installer was built at **2026-10-08 03:49:43 UTC**. All 49 bundled runtime files match `dist` byte for byte; the receipt records all 310 source/build inputs. Size: **208,772,061 bytes**. SHA-256: `ecac732932b42484364c60078bfcc3de05070b110c07b4c270c8e4244a60085e`. Receipt: `artifacts/history/2026-10-20/audit-repair-package-receipt.json`. Build log: `artifacts/history/2026-10-20/audit-repair-package.log`.
 
-All **70 selected packaged desktop cases pass**: 26 Details source cases, 25 export cases, 12 workspace/autosave cases, two Details visual cases, four File > Open cases and the empty-graph menu case. The two visual cases produce **64 exact comparisons**, again with zero differing pixels. Logs and JSON: `artifacts/audit-repair-packaged` and `artifacts/audit-repair-packaged-menu`. Pixel record: `artifacts/audit-repair-details-packaged-pixels.json`.
+All **70 selected packaged desktop cases pass**: 26 Details source cases, 25 export cases, 12 workspace/autosave cases, two Details visual cases, four File > Open cases and the empty-graph menu case. The two visual cases produce **64 exact comparisons**, again with zero differing pixels. Logs and JSON: `artifacts/audit-repair-packaged` and `artifacts/audit-repair-packaged-menu`. Pixel record: `artifacts/history/2026-10-20/audit-repair-details-packaged-pixels.json`.
 
-`artifacts/audit-repair-delivery-verification.json` verifies those results, the full unit result, the installer hash and all 310 unchanged build inputs. These selected desktop suites are green; this is not a claim that every historical desktop case has been rerun.
+`artifacts/history/2026-10-20/audit-repair-delivery-verification.json` verifies those results, the full unit result, the installer hash and all 310 unchanged build inputs. These selected desktop suites are green; this is not a claim that every historical desktop case has been rerun.
 
 #57 is closed with this evidence. #58 and the #66 audit handoff are updated. #59/#61 remain open for the search decision above.
 

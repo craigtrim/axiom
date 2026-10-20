@@ -18,14 +18,14 @@ Three failures in `tests/e2e/menus.spec.ts` were reproduced against an isolated 
 - View workflow expects a `data-pane-id="graph"` element after reopening the pane.
 - Query workflow misses the enabled interval for `query.cancel`.
 
-These same failures occur before the issue 60 implementation. Their logs are retained under `artifacts/issue60-baseline/baseline-menus.log`; the broader changed-build run is under `artifacts/issue-60-desktop-tests.log`.
+These same failures occur before the issue 60 implementation. Their logs are retained under `artifacts/history/2026-10-20/issue60-baseline/baseline-menus.log`; the broader changed-build run is under `artifacts/history/2026-10-20/issue-60-desktop-tests.log`.
 
 ## Evidence
 
-- `artifacts/issue-60-unit-tests-unrestricted.log`
-- `artifacts/issue-60-targeted-desktop.log`
-- `artifacts/issue-60-packaged-desktop.log`
-- `artifacts/issue-60-package.log`
+- `artifacts/history/2026-10-20/issue-60-unit-tests-unrestricted.log`
+- `artifacts/history/2026-10-20/issue-60-targeted-desktop.log`
+- `artifacts/history/2026-10-20/issue-60-packaged-desktop.log`
+- `artifacts/history/2026-10-20/issue-60-package.log`
 - `artifacts/latest-electron.json`
 
 Windows may report a terminated Electron PID gone before reclaiming its last named-pipe handle. The crash test waits for the reservation to become available before attempting to reopen the file. On this machine Playwright's launcher PID also differs from Electron's main PID, so forced termination uses the PID returned by the main process itself.
