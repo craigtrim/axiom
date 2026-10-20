@@ -1,5 +1,5 @@
 // craigtrim/axiom#6: the installer that replaces the loose packaged folder.
-const { version } = require("./package.json");
+const { version } = require("../package.json");
 /**
  * Signing stays off until an Azure signing account exists. Supplying the four
  * variables below turns it on with no change to this file, and Entra ID credentials
@@ -26,13 +26,13 @@ module.exports = {
     "!node_modules/onnxruntime-node/bin/**/win32/arm64/**/*",
   ],
   extraResources: [
-    "THIRD-PARTY-NOTICES.txt",
-    "LICENSES.md",
+    { from: "licenses/THIRD-PARTY-NOTICES.txt", to: "THIRD-PARTY-NOTICES.txt" },
+    { from: "licenses/LICENSES.md", to: "LICENSES.md" },
     { from: "vendor/mutatoc", to: "mutatoc" },
   ],
   asarUnpack: ["**/metadata/**", "node_modules/onnxruntime-node/bin/**/*"],
   directories: { output: "artifacts/installer", buildResources: "build" },
-  electronVersion: require("./package.json").devDependencies.electron,
+  electronVersion: require("../package.json").devDependencies.electron,
   buildVersion: version,
   win: {
     target: [{ target: "nsis", arch: ["x64"] }],

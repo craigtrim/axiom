@@ -25,6 +25,8 @@ const child = spawn(
   [
     "node_modules/vitest/vitest.mjs",
     "run",
+    "--config",
+    "config/vitest.config.ts",
     "tests/domain/text-analysis.test.ts",
     "tests/domain/text-analysis-runtime.test.ts",
     "tests/domain/text-analysis-punctuation.test.ts",

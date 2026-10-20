@@ -25,7 +25,7 @@ process.exit(
       "node_modules/@playwright/test/cli.js",
       "test",
       "--config",
-      "playwright.codex.config.ts",
+      "config/playwright.codex.config.ts",
       ...args,
     ],
     { ...process.env, AXIOM_LIVE_CODEX: "1" },

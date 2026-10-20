@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const config = require("../../electron-builder.config.cjs");
+const config = require("../../config/electron-builder.config.cjs");
 const nsh = readFileSync("build/installer.nsh", "utf8");
 const main = readFileSync("src/main/main.ts", "utf8");
 
@@ -61,7 +61,7 @@ it("publishes to GitHub Releases so electron-updater has a feed", () => {
 it("signs only when an Azure signing endpoint is configured", () => {
   // The build must stay usable without a certificate rather than failing closed.
   expect(config.win.azureSignOptions).toBeUndefined();
-  const source = readFileSync("electron-builder.config.cjs", "utf8");
+  const source = readFileSync("config/electron-builder.config.cjs", "utf8");
   expect(source).toContain("AXIOM_AZURE_SIGNING_ENDPOINT");
   expect(source).toContain("certificateProfileName");
 });

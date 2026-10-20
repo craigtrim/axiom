@@ -4,13 +4,14 @@ import { readFile, writeFile, stat, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const config = require("../electron-builder.config.cjs");
+const config = require("../config/electron-builder.config.cjs");
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 await import("./notices.mjs");
 await import("./setup-mutatoc.mjs");
 const outputs = await build({
   targets: Platform.WINDOWS.createTarget(),
   config,
+  ...(process.env.AXIOM_LOCAL_BUILD === "1" ? { publish: "never" } : {}),
 });
 const installer = outputs.find((file) => file.toLowerCase().endsWith(".exe"));
 if (!installer) throw Error("electron-builder produced no installer.");
