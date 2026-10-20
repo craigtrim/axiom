@@ -126,8 +126,9 @@ let activeQuery: AbortController | undefined,
   tableCache: { key: string; rows: Individual[] } | undefined;
 const emit = (type: string, data: unknown) =>
   parentPort!.postMessage({ event: { type, data } });
+// #124: retain requested corpora across edits; only workspace replacement resets them.
 let searchRevision = "",
-  warmSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  searchEpoch = -1;
 const searchConsumers = new Map<string, string>();
 const semanticResults = new Map<string, SemanticScores>();
 const searchResults = new Map<
@@ -138,19 +139,14 @@ function refreshSearch() {
   const revision = datasetEpoch + ":" + store.version;
   if (revision === searchRevision) return;
   searchRevision = revision;
-  embeddings.reset();
+  if (searchEpoch !== datasetEpoch) {
+    embeddings.reset();
+    searchEpoch = datasetEpoch;
+  }
+  for (const consumer of searchConsumers.keys()) embeddings.cancel(consumer);
   searchConsumers.clear();
   semanticResults.clear();
   searchResults.clear();
-  clearTimeout(warmSearchTimer);
-  warmSearchTimer = setTimeout(() => {
-    const options = readFindOptions({});
-    const texts = indexFor(store).semanticTexts(options.fields);
-    void embeddings.prepare(
-      revision + JSON.stringify([...options.fields].sort()),
-      texts,
-    );
-  }, 180);
 }
 function beginSearch(a: Record<string, unknown>) {
   refreshSearch();
@@ -169,7 +165,7 @@ async function semanticFindScores(a: Record<string, unknown>) {
     return;
   // Facet and remedy counts use the same query embedding over the complete corpus.
   const fields = options.diagnostics ? ["*"] : options.fields;
-  const key = revision + JSON.stringify([...fields].sort());
+  const key = datasetEpoch + JSON.stringify([...fields].sort());
   const queryKey = key + options.text.toLocaleLowerCase();
   const cached = semanticResults.get(queryKey);
   if (cached) return cached;

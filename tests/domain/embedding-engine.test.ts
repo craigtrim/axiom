@@ -93,3 +93,98 @@ it("groups corpus values by length while retaining original score positions", as
     ["query"],
   ]);
 });
+
+// #124: a label edit keeps resident vectors and storage, including across Undo.
+it("updates a large corpus with one new embedding and restores Undo without vector reads", async () => {
+  const texts = Array.from({ length: 21461 }, (_, i) => `School ${i}`);
+  const embed = vi.fn(async (values: string[]) =>
+    values.map(
+      (text) => new Float32Array(text === "Renamed school" ? [0, 1] : [1, 0]),
+    ),
+  );
+  const engine = new EmbeddingEngine(embed, 512);
+  await engine.prepare("names", texts);
+  const corpus = (engine as any).corpora.get("names");
+  const allocations = [...corpus.blocks];
+  const before = await engine.search("names", "query", "find");
+  embed.mockClear();
+  const changed = [...texts];
+  changed[42] = "Renamed school";
+  expect(await engine.prepare("names", changed)).toBe(true);
+  expect(embed.mock.calls.map((call) => call[0])).toEqual([["Renamed school"]]);
+  expect(corpus.blocks.length).toBe(allocations.length);
+  allocations.forEach((block, i) => expect(corpus.blocks[i]).toBe(block));
+  expect(corpus.rows.has(texts[42])).toBe(false);
+  const after = await engine.search("names", "query", "find");
+  expect(after!.filter((score, i) => score !== before![i])).toEqual([0]);
+  embed.mockClear();
+  expect(await engine.prepare("names", texts)).toBe(true);
+  expect(embed).not.toHaveBeenCalled();
+  expect(await engine.search("names", "query", "find")).toEqual(before);
+  expect(embed.mock.calls.map((call) => call[0])).toEqual([["query"]]);
+  engine.reset();
+  expect((engine as any).corpora.size).toBe(0);
+  embed.mockClear();
+  await engine.prepare("names", [texts[42]]);
+  expect(embed.mock.calls.map((call) => call[0])).toEqual([[texts[42]]]);
+});
+
+it("preserves text-to-score order when rows are removed, reused, reordered and extended", async () => {
+  const embed = vi.fn(async (texts: string[]) =>
+    texts.map(
+      (text) => new Float32Array([text === "query" ? 1 : Number(text) / 8, 0]),
+    ),
+  );
+  const engine = new EmbeddingEngine(embed);
+  await engine.prepare("scope", ["2", "3", "4"]);
+  embed.mockClear();
+  await engine.prepare("scope", ["4", "5", "2", "6"]);
+  expect(embed.mock.calls.map((call) => call[0])).toEqual([["5", "6"]]);
+  expect(await engine.search("scope", "query", "find")).toEqual([
+    0.5, 0.625, 0.25, 0.75,
+  ]);
+  embed.mockClear();
+  await engine.prepare("scope", ["2", "6", "5", "4"]);
+  expect(embed).not.toHaveBeenCalled();
+  expect(await engine.search("scope", "query", "find")).toEqual([
+    0.25, 0.75, 0.625, 0.5,
+  ]);
+});
+
+it("rejects an in-flight query when its resident corpus changes", async () => {
+  const gate = deferred<Float32Array[]>();
+  const engine = new EmbeddingEngine(async (texts) =>
+    texts[0] === "slow" ? gate.promise : texts.map(vector),
+  );
+  await engine.prepare("scope", ["A"]);
+  const stale = engine.search("scope", "slow", "find");
+  const ready = engine.prepare("scope", ["B", "A"]);
+  const latest = engine.search("scope", "latest", "other");
+  gate.resolve([vector()]);
+  expect(await stale).toBeUndefined();
+  expect(await ready).toBe(true);
+  expect(await latest).toEqual([1, 1]);
+});
+
+it("reconciles an edit during preparation without re-embedding unchanged texts or corrupting reused rows", async () => {
+  const gate = deferred<Float32Array[]>();
+  const embed = vi.fn(async (texts: string[]) =>
+    texts.includes("A")
+      ? gate.promise
+      : texts.map(() => new Float32Array([0, 1])),
+  );
+  const engine = new EmbeddingEngine(embed, 2);
+  const initial = engine.prepare("scope", ["A", "B"]);
+  const stale = engine.search("scope", "old", "find");
+  const updated = engine.prepare("scope", ["B", "C"]);
+  gate.resolve([vector(), vector()]);
+  expect(await initial).toBe(false);
+  expect(await stale).toBeUndefined();
+  expect(await updated).toBe(true);
+  expect(embed.mock.calls.map((call) => call[0])).toEqual([["A", "B"], ["C"]]);
+  expect(await engine.search("scope", "query", "find")).toEqual([0, 1]);
+  embed.mockClear();
+  await engine.prepare("scope", ["A", "B"]);
+  expect(embed).not.toHaveBeenCalled();
+  expect(await engine.search("scope", "query", "find")).toEqual([0, 0]);
+});
