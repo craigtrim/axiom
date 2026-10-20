@@ -8,17 +8,10 @@ import { TextAnalysisService } from "../../src/main/text-analysis-service";
 import { mutatocExecutable } from "../../src/main/mutatoc-client";
 
 // Mutatoc 0.2.2 treats whitespace between exact phrase tokens consistently.
-// These six source cases retain their canonical text and source positions;
+// These three single-line source cases retain their canonical text and source positions;
 // only the method changes from the old fallback span match to an exact match.
 // Keep the original Python fixture unchanged and identify every correction.
-const exactWhitespaceCases = new Set([
-  "plus-033",
-  "plus-035",
-  "plus-037",
-  "plus-039",
-  "plus-041",
-  "plus-043",
-]);
+const exactWhitespaceCases = new Set(["plus-033", "plus-035", "plus-043"]);
 
 // craigtrim/axiom#52: Mutatoc 0.5.1 uses the closest occurrence of a repeated
 // span word, where the Python reference used the last one. That trims a match
@@ -52,6 +45,61 @@ const closestOccurrenceCases = new Map([
           label: "pair",
           method: "spans",
           surface: "beta alpha",
+        },
+      ],
+    },
+  ],
+]);
+
+// craigtrim/axiom#135: retain historical Python fixtures and explicitly record
+// the nine intentional changes caused by Axiom's line-boundary policy.
+const lineBoundaryCases = new Map<
+  string,
+  Pick<
+    (typeof reference.profiles)[number]["cases"][number],
+    "canonical" | "entities"
+  >
+>([
+  ...["plus-037", "plus-039", "plus-041"].map<
+    [string, { canonical: string; entities: never[] }]
+  >((id) => [id, { canonical: "alpha beta", entities: [] }]),
+  ...["plus-038", "plus-040", "plus-042"].map<
+    [string, { canonical: string; entities: never[] }]
+  >((id) => [id, { canonical: "beta alpha", entities: [] }]),
+  ["plus-102", { canonical: "alpha blah beta", entities: [] }],
+  [
+    "nested-026",
+    {
+      canonical: "😀 renal_trauma blah acute .",
+      entities: [
+        {
+          start: 3,
+          end: 16,
+          label: "renal_trauma",
+          method: "exact",
+          surface: "kidney injury",
+        },
+        {
+          start: 22,
+          end: 27,
+          label: "acute",
+          method: "exact",
+          surface: "acute",
+        },
+      ],
+    },
+  ],
+  [
+    "nested-027",
+    {
+      canonical: "kidney injury blah acute",
+      entities: [
+        {
+          start: 19,
+          end: 24,
+          label: "acute",
+          method: "exact",
+          surface: "acute",
         },
       ],
     },
@@ -95,8 +143,9 @@ describe.skipIf(!executable)(
         it.each(profile.cases)(
           "$id: $text",
           async ({ id, text, canonical, entities }) => {
-            const corrected = closestOccurrenceCases.get(id);
-            if (corrected) expect(canonical).toBe(corrected.python);
+            const closest = closestOccurrenceCases.get(id);
+            if (closest) expect(canonical).toBe(closest.python);
+            const corrected = lineBoundaryCases.get(id) ?? closest;
             const expected = corrected
               ? corrected.entities
               : exactWhitespaceCases.has(id)

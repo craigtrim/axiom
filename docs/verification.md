@@ -1167,3 +1167,15 @@ Type checking and the application build passed. All **12,245 domain tests across
 A separate synthetic 20,000-class smoke test matched an edited label using `update`, with no second load. One local run took 4,705 ms for the initial analysis and 496 ms for the edited analysis, including context capture and span-rule refresh. Native operations took 4,216 ms for the load and 95 ms for the update. These are observations from this fixture, not a benchmark comparison or performance threshold.
 
 All **79 Text Analysis desktop journeys passed** against the development build and the verified 0.6.0 package. They cover ontology edits, restart, switching datasets, manual and automatic analysis, Undo/Redo, authoring, navigation and match explanations. No workspace migration is needed. Install the complete 0.6.0 runtime before building or packaging the app.
+
+## Mutatoc 0.7.0 upgrade, October 20, 2026
+
+Axiom requires the official [Mutatoc v0.7.0 Windows release](https://github.com/craigtrim/mutatoc/releases/tag/v0.7.0) for Text Analysis (craigtrim/axiom#140). The archive is 798,367 bytes with SHA-256 `21e08f5b4c31cf8dc8b2e15a34e6a4ac5fcb437e92552a2defdbcd376293e549`, matching the published checksum and GitHub asset digest. Its annotated tag resolves to `da380fa0d6f93e9e4066c41db833b6a1a3ece75e`. Setup verified all 29 manifested files. Runtime checks reject 0.6.0 and earlier overrides.
+
+Every analysis now sends `line_breaks: "boundary"` with one unchanged full-text request (craigtrim/axiom#135). Exact phrases, spans and nested matches end at line breaks, including CRLF and Unicode line separators. Spaces and tabs still work within a match. Native offsets, document-wide context and #137's incremental subject updates remain in use. The editor retains original whitespace; internal canonical text keeps native normalization.
+
+Type checking and the application build passed. All **12,265 domain tests across 133 files** passed, including **4,005 dedicated Text Analysis checks across 13 files**. The new boundary suite covers all supported separators, blank lines, same-line spacing, a later valid span after a rejected candidate, synthetic pasted lists, emoji offsets, empty ontologies, incremental edits and Undo/Redo. The 168 historical Python fixtures remain unchanged; nine explicit policy overrides document the cross-line behavior change. The punctuation matrix still checks 1,512 cases, including split phrases that leave shorter exact entries visible.
+
+The complete desktop run passed 80 of 81 journeys. The new manual-mode test initially inspected Summary while manual mode had it unmounted; the trace showed the correct one-match result. After correcting that test precondition, both new list journeys passed three consecutive runs each, including exact-match navigation in Auto and manual modes. All 81 desktop cases are covered by these runs.
+
+No workspace migration is required. Build machines must install the complete 0.7.0 runtime before building or packaging Axiom. This verification covers the development application; no new installer was built or published for this change.

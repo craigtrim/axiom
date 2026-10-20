@@ -92,7 +92,8 @@ it.skipIf(!executable)(
           for (const layout of [
             phrase,
             spaced,
-            spaced.replace(/ /g, "\t\r\n"),
+            // craigtrim/axiom#135: same-line spacing remains ignorable.
+            spaced.replace(/ /g, "\t  "),
           ]) {
             for (const surface of [
               layout,
@@ -205,7 +206,7 @@ it.skipIf(!executable)(
 );
 
 it.skipIf(!executable)(
-  "maps 1,512 real punctuation matches to complete original UTF-16 ranges",
+  "checks 1,512 punctuation and line-boundary cases with original UTF-16 ranges",
   async () => {
     let context: Awaited<ReturnType<typeof textAnalysisContext>>;
     let version = 0;
@@ -250,23 +251,35 @@ it.skipIf(!executable)(
               const ontology = result.entities.filter(
                 (e) => e.source === "ontology",
               );
+              // craigtrim/axiom#135: a split course title leaves History visible on its own line.
+              const boundary = /[\r\n]/.test(gap);
+              const label = boundary ? "history" : `course${i}`;
+              const start = boundary
+                ? before.length + abbr.length + gap.length
+                : before.length;
+              const surface = boundary
+                ? phrase.slice(
+                    abbr.length + gap.length,
+                    abbr.length + gap.length + 7,
+                  )
+                : phrase;
               expect(ontology, `${predicate}: ${JSON.stringify(text)}`).toEqual(
                 [
                   {
-                    start: before.length,
-                    end: before.length + phrase.length,
-                    key: `ontology:course${i}`,
-                    label: `course${i}`,
+                    start,
+                    end: start + surface.length,
+                    key: `ontology:${label}`,
+                    label,
                     source: "ontology",
                     method: "exact",
                   },
                 ],
               );
               expect(text.slice(ontology[0].start, ontology[0].end)).toBe(
-                phrase,
+                surface,
               );
-              expect(result.concepts?.[`course${i}`]?.[0].iri).toBe(
-                `https://example.org/punctuation#Course${i}`,
+              expect(result.concepts?.[label]?.[0].iri).toBe(
+                `https://example.org/punctuation#${boundary ? "History" : `Course${i}`}`,
               );
               checked++;
             }

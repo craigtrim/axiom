@@ -27,10 +27,10 @@ const home =
     : undefined) ??
   process.env.AXIOM_MUTATOC_HOME ??
   // craigtrim/axiom#40: highlights come from Mutatoc source offsets.
-  // craigtrim/axiom#137: the development fallback is the 0.6.0 runtime.
+  // craigtrim/axiom#140: the development fallback is the 0.7.0 runtime.
   (existsSync("vendor/mutatoc/mutatoc.exe")
     ? path.resolve("vendor/mutatoc")
-    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.6.0"));
+    : path.resolve("../mutatos/mutatoc/dist/mutatoc-win-x64-0.7.0"));
 test.skip(
   !existsSync(path.join(home, "mutatoc.exe")),
   "Install mutatoc with npm run setup:mutatoc to run native matching desktop tests.",
@@ -1254,7 +1254,7 @@ test("dotted course synonyms highlight the full phrase and open the correct Deta
   for (const phrase of [
     "U.S. History to 1865",
     "U.S.  History  to  1865",
-    "U.S.\nHistory\nto\n1865",
+    "U.S.   History to 1865",
   ]) {
     await enter("😀 " + phrase + " ~~");
     await expect(chip("course1865")).toBeAttached({ timeout: 30000 });
@@ -1268,6 +1268,11 @@ test("dotted course synonyms highlight the full phrase and open the correct Deta
     "data-entity-iri",
     base + "Course1865",
   );
+  // craigtrim/axiom#135: an exact phrase must also stay on one line.
+  await enter("😀 U.S.\nHistory\nto\n1865");
+  await expect(chip("course1865")).toHaveCount(0);
+  await expect(chip("history")).toBeAttached();
+  await expect.poll(() => highlighted("history")).toBe("History");
   await enter("U.S. History to 1866");
   await expect(chip("course1865")).toHaveCount(0);
   await expect(chip("history")).toBeAttached();
@@ -1392,8 +1397,14 @@ test("plus spans highlight intervening words and stop at the reference distance 
   await expect.poll(() => highlighted("pair")).toBe("alpha blah gamma");
 });
 
-test("nested plus spans select the complete original text across line breaks and emoji", async () => {
-  const span = "kidney injury\nblah acute";
+// craigtrim/axiom#135: keep inner exact matches when a nested span would cross a line.
+test("nested plus spans stay within a line and preserve selection through emoji and spacing", async () => {
+  await enter("😀 kidney injury\nblah acute.");
+  await expect(chip("renal_trauma")).toBeAttached({ timeout: 20000 });
+  await expect(chip("acute")).toBeAttached();
+  await expect(chip("condition")).toHaveCount(0);
+  await expect.poll(() => highlighted("renal_trauma")).toBe("kidney injury");
+  const span = "kidney injury  blah acute";
   await enter("😀 " + span + ".");
   await expect(chip("condition")).toBeAttached({ timeout: 20000 });
   await expect(chip("renal_trauma")).toHaveCount(0);
@@ -1426,6 +1437,51 @@ test("nested plus spans select the complete original text across line breaks and
     );
   }
 });
+
+// craigtrim/axiom#135: a synthetic pasted list must not hide the exact entry between span words.
+for (const auto of [true, false]) {
+  test(`#135 pasted list keeps exact matches with Auto ${auto ? "on" : "off"}`, async () => {
+    await page.evaluate(async () => {
+      const source = await window.axiom.request<
+        import("../../src/shared/source").SourceDocument
+      >("sourceDocument", { format: "turtle" });
+      await window.axiom.request("applySource", {
+        ...source,
+        text:
+          source.text +
+          '\n<https://example.org/text#Glacier_Survey> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Glacier Survey" .\n<https://example.org/text#FieldOperations> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Field Operations" .',
+      });
+    });
+    if (!auto) await liveSwitch().click();
+    await enter("😀 Survey\nnotes\nField Operations\nGlacier");
+    if (!auto)
+      await panel()
+        .getByRole("button", { name: "Analyze now", exact: true })
+        .click();
+    await expect(panel().locator(".text-analysis-status")).toHaveText(
+      "1 match",
+    );
+    // Manual mode mounts Summary only when shown; inspect it before returning to the text.
+    await showSummary();
+    await expect(chip("fieldoperations")).toBeVisible();
+    await expect(chip("glacier_survey")).toHaveCount(0);
+    const className = (await chip("fieldoperations").getAttribute(
+      "class",
+    ))!.match(/text-entity-\d+/)![0];
+    await showText();
+    const highlight = panel().locator(`.view-lines .${className}`);
+    await expect
+      .poll(async () =>
+        (await highlight.allTextContents()).join("").replace(/\u00a0/g, " "),
+      )
+      .toBe("Field Operations");
+    await highlight.first().click({ modifiers: ["Control"] });
+    await expect(details()).toHaveAttribute(
+      "data-entity-iri",
+      base + "FieldOperations",
+    );
+  });
+}
 
 const details = (target = page) =>
   target.getByRole("region", { name: "Details", exact: true });

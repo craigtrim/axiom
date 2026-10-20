@@ -18,8 +18,8 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
           // craigtrim/axiom#40: parse results carry code point offsets.
-          // craigtrim/axiom#137: the fake engine reports the required 0.6.0.
-          if (input.op === "version") return "0.6.0";
+          // craigtrim/axiom#140: the fake engine reports the required 0.7.0.
+          if (input.op === "version") return "0.7.0";
           // craigtrim/axiom#136: read the stored rules once per loaded revision.
           if (input.op === "query") return {};
           if (input.op === "parse")
@@ -76,6 +76,14 @@ afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
 
 describe("analysis service scheduling and failures", () => {
+  // craigtrim/axiom#135: one native request retains full-document context and source offsets.
+  it("sends the unchanged multiline input with native match boundaries", async () => {
+    const text = "😀 Dog\r\n\r\nCat\nDog\rCat";
+    await service.parse(input(text));
+    expect(
+      current().request.mock.calls.filter(([call]) => call.op === "parse"),
+    ).toEqual([[{ op: "parse", text, line_breaks: "boundary" }]]);
+  });
   it.each([
     "0.2.3",
     "0.3.0",
@@ -85,13 +93,14 @@ describe("analysis service scheduling and failures", () => {
     "0.5.0",
     "0.5.1",
     "0.5.2",
+    "0.6.0",
   ])(
     "rejects incompatible runtime %s before loading and can recover",
     async (version) => {
       const pending = service.parse(input());
       current().request.mockResolvedValueOnce(version);
       await expect(pending).rejects.toThrow(
-        `requires Mutatoc 0.6.0; the configured runtime reports ${version}`,
+        `requires Mutatoc 0.7.0; the configured runtime reports ${version}`,
       );
       expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
         "version",
