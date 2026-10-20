@@ -2,8 +2,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-// craigtrim/axiom#76: the one runtime version Text Analysis accepts.
-export const MUTATOC_VERSION = "0.5.2";
+// craigtrim/axiom#137: the one runtime version Text Analysis accepts.
+export const MUTATOC_VERSION = "0.6.0";
 
 export class MutatocError extends Error {
   constructor(

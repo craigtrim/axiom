@@ -13,6 +13,8 @@ export interface TextAnalysisConcept {
   taxonomy: boolean;
 }
 export interface TextAnalysisContext {
+  // craigtrim/axiom#137: the exact exported union supports subject-level updates.
+  statements?: import("../domain/model").Triple[];
   concepts?: Record<string, TextAnalysisConcept[]>;
   turtle: string;
   name: string;
