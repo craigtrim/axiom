@@ -29,6 +29,7 @@ import { TextAnalysisSummary } from "./TextAnalysisSummary";
 import { textEntityGroups, hasUnanalyzedText } from "./text-analysis-session";
 import {
   entityHue,
+  textEntityHover,
   type TextAnalysisResult,
   type TextEntity,
 } from "../shared/text-analysis";
@@ -110,6 +111,8 @@ export function TextAnalysisPanel() {
     const instance = monaco.editor.create(host.current, {
       model,
       editContext: false,
+      // Let multiline explanations escape the editor pane's clipped content area.
+      fixedOverflowWidgets: true,
       automaticLayout: false,
       wordWrap: "on",
       wrappingStrategy: "advanced",
@@ -486,11 +489,8 @@ export function TextAnalysisPanel() {
         const start = model.getPositionAt(entity.start),
           end = model.getPositionAt(entity.end);
         const hover = {
-          value:
-            `${entity.label} (${entity.source === "ontology" ? "Ontology" : "Named entity"}) ${entity.method}`.replace(
-              /[\\`*_{}\[\]()<>#+.!|~]/g,
-              "\\$&",
-            ),
+          // craigtrim/axiom#136: display labels and matching evidence as untrusted text.
+          value: textEntityHover(result, entity),
           isTrusted: false,
         };
         return {

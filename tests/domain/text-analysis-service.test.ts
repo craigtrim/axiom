@@ -20,6 +20,8 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
           // craigtrim/axiom#40: parse results carry code point offsets.
           // craigtrim/axiom#76: the fake engine reports the required 0.5.2.
           if (input.op === "version") return "0.5.2";
+          // craigtrim/axiom#136: read the stored rules once per loaded revision.
+          if (input.op === "query") return {};
           if (input.op === "parse")
             return {
               text: "dog",
@@ -99,9 +101,15 @@ describe("analysis service scheduling and failures", () => {
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
       "version",
       "load",
+      "query",
       "parse",
       "parse",
     ]);
+    expect(current().request.mock.calls[2][0]).toEqual({
+      op: "query",
+      method: "spans",
+      interface: "ask_json",
+    });
     expect(current().request.mock.calls[1][0]).toEqual({
       op: "load",
       turtle: graph().turtle,
@@ -120,6 +128,9 @@ describe("analysis service scheduling and failures", () => {
       expect(context).toHaveBeenCalledTimes(2);
       expect(
         current().request.mock.calls.filter(([call]) => call.op === "load"),
+      ).toHaveLength(2);
+      expect(
+        current().request.mock.calls.filter(([call]) => call.op === "query"),
       ).toHaveLength(2);
       expect(
         current().request.mock.calls.filter(([call]) => call.op === "version"),
@@ -176,6 +187,7 @@ describe("analysis service scheduling and failures", () => {
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
       "version",
       "load",
+      "query",
       "parse",
     ]);
   });
@@ -203,6 +215,7 @@ describe("analysis service scheduling and failures", () => {
     expect(current().request.mock.calls.map(([call]) => call.op)).toEqual([
       "tokenize",
       "load",
+      "query",
       "parse",
     ]);
   });
