@@ -6,6 +6,9 @@ import { command } from "./client";
 import { inspectTextEntity, textAnalysisSession } from "./text-analysis-state";
 import {
   textEntityConcepts,
+  textEntityLabels,
+  textCoveredLabels,
+  textMatchExplanation,
   type TextEntity,
   type TextAnalysisResult,
 } from "../shared/text-analysis";
@@ -21,6 +24,8 @@ export function TextSpanDetails({
   panelId: string;
 }) {
   const concepts = textEntityConcepts(result, entity);
+  // craigtrim/axiom#136: keep Details wording consistent with the highlight hover.
+  const covered = textCoveredLabels(result, entity);
   return (
     <section
       className="panel entity-editor"
@@ -47,16 +52,20 @@ export function TextSpanDetails({
           {result.text.slice(entity.start, entity.end)}
         </blockquote>
         <dl>
-          <dt>
-            {entity.source === "ontology" ? "Canonical name" : "Entity type"}
-          </dt>
-          <dd>{entity.label}</dd>
+          <dt>{entity.source === "ontology" ? "Entry" : "Entity type"}</dt>
+          <dd>{textEntityLabels(result, entity).join(", ")}</dd>
           <dt>Source</dt>
           <dd>
             {entity.source === "ontology" ? "Ontology" : "Language model"}
           </dd>
           <dt>Match</dt>
-          <dd>{entity.method}</dd>
+          <dd>{textMatchExplanation(entity)}</dd>
+          {covered.length > 0 && (
+            <>
+              <dt>Covers</dt>
+              <dd>{covered.join(", ")}</dd>
+            </>
+          )}
         </dl>
         {concepts.length > 1 && (
           <p>
