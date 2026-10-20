@@ -15,3 +15,7 @@ vendor/mutatoc/
 
 # Removed on purpose; GitHub issues hold requirements.
 specs/
+/Build-Axiom-EXE.ps1
+
+# Machine-local notes and scratch files.
+/local/

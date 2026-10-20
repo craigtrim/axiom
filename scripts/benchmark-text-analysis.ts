@@ -10,7 +10,7 @@ import {
   type MutatocToken,
 } from "../src/main/text-analysis-spans";
 
-const [input, output = "artifacts/text-analysis-benchmark.json", runtime] =
+const [input, output = "artifacts/benchmarks/text-analysis.json", runtime] =
   process.argv.slice(2);
 if (!input)
   throw Error(

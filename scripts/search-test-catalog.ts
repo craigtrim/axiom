@@ -32,14 +32,14 @@ const summary = {
   preferredLabelCases: lexicalCases.length,
   aliasCases: aliasCases.length,
 };
-await mkdir("artifacts", { recursive: true });
+await mkdir("artifacts/catalogs", { recursive: true });
 await writeFile(
-  "artifacts/search-query-catalog.json",
+  "artifacts/catalogs/search-query-catalog.json",
   JSON.stringify({ summary, cases }, null, 2) + "\n",
 );
 console.log(
   JSON.stringify(
-    { path: "artifacts/search-query-catalog.json", ...summary },
+    { path: "artifacts/catalogs/search-query-catalog.json", ...summary },
     null,
     2,
   ),
