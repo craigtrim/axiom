@@ -1,3 +1,5 @@
+// #125: retain the complete catalog when worker broadcasts carry entity deltas.
+import { mergeState } from "../shared/state-update";
 import { TextAnalysisService } from "./text-analysis-service";
 import { mutatocExecutable } from "./mutatoc-client";
 import type { TextAnalysisContext } from "../shared/text-analysis";
@@ -1347,7 +1349,7 @@ app.whenReady().then(async () => {
             packet.event.data.ontology.namespace,
           );
         }
-        lastState = packet.event.data;
+        lastState = mergeState(lastState, packet.event.data);
         updateWindowTitle();
       }
       refreshMenu();

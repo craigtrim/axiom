@@ -60,6 +60,18 @@ export interface Snapshot {
   message: string;
   dirty: boolean;
 }
+// #125: broadcasts omit unchanged catalogs; direct state requests remain complete.
+export interface EntityChanges {
+  changed: Snapshot["entities"];
+  removed: string[];
+  positions?: { iri: string; index: number }[];
+}
+export type StateUpdate = Omit<Snapshot, "entities" | "types" | "customers"> & {
+  entities?: Snapshot["entities"];
+  entityChanges?: EntityChanges;
+  types?: Snapshot["types"];
+  customers?: Snapshot["customers"];
+};
 export interface EdgeDocument {
   graphId?: string;
   edge: GraphEdge;
