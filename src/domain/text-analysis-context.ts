@@ -24,12 +24,18 @@ export async function textAnalysisContext(
     : [...store.scan()];
   const union = new Map(
     source.map((triple) => {
-      const value = { ...triple, graph: undefined };
+      const value = {
+        ...triple,
+        object: { ...triple.object },
+        graph: undefined,
+      };
       return [statementKey(value), value];
     }),
   );
   const triples = [...union.values()];
   return {
+    // craigtrim/axiom#137: snapshot the same union used by the full native load.
+    statements: triples,
     concepts: textAnalysisConcepts(store, triples),
     turtle: await writeRdf(triples, "turtle"),
     name,
