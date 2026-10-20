@@ -116,7 +116,7 @@ for (const [location, metadata] of Object.entries(lock.packages)) {
   } else throw Error("Missing license for " + key);
 }
 await writeFile(
-  "THIRD-PARTY-NOTICES.txt",
+  "licenses/THIRD-PARTY-NOTICES.txt",
   notices.join("\n\n").replace(/[ \t]+$/gm, ""),
 );
 console.log("Bundled dependency notices written.");
