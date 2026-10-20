@@ -11,8 +11,8 @@ Captures use the same pane bounds, device scale, color profile and paint boundar
 Run after `npm run build`:
 
 ```powershell
-npx playwright test tests/e2e/add-entity-visual.spec.ts
-npx playwright test tests/e2e/add-entity-reference.spec.ts
+npm run test:desktop -- tests/e2e/add-entity-visual.spec.ts
+npm run test:desktop -- tests/e2e/add-entity-reference.spec.ts
 ```
 
 The first command writes actual and expected PNGs, computed styles and raw pixel counts under `artifacts/issue-93`. The second exercises real domain requests, recursive transactions, stale and pending replies, copying, accessibility, resizing, Find handoff and saved-workspace restart. Text Analysis and Find integration also run in their existing suites. Every application owns an isolated profile and ontology fixture.

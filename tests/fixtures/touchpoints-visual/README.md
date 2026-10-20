@@ -13,6 +13,6 @@ Both captures use the same Electron engine, position, device scale factor of two
 After `npm run build`, run the native suites sequentially:
 
 ```powershell
-npx playwright test tests/e2e/touchpoints-visual.spec.ts --workers=1
-npx playwright test tests/e2e/touchpoints-reference.spec.ts tests/e2e/touchpoints.spec.ts --workers=1
+npm run test:desktop -- tests/e2e/touchpoints-visual.spec.ts --workers=1
+npm run test:desktop -- tests/e2e/touchpoints-reference.spec.ts tests/e2e/touchpoints.spec.ts --workers=1
 ```

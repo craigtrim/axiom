@@ -62,18 +62,18 @@ Playwright and Segoe UI fonts:
 
 ```powershell
 npm run build
-npx playwright test tests/e2e/extend-visual.spec.ts tests/e2e/extend-audit.spec.ts
+npm run test:desktop -- tests/e2e/extend-visual.spec.ts tests/e2e/extend-audit.spec.ts
 ```
 
 To regenerate expected PNGs **from the independent HTML only**:
 
 ```powershell
 $env:AXIOM_UPDATE_REFERENCE = '1'
-npx playwright test tests/e2e/extend-visual.spec.ts
+npm run test:desktop -- tests/e2e/extend-visual.spec.ts
 Remove-Item Env:AXIOM_UPDATE_REFERENCE
 ```
 
 Never use `--update-snapshots`. Visual captures, computed styles, geometry and raw
 difference counts are written to `artifacts/issue-56/visual`; integration captures
-are in `artifacts/issue-56`. See `docs/issues56-validation.md` for validation and
+are in `artifacts/issue-56`. See `docs/validation/issues56-validation.md` for validation and
 the requirement-by-requirement audit.

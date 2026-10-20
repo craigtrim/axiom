@@ -14,7 +14,7 @@ The previous WinUI implementation is recorded in [archive/](archive/README.md); 
 
 ## Install a build
 
-Run `Axiom-Setup-<version>.exe` from artifacts/installer/. It installs for the current account with no administrator prompt, adds Start menu and uninstall entries, and registers the .axiom file type so double-clicking a workspace opens it. See [docs/installation.md](docs/installation.md).
+Run `Axiom-Setup-<version>.exe` from artifacts/installer/. It installs for the current account with no administrator prompt, adds Start menu and uninstall entries, and registers the .axiom file type so double-clicking a workspace opens it. See [docs/guides/installation.md](docs/guides/installation.md).
 
 The unpacked application is also written to artifacts/installer/win-unpacked, and its absolute path is recorded in [artifacts/latest-electron.json](artifacts/latest-electron.json) for desktop tests. That folder is portable and needs no separate Node.js or .NET installation.
 
@@ -36,13 +36,31 @@ npm run package
 
 Packaging builds the installer and the unpacked application under artifacts/installer/, and prints the absolute path to both. The latest build is also recorded in artifacts/latest-electron.json.
 
+Run `npm run build:exe` to build and verify a Windows executable. Craig's local
+shortcut is D:\git\axiom\Build-Axiom-EXE.ps1. The helper checks TypeScript, builds
+the installer, runs focused packaged tests and verifies the bundled files. It prints
+the application and installer paths. See [installation](docs/guides/installation.md).
+
+## Repository layout
+
+- [Documentation](docs/README.md): application guides, development notes and validation records.
+- `src/` and `tests/`: application code, automated tests and preserved reference fixtures.
+- `scripts/`: build, setup, testing, benchmark and maintenance commands.
+- `config/`: Electron Builder, Vitest and Playwright configuration.
+- `assets/`, `build/` and `licenses/`: icons, installer resources and dependency licenses.
+- `dist/` and `artifacts/`: generated application files, packages and reports; ignored by Git.
+- `local/`: private notes; ignored by Git. `archive/` records the retired WinUI application.
+
+See [repository layout and output locations](docs/development/repository-layout.md)
+for the build entry points and archived-result lookup.
+
 ## Work with the ontology
 
-**View > Text Analysis** opens a plain-text editor with live entity highlighting through mutatoc. Type or paste text to see ontology matches and named entities in color. Parsing is automatic, and unsaved ontology edits update the matches. See [Text Analysis](docs/text-analysis.md) for runtime setup and behavior.
+**View > Text Analysis** opens a plain-text editor with live entity highlighting through mutatoc. Type or paste text to see ontology matches and named entities in color. Parsing is automatic, and unsaved ontology edits update the matches. See [Text Analysis](docs/guides/text-analysis.md) for runtime setup and behavior.
 
 The workbench has Hierarchy, Graph, Inspector, Touchpoints, Individuals, Query and Source panes, plus entity document tabs and Filesystem provenance. Drag tabs to reorganize them; drag dividers to resize. Use the Window menu for keyboard alternatives and View to reopen a closed pane. Layout, theme, filters, query text and window bounds are saved locally. Light is the default theme; an existing theme choice is preserved.
 
-Launch Axiom again or choose **File > New window** to work in another independent instance. Each instance restores its own session, preferences, shortcuts and history. Opening a workspace already in use raises its existing window. Updates wait until the last instance closes. See [Independent instances](docs/multiple-instances.md).
+Launch Axiom again or choose **File > New window** to work in another independent instance. Each instance restores its own session, preferences, shortcuts and history. Opening a workspace already in use raises its existing window. Updates wait until the last instance closes. See [Independent instances](docs/guides/multiple-instances.md).
 
 File > New workspace creates a blank ontology with Thing as its root. Create classes inline in the taxonomy and enter a human-readable label such as Course Credit. Axiom normalizes that label into a unique identifier, such as CourseCredit. Create named individuals assigned to those classes. The Individuals pane shows their names, classes and IRIs. New workspaces keep your chosen node limit and clear the previous ontology and cached result rows. Saved query references remain available in results tabs.
 
@@ -58,19 +76,19 @@ Export opens a preview dialog for PNG, JPEG, WebP, TIFF, BMP, SVG, PDF or clipbo
 
 Graph > Edit graph stylesheet changes node and edge appearance with validated CSS-like rules. Double-clicking a taxonomy branch expands it, and every taxonomy row has a context menu. Undo and Redo cover graph moves and expansion, styles, settings, pane arrangements and reviewed ontology edits.
 
-Right-click a taxonomy class and choose **Suggest > Add Children** to have the selected assistant propose immediate subclasses using the complete ancestry and existing descendant structure. Review the proposals, select those to add, and undo the batch together if needed. **Find > Instances** uses a separate prompt and creates named individuals with rdf:type relationships. No new suggestions is an accepted result. See [Taxonomy suggestions](docs/taxonomy-suggestions.md) for context scope and the opt-in real-Codex tests.
+Right-click a taxonomy class and choose **Suggest > Add Children** to have the selected assistant propose immediate subclasses using the complete ancestry and existing descendant structure. Review the proposals, select those to add, and undo the batch together if needed. **Find > Instances** uses a separate prompt and creates named individuals with rdf:type relationships. No new suggestions is an accepted result. See [Taxonomy suggestions](docs/guides/taxonomy-suggestions.md) for context scope and the opt-in real-Codex tests.
 
-Docked views adapt to their available width and height. Narrow side panes prioritize actions and working content; shallow bottom panes use horizontal layouts. Options, More and named disclosures retain access to settings and detail. Graph keeps its visual presentation. See [Adaptive pane layouts](docs/adaptive-pane-ux.md) for the design research and behavior.
+Docked views adapt to their available width and height. Narrow side panes prioritize actions and working content; shallow bottom panes use horizontal layouts. Options, More and named disclosures retain access to settings and detail. Graph keeps its visual presentation. See [Adaptive pane layouts](docs/guides/adaptive-pane-ux.md) for the design research and behavior.
 
-Find Touchpoints searches English Wikipedia for external resources matching the selected entity. Review the candidates, choose a relationship and add the selected statements as one undoable batch. Search results remain cached until explicitly refreshed or cleared. See [Find Touchpoints](docs/touchpoints.md) and [Model cache](docs/model-cache.md) for the separate Wikipedia and assistant caches.
+Find Touchpoints searches English Wikipedia for external resources matching the selected entity. Review the candidates, choose a relationship and add the selected statements as one undoable batch. Search results remain cached until explicitly refreshed or cleared. See [Find Touchpoints](docs/guides/touchpoints.md) and [Model cache](docs/guides/model-cache.md) for the separate Wikipedia and assistant caches.
 
 The Monaco editor runs SPARQL 1.1 queries through Comunica: SELECT, ASK, CONSTRUCT and DESCRIBE, including aggregates, OPTIONAL, property paths, subqueries, named graphs and standard functions. Results are paged, cancellation stops a separate query worker, and data changes mark previous results stale. Queries inspect local asserted data; remote SERVICE, ontology updates through the query panel and implicit OWL reasoning are outside this flow.
 
 File > Save workspace writes an .axiom document containing ontology edits, generated data and workbench settings. Open validates the document before replacing live data. This is Axiom's workspace format. File > Open > Workspace (Ctrl+O) or Import also reads RDF/XML, Turtle, N-Triples, N-Quads, TriG and JSON-LD. File > Export ontology writes those formats, retaining named graphs in formats that support them. File > Open > Recent lists the full absolute paths of the last 12 successfully opened or saved files, newest first, and retains the list across restarts. Remote JSON-LD contexts and implicit OWL import downloads are not used.
 
-Edit the selected entity in the right-hand inspector: a default name such as NewClass or NewClass2 follows the first meaningful label through the shared identifier normalizer. For example, Alpha Beta !! Gamma becomes AlphaBetaGamma. Established names remain unchanged when relabeled. Name, Label, Comment and relationship edits apply together with Apply changes. Click a visible graph label once to type in place; Enter or clicking away saves, and Escape cancels. Use Edit details, the context menu, or drag a taxonomy row onto the inspector to open a full entity tab beside Graph. Labels, identifiers, comments and asserted statements are editable. Details saves completed cell edits automatically; the inspector uses Apply changes. Parent fields offer indexed type-ahead, including imported parent values that were incorrectly stored as text. Workspace Save applies complete retained grid drafts. The inspector and Details share each entity draft. Independent edits merge automatically; conflicting edits preserve the draft and identify the affected field. See [entity editing and Find](docs/entity-editing.md).
+Edit the selected entity in the right-hand inspector: a default name such as NewClass or NewClass2 follows the first meaningful label through the shared identifier normalizer. For example, Alpha Beta !! Gamma becomes AlphaBetaGamma. Established names remain unchanged when relabeled. Name, Label, Comment and relationship edits apply together with Apply changes. Click a visible graph label once to type in place; Enter or clicking away saves, and Escape cancels. Use Edit details, the context menu, or drag a taxonomy row onto the inspector to open a full entity tab beside Graph. Labels, identifiers, comments and asserted statements are editable. Details saves completed cell edits automatically; the inspector uses Apply changes. Parent fields offer indexed type-ahead, including imported parent values that were incorrectly stored as text. Workspace Save applies complete retained grid drafts. The inspector and Details share each entity draft. Independent edits merge automatically; conflicting edits preserve the draft and identify the affected field. See [entity editing and Find](docs/guides/entity-editing.md).
 
-View > Source opens the ontology as editable Turtle, RDF/XML (including .owl files), JSON-LD, N-Triples, N-Quads or TriG. Source, graph, taxonomy and entity editors share the same ontology and Undo history. Apply changes, workspace Save and format switching validate pending source edits; invalid or conflicting drafts stay available for correction. The inspector provides Open file, Show in folder and optional image thumbnails for filesystem entities and their metadata observations. See [Source editing and linked files](docs/source-and-files.md) for synchronization, format and cache behavior.
+View > Source opens the ontology as editable Turtle, RDF/XML (including .owl files), JSON-LD, N-Triples, N-Quads or TriG. Source, graph, taxonomy and entity editors share the same ontology and Undo history. Apply changes, workspace Save and format switching validate pending source edits; invalid or conflicting drafts stay available for correction. The inspector provides Open file, Show in folder and optional image thumbnails for filesystem entities and their metadata observations. See [Source editing and linked files](docs/guides/source-and-files.md) for synchronization, format and cache behavior.
 
 File > Create provenance from folder collects Windows and embedded metadata in the background. Choose a root, review collection options, and collect. The result includes raw evidence, RDF and coverage diagnostics. Open the result as an ontology, then use the normal graph, editor, query and report features. Reparse targets are not traversed; offline content is optional. Source limitations and denied access are preserved rather than replaced with guessed history.
 
@@ -78,14 +96,14 @@ File > Create provenance from folder collects Windows and embedded metadata in t
 
 ```powershell
 npm test
-npx playwright test
+npm run test:desktop
 npm run benchmark
 npm run benchmark:desktop
 ```
 
-The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/sparql-testing.md) for coverage, boundaries and commands.
+The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/development/sparql-testing.md) for coverage, boundaries and commands.
 
-The [verification record](docs/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/decisions.md) explain the Electron architecture and carried-forward specification resolutions. Requirements are tracked as [GitHub issues](https://github.com/craigtrim/axiom/issues).
+The [verification record](docs/validation/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/development/decisions.md) explain the Electron architecture and carried-forward specification resolutions. Requirements are tracked as [GitHub issues](https://github.com/craigtrim/axiom/issues).
 
 ### Session restoration
 
@@ -105,4 +123,4 @@ In Query, **Format** (Shift+Alt+F) capitalizes keywords and lays out SPARQL quer
 
 **Compose query** accepts a description and uses Codex or Claude installed on PATH, through the CLI's existing sign-in. Review the context, optionally include the current query for refinement, then generate. The generated SPARQL opens automatically as a new query in the main editor. **Run** executes it separately. If you edit or navigate while generation runs, the current draft stays in place and **Open generated query** appears.
 
-Use **Previous** and **Next** to page through retained queries, **New query** to keep the current one and start another, and the position indicator to search history. Drafts persist across restart. Each execution opens a separate **Query results** workbench tab with its run details and saved SPARQL. **Open query** restores the source; if it has since changed, Axiom creates a copy of the executed query and preserves the newer draft. Closing Query leaves results available. Result rows are cached in memory; after expiry or restart, the saved query remains available for an explicit rerun. The compact composer closes after generation to make room for the editor. Wide panes show the composer beside the editor. See the [query-history UX research](docs/query-history-ux.md) and [agent integration research](docs/sparql-agent-integration.md).
+Use **Previous** and **Next** to page through retained queries, **New query** to keep the current one and start another, and the position indicator to search history. Drafts persist across restart. Each execution opens a separate **Query results** workbench tab with its run details and saved SPARQL. **Open query** restores the source; if it has since changed, Axiom creates a copy of the executed query and preserves the newer draft. Closing Query leaves results available. Result rows are cached in memory; after expiry or restart, the saved query remains available for an explicit rerun. The compact composer closes after generation to make room for the editor. Wide panes show the composer beside the editor. See the [query-history UX research](docs/guides/query-history-ux.md) and [agent integration research](docs/development/sparql-agent-integration.md).

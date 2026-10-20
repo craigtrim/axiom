@@ -9,7 +9,7 @@ SHA-256: `89dbb81700c3710da07e8c7fec04238dfd6d928dccec57975a6a03886beba458`.
 The test verifies this hash before rendering. `.gitattributes` preserves its bytes.
 
 Run `npm run build`, then
-`npx playwright test tests/e2e/suggestions-visual.spec.ts`.
+`npm run test:desktop -- tests/e2e/suggestions-visual.spec.ts`.
 
 The suite compares all decoded RGBA pixels for frames 01 through 26 and 28
 in both themes at the specified viewport sizes and device scale factor 2.

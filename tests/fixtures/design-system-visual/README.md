@@ -14,6 +14,6 @@ Run from the repository root:
 
 ```powershell
 npm run build
-npx vitest run tests/domain/shared-tokens.test.ts tests/domain/quality-overflow.test.ts
-npx playwright test tests/e2e/design-system-visual.spec.ts tests/e2e/design-system-behavior.spec.ts tests/e2e/design-system-theme.spec.ts
+npm test -- tests/domain/shared-tokens.test.ts tests/domain/quality-overflow.test.ts
+npm run test:desktop -- tests/e2e/design-system-visual.spec.ts tests/e2e/design-system-behavior.spec.ts tests/e2e/design-system-theme.spec.ts
 ```

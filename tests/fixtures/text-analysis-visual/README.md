@@ -13,5 +13,5 @@ All pixels must agree within two channel values, except for at most 24 pixels in
 Run after `npm run build`:
 
 ```powershell
-npx playwright test tests/e2e/text-analysis-visual.spec.ts --workers=1
+npm run test:desktop -- tests/e2e/text-analysis-visual.spec.ts --workers=1
 ```

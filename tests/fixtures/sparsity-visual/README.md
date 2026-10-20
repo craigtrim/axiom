@@ -10,4 +10,4 @@ The native visual tests open that Turtle through File > Open and use the real wo
 
 The harness applies the issue's specified recovery, band, toast and paging corrections. It maps finding selection to pressed buttons and uses the shared Maximize spelling. A focused menu item uses the reference's `data-active` token, matching SharedMenu. These are semantic mappings; geometry and color rules remain those in the pinned reference.
 
-Run `npm run build`, then `npx playwright test tests/e2e/sparsity-visual.spec.ts`. The 46 frame pairs and comparison diagnostics are written under `artifacts/issue-90`. Behavioral checks run with `npx playwright test tests/e2e/sparsity.spec.ts tests/e2e/sparsity-reference.spec.ts tests/e2e/entity-context-menu.spec.ts`.
+Run `npm run build`, then `npm run test:desktop -- tests/e2e/sparsity-visual.spec.ts`. The 46 frame pairs and comparison diagnostics are written under `artifacts/issue-90`. Behavioral checks run with `npm run test:desktop -- tests/e2e/sparsity.spec.ts tests/e2e/sparsity-reference.spec.ts tests/e2e/entity-context-menu.spec.ts`.

@@ -14,7 +14,7 @@ Run on Windows after `npm run build`:
 
 ```powershell
 $env:AXIOM_TEST_BACKGROUND='1'
-npx playwright test tests/e2e/details-visual.spec.ts
+npm run test:desktop -- tests/e2e/details-visual.spec.ts
 ```
 
 Set `AXIOM_TEST_EXE` to the packaged Axiom.exe to test the delivery build. The tests use isolated profiles and import a real ontology with Technical Algebra and the reference's statements and ancestry. No source or entity API is mocked.

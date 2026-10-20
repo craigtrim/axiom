@@ -15,5 +15,5 @@ The reference and application are captured at identical coordinates in the same 
 From a built checkout:
 
 ```powershell
-npx playwright test tests/e2e/utility-visual.spec.ts tests/e2e/utility-reference.spec.ts
+npm run test:desktop -- tests/e2e/utility-visual.spec.ts tests/e2e/utility-reference.spec.ts
 ```

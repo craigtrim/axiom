@@ -11,8 +11,8 @@ The reference is corrected in memory for the issue's recovery, shallow-body, toa
 Run from the repository root after building:
 
 ```powershell
-npx playwright test tests/e2e/hierarchy-visual.spec.ts --workers=1
-npx playwright test tests/e2e/hierarchy-reference.spec.ts --workers=1
+npm run test:desktop -- tests/e2e/hierarchy-visual.spec.ts --workers=1
+npm run test:desktop -- tests/e2e/hierarchy-reference.spec.ts --workers=1
 ```
 
 Images, raw comparison results and measured geometry are written to `artifacts/issue-91`. Run native suites sequentially.

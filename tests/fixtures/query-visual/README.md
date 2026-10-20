@@ -9,7 +9,7 @@ The HTML is committed unchanged, with Git text conversion disabled.
 - Published capture script: https://dwc-axiom.s3.us-west-2.amazonaws.com/issues/88/capture.js
 - Capture-script SHA-256: `f2c422c0d814dd089c3f3c743f0221798c92ff3a758fd054f8e21fe1517402a4`.
 
-Run `npm run build`, then `npx playwright test tests/e2e/query-visual.spec.ts`.
+Run `npm run build`, then `npm run test:desktop -- tests/e2e/query-visual.spec.ts`.
 The suite compares all 32 numbered states in both themes. It renders the app
 and reference in the same Electron version at device scale 1, crops the pane
 inside the shell, and writes screenshots, layout measurements and pixel counts
