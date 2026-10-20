@@ -31,7 +31,7 @@ Existing behavior fixtures reveal a hidden Hierarchy filter through More actions
 
 ## Reproduction
 
-Run `npm run typecheck`, `npm test` and `npm run build`. Run `npx playwright test tests/e2e/hierarchy-visual.spec.ts tests/e2e/hierarchy-reference.spec.ts --workers=1` for the 56 visual pairs and nine new behavior scenarios. Existing coverage is in `taxonomy-move.spec.ts`, `hierarchy-multiselect.spec.ts` and `instances-menu.spec.ts`. Run native suites sequentially.
+Run `npm run typecheck`, `npm test` and `npm run build`. Run `npm run test:desktop -- tests/e2e/hierarchy-visual.spec.ts tests/e2e/hierarchy-reference.spec.ts --workers=1` for the 56 visual pairs and nine new behavior scenarios. Existing coverage is in `taxonomy-move.spec.ts`, `hierarchy-multiselect.spec.ts` and `instances-menu.spec.ts`. Run native suites sequentially.
 
 For a manual check, open an ontology and choose View > Hierarchy. Ctrl-click two branches, drag them onto another class and use Undo move. Switch to Properties to inspect assertion counts. Narrow the pane and reveal Filter hierarchy through More actions. Select a class from Details or Find, then scroll Details; the completed tree reveal should stay in place.
 

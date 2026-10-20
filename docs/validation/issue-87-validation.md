@@ -37,7 +37,7 @@ Reproduce the shell checks with:
 ```powershell
 npm run typecheck
 npm run build
-npx playwright test tests/e2e/window-chrome.spec.ts tests/e2e/workbench-shell.spec.ts tests/e2e/shell-contracts.spec.ts
+npm run test:desktop -- tests/e2e/window-chrome.spec.ts tests/e2e/workbench-shell.spec.ts tests/e2e/shell-contracts.spec.ts
 ```
 
 The desktop fixtures use isolated profiles and generated ontologies. They exercise real menu dispatch, dataset mutation, save and undo, scan freshness, focus restoration and detached windows. No migration, service configuration or deployment is required for this source change. Packaging and release publication are separate operations.

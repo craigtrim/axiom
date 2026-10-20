@@ -21,6 +21,6 @@ The harness applies the issue's recovery, band, toast and paging corrections, pr
 
 ## Reproduction
 
-Run `npm run typecheck`, `npm test` and `npm run build`. Run `npx playwright test tests/e2e/sparsity-visual.spec.ts` for the 46 image pairs. Run `npx playwright test tests/e2e/sparsity.spec.ts tests/e2e/sparsity-reference.spec.ts tests/e2e/entity-context-menu.spec.ts` for the 36 behavior scenarios.
+Run `npm run typecheck`, `npm test` and `npm run build`. Run `npm run test:desktop -- tests/e2e/sparsity-visual.spec.ts` for the 46 image pairs. Run `npm run test:desktop -- tests/e2e/sparsity.spec.ts tests/e2e/sparsity-reference.spec.ts tests/e2e/entity-context-menu.spec.ts` for the 36 behavior scenarios.
 
 For a manual check, open an ontology and choose View > Sparsity. Compute a report, expand a parent and select a finding. Resize the pane and use its overflow navigation. Close and reopen it, then edit a parent relationship and Undo; the report should refresh in place without a computation toast. No migration, paid model call or deployment is required for this change.

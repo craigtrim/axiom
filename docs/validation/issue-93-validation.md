@@ -36,7 +36,7 @@ Reproduce from a built checkout with the local Mutatoc runtime supplied through 
 npm run typecheck
 npm test
 npm run build
-npx playwright test tests/e2e/add-entity-reference.spec.ts tests/e2e/add-entity-visual.spec.ts tests/e2e/find-redesign.spec.ts tests/e2e/find-adaptive.spec.ts tests/e2e/find-visual.spec.ts tests/e2e/find.spec.ts tests/e2e/text-analysis.spec.ts
+npm run test:desktop -- tests/e2e/add-entity-reference.spec.ts tests/e2e/add-entity-visual.spec.ts tests/e2e/find-redesign.spec.ts tests/e2e/find-adaptive.spec.ts tests/e2e/find-visual.spec.ts tests/e2e/find.spec.ts tests/e2e/text-analysis.spec.ts
 ```
 
 Logs and native evidence are retained in `C:\Users\Craig\AppData\Local\Temp\axiom-epic80`. The workspace format retains version 1 with an optional validated Add entity draft. Existing workspaces need no migration. This change does not deploy a release or call an external assistant.

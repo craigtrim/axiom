@@ -35,17 +35,17 @@ The final full unit run passed **12,032 of 12,033 tests across 115 files**. One 
 
 Evidence:
 
-- `artifacts/issue-66-shell-regressions.json` and `.log`
-- `artifacts/issue-66-cancellation-final.json` and `.log`
-- `artifacts/issue-66-graph-replay.json` and `.log`
-- `artifacts/issue-66-full-unit.log`
-- `artifacts/issue-66-unit-followup.json` and `.log`
-- `artifacts/issue-66-final-unit.json` and `.log` (the final full run, one failure)
-- `artifacts/issue-66-full-typecheck.log`
+- `artifacts/history/2026-10-20/issue-66-shell-regressions.json` and `.log`
+- `artifacts/history/2026-10-20/issue-66-cancellation-final.json` and `.log`
+- `artifacts/history/2026-10-20/issue-66-graph-replay.json` and `.log`
+- `artifacts/history/2026-10-20/issue-66-full-unit.log`
+- `artifacts/history/2026-10-20/issue-66-unit-followup.json` and `.log`
+- `artifacts/history/2026-10-20/issue-66-final-unit.json` and `.log` (the final full run, one failure)
+- `artifacts/history/2026-10-20/issue-66-full-typecheck.log`
 
 ## Audit and source commits
 
-The 14-issue audit is `docs/issues-last-24-hours-audit.md`. It identifies the incomplete #66 scope, broken #57/#58 Details reference gate and prior tolerance, unresolved #59/#61 search-count acceptance conflict, graph replay defect, missed #65 announcement, issue handoff gaps and real-update verification limit. #61 has been reopened; #57 and #59 remain open with explicit findings. These are not presented as completed requirements.
+The 14-issue audit is `docs/validation/issues-last-24-hours-audit.md`. It identifies the incomplete #66 scope, broken #57/#58 Details reference gate and prior tolerance, unresolved #59/#61 search-count acceptance conflict, graph replay defect, missed #65 announcement, issue handoff gaps and real-update verification limit. #61 has been reopened; #57 and #59 remain open with explicit findings. These are not presented as completed requirements.
 
 Local commits:
 
@@ -65,7 +65,7 @@ Installer: `D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe`
 
 Size: **208,771,469 bytes**. SHA-256: `a84ac80e5b755dbd4eb994e90e8cbb7a1cc6744e4cd022b4149463089646a321`.
 
-All **49 bundled JavaScript, CSS, HTML and JSON files** match `dist` byte for byte. The receipt records 310 source/build inputs and the runtime build revision `6dc3d931b2b04f8cdf2ff564e73e5b1c11f052f2`. Subsequent changes are tests and documentation. The package log is `artifacts/issue-66-full-package.log`; the hash/input receipt is `artifacts/issue-66-full-package-receipt.json`.
+All **49 bundled JavaScript, CSS, HTML and JSON files** match `dist` byte for byte. The receipt records 310 source/build inputs and the runtime build revision `6dc3d931b2b04f8cdf2ff564e73e5b1c11f052f2`. Subsequent changes are tests and documentation. The package log is `artifacts/history/2026-10-20/issue-66-full-package.log`; the hash/input receipt is `artifacts/history/2026-10-20/issue-66-full-package-receipt.json`.
 
 The packaged application passed **68 distinct desktop cases** across the main run and follow-ups, including all 31 quality workflows, all shell/settings cases, all six multi-instance cases, all seven session-startup cases, all four file-launch cases, graph reopening, pane restoration, instance-count/disabled palette actions and three palette stability sizes. Its **58 shell and 12 settings image comparisons are again exact**. The palette stability checks include accessibility, input position and overflow.
 
@@ -75,6 +75,6 @@ The source-only, intercepted updater-coordination case also passed freshly. #60 
 
 The broader follow-ups still expose **four unresolved test failures**: three `file-open.spec.ts` expectations about the previous autosave/recent-file/prompt flow, and `instances-menu.spec.ts` expecting an exact `Expand` item in an empty graph's context menu before it reaches its palette assertions. These are recorded, not silently changed to produce a green broad-suite result. The full application desktop suite is not claimed to pass.
 
-Packaged records: `artifacts/issue-66-full-packaged.json`, `artifacts/issue-66-full-packaged-menus.json`, `artifacts/issue-66-packaged-startup.json`, `artifacts/issue-66-packaged-palette-followup.json`, and `artifacts/issue-66-palette-stability.json`. The updater record is `artifacts/issue-60-update-audit.json`.
+Packaged records: `artifacts/history/2026-10-20/issue-66-full-packaged.json`, `artifacts/history/2026-10-20/issue-66-full-packaged-menus.json`, `artifacts/history/2026-10-20/issue-66-packaged-startup.json`, `artifacts/history/2026-10-20/issue-66-packaged-palette-followup.json`, and `artifacts/history/2026-10-20/issue-66-palette-stability.json`. The updater record is `artifacts/history/2026-10-20/issue-60-update-audit.json`.
 
-`artifacts/issue-66-delivery-verification.json` deduplicates the passing packaged cases, lists the four remaining failures and the source-only updater skip, checks all 70 packaged pixel results, and verifies that the installer and all 310 recorded build inputs are unchanged after testing.
+`artifacts/history/2026-10-20/issue-66-delivery-verification.json` deduplicates the passing packaged cases, lists the four remaining failures and the source-only updater skip, checks all 70 packaged pixel results, and verifies that the installer and all 310 recorded build inputs are unchanged after testing.

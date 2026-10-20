@@ -18,9 +18,9 @@ Implementation commit: `d2e4666`. Find test correction: `937a5cf`.
 
 Local reports:
 
-- `artifacts/issue-67-unit.json`
-- `artifacts/issue-67-desktop.json`
-- `artifacts/issue-67-typecheck.log`
+- `artifacts/history/2026-10-20/issue-67-unit.json`
+- `artifacts/history/2026-10-20/issue-67-desktop.json`
+- `artifacts/history/2026-10-20/issue-67-typecheck.log`
 
 Installer built from `937a5cff28ab2ecf429570f45827f4b5869c4173` at `2026-10-08T16:47:59.203Z`:
 
@@ -28,6 +28,6 @@ Installer built from `937a5cff28ab2ecf429570f45827f4b5869c4173` at `2026-10-08T1
 - Size: 208,771,942 bytes.
 - SHA-256: `dcd4c90976a408aac8c640f65aa9896c54a58e8dd248beef7669668189e72a77`.
 - All 49 packaged runtime bundles match `dist`; the receipt also hashes 310 source/build inputs.
-- Receipt: `artifacts/issue-67-package-receipt.json`.
+- Receipt: `artifacts/history/2026-10-20/issue-67-package-receipt.json`.
 
-All 24 desktop cases also passed against this packaged application, including all 16 worker guards and the full stale-preview/ordinary-failure acceptance journey. Results: `artifacts/issue-67-packaged.json` and `artifacts/issue-67-packaged.log`.
+All 24 desktop cases also passed against this packaged application, including all 16 worker guards and the full stale-preview/ordinary-failure acceptance journey. Results: `artifacts/history/2026-10-20/issue-67-packaged.json` and `artifacts/history/2026-10-20/issue-67-packaged.log`.

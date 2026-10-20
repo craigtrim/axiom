@@ -1,6 +1,6 @@
 # Issue 66: one Windows title band
 
-**Superseded as a completion claim.** This records the earlier title-band-only delivery. Craig required the complete supplied shell, including the rail, document tabs, status bar and palette. The correction is recorded in `docs/issue-66-full-shell-validation.md`; the omissions audit is in `docs/issues-last-24-hours-audit.md`.
+**Superseded as a completion claim.** This records the earlier title-band-only delivery. Craig required the complete supplied shell, including the rail, document tabs, status bar and palette. The correction is recorded in `docs/validation/issue-66-full-shell-validation.md`; the omissions audit is in `docs/validation/issues-last-24-hours-audit.md`.
 
 Windows now uses the reference's 36 CSS pixel band: app mark, eight naturally sized menu triggers and a document pill. Native caption controls retain their real environment-variable reservation. Light, Dark and System changes update the overlay color and symbols alongside the renderer.
 
@@ -17,4 +17,4 @@ Source-build validation on Windows, 7 October 2026:
 
 Reference provenance and the exact allowed data/native-overlay substitutions are in `tests/fixtures/window-chrome-visual/README.md`. Results and images are under `artifacts/issue-66/`. No screenshot masks or tolerance were used.
 
-The final packaged build passed all four chrome cases, including the fourteen exact comparisons, and the updated document-pill/palette journey. All 21 entity context-menu cases passed after restricting the popup-container focus target to chrome menus; entity menus retain their previous item focus behavior. The Touchpoints assertions were also reconciled with its existing region and query controls. Combined verification and the older desktop failures are recorded in `docs/issues-63-65-66-validation.md`.
+The final packaged build passed all four chrome cases, including the fourteen exact comparisons, and the updated document-pill/palette journey. All 21 entity context-menu cases passed after restricting the popup-container focus target to chrome menus; entity menus retain their previous item focus behavior. The Touchpoints assertions were also reconciled with its existing region and query controls. Combined verification and the older desktop failures are recorded in `docs/validation/issues-63-65-66-validation.md`.

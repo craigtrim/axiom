@@ -37,4 +37,4 @@ The installer is D:\git\axiom\artifacts\build-73-manual-20261016\Axiom-Setup-1.0
 
 The benchmark is `scripts/benchmark-text-editor.mjs`. Set `AXIOM_TEST_EXE` to the packaged executable and run `node scripts/benchmark-text-editor.mjs <run-name>`. Optional `AXIOM_BENCH_CONCEPTS`, `AXIOM_BENCH_CHARACTERS`, and `AXIOM_BENCH_SAMPLES` variables control the workload. Defaults are 2,000 concepts, 98,000 characters, and 240 alternating input operations. Reports and CPU profiles are written under `artifacts/manual-editor/<run-name>`.
 
-The retained delivery evidence is under D:\git\axiom\artifacts\issue-73-manual-20261016. It includes the four before/after reports and CPU profiles, package receipt, unit results, and the packaged Text Analysis desktop log.
+The retained delivery evidence is under D:\git\axiom\artifacts\history\2026-10-20\issue-73-manual-20261016. It includes the four before/after reports and CPU profiles, package receipt, unit results, and the packaged Text Analysis desktop log.

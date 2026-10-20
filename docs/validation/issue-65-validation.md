@@ -17,4 +17,4 @@ Validated on Windows, 7 October 2026:
 
 The comparison uses the pinned HTML's CSS and generated markup in an isolated shadow root, with the same viewport and compositor treatment on each side. It substitutes live data and excludes the docking frame outside the reference's pane. It does not mask pixels, relax tolerance or substitute product markup for the reference. Images and numeric results are in `artifacts/issue-65/`.
 
-The final packaged build passed all three settings cases, including the twelve exact comparisons. Combined verification and the older desktop failures are recorded in `docs/issues-63-65-66-validation.md`.
+The final packaged build passed all three settings cases, including the twelve exact comparisons. Combined verification and the older desktop failures are recorded in `docs/validation/issues-63-65-66-validation.md`.
