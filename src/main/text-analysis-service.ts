@@ -156,7 +156,12 @@ export class TextAnalysisService {
     let parsed: { text: string; tokens: MutatocToken[] } | undefined;
     if (!this.emptyOntology) {
       try {
-        parsed = await this.client.request({ op: "parse", text: input.text });
+        // craigtrim/axiom#135: preserve the full input and offsets, but end matches at line breaks.
+        parsed = await this.client.request({
+          op: "parse",
+          text: input.text,
+          line_breaks: "boundary",
+        });
       } catch (error) {
         if (
           !(error instanceof MutatocError) ||

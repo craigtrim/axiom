@@ -4,7 +4,7 @@
 Running it installs Axiom for the current account, so no administrator prompt appears
 at any point.
 
-Builds require the complete Mutatoc 0.6.0 Windows package for Text Analysis (craigtrim/axiom#137). See [runtime setup](text-analysis.md#runtime) for the verified package and installation command.
+Builds require the complete Mutatoc 0.7.0 Windows package for Text Analysis (craigtrim/axiom#140). See [runtime setup](text-analysis.md#runtime) for the verified package and installation command.
 
 ## What the installer does
 
