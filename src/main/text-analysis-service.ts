@@ -1,7 +1,13 @@
 import { performance } from "node:perf_hooks";
 // craigtrim/axiom#40: the runtime version lives with the client, not tokenizer data.
 import { MUTATOC_VERSION, MutatocClient, MutatocError } from "./mutatoc-client";
-import { textEntities, type MutatocToken } from "./text-analysis-spans";
+import {
+  textEntities,
+  indexSpanRules,
+  type MutatocToken,
+  type MutatocSpanRule,
+  type SpanRuleIndex,
+} from "./text-analysis-spans";
 import {
   MAX_ANALYSIS_TEXT,
   type TextAnalysisContext,
@@ -18,6 +24,7 @@ export class TextAnalysisService {
   private loaded = "";
   private emptyOntology = false;
   private verified = false;
+  private spanRules: SpanRuleIndex = new Map();
   private concepts: NonNullable<TextAnalysisContext["concepts"]> = {};
   private queued?: Job;
   private running = false;
@@ -68,6 +75,7 @@ export class TextAnalysisService {
           this.loaded = "";
           this.verified = false;
           this.concepts = {};
+          this.spanRules.clear();
           job.reject(error instanceof Error ? error : Error(String(error)));
         }
       }
@@ -104,6 +112,15 @@ export class TextAnalysisService {
         class_based: true,
         interface: "data",
       });
+      // craigtrim/axiom#136: cache generated rules with the same ontology revision.
+      const spans = await this.client.request<
+        Record<string, MutatocSpanRule[]>
+      >({
+        op: "query",
+        method: "spans",
+        interface: "ask_json",
+      });
+      this.spanRules = indexSpanRules(spans);
       this.concepts = context.concepts ?? {};
       this.loaded = key;
       this.emptyOntology = false;
@@ -130,13 +147,13 @@ export class TextAnalysisService {
         text: input.text,
       }),
     };
-    const entities = textEntities(input.text, parsed.tokens);
+    const entities = textEntities(input.text, parsed.tokens, this.spanRules);
     const concepts = Object.fromEntries(
       [
         ...new Set(
           entities
             .filter((entity) => entity.source === "ontology")
-            .map((entity) => entity.label),
+            .flatMap((entity) => [entity.label, ...(entity.covered ?? [])]),
         ),
       ]
         .filter((label) => Object.hasOwn(this.concepts, label))

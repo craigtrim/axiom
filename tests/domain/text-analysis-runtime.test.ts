@@ -521,3 +521,90 @@ it.skipIf(!available)(
     }
   },
 );
+
+// craigtrim/axiom#136: exercise provenance from the real engine, including covered-only concepts.
+it.skipIf(!available)(
+  "explains native span words, covered entries, synonyms and ontology revisions",
+  async () => {
+    const content = `@prefix : <https://example.org/explanation#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+:Psychology a owl:Class; rdfs:label "Psychology" .
+<https://other.example/#Psychology> a owl:Class; rdfs:label "Mind Study" .
+:Behavioral_Psychology a owl:Class; rdfs:label "Behavioral Psychology" .
+:Digital_Circuit_Design a owl:Class; rdfs:label "Digital Circuit Design" .
+:renal_trauma a owl:Class; rdfs:label "Renal Trauma"; skos:altLabel "kidney injury" .
+:Acute a owl:Class; rdfs:label "Acute" .
+:Condition a owl:Class; rdfs:label "Condition"; skos:altLabel "renal_trauma+acute" .
+:owlclass_123 a owl:Class; rdfs:label "Combat" .`;
+    const store = storeFromRdf(
+      (await parseRdf(content, "explanation.ttl", "https://example.org/"))
+        .triples,
+      "explanation",
+    );
+    let context = await textAnalysisContext(store, 1);
+    const service = new TextAnalysisService(
+      () => executable,
+      async () => context,
+    );
+    const parse = (text: string) =>
+      service.parse({
+        text,
+        datasetEpoch: context.datasetEpoch,
+        version: context.version,
+      });
+    try {
+      const nested = await parse("😀 Psychology Behavioral");
+      expect(nested.entities).toEqual([
+        {
+          start: 3,
+          end: 24,
+          key: "ontology:behavioral_psychology",
+          label: "behavioral_psychology",
+          source: "ontology",
+          method: "spans",
+          matchedWords: ["Psychology", "Behavioral"],
+          covered: ["psychology"],
+        },
+      ]);
+      expect(nested.concepts!.psychology.map((c) => c.label)).toEqual([
+        "Psychology",
+        "Mind Study",
+      ]);
+      expect(
+        (await parse("digital one circuit two design")).entities[0]
+          .matchedWords,
+      ).toEqual(["digital", "circuit", "design"]);
+      expect(
+        (await parse("DESIGN\t two circuit one digital")).entities[0]
+          .matchedWords,
+      ).toEqual(["DESIGN", "circuit", "digital"]);
+      expect(
+        (await parse("kidney injury blah acute")).entities[0],
+      ).toMatchObject({
+        matchedWords: ["kidney injury", "acute"],
+        covered: ["renal_trauma", "acute"],
+      });
+      const exact = (await parse("Combat")).entities[0];
+      expect(exact).toMatchObject({ label: "owlclass_123", method: "exact" });
+      expect(exact.matchedWords).toBeUndefined();
+      expect(exact.covered).toBeUndefined();
+      context = {
+        ...context,
+        version: context.version + 1,
+        turtle: content
+          .replaceAll("Digital_Circuit_Design", "Harbor_Vessel_Design")
+          .replace('"Digital Circuit Design"', '"Harbor Vessel Design"'),
+      };
+      expect(
+        (await parse("harbor one vessel two design")).entities[0].matchedWords,
+      ).toEqual(["harbor", "vessel", "design"]);
+      expect((await parse("digital one circuit two design")).entities).toEqual(
+        [],
+      );
+    } finally {
+      service.close();
+    }
+  },
+);

@@ -2698,3 +2698,120 @@ test("a detached Text Analysis switches Summary and handles context menu letters
   await content.getByRole("button", { name: "Summary", exact: true }).click();
   await expect(content.locator(".text-analysis-chip")).toBeVisible();
 });
+
+// craigtrim/axiom#136: inspect rendered Monaco hovers, not just stored decoration text.
+async function hoverMatch(label: string) {
+  await expect(chip(label)).toBeAttached();
+  const className = (await chip(label).getAttribute("class"))!.match(
+    /text-entity-\d+/,
+  )![0];
+  const highlight = panel().locator(`.view-lines .${className}`).first();
+  await highlight.hover();
+  const hover = panel().locator(".monaco-hover").filter({ visible: true });
+  await expect(hover).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        hover.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          const x = rect.left + Math.min(40, rect.width / 2);
+          return (
+            rect.height > 16 &&
+            [rect.top + 8, rect.bottom - 8].every((y) =>
+              node.contains(node.ownerDocument.elementFromPoint(x, y)),
+            )
+          );
+        }),
+      {
+        message:
+          "Every hover fact must remain visible outside the editor's clipping area",
+      },
+    )
+    .toBe(true);
+  return hover;
+}
+async function appendExplanationOntology(text: string) {
+  await page.evaluate(async (addition) => {
+    const source = await window.axiom.request<
+      import("../../src/shared/source").SourceDocument
+    >("sourceDocument", { format: "turtle" });
+    await window.axiom.request("applySource", {
+      ...source,
+      text: source.text + "\n" + addition,
+    });
+  }, text);
+}
+test("#136 hover names the entry and distinguishes exact phrases from span words", async () => {
+  await appendExplanationOntology(`<${base}owlclass_123> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Combat" .
+<${base}Digital_Circuit_Design> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> "Digital Circuit Design" .`);
+  await enter("Combat");
+  let hover = await hoverMatch("owlclass_123");
+  await expect(hover).toContainText("Combat");
+  await expect(hover).toContainText("Exact phrase");
+  await expect(hover).toContainText("Ctrl+click for Details");
+  await expect(hover).not.toContainText("owlclass_");
+  await expect(hover).not.toContainText("Covers:");
+  await page.keyboard.press("Escape");
+  await enter("digital one circuit two design");
+  hover = await hoverMatch("digital_circuit_design");
+  await expect(hover).toContainText("Digital Circuit Design");
+  await expect(hover).toContainText(
+    "Words found near each other: digital, circuit, design",
+  );
+  await expect(hover).not.toContainText("one");
+  await expect(hover).not.toContainText("two");
+  await expect(hover).not.toContainText("spans");
+  await expect(hover).not.toContainText("digital_circuit_design");
+  await page.screenshot({ path: "artifacts/testing/issue-136-span-hover.png" });
+});
+test("#136 hover and Details resolve covered matches and shared canonical names", async () => {
+  const owl = "http://www.w3.org/2002/07/owl#Class",
+    label = "http://www.w3.org/2000/01/rdf-schema#label";
+  await appendExplanationOntology(`<${base}Psychology> a <${owl}>; <${label}> "Psychology" .
+<https://other.example/#Psychology> a <${owl}>; <${label}> "Mind Study" .
+<${base}Behavioral_Psychology> a <${owl}>; <${label}> "Behavioral Psychology" .
+<https://other.example/#Behavioral_Psychology> a <${owl}>; <${label}> "Behavior Study" .`);
+  await enter("Psychology Behavioral");
+  const hover = await hoverMatch("behavioral_psychology");
+  await expect(hover).toContainText("Behavioral Psychology");
+  await expect(hover).toContainText("Behavior Study");
+  await expect(hover).toContainText(
+    "Words found near each other: Psychology, Behavioral",
+  );
+  await expect(hover).toContainText("Covers: Psychology, Mind Study");
+  await expect(hover).not.toContainText("behavioral_psychology");
+  await page.keyboard.press("Escape");
+  await clickHighlight("behavioral_psychology");
+  const fields = details().locator(".text-span-details dl");
+  await expect(fields).toContainText(
+    "Words found near each other: Psychology, Behavioral",
+  );
+  await expect(fields).toContainText("Psychology, Mind Study");
+  await expect(fields).not.toContainText("spans");
+  await expect(fields).not.toContainText("Canonical name");
+  await expect(details()).toContainText("shared by 2 ontology entries");
+  await page.screenshot({
+    path: "artifacts/testing/issue-136-match-details.png",
+  });
+  await details()
+    .getByRole("button", { name: "Open Behavior Study", exact: true })
+    .click();
+  await expect(details()).toHaveAttribute(
+    "data-entity-iri",
+    "https://other.example/#Behavioral_Psychology",
+  );
+});
+test("#136 hover treats ontology label markup as literal text", async () => {
+  const label = "Entry [Open](command:evil) <img> &copy; *bold*";
+  await appendExplanationOntology(
+    `<${base}owlclass_safe> a <http://www.w3.org/2002/07/owl#Class>; <http://www.w3.org/2000/01/rdf-schema#label> ${JSON.stringify(label)}; <http://www.w3.org/2004/02/skos/core#altLabel> "safeword" .`,
+  );
+  await enter("safeword");
+  const hover = await hoverMatch("owlclass_safe");
+  await expect(hover).toContainText(label);
+  await expect(hover.locator("a, img, strong")).toHaveCount(0);
+  await expect(hover).toContainText("Exact phrase");
+  await page.screenshot({
+    path: "artifacts/testing/issue-136-literal-hover.png",
+  });
+});
