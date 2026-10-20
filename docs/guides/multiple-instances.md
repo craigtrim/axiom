@@ -31,9 +31,9 @@ Set `AXIOM_DISABLE_UPDATES=1` when testing a packaged build to prevent release c
 The multi-instance desktop suite starts real Electron processes and checks isolation, autosave and restart, silent probes, launch routing, Open/Recent/Save As conflicts, contested session restoration, forced-exit recovery and the New window command. Unit tests cover slot selection, ownership races and aliases, installer election, checksum validation and offline handoff.
 
 ```powershell
-npx vitest run tests/domain/instance-profile.test.ts tests/domain/workspace-ownership.test.ts tests/domain/instance-registry.test.ts tests/domain/updates.test.ts
+npm test -- tests/domain/instance-profile.test.ts tests/domain/workspace-ownership.test.ts tests/domain/instance-registry.test.ts tests/domain/updates.test.ts
 npm run build
-npx playwright test tests/e2e/multi-instance.spec.ts tests/e2e/launch-file.spec.ts tests/e2e/session-startup.spec.ts tests/e2e/workspace-autosave.spec.ts
+npm run test:desktop -- tests/e2e/multi-instance.spec.ts tests/e2e/launch-file.spec.ts tests/e2e/session-startup.spec.ts tests/e2e/workspace-autosave.spec.ts
 ```
 
 Installer tests intercept process launch; they never install a release or stop another installed application.

@@ -114,7 +114,7 @@ npm run typecheck
 npm run test:text-analysis
 npm test
 npm run build
-npx playwright test tests/e2e/text-analysis.spec.ts
+npm run test:desktop -- tests/e2e/text-analysis.spec.ts
 ```
 
 `test:text-analysis` fails if the native executable is missing, so its success cannot silently omit the C integration cases. General `npm test` runs can skip native tests on machines without the package. Install the complete runtime before using the dedicated command.
@@ -125,6 +125,6 @@ The reference fixtures record the source revision, relevant source hashes and mo
 python scripts/generate-text-analysis-reference.py --mutato D:\git\mutatos\mutato
 ```
 
-The generator imports that source tree directly and never uses mutatoc to create expected results. See [the fixture provenance](../tests/fixtures/text-analysis/README.md) for the covered contracts.
+The generator imports that source tree directly and never uses mutatoc to create expected results. See [the fixture provenance](../../tests/fixtures/text-analysis/README.md) for the covered contracts.
 
-[Performance measurements](text-analysis-performance.md) describe the native 0.3.0 runtime, earlier optimizations and the reproducible benchmark. Timing measurements are reported separately from functional tests.
+[Performance measurements](../development/text-analysis-performance.md) describe the native 0.3.0 runtime, earlier optimizations and the reproducible benchmark. Timing measurements are reported separately from functional tests.

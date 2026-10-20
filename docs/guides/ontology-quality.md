@@ -52,7 +52,7 @@ Export JSON or CSV through the native save dialog. Export includes all findings,
 
 ## Reviewed label additions
 
-For a missing-label finding in a completed, current report, **Apply** beside **Would add** writes exactly the displayed statement as one undoable edit. It refreshes affected findings and coverage, removes the resolved finding and focuses the next available row. The report remains current for another correction. A rejected write leaves the detail open with the reason. Undo makes the report stale like any other external edit. See `docs/issue-63-validation.md`.
+For a missing-label finding in a completed, current report, **Apply** beside **Would add** writes exactly the displayed statement as one undoable edit. It refreshes affected findings and coverage, removes the resolved finding and focuses the next available row. The report remains current for another correction. A rejected write leaves the detail open with the reason. Undo makes the report stale like any other external edit. See `docs/validation/issue-63-validation.md`.
 
 Select **More > Review missing labels** for a completed, current report. Review the identifier-derived candidates, select the desired entities, and edit their labels, predicate or language. Entities with a blank or conflicting existing label are listed but cannot be selected; edit those in Details. Select **Preview selected additions** to see the exact statements, including datatype and graph.
 
@@ -74,7 +74,7 @@ Functional cases are in `tests/domain/ontology-quality.test.ts` and `tests/e2e/o
 
 `tests/e2e/quality-visual.spec.ts` requires zero differing raw pixels for all forty cases across both themes, including #84's restored running and failed command bars. It checks both reference hashes and applies the seven shared palette values to the specimen in memory. `tests/fixtures/quality-visual/README.md` describes the method, the presentation-fixture data and every amendment made to the reference at capture time.
 
-Issue #65's settings and pre-scan bodies supersede the older reference in those regions; #84 restores #44's scan-state contents within #65's command-bar box. `tests/e2e/quality-settings-visual.spec.ts` compares the revised settings, idle body, status and withdrawal popup in both themes, and verifies retained rail positions, focus scrolling, running, failure and recovery. See `docs/issue-65-validation.md` for the reference hashes and comparison scope.
+Issue #65's settings and pre-scan bodies supersede the older reference in those regions; #84 restores #44's scan-state contents within #65's command-bar box. `tests/e2e/quality-settings-visual.spec.ts` compares the revised settings, idle body, status and withdrawal popup in both themes, and verifies retained rail positions, focus scrolling, running, failure and recovery. See `docs/validation/issue-65-validation.md` for the reference hashes and comparison scope.
 
 Performance measurements are separate: `node --import tsx tests/performance/ontology-quality.ts [ontology-file]`. They record synchronous snapshot time, complete scan time, scheduling gaps, cancellation and memory without asserting machine-dependent timing thresholds. The scanner is a deterministic review tool, not a proof that an ontology is correct or complete.
 
