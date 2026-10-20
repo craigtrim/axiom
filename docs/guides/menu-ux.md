@@ -62,7 +62,7 @@ Counts below exclude separators and include disabled entries. They describe the 
 | Empty graph canvas | Two creation commands plus Dismiss. | Two direct creation commands are sufficient. No separator or submenu is needed between them. |
 | Application menu bar | Separators and several submenus already exist. Window contains 16 command entries, including four Move pane directions. | Preserve useful existing submenus. Group the four directions under Move pane. |
 
-Source: [EntityMenu.tsx](../src/renderer/EntityMenu.tsx), [GraphPanel.tsx](../src/renderer/GraphPanel.tsx), [commands.ts](../src/shared/commands.ts), and the menu installation in [main.ts](../src/main/main.ts).
+Source: [EntityMenu.tsx](../../src/renderer/EntityMenu.tsx), [GraphPanel.tsx](../../src/renderer/GraphPanel.tsx), [commands.ts](../../src/shared/commands.ts), and the menu installation in [main.ts](../../src/main/main.ts).
 
 ## Menu layouts
 
@@ -167,7 +167,7 @@ The directional submenu reduces four repeated top-level entries to one predictab
 
 ## Keyboard and accessibility work
 
-Axiom's shared [ContextMenu.tsx](../src/renderer/ContextMenu.tsx) already supports arrow navigation, Home/End, mnemonics, outside-click dismissal and returning focus on close. Its action model now distinguishes separators and optional checked states, with conditional visibility and explicit keys. The Show in graph cascade uses the same component in Hierarchy.
+Axiom's shared [ContextMenu.tsx](../../src/renderer/ContextMenu.tsx) already supports arrow navigation, Home/End, mnemonics, outside-click dismissal and returning focus on close. Its action model now distinguishes separators and optional checked states, with conditional visibility and explicit keys. The Show in graph cascade uses the same component in Hierarchy.
 
 The [W3C menu pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/) supplies the relevant semantics for the React implementation: separators are noninteractive; submenu triggers expose their expanded state; Right opens a submenu; Left returns to its parent; Escape closes the current level. Disabled menu items remain discoverable through focus but cannot execute. Tab leaves the menu rather than moving between its items.
 

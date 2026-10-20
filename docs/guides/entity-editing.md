@@ -32,4 +32,4 @@ RDF terms retain their language, datatype and statement graph. Scoped Source edi
 
 The desktop suites `details-source.spec.ts` and `find.spec.ts` exercise the real resource picker, keyboard and mouse selection, detached windows, concurrent editor changes, stale worker requests, taxonomy scrolling and closed panes. The Text Analysis journeys also run because that view shares Details and the resource picker.
 
-See [the verified Windows build and test results](entity-editing-validation.md).
+See [the verified Windows build and test results](../validation/entity-editing-validation.md).

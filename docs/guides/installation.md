@@ -4,6 +4,47 @@
 Running it installs Axiom for the current account, so no administrator prompt appears
 at any point.
 
+## Build a new executable yourself
+
+Run D:\git\axiom\Build-Axiom-EXE.ps1 from PowerShell. The local launcher is ignored
+by Git and calls the shared build helper. On any checkout with dependencies installed,
+the equivalent command is:
+
+```powershell
+cd D:\git\axiom
+npm run build:exe
+```
+
+Use Node.js 22.12 or later. On a fresh checkout, first run `npm ci` and
+`npm run setup:mutatoc -- <extracted-mutatoc-0.5.2-folder>` to install dependencies
+and the native runtime. Those are already set up in Craig's current checkout.
+Close any Axiom copy running from `artifacts\installer\win-unpacked` before
+rebuilding it. The helper builds the current files, including local edits.
+
+The helper checks the native runtime and TypeScript, builds the application and
+installer, and runs six desktop checks using separate test profiles. These cover
+literal Find synonyms, editing highlighted text with automatic analysis on and off,
+updates across panes, search without a local model, and autosave recovery after a
+forced exit. If the local MPNet model is installed, it also runs two semantic-search
+checks. It then compares the packaged files with the build output, checks the native
+runtime and licenses, and records SHA-256 hashes for the executable and installer.
+This is a focused package check; `npm run verify` remains the broader test command.
+
+Logs, desktop results and `receipt.json` are retained in a timestamped folder under
+`artifacts\build-exe`. A failed step stops the process, prints `BUILD FAILED` and the
+log path, and returns a nonzero exit code. A build is ready when `BUILD VERIFIED`
+appears. Packaging can take several minutes; progress messages show the active log.
+The helper does not publish a GitHub release or run the installer.
+
+With the current version, the outputs are:
+
+Application: D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe
+
+Installer: D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
+
+Keep the entire `win-unpacked` folder together when using the application directly.
+The installer is the single file to use when installing or sharing a build.
+
 ## What the installer does
 
 It installs into `%LOCALAPPDATA%\Programs\Axiom`, with the destination offered on an
@@ -40,7 +81,7 @@ See [Independent instances](multiple-instances.md) for profiles and file ownersh
 ## Signing
 
 Builds are unsigned today, so Windows SmartScreen warns the first time you run the
-installer. The signing configuration is already in `electron-builder.config.cjs` and
+installer. The signing configuration is already in `config/electron-builder.config.cjs` and
 turns on when the build environment carries these variables:
 
 | Variable                          | Meaning                                                                            |

@@ -126,7 +126,7 @@ Shared views use `SharedPane` for the body, optional footer and one transient st
 
 Details enters recovery below 240 px wide or 120 px tall and shows only its header band, including retained source-draft actions. Its measurement uses the shared 600/616 px narrow and 400/416 px shallow hysteresis.
 
-[AdaptivePane.tsx](../src/renderer/AdaptivePane.tsx) wraps each view at the FlexLayout factory boundary. It measures the content rectangle in its owner document. PaneToolbar keeps primary commands visible and moves secondary controls into a native popover. PaneDetails preserves explicit disclosure choices and keeps focused fields accessible across a mode change. Each view declares its commands and content-specific layout.
+[AdaptivePane.tsx](../../src/renderer/AdaptivePane.tsx) wraps each view at the FlexLayout factory boundary. It measures the content rectangle in its owner document. PaneToolbar keeps primary commands visible and moves secondary controls into a native popover. PaneDetails preserves explicit disclosure choices and keeps focused fields accessible across a mode change. Each view declares its commands and content-specific layout.
 
 CSS container queries style descendants according to container dimensions. Queries using both width and height need an appropriate size containment context. The docking host must supply definite dimensions so containment cannot collapse the pane. [MDN: CSS container queries](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Container_queries).
 
@@ -160,8 +160,8 @@ Observe representative users finding touchpoints, editing a query, editing an en
 
 ## Desktop verification
 
-[adaptive-panes.spec.ts](../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
+[adaptive-panes.spec.ts](../../tests/e2e/adaptive-panes.spec.ts) exercises actual Electron windows and the production views. It checks Inspector edits and focus, Query editor identity and undo, Graph state, and retained Details and query results. The remaining pane checks cover visible primary actions and horizontal overflow at expanded, narrow and shallow sizes.
 
 Find's additional desktop cases are in tests/e2e/find-adaptive.spec.ts. They exercise all four presentations, minimum usable sizes, hysteresis, recovery, detached-window measurement, retained scope/editor focus, keyboard selection and paging, and normalized-name warnings through both creation paths. Light and dark themes are checked separately with enlarged text, reduced motion, automated accessibility rules, 4.5:1 text contrast and 3:1 control/focus contrast. The existing Find and background-search suites cover ranking, graph results, synonyms, persistence, held replies and immediate lexical feedback.
 
-Desktop screenshots are written under artifacts/testing with the adaptive view prefixes. The broader desktop suite continues to check entity editing, native menus, query execution, docking and workspace ownership. See the [verification record](verification.md) for the final run results.
+Desktop screenshots are written under artifacts/testing with the adaptive view prefixes. The broader desktop suite continues to check entity editing, native menus, query execution, docking and workspace ownership. See the [verification record](../validation/verification.md) for the final run results.
