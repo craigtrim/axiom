@@ -18,6 +18,7 @@ import { ResourceInput } from "./ResourceInput";
 import { compactIri, entityNamespace } from "../shared/terms";
 import { groupStatements } from "./statement-groups";
 import { StatementGroupRow } from "./StatementGroupRow";
+import { StatementValueKeys } from "./statement-value-keys";
 export { compactIri, expandIri, entityNamespace } from "../shared/terms";
 export function StatementGrid({
   subject,
@@ -37,6 +38,8 @@ export function StatementGrid({
   parentExpressions?: Record<string, string[]>;
 }) {
   const table = useRef<HTMLTableElement>(null);
+  // Issue 158: remove the clicked field without reusing it for its neighbour.
+  const valueKeys = useRef(new StatementValueKeys());
   const pendingFocus = useRef(false);
   const [announcement, announce] = useState("");
   const focusPredicate = () =>
@@ -94,10 +97,11 @@ export function StatementGrid({
         }))
       : [{ t, index, member: -1, members: undefined }];
   });
+  const keys = valueKeys.current.reconcile(rows.map((row) => row.t));
   const groups = groupStatements(
-    rows.map((value) => ({
+    rows.map((value, i) => ({
       predicate: value.t.predicate,
-      value,
+      value: { ...value, key: keys[i] },
     })),
   ).sort(
     (a, b) =>
@@ -110,6 +114,8 @@ export function StatementGrid({
     members: string[] | undefined,
     replacement?: Triple,
   ) => {
+    const row = rows.findIndex((v) => v.index === index && v.member === member);
+    valueKeys.current.replace(keys[row], replacement);
     const next = triples.flatMap((t, i) => {
       if (i !== index) return [t];
       if (!members) return replacement ? [replacement] : [];
@@ -169,7 +175,7 @@ export function StatementGrid({
                 key={group.predicate}
                 group={group}
                 name={name}
-                valueKey={(v) => v.index + ":" + v.member}
+                valueKey={(v) => v.key}
                 removable={(v) => !declaration(v.t)}
                 remove={({ index, member, members }) => {
                   update(index, member, members);

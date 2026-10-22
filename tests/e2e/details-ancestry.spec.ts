@@ -24,6 +24,8 @@ const ttl = `@prefix : <${base}>. @prefix owl: <${NS.owl}>. @prefix rdfs: <${NS.
 :Technology a owl:Class; rdfs:label "Technology"; rdfs:subClassOf :Course.
 :CivicTechnology a owl:Class; rdfs:label "Civic Technology"; rdfs:subClassOf :Technology.
 :DigitalActivism a owl:Class; rdfs:label "Digital Activism"; rdfs:comment "Using digital tools to mobilize people and advocate for change."; rdfs:subClassOf :Activism, :CivicTechnology.
+:ResourceAliases a owl:Class; rdfs:seeAlso :Activism, :CivicTechnology.
+:TextAliases a owl:Class; rdfs:seeAlso "First alias", "Second alias".
 :Campaign a owl:NamedIndividual, :DigitalActivism, :Course; rdfs:label "Community Campaign".
 :Combined a owl:Class; rdfs:label "Combined"; owl:equivalentClass [a owl:Class; owl:intersectionOf (:Activism :CivicTechnology)].
 :Language a owl:Class; rdfs:label "Language"; rdfs:subClassOf :Course.
@@ -438,6 +440,80 @@ test("adds a row in place and refreshes the consolidated ancestry after editing 
     })
     .toBe(true);
 });
+
+// Issue 158: removing the first field must preserve the next value in both views.
+for (const example of [
+  {
+    entity: "DigitalActivism",
+    predicate: SUBCLASS,
+    first: "Activism",
+    second: "Civic Technology",
+    value: base + "CivicTechnology",
+    literal: false,
+  },
+  {
+    entity: "ResourceAliases",
+    predicate: NS.rdfs + "seeAlso",
+    first: "Activism",
+    second: "Civic Technology",
+    value: base + "CivicTechnology",
+    literal: false,
+  },
+  {
+    entity: "TextAliases",
+    predicate: NS.rdfs + "seeAlso",
+    first: "First alias",
+    second: "Second alias",
+    value: "Second alias",
+    literal: true,
+  },
+]) {
+  test(`removing the first Details value preserves the second on ${example.entity}`, async () => {
+    await select(example.entity);
+    const group = details().locator(
+      `tbody tr[data-predicate="${example.predicate}"]`,
+    );
+    const fields = group.getByRole("combobox", { name: / value \d+$/ });
+    await expect(fields).toHaveCount(2);
+    await expect(fields.first()).toHaveValue(example.first);
+    await expect(fields.last()).toHaveValue(example.second);
+    await fields.first().focus();
+    await group
+      .getByRole("button", { name: /^Remove this .* value$/ })
+      .first()
+      .click();
+    await expect(fields).toHaveCount(1);
+    await expect(fields).toHaveValue(example.second);
+    await expect(
+      group.getByRole("button", { name: /^Remove this .* value$/ }),
+    ).toBeFocused();
+    await expect(details().locator('[role="status"]')).toContainText("Saved");
+    const saved = async () =>
+      page.evaluate(
+        async ({ iri, predicate }) => {
+          const doc = await window.axiom.request<any>("entityDocument", {
+            iri,
+          });
+          return doc.statements
+            .filter((t: any) => t.predicate === predicate)
+            .map((t: any) => t.object);
+        },
+        { iri: base + example.entity, predicate: example.predicate },
+      );
+    const expected = [
+      {
+        literal: example.literal,
+        value: example.value,
+        ...(example.literal ? { datatype: NS.xsd + "string" } : {}),
+      },
+    ];
+    await expect.poll(saved).toEqual(expected);
+    await select("Course");
+    await select(example.entity);
+    await expect(fields).toHaveValue(example.second);
+    await expect.poll(saved).toEqual(expected);
+  });
+}
 
 const hierarchy = () =>
   page.getByRole("region", { name: "Hierarchy panel", exact: true });
