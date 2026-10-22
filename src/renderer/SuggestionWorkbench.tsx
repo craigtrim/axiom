@@ -151,6 +151,18 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
   currentRun.current = p.runId;
   const id = useId();
   const entry = p.entry?.id === p.runId ? p.entry : undefined;
+  // craigtrim/axiom#149: a saved terminal run cannot borrow another target's progress.
+  const finishedStatus =
+    entry?.state === "failed"
+      ? "This run failed."
+      : entry?.state === "cancelled"
+        ? "This run was cancelled."
+        : entry?.state === "interrupted"
+          ? "This run was interrupted."
+          : "";
+  const preparing =
+    entry?.state === "running" ||
+    (!entry && (p.waiting || (p.selectionActivity ?? p.activity)));
   const items = p.items;
   const wording = modeWording[p.mode];
   const visible = visibleSuggestions(items, filter, query, sort);
@@ -895,13 +907,14 @@ export function SuggestionWorkbench<T extends SuggestionItem>(
               )
             ) : (
               <p>
-                {p.loading
-                  ? "Loading history…"
-                  : p.activity
-                    ? "Preparing suggestions…"
-                    : !p.targetExists
-                      ? `Right-click an entity and choose Suggest > ${wording.label} to begin. Earlier runs remain available in Run history.`
-                      : wording.start}
+                {finishedStatus ||
+                  (p.loading
+                    ? "Loading history…"
+                    : preparing
+                      ? "Preparing suggestions…"
+                      : !p.targetExists
+                        ? `Right-click an entity and choose Suggest > ${wording.label} to begin. Earlier runs remain available in Run history.`
+                        : wording.start)}
               </p>
             )}
           </div>

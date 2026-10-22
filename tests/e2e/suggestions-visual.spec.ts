@@ -525,6 +525,53 @@ test("Suggestions uses pane width for its tiers and retains review state through
   ).toBeVisible();
 });
 
+// craigtrim/axiom#149: another target's activity never changes a terminal run's status.
+for (const state of ["failed", "cancelled", "interrupted"] as const) {
+  test(`Suggestions retains ${state} status while another target runs`, async ({
+    page,
+  }) => {
+    await prepare(page, true, false);
+    await page.evaluate(
+      (state) =>
+        window.configureSuggestions({
+          entry: {
+            id: "fm-2",
+            state,
+            provider: "claude",
+            error: "Assistant timed out. Try a shorter request.",
+            auditId: "failed-run-audit",
+          },
+          runId: "fm-2",
+          items: [],
+          summary: "",
+          activity: true,
+          selectionActivity: false,
+          error:
+            state === "failed"
+              ? "Assistant timed out. Try a shorter request."
+              : "",
+        }),
+      state,
+    );
+    await expect(page.locator(".ac-empty")).toContainText(state);
+    await expect(page.locator(".ac-empty")).not.toContainText(
+      "Preparing suggestions",
+    );
+    await expect(page.locator(".ac-scroll")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    if (state === "failed") {
+      await expect(page.getByRole("alert")).toContainText(
+        "Assistant timed out. Try a shorter request.",
+      );
+      await expect(
+        page.getByRole("button", { name: "Error details", exact: true }),
+      ).toBeVisible();
+    }
+  });
+}
+
 test("Suggestions shows cache controls only on cached runs and bypasses the cache explicitly", async ({
   page,
 }) => {

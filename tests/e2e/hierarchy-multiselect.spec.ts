@@ -642,6 +642,53 @@ test("batch cancellation lets the running target finish and keeps its failure re
       .toEqual(["failed", "running", "queued"]);
     const batch = (await batches())[0];
     expect(batch.runs[0].auditId).toBeTruthy();
+    // craigtrim/axiom#149: a finished failure must not borrow the next target's progress.
+    await runs()
+      .getByRole("row", { name: "Open run for Gamma Subject", exact: true })
+      .click();
+    await expect(review().getByRole("alert")).toContainText(
+      "Assistant exited with code 1. Fixture assistant failure",
+    );
+    await expect(review().locator(".ac-empty")).not.toContainText(
+      "Preparing suggestions",
+    );
+    await expect(review().locator(".ac-scroll")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await expect(
+      review().getByRole("combobox", { name: "Run history" }),
+    ).toHaveValue(batch.runs[0].id);
+    await review()
+      .getByRole("button", { name: "Error details", exact: true })
+      .click();
+    const audit = page.locator(
+      '[data-panel="errorlog"] .ent[data-open="true"]',
+    );
+    await expect(audit).toHaveAttribute(
+      "data-audit-id",
+      batch.runs[0].auditId!,
+    );
+    const record = await page.evaluate(
+      (id) => window.axiom.audit.read(id),
+      batch.runs[0].auditId!,
+    );
+    expect(record.metadata.exitCode).toBe(1);
+    expect(JSON.stringify(record)).toContain("Fixture assistant failure");
+    await menu("view.suggestionruns");
+    await runs()
+      .getByRole("button", { name: "Error details", exact: true })
+      .click();
+    await expect(audit).toHaveAttribute(
+      "data-audit-id",
+      batch.runs[0].auditId!,
+    );
+    expect((await batches())[0].runs.map((r) => r.state)).toEqual([
+      "failed",
+      "running",
+      "queued",
+    ]);
+    await menu("view.suggestionruns");
     await runs()
       .getByRole("button", { name: "Cancel the batch", exact: true })
       .click();
