@@ -45,11 +45,27 @@ export function ResourceInput({
         : compact;
   };
   const shown = textValue ? value : name(value);
-  const [text, setText] = useState(shown),
-    [open, setOpen] = useState(false),
+  // Issue 158: a draft belongs to one value, even before layout effects move focus.
+  const identity = JSON.stringify([
+    s.datasetEpoch,
+    namespace,
+    value,
+    textValue,
+  ]);
+  const [draft, setDraft] = useState({ identity, text: shown });
+  const text = draft.identity === identity ? draft.text : shown;
+  const setText = (text: string) => setDraft({ identity, text });
+  const [open, setOpen] = useState(false),
     [items, setItems] = useState<ResourceMatch[]>([]),
     [active, setActive] = useState(-1),
     [error, setError] = useState("");
+  if (draft.identity !== identity) {
+    setDraft({ identity, text: shown });
+    setOpen(false);
+    setItems([]);
+    setActive(-1);
+    setError("");
+  }
   const [creating, setCreating] = useState(false);
   const creationPending = useRef(false);
   // craigtrim/axiom#72: check every class, including matches outside the suggestion limit.
@@ -92,6 +108,7 @@ export function ResourceInput({
     omitted,
   ]);
   const key = JSON.stringify([
+    identity,
     scope,
     s.version,
     text,
@@ -213,7 +230,7 @@ export function ResourceInput({
         ?.scrollIntoView({ block: "nearest" });
   }, [active]);
   const choose = (iri: string) => {
-    if (disabled || !alive.current) return;
+    if (disabled || !alive.current || latest.current !== key) return;
     skipBlur.current = true;
     setText(name(iri));
     setOpen(false);
@@ -267,7 +284,7 @@ export function ResourceInput({
         setError("That match is no longer available. Choose a current match.");
     }, iri);
   const chooseText = () => {
-    if (disabled || !alive.current) return;
+    if (disabled || !alive.current || latest.current !== key) return;
     ++intent.current;
     pending.current = undefined;
     skipBlur.current = true;
@@ -276,8 +293,12 @@ export function ResourceInput({
     useText?.(text);
     input.current?.blur();
   };
-  const currentCreation = useRef({ scope, change });
-  currentCreation.current = { scope, change };
+  const currentCreation = useRef({ scope, identity, change });
+  currentCreation.current = { scope, identity, change };
+  const sameCreation = () =>
+    alive.current &&
+    currentCreation.current.scope === scope &&
+    currentCreation.current.identity === identity;
   const createParent = async () => {
     if (creationPending.current || disabled) return;
     creationPending.current = true;
@@ -291,14 +312,14 @@ export function ResourceInput({
         version: s.version,
         preserveSelection: true,
       });
-      if (!alive.current || currentCreation.current.scope !== scope) return;
+      if (!sameCreation()) return;
       skipBlur.current = true;
       setText(text.trim());
       setOpen(false);
       currentCreation.current.change(iri);
       input.current?.blur();
     } catch (e) {
-      if (alive.current && currentCreation.current.scope === scope)
+      if (sameCreation())
         setError(
           (e as Error).message.replace(
             /^Error invoking remote method '[^']+': Error: /,
@@ -311,6 +332,7 @@ export function ResourceInput({
     }
   };
   const commit = () => {
+    if (draft.identity !== identity || latest.current !== key) return;
     if (creationPending.current) return;
     if (text === shown && (!textValue || useText)) return;
     if (createMissingClass) {
