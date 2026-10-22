@@ -2,7 +2,7 @@
 
 In Details, a subclass parent uses the ontology resource picker. Typing `Enginee` offers Engineering; arrows and Enter or a mouse click select its actual IRI. A parent imported as a literal also uses this picker so it can be corrected. Changing a populated text row to `rdfs:subClassOf` preserves the text and offers matching classes. New unresolved parent text stays in the retained draft until a resource is chosen. Imported malformed assertions can remain unchanged while another field is edited.
 
-Find selects the matching entity and reveals it in an open Hierarchy pane. It clears the hierarchy filter, selects Classes or Properties, expands the ancestor path and scrolls the selected row into view. This works in detached panes and keeps keyboard focus in Find. A closed Hierarchy pane stays closed.
+Find selects the matching entity and reveals it in a Hierarchy pane that is on screen. It clears the hierarchy filter, selects Classes or Properties, expands the ancestor path and scrolls the selected row into view. This works in detached panes and keeps keyboard focus in Find. A closed Hierarchy pane stays closed. A Hierarchy tab hidden behind another tab or behind a maximized pane stays hidden (#142).
 
 Find's class-row menu offers Subclass, Sibling and Instance. Sibling opens a new class draft with every direct named parent of the row, leaving out anonymous restrictions and `owl:Thing`. Review or remove those parents before creating the class; an empty parent field creates it under `owl:Thing`. The context bar follows your edits, and one Undo removes the new class and its statements. Escape and Back to results retain separate drafts for each row and action. `owl:Thing` itself has no Sibling action. In an open menu, pressing S repeatedly cycles through matching items, including Synonym in narrow panes.
 
@@ -30,6 +30,6 @@ RDF terms retain their language, datatype and statement graph. Scoped Source edi
 
 `tests/domain/entity-merge.test.ts` exercises independent, identical and conflicting RDF edits, comment changes, functional properties and anonymous structures. `tests/domain/editor-drafts.test.ts` covers saves in progress, identifier changes, unresolved parent text, preserved conflicts and ontology switches. Entity Source tests exercise merging across all supported serialization formats and Undo.
 
-The desktop suites `details-source.spec.ts` and `find.spec.ts` exercise the real resource picker, keyboard and mouse selection, detached windows, concurrent editor changes, stale worker requests, taxonomy scrolling and closed panes. The Text Analysis journeys also run because that view shares Details and the resource picker.
+The desktop suites `details-source.spec.ts` and `find.spec.ts` exercise the real resource picker, keyboard and mouse selection, detached windows, concurrent editor changes, stale worker requests, taxonomy scrolling, and closed or hidden taxonomy panes. The Text Analysis journeys also run because that view shares Details and the resource picker.
 
 See [the verified Windows build and test results](../validation/entity-editing-validation.md).
