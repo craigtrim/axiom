@@ -18,6 +18,7 @@ const fake = vi.hoisted(() => ({
   release: undefined as (() => void) | undefined,
   block: false,
   editBeforeValidate: false,
+  reply: undefined as string | undefined,
 }));
 vi.mock("../../src/main/local-assistant", () => ({
   discoverAssistants: async () => [],
@@ -42,6 +43,7 @@ vi.mock("../../src/main/local-assistant", () => ({
           fake.release = resolve;
         });
       if (fake.fail) throw Error("Provider unavailable");
+      if (fake.reply !== undefined) return fake.reply;
       return "Summary: Proposed categories.\nSuggestions:\n1. Water vehicle\nDescription: Travels on water.\nReason: A useful direct child.\n\n2. Air vehicle\nDescription: Travels through air.\nReason: A useful direct child.";
     }
     cancel() {
@@ -94,11 +96,27 @@ beforeEach(async () => {
   fake.block = false;
   fake.release = undefined;
   fake.editBeforeValidate = false;
+  fake.reply = undefined;
 });
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
+// craigtrim/axiom#150: empty successes survive history reload without an error.
+it.each(["", "Suggestions: None", "Summary: All options are covered."])(
+  "persists a completed empty taxonomy reply: %j",
+  async (raw) => {
+    fake.reply = raw;
+    await service().run(input("empty"));
+    const entry = (await service().read("empty")).entry;
+    expect(entry.state).toBe("completed");
+    expect(entry.error).toBeUndefined();
+    expect(entry.response?.result.suggestions).toEqual([]);
+    expect(entry.response?.result.summary).toBe(
+      raw.startsWith("Summary:") ? "All options are covered." : "",
+    );
+  },
+);
 it("retains every run independently across nodes, retries and service restart", async () => {
   const current = service();
   await current.run(input("first"));

@@ -1,3 +1,4 @@
+// craigtrim/axiom#150: malformed-response fixtures contain an incomplete proposal, not empty prose.
 // craigtrim/axiom#94: audit entries open in place and copy confirmation keeps the button stable.
 // Reference control names and retained review behavior (craigtrim/axiom#82).
 import AxeBuilder from "@axe-core/playwright";
@@ -106,7 +107,7 @@ test.beforeEach(async () => {
     const names=behavior.names ?? (children?["Water vehicle","Air vehicle"]:["Apollo 15 rover"]);
     if(behavior.duplicate)names.push("Car");
     const result="Summary: "+(behavior.empty?"No new additions are justified.":"Proposals for review.")+"\\nSuggestions:\\n"+(behavior.empty?"None.":names.map((label,i)=>(i+1)+". "+label+"\\nDescription: A proposed "+(children?"category":"named example")+".\\nReason: Fits the supplied background.").join("\\n\\n"));
-    setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"bad output":result),behavior.delay??20);
+    setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],behavior.invalid?"1. bad output":result),behavior.delay??20);
   });`,
   );
   // These fixtures exercise Codex explicitly; new profiles default to Claude.
@@ -783,19 +784,19 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
     (id) => window.axiom.audit.read(id),
     reference!,
   );
-  expect(record.details["Assistant response"]).toBe("bad output");
+  expect(record.details["Assistant response"]).toBe("1. bad output");
   expect(record.metadata.entity).toBe("Vehicle");
   expect(record.metadata.exitCode).toBe(0);
   expect(path.isAbsolute(record.file!)).toBe(true);
   expect(JSON.parse(await readFile(record.file!, "utf8")).record.id).toBe(
     reference!,
   );
-  await expect(logs.getByText("bad output", { exact: true })).toBeHidden();
+  await expect(logs.getByText("1. bad output", { exact: true })).toBeHidden();
   await logs
     .locator(".dsec summary")
     .filter({ hasText: /^Assistant response,/ })
     .click();
-  await expect(logs.getByText("bad output", { exact: true })).toBeVisible();
+  await expect(logs.getByText("1. bad output", { exact: true })).toBeVisible();
   const previousClipboard = await app.evaluate(({ clipboard }) =>
     clipboard.readText(),
   );
@@ -812,7 +813,7 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
     { copied, previousClipboard },
   );
   expect(copied).toContain(reference);
-  expect(copied).toContain("bad output");
+  expect(copied).toContain("1. bad output");
   expect(copied).toContain("Suggest useful additional types");
   await app.evaluate(({ shell }) => {
     shell.showItemInFolder = (file) => {
@@ -884,7 +885,7 @@ test("surfaces a failed run's audit on request and retains its raw reply after r
     .filter({ hasText: /^Assistant response,/ })
     .click();
   await expect(
-    restoredLogs.getByText("bad output", { exact: true }),
+    restoredLogs.getByText("1. bad output", { exact: true }),
   ).toBeVisible();
   expect(
     (await readFile(path.join(profile, "calls.txt"), "utf8"))

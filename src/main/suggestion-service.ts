@@ -13,6 +13,7 @@ import { auditId, auditDetail, auditStep } from "./audit-log";
 import {
   readSuggestionDefinition,
   parseSuggestionValues,
+  emptySuggestionSummary,
   type SuggestionDefinition,
   type SuggestionDocument,
   type SuggestionRun,
@@ -370,6 +371,9 @@ export class SuggestionService {
         );
         auditStep("Validating suggested values");
         const values = parse(completion.reply);
+        // craigtrim/axiom#150: keep a no-data explanation in the saved run and Analysis view.
+        if (!values.length)
+          run.summary = emptySuggestionSummary(completion.reply);
         if (input.mode === "parents") run.values = values;
         else if (input.mode === "synonyms") {
           if (values.length > 12)

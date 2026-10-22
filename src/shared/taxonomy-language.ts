@@ -222,9 +222,10 @@ export function readTaxonomyReply(raw: unknown): {
         (reason ? " " + reason : ""),
     );
   if (typeof raw !== "string") throw invalid("The reply was not plain text.");
-  if (!raw.trim()) throw invalid("The reply was empty.");
   if (raw.length > 120000)
     throw invalid("The reply exceeded the 120,000-character limit.");
+  // craigtrim/axiom#150: a successful reply with no proposals is a completed empty result.
+  if (!raw.trim()) return { summary: "", suggestions: [] };
   let text = raw.trim().replace(/\r\n?/g, "\n");
   const fence = text.match(
     /^```(?:text|plaintext|markdown)?\s*\n([\s\S]*?)\n```$/i,
@@ -286,6 +287,8 @@ export function readTaxonomyReply(raw: unknown): {
     const detail = line
       .replace(/^[-*]\s+/, "")
       .match(/^(Description|Definition|Reason|Why)\s*:\s*(.*)$/i);
+    if ((detail && !current) || /^(?:Name:|\d+[.)])\s*$/i.test(line))
+      throw invalidLine("A proposal is missing its name.");
     if (detail && current) {
       field = /^(Description|Definition)$/i.test(detail[1])
         ? "definition"
@@ -303,12 +306,11 @@ export function readTaxonomyReply(raw: unknown): {
       section = true;
     } else if (current && field)
       current[field] += (current[field] ? "\n" : "") + line;
-    else if (!section) summary.push(line);
+    else if (!current) summary.push(line);
     else throw invalidLine("Expected a numbered name, Description, or Reason.");
   }
-  if (!summary.length) throw invalid("No summary was provided.");
-  if (!suggestions.length && !empty)
-    throw invalid("No suggestions or explicit None response was provided.");
+  if (suggestions.length && !summary.length)
+    throw invalid("No summary was provided.");
   for (const [index, item] of suggestions.entries()) {
     const missing = [
       !item.label && "name",

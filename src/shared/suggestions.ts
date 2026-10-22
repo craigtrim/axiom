@@ -1,5 +1,6 @@
 import type { AssistantId } from "./assistant";
 import type { Entity, Triple } from "../domain/model";
+import { readTaxonomyReply } from "./taxonomy-language";
 export interface SuggestionDefinition {
   id: string;
   name: string;
@@ -40,6 +41,8 @@ export interface SuggestionRun {
   values: SuggestionValue[];
   applied: number[];
   error?: string;
+  // craigtrim/axiom#150: retain an explanation from a successful empty reply.
+  summary?: string;
   auditId?: string;
   session: string;
 }
@@ -83,12 +86,22 @@ export function readSuggestionDefinition(value: unknown): SuggestionDefinition {
     valueType: v.valueType,
   };
 }
+export function emptySuggestionSummary(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return;
+  try {
+    const reply = readTaxonomyReply(raw);
+    if (!reply.suggestions.length) return reply.summary;
+  } catch {
+    // Structured or incomplete proposals still go through value validation.
+  }
+}
 export function parseSuggestionValues(
   raw: unknown,
   definition: SuggestionDefinition,
   options: { allowEmptyReason?: boolean } = {},
 ): SuggestionValue[] {
   if (typeof raw === "string") {
+    if (emptySuggestionSummary(raw) !== undefined) return [];
     const text = raw
       .trim()
       .replace(/^```(?:json)?\s*/i, "")
