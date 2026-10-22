@@ -512,7 +512,8 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
   ).toBeVisible();
 });
 
-test("the narrow split reserves 148 pixels and lists Synonym before relations", async () => {
+// Issue 156: Narrow has one full-width cell and keeps the existing split menu.
+test("the narrow split overlays Entity and lists Synonym before relations", async () => {
   await openExtendFixture();
   await page.locator('[data-pane-id="find"]').evaluate((el) =>
     Object.assign((el as HTMLElement).style, {
@@ -526,12 +527,10 @@ test("the narrow split reserves 148 pixels and lists Synonym before relations", 
   );
   await expect(pane()).toHaveAttribute("data-layout", "narrow");
   const row = extendRow("Psychology");
-  await expect
-    .poll(
-      async () =>
-        (await row.locator(".find-extend-column").boundingBox())!.width,
-    )
-    .toBe(148);
+  await expect(row.locator("td")).toHaveCount(1);
+  expect((await row.locator("td").boundingBox())!.width).toBe(
+    (await row.boundingBox())!.width,
+  );
   const trigger = await extendMenu("Psychology");
   await expect(trigger).toHaveText("v");
   await expect(row.locator(".ext-main")).toHaveText("+ Synonym");
@@ -558,6 +557,43 @@ test("the narrow split reserves 148 pixels and lists Synonym before relations", 
 });
 
 // #70: the sibling editor must save the generated Subject without recasing its label.
+test("#156 property editor returns to its original button after crossing Narrow", async () => {
+  await openExtendFixture();
+  const host = page.locator('[data-pane-id="find"]');
+  const resize = async (width: number) => {
+    await host.evaluate(
+      (el, width) =>
+        Object.assign((el as HTMLElement).style, {
+          position: "fixed",
+          left: "24px",
+          top: "24px",
+          width: width + "px",
+          height: "558px",
+          zIndex: "1000",
+        }),
+      width,
+    );
+    await expect(pane()).toHaveAttribute(
+      "data-layout",
+      width < 600 ? "narrow" : "expanded",
+    );
+  };
+  await resize(500);
+  for (const width of [616, 500]) {
+    await extendMenu("teaches");
+    await page.getByRole("menuitem", { name: /^Subproperty/ }).click();
+    await expect(pane().locator(".extend-back")).toBeVisible();
+    await resize(width);
+    await pane().locator(".extend-back").click();
+    await expect(extendRow("teaches").locator(".ext-more")).toBeFocused();
+  }
+  await extendRow("teaches").locator(".ext-main").click();
+  await expect(pane().locator(".extend-back")).toBeVisible();
+  await resize(616);
+  await pane().locator(".extend-back").click();
+  await expect(extendRow("teaches").locator(".ext-main")).toBeFocused();
+});
+
 test("#70 uppercase sibling label previews and saves a PascalCase ID", async () => {
   await openExtendFixture();
   await extendMenu("Clinical Psychology");
