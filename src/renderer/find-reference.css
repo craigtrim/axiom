@@ -1456,11 +1456,7 @@
   height: auto;
   min-height: 30px;
 }
-/* Keep the narrow reference column at its preferred width while the remaining
-   entity space still fits; smaller panes reduce that width continuously. */
-.find-panel[data-layout="narrow"] .find-results .find-type-column {
-  width: clamp(24px, calc(100cqw - 243px), 120px);
-}
+/* craigtrim/axiom#147: Narrow folds Type into Entity instead of reserving a column. */
 .find-panel[data-layout="narrow"] .find-results th {
   box-sizing: border-box;
 }

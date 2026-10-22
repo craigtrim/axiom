@@ -18,8 +18,9 @@ import type { Snapshot } from "../../src/shared/protocol";
 const reference = path.resolve(
   "tests/fixtures/find-visual/visual-reference.html",
 );
+// craigtrim/axiom#147: the amended Narrow reference folds Type into Entity.
 const referenceHash =
-  "5fb508df79392f7212bf313127e90ad2787a363ffd24ed5f95309610a32ba73c";
+  "3a9e510b6150ce9f3a2fc6d7b6c79e1c8b8739b4b2b97621fa2fce9f6328fcf3";
 // The grouped editor and T1/A4/A5 amendments govern craigtrim/axiom#83.
 const groupedReference = path.resolve(
   "tests/fixtures/find-visual/visual-reference-v5.html",
@@ -554,14 +555,16 @@ for (const theme of ["light", "dark"] as const) {
       // This avoids batching-dependent edge rounding without changing geometry,
       // colors, text, clipping or the strict raw bitmap comparison.
       for (const root of [pane(), expectedPane])
-        await root.evaluate((el) => {
+        await root.evaluate((el, narrow) => {
           (el as HTMLElement).style.transform = "translateZ(0)";
           el.querySelectorAll<HTMLElement>(
-            ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms",
+            ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms" +
+              // Issue #147: isolate the newly positioned ancestry text equally in both renderings.
+              (narrow ? ", .epath, .find-result-path" : ""),
           ).forEach((name) => {
             name.style.transform = "translateZ(0)";
           });
-        });
+        }, name === "narrow");
       const expected = await capture(expectedPane, "reference"),
         actual = await capture(pane(), "application");
       await mkdir("artifacts/issue-83", { recursive: true });

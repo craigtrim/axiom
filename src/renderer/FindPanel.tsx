@@ -1230,7 +1230,8 @@ export function FindPanel() {
                     <th
                       scope="col"
                       className="find-type-column"
-                      hidden={layout.narrow && layout.shallow}
+                      // craigtrim/axiom#147: Type folds alongside Synonym in every Narrow pane.
+                      hidden={layout.narrow}
                     >
                       Type
                     </th>
@@ -1311,7 +1312,7 @@ export function FindPanel() {
                           )}
                         <span
                           className="find-folded-type"
-                          hidden={!(layout.narrow && layout.shallow)}
+                          hidden={!layout.narrow}
                         >
                           <b>Type</b>
                           {` ${kindLabel(row.kind)}`}
@@ -1323,10 +1324,7 @@ export function FindPanel() {
                           </span>
                         )}
                       </td>
-                      <td
-                        className="find-type-column"
-                        hidden={layout.narrow && layout.shallow}
-                      >
+                      <td className="find-type-column" hidden={layout.narrow}>
                         {kindLabel(row.kind)}
                       </td>
                       {!layout.narrow && (
