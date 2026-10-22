@@ -1,5 +1,7 @@
 // craigtrim/axiom#94: one frozen queue with direct review and its own persisted error references.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSuggestionRunLayout } from "./useSuggestionRunLayout";
+import { runSetGap } from "./suggestion-run-layout";
 import {
   pendingBatchRun,
   type BatchMode,
@@ -74,6 +76,10 @@ export function SuggestionRunsPanel() {
       b.createdAt > (cleared[b.namespace] ?? 0),
   );
   const running = !!batch?.runs.some(pendingBatchRun);
+  // craigtrim/axiom#148: consecutive slices preserve frozen order across column sets.
+  const rows = useRef<HTMLDivElement>(null);
+  const { columns, minWidth } = useSuggestionRunLayout(rows, batch?.runs ?? []);
+  const sliceSize = Math.ceil((batch?.runs.length ?? 0) / columns);
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
     setError("");
@@ -130,6 +136,7 @@ export function SuggestionRunsPanel() {
     <UtilityFrame
       id="suggestionruns"
       label="Suggestion runs"
+      rowsRef={rows}
       toast={toast}
       toolbar={
         <UtilityToolbar
@@ -200,81 +207,113 @@ export function SuggestionRunsPanel() {
           Select nodes in Hierarchy, then choose an action from Suggest or Find.
         </div>
       ) : (
-        <table className="grid" aria-label="Selected node runs">
-          <colgroup>
-            <col />
-            <col style={{ width: 150 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 120 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Target</th>
-              <th>Status</th>
-              <th className="num">Results</th>
-              <th>
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {batch.runs.map((run) => {
-              const review = () => {
-                if (run.reviewable)
-                  openTaxonomy(run.iri, batch.mode, run.id, "taxonomy", false);
-              };
-              const label =
-                run.state === "completed"
-                  ? "complete"
-                  : ["cancelled", "interrupted"].includes(run.state)
-                    ? "not run"
-                    : run.state;
-              const kind =
-                label === "complete"
-                  ? "good"
-                  : label === "failed"
-                    ? "err"
-                    : label === "not run"
-                      ? "wrn"
-                      : "inf";
-              return (
-                <tr
-                  key={run.id}
-                  data-run-iri={run.iri}
-                  tabIndex={run.reviewable ? 0 : undefined}
-                  aria-label={
-                    run.reviewable ? "Open run for " + run.label : undefined
-                  }
-                  onClick={review}
-                  onKeyDown={(e) => {
-                    if (e.target === e.currentTarget && e.key === "Enter") {
-                      e.preventDefault();
-                      review();
-                    }
-                  }}
-                >
-                  <td title={run.iri}>{run.label}</td>
-                  <td>
-                    <UtilityTag kind={kind} title={run.error}>
-                      {label}
-                    </UtilityTag>
-                  </td>
-                  <td className="num">
-                    {run.state === "completed" ? run.count : ""}
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {run.state === "failed" && (
-                      <ErrorDetailsButton
-                        error={run.error ?? "Suggestion run failed"}
-                        auditId={run.auditId}
-                      />
-                    )}
-                  </td>
+        <div
+          className="run-sets"
+          style={{
+            gridTemplateColumns: `repeat(${columns}, minmax(${minWidth}px, 1fr))`,
+            minWidth: columns * minWidth + (columns - 1) * runSetGap,
+            columnGap: runSetGap,
+          }}
+        >
+          {Array.from({ length: columns }, (_, column) => (
+            <table
+              key={column}
+              className="grid"
+              aria-label={
+                columns === 1
+                  ? "Selected node runs"
+                  : `Selected node runs, column ${column + 1} of ${columns}`
+              }
+            >
+              <colgroup>
+                <col />
+                <col style={{ width: 150 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 120 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Target</th>
+                  <th>Status</th>
+                  <th className="num">Results</th>
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {batch.runs
+                  .slice(column * sliceSize, (column + 1) * sliceSize)
+                  .map((run) => {
+                    const review = () => {
+                      if (run.reviewable)
+                        openTaxonomy(
+                          run.iri,
+                          batch.mode,
+                          run.id,
+                          "taxonomy",
+                          false,
+                        );
+                    };
+                    const label =
+                      run.state === "completed"
+                        ? "complete"
+                        : ["cancelled", "interrupted"].includes(run.state)
+                          ? "not run"
+                          : run.state;
+                    const kind =
+                      label === "complete"
+                        ? "good"
+                        : label === "failed"
+                          ? "err"
+                          : label === "not run"
+                            ? "wrn"
+                            : "inf";
+                    return (
+                      <tr
+                        key={run.id}
+                        data-run-iri={run.iri}
+                        tabIndex={run.reviewable ? 0 : undefined}
+                        aria-label={
+                          run.reviewable
+                            ? "Open run for " + run.label
+                            : undefined
+                        }
+                        onClick={review}
+                        onKeyDown={(e) => {
+                          if (
+                            e.target === e.currentTarget &&
+                            e.key === "Enter"
+                          ) {
+                            e.preventDefault();
+                            review();
+                          }
+                        }}
+                      >
+                        <td title={run.iri}>{run.label}</td>
+                        <td>
+                          <UtilityTag kind={kind} title={run.error}>
+                            {label}
+                          </UtilityTag>
+                        </td>
+                        <td className="num">
+                          {run.state === "completed" ? run.count : ""}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {run.state === "failed" && (
+                            <ErrorDetailsButton
+                              error={run.error ?? "Suggestion run failed"}
+                              auditId={run.auditId}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          ))}
+        </div>
       )}
     </UtilityFrame>
   );

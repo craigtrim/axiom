@@ -345,6 +345,11 @@
   :scope .rows > .grid {
     min-width: 470px;
   }
+  /* craigtrim/axiom#148: all sets share the parent rows scroller and fixed row heights. */
+  :scope .run-sets {
+    display: grid;
+    align-items: start;
+  }
   :scope .grid th,
   :scope .grid td {
     padding: 0 8px;

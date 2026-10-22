@@ -1,5 +1,5 @@
 // craigtrim/axiom#94: five utility views share measured chrome and retained recovery bodies.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { registerPaneRecovery } from "./AdaptivePane";
 import { SharedMenu, type SharedMenuItem } from "./SharedPane";
 import { useActionOverflow } from "./useActionOverflow";
@@ -126,6 +126,7 @@ export function UtilityFrame({
   children,
   footer,
   toast,
+  rowsRef,
 }: {
   id: string;
   label: string;
@@ -134,6 +135,8 @@ export function UtilityFrame({
   children: ReactNode;
   footer: ReactNode;
   toast?: { title: string; detail: string };
+  // craigtrim/axiom#148: consumers measure the existing shared scrolling region.
+  rowsRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <section
@@ -145,7 +148,9 @@ export function UtilityFrame({
       <div className="body">
         <div className="stack">
           <div>{head}</div>
-          <div className="rows">{children}</div>
+          <div className="rows" ref={rowsRef}>
+            {children}
+          </div>
         </div>
       </div>
       <div className="foot">{footer}</div>
