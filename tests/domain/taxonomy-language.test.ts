@@ -11,6 +11,7 @@ import {
   parseTaxonomyReply,
 } from "../../src/shared/taxonomy-assistant";
 import { assistantArguments } from "../../src/main/local-assistant";
+import recordedReplies from "../fixtures/taxonomy-replies/summary-bullets.json";
 const reply =
   "Summary: Familiar types of meat pizza.\nSuggestions:\n1. Pepperoni pizza\nDescription: Pizza topped with pepperoni.\nReason: A familiar type distinguished by its meat topping.";
 it("asks about subject knowledge with readable context instead of ontology records", () => {
@@ -180,6 +181,51 @@ it.each([
   expect(parseTaxonomyReply(raw, c).suggestions[0].label).toBe(
     "Pepperoni pizza",
   );
+});
+// craigtrim/axiom#146: these successful replies contain lists inside the Summary.
+it.each(recordedReplies)(
+  "keeps $target summary bullets out of suggestions",
+  ({ target, reply: raw }) => {
+    const c = taxonomyContext(buildEmptyStore(), THING, "children", 0);
+    const result = parseTaxonomyReply(raw, c);
+    const labels =
+      target === "Criminal Justice"
+        ? [
+            "Forensic Science",
+            "Criminology",
+            "Victim Services",
+            "Restorative Justice",
+            "Cybercrime",
+            "Crime Analysis",
+          ]
+        : [
+            "Forensic Biology",
+            "Forensic Toxicology",
+            "Digital Forensics",
+            "Forensic Anthropology",
+            "Forensic Psychology",
+            "Forensic Nursing",
+            "Forensic Engineering",
+          ];
+    expect(result.suggestions.map((s) => s.label)).toEqual(labels);
+    for (const suggestion of result.suggestions) {
+      expect(suggestion.definition.length).toBeGreaterThan(0);
+      expect(suggestion.reason.length).toBeGreaterThan(0);
+    }
+    const bullets = raw
+      .split("**Suggestions:**")[0]
+      .split("\n")
+      .filter((line) => /^[-*] /.test(line));
+    expect(bullets).toHaveLength(target === "Criminal Justice" ? 5 : 3);
+    for (const bullet of bullets) expect(result.summary).toContain(bullet);
+  },
+);
+it("still accepts an outline without a Suggestions heading", () => {
+  const c = taxonomyContext(buildEmptyStore(), THING, "children", 0);
+  expect(
+    parseTaxonomyReply(reply.replace("Suggestions:\n", ""), c).suggestions[0]
+      .label,
+  ).toBe("Pepperoni pizza");
 });
 it("retains multiline descriptions and reasons", () => {
   const c = taxonomyContext(buildEmptyStore(), THING, "children", 0);

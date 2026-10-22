@@ -235,16 +235,22 @@ export function readTaxonomyReply(raw: unknown): {
       "The reply contained code or JSON instead of the requested outline.",
     );
   const clean = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, "$1").trim();
+  const normalize = (s: string) => clean(s.replace(/^\s*#{1,6}\s+/, ""));
+  const lines = text.split("\n");
+  // craigtrim/axiom#146: an explicit heading separates Summary lists from proposals.
+  const hasSuggestionsHeading = lines.some((line) =>
+    /^Suggestions(?:\s*:.*|\s*)$/i.test(normalize(line)),
+  );
   const summary: string[] = [],
     suggestions: PlainSuggestion[] = [];
   let current: PlainSuggestion | undefined,
     field: "definition" | "reason" | undefined,
     section = false,
     empty = false;
-  for (const [lineIndex, original] of text.split("\n").entries()) {
+  for (const [lineIndex, original] of lines.entries()) {
     const invalidLine = (reason: string) =>
       invalid("Line " + (lineIndex + 1) + ": " + reason);
-    const line = clean(original.replace(/^\s*#{1,6}\s+/, ""));
+    const line = normalize(original);
     if (!line) continue;
     const head = line.match(/^(Summary|Suggestions)(?:\s*:\s*(.*)|\s*)$/i);
     if (head) {
@@ -262,6 +268,10 @@ export function readTaxonomyReply(raw: unknown): {
             "Expected suggestions on separate numbered lines, or Suggestions: None.",
           );
       }
+      continue;
+    }
+    if (hasSuggestionsHeading && !section) {
+      summary.push(original.trim());
       continue;
     }
     if (section && /^(?:none|no suggestions)\.?$/i.test(line)) {
