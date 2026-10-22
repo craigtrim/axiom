@@ -36,7 +36,7 @@ export function completeTaxonomyReveal(request: TaxonomyReveal) {
 export function revealInTaxonomy(
   iri: string,
   anchor?: HTMLElement,
-  onlyOpen = false,
+  onlyVisible = false,
 ) {
   setSelectionOrigin();
   pending = {
@@ -45,11 +45,12 @@ export function revealInTaxonomy(
     revision: selectionRevision,
     anchor,
   };
-  // Explicit navigation can open a hidden taxonomy pane.
+  // Explicit navigation can open a hidden taxonomy pane; a follow cannot.
   if (!anchor)
-    command(onlyOpen ? "taxonomy.reveal.existing" : "taxonomy.reveal.open");
+    command(onlyVisible ? "taxonomy.reveal.visible" : "taxonomy.reveal.open");
   command("taxonomy.reveal");
 }
+/** Follow a selection only into a taxonomy on screen (craigtrim/axiom#142). */
 export function revealInOpenTaxonomy(iri: string) {
   const entity = state?.entities.find((e) => e.iri === iri);
   if (
