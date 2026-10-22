@@ -1097,14 +1097,18 @@ export function App() {
         persist();
       }
       if (id === "taxonomy.reveal.open") show("hierarchy", false);
-      if (id === "taxonomy.reveal.existing") {
-        let existingId: string | undefined;
+      // craigtrim/axiom#142: follow Hierarchy only while its tab is on screen.
+      if (id === "taxonomy.reveal.visible") {
+        let visible = false;
         modelRef.current.visitNodes((n) => {
-          if (n instanceof TabNode && n.getComponent() === "hierarchy")
-            existingId = n.getId();
+          if (
+            n instanceof TabNode &&
+            n.getComponent() === "hierarchy" &&
+            n.isVisible()
+          )
+            visible = true;
         });
-        if (existingId) show(existingId, false);
-        else clearTaxonomyReveal();
+        if (!visible) clearTaxonomyReveal();
       }
       if (id === "graph.styles") setStyles("advanced");
       if (id === "graph.appearance") setStyles("visual");

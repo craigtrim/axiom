@@ -1769,6 +1769,55 @@ test("Find keeps a closed taxonomy closed", async () => {
   await expect(page.locator('[data-panel="hierarchy"]')).toHaveCount(0);
   await expect.poll(async () => (await state()).selected).toBe(base + "Basic");
 });
+// craigtrim/axiom#142: Find follows Hierarchy only while its tab is on screen.
+async function chooseWithHiddenTaxonomy() {
+  const hierarchy = page.locator('[data-panel="hierarchy"]');
+  await expect(hierarchy).toHaveCount(1);
+  await expect(hierarchy).toBeHidden();
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("Basic English");
+  await pane()
+    .getByRole("button", { name: "Basic English", exact: true })
+    .click();
+  await expect.poll(async () => (await state()).selected).toBe(base + "Basic");
+  // The reveal follows the select response, so read visibility once it settles.
+  const shown = await hierarchy.evaluate(async (el) => {
+    for (let i = 0; i < 12; i++)
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    return el.checkVisibility();
+  });
+  expect(shown).toBe(false);
+  await expect(pane()).toBeVisible();
+}
+test("Find leaves a Hierarchy tab hidden behind its results in place", async () => {
+  await menu("view.details");
+  await menu("pane.move.right");
+  await find("English Course 122");
+  await menu("view.hierarchy");
+  await menu("pane.group");
+  await menu("view.find");
+  await chooseWithHiddenTaxonomy();
+  await expect(page.locator('[data-panel="details"]')).toHaveAttribute(
+    "data-entity-iri",
+    base + "Basic",
+  );
+});
+test("Find keeps its maximized pane maximized when it selects a result", async () => {
+  await find("English Course 122");
+  await (await hierarchyFilter(page)).fill("English");
+  await menu("view.find");
+  await menu("pane.maximise");
+  await chooseWithHiddenTaxonomy();
+  // Details is not open here, so only Find's reveal could clear the filter.
+  await expect(
+    page
+      .locator('[data-panel="hierarchy"]')
+      .getByRole("textbox", { name: "Filter hierarchy", includeHidden: true }),
+  ).toHaveValue("English");
+});
 test("Find reveals properties in the taxonomy Properties tab", async () => {
   await find("English teaching");
   await visibleTaxonomySelection(base + "teaches");
