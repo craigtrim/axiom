@@ -308,7 +308,15 @@ export function FindPanel() {
   const [scopeOpen, setScopeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState("");
-  const createReturnFocus = useRef<HTMLButtonElement | null>(null);
+  // Issue 156: moving the control between cells must preserve keyboard focus.
+  const [extendFocus, setExtendFocus] = useState<{
+    iri: string;
+    button: number;
+  } | null>(null);
+  const createReturnFocus = useRef<{
+    iri: string;
+    button: ".ext-more" | ".ext-main";
+  } | null>(null);
   const scopeId = useId(),
     createId = useId();
   const pendingPageFocus = useRef<string | undefined>(undefined);
@@ -340,6 +348,19 @@ export function FindPanel() {
   };
   const snapshot = useSnapshot()!;
   const root = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (!extendFocus) return;
+    const row = [
+      ...(root.current?.querySelectorAll("tr[data-entity-iri]") ?? []),
+    ].find(
+      (element) =>
+        (element as HTMLElement).dataset.entityIri === extendFocus.iri,
+    );
+    const button = row?.querySelectorAll<HTMLButtonElement>(
+      ".entity-extend button",
+    )[extendFocus.button];
+    if (button) focusEntityExtendTrigger(button);
+  }, [layout.narrow]);
   const [actionError, setActionError] = useState("");
   const [message, setMessage] = useState("");
   const [openingGraph, setOpeningGraph] = useState(false);
@@ -393,7 +414,10 @@ export function FindPanel() {
     trigger: HTMLButtonElement,
   ) => {
     if (!ready) return;
-    createReturnFocus.current = trigger;
+    createReturnFocus.current = {
+      iri: row.iri,
+      button: trigger.matches(".ext-more") ? ".ext-more" : ".ext-main",
+    };
     openFindCreation({ door: relation.door, target: row.iri }, relation.kind);
     if (relation.kind === "Class" || relation.kind === "Individual") {
       openAddEntityFromFind(
@@ -467,11 +491,14 @@ export function FindPanel() {
   const closeCreate = () => {
     setCreateOpen(false);
     root.current?.ownerDocument.defaultView?.requestAnimationFrame(() => {
-      if (
-        createReturnFocus.current?.isConnected &&
-        !createReturnFocus.current.disabled
-      ) {
-        focusEntityExtendTrigger(createReturnFocus.current);
+      const target = createReturnFocus.current;
+      const button =
+        target &&
+        root.current?.querySelector<HTMLButtonElement>(
+          `tr[data-entity-iri="${CSS.escape(target.iri)}"] ${target.button}`,
+        );
+      if (button && !button.disabled) {
+        focusEntityExtendTrigger(button);
         return;
       }
       if (rows.length && !chrome.header) moreTrigger.current?.focus();
@@ -807,6 +834,25 @@ export function FindPanel() {
       <FindCreatePanel reveal={reveal} />
     </div>
   );
+  // Issue 156: the same control moves inside the full-width Entity cell in Narrow.
+  const extension = (row: FindRow) => (
+    <EntityExtend
+      row={row}
+      query={options.text}
+      ready={ready}
+      pending={!!addingSynonym}
+      open={extendOpen === row.iri}
+      setOpen={(open) =>
+        setExtendOpen((previous) =>
+          open ? row.iri : previous === row.iri ? "" : previous,
+        )
+      }
+      synonym={() => addSynonym(row)}
+      create={(relation, trigger) =>
+        openRelatedCreation(row, relation, trigger)
+      }
+    />
+  );
   return (
     <section
       ref={root}
@@ -816,6 +862,26 @@ export function FindPanel() {
       data-layout={layout.mode}
       data-options-open={layout.compact && scopeOpen}
       data-create-open={createOverlay}
+      onFocusCapture={(event) => {
+        const target = event.target as HTMLElement;
+        const cluster = target.closest(".entity-extend");
+        const iri = cluster?.closest<HTMLElement>("tr[data-entity-iri]")
+          ?.dataset.entityIri;
+        setExtendFocus(
+          iri && target.matches("button")
+            ? {
+                iri,
+                button: [...cluster!.querySelectorAll("button")].indexOf(
+                  target as HTMLButtonElement,
+                ),
+              }
+            : null,
+        );
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setExtendFocus(null);
+      }}
     >
       <form
         className="find-controls"
@@ -1227,30 +1293,26 @@ export function FindPanel() {
                 <thead>
                   <tr>
                     <th scope="col">Entity</th>
-                    <th
-                      scope="col"
-                      className="find-type-column"
-                      // craigtrim/axiom#147: Type folds alongside Synonym in every Narrow pane.
-                      hidden={layout.narrow}
-                    >
-                      Type
-                    </th>
-                    <th
-                      scope="col"
-                      className="find-synonym-column"
-                      hidden={layout.narrow}
-                    >
-                      Synonym
-                    </th>
-                    <th scope="col" className="find-extend-column">
-                      <span className="sr-only">Extend entity</span>
-                    </th>
+                    {!layout.narrow && (
+                      <>
+                        <th scope="col" className="find-type-column">
+                          Type
+                        </th>
+                        <th scope="col" className="find-synonym-column">
+                          Synonym
+                        </th>
+                        <th scope="col" className="find-extend-column">
+                          <span className="sr-only">Extend entity</span>
+                        </th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, index) => (
                     <tr
                       key={row.iri}
+                      data-entity-iri={row.iri}
                       data-selected={selected === row.iri}
                       aria-selected={selected === row.iri}
                       tabIndex={
@@ -1265,7 +1327,7 @@ export function FindPanel() {
                       }}
                       onKeyDown={(event) => rowKeys(event, index)}
                     >
-                      <td>
+                      <td className="find-entity-cell">
                         <button
                           type="button"
                           className="find-result-name"
@@ -1323,39 +1385,23 @@ export function FindPanel() {
                             {` ${row.aliases?.join(", ") || "none recorded"}`}
                           </span>
                         )}
-                      </td>
-                      <td className="find-type-column" hidden={layout.narrow}>
-                        {kindLabel(row.kind)}
+                        {layout.narrow && extension(row)}
                       </td>
                       {!layout.narrow && (
-                        <td className="find-synonym-column">
-                          <span className="find-row-synonyms">
-                            {row.aliases?.join(", ") || "none recorded"}
-                          </span>
-                        </td>
+                        <>
+                          <td className="find-type-column">
+                            {kindLabel(row.kind)}
+                          </td>
+                          <td className="find-synonym-column">
+                            <span className="find-row-synonyms">
+                              {row.aliases?.join(", ") || "none recorded"}
+                            </span>
+                          </td>
+                          <td className="find-extend-column">
+                            {extension(row)}
+                          </td>
+                        </>
                       )}
-                      <td className="find-extend-column">
-                        <EntityExtend
-                          row={row}
-                          query={options.text}
-                          ready={ready}
-                          pending={!!addingSynonym}
-                          open={extendOpen === row.iri}
-                          setOpen={(open) =>
-                            setExtendOpen((previous) =>
-                              open
-                                ? row.iri
-                                : previous === row.iri
-                                  ? ""
-                                  : previous,
-                            )
-                          }
-                          synonym={() => addSynonym(row)}
-                          create={(relation, trigger) =>
-                            openRelatedCreation(row, relation, trigger)
-                          }
-                        />
-                      </td>
                     </tr>
                   ))}
                 </tbody>

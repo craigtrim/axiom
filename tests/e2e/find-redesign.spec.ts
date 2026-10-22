@@ -147,6 +147,12 @@ test("Type folds throughout Narrow and returns beyond its width hysteresis", asy
       "Marine Science",
     );
     await expect(query()).toHaveValue("Ocean Studies");
+    // Issue 156: even hidden columns are absent from the Narrow table structure.
+    await expect(table.locator("thead th")).toHaveCount(1);
+    await expect(table.locator("tbody td")).toHaveCount(1);
+    expect((await table.locator("tbody td").boundingBox())!.width).toBe(
+      (await table.boundingBox())!.width,
+    );
   }
   for (const [width, height] of [
     [616, 560],
@@ -160,11 +166,15 @@ test("Type folds throughout Narrow and returns beyond its width hysteresis", asy
     ).toBeVisible();
     await expect(table.locator(".find-folded-type")).toBeHidden();
     await expect(table.locator("td.find-type-column")).toHaveText("Class");
+    expect(
+      (await table.locator("td.find-extend-column").boundingBox())!.width,
+    ).toBe(148);
   }
   await resize(440, 300);
   await expect(host).toHaveAttribute("data-pane-shallow", "true");
   await expect(table.locator(".find-folded-type")).toBeVisible();
   await expect(table.locator(".find-type-column:visible")).toHaveCount(0);
+  await expect(table.locator("tbody td")).toHaveCount(1);
   await query().fill("Public Property");
   await expect(
     table
@@ -174,6 +184,137 @@ test("Type folds throughout Narrow and returns beyond its width hysteresis", asy
       })
       .locator(".find-folded-type"),
   ).toHaveText("Type Object property");
+});
+
+async function narrowResults() {
+  await query().fill("Topic");
+  const table = pane().getByRole("table", { name: "Found entities" });
+  await expect(table.locator("tbody tr")).toHaveCount(34);
+  await page.locator('[data-pane-id="find"]').evaluate((el) =>
+    Object.assign((el as HTMLElement).style, {
+      position: "fixed",
+      left: "24px",
+      top: "24px",
+      width: "502px",
+      height: "560px",
+      zIndex: "1000",
+    }),
+  );
+  await expect(pane()).toHaveAttribute("data-layout", "narrow");
+  await query().focus();
+  await page.mouse.move(0, 0);
+  return table;
+}
+
+// Issue 156: controls reveal out of flow on a fine pointer and in flow on touch.
+test("Narrow row controls reveal without moving or resizing any row", async () => {
+  const table = await narrowResults();
+  const row = table.locator("tbody tr").first();
+  const cluster = row.locator(".entity-extend");
+  const bounds = () =>
+    table.locator("tbody tr").evaluateAll((rows) =>
+      rows.map((r) => {
+        const b = r.getBoundingClientRect();
+        return [b.x, b.y, b.width, b.height];
+      }),
+    );
+  const initial = await bounds();
+  await expect(cluster).toBeHidden();
+  const cell = (await row.locator("td").boundingBox())!;
+  const name = (await row.locator(".find-result-name").boundingBox())!;
+  expect(name.width).toBe(cell.width - 16);
+  await row.hover();
+  await expect(cluster).toBeVisible();
+  expect(await bounds()).toEqual(initial);
+  const overlay = (await cluster.boundingBox())!;
+  expect(overlay.y).toBeGreaterThanOrEqual(name.y + name.height);
+  expect(overlay.x + overlay.width).toBeCloseTo(cell.x + cell.width - 8, 1);
+  expect(
+    await cluster.evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe(
+    await row
+      .locator("td")
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+  await page.mouse.move(0, 0);
+  await row.focus();
+  await expect(cluster).toBeVisible();
+  expect(await bounds()).toEqual(initial);
+  await row.press("Space");
+  await query().focus();
+  await expect(row).toHaveAttribute("data-selected", "true");
+  await expect(cluster).toBeVisible();
+  expect(await bounds()).toEqual(initial);
+  expect(
+    await cluster.evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe(
+    await row
+      .locator("td")
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+  const trigger = cluster.locator(".ext-more");
+  await trigger.focus();
+  await trigger.press("ArrowDown");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  expect(await bounds()).toEqual(initial);
+  await pane().screenshot({ path: "artifacts/issue-156-narrow.png" });
+  await trigger.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
+  await page.locator('[data-pane-id="find"]').evaluate((el) => {
+    (el as HTMLElement).style.width = "616px";
+  });
+  await expect(pane()).toHaveAttribute("data-layout", "expanded");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
+  await page.locator('[data-pane-id="find"]').evaluate((el) => {
+    (el as HTMLElement).style.width = "500px";
+  });
+  await expect(pane()).toHaveAttribute("data-layout", "narrow");
+  await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(row.locator(".ext-more")).toBeFocused();
+  await page.locator('[data-pane-id="find"]').evaluate((el) => {
+    (el as HTMLElement).style.width = "616px";
+  });
+  await expect(pane()).toHaveAttribute("data-layout", "expanded");
+  await expect(row.locator(".ext-more")).toBeFocused();
+  await query().focus();
+  await page.locator('[data-pane-id="find"]').evaluate((el) => {
+    (el as HTMLElement).style.width = "500px";
+  });
+  await expect(pane()).toHaveAttribute("data-layout", "narrow");
+  await expect(query()).toBeFocused();
+});
+
+test("Narrow touch controls occupy a visible line below Synonym", async () => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
+  expect(
+    await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
+  ).toBe(true);
+  const table = await narrowResults();
+  for (const row of await table.locator("tbody tr").all()) {
+    const cluster = row.locator(".entity-extend");
+    await expect(cluster).toBeVisible();
+    await expect(row.locator("td")).toHaveCount(1);
+    const synonym = (await row.locator(".find-folded-synonyms").boundingBox())!;
+    const actions = (await cluster.boundingBox())!;
+    const cell = (await row.locator("td").boundingBox())!;
+    expect(actions.y).toBeGreaterThanOrEqual(synonym.y + synonym.height);
+    expect(actions.y + actions.height).toBeLessThanOrEqual(
+      cell.y + cell.height,
+    );
+  }
+  await table.locator("tbody tr").first().locator(".ext-more").click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await pane().screenshot({ path: "artifacts/issue-156-touch.png" });
 });
 
 test("empty queries show instructions and retain field and type totals (#83)", async () => {

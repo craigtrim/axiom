@@ -402,7 +402,12 @@ test.beforeEach(async ({}, info) => {
         .res col.col-type { width:min(120px, calc((100% - 148px - 80px) * .4)) !important; }
         .res col.col-syn { width:min(180px, calc((100% - 148px - 80px) * .6)) !important; }
       }
-      @container pane (max-width:599px) { .res .extend-column { width:148px; } }`;
+      /* Issue 156: both Narrow frames give Entity the entire row. */
+      @container pane (max-width:599px) {
+        .res .extend-column { display:none; }
+        .res td:first-child { position:relative; }
+        .res td:first-child > .rowact { position:absolute; right:8px; bottom:6px; background:var(--tint); }
+      }`;
     document.head.append(style);
     document.querySelectorAll("table.res").forEach((table) => {
       table.querySelectorAll(".addsyn").forEach((button) => button.remove());
@@ -471,7 +476,11 @@ for (const theme of ["light", "dark"] as const) {
           )!;
           const selected = document.getElementById(frame)!;
           selected
-            .querySelector("tr.sel td.extend-column")!
+            .querySelector(
+              frame === "fr-nar" || frame === "fr-ns"
+                ? "tr.sel td:first-child"
+                : "tr.sel td.extend-column",
+            )!
             .append(split.cloneNode(true));
           selected.querySelectorAll(".pin").forEach((node) => node.remove());
           Object.assign(selected.style, {
@@ -555,16 +564,19 @@ for (const theme of ["light", "dark"] as const) {
       // This avoids batching-dependent edge rounding without changing geometry,
       // colors, text, clipping or the strict raw bitmap comparison.
       for (const root of [pane(), expectedPane])
-        await root.evaluate((el, narrow) => {
-          (el as HTMLElement).style.transform = "translateZ(0)";
-          el.querySelectorAll<HTMLElement>(
-            ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms" +
-              // Issue #147: isolate the newly positioned ancestry text equally in both renderings.
-              (narrow ? ", .epath, .find-result-path" : ""),
-          ).forEach((name) => {
-            name.style.transform = "translateZ(0)";
-          });
-        }, name === "narrow");
+        await root.evaluate(
+          (el, narrow) => {
+            (el as HTMLElement).style.transform = "translateZ(0)";
+            el.querySelectorAll<HTMLElement>(
+              ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms" +
+                // Issues 147/156: isolate ancestry text equally in both Narrow renderings.
+                (narrow ? ", .epath, .find-result-path" : ""),
+            ).forEach((name) => {
+              name.style.transform = "translateZ(0)";
+            });
+          },
+          name === "narrow" || name === "constrained",
+        );
       const expected = await capture(expectedPane, "reference"),
         actual = await capture(pane(), "application");
       await mkdir("artifacts/issue-83", { recursive: true });

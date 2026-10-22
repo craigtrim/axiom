@@ -17,6 +17,26 @@
   width: 148px;
   text-align: end;
 }
+/* Issue 156: Narrow spends the whole row on Entity; revealing actions never reflows it. */
+.find-panel .find-entity-cell {
+  position: relative;
+}
+.find-panel .find-entity-cell > .entity-extend {
+  position: absolute;
+  inset-inline-end: 8px;
+  bottom: 6px;
+  background: var(--surface);
+}
+.find-panel .find-results tr:hover .find-entity-cell > .entity-extend {
+  background: var(--row-hover);
+}
+.find-panel
+  .find-results
+  tr[data-selected="true"]
+  .find-entity-cell
+  > .entity-extend {
+  background: var(--row-selected);
+}
 /* Keep unbroken names and aliases inside their cell when the split reserves
    space. Constrained panes place Type below the entity with its other metadata. */
 .find-panel
@@ -53,6 +73,14 @@ tr[data-selected="true"] .entity-extend,
 @media (hover: none), (pointer: coarse) {
   .entity-extend {
     visibility: visible;
+  }
+  .find-panel .find-entity-cell > .entity-extend {
+    position: relative;
+    inset: auto;
+    display: flex;
+    width: max-content;
+    margin-inline-start: auto;
+    margin-top: 4px;
   }
 }
 .entity-extend .ext-action {

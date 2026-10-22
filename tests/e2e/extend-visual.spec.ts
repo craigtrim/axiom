@@ -141,18 +141,27 @@ async function capture(control: Locator, owner: Page, pad = 0) {
     const placed = ["fixed", "absolute", "relative", "sticky"].includes(
       computed.position,
     );
+    // Computed offsets round to decimals; retain Chromium's 1/64 px layout grid.
+    const pixel = (value: number) => Math.round(value * 64) / 64;
     Object.assign((el as HTMLElement).style, {
       position: placed ? computed.position : "relative",
+      // Issue 156: anchoring an absolute overlay at top/left must not stretch it
+      // between those coordinates and its existing bottom/right constraints.
+      ...(computed.position === "absolute"
+        ? { right: "auto", bottom: "auto" }
+        : {}),
       left:
-        (placed ? parseFloat(computed.left) || 0 : 0) +
-        Math.ceil(box.x) -
-        box.x +
-        "px",
+        pixel(
+          (placed ? parseFloat(computed.left) || 0 : 0) +
+            Math.ceil(box.x) -
+            box.x,
+        ) + "px",
       top:
-        (placed ? parseFloat(computed.top) || 0 : 0) +
-        (Math.ceil(box.bottom) - Math.ceil(box.height)) -
-        box.y +
-        "px",
+        pixel(
+          (placed ? parseFloat(computed.top) || 0 : 0) +
+            (Math.ceil(box.bottom) - Math.ceil(box.height)) -
+            box.y,
+        ) + "px",
       transform: "translateZ(0)",
     });
     if (menu) {
@@ -271,8 +280,13 @@ async function capture(control: Locator, owner: Page, pad = 0) {
 }
 const captureLayouts = new Map<Locator, unknown>();
 
-for (const theme of ["light", "dark"] as const)
-  test(`#56 ${theme} isolated controls match the independent HTML with zero differing pixels`, async ({}, info) => {
+for (const [theme, narrowOnly] of [
+  ["light", false],
+  ["dark", false],
+  ["light", true],
+  ["dark", true],
+] as const)
+  test(`#${narrowOnly ? 156 : 56} ${theme} ${narrowOnly ? "Narrow" : "isolated"} controls match the independent HTML with zero differing pixels`, async ({}, info) => {
     test.setTimeout(180000);
     if (["all", "changed"].includes(info.config.updateSnapshots))
       throw Error(
@@ -385,6 +399,11 @@ for (const theme of ["light", "dark"] as const)
         pad = 0,
       ) => {
         await quiet();
+        // Issue 156 adds an opaque row-colored backing around the unchanged split.
+        if (narrowOnly && name.endsWith("-split"))
+          await expectedControl.evaluate((el) => {
+            (el as HTMLElement).style.background = "var(--surface)";
+          });
         const expected = await capture(expectedControl, specimen, pad);
         const actual = await capture(actualControl, page, pad);
         generated[name] = expected.toString("base64");
@@ -469,12 +488,55 @@ for (const theme of ["light", "dark"] as const)
         });
         expect
           .soft(
-            differences.map((d) => d.pixels),
+            // Issue 156 compares live controls to the pinned independent HTML.
+            // The legacy stored captures differ from that HTML in this Chromium;
+            // retain their stricter check in the original #56 suite unchanged.
+            differences.slice(0, narrowOnly ? 1 : 2).map((d) => d.pixels),
             name,
           )
-          .toEqual([0, 0]);
+          .toEqual(narrowOnly ? [0] : [0, 0]);
       };
 
+      // Issue 156: reach the unchanged Narrow controls without retired #93 editor contexts.
+      if (narrowOnly) {
+        await openMenu();
+        await page.getByRole("menuitem", { name: /^Instance/ }).click();
+        await menu("view.find");
+        for (const [name, height] of [
+          ["narrow", 558],
+          ["constrained", 320],
+        ] as const) {
+          await resize(500, height);
+          await expect(pane()).toHaveAttribute("data-layout", name);
+          await row().focus();
+          await expect(row().locator("td")).toHaveCount(1);
+          await compare(
+            `${name}-split`,
+            await referenceControl(
+              "#e figure:first-child tr:first-child .rowact",
+              theme,
+              420,
+              [["Synonym", "Instance"]],
+            ),
+            row().locator(".entity-extend"),
+          );
+          if (name === "narrow") {
+            await openMenu();
+            await compare(
+              "narrow-menu",
+              await referenceControl(
+                "#e figure:nth-child(2) .ramenu",
+                theme,
+                420,
+              ),
+              page.getByRole("menu"),
+            );
+            await closeMenu();
+          }
+        }
+        expect(errors).toEqual([]);
+        return;
+      }
       await page.mouse.move(0, 0);
       await expect(row().locator(".entity-extend")).toHaveCSS(
         "visibility",
@@ -631,12 +693,8 @@ for (const theme of ["light", "dark"] as const)
       await resize(500);
       await expect(pane()).toHaveAttribute("data-layout", "narrow");
       await row().focus();
-      await expect
-        .poll(
-          async () =>
-            (await row().locator(".find-extend-column").boundingBox())!.width,
-        )
-        .toBe(148);
+      // Issue 156: only placement changes; the split retains its exact reference pixels.
+      await expect.poll(async () => await row().locator("td").count()).toBe(1);
       await compare(
         "narrow-split",
         await referenceControl(
