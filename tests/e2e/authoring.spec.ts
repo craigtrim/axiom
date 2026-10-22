@@ -11,6 +11,8 @@ import {
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
+import { NS, THING } from "../../src/domain/model";
+import { findCreationKinds } from "../../src/shared/find-create";
 let app: ElectronApplication, page: Page;
 const errors: string[] = [];
 const state = () =>
@@ -71,6 +73,51 @@ test.afterEach(async () => {
   await app.close();
   expect(errors).toEqual([]);
 });
+// Issue 157: the form's generated identifier and persisted RDF agree for either spelling.
+for (const kind of findCreationKinds) {
+  test(`ampersand names in the Create entity form for ${kind}`, async () => {
+    for (const label of ["Law & Society", "Law and Society"]) {
+      await menu("file.new");
+      await menu("entity.createClass");
+      const form = page.getByRole("form", { name: "Create entity" });
+      await form
+        .getByRole("combobox", { name: "Entity kind" })
+        .selectOption(kind);
+      if (kind === "Class" || kind === "Individual")
+        await form
+          .getByRole("combobox", {
+            name: kind === "Class" ? "Parent class" : "Instance of",
+          })
+          .selectOption(THING);
+      await form.getByRole("textbox", { name: "New entity label" }).fill(label);
+      await expect(form.locator("small")).toContainText(
+        "Identifier: LawAndSociety",
+      );
+      await form.getByRole("button", { name: "Create", exact: true }).click();
+      await expect(form).toHaveCount(0);
+      const entity = (await state()).entities.find(
+        (e) => e.label === "Law and Society",
+      )!;
+      expect(entity.iri).toMatch(/#LawAndSociety$/);
+      expect(entity.kind).toBe(kind);
+      const doc = await page.evaluate(
+        (iri) => window.axiom.request<any>("entityDocument", { iri }),
+        entity.iri,
+      );
+      expect(
+        doc.statements.filter((t: any) => t.predicate === NS.rdfs + "seeAlso"),
+      ).toEqual([
+        expect.objectContaining({
+          object: expect.objectContaining({
+            literal: true,
+            value: "Law & Society",
+          }),
+        }),
+      ]);
+    }
+  });
+}
+
 test("natural labels create in the taxonomy and full entity details open beside the graph", async () => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await menu("file.new");

@@ -240,7 +240,8 @@ describe("Find creation", () => {
     const preview = await previewFindCreation(store, creation, 5);
     expect(preview.errors).toEqual([]);
     expect(preview.iri).toBe(iri("Chosen"));
-    expect(preview.statementCount).toBe(8);
+    // Issue 157 adds the ampersand spelling as one synonym in preview and save.
+    expect(preview.statementCount).toBe(9);
     expect(preview.source).toContain("&amp;");
     expect(preview.source).toContain("&lt;");
     const parsed = await parseRdf(preview.source, "draft.rdf", base);

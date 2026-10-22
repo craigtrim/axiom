@@ -1,5 +1,5 @@
 import type { Store } from "./store";
-import { entityNameKey } from "../shared/entity-names";
+import { entityNameKey, normalizeEntityName } from "../shared/entity-names";
 import { displayName } from "./rdf-model";
 import { NS } from "./model";
 import { entityPath } from "./entity-path";
@@ -15,7 +15,8 @@ const cache = new WeakMap<
   }
 >();
 const exactLabel = (label: string) =>
-  label.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  // Issue 157: the alternate spelling is an exact name, not an allowed similarity.
+  normalizeEntityName(label.normalize("NFKC").replace(/\s+/gu, " ").trim());
 function namesFor(store: Store) {
   let entry = cache.get(store);
   if (entry?.version === store.version) return entry;
@@ -85,8 +86,7 @@ export function entityNameCollisions(
           : index.labels.get(exactLabel(label))?.has(iri)
             ? "exact"
             : "normalized"
-        : existing.normalize("NFKC").trim().toLowerCase() ===
-            label.normalize("NFKC").trim().toLowerCase()
+        : exactLabel(existing).toLowerCase() === exactLabel(label).toLowerCase()
           ? "exact"
           : index.names.get(entityNameKey(label))?.has(iri)
             ? "normalized"

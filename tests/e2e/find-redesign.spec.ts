@@ -293,6 +293,52 @@ test("Find query changes do not rewrite the form and reopening starts the newly 
     create().getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Second Zygomorphic Draft");
 });
+// Issue 157: the shared Find draft previews canonical names and their automatic synonym.
+for (const label of ["Law & Society", "Law and Society"]) {
+  test(`Find previews and saves the ampersand synonym for ${label}`, async () => {
+    await miss(label);
+    await create()
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill(label);
+    const source = create().getByLabel("Planned source");
+    await expect(source).toContainText("LawAndSociety");
+    await expect(source).toContainText("Law and Society");
+    await expect(source).toContainText("Law &amp; Society");
+    await create().getByRole("button", { name: "Create", exact: true }).click();
+    const iri = base + "LawAndSociety";
+    await expect
+      .poll(
+        async () =>
+          (await snapshot()).entities.find((e) => e.iri === iri)?.label,
+      )
+      .toBe("Law and Society");
+    const doc = await page.evaluate(
+      (iri) => window.axiom.request<any>("entityDocument", { iri }),
+      iri,
+    );
+    expect(
+      doc.statements.filter((t: any) => t.predicate === NS.rdfs + "seeAlso"),
+    ).toEqual([
+      expect.objectContaining({
+        object: expect.objectContaining({
+          literal: true,
+          value: "Law & Society",
+        }),
+      }),
+    ]);
+    await create()
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill("Another draft");
+    await create()
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill("Law & Society");
+    await expect(
+      create().getByRole("button", { name: "Create", exact: true }),
+    ).toBeDisabled();
+    await expect(create().locator(".vmsg")).toContainText("already exists");
+  });
+}
+
 test("hidden class aliases and occupied properties block creation across Find scopes", async () => {
   await miss();
   const name = create().getByRole("textbox", { name: "Name", exact: true }),

@@ -1,5 +1,6 @@
 import { NS, THING, shorten, type Term } from "../domain/model";
-import { entityIdentifier } from "./entity-names";
+import { entityIdentifier, normalizeEntityName } from "./entity-names";
+import { nameSynonymStatements } from "../domain/entity-creation-names";
 
 // craigtrim/axiom#93: the form, preview and transaction share one nested draft.
 export interface AddEntityNode {
@@ -59,7 +60,9 @@ export const addEntityPredicates = [
   NS.skos + "definition",
   NS.dc + "source",
 ];
-export const cleanEntityName = (s: string) => s.replace(/\s+/gu, " ").trim();
+// Issue 157: the live authoring preview uses the same name and synonym as its transaction.
+export const cleanEntityName = (s: string) =>
+  normalizeEntityName(s.replace(/\s+/gu, " ").trim());
 export const addEntityIri = (name: string, namespace: string) =>
   namespace + (name.trim() ? entityIdentifier(name) : "Unnamed");
 
@@ -162,7 +165,18 @@ export function plannedEntitySource(input: AddEntityInput, namespace: string) {
       lines.push(
         `  <${kind === "class" ? "rdfs:subClassOf" : "rdf:type"} rdf:resource="${xml(iri)}"/>`,
       );
-    for (const s of node.statements ?? []) {
+    const statements = (node.statements ?? []).map((s) => ({
+      ...s,
+      object: { ...s.object, value: s.object.value.trim() },
+    }));
+    for (const s of [
+      ...statements,
+      ...nameSynonymStatements(
+        addEntityIri(node.label, namespace),
+        cleanEntityName(node.label),
+        statements,
+      ),
+    ]) {
       if (!s.object.value.trim()) continue;
       const predicate = shorten(s.predicate);
       if (predicate.startsWith("<")) continue;

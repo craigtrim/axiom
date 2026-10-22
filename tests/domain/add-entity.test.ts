@@ -211,7 +211,8 @@ describe("Add entity transactions", () => {
       ];
       const preview = plannedEntitySource(draft, base);
       expect(preview.indexOf('rdf:about="' + base + 'NewParent"')).toBeLessThan(
-        preview.indexOf('rdf:about="' + base + 'WidgetGear"'),
+        // Issue 157: a standalone ampersand contributes "And" to the ID.
+        preview.indexOf('rdf:about="' + base + 'WidgetAndGear"'),
       );
       const parsed = await parseRdf(
         `<rdf:RDF ${Object.entries(NS)

@@ -6,6 +6,8 @@ Find selects the matching entity and reveals it in a Hierarchy pane that is on s
 
 Find's class-row menu offers Subclass, Sibling and Instance. Sibling opens a new class draft with every direct named parent of the row, leaving out anonymous restrictions and `owl:Thing`. Review or remove those parents before creating the class; an empty parent field creates it under `owl:Thing`. The context bar follows your edits, and one Undo removes the new class and its statements. Escape and Back to results retain separate drafts for each row and action. `owl:Thing` itself has no Sibling action. In an open menu, pressing S repeatedly cycles through matching items, including Synonym in narrow panes.
 
+Creating an entity named `Law & Society` or `Law and Society` writes the label `Law and Society`, generates `LawAndSociety`, and adds `rdfs:seeAlso "Law & Society"`. A standalone ampersand is read as `and`; embedded forms such as `R&D` stay as typed. Every standalone `and`, in any case, becomes `&` in the one generated synonym. A matching string synonym entered by hand is kept once. Explicit Subject IRIs remain unchanged. Find and Add entity report the two name spellings as the same existing entity (#157).
+
 ## Concurrent edits
 
 Details, Inspector and an entity's scoped Source editor compare the loaded statements, the draft and the current ontology before saving. The worker merges them in the same operation that updates the entity, avoiding a gap between checking the version and applying the changes.

@@ -25,6 +25,8 @@ import {
 import type { TextAnalysisClassInput } from "../shared/text-analysis";
 import { writeRdf } from "./rdf-io";
 import { entityPath } from "./entity-path";
+import { normalizeEntityName } from "../shared/entity-names";
+import { nameSynonymStatements } from "./entity-creation-names";
 
 function prepare(store: Store, input: unknown, epoch: number) {
   const value =
@@ -37,7 +39,7 @@ function prepare(store: Store, input: unknown, epoch: number) {
     errors.push({ field: "kind", message: "Choose a supported entity kind." });
   const label =
     typeof value.label === "string"
-      ? value.label.replace(/\s+/gu, " ").trim()
+      ? normalizeEntityName(value.label.replace(/\s+/gu, " ").trim())
       : "";
   try {
     validLabel(label);
@@ -168,6 +170,12 @@ function prepare(store: Store, input: unknown, epoch: number) {
         errors.push({ field, message: "Enter a valid RDF value." });
       }
     }
+  // Issue 157: preview, source and save include the same deduplicated synonym.
+  statements.push(
+    ...nameSynonymStatements(iri, label, statements).map(
+      ({ predicate, object }) => ({ predicate, object }),
+    ),
+  );
   const names = entityNameCollisions(store, label, iri, true);
   let suggested: ReturnType<typeof textAnalysisDraft> | undefined;
   if (kind === "Class" && label && !errors.some((e) => e.field === "label"))

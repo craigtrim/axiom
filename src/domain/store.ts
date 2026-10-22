@@ -1,4 +1,6 @@
 import { classMoveIssue, branchRoots, type ClassMove } from "./taxonomy-move";
+import { normalizeEntityName } from "../shared/entity-names";
+import { nameSynonymStatements } from "./entity-creation-names";
 import { removeRedundantThingParents } from "./class-parents";
 import { simplifySubclassIntersections } from "./intersection-definitions";
 import { discardUnusedIntersection } from "./intersection-cleanup";
@@ -1117,7 +1119,8 @@ export class Store {
     kind: "ObjectProperty" | "DataProperty" | "AnnotationProperty",
     parent?: string,
   ) {
-    label = validLabel(label);
+    // Issue 157: label, ID and generated synonym use the same creation name.
+    label = validLabel(normalizeEntityName(label));
     if (
       parent &&
       (parent.startsWith("_:") || this.entities.get(parent)?.kind !== kind)
@@ -1145,6 +1148,7 @@ export class Store {
             ),
           },
           { subject: iri, predicate: LABEL, object: literal(label) },
+          ...nameSynonymStatements(iri, label),
           ...(parent
             ? [
                 {
@@ -1343,6 +1347,10 @@ export class Store {
   }
   /** Plan the complete transaction without changing RDF or undo history. */
   planClassHierarchy(classes: ClassCreation[]) {
+    classes = classes.map((item) => ({
+      ...item,
+      name: normalizeEntityName(item.name).trim(),
+    }));
     if (!classes.length) throw Error("Choose at least one class to add.");
     const ids = new Map<string, string>(),
       reserved = new Set<string>();
@@ -1453,6 +1461,9 @@ export class Store {
           object: { ...statement.object },
         });
       }
+      statements.push(
+        ...nameSynonymStatements(iri, item.name, item.statements),
+      );
     }
     // Existing classes cannot point to these fresh IRIs. Only new edges can cycle.
     const ready = [...dependencies]
@@ -1485,6 +1496,7 @@ export class Store {
     return ids;
   }
   createClass(name: string, parent: string, comment = "") {
+    name = normalizeEntityName(name).trim();
     const error = this.validateName(name);
     if (error) throw Error(error);
     const p = this.entities.get(parent);
@@ -1500,6 +1512,7 @@ export class Store {
         const e = this.addEntity(iri, "Class");
         e.name = name.trim();
         e.label = e.name;
+        this.tbox.push(...nameSynonymStatements(iri, e.name));
         this.tbox.push({
           subject: iri,
           predicate: LABEL,
@@ -1654,6 +1667,7 @@ export class Store {
     );
   }
   createNamedIndividual(name: string, type: string, comment = "") {
+    name = normalizeEntityName(name).trim();
     const error = this.validateName(name);
     if (error) throw Error(error);
     const parent = this.entities.get(type);
@@ -1668,6 +1682,7 @@ export class Store {
         const e = this.addEntity(iri, "Individual");
         e.name = name.trim();
         e.label = e.name;
+        this.tbox.push(...nameSynonymStatements(iri, e.name));
         this.tbox.push({
           subject: iri,
           predicate: LABEL,
