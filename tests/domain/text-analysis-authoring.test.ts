@@ -69,18 +69,22 @@ describe("create classes from selected text", () => {
       const store = await fixture();
       const parent = store.createClass(parentName, THING);
       const seeded = selectedEntityName(phrase);
+      // Issue 157 canonicalizes standalone ampersands after title casing.
+      const canonical = seeded.replace(/ & /g, " and ");
       const rawDraft = textAnalysisDraft(store, phrase, 1);
       const seededDraft = textAnalysisDraft(store, seeded, 1);
-      expect(seededDraft).toEqual({ ...rawDraft, label: seeded });
+      expect(seededDraft).toEqual({ ...rawDraft, label: canonical });
       expect(seededDraft.defaultParent).toBe(parent);
       expect(seededDraft.existing).toEqual([]);
       const created = createTextAnalysisClass(store, seeded, parent);
       const rawCollision = textAnalysisDraft(store, phrase, 1);
       expect(textAnalysisDraft(store, seeded, 1)).toEqual({
         ...rawCollision,
-        label: seeded,
+        label: canonical,
       });
-      expect(rawCollision.existing).toEqual([{ iri: created, label: seeded }]);
+      expect(rawCollision.existing).toEqual([
+        { iri: created, label: canonical },
+      ]);
       const version = store.version;
       expect(() => createTextAnalysisClass(store, phrase, parent)).toThrow(
         /existing class/,

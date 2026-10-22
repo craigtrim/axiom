@@ -75,13 +75,14 @@ function inspect(store: Store, value: unknown, datasetEpoch: number) {
       names.add(entityNameKey(name));
       iris.add(iri);
     }
-    if (/[^\p{L}\p{N}\p{M}_\s]/u.test(node.label))
+    if (/[^\p{L}\p{N}\p{M}_\s]/u.test(name))
       findings.push({
         kind: "wrn2",
         message:
           "Characters other than letters, digits and underscores are left out of the IRI. The label keeps them exactly as typed.",
       });
-    if (cleanEntityName(node.label) !== node.label)
+    // Issue 157: ampersand normalization alone is not a whitespace warning.
+    if (node.label.replace(/\s+/gu, " ").trim() !== node.label)
       findings.push({
         kind: "wrn2",
         message:

@@ -5,6 +5,7 @@ import type { Store, ClassCreation } from "./store";
 import {
   entityNameKey as key,
   entityNameWords as words,
+  normalizeEntityName,
 } from "../shared/entity-names";
 import { entityNameCollisions } from "./entity-name-index";
 import { fixedFindPredicates } from "../shared/find-create";
@@ -59,7 +60,8 @@ export function textAnalysisDraft(
   input: string,
   datasetEpoch: number,
 ): TextAnalysisDraft {
-  const label = input.replace(/\s+/gu, " ").trim();
+  // Issue 157: nested drafts share the label used by ID and synonym generation.
+  const label = normalizeEntityName(input.replace(/\s+/gu, " ").trim());
   const error = store.validateName(label);
   if (error) throw Error(error);
   const terms = words(label),
