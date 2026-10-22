@@ -305,9 +305,7 @@ col.col-type, col.col-syn { display: none; }
   .rfoot { display: flex; }
   .ctx { display: block; }
   .sort { display: inline-flex; }
-  th.col-type, td.col-type { display: table-cell; }
-  col.col-type { display: table-column; }
-  .efold.fold-type { display: none; }
+  /* craigtrim/axiom#147: Type stays folded until the pane is wide. */
   /* Enough height for the inline editor, so the collapsed entry is not needed. */
   .zero-create { display: none; }
 }

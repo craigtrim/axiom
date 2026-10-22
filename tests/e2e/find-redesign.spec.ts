@@ -114,6 +114,68 @@ test.afterEach(async ({}, info) => {
   }
 });
 
+// craigtrim/axiom#147: the folded value survives every width and returns with the column.
+test("Type folds throughout Narrow and returns beyond its width hysteresis", async () => {
+  await query().fill("Ocean Studies");
+  const table = pane().getByRole("table", { name: "Found entities" });
+  await expect(table.locator("tbody tr")).toHaveCount(1);
+  const host = page.locator('[data-pane-id="find"]');
+  const resize = async (width: number, height = 560) => {
+    await host.evaluate(
+      (el, size) =>
+        Object.assign((el as HTMLElement).style, {
+          position: "fixed",
+          left: "20px",
+          top: "50px",
+          zIndex: "1000",
+          width: size.width + "px",
+          height: size.height + "px",
+        }),
+      { width, height },
+    );
+  };
+  for (const width of [440, 320, 600, 615]) {
+    await resize(width);
+    await expect(host).toHaveAttribute("data-pane-narrow", "true");
+    await expect(
+      table.getByRole("columnheader", { name: "Type", exact: true }),
+    ).toHaveCount(0);
+    await expect(table.locator(".find-type-column:visible")).toHaveCount(0);
+    await expect(table.locator(".find-folded-type")).toHaveText("Type Class");
+    await expect(table.locator(".find-folded-type")).toBeVisible();
+    await expect(table.locator(".find-folded-synonyms")).toContainText(
+      "Marine Science",
+    );
+    await expect(query()).toHaveValue("Ocean Studies");
+  }
+  for (const [width, height] of [
+    [616, 560],
+    [860, 320],
+    [860, 560],
+  ]) {
+    await resize(width, height);
+    await expect(host).toHaveAttribute("data-pane-narrow", "false");
+    await expect(
+      table.getByRole("columnheader", { name: "Type", exact: true }),
+    ).toBeVisible();
+    await expect(table.locator(".find-folded-type")).toBeHidden();
+    await expect(table.locator("td.find-type-column")).toHaveText("Class");
+  }
+  await resize(440, 300);
+  await expect(host).toHaveAttribute("data-pane-shallow", "true");
+  await expect(table.locator(".find-folded-type")).toBeVisible();
+  await expect(table.locator(".find-type-column:visible")).toHaveCount(0);
+  await query().fill("Public Property");
+  await expect(
+    table
+      .locator("tbody tr")
+      .filter({
+        has: page.getByRole("button", { name: "Public Property", exact: true }),
+      })
+      .locator(".find-folded-type"),
+  ).toHaveText("Type Object property");
+});
+
 test("empty queries show instructions and retain field and type totals (#83)", async () => {
   await expect(query()).toHaveValue("");
   const empty = async () => {
