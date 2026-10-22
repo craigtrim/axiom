@@ -246,7 +246,8 @@ it.each(["synonyms", "parents", "children", "instances"])(
     f.runner.runWithMetadata.mockRejectedValueOnce(Error("provider failed"));
     await expect(run()).rejects.toThrow("provider failed");
     f.runner.runWithMetadata.mockResolvedValueOnce({
-      reply: "this is not a valid reply",
+      // Issue #150: prose can explain no suggestions; an incomplete proposal is invalid.
+      reply: "1. Incomplete proposal",
       metadata: {
         cli: { path: "fake", version: null },
         model: null,

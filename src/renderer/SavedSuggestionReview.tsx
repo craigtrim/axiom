@@ -90,11 +90,13 @@ export function SavedSuggestionReview(p: Props) {
   const comparison = semantic?.key === semanticKey ? semantic : undefined;
   const summary =
     entry?.state === "completed"
-      ? parents
-        ? legacy
-          ? "This saved run used local name matching. Start a new run to ask Claude or Codex for parents."
-          : "The assistant reviewed the ontology's class catalog and hierarchy. Choose the parents you want to add; each suggestion includes its explanation."
-        : "Choose the synonyms you want to add. Levenshtein measures spelling edits; cosine distance measures meaning using local full-precision MPNet. Lower means closer. Neither score restricts selection."
+      ? // craigtrim/axiom#150: show the assistant's explanation for an empty result.
+        (entry.summary ??
+        (parents
+          ? legacy
+            ? "This saved run used local name matching. Start a new run to ask Claude or Codex for parents."
+            : "The assistant reviewed the ontology's class catalog and hierarchy. Choose the parents you want to add; each suggestion includes its explanation."
+          : "Choose the synonyms you want to add. Levenshtein measures spelling edits; cosine distance measures meaning using local full-precision MPNet. Lower means closer. Neither score restricts selection."))
       : "";
   return (
     <SuggestionWorkbench

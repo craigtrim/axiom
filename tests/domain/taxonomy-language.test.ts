@@ -249,10 +249,33 @@ it("accepts an explicit empty answer without inventing a suggestion", () => {
     suggestions: [],
   });
 });
+// craigtrim/axiom#150: no suggestion data is different from a partial proposal.
+it.each([
+  ["", ""],
+  [" \n\t ", ""],
+  ["A vague response without a list.", "A vague response without a list."],
+  ["Summary: All options are covered.", "All options are covered."],
+  ["Suggestions: None", ""],
+  [
+    "Summary: All options are covered.\nSuggestions:",
+    "All options are covered.",
+  ],
+  [
+    "Suggestions:\nNo further options are appropriate.",
+    "No further options are appropriate.",
+  ],
+])("completes a reply without proposal data: %j", (raw, summary) => {
+  for (const mode of ["children", "instances"] as const) {
+    const c = taxonomyContext(buildEmptyStore(), THING, mode, 0);
+    expect(parseTaxonomyReply(raw, c)).toEqual({ summary, suggestions: [] });
+  }
+});
 it.each([
   null,
-  "",
-  "A vague response without a list.",
+  " ".repeat(120001),
+  "Description: A proposal with no name.",
+  "Summary: x\nSuggestions:\nName:",
+  "Summary: x\nSuggestions:\n1.",
   reply.replace(/Reason:.*$/, ""),
   reply.replace(/Description:.*\n/, ""),
   '{"summary":"x","suggestions":[]}',

@@ -129,7 +129,8 @@ test.beforeEach(async () => {
         const custom=p.startsWith("Propose values"), parents=p.startsWith("Suggest parents for");
         const unavailable=parents?JSON.parse(p.split("\n").find(l=>l.startsWith("Unavailable IDs")).split(": ")[1]):[];
         const result=parents?JSON.stringify({suggestions:p.split("\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l)).filter(r=>["Alpha Gamma","Beta Gamma"].includes(r[1])&&!unavailable.includes(r[0])).map(r=>({value:r[0],reason:"This is a broader subject category."}))}):custom?JSON.stringify({suggestions:[{value:"Foundations of English",reason:"Clear alternative wording."}]}):"Summary: Useful child class.\nSuggestions:\n1. Conversational English\nDescription: English for conversation.\nReason: Fits immediately below the selected class.";
-        setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],result),1800);
+        const emptyReply=process.env.AXIOM_EMPTY_REPLY_FILE;
+        setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],emptyReply&&fs.existsSync(emptyReply)?fs.readFileSync(emptyReply,"utf8"):result),1800);
       });`,
   );
   await writeFile(
@@ -143,6 +144,7 @@ test.beforeEach(async () => {
     ...process.env,
     AXIOM_CACHE_HOME: path.join(profile, "cache"),
     AXIOM_USER_DATA: profile,
+    AXIOM_EMPTY_REPLY_FILE: path.join(profile, "empty-reply.txt"),
   } as Record<string, string>;
   const prior = env.PATH ?? env.Path ?? "";
   delete env.Path;
@@ -167,6 +169,56 @@ test.afterEach(async ({}, info) => {
   }
   expect(errors).toEqual([]);
 });
+// craigtrim/axiom#150: successful replies without data complete in every suggestion view.
+for (const [mode, empty] of [
+  ["children", "No new direct children suggested."],
+  ["instances", "No new instances suggested."],
+  ["parents", "No additional parent classes were suggested."],
+  ["synonyms", "No synonyms were suggested."],
+])
+  for (const raw of ["", "Summary: All useful options are already recorded."])
+    test(`empty ${mode} reply completes with ${raw ? "an explanation" : "no text"}`, async () => {
+      await writeFile(path.join(profile, "empty-reply.txt"), raw);
+      const before = await state();
+      await suggest("Basic English", "Add Children");
+      await expect(view()).toContainText("No new direct children suggested.");
+      if (mode !== "children")
+        await view()
+          .getByRole("combobox", {
+            name: /^(Suggest|Suggestion type)$/,
+            exact: true,
+          })
+          .selectOption(mode);
+      await expect(view()).toContainText(empty);
+      await expect(view().getByRole("alert")).toHaveCount(0);
+      await expect(
+        view().getByRole("button", { name: "Error details", exact: true }),
+      ).toHaveCount(0);
+      await expect(view()).not.toContainText("Preparing suggestions");
+      if (raw)
+        await expect(view()).toContainText(
+          "All useful options are already recorded.",
+        );
+      const saved = await page.evaluate(async (mode) => {
+        if (mode === "children" || mode === "instances") {
+          const history = await window.axiom.taxonomyAssistant.history();
+          const run = history.find((run) => run.mode === mode)!;
+          const { entry } = await window.axiom.taxonomyAssistant.read(run.id);
+          return {
+            state: entry.state,
+            error: entry.error,
+            count: entry.response?.result.suggestions.length,
+          };
+        }
+        const run = (await window.axiom.suggestions.history()).find(
+          (run) => run.mode === mode,
+        )!;
+        return { state: run.state, error: run.error, count: run.values.length };
+      }, mode);
+      expect(saved).toEqual({ state: "completed", error: undefined, count: 0 });
+      expect((await state()).version).toBe(before.version);
+    });
+
 test("uses the document pill with the absolute folder and keeps palette shortcuts", async () => {
   await expect(page.getByTestId("window-titlebar").locator(".path")).toHaveText(
     path.dirname(file),

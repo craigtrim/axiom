@@ -6,6 +6,7 @@ import { SuggestionService } from "../../src/main/suggestion-service";
 import {
   readSuggestionDefinition,
   parseSuggestionValues,
+  emptySuggestionSummary,
   type SuggestionDefinition,
   type SuggestionDocument,
 } from "../../src/shared/suggestions";
@@ -138,6 +139,25 @@ it("validates definitions and resource responses while deduplicating values", ()
       { ...definition, valueType: "resource" },
     ),
   ).toThrow(/IRI/);
+});
+// craigtrim/axiom#150: accept no-data replies without accepting incomplete values.
+it.each([
+  "",
+  " \n ",
+  "Suggestions: None",
+  "No additional values are appropriate.",
+  "Summary: All options are covered.",
+])("accepts a successful reply with no values: %j", (raw) => {
+  expect(parseSuggestionValues(raw, definition)).toEqual([]);
+  expect(emptySuggestionSummary(raw)).toBeDefined();
+});
+it.each([
+  "Summary: x\nSuggestions:\n1. Incomplete",
+  '{"suggestions":[{"value":"One"}]}',
+  '{"suggestions":',
+  "1. A value without a reason",
+])("still rejects partial value data: %j", (raw) => {
+  expect(() => parseSuggestionValues(raw, definition)).toThrow();
 });
 it("allows missing saved explanations only when explicitly requested", () => {
   const raw = { suggestions: [{ value: "English Basics", reason: "" }] };
