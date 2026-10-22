@@ -1818,6 +1818,133 @@ test("Find keeps its maximized pane maximized when it selects a result", async (
       .getByRole("textbox", { name: "Filter hierarchy", includeHidden: true }),
   ).toHaveValue("English");
 });
+// craigtrim/axiom#144: Create follows a visible Hierarchy without changing layout.
+async function openUnmatchedAddEntity() {
+  await menu("view.find");
+  await pane()
+    .getByRole("searchbox", { name: "Search the ontology" })
+    .fill("Zygomorphic Architecture");
+  await pane().getByRole("button", { name: "Add entity", exact: true }).click();
+  await expect(
+    addForm().getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Zygomorphic Architecture");
+}
+async function createAndSettle(kind = "Class") {
+  await addForm().getByRole("button", { name: "Create", exact: true }).click();
+  await expect(addForm().locator(".foot")).toContainText(
+    "created, and selected in Hierarchy",
+  );
+  const created = (await state()).entities.find(
+    (entity) => entity.label === "Zygomorphic Architecture",
+  )!;
+  expect(created.kind).toBe(kind);
+  await expect.poll(async () => (await state()).selected).toBe(created.iri);
+  // The follow runs after the worker selects the root and the renderer rereads it.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 12; i++)
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+  });
+  return created.iri;
+}
+test("Add entity Create leaves Hierarchy hidden behind Find and updates Details", async () => {
+  await menu("view.details");
+  await menu("pane.move.right");
+  await find("English Course 122");
+  await menu("view.hierarchy");
+  await menu("pane.group");
+  await menu("view.find");
+  await openUnmatchedAddEntity();
+  const hierarchy = page.locator('[data-panel="hierarchy"]');
+  await expect(hierarchy).toHaveCount(1);
+  await expect(hierarchy).toBeHidden();
+  const iri = await createAndSettle();
+  await expect(hierarchy).toBeHidden();
+  await expect(pane()).toBeVisible();
+  await expect(
+    pane().getByRole("button", {
+      name: "Zygomorphic Architecture",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator('[data-panel="details"]')).toHaveAttribute(
+    "data-entity-iri",
+    iri,
+  );
+});
+test("Add entity Create keeps a closed Hierarchy closed", async () => {
+  await menu("view.hierarchy");
+  await menu("pane.close");
+  const hierarchy = page.locator('[data-panel="hierarchy"]');
+  await expect(hierarchy).toHaveCount(0);
+  await openUnmatchedAddEntity();
+  await createAndSettle();
+  await expect(hierarchy).toHaveCount(0);
+  await expect(pane()).toBeVisible();
+});
+test("Add entity Create preserves maximization and the hidden Hierarchy filter", async () => {
+  await openUnmatchedAddEntity();
+  await (await hierarchyFilter(page)).fill("English");
+  await menu("view.textentities");
+  await menu("pane.maximise");
+  const hierarchy = page.locator('[data-panel="hierarchy"]');
+  await expect(hierarchy).toHaveCount(1);
+  await expect(hierarchy).toBeHidden();
+  await expect(pane()).toBeHidden();
+  const bounds = await addForm().boundingBox();
+  await createAndSettle();
+  await expect(hierarchy).toBeHidden();
+  await expect(pane()).toBeHidden();
+  expect(await addForm().boundingBox()).toEqual(bounds);
+  await expect(
+    hierarchy.getByRole("textbox", {
+      name: "Filter hierarchy",
+      includeHidden: true,
+    }),
+  ).toHaveValue("English");
+});
+test("Add entity Create reveals a new class in the visible Hierarchy", async () => {
+  await openUnmatchedAddEntity();
+  await addForm()
+    .getByRole("combobox", { name: "Add a parent", exact: true })
+    .fill("Course");
+  await addForm()
+    .getByRole("option")
+    .filter({ hasText: /^Course/ })
+    .first()
+    .click();
+  await (await hierarchyFilter(page)).fill("English");
+  const iri = await createAndSettle();
+  await expect(
+    page
+      .locator('[data-panel="hierarchy"]')
+      .getByPlaceholder("Filter hierarchy"),
+  ).toHaveValue("");
+  await visibleTaxonomySelection(iri);
+});
+for (const tab of ["Classes", "Properties"])
+  test(`Add entity Create preserves the ${tab} tab and filter for an individual`, async () => {
+    await openUnmatchedAddEntity();
+    const hierarchy = page.locator('[data-panel="hierarchy"]');
+    const selectedTab = hierarchy.getByRole("button", {
+      name: new RegExp(tab),
+    });
+    await selectedTab.click();
+    const filter = await hierarchyFilter(page);
+    await filter.fill("English");
+    await addForm()
+      .getByRole("button", { name: "Individual", exact: true })
+      .click();
+    const iri = await createAndSettle("Individual");
+    await expect(hierarchy).toBeVisible();
+    await expect(selectedTab).toHaveAttribute("aria-pressed", "true");
+    await expect(filter).toHaveValue("English");
+    await expect(hierarchy.locator(`[data-entity-iri="${iri}"]`)).toHaveCount(
+      0,
+    );
+  });
+
 test("Find reveals properties in the taxonomy Properties tab", async () => {
   await find("English teaching");
   await visibleTaxonomySelection(base + "teaches");

@@ -24,7 +24,7 @@ import { useActionOverflow } from "./useActionOverflow";
 import { useRetainedPreview } from "./use-retained-preview";
 import { updateFind } from "./find-state";
 import { defaultFindOptions } from "../shared/find";
-import { revealInTaxonomy } from "./taxonomy-navigation";
+import { revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { AddEntityPicker } from "./AddEntityPicker";
 import type {
   TextEntityDraft,
@@ -300,7 +300,8 @@ export function TextEntityCreate({
               ],
             },
       );
-      revealInTaxonomy(result.iri);
+      // craigtrim/axiom#144: follow only a visible Hierarchy, leaving its layout alone.
+      revealInOpenTaxonomy(result.iri);
       notify(
         `Created ${result.created.length > 1 ? `${result.created.length} ${kind === "class" ? "classes" : "entities"}` : root.label.trim()} in one transaction.`,
         `The saved parents were reread, the new ${kind === "class" ? "class" : "individual"} is selected in Hierarchy, and one Undo removes all of it.`,
