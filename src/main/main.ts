@@ -5,7 +5,11 @@ import { mutatocExecutable } from "./mutatoc-client";
 import type { TextAnalysisContext } from "../shared/text-analysis";
 import { randomUUID } from "node:crypto";
 import type { ChromeMenuItem } from "../shared/window-chrome";
-import { WorkspaceFiles } from "./workspace-files";
+import {
+  MissingWorkspaceError,
+  WorkspaceFiles,
+  workspaceExists,
+} from "./workspace-files";
 import { selectInstanceProfile, isSlotProbe } from "./instance-profile";
 import { InstanceRegistry } from "./instance-registry";
 import { WorkspaceOwnership, type WorkspaceLease } from "./workspace-ownership";
@@ -728,6 +732,15 @@ function capturePreferences() {
   });
   return capturing;
 }
+async function releaseMissingWorkspace(file: string) {
+  setWorkspacePath();
+  updateWindowTitle();
+  await errorLog.record(
+    "The workspace file no longer exists. Use Save to choose a destination.",
+    "Save workspace",
+    { ...errorContext(), file },
+  );
+}
 async function writeWorkspace(
   as: boolean,
   automatic: boolean,
@@ -735,6 +748,12 @@ async function writeWorkspace(
   capture = true,
 ) {
   let file = workspacePath;
+  // #162: a moved workspace becomes unnamed; automatic saves retain its edits.
+  if (file && !(await workspaceExists(file))) {
+    await releaseMissingWorkspace(file);
+    file = undefined;
+  }
+  let allowCreate = false;
   if (!automatic && (!file || as)) {
     const r = await dialog.showSaveDialog(mainWindow!, {
       title: "Save Axiom workspace",
@@ -743,6 +762,7 @@ async function writeWorkspace(
     });
     if (r.canceled || !r.filePath) return false;
     file = r.filePath;
+    allowCreate = true;
   }
   if (!automatic) await flushEditors();
   if (capture) await capturePreferences();
@@ -812,7 +832,7 @@ async function writeWorkspace(
       await workspaceFiles.write(
         destination,
         workspaceJson(document, workbench),
-        !file,
+        { createDirectory: !file, allowCreate: !file || allowCreate },
       );
       if (file && workspacePath !== file) {
         setWorkspacePath(file, lease);
@@ -832,6 +852,11 @@ async function writeWorkspace(
     autosaveCheckpoint.complete(key);
     return true;
   } catch (error) {
+    if (error instanceof MissingWorkspaceError && file) {
+      await releaseMissingWorkspace(file);
+      // The file may disappear while editors or serialization are in flight.
+      return writeWorkspace(as, automatic, archive, false);
+    }
     if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
     throw error;
   } finally {
@@ -1381,6 +1406,17 @@ app.whenReady().then(async () => {
   });
   await recentFiles.load();
   const restoredSession = await sessions.restore(async (session) => {
+    if (
+      session.workspacePath &&
+      !(await workspaceExists(session.workspacePath))
+    ) {
+      await errorLog.record(
+        "The workspace could not be opened because its file no longer exists.",
+        "Restore workspace",
+        { ...errorContext(), file: session.workspacePath },
+      );
+      return false;
+    }
     // A different slot may have opened this session's named workspace since its
     // last run. Restore its snapshot as an unnamed recovery, never a second writer.
     const lease = session.workspacePath

@@ -12,7 +12,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
-  rename,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -282,9 +282,11 @@ test("a failed final save keeps the window open, preserves recovery and exposes 
   const iri = await create();
   const folder = path.join(profile, "destination");
   await mkdir(folder);
-  await save(path.join(folder, "saved.axiom"));
+  const file = path.join(folder, "saved.axiom");
+  await save(file);
   await request("rename", { iri, name: "Retained despite failure" });
-  await rename(folder, folder + "-moved");
+  // #162: missing destinations now recover normally; fail a write to an existing file.
+  await mkdir(file + ".bak");
   await app!.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].close(),
   );
@@ -301,7 +303,7 @@ test("a failed final save keeps the window open, preserves recovery and exposes 
   expect(
     (await stored()).workspace.entities.find((e: any) => e.iri === iri).label,
   ).toBe("Retained despite failure");
-  await mkdir(folder);
+  await rm(file + ".bak", { recursive: true });
   await close();
   expect(
     JSON.parse(

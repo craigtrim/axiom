@@ -58,7 +58,7 @@ export class SessionStore {
   ) {
     this.file = path.join(directory, "last-session.json");
   }
-  async restore(apply: (session: SavedSession) => Promise<void>) {
+  async restore(apply: (session: SavedSession) => Promise<void | false>) {
     const errors: string[] = [];
     for (const file of [this.file, this.file + ".bak"]) {
       try {
@@ -66,7 +66,9 @@ export class SessionStore {
           throw new SessionSizeError();
         const text = await readFile(file, "utf8");
         const session = readSession(JSON.parse(text));
-        await apply(session);
+        // #162: a deliberately skipped session must not revive an older workspace.
+        if ((await apply(session)) === false)
+          return { session: undefined, recovered: false, errors: [] };
         this.previous = text;
         return { session, recovered: file !== this.file, errors };
       } catch (e) {

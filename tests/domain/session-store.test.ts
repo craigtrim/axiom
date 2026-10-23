@@ -104,6 +104,27 @@ it("returns no session when both saved copies are invalid", async () => {
   expect(r.session).toBeUndefined();
   expect(r.errors).toHaveLength(2);
 });
+// #162: missing named workspaces are intentionally skipped, including backup fallback.
+it("opens empty when the current session is skipped even if a valid backup exists", async () => {
+  const s = await storage();
+  await s.save(session("Older workspace"));
+  await s.save(session("Missing workspace"));
+  const applied: string[] = [];
+  const result = await s.restore(async (saved) => {
+    applied.push(saved.workspace.ontology!.name);
+    return false;
+  });
+  expect(applied).toEqual(["Missing workspace"]);
+  expect(result).toEqual({ session: undefined, recovered: false, errors: [] });
+});
+it("skips a backup naming a missing workspace after a damaged current session", async () => {
+  const s = await storage();
+  await s.save(session("Missing workspace"));
+  await s.save(session("Current"));
+  await writeFile(s.file, "broken {");
+  const result = await s.restore(async () => false);
+  expect(result).toEqual({ session: undefined, recovered: false, errors: [] });
+});
 it("rejects a relative save path before writing", async () => {
   const s = await storage();
   expect(() =>
