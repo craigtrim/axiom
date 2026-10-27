@@ -2,7 +2,10 @@
 import { test, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { addEntityReference } from "../fixtures/add-entity-visual/fixture";
-import { entityIdentifier } from "../../src/shared/entity-names";
+import {
+  entityIdentifier,
+  normalizeEntityName,
+} from "../../src/shared/entity-names";
 // craigtrim/axiom#111: preserve coloured source while checking the pinned layout.
 import {
   assertCodeSurfaces,
@@ -92,7 +95,8 @@ async function prepareReference(
     .replace("Maximise pane", "Maximize pane");
   html = html.replace(
     "<script>",
-    "<script>const realTimeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...args)=>ms===4200?0:realTimeout(fn,ms,...args);</script><script>",
+    // #165: restore the #157 dependency so the normal CI reference can boot.
+    `<script>const normalizeEntityName=${normalizeEntityName.toString()};const realTimeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...args)=>ms===4200?0:realTimeout(fn,ms,...args);</script><script>`,
   );
   return f.app.evaluate(
     async (
