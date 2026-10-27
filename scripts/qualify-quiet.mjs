@@ -60,11 +60,20 @@ function scenario(mode, regression) {
   const errors = cases.flatMap((test) =>
     test.results.flatMap((result) => result.errors || []),
   );
-  const staleLabelDetected = errors.some(
-    (error) =>
-      /School Revised/.test(error.message || "") &&
-      /toBeVisible/.test(error.message || ""),
-  );
+  // Find queries fresh domain results; Hierarchy consumes the damaged entity
+  // cache. Require that specific stale-label failure, with no other errors.
+  const staleLabelDetected =
+    errors.length === 1 &&
+    errors.every((error) => {
+      const message = (error.message || "").replace(/\u001b\[[0-9;]*m/g, "");
+      return (
+        /state-updates\.spec\.ts$/.test(error.location?.file || "") &&
+        /toHaveText/.test(message) &&
+        /tree-name/.test(message) &&
+        /School Revised/.test(message) &&
+        /Received:\s*"School"/.test(message)
+      );
+    });
   if (
     regression
       ? status !== 1 || results.stats.unexpected !== 1 || !staleLabelDetected
