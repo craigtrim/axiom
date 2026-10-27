@@ -62,20 +62,19 @@ jobs:
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
       - name: Verify migrated native coverage
-        if: matrix.shard != 3
+        if: matrix.shard == 1 || matrix.shard == 2
         continue-on-error: true
         shell: pwsh
         run: |
           $cases = @{
-            1 = @('tests/e2e/menus.spec.ts', 'tests/e2e/find-adaptive.spec.ts')
+            1 = @('tests/e2e/menus.spec.ts')
             2 = @('tests/e2e/individuals-visual.spec.ts')
-            4 = @('tests/e2e/ux-refinement.spec.ts', 'tests/e2e/workbench.spec.ts')
           }
           $files = $cases[${{ matrix.shard }}]
           node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts @files
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
-        if: always() && matrix.shard != 3
+        if: always() && (matrix.shard == 1 || matrix.shard == 2)
         with:
           name: migrated-native-${{ matrix.shard }}
           path: |

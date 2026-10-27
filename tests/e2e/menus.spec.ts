@@ -1310,6 +1310,9 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
   await request("layout", { mode: "grid" });
   await request("seed", { iris: [NS.pizza + "Pizza"], expand: false });
   await menu("graph.fit");
+  // #165: preferences.load observes the main-process copy after its 250 ms
+  // debounce. Let Fit replace the previous camera before computing real input.
+  await page.waitForTimeout(400);
   const canvas = page.getByTestId("graph-canvas");
   await expect
     .poll(
@@ -1345,6 +1348,8 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
       return [p.x, p.y];
     })
     .toEqual([n.x, n.y]);
+  // Undo can schedule a fitted camera; wait for the same persistence boundary.
+  await page.waitForTimeout(400);
   const before = await camera();
   await canvas.hover();
   await page.mouse.wheel(0, 120);

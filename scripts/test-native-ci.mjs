@@ -46,6 +46,11 @@ function run(report, listing) {
         ...process.env,
         AXIOM_TEST_QUIET: "",
         PLAYWRIGHT_JSON_OUTPUT_FILE: report,
+        PLAYWRIGHT_HTML_OUTPUT_DIR: path.join(
+          root,
+          "artifacts/playwright-report",
+        ),
+        PLAYWRIGHT_HTML_OPEN: "never",
       },
     },
   );

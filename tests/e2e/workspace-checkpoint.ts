@@ -22,6 +22,7 @@ export async function waitWorkspaceCheckpoint(
             await readFile(path.join(profile, "last-session.json"), "utf8"),
           );
           return {
+            datasetEpoch: workspace.datasetEpoch,
             ontology: workspace.ontology,
             entities: catalog(workspace.entities),
           };
@@ -32,6 +33,7 @@ export async function waitWorkspaceCheckpoint(
       { message: "Workspace command must finish its recovery checkpoint" },
     )
     .toEqual({
+      datasetEpoch: snapshot.datasetEpoch,
       ontology: snapshot.ontology,
       entities: catalog(snapshot.entities),
     });

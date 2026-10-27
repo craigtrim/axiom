@@ -325,7 +325,9 @@ async function capture(
       legend
         ? ".tbar, .tbar .btn, .tbar .fld, .pill"
         : // #165: give both keyboard separator focus rings the same paint boundary.
-          ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
+          // Keep the toolbar in the pane layer: a focused field otherwise adds
+          // a different nested clipping boundary in the dock and standalone HTML.
+          ".tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
     )
     .evaluateAll((els, legend) => {
       for (const el of els) {
@@ -496,112 +498,6 @@ async function compare(
       path: `artifacts/issue-61/${name}-layout.json`,
       contentType: "application/json",
     });
-    // #165 diagnostic only: record which independent compositing boundaries
-    // affect a failed comparison. The original bitmap assertion below still fails.
-    const variants: [string, string, boolean][] = [
-      ["filter-layer", ".fwrap", true],
-      ["grid-layers", ".gwrap,.gfoot", true],
-      ["parent-layer-off", "parent", false],
-      ["pane-layer-off", "pane", false],
-      ["toolbar-layer-off", ".tbar", false],
-      [
-        "control-layers-off",
-        ".tbar,.tbar .btn,.tbar .fld,.pill,.pgn,.gstat,.rz",
-        false,
-      ],
-    ];
-    for (const root of [actual, expected])
-      await root.evaluate((el) => {
-        (window as any).__paintDiagnosticStyles = new Map(
-          [el.parentElement!, el, ...el.querySelectorAll("*")].map((node) => [
-            node,
-            node.getAttribute("style"),
-          ]),
-        );
-      });
-    const measurements = [];
-    try {
-      for (const [variant, selector, promote] of variants) {
-        const captures = [];
-        for (const root of [actual, expected]) {
-          await root.evaluate(
-            async (el, { selector, promote }) => {
-              for (const [node, style] of (window as any)
-                .__paintDiagnosticStyles)
-                style === null
-                  ? node.removeAttribute("style")
-                  : node.setAttribute("style", style);
-              const nodes =
-                selector === "parent"
-                  ? [el.parentElement!]
-                  : selector === "pane"
-                    ? [el]
-                    : [...el.querySelectorAll(selector)];
-              for (const node of nodes) {
-                const style = (node as HTMLElement).style;
-                if (promote) {
-                  style.transform = "translateZ(0)";
-                  style.willChange = "transform";
-                } else {
-                  style.removeProperty("transform");
-                  style.removeProperty("will-change");
-                  style.removeProperty("isolation");
-                }
-              }
-              await new Promise<void>((resolve) =>
-                requestAnimationFrame(() =>
-                  requestAnimationFrame(() => resolve()),
-                ),
-              );
-            },
-            { selector, promote },
-          );
-          captures.push(
-            await root
-              .page()
-              .screenshot({
-                clip: (await root.boundingBox())!,
-                animations: "disabled",
-                scale: "css",
-              }),
-          );
-        }
-        const pixels = await app.evaluate(
-          ({ nativeImage }, buffers) => {
-            const images = buffers.map((s) =>
-              nativeImage.createFromBuffer(Buffer.from(s, "base64")),
-            );
-            if (
-              JSON.stringify(images[0].getSize()) !==
-              JSON.stringify(images[1].getSize())
-            )
-              return -1;
-            const [left, right] = images.map((image) => image.toBitmap());
-            let pixels = 0;
-            for (let i = 0; i < left.length; i += 4)
-              if (left.readUInt32LE(i) !== right.readUInt32LE(i)) pixels++;
-            return pixels;
-          },
-          captures.map((buffer) => buffer.toString("base64")),
-        );
-        measurements.push({ variant, pixels });
-      }
-    } finally {
-      for (const root of [actual, expected])
-        await root.evaluate(() => {
-          for (const [node, style] of (window as any).__paintDiagnosticStyles)
-            style === null
-              ? node.removeAttribute("style")
-              : node.setAttribute("style", style);
-          delete (window as any).__paintDiagnosticStyles;
-        });
-    }
-    await test
-      .info()
-      .attach(name + " paint diagnostics", {
-        body: JSON.stringify(measurements),
-        contentType: "application/json",
-      });
   }
   expect.soft(result.pixels, name + " raw differing pixels").toBe(0);
 }

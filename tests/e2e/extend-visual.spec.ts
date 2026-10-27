@@ -772,18 +772,7 @@ for (const [theme, narrowOnly] of [
           baselinePath,
           JSON.stringify({ referenceHash, images: generated }, null, 2) + "\n",
         );
-      else
-        expect(Object.keys(generated)).toEqual(
-          Object.keys(baseline).filter(
-            (name) =>
-              ![
-                "header-context",
-                "subclass-context",
-                "sibling-context",
-                "instance-context",
-              ].includes(name),
-          ),
-        );
+      else expect(Object.keys(generated)).toEqual(Object.keys(baseline));
       expect(errors).toEqual([]);
     } finally {
       await app.close();
