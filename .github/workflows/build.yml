@@ -4,8 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
-  windows:
+  # #165: qualify hidden rendering against unchanged native tests and a real bug.
+  quiet-qualification:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -13,21 +15,73 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Configure native test display
+        shell: powershell
+        run: .\scripts\setup-ci-display.ps1
+      - run: npm run build
+      - run: npm run test:quiet:qualify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quiet-qualification
+          path: |
+            artifacts/quiet-qualification/**
+            artifacts/quiet/results.json
+            artifacts/test-results/**
+  windows:
+    runs-on: windows-latest
+    env:
+      AXIOM_EMBEDDING_MODEL_DIR: ${{ github.workspace }}/artifacts/ci-model
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # #165: native tests must use real dependencies instead of silently skipping.
+      - name: Install verified Mutatoc runtime
+        shell: powershell
+        run: .\scripts\setup-ci-mutatoc.ps1
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.AXIOM_EMBEDDING_MODEL_DIR }}
+          key: mpnet-fp32-${{ runner.os }}-${{ hashFiles('src/shared/embeddings.ts') }}
+      - run: npm run setup:embeddings
+      - name: Configure native test display
+        shell: powershell
+        run: .\scripts\setup-ci-display.ps1
       - run: npm run check:docs
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
-      - run: npm run test:desktop
+      # #165: expose the repaired asynchronous and visual regressions early.
+      # A passing run still executes every one of these in the full inventory.
+      - name: Check native regressions first
+        if: matrix.shard == 1
+        run: node --import tsx scripts/test-native-ci.mjs regression
+      # #165: execute the full inventory even after a failure, so reports account
+      # for every case. Files retain their serial execution within each shard.
+      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
       - run: npm audit --audit-level=moderate
       - run: npm run package
+        if: matrix.shard == 1
+        env:
+          AXIOM_LOCAL_BUILD: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: axiom-windows-x64
+          name: axiom-windows-x64-${{ matrix.shard }}
+          retention-days: 7
           path: |
             artifacts/installer/**
             artifacts/latest-electron.json
             artifacts/playwright-report/**
             artifacts/test-results/**
+            artifacts/native/**

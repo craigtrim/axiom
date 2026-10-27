@@ -63,6 +63,44 @@ test("shared tokens remain stylesheet-owned in both themes and detached windows"
         ? light
         : dark)[d.prop] = normalize(d.value);
     });
+    // #165: #111 added syntax tokens after this pinned layout reference. Keep
+    // their approved palette explicit rather than omitting them from the check.
+    const syntax = {
+      light: {
+        keyword: "#6f2c91",
+        prefixed: "#0a5a75",
+        iri: "#164ba0",
+        string: "#8b3516",
+        language: "#7c386a",
+        datatype: "#7c386a",
+        number: "#704d00",
+        comment: "#3f4c45",
+        punctuation: "#3b4652",
+        "xml-tag": "#6f2c91",
+        "xml-attribute": "#0a5a75",
+        "json-key": "#0a5a75",
+        variable: "#8b1962",
+      },
+      dark: {
+        keyword: "#d2a8ff",
+        prefixed: "#7ed6df",
+        iri: "#91bcff",
+        string: "#ffa985",
+        language: "#f2a6de",
+        datatype: "#f2a6de",
+        number: "#eac971",
+        comment: "#b2beb2",
+        punctuation: "#bac7d5",
+        "xml-tag": "#d2a8ff",
+        "xml-attribute": "#7ed6df",
+        "json-key": "#7ed6df",
+        variable: "#f2a6de",
+      },
+    };
+    for (const [name, value] of Object.entries(syntax.light))
+      light["--syntax-" + name] = value;
+    for (const [name, value] of Object.entries(syntax.dark))
+      dark["--syntax-" + name] = value;
     const check = async (target: Page, theme: "light" | "dark") => {
       await expect(target.locator("html")).toHaveAttribute("data-theme", theme);
       const result = await target.evaluate(

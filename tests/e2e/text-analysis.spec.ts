@@ -2146,12 +2146,14 @@ for (const route of ["toolbar", "Alt+Enter", "context menu"] as const) {
   });
 }
 
-for (const [phrase, seeded] of [
+for (const [phrase, seeded, saved = seeded] of [
   ["Basic ENGLISH COMPOSITION", "Basic English Composition"],
   ["PERSONAL DIMENSIONS OF EDUCATION", "Personal Dimensions of Education"],
   [
     "Basic ETHICS & SOCIAL RESPONSIBILITY",
     "Basic Ethics & Social Responsibility",
+    // #165: #157 normalizes the saved label while preserving the selected draft.
+    "Basic Ethics and Social Responsibility",
   ],
   ["INTRO TO HIV PREVENTION", "Intro to HIV Prevention"],
   ["PHD SEMINAR IN GIS", "PhD Seminar in GIS"],
@@ -2175,8 +2177,14 @@ for (const [phrase, seeded] of [
       window.axiom.request<Snapshot>("state"),
     );
     expect(
-      state.entities.filter((entity) => entity.label === seeded),
+      state.entities.filter((entity) => entity.label === saved),
     ).toHaveLength(1);
+    if (saved !== seeded)
+      await expect(
+        page
+          .getByRole("region", { name: "Entity inspector", exact: true })
+          .getByRole("textbox", { name: "rdfs:seeAlso value 1", exact: true }),
+      ).toHaveValue(seeded);
   });
 }
 

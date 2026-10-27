@@ -48,7 +48,10 @@ describe("thumbnail cache", () => {
       10000,
       2,
     );
-    await Promise.all(files.map((f) => cache.thumbnail(f)));
+    // #165: concurrent stat calls need not finish in input order. Establish the
+    // oldest entry before testing decoder concurrency and its eventual eviction.
+    await cache.thumbnail(files[0]);
+    await Promise.all(files.slice(1).map((f) => cache.thumbnail(f)));
     expect(peak).toBe(2);
     await cache.thumbnail(files[0]);
     expect(calls).toBe(7);

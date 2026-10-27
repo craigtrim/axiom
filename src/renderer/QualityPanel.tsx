@@ -53,6 +53,7 @@ import {
   startQuality,
   takeQualitySettingsRequest,
   useQualityStale,
+  useQualityApplying,
   useQualitySettingsRequests,
   useQualityStatus,
 } from "./quality-view";
@@ -297,6 +298,7 @@ type Mode =
 export function QualityPanel() {
   const snapshot = useSnapshot()!,
     job = useQualityStatus(),
+    applyingCorrection = useQualityApplying(),
     settingsRequests = useQualitySettingsRequests();
   const [options, setOptions] = useState(() =>
     readQualityOptions(panel("quality.options", defaultQualityOptions())),
@@ -368,12 +370,18 @@ export function QualityPanel() {
   const partial = job?.state === "canceled" ? job.partial : undefined;
   const shown: QualityReport | undefined = report ?? partial;
   const busy = starting || job?.state === "running";
+  // #165: share the synchronous correction state with the shell across IPC updates.
+  const correctionInFlight =
+    applyingCorrection?.id === job?.id &&
+    applyingCorrection?.report?.datasetEpoch === snapshot.datasetEpoch &&
+    snapshot.version === (applyingCorrection?.report?.version ?? -2) + 1;
   // A canceled report's partial findings go stale the same way a complete report's do.
   const staleStore =
     !!shown &&
     (shown.datasetEpoch !== snapshot.datasetEpoch ||
-      (shown.version !== snapshot.version &&
-        !(applying && snapshot.version === shown.version + 1)));
+      // #165: the correction reply can precede its state broadcast. A newer
+      // report is awaiting that broadcast, not stale; Undo increments version.
+      (shown.version < snapshot.version && !correctionInFlight));
   const staleSettings =
     !!shown &&
     !staleStore &&
@@ -414,7 +422,7 @@ export function QualityPanel() {
     body.scrollTop = pendingScroll.current.top;
     pendingScroll.current.pending = false;
   }, [scrollKey, width, height]);
-  useEffect(() => publishQualityStale(stale), [stale]);
+  useEffect(() => publishQualityStale(stale, shown), [stale, shown]);
   const labels = useMemo(
     () =>
       new Map(

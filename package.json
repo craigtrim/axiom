@@ -28,7 +28,9 @@
     "setup:mutatoc": "node scripts/setup-mutatoc.mjs",
     "setup:embeddings": "tsx scripts/setup-embeddings.ts",
     "test:text-analysis": "node scripts/test-text-analysis.mjs",
-    "test:desktop": "playwright test --config config/playwright.config.ts"
+    "test:desktop": "playwright test --config config/playwright.config.ts",
+    "test:quiet": "node scripts/test-quiet.mjs",
+    "test:quiet:qualify": "node scripts/qualify-quiet.mjs"
   },
   "dependencies": {
     "@comunica/actor-function-factory-term-datatype": "5.4.0",
@@ -66,17 +68,17 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/utif": "^3.0.6",
-    "electron": "44.3.0",
+    "electron": "44.10.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.25.0",
     "prettier": "^3.9.6",
     "rdf-canonize": "5.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "overrides": {
-    "dompurify": "3.4.15"
+    "dompurify": "3.4.17"
   },
   "type": "module"
 }

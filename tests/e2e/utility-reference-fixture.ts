@@ -109,6 +109,25 @@ export async function launchUtility(
         ),
       )
       .toBe(true);
+    // Import broadcasts the ontology before the workbench reset and capture finish.
+    // Wait for that real checkpoint before installing this specimen's preferences.
+    await expect
+      .poll(async () => {
+        try {
+          const session = JSON.parse(
+            await readFile(path.join(profile, "last-session.json"), "utf8"),
+          );
+          return (
+            session.workspace.entities.some(
+              (entity: { iri: string }) =>
+                entity.iri === "http://example.org/axiom#JournalArticle",
+            ) && session.workbench.tabHistory.entries.length === 0
+          );
+        } catch {
+          return false;
+        }
+      })
+      .toBe(true);
     // Open the recorded history through the normal preferences load after importing this fixture dataset.
     await page.evaluate(
       async ({ history, theme, all }) => {

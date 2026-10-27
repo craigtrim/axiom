@@ -17,7 +17,9 @@ let app: ElectronApplication, page: Page, specimen: Page;
 const reference = path.resolve(
   "tests/fixtures/text-analysis-visual/visual-reference.html",
 );
-const output = path.resolve(process.env.AXIOM_VISUAL_OUTPUT ?? "artifacts/issue-79-visual");
+const output = path.resolve(
+  process.env.AXIOM_VISUAL_OUTPUT ?? "artifacts/issue-79-visual",
+);
 const host = () => page.locator('.adaptive-pane[data-pane-id="textanalysis"]');
 const pane = () => page.locator(".text-analysis-panel");
 const editor = () => pane().getByRole("textbox", { name: "Text to analyze" });
@@ -138,7 +140,15 @@ async function launch(theme: string) {
   await page.keyboard.insertText(fixture.sample);
   await expect(pane().locator(".state")).toHaveText("15 matches");
   const opened = app.waitForEvent("window");
-  await app.evaluate(async ({ BrowserWindow }, reference) => {
+  // #165: #128 explicitly replaced click navigation and its help copy. Keep the
+  // hashed #79 design and its pixel assertions; apply only that approved wording.
+  const previousHelp = " Click a highlight to open <b>Details</b>.";
+  expect(html.split(previousHelp)).toHaveLength(2);
+  const currentReference = html.replace(
+    previousHelp,
+    " Ctrl+click a highlight to open <b>Details</b>.",
+  );
+  await app.evaluate(async ({ BrowserWindow }, currentReference) => {
     const win = new BrowserWindow({
       width: 1200,
       height: 900,
@@ -146,9 +156,11 @@ async function launch(theme: string) {
       focusable: false,
       webPreferences: { backgroundThrottling: false },
     });
-    await win.loadFile(reference);
+    await win.loadURL(
+      "data:text/html;charset=utf-8," + encodeURIComponent(currentReference),
+    );
     win.showInactive();
-  }, reference);
+  }, currentReference);
   specimen = await opened;
   await specimen.evaluate(
     (theme) => (document.documentElement.dataset.theme = theme),
@@ -278,6 +290,19 @@ async function compare(
   );
   // Monaco rounds each wrapped decoration fragment; the HTML backdrop slices its mark.
   // Only the documented 24 corner pixels may differ in wrapped editor frames.
+  // #165: retain failed images for CI diagnosis without changing the comparison.
+  if (diff.pixels < 0 || diff.pixels > cornerPixels) {
+    await test
+      .info()
+      .attach(name + " actual", { body: actual, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " expected", { body: expected, contentType: "image/png" });
+    await test.info().attach(name + " layout", {
+      path: path.join(output, name + "-layout.json"),
+      contentType: "application/json",
+    });
+  }
   expect.soft(diff.pixels, name + " dimensions").toBeGreaterThanOrEqual(0);
   expect.soft(diff.pixels, name).toBeLessThanOrEqual(cornerPixels);
 }

@@ -1,3 +1,5 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -177,7 +179,7 @@ test("Expand max uses breadth-first traversal to the slider limit and one Undo r
 test("Expand max stays within its graph tab and is disabled on empty or isolated maps", async () => {
   await loadFixture();
   const original = (await state()).graph.nodes.map((n) => n.iri);
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("A");
+  await (await hierarchyFilter(page)).fill("A");
   await page
     .locator('[data-entity-iri="' + base + 'A"]')
     .first()

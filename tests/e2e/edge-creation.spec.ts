@@ -356,6 +356,9 @@ test("Escape, right-click, stale data and pane closure cancel drawing without ed
   await menu("graph.connect");
   await expect(preview()).toBeVisible();
   await menu("pane.close");
+  // #165: closing archives the graph asynchronously. Reopen only after that
+  // close has completed, then require the interrupted drawing to stay canceled.
+  await expect(page.getByTestId("graph-canvas")).toHaveCount(0);
   await menu("view.graph");
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
   await expect(preview()).toHaveCount(0);

@@ -2561,6 +2561,8 @@ function placeCreated(a: Record<string, unknown>) {
   view.seed([selected], false, false);
   const node = view.nodes.get(selected);
   if (node) {
+    // #165: inline rename reads graph-local selection after positioned creation.
+    view.selected = selected;
     node.x = p.x;
     node.y = p.y;
     node.pinned = true;

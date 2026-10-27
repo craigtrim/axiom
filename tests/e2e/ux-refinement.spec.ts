@@ -1,13 +1,22 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#92: use the Touchpoints pane's accessible name.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  writeFile,
+  readFile,
+  copyFile,
+} from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 import { edgeKey } from "../../src/domain/viewport";
@@ -64,21 +73,48 @@ async function nodeMenu(iri: string) {
 }
 async function treeMenu(iri: string) {
   await request("select", { iri });
-  const filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.fill(iri.slice(base.length));
   const row = page.locator('[data-entity-iri="' + iri + '"]');
   await row.click({ button: "right" });
   return page.getByRole("menu", { name: "Entity actions", exact: true });
 }
-test.beforeEach(async () => {
+test.beforeEach(async ({}, info) => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/ux-"));
+  // #165: current parent review uses the real assistant pipeline with a local CLI
+  // specimen. Its catalog-based reply preserves parent application/Undo coverage.
+  const bin = path.join(profile, "bin");
+  const cli = path.join(bin, "node_modules/@openai/codex/bin");
+  await mkdir(cli, { recursive: true });
+  await writeFile(path.join(cli, "package.json"), '{"type":"module"}');
+  await writeFile(
+    path.join(cli, "codex.js"),
+    String.raw`import fs from "node:fs";
+    if(process.argv.includes("--version")){console.log("fixture-cli 1.0");process.exit(0);}
+    let p="";process.stdin.on("data",d=>p+=d);process.stdin.on("end",()=>{
+      if(!p.startsWith("Suggest parents for"))throw Error("Unexpected fixture prompt");
+      const unavailable=JSON.parse(p.split("\n").find(l=>l.startsWith("Unavailable IDs")).split(": ")[1]);
+      const suggestions=p.split("\n").filter(l=>l.startsWith('["c')).map(l=>JSON.parse(l)).filter(r=>["Ultrafast Polymer Cutting","Laser Polymer Cutting"].includes(r[1])&&!unavailable.includes(r[0])).map(r=>({value:r[0],reason:"A broader existing category."}));
+      fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify({suggestions}));
+    });`,
+  );
+  // This journey checks shared provider selection, not a model response. The
+  // local Node binary answers --version and cannot make an assistant API call.
+  if (info.title.startsWith("Claude is"))
+    await copyFile(
+      process.execPath,
+      path.join(bin, process.platform === "win32" ? "claude.exe" : "claude"),
+    );
   const env = {
     ...process.env,
     AXIOM_CACHE_HOME: path.join(profile, "cache"),
     AXIOM_USER_DATA: profile,
   } as Record<string, string>;
+  const priorPath = env.PATH ?? env.Path ?? "";
+  delete env.Path;
+  env.PATH = bin + path.delimiter + priorPath;
   delete env.ELECTRON_RUN_AS_NODE;
   app = await launchExample({
     executablePath: process.env.AXIOM_TEST_EXE,
@@ -116,6 +152,7 @@ test.beforeEach(async () => {
   await expect
     .poll(async () => (await state()).ontology.name)
     .toBe("classes.ttl");
+  await waitWorkspaceCheckpoint(app, page);
   await request("seed", { iris: [target] });
   await request("select", { iri: target });
   await request("freeze");
@@ -195,14 +232,15 @@ test("Details shows compact statements and preserves language, datatype, and edi
   await page.screenshot({ path: "artifacts/testing/ux-compact-details.png" });
 });
 test("Find in taxonomy clears filters, reveals the row, and retains graph focus", async () => {
-  await page
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("no matches");
+  await (await hierarchyFilter(page)).fill("no matches");
   await graph()
     .getByRole("button", { name: "Find in taxonomy", exact: true })
     .click();
   await expect(
-    page.getByRole("textbox", { name: "Filter hierarchy" }),
+    page.getByRole("textbox", {
+      name: "Filter hierarchy",
+      includeHidden: true,
+    }),
   ).toHaveValue("");
   await expect(
     page.locator('[data-entity-iri="' + target + '"]').first(),
@@ -336,7 +374,7 @@ test("Claude is the shared default and switching Suggestions updates query gener
   await menu("view.taxonomy");
   const provider = page
     .locator('[data-panel="taxonomy"]')
-    .getByRole("combobox", { name: "Taxonomy assistant", exact: true });
+    .getByRole("combobox", { name: "Assistant", exact: true });
   await expect(provider).toHaveValue("claude");
   await provider.selectOption("codex");
   await menu("query.generate");
@@ -396,28 +434,59 @@ test("graph positions and shared renames survive switching views and Undo", asyn
   });
 });
 
-test("local subclass review adds existing parents and Undo restores the original relationships", async () => {
-  const m = await treeMenu(target);
-  await m
-    .getByRole("menuitem", { name: "Suggest Sub Classes", exact: true })
-    .click();
-  const d = page.getByRole("dialog", {
-    name: /Find existing parent classes for/,
+async function parentReview() {
+  await menu("view.taxonomy");
+  const view = page.getByRole("region", {
+    name: "Taxonomy suggestions",
+    exact: true,
   });
-  await expect(d.getByRole("checkbox")).toHaveCount(2);
-  await expect(d.getByRole("combobox")).toHaveCount(0);
+  await view
+    .getByRole("combobox", { name: "Assistant", exact: true })
+    .selectOption("codex");
+  const m = await treeMenu(target);
+  await m.getByRole("menuitem", { name: "Suggest", exact: true }).click();
+  await page
+    .getByRole("menu", { name: "Suggest", exact: true })
+    .getByRole("menuitem", { name: "Add Parents", exact: true })
+    .click();
   await expect(
-    d.getByRole("button", { name: "Add parents (0)" }),
+    view.getByRole("checkbox", { name: /^Select (Ultrafast|Laser)/ }),
+  ).toHaveCount(2);
+  return view;
+}
+
+test("parent review adds existing parents and Undo restores the original relationships", async () => {
+  // The original local matcher is still exercised through the real worker.
+  const matches = (await request("subclassSuggestions", {
+    iri: target,
+  })) as any;
+  expect(
+    matches.suggestions.map((item: { iri: string }) => item.iri).sort(),
+  ).toEqual([a, b].sort());
+  const d = await parentReview();
+  await expect(
+    d.getByRole("combobox", { name: "Assistant", exact: true }),
+  ).toHaveValue("codex");
+  await expect(
+    d.getByRole("button", { name: "Add selected parents", exact: true }),
   ).toBeDisabled();
   await d
-    .getByRole("checkbox", { name: "Ultrafast Polymer Cutting", exact: true })
+    .getByRole("checkbox", {
+      name: "Select Ultrafast Polymer Cutting",
+      exact: true,
+    })
     .check();
   await d
-    .getByRole("checkbox", { name: "Laser Polymer Cutting", exact: true })
+    .getByRole("checkbox", {
+      name: "Select Laser Polymer Cutting",
+      exact: true,
+    })
     .check();
   await page.screenshot({ path: "artifacts/testing/parent-review.png" });
-  await d.getByRole("button", { name: "Add parents (2)" }).click();
-  await expect(d).toHaveCount(0);
+  await d.getByRole("button", { name: "Add 2 parents", exact: true }).click();
+  await expect(
+    d.getByRole("button", { name: "Added 2", exact: true }),
+  ).toBeVisible();
   const doc = (await request("entityDocument", { iri: target })) as any;
   expect(doc.entity.parents).toEqual(
     expect.arrayContaining([a, b, base + "Process"]),
@@ -501,35 +570,45 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
   ).toBeVisible();
 });
 
-test("subclass review rejects stale results and excludes applied parents", async () => {
-  const m = await treeMenu(target);
-  await m
-    .getByRole("menuitem", { name: "Suggest Sub Classes", exact: true })
-    .click();
-  const d = page.getByRole("dialog", {
-    name: /Find existing parent classes for/,
-  });
-  await d.getByRole("checkbox").first().check();
+test("parent review excludes existing parents and the worker rejects stale mutations", async () => {
+  const d = await parentReview();
+  await d
+    .getByRole("checkbox", {
+      name: "Select Ultrafast Polymer Cutting",
+      exact: true,
+    })
+    .check();
   const matches = (await request("subclassSuggestions", {
     iri: target,
   })) as any;
   await expect(
     request("applySubclassSuggestions", {
       iri: target,
-      parents: [base + "Process"],
+      parents: [target],
       version: matches.version,
       datasetEpoch: matches.datasetEpoch,
     }),
-  ).rejects.toThrow(/current suggestions/);
+  ).rejects.toThrow(/distinct existing parent/);
   await request("applySubclassSuggestions", {
     iri: target,
     parents: [a, b],
     version: matches.version,
     datasetEpoch: matches.datasetEpoch,
   });
-  await expect(d.getByRole("alert")).toContainText("ontology changed");
+  // Current review keeps useful saved runs after edits, and marks newly existing
+  // parents unavailable. Stale worker mutations must still be rejected below.
   await expect(
-    d.getByRole("button", { name: "Add parents (1)" }),
+    d.getByRole("checkbox", {
+      name: /Ultrafast Polymer Cutting, Exists, cannot be added/,
+    }),
+  ).toBeDisabled();
+  await expect(
+    d.getByRole("checkbox", {
+      name: /Laser Polymer Cutting, Exists, cannot be added/,
+    }),
+  ).toBeDisabled();
+  await expect(
+    d.getByRole("button", { name: "Add selected parents", exact: true }),
   ).toBeDisabled();
   await expect(
     request("applySubclassSuggestions", {
@@ -539,10 +618,13 @@ test("subclass review rejects stale results and excludes applied parents", async
       datasetEpoch: matches.datasetEpoch,
     }),
   ).rejects.toThrow(/ontology changed/);
-  await d
-    .getByRole("button", { name: "Find suggestions again", exact: true })
-    .click();
-  await expect(d).toContainText("No additional parent classes matched");
-  await expect(d.getByRole("checkbox")).toHaveCount(0);
-  await d.getByRole("button", { name: "Cancel", exact: true }).click();
+  await d.getByRole("button", { name: "New run", exact: true }).click();
+  await expect(d).toContainText("No additional parent classes were suggested.");
+  await expect(
+    d.getByRole("checkbox", { name: /^Select (Ultrafast|Laser)/ }),
+  ).toHaveCount(0);
+  expect(
+    ((await request("subclassSuggestions", { iri: target })) as any)
+      .suggestions,
+  ).toEqual([]);
 });

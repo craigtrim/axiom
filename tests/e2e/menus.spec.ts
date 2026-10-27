@@ -1,7 +1,9 @@
+// #165: reveal the responsive filter through the existing real overflow control.
 // craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
 import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -46,6 +48,22 @@ const coverage: Record<string, string[]> = {
   "Graph appearance settings (tests/e2e/graph-appearance.spec.ts)": [
     "graph.appearance",
   ],
+  // #165: keep the menu inventory linked to native journeys added since this audit.
+  "Tab history and settings (tests/e2e/tab-history.spec.ts)": [
+    "view.tabhistory",
+    "tabs.settings",
+  ],
+  "Shared-value warning settings (tests/e2e/seealso-warnings.spec.ts)": [
+    "warnings.settings",
+  ],
+  "Sparsity analysis (tests/e2e/sparsity.spec.ts)": ["view.sparsity"],
+  "Suggestion run history (tests/e2e/hierarchy-multiselect.spec.ts)": [
+    "view.suggestionruns",
+  ],
+  "Taxonomy and error details (tests/e2e/taxonomy-assistant.spec.ts)": [
+    "view.taxonomy",
+    "view.errorlog",
+  ],
 };
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
@@ -60,6 +78,9 @@ const enabled = (id: string) =>
     id,
   );
 async function menu(id: string) {
+  const epoch = ["file.new", "file.example", "file.close"].includes(id)
+    ? (await state()).datasetEpoch
+    : undefined;
   await expect
     .poll(() => enabled(id), {
       message: "Menu command should be available: " + id,
@@ -73,6 +94,12 @@ async function menu(id: string) {
     item.click({} as never, win, win.webContents as never);
   }, id);
   visited.add(id);
+  if (epoch !== undefined) {
+    await expect
+      .poll(async () => (await state()).datasetEpoch)
+      .toBeGreaterThan(epoch);
+    await waitWorkspaceCheckpoint(app, page);
+  }
 }
 function journey(title: string, ids: string[], body: () => Promise<void>) {
   coverage[title] = ids;
@@ -323,7 +350,7 @@ journey(
   "Edit operates on native text selections and opens global entity search",
   ["role.cut", "role.copy", "role.paste", "role.selectAll", "entity.search"],
   async () => {
-    const input = page.getByRole("textbox", { name: "Filter hierarchy" });
+    const input = await hierarchyFilter(page);
     await input.click();
     await input.pressSequentially("Pizza");
     await menu("role.selectAll");
@@ -482,6 +509,7 @@ journey(
   "Graph menus change layouts and bounded membership and export both formats",
   [
     "graph.fit",
+    "graph.center",
     "graph.relayout",
     "graph.layout.auto",
     "graph.layout.force",
@@ -556,6 +584,30 @@ journey(
     const zoom = (await camera())!.zoom;
     await menu("graph.fit");
     await expect.poll(async () => (await camera())?.zoom).not.toBe(zoom);
+    const fitted = (await camera())!.zoom;
+    await menu("graph.center");
+    await expect
+      .poll(async () => {
+        const c = await page.evaluate(
+          async () =>
+            (await window.axiom.preferences.load()).panelState?.[
+              "graph.camera"
+            ] as { x: number; y: number; zoom: number },
+        );
+        const graph = (await state()).graph;
+        const node =
+          graph.nodes.find((n) => n.iri === graph.focus[0]) ??
+          graph.nodes.reduce((a, b) =>
+            a.shownDegree >= b.shownDegree ? a : b,
+          );
+        const box = (await page.getByTestId("graph-canvas").boundingBox())!;
+        return Math.max(
+          Math.abs(node.x * c.zoom + c.x - box.width / 2),
+          Math.abs(node.y * c.zoom + c.y - box.height / 2),
+        );
+      })
+      .toBeLessThan(1);
+    expect((await camera())!.zoom).toBe(fitted);
     const svg = path.resolve(
         "artifacts/testing/menu-graph-" + Date.now() + ".svg",
       ),
@@ -800,22 +852,12 @@ journey(
 
 test("file cancellation and malformed input preserve the current ontology", async () => {
   await createClass("MustKeep");
+  // #165: automatic recovery replaced New's discard prompt. Exercise the
+  // current cancelable Save As and Open dialogs while retaining the data checks.
   await app.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 2,
-      checkboxChecked: false,
-    });
-  });
-  await menu("file.new");
-  expect((await state()).classCount).toBe(96);
-  await app.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 0,
-      checkboxChecked: false,
-    });
     dialog.showSaveDialog = async () => ({ canceled: true, filePath: "" });
   });
-  await menu("file.new");
+  await menu("file.saveAs");
   expect((await state()).classCount).toBe(96);
   expect((await state()).dirty).toBe(true);
   await app.evaluate(({ dialog }) => {
@@ -840,7 +882,12 @@ test("file cancellation and malformed input preserve the current ontology", asyn
     .poll(() => app.evaluate(() => (globalThis as any).lastMessage?.type))
     .toBe("error");
   expect((await state()).classCount).toBe(96);
-  expect((await state()).dirty).toBe(true);
+  // A failed Open still archives the current document before validating the target.
+  const profile = await app.evaluate(({ app }) => app.getPath("userData"));
+  const recovery = JSON.parse(
+    await readFile(path.join(profile, "last-session.json"), "utf8"),
+  );
+  expect(await readFile(recovery.recoveryPath, "utf8")).toContain("MustKeep");
 });
 
 test("graph commands operate in a detached window and reopen a closed graph", async () => {
@@ -927,12 +974,10 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
     .getByRole("button", { name: "More actions", exact: true })
     .click();
   await expect(
-    page
-      .locator(".query-panel")
-      .getByRole("menuitem", {
-        name: "Named pizzas and their toppings",
-        exact: true,
-      }),
+    page.locator(".query-panel").getByRole("menuitem", {
+      name: "Named pizzas and their toppings",
+      exact: true,
+    }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await queryText(
@@ -1075,7 +1120,7 @@ journey(
     await expect(
       d.getByRole("button", { name: "Apply", exact: true }),
     ).toBeDisabled();
-    await expect(d.getByRole("alert")).toContainText("size");
+    await expect(d.getByRole("status")).toContainText("size");
     expect((await state()).graph.stylesheet).toBe("");
     const css =
       "node.Class {fill:#bada55;shape:hexagon;size:42px;} edge {stroke:#aa1122;stroke-width:2px;}";
@@ -1115,6 +1160,10 @@ journey(
         }
       })
       .toBe(css);
+    // Opening another document autosaves the current one. Preserve an independent
+    // saved copy so this journey still proves the stylesheet is restored from disk.
+    const restored = path.resolve("artifacts/testing/styled-reference.axiom");
+    await writeFile(restored, await readFile(file));
     await request("stylesheet", { text: "" });
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = async () => ({
@@ -1122,7 +1171,7 @@ journey(
         checkboxChecked: false,
       });
     });
-    await openFrom(file);
+    await openFrom(restored);
     await menu("file.open");
     await expect.poll(async () => (await state()).graph.stylesheet).toBe(css);
   },
@@ -1212,7 +1261,7 @@ test("taxonomy double-click expands only the branch and every node exposes a key
   await page.keyboard.press("Shift+F10");
   await expect(page.getByRole("menuitem", { name: "Copy IRI" })).toBeEnabled();
   await page.keyboard.press("Escape");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("");
+  await (await hierarchyFilter(page)).fill("");
   await page.getByRole("button", { name: /Properties/ }).click();
   const property = page.getByRole("treeitem").first();
   await property.click({ button: "right" });
@@ -1261,6 +1310,9 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
   await request("layout", { mode: "grid" });
   await request("seed", { iris: [NS.pizza + "Pizza"], expand: false });
   await menu("graph.fit");
+  // #165: preferences.load observes the main-process copy after its 250 ms
+  // debounce. Let Fit replace the previous camera before computing real input.
+  await page.waitForTimeout(400);
   const canvas = page.getByTestId("graph-canvas");
   await expect
     .poll(
@@ -1296,6 +1348,8 @@ test("pointer moves and camera gestures each undo without undoing ontology edits
       return [p.x, p.y];
     })
     .toEqual([n.x, n.y]);
+  // Undo can schedule a fitted camera; wait for the same persistence boundary.
+  await page.waitForTimeout(400);
   const before = await camera();
   await canvas.hover();
   await page.mouse.wheel(0, 120);
@@ -1633,7 +1687,7 @@ test("individual names edit inside the table and workspace replacement cancels d
   await menu("view.individuals");
   await page
     .locator('[data-panel="individuals"]')
-    .getByRole("button", { name: "Alice", exact: true })
+    .getByRole("gridcell", { name: "Alice", exact: true })
     .click();
   await page.keyboard.press("F2");
   const input = page
@@ -1649,7 +1703,7 @@ test("individual names edit inside the table and workspace replacement cancels d
   await expect(input).toHaveCount(0);
   await page
     .locator('[data-panel="individuals"]')
-    .getByRole("button", { name: "Alicia", exact: true })
+    .getByRole("gridcell", { name: "Alicia", exact: true })
     .click();
   await page.keyboard.press("F2");
   await input.fill("UnsavedName");

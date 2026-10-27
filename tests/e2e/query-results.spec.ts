@@ -90,10 +90,13 @@ async function reopenResults() {
     summary = view.current.lastRun!.summary;
   // Saved tabs reopen through the existing shell history rather than rerunning.
   await menu("view.tabhistory");
-  const tab = page
-    .locator(".tab-history-leaf")
+  // #165: the current history separates selecting a saved tab from activating it.
+  const tabHistory = page.locator('[data-panel="tabhistory"]');
+  const tab = tabHistory
+    .locator(".leaf")
     .filter({ hasText: "Query results" });
   await tab.click();
+  await tabHistory.getByRole("button", { name: "Activate", exact: true }).click();
   await expect(results().locator(".state")).toContainText(
     String(summary.rowCount),
   );

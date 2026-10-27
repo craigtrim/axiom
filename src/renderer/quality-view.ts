@@ -1,7 +1,7 @@
 // Issue 87 exposes in-flight corrections so the shell reports scan freshness accurately.
 import { useSyncExternalStore } from "react";
 import { request } from "./client";
-import type { QualityStatus } from "../shared/ontology-quality";
+import type { QualityReport, QualityStatus } from "../shared/ontology-quality";
 let status: QualityStatus | undefined;
 let applying: QualityStatus | undefined;
 const listeners = new Set<() => void>();
@@ -23,6 +23,7 @@ export const useQualityApplying = () =>
 function publish(value: QualityStatus) {
   status = value;
   for (const fn of listeners) fn();
+  for (const fn of staleListeners) fn();
 }
 export async function applyQualityFinding(findingId: string) {
   const job = status;
@@ -104,10 +105,16 @@ export const useQualitySettingsRequests = () =>
 // The pane publishes whether its report is stale, so recovery never shows a
 // stale or untested result as current (craigtrim/axiom#44).
 let stale = false;
+// #165: a previous report's deferred stale flag must not taint a corrected report.
+let staleReport: QualityReport | undefined;
 const staleListeners = new Set<() => void>();
-export function publishQualityStale(value: boolean) {
-  if (stale === value) return;
+export function publishQualityStale(
+  value: boolean,
+  report: QualityReport | undefined,
+) {
+  if (stale === value && staleReport === report) return;
   stale = value;
+  staleReport = report;
   for (const fn of staleListeners) fn();
 }
 export const useQualityStale = () =>
@@ -118,5 +125,5 @@ export const useQualityStale = () =>
         staleListeners.delete(fn);
       };
     },
-    () => stale,
+    () => stale && staleReport === (status?.report ?? status?.partial),
   );

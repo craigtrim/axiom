@@ -14,6 +14,23 @@ import {
   type AddEntityFixture,
 } from "./add-entity-reference-fixture";
 let f: AddEntityFixture;
+// #165: an older debounced check can already be held when the next name is typed.
+// Match the draft being tested before resolving or rejecting its worker reply.
+const waitForPreview = async (label: string) => {
+  await expect
+    .poll(() =>
+      f.app.evaluate(
+        (_, label) =>
+          (globalThis as any).__heldRequests.held.some(
+            (item: any) =>
+              item.method === "addEntityCheck" &&
+              item.args.creation.root.label === label,
+          ),
+        label,
+      ),
+    )
+    .toBe(true);
+};
 test.afterEach(async () => {
   await f?.close();
   expect(f?.errors ?? []).toEqual([]);
@@ -23,7 +40,7 @@ test("pending checks keep the form quiet and Create waits for the current reply"
   await expect(f.pane().locator(".vmsg")).toHaveCount(0);
   await holdRequests(f.app, ["addEntityCheck"]);
   await f.setName("Fresh Choice");
-  await waitForHeld(f.app);
+  await waitForPreview("Fresh Choice");
   await expect(f.name()).toBeFocused();
   await expect(f.pane().locator(".vmsg")).toHaveCount(0);
   await f.pane().getByRole("button", { name: "Create", exact: true }).click();
@@ -42,13 +59,13 @@ test("a failed check stays visible until a successful check and stale replies ca
   ).toBeEnabled();
   await holdRequests(f.app, ["addEntityCheck"]);
   await f.setName("First Revision");
-  await waitForHeld(f.app);
+  await waitForPreview("First Revision");
   await releaseRequests(f.app, { fail: true, keepHolding: true });
   await expect(f.pane().locator(".vmsg")).toContainText(
     "Controlled preview failure",
   );
   await f.setName("Second Revision");
-  await waitForHeld(f.app);
+  await waitForPreview("Second Revision");
   await expect(f.pane().locator(".vmsg")).toContainText(
     "Controlled preview failure",
   );
@@ -56,10 +73,11 @@ test("a failed check stays visible until a successful check and stale replies ca
   await expect(f.pane().locator(".vmsg")).toHaveCount(0);
   await holdRequests(f.app, ["addEntityCheck"]);
   await f.setName("Old Reply");
-  await waitForHeld(f.app);
+  await waitForPreview("Old Reply");
   await f.pane().getByRole("button", { name: "Create", exact: true }).click();
   await f.setName("New Reply");
   await waitForHeld(f.app, 2);
+  await waitForPreview("New Reply");
   await releaseRequests(f.app, { reverse: true });
   await expect(f.name()).toHaveValue("New Reply");
   await expect(f.pane().locator(".vmsg")).toHaveCount(0);
@@ -77,7 +95,7 @@ test("Create waits for the pending phrase match and uses its default parent", as
   ).toBeEnabled();
   await holdRequests(f.app, ["addEntityCheck"]);
   await f.setName("New Engineering");
-  await waitForHeld(f.app);
+  await waitForPreview("New Engineering");
   await f.pane().getByRole("button", { name: "Create", exact: true }).click();
   await releaseRequests(f.app);
   await expect

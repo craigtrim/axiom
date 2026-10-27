@@ -366,33 +366,35 @@ test("successive failed searches keep the same alert mounted until recovery", as
   await expect(alert).toHaveCount(0);
   await expect(dialog.getByRole("option").first()).toBeEnabled();
 });
-test("the empty-result editor stays mounted across pending searches and preserves its draft", async ({
+test("Add entity stays mounted across pending Find searches and preserves its draft", async ({
   desktop: d,
 }) => {
   await d.menu("view.find");
   const pane = d.page.getByRole("region", { name: "Find entities results" });
   const query = pane.getByRole("searchbox", { name: "Search the ontology" });
   await query.fill("unlisted architecture");
-  const editor = pane.getByRole("region", {
-    name: "Add to the ontology",
-  });
+  // #165: #93 hands empty-result creation to the independent, persistent form.
+  await pane.getByRole("button", { name: "Add entity", exact: true }).click();
+  const editor = d.page.locator('[data-panel="textentities"]');
   const label = editor.getByRole("textbox", {
-    name: "Class label",
+    name: "Name",
     exact: true,
   });
   await label.fill("A preserved draft");
   const create = editor.getByRole("button", {
-    name: "Create class",
+    name: "Create",
     exact: true,
   });
   await expect(create).toBeEnabled();
   const node = await label.elementHandle();
+  await d.menu("view.find");
   await intercept(d, ["unlisted architecture two"]);
   await query.fill("unlisted architecture two");
   await held(d);
   expect(await node!.evaluate((el) => el.isConnected)).toBe(true);
   await expect(label).toHaveValue("A preserved draft");
-  await expect(create).toBeDisabled();
+  // Search readiness no longer gates a draft owned by the separate authoring pane.
+  await expect(create).toBeEnabled();
   await expect(pane.locator(".find-zero h3")).toHaveText(
     "Nothing matched in 2 of 4 fields.",
   );
@@ -401,7 +403,8 @@ test("the empty-result editor stays mounted across pending searches and preserve
   expect(await node!.evaluate((el) => el.isConnected)).toBe(true);
   await expect(label).toHaveValue("A preserved draft");
   await query.fill("marine");
-  await expect(editor).toHaveCount(0);
+  expect(await node!.evaluate((el) => el.isConnected)).toBe(true);
+  await expect(label).toHaveValue("A preserved draft");
   await expect(pane.locator(".find-result-name").first()).toContainText(
     "Marine biology",
   );

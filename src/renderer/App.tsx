@@ -1171,6 +1171,8 @@ export function App() {
               : examples[0].Text,
           "query.example": 0,
           "hierarchy.tab": "classes",
+          // #165: remounted panes must read the same reset filter as mounted panes.
+          "hierarchy.filter": "",
           "hierarchy.open": [],
         };
         delete preferences.panelState["graph.camera"];
@@ -1237,7 +1239,9 @@ export function App() {
         void request<string>("graphCreate", {
           iris: state?.selected ? [state.selected] : [],
         })
-          .then((id) => {
+          .then(async (id) => {
+            // #165: the reply can precede the broadcast that registers this graph.
+            setState(await request<Snapshot>("state"));
             show(id);
             command("graph.fit");
           })

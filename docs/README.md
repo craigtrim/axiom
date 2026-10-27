@@ -39,6 +39,7 @@ Architecture, testing, performance and repository maintenance.
 
 - [decisions.md](development/decisions.md)
 - [repository-layout.md](development/repository-layout.md)
+- [quiet-testing.md](development/quiet-testing.md)
 - [search-testing.md](development/search-testing.md)
 - [sparql-agent-integration.md](development/sparql-agent-integration.md)
 - [sparql-testing.md](development/sparql-testing.md)

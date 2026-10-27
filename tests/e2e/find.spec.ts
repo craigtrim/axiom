@@ -92,8 +92,15 @@ async function find(text: string) {
 }
 async function openMore() {
   const trigger = pane().getByRole("button", { name: "More", exact: true });
-  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+  const disclosure = pane().getByRole("dialog", { name: "More", exact: true });
+  // #165: native hidePopover precedes its queued toggle event and React's
+  // aria-expanded update. A stale true value must not skip the next real click.
+  if (!(await disclosure.isVisible())) {
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await trigger.click();
+  }
+  await expect(disclosure).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
 }
 async function resultAction(name: string) {
   await openMore();
@@ -1195,9 +1202,12 @@ test("Find filters, sorts and pages every match with useful result actions", asy
   await expect
     .poll(async () => Object.keys((await state()).graphs ?? {}).length)
     .toBe(2);
-  expect(
-    (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
-  ).toBe(true);
+  // #165: graph registration precedes the asynchronous active-view switch.
+  await expect
+    .poll(async () =>
+      (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
+    )
+    .toBe(true);
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");

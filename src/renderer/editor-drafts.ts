@@ -126,17 +126,16 @@ export function applyEditorDraft(d: EditorDraft, preserveSelection = false) {
   saving.set(k, operation);
   // craigtrim/axiom#89: save ownership survives leaving and returning to a subject.
   notify();
-  void operation
-    .finally(() => {
-      if (saving.get(k) !== operation) return;
-      saving.delete(k);
-      // A reversal must survive until the pending save settles. If that save
-      // failed, the reversal may already match the unchanged document.
-      const latest = getEditorDraft(d.iri, d.loaded.datasetEpoch);
-      if (latest && !editorDraftChanged(latest)) rememberEditorDraft(latest);
-      else notify();
-    })
-    .catch(() => undefined);
+  const finish = (iri: string) => {
+    if (saving.get(k) !== operation) return;
+    saving.delete(k);
+    // A reversal must survive until the pending save settles. If that save
+    // failed, the reversal may already match the unchanged document.
+    const latest = getEditorDraft(iri, d.loaded.datasetEpoch);
+    if (latest && !editorDraftChanged(latest)) rememberEditorDraft(latest);
+    else notify();
+  };
+  void operation.then(finish, () => finish(d.iri)).catch(() => undefined);
   return operation;
 }
 async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
@@ -211,7 +210,19 @@ async function applyDraftNow(d: EditorDraft, preserveSelection: boolean) {
     } finally {
       notify();
     }
-  } else drafts.delete(key(result, loaded.datasetEpoch));
+  } else {
+    // #165: notify mounted editors of the saved base while this operation still
+    // owns saving. Their asynchronous reload must not leave the next keystroke
+    // based on the document from before our own commit. The completion handler
+    // releases this unchanged draft after subscribers have accepted it.
+    drafts.set(key(result, loaded.datasetEpoch), {
+      ...d,
+      iri: result,
+      nextIri: result,
+      loaded,
+      statements: loaded.statements,
+    });
+  }
   notify();
   return result;
 }

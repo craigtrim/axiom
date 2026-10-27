@@ -1,5 +1,6 @@
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import AxeBuilder from "@axe-core/playwright";
 import {
   test,
@@ -14,7 +15,10 @@ import type { Snapshot } from "../../src/shared/protocol";
 let application: ElectronApplication, page: Page;
 let errors: string[] = [];
 async function menu(label: string) {
-  await application.evaluate(({ Menu }, label) => {
+  const epoch = await page.evaluate(
+    async () => (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+  );
+  const id = await application.evaluate(({ Menu }, label) => {
     const visit = (
       items: Electron.MenuItem[],
     ): Electron.MenuItem | undefined => {
@@ -30,7 +34,19 @@ async function menu(label: string) {
       visit(Menu.getApplicationMenu()!.items);
     if (!item) throw Error("Menu not found: " + label);
     item.click(undefined as never, undefined as never, undefined as never);
+    return item.id;
   }, label);
+  if (["file.new", "file.example", "file.close"].includes(id)) {
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async () =>
+            (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+        ),
+      )
+      .toBeGreaterThan(epoch);
+    await waitWorkspaceCheckpoint(application, page);
+  }
 }
 test.beforeEach(async () => {
   await mkdir("artifacts/testing", { recursive: true });
@@ -166,10 +182,7 @@ test("drag a divider and move, close and reopen panes", async () => {
 });
 
 test("edit, undo, redo and save/reopen a workspace", async () => {
-  await page
-    .getByRole("button", { name: "New class", exact: true })
-    .first()
-    .click();
+  await menu("entity.createClass");
   const dialog = page.getByRole("form", { name: "Create entity" });
   await dialog
     .getByRole("textbox", { name: "New entity label", exact: true })
@@ -195,7 +208,9 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
   await editor.fill("42.50");
   await editor.press("Enter");
   await expect(price).toContainText("£42.50");
-  await expect(page.locator(".inspector-content")).toContainText("£42.50");
+  await expect(
+    page.getByRole("region", { name: "Entity inspector", exact: true }),
+  ).toContainText("£42.50");
   const file = path.resolve(
     "artifacts/testing/roundtrip-" + Date.now() + ".axiom",
   );
@@ -278,9 +293,9 @@ test("export SVG, PNG and clipboard and use global search", async () => {
     .getByRole("combobox", { name: "Search entities" })
     .fill("Pizza_000001");
   await page.getByRole("option").filter({ hasText: "AX-100000" }).click();
-  await expect(page.locator(".inspector-content")).toContainText(
-    "Pizza 000001",
-  );
+  await expect(
+    page.getByRole("region", { name: "Entity inspector", exact: true }),
+  ).toContainText("Pizza 000001");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await menu("entity.showGraph");
   await expect(page.locator(".graph-selection")).toContainText("AX-100000");
@@ -518,10 +533,7 @@ test("create an individual with validation and undo, and delete a class with und
   await expect(
     page.getByRole("contentinfo", { name: "Workbench status" }),
   ).toContainText("13,505 individuals");
-  await page
-    .getByRole("button", { name: "New class", exact: true })
-    .first()
-    .click();
+  await menu("entity.createClass");
   const create = page.getByRole("form", { name: "Create entity" });
   await create
     .getByRole("textbox", { name: "New entity label", exact: true })

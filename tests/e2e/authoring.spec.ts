@@ -69,7 +69,16 @@ test.beforeEach(async () => {
     });
   });
 });
-test.afterEach(async () => {
+test.afterEach(async ({}, testInfo) => {
+  // #165: retain focus evidence for native CI failures without changing assertions.
+  if (testInfo.status !== testInfo.expectedStatus)
+    console.log(
+      "Native focus evidence",
+      await page.evaluate(() => ({
+        active: document.activeElement?.outerHTML,
+        events: (window as any).axiomFocusEvidence,
+      })),
+    );
   await app.close();
   expect(errors).toEqual([]);
 });
@@ -187,6 +196,27 @@ test("natural labels create in the taxonomy and full entity details open beside 
 });
 test("double-clicking graph space creates a node with its name selected at that position", async () => {
   await menu("file.new");
+  await page.evaluate(() => {
+    const events: unknown[] = [];
+    (window as any).axiomFocusEvidence = events;
+    for (const type of [
+      "focusin",
+      "focusout",
+      "pointerdown",
+      "pointerup",
+      "dblclick",
+    ])
+      document.addEventListener(
+        type,
+        (event) =>
+          events.push({
+            type,
+            at: performance.now(),
+            target: (event.target as HTMLElement).outerHTML.slice(0, 600),
+          }),
+        true,
+      );
+  });
   const canvas = page.getByTestId("graph-canvas");
   await canvas.dblclick({ position: { x: 55, y: 75 } });
   const form = page
@@ -576,6 +606,8 @@ test("graph creation dismisses with Escape, close, Cancel or an outside click wi
   const canvas = page.getByTestId("graph-canvas"),
     popup = page.locator(".graph-create"),
     filter = await hierarchyFilter(page);
+  // #165: a nonempty real filter stays visible after focus moves to the graph.
+  await filter.fill("Thing");
   for (const action of [
     "escape",
     "close",
@@ -705,6 +737,17 @@ test("new instance stays connected to its class through movement, themes, resizi
         ] as { x: number; y: number; zoom: number },
     );
   await expect.poll(async () => !!(await camera())).toBe(true);
+  // #165: the persisted camera can still describe the view before Fit's frame.
+  await expect
+    .poll(async () => {
+      const node = (await state()).graph.nodes.find((n) => n.iri === source)!,
+        current = await camera(),
+        area = (await canvas.boundingBox())!,
+        x = node.x * current.zoom + current.x,
+        y = node.y * current.zoom + current.y;
+      return x > 20 && y > 20 && x < area.width - 20 && y < area.height - 20;
+    })
+    .toBe(true);
   const n = (await state()).graph.nodes.find((n) => n.iri === source)!,
     c = await camera();
   await canvas.click({
@@ -830,7 +873,7 @@ test("the sample graph fades other nodes while its source remains bright", async
           .panelState?.["graph.camera"],
     )
     .toBe(true);
-  const c = await page.evaluate(
+  let c = await page.evaluate(
     async () =>
       (await window.axiom.preferences.load()).panelState?.["graph.camera"] as {
         x: number;
@@ -842,6 +885,24 @@ test("the sample graph fades other nodes while its source remains bright", async
     x: n.x * c.zoom + c.x,
     y: n.y * c.zoom + c.y,
   });
+  // #165: confirm the stored camera agrees with real hit-testing after maximize/Fit.
+  await expect
+    .poll(async () => {
+      c = await page.evaluate(
+        async () =>
+          (await window.axiom.preferences.load()).panelState?.[
+            "graph.camera"
+          ] as typeof c,
+      );
+      const p = point(source),
+        area = (await canvas.boundingBox())!;
+      if (p.x <= 0 || p.y <= 0 || p.x >= area.width || p.y >= area.height)
+        return "";
+      await canvas.hover({ position: p });
+      return canvas.getAttribute("title");
+    })
+    .toContain(source.label + " ·");
+  await page.mouse.move(0, 0);
   const before = await canvas.screenshot();
   await canvas.click({ button: "right", position: point(source) });
   await page

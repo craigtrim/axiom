@@ -1,3 +1,5 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 // Issue 87 gives the palette combobox the reference accessible name.
 import { launchExample } from "./example-fixture";
 import {
@@ -142,7 +144,7 @@ test("the shortcut editor records bindings, reports collisions and removes the o
   expect(await pinned()).toBe(before);
   await page.keyboard.press("Control+Shift+b");
   await expect.poll(pinned).toBe(!before);
-  const filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.fill("p");
   await page.keyboard.press("Control+Shift+b");
   expect(await pinned()).toBe(!before);
@@ -175,7 +177,7 @@ test("chords execute once, time out, and do not consume ordinary typing", async 
   await page.waitForTimeout(1900);
   await page.keyboard.press("Control+p");
   expect(await pinned()).toBe(!before);
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Pizza");
+  await (await hierarchyFilter(page)).fill("Pizza");
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText("Topping");
   await expect(
@@ -232,8 +234,24 @@ test("menu letters and imported shortcuts persist across restart and workspace o
         ],
     ),
   ).toBe("A");
-  await nativeKeys(["%a", "n"]);
+  await nativeKeys(["%a"]);
+  await expect(
+    page.getByRole("menu", { name: "File (A)", exact: true }),
+  ).toBeVisible();
+  await nativeKeys(["n"]);
   await expect.poll(async () => (await state()).classCount).toBe(1);
+  // #165: New finishes its recovery checkpoint after broadcasting the new store.
+  await expect
+    .poll(async () => {
+      const session = JSON.parse(
+        await readFile(path.join(profile, "last-session.json"), "utf8"),
+      );
+      return (
+        session.workspace.entities.length === 1 &&
+        !session.workspace.ontology.example
+      );
+    })
+    .toBe(true);
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -383,8 +401,8 @@ test("keyboard help and palette show current shortcuts and pane navigation works
   ).toContainText("Ctrl+Shift+J");
   await page.keyboard.press("Enter");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows");
 });
 
 async function nativeKeys(keys: string[]) {

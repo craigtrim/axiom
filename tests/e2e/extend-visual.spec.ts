@@ -12,6 +12,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { extendOntology } from "../fixtures/extend-visual/ontology";
 import type { Snapshot } from "../../src/shared/protocol";
+import { assertCodeSurfaces, monochromeSource } from "./syntax-assertions";
 
 const reference = path.resolve(
   "tests/fixtures/extend-visual/visual-reference-v3.html",
@@ -121,6 +122,23 @@ async function referenceControl(
   return specimen.locator('[data-capture="true"]');
 }
 async function capture(control: Locator, owner: Page, pad = 0) {
+  // #111 added syntax colours after this pinned specimen. Verify those colours
+  // first, then retain the original geometry comparison as in Find's full frames.
+  if (owner !== page || !(await control.locator(".syntax-code").count()))
+    return captureRaw(control, owner, pad);
+  await assertCodeSurfaces(control, "code");
+  await test.info().attach("extend-context-coloured", {
+    body: await captureRaw(control, owner, pad),
+    contentType: "image/png",
+  });
+  const restore = await monochromeSource(control);
+  try {
+    return await captureRaw(control, owner, pad);
+  } finally {
+    await restore();
+  }
+}
+async function captureRaw(control: Locator, owner: Page, pad = 0) {
   // Isolate the same paint layers on both sides. Otherwise Chromium can round
   // a fractional menu-item baseline differently in a top-layer popup and a
   // static HTML exhibit, despite identical measured text geometry.
@@ -400,7 +418,7 @@ for (const [theme, narrowOnly] of [
       ) => {
         await quiet();
         // Issue 156 adds an opaque row-colored backing around the unchanged split.
-        if (narrowOnly && name.endsWith("-split"))
+        if (["narrow-split", "constrained-split"].includes(name))
           await expectedControl.evaluate((el) => {
             (el as HTMLElement).style.background = "var(--surface)";
           });
@@ -614,68 +632,74 @@ for (const [theme, narrowOnly] of [
       await pane()
         .getByRole("button", { name: 'Add "Psy" as a new class', exact: true })
         .click();
-      let width =
-        (await pane().locator(".extend-context").boundingBox())!.width + 2;
-      await compare(
-        "header-context",
-        await referenceControl("#d figure:first-child .ctx", theme, width, [
-          ["Physiological Psychology", "Psy"],
-        ]),
-        pane().locator(".extend-context"),
-      );
-      await pane()
-        .getByRole("button", { name: "Back to results", exact: true })
-        .click();
-      for (const [name, target, item, selector, changes] of [
+      // #165: #93 replaced these four embedded contexts with Add entity. Assert
+      // the real handoff here; add-entity-visual.spec.ts owns its 56 exact frames.
+      // The property context below still uses this independent #56 pixel oracle.
+      const draft = page.locator('[data-panel="textentities"]');
+      // #165: the new pane needs a usable allocation beside the isolated Find specimen.
+      const showDraft = () =>
+        page.locator('[data-pane-id="textentities"]').evaluate((el) =>
+          Object.assign((el as HTMLElement).style, {
+            position: "fixed",
+            left: "24px",
+            top: "24px",
+            width: "900px",
+            height: "700px",
+            zIndex: "1001",
+          }),
+        );
+      const returnToFind = async () => {
+        await page
+          .locator('[data-pane-id="textentities"]')
+          .evaluate((el) => el.removeAttribute("style"));
+        await menu("view.find");
+      };
+      await showDraft();
+      await expect(
+        draft.getByRole("textbox", { name: "Name", exact: true }),
+      ).toHaveValue("Psy");
+      await expect(draft).toContainText("from your search Psy");
+      await returnToFind();
+      for (const [target, item, kind, parents] of [
+        ["Psychology", "Subclass", "Class", ["Psychology"]],
+        ["Psychology", "Sibling", "Class", []],
         [
-          "subclass-context",
-          "Psychology",
-          "Subclass",
-          "#d figure:nth-child(2) .ctx",
-          [],
-        ],
-        [
-          "sibling-context",
-          "Psychology",
-          "Sibling",
-          "#d figure:nth-child(4) .ctx",
-          [],
-        ],
-        [
-          "instance-context",
           "General Psychology",
           "Instance",
-          "#d figure:nth-child(3) .ctx",
-          [],
-        ],
-        [
-          "subproperty-context",
-          "teaches",
-          "Subproperty",
-          "#d figure:nth-child(5) .ctx",
-          [],
+          "Individual",
+          ["General Psychology"],
         ],
       ] as const) {
         await openMenu(target);
         await page
           .getByRole("menuitem", { name: new RegExp("^" + item) })
           .click();
-        width =
-          (await pane().locator(".extend-context").boundingBox())!.width + 2;
-        await compare(
-          name,
-          await referenceControl(
-            selector,
-            theme,
-            width,
-            changes.map((p) => [...p]) as [string, string][],
-          ),
-          pane().locator(".extend-context"),
-        );
-        await pane()
-          .getByRole("button", { name: "Back to results", exact: true })
-          .click();
+        await showDraft();
+        await expect(
+          draft.getByRole("textbox", { name: "Name", exact: true }),
+        ).toHaveValue("Psy");
+        await expect(
+          draft.getByRole("button", { name: kind, exact: true }),
+        ).toHaveAttribute("aria-pressed", "true");
+        await expect(draft.locator(".pchip .pname")).toHaveText([...parents]);
+        if (!parents.length)
+          await expect(draft).toContainText(
+            "none, so it would be created under owl:Thing",
+          );
+        await returnToFind();
       }
+      await openMenu("teaches");
+      await page.getByRole("menuitem", { name: /^Subproperty/ }).click();
+      let width =
+        (await pane().locator(".extend-context").boundingBox())!.width + 2;
+      await compare(
+        "subproperty-context",
+        await referenceControl("#d figure:nth-child(5) .ctx", theme, width),
+        pane().locator(".extend-context"),
+      );
+      await pane()
+        .getByRole("button", { name: "Back to results", exact: true })
+        .click();
       await resize(760, 320);
       await expect(pane()).toHaveAttribute("data-layout", "shallow");
       await row().scrollIntoViewIfNeeded();

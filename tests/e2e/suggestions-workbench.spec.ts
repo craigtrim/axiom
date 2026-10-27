@@ -383,7 +383,14 @@ test("uses the local assistant for parents in the shared view, keeps histories a
       const field = popover.locator("textarea"),
         paint = popover.locator("pre");
       expect(await paint.textContent()).toBe((await field.inputValue()) + "\n");
-      expect(await paint.boundingBox()).toEqual(await field.boundingBox());
+      // #165: measure both layers in one frame of the popover's enter animation.
+      // Separate protocol calls can observe different translations; keep exact equality.
+      const layers = await popover.evaluate((el) =>
+        ["pre", "textarea"].map((selector) =>
+          el.querySelector(selector)!.getBoundingClientRect().toJSON(),
+        ),
+      );
+      expect(layers[0]).toEqual(layers[1]);
       await field.evaluate((el) => {
         el.scrollTop = 160;
         el.dispatchEvent(new Event("scroll"));

@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { NS, TYPE, type Triple } from "../../src/domain/model";
+import { mergeEntityStatements } from "../../src/domain/entity-merge";
 import type { DocumentData, EditorDraft } from "../../src/shared/editor-state";
 const mocks = vi.hoisted(() => ({
   request: vi.fn(),
@@ -64,6 +65,61 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("retained editor drafts during asynchronous saves", () => {
+  // #165: a mounted editor can type again before its asynchronous document reload.
+  it("publishes its saved base before a second edit can reuse the previous version", async () => {
+    let displayed = draft([], [note("")]);
+    let saved = document([]);
+    window.addEventListener("axiom-editor-drafts", () => {
+      const retained = getEditorDraft(iri, epoch);
+      if (retained) displayed = structuredClone(retained);
+    });
+    mocks.request.mockImplementation(async (_method, input) => {
+      const statements = mergeEntityStatements(
+        input.original,
+        input.statements,
+        saved.statements,
+      );
+      saved = { ...saved, statements, version: saved.version + 1 };
+      return { iri, document: saved };
+    });
+    rememberEditorDraft(displayed);
+    await applyEditorDraft(displayed, true);
+    // Start typing before any later entityDocument reload has returned.
+    const typed = {
+      ...displayed,
+      statements: [note("The number of credits awarded.")],
+    };
+    rememberEditorDraft(typed);
+    await applyEditorDraft(typed, true);
+    expect(saved.statements).toEqual([note("The number of credits awarded.")]);
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      "updateEntity",
+      expect.objectContaining({
+        original: [note("")],
+        version: 2,
+      }),
+    );
+    expect(editorDraftSnapshot()).toEqual([]);
+  });
+  it("releases a completed save after its automatic identifier changes", async () => {
+    const d = {
+      ...draft([note("Before")], [note("After")]),
+      automaticIri: true,
+    };
+    rememberEditorDraft(d);
+    const result = "urn:RenamedEngineering";
+    const saved = {
+      ...document(d.statements.map((t) => ({ ...t, subject: result }))),
+      entity: { ...d.loaded.entity, iri: result },
+      version: 2,
+    };
+    mocks.request.mockResolvedValue({ iri: result, document: saved });
+    expect(await applyEditorDraft(d, true)).toBe(result);
+    expect(editorDraftSnapshot()).toEqual([]);
+    expect(isEditorSaving(iri, epoch)).toBe(false);
+    expect(isEditorSaving(result, epoch)).toBe(false);
+    expect(window.axiom.editors.dirty).toHaveBeenLastCalledWith(0);
+  });
   // Issue 85: adding a field after blur must not enter the preceding cell save.
   it("retains an added blank value while saving the preceding cell snapshot", async () => {
     const d = draft([note("Before")], [note("Changed")]);

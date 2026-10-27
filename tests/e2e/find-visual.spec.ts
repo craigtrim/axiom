@@ -564,19 +564,15 @@ for (const theme of ["light", "dark"] as const) {
       // This avoids batching-dependent edge rounding without changing geometry,
       // colors, text, clipping or the strict raw bitmap comparison.
       for (const root of [pane(), expectedPane])
-        await root.evaluate(
-          (el, narrow) => {
-            (el as HTMLElement).style.transform = "translateZ(0)";
-            el.querySelectorAll<HTMLElement>(
-              ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms" +
-                // Issues 147/156: isolate ancestry text equally in both Narrow renderings.
-                (narrow ? ", .epath, .find-result-path" : ""),
-            ).forEach((name) => {
-              name.style.transform = "translateZ(0)";
-            });
-          },
-          name === "narrow" || name === "constrained",
-        );
+        await root.evaluate((el) => {
+          (el as HTMLElement).style.transform = "translateZ(0)";
+          el.querySelectorAll<HTMLElement>(
+            // #165: Type and synonym text also need stable, equivalent paint layers.
+            ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms, .res td.col-type, .find-type-column, .res td.col-syn, .find-synonym-column, .epath, .find-result-path",
+          ).forEach((name) => {
+            name.style.transform = "translateZ(0)";
+          });
+        });
       const expected = await capture(expectedPane, "reference"),
         actual = await capture(pane(), "application");
       await mkdir("artifacts/issue-83", { recursive: true });

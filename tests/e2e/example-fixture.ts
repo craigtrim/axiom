@@ -1,6 +1,6 @@
 import { _electron as electron, expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import type { Snapshot } from "../../src/shared/protocol";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 
 // These desktop journeys exercise the Pizza fixture, opened through File > Example.
 export async function launchExample(
@@ -9,23 +9,23 @@ export async function launchExample(
   const app = await electron.launch(options);
   const page = await app.firstWindow();
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
+  const epoch = await page.evaluate(
+    async () => (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+  );
   await app.evaluate(({ Menu, BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
     Menu.getApplicationMenu()!
       .getMenuItemById("file.example")!
       .click({} as never, win, win.webContents as never);
   });
-  const profile = await app.evaluate(({ app }) => app.getPath("userData"));
   await expect
-    .poll(async () => {
-      try {
-        return JSON.parse(
-          await readFile(path.join(profile, "last-session.json"), "utf8"),
-        ).workspace.ontology.example;
-      } catch {
-        return false;
-      }
-    })
-    .toBe(true);
+    .poll(() =>
+      page.evaluate(
+        async () =>
+          (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+      ),
+    )
+    .toBeGreaterThan(epoch);
+  await waitWorkspaceCheckpoint(app, page);
   return app;
 }

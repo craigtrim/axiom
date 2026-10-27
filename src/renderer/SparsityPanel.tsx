@@ -600,13 +600,14 @@ function SparsityContent() {
             {data.unpaired > 0 && (
               <span className="tag inf">
                 <span className="gl" />
-                {count(data.unpaired)} unscored, no sibling baseline
+                {/* #165: shape each complete flex label as one text node. */}
+                {`${count(data.unpaired)} unscored, no sibling baseline`}
               </span>
             )}
             {data.excluded > 0 && (
               <span className="tag wrn">
                 <span className="gl" />
-                {count(data.excluded)} excluded, in a cycle
+                {`${count(data.excluded)} excluded, in a cycle`}
               </span>
             )}
             <span>no RDF was changed</span>

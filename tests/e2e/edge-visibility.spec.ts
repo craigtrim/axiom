@@ -1,3 +1,5 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -153,7 +155,7 @@ test("each graph remembers edge and count visibility in a saved workspace and re
   await counts().click();
   await expect(counts()).not.toBeChecked();
   await checkbox().uncheck();
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Pizza");
+  await (await hierarchyFilter(page)).fill("Pizza");
   await page
     .locator('[data-entity-iri$="#Pizza"]')
     .first()
