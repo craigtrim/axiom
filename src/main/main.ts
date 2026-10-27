@@ -1,5 +1,7 @@
 // #125: retain the complete catalog when worker broadcasts carry entity deltas.
 import { mergeState } from "../shared/state-update";
+// #165: all application windows share the opt-in quiet test policy.
+import { installQuietTesting, testWindowOptions } from "./quiet-testing";
 import { TextAnalysisService } from "./text-analysis-service";
 import { mutatocExecutable } from "./mutatoc-client";
 import type { TextAnalysisContext } from "../shared/text-analysis";
@@ -94,6 +96,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { DomainMethod, Preferences, Snapshot } from "../shared/protocol";
+installQuietTesting();
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "app",
@@ -1481,30 +1484,32 @@ app.whenReady().then(async () => {
           bounds.y + 30 > d.workArea.y &&
           bounds.y < d.workArea.y + d.workArea.height,
       );
-  mainWindow = new BrowserWindow({
-    width: 1380,
-    height: 920,
-    ...(validBounds ? bounds : {}),
-    minWidth: 840,
-    minHeight: 600,
-    title: "Axiom",
-    ...(process.platform === "win32"
-      ? {
-          titleBarStyle: "hidden" as const,
-          titleBarOverlay: chromeOverlay(),
-        }
-      : {}),
-    icon: path.join(__dirname, "../assets/axiom.ico"),
-    // Match the shared ground before the renderer paints (craigtrim/axiom#81).
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0d1117" : "#ffffff",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      backgroundThrottling: false,
-    },
-  });
+  mainWindow = new BrowserWindow(
+    testWindowOptions({
+      width: 1380,
+      height: 920,
+      ...(validBounds ? bounds : {}),
+      minWidth: 840,
+      minHeight: 600,
+      title: "Axiom",
+      ...(process.platform === "win32"
+        ? {
+            titleBarStyle: "hidden" as const,
+            titleBarOverlay: chromeOverlay(),
+          }
+        : {}),
+      icon: path.join(__dirname, "../assets/axiom.ico"),
+      // Match the shared ground before the renderer paints (craigtrim/axiom#81).
+      backgroundColor: nativeTheme.shouldUseDarkColors ? "#0d1117" : "#ffffff",
+      webPreferences: {
+        preload: path.join(__dirname, "preload.cjs"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        backgroundThrottling: false,
+      },
+    }),
+  );
   const secure = (w: BrowserWindow) => {
     w.webContents.on("before-input-event", (event, input) => {
       if (
@@ -1552,7 +1557,7 @@ app.whenReady().then(async () => {
       /^app:\/\/axiom\/popout\.html(?:\?id=[a-f0-9-]{36})?$/.test(url)
         ? {
             action: "allow",
-            overrideBrowserWindowOptions: {
+            overrideBrowserWindowOptions: testWindowOptions({
               minWidth: 320,
               minHeight: 240,
               webPreferences: {
@@ -1561,7 +1566,7 @@ app.whenReady().then(async () => {
                 sandbox: true,
                 backgroundThrottling: false,
               },
-            },
+            }),
           }
         : { action: "deny" },
     );

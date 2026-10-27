@@ -101,6 +101,11 @@ npm run benchmark
 npm run benchmark:desktop
 ```
 
+For qualified tests that keep Electron windows hidden, use `npm run test:quiet`
+after building. See [quiet testing](docs/development/quiet-testing.md) for the
+allowlist and the CI evidence required before adding a test. The normal desktop
+command opens windows and belongs on a Windows CI runner while working locally.
+
 The local SPARQL suite includes 1,642 checks across W3C conformance, original and formatted queries, and literal regressions. It runs without an agent or network access. Run it alone with `npm run test:sparql`. The separate `npm run test:codex` suite launches the real Codex found on PATH, checks generated queries and taxonomy proposals in Electron, and records its responses. It is excluded from ordinary testing. See [SPARQL testing](docs/development/sparql-testing.md) for coverage, boundaries and commands.
 
 The [verification record](docs/validation/verification.md) distinguishes observed results from outstanding acceptance measurements. [Implementation decisions](docs/development/decisions.md) explain the Electron architecture and carried-forward specification resolutions. Requirements are tracked as [GitHub issues](https://github.com/craigtrim/axiom/issues).

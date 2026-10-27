@@ -112,6 +112,22 @@ export const test = baseTest.extend<{ desktop: Desktop }>({
         .poll(async () => (await desktop.request<Snapshot>("state")).classCount)
         .toBe(601);
       await use(desktop);
+      // #165: inspect construction and native events, not only final visibility.
+      if (process.env.AXIOM_TEST_QUIET === "1") {
+        const audit = await app.evaluate(({ app, BrowserWindow }) => ({
+          audit: (app as any).axiomQuietAudit,
+          windows: BrowserWindow.getAllWindows().map((w) => ({
+            visible: w.isVisible(),
+            focused: w.isFocused(),
+          })),
+        }));
+        expect(audit.audit.created.length).toBeGreaterThan(0);
+        expect(
+          audit.audit.created.every((w: any) => !w.visible && !w.focused),
+        ).toBe(true);
+        expect(audit.audit.violations).toEqual([]);
+        expect(audit.windows.every((w) => !w.visible && !w.focused)).toBe(true);
+      }
       expect(errors).toEqual([]);
     } finally {
       if (info.status !== info.expectedStatus && !page.isClosed())

@@ -4,6 +4,27 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
+  # #165: qualify hidden rendering against unchanged native tests and a real bug.
+  quiet-qualification:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:quiet:qualify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quiet-qualification
+          path: |
+            artifacts/quiet-qualification/**
+            artifacts/quiet/results.json
+            artifacts/test-results/**
   windows:
     runs-on: windows-latest
     steps:

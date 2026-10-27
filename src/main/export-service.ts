@@ -15,6 +15,8 @@ import {
 } from "../shared/export";
 import { htmlDocument, reportDocument, escapeHtml } from "./report";
 import type { DomainMethod, Snapshot } from "../shared/protocol";
+// #165: PDF helper windows obey the same quiet policy as the main window.
+import { testWindowOptions } from "./quiet-testing";
 export async function exportDocument(
   input: ExportRequest,
   owner: BrowserWindow,
@@ -98,18 +100,20 @@ export async function exportDocument(
     output = Buffer.from(m[1], "base64");
   }
   if (o.format === "pdf") {
-    const win = new BrowserWindow({
-      show: false,
-      width: 1200,
-      height: 900,
-      webPreferences: {
-        sandbox: true,
-        contextIsolation: true,
-        nodeIntegration: false,
-        javascript: false,
-        partition: "axiom-export-" + Date.now(),
-      },
-    });
+    const win = new BrowserWindow(
+      testWindowOptions({
+        show: false,
+        width: 1200,
+        height: 900,
+        webPreferences: {
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          javascript: false,
+          partition: "axiom-export-" + Date.now(),
+        },
+      }),
+    );
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     win.webContents.session.setPermissionRequestHandler((_w, _p, cb) =>
       cb(false),
