@@ -318,9 +318,6 @@ async function capture(
       (el as HTMLElement).style.transform = "translateZ(0)";
       (el as HTMLElement).style.willChange = "transform";
       (el as HTMLElement).style.isolation = "isolate";
-      // #165: isolate the opaque backing without making a new fixed-position
-      // containing block, which a transform would do to other specimen panes.
-      if (el.parentElement) el.parentElement.style.willChange = "opacity";
     });
   }
   await root
