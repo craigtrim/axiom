@@ -13,6 +13,8 @@ import type { Snapshot } from "../../src/shared/protocol";
 import type { SuggestionDocument } from "../../src/shared/suggestions";
 import type { SuggestionRun } from "../../src/shared/suggestions";
 import AxeBuilder from "@axe-core/playwright";
+// #165: use the real #91 overflow action when the hierarchy filter is collapsed.
+import { hierarchyFilter } from "./hierarchy-controls";
 const base = "https://example.org/courses#";
 const ttl =
   "@prefix : <" +
@@ -79,7 +81,7 @@ async function launch() {
 }
 async function suggest(name: string, action: string) {
   await menu("view.hierarchy");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill(name);
+  await (await hierarchyFilter(page)).fill(name);
   const row = page.locator(".tree-row").filter({
     has: page.locator(".tree-name", {
       hasText: new RegExp("^" + name + "$"),

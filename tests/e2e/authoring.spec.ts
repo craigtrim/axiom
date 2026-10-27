@@ -69,7 +69,16 @@ test.beforeEach(async () => {
     });
   });
 });
-test.afterEach(async () => {
+test.afterEach(async ({}, testInfo) => {
+  // #165: retain focus evidence for native CI failures without changing assertions.
+  if (testInfo.status !== testInfo.expectedStatus)
+    console.log(
+      "Native focus evidence",
+      await page.evaluate(() => ({
+        active: document.activeElement?.outerHTML,
+        events: (window as any).axiomFocusEvidence,
+      })),
+    );
   await app.close();
   expect(errors).toEqual([]);
 });
@@ -187,6 +196,27 @@ test("natural labels create in the taxonomy and full entity details open beside 
 });
 test("double-clicking graph space creates a node with its name selected at that position", async () => {
   await menu("file.new");
+  await page.evaluate(() => {
+    const events: unknown[] = [];
+    (window as any).axiomFocusEvidence = events;
+    for (const type of [
+      "focusin",
+      "focusout",
+      "pointerdown",
+      "pointerup",
+      "dblclick",
+    ])
+      document.addEventListener(
+        type,
+        (event) =>
+          events.push({
+            type,
+            at: performance.now(),
+            target: (event.target as HTMLElement).outerHTML.slice(0, 600),
+          }),
+        true,
+      );
+  });
   const canvas = page.getByTestId("graph-canvas");
   await canvas.dblclick({ position: { x: 55, y: 75 } });
   const form = page

@@ -1,3 +1,5 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#92: use the Touchpoints pane's accessible name.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
@@ -64,7 +66,7 @@ async function nodeMenu(iri: string) {
 }
 async function treeMenu(iri: string) {
   await request("select", { iri });
-  const filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.fill(iri.slice(base.length));
   const row = page.locator('[data-entity-iri="' + iri + '"]');
   await row.click({ button: "right" });
@@ -195,9 +197,7 @@ test("Details shows compact statements and preserves language, datatype, and edi
   await page.screenshot({ path: "artifacts/testing/ux-compact-details.png" });
 });
 test("Find in taxonomy clears filters, reveals the row, and retains graph focus", async () => {
-  await page
-    .getByRole("textbox", { name: "Filter hierarchy" })
-    .fill("no matches");
+  await (await hierarchyFilter(page)).fill("no matches");
   await graph()
     .getByRole("button", { name: "Find in taxonomy", exact: true })
     .click();

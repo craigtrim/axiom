@@ -591,7 +591,8 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
   await writeFile(
     file,
     prefix +
-      Array.from({ length: 3000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
+      // #165: keep a real scan in flight long enough for the real Cancel control.
+      Array.from({ length: 30000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
   );
   await openFile();
   await pane().getByRole("button", { name: "Rules", exact: true }).click();
@@ -694,7 +695,7 @@ test("a canceled report pages its findings from any view and goes stale like a c
   await writeFile(
     file,
     prefix +
-      Array.from({ length: 3000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
+      Array.from({ length: 30000 }, (_, i) => `:A${i} a owl:Class.`).join(" "),
   );
   await openFile();
   await scan();

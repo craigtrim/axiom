@@ -1,3 +1,4 @@
+// #165: reveal the responsive filter through the existing real overflow control.
 // craigtrim/axiom#94: reviewable run rows replace per-row action buttons.
 // craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
 import { hierarchyFilter } from "./hierarchy-controls";
@@ -233,7 +234,7 @@ test("keyboard ranges, Ctrl+Space, Ctrl+A and filtering use visible rows only", 
   await page.keyboard.press("Escape");
   await row("Gamma").press("Control+a");
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(5);
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Beta");
+  await (await hierarchyFilter(page)).fill("Beta");
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(1);
   await page.getByRole("button", { name: "Properties", exact: true }).click();
   await (await hierarchyFilter(page)).fill("Subject");
@@ -837,7 +838,7 @@ for (const mode of ["parents", "instances"] as const) {
 
 test("collapsing branches prunes hidden selections and external navigation selects a revealed descendant", async () => {
   await select(["Alpha", "Child", "Grandchild", "Beta"]);
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("");
+  await (await hierarchyFilter(page)).fill("");
   await expect(row("Child")).toHaveCount(0);
   await expect(page.locator('.tree-row[aria-selected="true"]')).toHaveCount(2);
   await page.evaluate(

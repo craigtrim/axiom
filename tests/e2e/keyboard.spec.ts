@@ -1,3 +1,5 @@
+// #165: reveal the responsive filter through the existing real overflow control.
+import { hierarchyFilter } from "./hierarchy-controls";
 // Issue 87 gives the palette combobox the reference accessible name.
 import { launchExample } from "./example-fixture";
 import {
@@ -142,7 +144,7 @@ test("the shortcut editor records bindings, reports collisions and removes the o
   expect(await pinned()).toBe(before);
   await page.keyboard.press("Control+Shift+b");
   await expect.poll(pinned).toBe(!before);
-  const filter = page.getByRole("textbox", { name: "Filter hierarchy" });
+  const filter = await hierarchyFilter(page);
   await filter.fill("p");
   await page.keyboard.press("Control+Shift+b");
   expect(await pinned()).toBe(!before);
@@ -175,7 +177,7 @@ test("chords execute once, time out, and do not consume ordinary typing", async 
   await page.waitForTimeout(1900);
   await page.keyboard.press("Control+p");
   expect(await pinned()).toBe(!before);
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("Pizza");
+  await (await hierarchyFilter(page)).fill("Pizza");
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText("Topping");
   await expect(

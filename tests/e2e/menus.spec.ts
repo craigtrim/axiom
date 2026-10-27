@@ -1,3 +1,4 @@
+// #165: reveal the responsive filter through the existing real overflow control.
 // craigtrim/axiom#91: the hierarchy type switch no longer embeds counts.
 import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
@@ -323,7 +324,7 @@ journey(
   "Edit operates on native text selections and opens global entity search",
   ["role.cut", "role.copy", "role.paste", "role.selectAll", "entity.search"],
   async () => {
-    const input = page.getByRole("textbox", { name: "Filter hierarchy" });
+    const input = await hierarchyFilter(page);
     await input.click();
     await input.pressSequentially("Pizza");
     await menu("role.selectAll");
@@ -927,12 +928,10 @@ test("a new ontology runs its own query and keeps Monaco menu Undo and Redo loca
     .getByRole("button", { name: "More actions", exact: true })
     .click();
   await expect(
-    page
-      .locator(".query-panel")
-      .getByRole("menuitem", {
-        name: "Named pizzas and their toppings",
-        exact: true,
-      }),
+    page.locator(".query-panel").getByRole("menuitem", {
+      name: "Named pizzas and their toppings",
+      exact: true,
+    }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await queryText(
@@ -1212,7 +1211,7 @@ test("taxonomy double-click expands only the branch and every node exposes a key
   await page.keyboard.press("Shift+F10");
   await expect(page.getByRole("menuitem", { name: "Copy IRI" })).toBeEnabled();
   await page.keyboard.press("Escape");
-  await page.getByRole("textbox", { name: "Filter hierarchy" }).fill("");
+  await (await hierarchyFilter(page)).fill("");
   await page.getByRole("button", { name: /Properties/ }).click();
   const property = page.getByRole("treeitem").first();
   await property.click({ button: "right" });
