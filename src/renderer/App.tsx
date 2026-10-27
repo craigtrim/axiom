@@ -1239,7 +1239,9 @@ export function App() {
         void request<string>("graphCreate", {
           iris: state?.selected ? [state.selected] : [],
         })
-          .then((id) => {
+          .then(async (id) => {
+            // #165: the reply can precede the broadcast that registers this graph.
+            setState(await request<Snapshot>("state"));
             show(id);
             command("graph.fit");
           })

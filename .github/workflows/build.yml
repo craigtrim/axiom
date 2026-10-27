@@ -61,31 +61,21 @@ jobs:
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
-      # #165: temporary exact-pixel diagnostics while migrating native coverage.
-      - name: Verify Sparsity footer rendering
-        if: matrix.shard == 3
-        continue-on-error: true
-        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/sparsity-visual.spec.ts --grep "frame 03|frame 04"
-      - uses: actions/upload-artifact@v4
-        if: always() && matrix.shard == 3
-        with:
-          name: sparsity-footer
-          path: artifacts/playwright-report/**
       - name: Verify migrated native coverage
+        if: matrix.shard != 3
         continue-on-error: true
         shell: pwsh
         run: |
           $cases = @{
-            1 = @('tests/e2e/extend-audit.spec.ts', 'tests/e2e/menus.spec.ts', 'tests/e2e/keyboard.spec.ts', 'tests/e2e/edges.spec.ts', 'tests/e2e/find-adaptive.spec.ts')
-            2 = @('tests/e2e/individuals-visual.spec.ts', 'tests/e2e/inspector-visual.spec.ts')
-            3 = @('tests/e2e/statement-groups.spec.ts', 'tests/e2e/seealso-warnings.spec.ts', 'tests/e2e/source-files.spec.ts', 'tests/e2e/sparsity-visual.spec.ts')
-            4 = @('tests/e2e/utility-visual.spec.ts', 'tests/e2e/ux-refinement.spec.ts', 'tests/e2e/workbench.spec.ts')
+            1 = @('tests/e2e/menus.spec.ts', 'tests/e2e/find-adaptive.spec.ts')
+            2 = @('tests/e2e/individuals-visual.spec.ts')
+            4 = @('tests/e2e/ux-refinement.spec.ts', 'tests/e2e/workbench.spec.ts')
           }
           $files = $cases[${{ matrix.shard }}]
           node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts @files
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && matrix.shard != 3
         with:
           name: migrated-native-${{ matrix.shard }}
           path: |

@@ -3,6 +3,7 @@ import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#92: use the Touchpoints pane's accessible name.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -151,6 +152,7 @@ test.beforeEach(async ({}, info) => {
   await expect
     .poll(async () => (await state()).ontology.name)
     .toBe("classes.ttl");
+  await waitWorkspaceCheckpoint(app, page);
   await request("seed", { iris: [target] });
   await request("select", { iri: target });
   await request("freeze");

@@ -1,5 +1,6 @@
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import AxeBuilder from "@axe-core/playwright";
 import {
   test,
@@ -14,7 +15,10 @@ import type { Snapshot } from "../../src/shared/protocol";
 let application: ElectronApplication, page: Page;
 let errors: string[] = [];
 async function menu(label: string) {
-  await application.evaluate(({ Menu }, label) => {
+  const epoch = await page.evaluate(
+    async () => (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+  );
+  const id = await application.evaluate(({ Menu }, label) => {
     const visit = (
       items: Electron.MenuItem[],
     ): Electron.MenuItem | undefined => {
@@ -30,7 +34,19 @@ async function menu(label: string) {
       visit(Menu.getApplicationMenu()!.items);
     if (!item) throw Error("Menu not found: " + label);
     item.click(undefined as never, undefined as never, undefined as never);
+    return item.id;
   }, label);
+  if (["file.new", "file.example", "file.close"].includes(id)) {
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async () =>
+            (await window.axiom.request<Snapshot>("state")).datasetEpoch,
+        ),
+      )
+      .toBeGreaterThan(epoch);
+    await waitWorkspaceCheckpoint(application, page);
+  }
 }
 test.beforeEach(async () => {
   await mkdir("artifacts/testing", { recursive: true });

@@ -3,6 +3,7 @@
 import { hierarchyFilter } from "./hierarchy-controls";
 // craigtrim/axiom#88: exercise the shared Query actions and result state.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -93,10 +94,12 @@ async function menu(id: string) {
     item.click({} as never, win, win.webContents as never);
   }, id);
   visited.add(id);
-  if (epoch !== undefined)
+  if (epoch !== undefined) {
     await expect
       .poll(async () => (await state()).datasetEpoch)
       .toBeGreaterThan(epoch);
+    await waitWorkspaceCheckpoint(app, page);
+  }
 }
 function journey(title: string, ids: string[], body: () => Promise<void>) {
   coverage[title] = ids;

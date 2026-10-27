@@ -65,6 +65,14 @@ async function size(width: number, height: number) {
   );
   await expect
     .poll(async () => {
+      // Native bounds arrive before ResizeObserver updates the docking layout.
+      // Never correct the new native size using the previous frame's pane bounds.
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
       const bounds = (await host().boundingBox())!;
       const actual = {
         width: Math.round(bounds.width),
