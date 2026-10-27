@@ -65,7 +65,7 @@ jobs:
       - name: Generate independent Find reference captures
         if: matrix.shard == 1
         continue-on-error: true
-        run: npm run test:desktop -- tests/e2e/extend-visual.spec.ts --grep "#56"
+        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/extend-visual.spec.ts --grep "#56"
         env:
           AXIOM_UPDATE_REFERENCE: "1"
       - uses: actions/upload-artifact@v4
@@ -85,7 +85,8 @@ jobs:
             3 = @('tests/e2e/statement-groups.spec.ts', 'tests/e2e/seealso-warnings.spec.ts', 'tests/e2e/source-files.spec.ts', 'tests/e2e/sparsity-visual.spec.ts')
             4 = @('tests/e2e/utility-visual.spec.ts')
           }
-          npm run test:desktop -- @($cases[${{ matrix.shard }}])
+          $files = $cases[${{ matrix.shard }}]
+          node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts @files
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
@@ -96,7 +97,7 @@ jobs:
             artifacts/test-results/**
       # #165: execute the full inventory even after a failure, so reports account
       # for every case. Files retain their serial execution within each shard.
-      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4
+      - run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts --shard=${{ matrix.shard }}/4
       - run: npm audit --audit-level=moderate
       - run: npm run package
         if: matrix.shard == 1
