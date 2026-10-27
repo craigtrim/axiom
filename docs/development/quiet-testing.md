@@ -47,3 +47,9 @@ New families need the same passing baseline and meaningful negative control befo
 joining the allowlist. Preserve their assertions, screenshot tolerances, and native
 coverage; move tests that cannot meet those conditions to Windows CI. Keep the full
 desktop suite there while qualification remains partial.
+
+The native CI suite uses a verified 1920 by 1080 display. A smaller hosted display
+can put otherwise ordinary panes into their responsive recovery state and hide
+the controls a journey is meant to exercise. Four Windows shards retain the full
+normal suite; tests within each file remain serial. Display setup runs only in CI
+and never changes the local desktop.

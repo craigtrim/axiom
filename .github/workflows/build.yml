@@ -15,6 +15,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Configure native test display
+        shell: powershell
+        run: .\scripts\setup-ci-display.ps1
       - run: npm run build
       - run: npm run test:quiet:qualify
       - uses: actions/upload-artifact@v4
@@ -27,6 +30,10 @@ jobs:
             artifacts/test-results/**
   windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,19 +41,26 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Configure native test display
+        shell: powershell
+        run: .\scripts\setup-ci-display.ps1
       - run: npm run check:docs
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
-      - run: npm run test:desktop
+      # Every normal test remains selected; files keep their serial execution.
+      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4
       - run: npm audit --audit-level=moderate
       - run: npm run package
+        if: matrix.shard == 1
+        env:
+          AXIOM_LOCAL_BUILD: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: axiom-windows-x64
+          name: axiom-windows-x64-${{ matrix.shard }}
           path: |
             artifacts/installer/**
             artifacts/latest-electron.json
