@@ -97,6 +97,7 @@ test("a pending parent creation cannot replace a different value", async ({
     }),
   );
   const field = page.getByRole("combobox");
+  await expect(field).toHaveValue("First");
   await field.fill("New parent");
   await field.press("Enter");
   await expect
@@ -109,6 +110,9 @@ test("a pending parent creation cannot replace a different value", async ({
       parent: true,
     }),
   );
+  // #165: replace schedules React state. Establish the changed value before
+  // delivering the old asynchronous result, so this tests a stale completion.
+  await expect(field).toHaveValue("Second");
   await page.evaluate(() =>
     (window as any).resolveParent("https://example.org/#Created"),
   );
