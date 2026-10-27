@@ -93,7 +93,7 @@ jobs:
             artifacts/test-results/**
       # #165: execute the full inventory even after a failure, so reports account
       # for every case. Files retain their serial execution within each shard.
-      - run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts --shard=${{ matrix.shard }}/4
+      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
       - run: npm audit --audit-level=moderate
       - run: npm run package
         if: matrix.shard == 1
@@ -109,3 +109,4 @@ jobs:
             artifacts/latest-electron.json
             artifacts/playwright-report/**
             artifacts/test-results/**
+            artifacts/native/**

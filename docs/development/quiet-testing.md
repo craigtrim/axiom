@@ -95,3 +95,9 @@ reference cases, including direct application-to-specimen bitmap comparisons.
 The HTML hashes remain unchanged. Normal CI compares the committed captures
 against the independent specimens and application with zero differing pixels;
 it does not regenerate expected images.
+
+Each native CI shard first enumerates its complete inventory, then requires every
+listed case to pass once. Missing cases, unexpected skips, expected-failure
+annotations, retries and focused-only tests fail the job. The existing opt-in
+large-source timing benchmark is the only declared skip. Inventory, execution and
+coverage reports are retained under the artifact's `native` directory.
