@@ -53,3 +53,9 @@ can put otherwise ordinary panes into their responsive recovery state and hide
 the controls a journey is meant to exercise. Four Windows shards retain the full
 normal suite; tests within each file remain serial. Display setup runs only in CI
 and never changes the local desktop.
+
+Native CI installs the checksum-pinned Mutatoc 0.7.0 runtime and the project's
+pinned full-precision MPNet model before validation. Their tests must execute
+against the real engines. A missing runtime must not make a skipped test look
+like successful coverage. Failed visual comparisons retain both images and
+layout diagnostics in the CI report; their original assertions still apply.

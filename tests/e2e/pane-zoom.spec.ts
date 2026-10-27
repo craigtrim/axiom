@@ -13,7 +13,12 @@ import type { Snapshot } from "../../src/shared/protocol";
 let app: ElectronApplication, page: Page;
 const errors: string[] = [];
 const pane = (id: string, target = page) =>
-  target.locator('[data-pane-id="' + id + '"]');
+  // #165: Touchpoints uses an entity-specific pane ID.
+  target.locator(
+    id === "touchpoints"
+      ? '[data-pane-id^="touchpoints:"]'
+      : '[data-pane-id="' + id + '"]',
+  );
 const zoom = async (view: Locator) =>
   Number(await view.getAttribute("data-pane-zoom"));
 async function appZoom(target = page) {

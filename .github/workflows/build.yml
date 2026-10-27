@@ -30,6 +30,8 @@ jobs:
             artifacts/test-results/**
   windows:
     runs-on: windows-latest
+    env:
+      AXIOM_EMBEDDING_MODEL_DIR: ${{ runner.temp }}/axiom-mpnet
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +43,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # #165: native tests must use real dependencies instead of silently skipping.
+      - name: Install verified Mutatoc runtime
+        shell: powershell
+        run: .\scripts\setup-ci-mutatoc.ps1
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.AXIOM_EMBEDDING_MODEL_DIR }}
+          key: mpnet-fp32-${{ runner.os }}-${{ hashFiles('src/shared/embeddings.ts') }}
+      - run: npm run setup:embeddings
       - name: Configure native test display
         shell: powershell
         run: .\scripts\setup-ci-display.ps1
@@ -61,6 +72,7 @@ jobs:
         if: always()
         with:
           name: axiom-windows-x64-${{ matrix.shard }}
+          retention-days: 7
           path: |
             artifacts/installer/**
             artifacts/latest-electron.json

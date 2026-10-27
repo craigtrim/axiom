@@ -17,7 +17,9 @@ let app: ElectronApplication, page: Page, specimen: Page;
 const reference = path.resolve(
   "tests/fixtures/text-analysis-visual/visual-reference.html",
 );
-const output = path.resolve(process.env.AXIOM_VISUAL_OUTPUT ?? "artifacts/issue-79-visual");
+const output = path.resolve(
+  process.env.AXIOM_VISUAL_OUTPUT ?? "artifacts/issue-79-visual",
+);
 const host = () => page.locator('.adaptive-pane[data-pane-id="textanalysis"]');
 const pane = () => page.locator(".text-analysis-panel");
 const editor = () => pane().getByRole("textbox", { name: "Text to analyze" });
@@ -278,6 +280,19 @@ async function compare(
   );
   // Monaco rounds each wrapped decoration fragment; the HTML backdrop slices its mark.
   // Only the documented 24 corner pixels may differ in wrapped editor frames.
+  // #165: retain failed images for CI diagnosis without changing the comparison.
+  if (diff.pixels < 0 || diff.pixels > cornerPixels) {
+    await test
+      .info()
+      .attach(name + " actual", { body: actual, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " expected", { body: expected, contentType: "image/png" });
+    await test.info().attach(name + " layout", {
+      path: path.join(output, name + "-layout.json"),
+      contentType: "application/json",
+    });
+  }
   expect.soft(diff.pixels, name + " dimensions").toBeGreaterThanOrEqual(0);
   expect.soft(diff.pixels, name).toBeLessThanOrEqual(cornerPixels);
 }

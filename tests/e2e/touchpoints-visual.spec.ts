@@ -278,6 +278,24 @@ async function compare(
     [actual.toString("base64"), expected.toString("base64")],
   );
   await writeFile(`artifacts/issue-92/${name}.json`, JSON.stringify(diff));
+  // #165: preserve exact failed comparisons in the CI artifact for review.
+  if (
+    diff.pixels ||
+    JSON.stringify(diff.expected) !== JSON.stringify(diff.size)
+  ) {
+    await test
+      .info()
+      .attach(name + " actual", { body: actual, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " expected", { body: expected, contentType: "image/png" });
+    await test.info().attach(name + " styles", {
+      body: Buffer.from(
+        JSON.stringify({ actual: actualStyles, expected: expectedStyles }),
+      ),
+      contentType: "application/json",
+    });
+  }
   expect(diff.expected).toEqual(diff.size);
   expect(diff.pixels, name).toBe(0);
 }
