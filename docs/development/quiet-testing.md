@@ -6,7 +6,9 @@ application launches and the normal desktop suite retain their existing behavior
 
 Run `npm run test:quiet`. It rebuilds the source before launching, so a stale
 application bundle cannot ignore the quiet flag and open a normal window.
-`npm run test:quiet -- --list` lists the allowed cases without launching Electron.
+`node scripts/test-quiet.mjs --list` lists the allowed cases without launching
+Electron. Use the direct Node command for arguments in PowerShell; forwarding
+arguments through an npm PowerShell wrapper can lose them.
 The command rejects arbitrary arguments and packaged executables. Unexpected
 native dialogs, menus, or native-window maximization report that the test requires
 the normal Windows CI suite. Maximization can reveal a hidden Electron window;
@@ -19,7 +21,7 @@ Do not set `AXIOM_TEST_QUIET` manually for unqualified specs.
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
 | `state-updates.spec.ts`: a label delta refreshes Hierarchy, Find, Individuals and Details | Same scenario and assertions; real IPC edits and renderer results                                                              | Retained in the full desktop suite and qualification |
 | `tests/quiet/window-policy.spec.ts`                                                       | Startup, hidden child/reference windows, activation requests, DOM keyboard input, rendered pixels, and rejected native dialogs | Quiet policy is exercised on a Windows runner        |
-| Every other desktop spec, including future specs                                          | Unqualified; excluded from the quiet command                                                                                   | Retained unchanged in `npm run test:desktop`         |
+| Every other desktop spec, including future specs                                          | Unqualified; excluded from the quiet command                                                                                   | Retained in the full native desktop suite            |
 
 The allowlist includes exact scenario names. Adding a test to a file does not
 automatically qualify it. The quiet runner requires both listed cases to pass
@@ -61,3 +63,25 @@ pinned full-precision MPNet model before validation. Their tests must execute
 against the real engines. A missing runtime must not make a skipped test look
 like successful coverage. Failed visual comparisons retain both images and
 layout diagnostics in the CI report; their original assertions still apply.
+
+## Native coverage migration
+
+Issue #165 also repairs native coverage that still targeted controls replaced by
+#93. Craig authorized this migration and completion of #164 as its prerequisite.
+The quiet allowlist remains limited to the two cases above.
+
+| Previous journey                                      | Current coverage                                                                                                                                                       |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Find class creation with 101 values                   | The real Find handoff opens Add entity; every appended value receives focus and the saved RDF retains all 101 values in order.                                         |
+| Find class groups, delimiter escaping and two parents | Add entity retains the grouped-value, planned-source and saved-parent assertions. A separate Find property case retains the original 143 px group-height assertion.    |
+| Embedded Find class/individual contexts               | Native extension journeys assert the Add entity name, kind and parent chips, then verify the saved RDF. The Add entity visual suite covers the replacement form.       |
+| Find draft persistence during searches                | The Add entity draft stays mounted and retains its field through pending and completed Find searches.                                                                  |
+| Shared-value creation warning                         | The retained Find property editor still warns while typing and permits saving the shared value.                                                                        |
+| Inspector linked-file actions                         | The card is restored within the current Inspector. Native coverage retains opt-in thumbnails, open/reveal dispatch, source metadata and unchanged original file bytes. |
+
+The combined inventory contains 1,445 native cases in 95 files: the original
+1,440 cases, four new #164 journeys, and the additional Find property geometry
+case. List the inventory without launching windows with
+`node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts --list`.
+The existing opt-in large-source benchmark is separate from the normal acceptance
+run; runtime-dependent tests must execute with their required engines installed.

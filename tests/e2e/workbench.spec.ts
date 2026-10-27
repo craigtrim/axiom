@@ -166,10 +166,7 @@ test("drag a divider and move, close and reopen panes", async () => {
 });
 
 test("edit, undo, redo and save/reopen a workspace", async () => {
-  await page
-    .getByRole("button", { name: "New class", exact: true })
-    .first()
-    .click();
+  await menu("entity.createClass");
   const dialog = page.getByRole("form", { name: "Create entity" });
   await dialog
     .getByRole("textbox", { name: "New entity label", exact: true })
@@ -195,7 +192,9 @@ test("edit, undo, redo and save/reopen a workspace", async () => {
   await editor.fill("42.50");
   await editor.press("Enter");
   await expect(price).toContainText("£42.50");
-  await expect(page.locator(".inspector-content")).toContainText("£42.50");
+  await expect(
+    page.getByRole("region", { name: "Entity inspector", exact: true }),
+  ).toContainText("£42.50");
   const file = path.resolve(
     "artifacts/testing/roundtrip-" + Date.now() + ".axiom",
   );
@@ -278,9 +277,9 @@ test("export SVG, PNG and clipboard and use global search", async () => {
     .getByRole("combobox", { name: "Search entities" })
     .fill("Pizza_000001");
   await page.getByRole("option").filter({ hasText: "AX-100000" }).click();
-  await expect(page.locator(".inspector-content")).toContainText(
-    "Pizza 000001",
-  );
+  await expect(
+    page.getByRole("region", { name: "Entity inspector", exact: true }),
+  ).toContainText("Pizza 000001");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await menu("entity.showGraph");
   await expect(page.locator(".graph-selection")).toContainText("AX-100000");
@@ -518,10 +517,7 @@ test("create an individual with validation and undo, and delete a class with und
   await expect(
     page.getByRole("contentinfo", { name: "Workbench status" }),
   ).toContainText("13,505 individuals");
-  await page
-    .getByRole("button", { name: "New class", exact: true })
-    .first()
-    .click();
+  await menu("entity.createClass");
   const create = page.getByRole("form", { name: "Create entity" });
   await create
     .getByRole("textbox", { name: "New entity label", exact: true })

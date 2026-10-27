@@ -7,7 +7,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 if (args.length && !(args.length === 1 && args[0] === "--list"))
   throw Error(
-    "Quiet coverage has an explicit allowlist. Use npm run test:quiet -- --list; other tests require Windows CI.",
+    "Quiet coverage has an explicit allowlist. Use node scripts/test-quiet.mjs --list; other tests require Windows CI.",
   );
 if (process.env.AXIOM_TEST_EXE)
   throw Error(

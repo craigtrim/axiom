@@ -494,7 +494,9 @@ test("Add entity groups values, escapes source and retains independently selecte
   const source = create.getByLabel("Planned source");
   await expect(source).toContainText("&lt;Course&gt;&amp;Fitness");
   const parsed = await parseRdf(
-    (await source.textContent())!,
+    // Add entity intentionally displays an RDF/XML fragment. Supply its standard
+    // namespace context, then parse the unchanged fragment to verify its values.
+    `<rdf:RDF xmlns:rdf="${NS.rdf}" xmlns:rdfs="${NS.rdfs}" xmlns:owl="${NS.owl}" xmlns:skos="${NS.skos}">${await source.textContent()}</rdf:RDF>`,
     "source.rdf",
     base,
   );
@@ -527,6 +529,7 @@ test("Find property groups retain the v5 collapsed geometry and separate value f
   await menu("view.find");
   const pane = page.getByRole("region", { name: "Find entities results" });
   await pane.getByRole("searchbox").fill("teaches");
+  await pane.getByRole("button", { name: "teaches", exact: true }).hover();
   await pane
     .getByRole("button", { name: "More ways to extend teaches" })
     .click();

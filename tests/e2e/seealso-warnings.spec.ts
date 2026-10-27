@@ -337,6 +337,7 @@ test("Find property creation warns while typing but permits the shared value", a
   const find = page.getByRole("region", { name: "Find entities results" });
   // #165: property creation retains Find's warning editor after #93 moved classes.
   await find.getByRole("searchbox").fill("teaches");
+  await find.getByRole("button", { name: "teaches", exact: true }).hover();
   await find
     .getByRole("button", {
       name: "More ways to extend teaches",

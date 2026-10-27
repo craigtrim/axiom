@@ -301,28 +301,8 @@ test("context-menu reconnection works and Escape cancels a route drag", async ()
   await expect(
     page.getByRole("button", { name: /^Reconnect edge/ }),
   ).toHaveCount(0);
-  const canvasBox = (await page.getByTestId("graph-canvas").boundingBox())!;
-  await expect
-    .poll(
-      async () =>
-        !!(await page.evaluate(() => window.axiom.preferences.load()))
-          .panelState?.["graph.camera"],
-    )
-    .toBe(true);
-  const camera = await page.evaluate(
-    async () =>
-      (await window.axiom.preferences.load()).panelState?.["graph.camera"] as {
-        x: number;
-        y: number;
-        zoom: number;
-      },
-  );
-  const node = (await state()).graph.nodes.find((n) => n.iri === ids.a)!;
-  const destination = {
-    x: canvasBox.x + node.x * camera.zoom + camera.x,
-    y: canvasBox.y + node.y * camera.zoom + camera.y,
-  };
-  await page.getByTestId("graph-canvas").focus();
+  const canvas = page.getByTestId("graph-canvas");
+  await canvas.focus();
   await page.keyboard.press("Shift+F10");
   await page
     .getByRole("menuitem", { name: "Reconnect target", exact: true })
@@ -332,7 +312,36 @@ test("context-menu reconnection works and Escape cancels a route drag", async ()
       exact: true,
     }),
   ).toBeVisible();
-  await page.mouse.click(destination.x, destination.y);
+  // #165: Fit and pane layout persist their camera after rendering. Verify the
+  // real hit target before clicking, rather than using a previous frame's coordinates.
+  let destination = { x: 0, y: 0 };
+  await expect
+    .poll(async () => {
+      const camera = await page.evaluate(
+        async () =>
+          (await window.axiom.preferences.load()).panelState?.[
+            "graph.camera"
+          ] as { x: number; y: number; zoom: number } | undefined,
+      );
+      if (!camera) return "";
+      const node = (await state()).graph.nodes.find((n) => n.iri === ids.a)!;
+      const box = (await canvas.boundingBox())!;
+      destination = {
+        x: node.x * camera.zoom + camera.x,
+        y: node.y * camera.zoom + camera.y,
+      };
+      if (
+        destination.x <= 0 ||
+        destination.y <= 0 ||
+        destination.x >= box.width ||
+        destination.y >= box.height
+      )
+        return "";
+      await canvas.hover({ position: destination });
+      return canvas.getAttribute("title");
+    })
+    .toContain("Alpha ·");
+  await canvas.click({ position: destination });
   const loop = JSON.stringify([ids.a, ids.predicate, ids.a]);
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "data-selected-edge",

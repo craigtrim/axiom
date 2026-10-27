@@ -1171,6 +1171,8 @@ export function App() {
               : examples[0].Text,
           "query.example": 0,
           "hierarchy.tab": "classes",
+          // #165: remounted panes must read the same reset filter as mounted panes.
+          "hierarchy.filter": "",
           "hierarchy.open": [],
         };
         delete preferences.panelState["graph.camera"];

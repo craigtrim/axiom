@@ -258,8 +258,10 @@ for (const [width, height, mode, columns] of [
     await settled();
     await size(width, height);
     await expect(host()).toHaveAttribute("data-pane-layout", mode);
-    // #49 adds the reserved trailing action column in every presentation.
-    await expect(pane().getByRole("columnheader")).toHaveCount(columns + 1);
+    // #165: #147/#156 fold Type and row actions into Entity in both Narrow modes.
+    await expect(pane().getByRole("columnheader")).toHaveCount(
+      mode === "narrow" || mode === "constrained" ? 1 : columns + 1,
+    );
     await fits(
       pane().getByRole("columnheader", { name: "Entity", exact: true }),
     );

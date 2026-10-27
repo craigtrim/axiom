@@ -234,7 +234,11 @@ test("menu letters and imported shortcuts persist across restart and workspace o
         ],
     ),
   ).toBe("A");
-  await nativeKeys(["%a", "n"]);
+  await nativeKeys(["%a"]);
+  await expect(
+    page.getByRole("menu", { name: "File (A)", exact: true }),
+  ).toBeVisible();
+  await nativeKeys(["n"]);
   await expect.poll(async () => (await state()).classCount).toBe(1);
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
@@ -385,8 +389,8 @@ test("keyboard help and palette show current shortcuts and pane navigation works
   ).toContainText("Ctrl+Shift+J");
   await page.keyboard.press("Enter");
   await expect(
-    page.locator(".query-results-panel:visible .query-summary"),
-  ).toContainText("103 displayed");
+    page.locator(".query-results-panel:visible .state"),
+  ).toContainText("103 rows");
 });
 
 async function nativeKeys(keys: string[]) {
