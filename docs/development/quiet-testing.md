@@ -107,3 +107,10 @@ inventory: all eight Individuals visual cases, the Details authoring save journe
 and the Find result-to-graph journey. This gives earlier evidence when repairing
 these failures. It does not replace their normal full-suite coverage, add retries,
 or create another parallel runner. A failure still fails the CI run.
+
+Individuals captures must settle to the same bitmap across fresh paint-layer
+setups before comparison with the independent reference. Stability is decided
+from successive images of each view. The focused-filter
+scenario checks repeated captures and a restored capture at zero differing
+pixels. It also deliberately changes the application's border color and requires
+the same capture path to detect a difference, then restores the original color.

@@ -288,77 +288,73 @@ async function resize(ref: Locator, width: number, height: number, extra = 0) {
     .poll(async () => (await pane().boundingBox())?.height)
     .toBe(height);
 }
-const capturePages = new WeakSet<Page>();
 async function capture(
   root: Locator,
   crop?: "touchpoints",
   preserveInteraction = false,
 ) {
-  if (!capturePages.has(root.page())) {
-    // #165: keep the already-excluded caret hidden throughout the fixture.
-    // Per-screenshot inline-style changes otherwise repaint focused controls.
-    await root.page().addStyleTag({
-      content:
-        "input,textarea,[contenteditable]{caret-color:transparent!important}",
-    });
-    capturePages.add(root.page());
-  }
   const legend = await root.evaluate((el) => el.classList.contains("legend"));
-  await root.evaluate(async (el) => {
-    // Reused React nodes and rebuilt reference nodes need fresh compositor layers.
-    for (const node of [el.parentElement!, el, ...el.querySelectorAll("*")]) {
-      (node as HTMLElement).style.removeProperty("transform");
-      (node as HTMLElement).style.removeProperty("will-change");
-    }
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    );
-  });
-  // Match compositing boundaries, as Details and Extend do, so Chromium uses
-  // the same fractional-edge rasterization. Geometry and reference tokens stay.
-  await root.evaluate((el, legend) => {
-    (el as HTMLElement).style.transform = "translateZ(0)";
-    // #165: composite each independently rendered pane against its own backing.
-    // This retains the full rounded border and avoids inherited blend groups.
-    (el as HTMLElement).style.isolation = "isolate";
-    if (!legend) (el as HTMLElement).style.willChange = "transform";
-  }, legend);
-  if (await root.evaluate((el) => el.classList.contains("pane"))) {
-    await root.locator("..").evaluate((el) => {
-      (el as HTMLElement).style.transform = "translateZ(0)";
-      (el as HTMLElement).style.willChange = "transform";
-      (el as HTMLElement).style.isolation = "isolate";
-    });
-  }
-  await root
-    .locator(
-      legend
-        ? ".tbar, .tbar .btn, .tbar .fld, .pill"
-        : // #165: give both keyboard separator focus rings the same paint boundary.
-          // Keep the toolbar in the pane layer: a focused field otherwise adds
-          // a different nested clipping boundary in the dock and standalone HTML.
-          ".tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
-    )
-    .evaluateAll((els, legend) => {
-      for (const el of els) {
-        (el as HTMLElement).style.transform = "translateZ(0)";
-        if (!legend) (el as HTMLElement).style.willChange = "transform";
+  // #165: require the same bitmap across fresh paint-layer setups. Repeated
+  // screenshots of one cached layer can agree while its rounded edge still
+  // differs from the next rebuild. Reference comparison remains exact.
+  const prepare = async () => {
+    await root.evaluate(async (el) => {
+      // Reused React nodes and rebuilt reference nodes need fresh compositor layers.
+      for (const node of [el.parentElement!, el, ...el.querySelectorAll("*")]) {
+        (node as HTMLElement).style.removeProperty("transform");
+        (node as HTMLElement).style.removeProperty("will-change");
       }
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+    });
+    // Match compositing boundaries, as Details and Extend do, so Chromium uses
+    // the same fractional-edge rasterization. Geometry and reference tokens stay.
+    await root.evaluate((el, legend) => {
+      (el as HTMLElement).style.transform = "translateZ(0)";
+      // #165: composite each independently rendered pane against its own backing.
+      // This retains the full rounded border and avoids inherited blend groups.
+      (el as HTMLElement).style.isolation = "isolate";
+      if (!legend) (el as HTMLElement).style.willChange = "transform";
     }, legend);
-  if (!preserveInteraction) {
-    await root.page().mouse.move(1, 1);
+    if (await root.evaluate((el) => el.classList.contains("pane"))) {
+      await root.locator("..").evaluate((el) => {
+        (el as HTMLElement).style.transform = "translateZ(0)";
+        (el as HTMLElement).style.willChange = "transform";
+        (el as HTMLElement).style.isolation = "isolate";
+      });
+    }
+    await root
+      .locator(
+        legend
+          ? ".tbar, .tbar .btn, .tbar .fld, .pill"
+          : // #165: give both keyboard separator focus rings the same paint boundary.
+            // Keep the toolbar in the pane layer: a focused field otherwise adds
+            // a different nested clipping boundary in the dock and standalone HTML.
+            ".tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
+      )
+      .evaluateAll((els, legend) => {
+        for (const el of els) {
+          (el as HTMLElement).style.transform = "translateZ(0)";
+          if (!legend) (el as HTMLElement).style.willChange = "transform";
+        }
+      }, legend);
+    if (!preserveInteraction) {
+      await root.page().mouse.move(1, 1);
+      await root
+        .page()
+        .evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    }
     await root
       .page()
-      .evaluate(() => (document.activeElement as HTMLElement)?.blur());
-  }
-  await root
-    .page()
-    .evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
+      .evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+  };
+  await prepare();
   const b = (await root.boundingBox())!;
   if (crop) {
     const top = (await root.locator(".phead:visible").boundingBox())!.y;
@@ -368,16 +364,10 @@ async function capture(
     b.width -= 2;
   }
   const take = () =>
-    root
-      .page()
-      .screenshot({
-        clip: b,
-        animations: "disabled",
-        scale: "css",
-        caret: "initial",
-      });
+    root.page().screenshot({ clip: b, animations: "disabled", scale: "css" });
   let previous = await take();
   for (let i = 0; i < 8; i++) {
+    await prepare();
     const next = await take();
     if (next.equals(previous)) return next;
     previous = next;
@@ -515,7 +505,7 @@ async function compare(
     ),
   );
   // #165: retain both focused-filter paints to identify which surface changes.
-  // Every first-paint and repaint comparison still has its own exact assertion.
+  // Every original and repeated comparison still has its own exact assertion.
   if (result.pixels || name.includes("16-filter-matches")) {
     await test
       .info()
@@ -649,8 +639,7 @@ for (const theme of ["light", "dark"] as const) {
     const frame = async (name: string, preserve = false) => {
       await glyphs();
       await compare(`${theme}-${name}`, pane(), ref, undefined, preserve);
-      // #165: the focused filter must match on its first and rebuilt paint.
-      // Both comparisons retain their independent zero-pixel assertions.
+      // #165: independent focused-filter captures must both match exactly.
       if (name === "16-filter-matches")
         await compare(
           `${theme}-${name}-repaint`,
@@ -694,6 +683,63 @@ for (const theme of ["light", "dark"] as const) {
       await target.locator(".fwrap input").fill("polytechnic");
     await expect(pane().locator(".gstat")).toContainText("match");
     await frame("16-filter-matches", true);
+    // #165: capture preparation must still expose an incorrect painted border.
+    const priorBorder = await pane().evaluate((el) => ({
+      value: (el as HTMLElement).style.getPropertyValue("border-color"),
+      priority: (el as HTMLElement).style.getPropertyPriority("border-color"),
+    }));
+    try {
+      await pane().evaluate((el) =>
+        (el as HTMLElement).style.setProperty(
+          "border-color",
+          "#ff00ff",
+          "important",
+        ),
+      );
+      const mutated = await capture(pane(), undefined, true);
+      const expected = await capture(ref, undefined, true);
+      const evidence = await app.evaluate(
+        ({ nativeImage }, images) => {
+          const [a, b] = images.map((image) =>
+            nativeImage.createFromBuffer(Buffer.from(image, "base64")),
+          );
+          const ab = a.toBitmap(),
+            bb = b.toBitmap();
+          let pixels = 0;
+          if (ab.length === bb.length)
+            for (let i = 0; i < ab.length; i += 4)
+              if (ab.readUInt32LE(i) !== bb.readUInt32LE(i)) pixels++;
+          return { actual: a.getSize(), expected: b.getSize(), pixels };
+        },
+        [mutated.toString("base64"), expected.toString("base64")],
+      );
+      expect(evidence.actual).toEqual(evidence.expected);
+      expect(
+        evidence.pixels,
+        "The exact oracle must detect the deliberately wrong border",
+      ).toBeGreaterThan(0);
+      await test.info().attach(`${theme}-focused-border-negative-control`, {
+        body: Buffer.from(JSON.stringify(evidence)),
+        contentType: "application/json",
+      });
+    } finally {
+      await pane().evaluate((el, prior) => {
+        if (prior.value)
+          (el as HTMLElement).style.setProperty(
+            "border-color",
+            prior.value,
+            prior.priority,
+          );
+        else (el as HTMLElement).style.removeProperty("border-color");
+      }, priorBorder);
+    }
+    await compare(
+      `${theme}-16-filter-matches-restored`,
+      pane(),
+      ref,
+      undefined,
+      true,
+    );
     for (const target of [pane(), ref])
       await target.locator(".fwrap input").fill("zzqx");
     await expect(pane().locator(".empty")).toBeVisible();
