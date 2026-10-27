@@ -65,7 +65,7 @@ jobs:
       - name: Generate independent Find reference captures
         if: matrix.shard == 1
         continue-on-error: true
-        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/extend-visual.spec.ts --grep "#56"
+        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/extend-visual.spec.ts tests/e2e/find-visual.spec.ts --grep "#56|reference"
         env:
           AXIOM_UPDATE_REFERENCE: "1"
       - uses: actions/upload-artifact@v4
@@ -74,6 +74,7 @@ jobs:
           name: migrated-find-reference
           path: |
             tests/fixtures/extend-visual/v3-*.json
+            tests/e2e/find-visual.spec.ts-snapshots/**
             artifacts/playwright-report/**
       - name: Verify migrated native coverage
         continue-on-error: true

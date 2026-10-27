@@ -618,11 +618,32 @@ for (const [theme, narrowOnly] of [
       // the real handoff here; add-entity-visual.spec.ts owns its 56 exact frames.
       // The property context below still uses this independent #56 pixel oracle.
       const draft = page.locator('[data-panel="textentities"]');
+      // #165: the new pane needs a usable allocation beside the isolated Find specimen.
+      const showDraft = () =>
+        page
+          .locator('[data-pane-id="textentities"]')
+          .evaluate((el) =>
+            Object.assign((el as HTMLElement).style, {
+              position: "fixed",
+              left: "24px",
+              top: "24px",
+              width: "900px",
+              height: "700px",
+              zIndex: "1001",
+            }),
+          );
+      const returnToFind = async () => {
+        await page
+          .locator('[data-pane-id="textentities"]')
+          .evaluate((el) => el.removeAttribute("style"));
+        await menu("view.find");
+      };
+      await showDraft();
       await expect(
         draft.getByRole("textbox", { name: "Name", exact: true }),
       ).toHaveValue("Psy");
       await expect(draft).toContainText("from your search Psy");
-      await menu("view.find");
+      await returnToFind();
       for (const [target, item, kind, parents] of [
         ["Psychology", "Subclass", "Class", ["Psychology"]],
         ["Psychology", "Sibling", "Class", []],
@@ -637,6 +658,7 @@ for (const [theme, narrowOnly] of [
         await page
           .getByRole("menuitem", { name: new RegExp("^" + item) })
           .click();
+        await showDraft();
         await expect(
           draft.getByRole("textbox", { name: "Name", exact: true }),
         ).toHaveValue("Psy");
@@ -648,7 +670,7 @@ for (const [theme, narrowOnly] of [
           await expect(draft).toContainText(
             "none, so it would be created under owl:Thing",
           );
-        await menu("view.find");
+        await returnToFind();
       }
       await openMenu("teaches");
       await page.getByRole("menuitem", { name: /^Subproperty/ }).click();

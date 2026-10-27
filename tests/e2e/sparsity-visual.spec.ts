@@ -158,7 +158,7 @@ async function compare(
         surface.style.transform = "translateZ(0)";
         root
           .querySelectorAll<HTMLElement>(
-            ".btn,.fld,.sel,.chip,.sw,.fin,.band,.rail,.menu",
+            ".btn,.fld,.sel,.chip,.sw,.fin,.band,.rail,.menu,.tag .gl",
           )
           .forEach((el) => (el.style.transform = "translateZ(0)"));
         root
@@ -298,16 +298,14 @@ async function compare(
     await test
       .info()
       .attach(name + "-expected", { body: expected, contentType: "image/png" });
-    await test
-      .info()
-      .attach(name + "-diagnostics", {
-        body: JSON.stringify(
-          { diff, actual: actualStyles, expected: expectedStyles },
-          null,
-          2,
-        ),
-        contentType: "application/json",
-      });
+    await test.info().attach(name + "-diagnostics", {
+      body: JSON.stringify(
+        { diff, actual: actualStyles, expected: expectedStyles },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
   }
   expect(diff.expected).toEqual(diff.size);
   expect(diff.pixels, name).toBe(0);

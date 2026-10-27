@@ -314,6 +314,13 @@ async function capture(
     await root.locator("..").evaluate((el) => {
       (el as HTMLElement).style.transform = "translateZ(0)";
       (el as HTMLElement).style.willChange = "transform";
+      // #165: isolate the opaque backing too, so reused and rebuilt rounded
+      // clips blend in the same layer after filtering changes the pane.
+      const backing = el.parentElement;
+      if (backing) {
+        backing.style.transform = "translateZ(0)";
+        backing.style.willChange = "transform";
+      }
     });
   }
   await root

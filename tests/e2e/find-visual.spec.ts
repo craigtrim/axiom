@@ -568,7 +568,8 @@ for (const theme of ["light", "dark"] as const) {
           (el, narrow) => {
             (el as HTMLElement).style.transform = "translateZ(0)";
             el.querySelectorAll<HTMLElement>(
-              ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms" +
+              // #165: Type and synonym text also need stable, equivalent paint layers.
+              ".ename, .find-result-name, .efold, .find-folded-type, .find-folded-synonyms, .res td.col-type, .find-type-column, .syn, .find-row-synonyms" +
                 // Issues 147/156: isolate ancestry text equally in both Narrow renderings.
                 (narrow ? ", .epath, .find-result-path" : ""),
             ).forEach((name) => {
