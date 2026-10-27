@@ -308,19 +308,16 @@ async function capture(
   // the same fractional-edge rasterization. Geometry and reference tokens stay.
   await root.evaluate((el, legend) => {
     (el as HTMLElement).style.transform = "translateZ(0)";
+    // #165: composite each independently rendered pane against its own backing.
+    // This retains the full rounded border and avoids inherited blend groups.
+    (el as HTMLElement).style.isolation = "isolate";
     if (!legend) (el as HTMLElement).style.willChange = "transform";
   }, legend);
   if (await root.evaluate((el) => el.classList.contains("pane"))) {
     await root.locator("..").evaluate((el) => {
       (el as HTMLElement).style.transform = "translateZ(0)";
       (el as HTMLElement).style.willChange = "transform";
-      // #165: isolate the opaque backing too, so reused and rebuilt rounded
-      // clips blend in the same layer after filtering changes the pane.
-      const backing = el.parentElement;
-      if (backing) {
-        backing.style.transform = "translateZ(0)";
-        backing.style.willChange = "transform";
-      }
+      (el as HTMLElement).style.isolation = "isolate";
     });
   }
   await root

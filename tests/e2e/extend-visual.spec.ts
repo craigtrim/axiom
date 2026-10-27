@@ -12,6 +12,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { extendOntology } from "../fixtures/extend-visual/ontology";
 import type { Snapshot } from "../../src/shared/protocol";
+import { assertCodeSurfaces, monochromeSource } from "./syntax-assertions";
 
 const reference = path.resolve(
   "tests/fixtures/extend-visual/visual-reference-v3.html",
@@ -121,6 +122,23 @@ async function referenceControl(
   return specimen.locator('[data-capture="true"]');
 }
 async function capture(control: Locator, owner: Page, pad = 0) {
+  // #111 added syntax colours after this pinned specimen. Verify those colours
+  // first, then retain the original geometry comparison as in Find's full frames.
+  if (owner !== page || !(await control.locator(".syntax-code").count()))
+    return captureRaw(control, owner, pad);
+  await assertCodeSurfaces(control, "code");
+  await test.info().attach("extend-context-coloured", {
+    body: await captureRaw(control, owner, pad),
+    contentType: "image/png",
+  });
+  const restore = await monochromeSource(control);
+  try {
+    return await captureRaw(control, owner, pad);
+  } finally {
+    await restore();
+  }
+}
+async function captureRaw(control: Locator, owner: Page, pad = 0) {
   // Isolate the same paint layers on both sides. Otherwise Chromium can round
   // a fractional menu-item baseline differently in a top-layer popup and a
   // static HTML exhibit, despite identical measured text geometry.
@@ -400,7 +418,7 @@ for (const [theme, narrowOnly] of [
       ) => {
         await quiet();
         // Issue 156 adds an opaque row-colored backing around the unchanged split.
-        if (narrowOnly && name.endsWith("-split"))
+        if (["narrow-split", "constrained-split"].includes(name))
           await expectedControl.evaluate((el) => {
             (el as HTMLElement).style.background = "var(--surface)";
           });
@@ -620,18 +638,16 @@ for (const [theme, narrowOnly] of [
       const draft = page.locator('[data-panel="textentities"]');
       // #165: the new pane needs a usable allocation beside the isolated Find specimen.
       const showDraft = () =>
-        page
-          .locator('[data-pane-id="textentities"]')
-          .evaluate((el) =>
-            Object.assign((el as HTMLElement).style, {
-              position: "fixed",
-              left: "24px",
-              top: "24px",
-              width: "900px",
-              height: "700px",
-              zIndex: "1001",
-            }),
-          );
+        page.locator('[data-pane-id="textentities"]').evaluate((el) =>
+          Object.assign((el as HTMLElement).style, {
+            position: "fixed",
+            left: "24px",
+            top: "24px",
+            width: "900px",
+            height: "700px",
+            zIndex: "1001",
+          }),
+        );
       const returnToFind = async () => {
         await page
           .locator('[data-pane-id="textentities"]')

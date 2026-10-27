@@ -505,6 +505,13 @@ test("#56 removing a Subclass parent names the actual owl:Thing fallback", async
     .getByRole("button", { name: "Create", exact: true })
     .click();
   await expect
+    .poll(async () =>
+      (
+        await main.evaluate(() => window.axiom.request<Snapshot>("state"))
+      ).entities.some((entity) => entity.iri === iri),
+    )
+    .toBe(true);
+  await expect
     .poll(async () => {
       const doc = await main.evaluate(
         (iri) =>
@@ -590,8 +597,8 @@ test("remembered action repeats against the current row and query, with correct 
   await choose("Subclass");
   await expect(addName()).toHaveValue("Psy");
   await back();
-  // Returning through View > Find focuses its search field after the #93 handoff.
-  await expect(query()).toBeFocused();
+  // Returning to the detached Find pane preserves the originating split control.
+  await expect(trigger()).toBeFocused();
   await expect(primary()).toHaveText("+ Subclass");
   await expect(primary("Clinical Psychology")).toHaveText("+ Subclass");
   await query().fill("Clinical");
@@ -648,7 +655,7 @@ test("remembered action repeats against the current row and query, with correct 
     .getByRole("button", { name: "Discard draft", exact: true })
     .click();
   await back();
-  await expect(query()).toBeFocused();
+  await expect(primary("General Psychology")).toBeFocused();
   await capture("repeated-instance");
 });
 
