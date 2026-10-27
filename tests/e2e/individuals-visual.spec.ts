@@ -293,27 +293,30 @@ async function capture(
   crop?: "touchpoints",
   preserveInteraction = false,
 ) {
-  const legend = await root.evaluate((el) => el.classList.contains("legend"));
+  const { legend, pane: isPane } = await root.evaluate((el) => ({
+    legend: el.classList.contains("legend"),
+    pane: el.classList.contains("pane"),
+  }));
   await root.evaluate(async (el) => {
     // Reused React nodes and rebuilt reference nodes need fresh compositor layers.
     for (const node of [el.parentElement!, el, ...el.querySelectorAll("*")]) {
       (node as HTMLElement).style.removeProperty("transform");
       (node as HTMLElement).style.removeProperty("will-change");
+      (node as HTMLElement).style.removeProperty("isolation");
     }
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
   });
-  // Match compositing boundaries, as Details and Extend do, so Chromium uses
-  // the same fractional-edge rasterization. Geometry and reference tokens stay.
-  await root.evaluate((el, legend) => {
-    (el as HTMLElement).style.transform = "translateZ(0)";
-    // #165: composite each independently rendered pane against its own backing.
-    // This retains the full rounded border and avoids inherited blend groups.
-    (el as HTMLElement).style.isolation = "isolate";
-    if (!legend) (el as HTMLElement).style.willChange = "transform";
-  }, legend);
-  if (await root.evaluate((el) => el.classList.contains("pane"))) {
+  // #165: use the parent's rounded clipping layer for a pane. Promoting the
+  // pane as well creates two coincident compositor clips whose edge rounding
+  // depends on the previous focused-input paint. Legend has no such parent clip.
+  if (!isPane)
+    await root.evaluate((el) => {
+      (el as HTMLElement).style.transform = "translateZ(0)";
+      (el as HTMLElement).style.isolation = "isolate";
+    });
+  if (isPane) {
     await root.locator("..").evaluate((el) => {
       (el as HTMLElement).style.transform = "translateZ(0)";
       (el as HTMLElement).style.willChange = "transform";
@@ -325,9 +328,7 @@ async function capture(
       legend
         ? ".tbar, .tbar .btn, .tbar .fld, .pill"
         : // #165: give both keyboard separator focus rings the same paint boundary.
-          // Keep the toolbar in the pane layer: a focused field otherwise adds
-          // a different nested clipping boundary in the dock and standalone HTML.
-          ".tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
+          ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
     )
     .evaluateAll((els, legend) => {
       for (const el of els) {
@@ -620,6 +621,16 @@ for (const theme of ["light", "dark"] as const) {
     const frame = async (name: string, preserve = false) => {
       await glyphs();
       await compare(`${theme}-${name}`, pane(), ref, undefined, preserve);
+      // #165: the focused filter must match on its first and rebuilt paint.
+      // Both comparisons retain their independent zero-pixel assertions.
+      if (name === "16-filter-matches")
+        await compare(
+          `${theme}-${name}-repaint`,
+          pane(),
+          ref,
+          undefined,
+          preserve,
+        );
     };
     await frame("12-many-rows");
     for (const target of [pane(), ref])

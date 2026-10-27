@@ -127,6 +127,7 @@ async function compare(
   width: number,
   height: number,
 ) {
+  const name = String(frame).padStart(2, "0") + "-" + theme;
   const prepared = await prepareReference(frame, theme, width, height);
   await f.host().evaluate(
     (host, { prepared, theme }) => {
@@ -211,7 +212,39 @@ async function compare(
         animations: "disabled",
         scale: "device",
       });
-      if (previous.equals(current)) return current;
+      // #165: stability means identical dimensions and decoded pixels. PNG
+      // container/compression differences are not a rendered-frame difference.
+      const stable = await f.app.evaluate(
+        ({ nativeImage }, images) => {
+          const [a, b] = images.map((image) =>
+            nativeImage.createFromBuffer(Buffer.from(image, "base64")),
+          );
+          const as = a.getSize(),
+            bs = b.getSize();
+          return (
+            as.width === bs.width &&
+            as.height === bs.height &&
+            a.toBitmap().equals(b.toBitmap())
+          );
+        },
+        [previous.toString("base64"), current.toString("base64")],
+      );
+      if (stable) return current;
+      if (i === 4) {
+        const kind = reference ? "reference" : "actual";
+        for (const [suffix, body] of [
+          ["previous", previous],
+          ["current", current],
+        ] as const)
+          await test.info().attach(`${name}-${kind}-${suffix}`, {
+            body,
+            contentType: "image/png",
+          });
+        await test.info().attach(`${name}-${kind}-unstable-styles`, {
+          body: Buffer.from(JSON.stringify(await diagnostics(reference))),
+          contentType: "application/json",
+        });
+      }
       previous = current;
     }
     throw Error("Unstable Touchpoints frame " + frame);
@@ -248,7 +281,6 @@ async function compare(
     actualStyles = await diagnostics(false),
     expected = await shoot(true),
     expectedStyles = await diagnostics(true);
-  const name = String(frame).padStart(2, "0") + "-" + theme;
   await writeFile(`artifacts/issue-92/${name}-actual.png`, actual);
   await writeFile(`artifacts/issue-92/${name}-expected.png`, expected);
   await writeFile(
