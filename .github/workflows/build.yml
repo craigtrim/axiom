@@ -61,21 +61,16 @@ jobs:
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
-      # #165: temporary migration evidence; remove after committing reviewed HTML-derived captures.
-      - name: Generate independent Find reference captures
-        if: matrix.shard == 1
+      # #165: temporary exact-pixel diagnostics while migrating native coverage.
+      - name: Verify Sparsity footer rendering
+        if: matrix.shard == 3
         continue-on-error: true
-        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/extend-visual.spec.ts tests/e2e/find-visual.spec.ts --grep "#56|reference"
-        env:
-          AXIOM_UPDATE_REFERENCE: "1"
+        run: node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts tests/e2e/sparsity-visual.spec.ts --grep "frame 03|frame 04"
       - uses: actions/upload-artifact@v4
-        if: always() && matrix.shard == 1
+        if: always() && matrix.shard == 3
         with:
-          name: migrated-find-reference
-          path: |
-            tests/fixtures/extend-visual/v3-*.json
-            tests/e2e/find-visual.spec.ts-snapshots/**
-            artifacts/playwright-report/**
+          name: sparsity-footer
+          path: artifacts/playwright-report/**
       - name: Verify migrated native coverage
         continue-on-error: true
         shell: pwsh

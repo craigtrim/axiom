@@ -158,7 +158,7 @@ async function compare(
         surface.style.transform = "translateZ(0)";
         root
           .querySelectorAll<HTMLElement>(
-            ".btn,.fld,.sel,.chip,.sw,.fin,.band,.rail,.menu,.tag .gl",
+            ".btn,.fld,.sel,.chip,.sw,.fin,.band,.rail,.menu,.foot,.tag,.tag .gl",
           )
           .forEach((el) => (el.style.transform = "translateZ(0)"));
         root
@@ -231,7 +231,7 @@ async function compare(
         : document.querySelector('[data-pane-id="sparsity"]')!;
       return [
         ...root.querySelectorAll(
-          ".chip,.band,.fin,.sibs,.sib,.mean,.recov,.pane-recovery,.sparsity-recovery,.id,.why,.menu,.menu button",
+          ".chip,.band,.fin,.sibs,.sib,.mean,.recov,.pane-recovery,.sparsity-recovery,.id,.why,.menu,.menu button,.foot,.tag,.tag .gl",
         ),
       ].map((el) => ({
         text: el.textContent,
@@ -248,6 +248,12 @@ async function compare(
             "padding",
             "margin",
             "border-radius",
+            "background-color",
+            "width",
+            "height",
+            "clip-path",
+            "transform",
+            "will-change",
           ].map((p) => [p, getComputedStyle(el).getPropertyValue(p)]),
         ),
       }));
