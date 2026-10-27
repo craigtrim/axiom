@@ -17,6 +17,7 @@ import { groupStatements } from "./statement-groups";
 import { usePredicateOptions } from "./PredicateSelect";
 import { SharedMenu, usePaneToast, type SharedMenuItem } from "./SharedPane";
 import { useActionOverflow } from "./useActionOverflow";
+import { LinkedFileCard } from "./LinkedFileCard";
 
 // craigtrim/axiom#89: expansion follows a subject and predicate through selection changes.
 let expandedEpoch: number | undefined;
@@ -339,6 +340,14 @@ export function InspectorStatements({ data }: { data: InspectorData }) {
         />
       </div>
       <div className="ibody" ref={body}>
+        {/* #165: retain the linked-file actions lost in the #61 Inspector rebuild. */}
+        {(e.iri.startsWith("file:") ||
+          editor.triples.some(
+            (t) =>
+              t.predicate === "urn:axiom:filesystem:describes" &&
+              !t.object.literal &&
+              t.object.value.startsWith("file:"),
+          )) && <LinkedFileCard key={s.datasetEpoch + e.iri} iri={e.iri} />}
         <div className="ident">
           <div className="nm">
             <input

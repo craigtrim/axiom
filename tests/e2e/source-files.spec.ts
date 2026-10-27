@@ -348,15 +348,9 @@ test("file observations offer opening, reveal and opt-in native thumbnails witho
   await expect(page.locator('[data-panel="inspector"]')).not.toContainText(
     "{raw metadata}",
   );
-  await page
-    .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "More inspector actions" })
-    .click();
-  await page
-    .locator('[data-panel="inspector"]')
-    .getByRole("button", { name: "View source", exact: true })
-    .click();
-  await expect(source().getByRole("status")).toContainText("Synchronized");
+  // #165: #89 moved complete-document source navigation to View > Source.
+  await menu("view.source");
+  await expect(source().getByRole("status")).toContainText("Clean");
   await expect(source().locator(".monaco-editor")).toContainText(
     "raw metadata",
   );
