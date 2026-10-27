@@ -31,7 +31,7 @@ jobs:
   windows:
     runs-on: windows-latest
     env:
-      AXIOM_EMBEDDING_MODEL_DIR: ${{ runner.temp }}/axiom-mpnet
+      AXIOM_EMBEDDING_MODEL_DIR: ${{ github.workspace }}/artifacts/ci-model
     strategy:
       fail-fast: false
       matrix:
