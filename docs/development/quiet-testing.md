@@ -87,3 +87,11 @@ case. List the inventory without launching windows with
 `node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts --list`.
 The existing opt-in large-source benchmark is separate from the normal acceptance
 run; runtime-dependent tests must execute with their required engines installed.
+
+The Find and Extend Windows captures were regenerated from their checksum-verified
+HTML specimens on [Actions run 40569070367](https://github.com/craigtrim/axiom/actions/runs/40569070367)
+at commit `7784bccebb6f823f54a0911e48997df4b5200b48`. That run passed all 20
+reference cases, including direct application-to-specimen bitmap comparisons.
+The HTML hashes remain unchanged. Normal CI compares the committed captures
+against the independent specimens and application with zero differing pixels;
+it does not regenerate expected images.
