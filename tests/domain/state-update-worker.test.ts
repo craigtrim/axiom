@@ -155,6 +155,33 @@ it("publishes label and ancestor deltas, reconstructs Undo/Redo and replacements
     await request("new", { blank: true });
     expect(updates[0].entities).toBeDefined();
     await equalFull();
+    // #165: native graph creation must select the node in its own graph before renaming.
+    const positioned = await request("createClass", {
+      name: "Positioned class",
+      parent: THING,
+      position: { x: 55, y: 75 },
+      graphId: "graph",
+    });
+    for (const method of ["state", "undo", "redo"]) {
+      await request(method);
+      const current = await equalFull();
+      if (method === "undo") {
+        expect(current.graph.nodes.some((n) => n.iri === positioned)).toBe(
+          false,
+        );
+      } else {
+        expect(current.selected).toBe(positioned);
+        expect(current.graph.selected).toBe(positioned);
+        expect(current.graphs?.graph.selected).toBe(positioned);
+        expect(
+          current.graph.nodes.find((n) => n.iri === positioned),
+        ).toMatchObject({
+          x: 55,
+          y: 75,
+          pinned: true,
+        });
+      }
+    }
   } finally {
     await worker?.terminate();
     await rm(directory, { recursive: true, force: true });
