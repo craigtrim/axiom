@@ -7,6 +7,8 @@ import { EdgeInspector } from "./EdgeInspector";
 import { registerPaneRecovery } from "./AdaptivePane";
 import { SharedPane } from "./SharedPane";
 import { InspectorStatements } from "./InspectorStatements";
+// #165: generated example records are readable but do not have editable RDF drafts.
+import { GeneratedInspector } from "./GeneratedInspector";
 import "./inspector-reference.css";
 
 // craigtrim/axiom#89: retain subject drafts beneath the shared chrome and recovery.
@@ -75,10 +77,14 @@ export function InspectorPanel() {
     >
       <SharedPane className="inspector-pane">
         {data && data.entity.iri === s.selected ? (
-          <InspectorStatements
-            key={s.datasetEpoch + data.entity.iri}
-            data={data}
-          />
+          data.order || data.customer ? (
+            <GeneratedInspector data={data} />
+          ) : (
+            <InspectorStatements
+              key={s.datasetEpoch + data.entity.iri}
+              data={data}
+            />
+          )
         ) : (
           <>
             <div className="bar" role="group" aria-label="Inspector actions" />

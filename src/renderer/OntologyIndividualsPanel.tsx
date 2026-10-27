@@ -19,6 +19,8 @@ import {
 import { clearInstanceReport, useInstanceTarget } from "./instance-report";
 import { progressiveSearch } from "./progressive-search";
 import { displayName } from "../domain/rdf-model";
+// #165: retain the table rename target after the Individuals visual rebuild.
+import { EditableEntityName } from "./InlineRename";
 import {
   columnReasons,
   columnWidth,
@@ -245,9 +247,13 @@ const GridRows = memo(function GridRows({
               >
                 {c.key === "subject" ? (
                   <span className="idc">
-                    <span className={"nm" + (row.labelled ? "" : " anon")}>
+                    <EditableEntityName
+                      iri={row.iri}
+                      name={values[0]}
+                      className={"nm" + (row.labelled ? "" : " anon")}
+                    >
                       {values[0]}
-                    </span>
+                    </EditableEntityName>
                     {!row.labelled && <IdentifierTag />}
                   </span>
                 ) : values.length > 0 ? (

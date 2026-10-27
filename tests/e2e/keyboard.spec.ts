@@ -240,6 +240,18 @@ test("menu letters and imported shortcuts persist across restart and workspace o
   ).toBeVisible();
   await nativeKeys(["n"]);
   await expect.poll(async () => (await state()).classCount).toBe(1);
+  // #165: New finishes its recovery checkpoint after broadcasting the new store.
+  await expect
+    .poll(async () => {
+      const session = JSON.parse(
+        await readFile(path.join(profile, "last-session.json"), "utf8"),
+      );
+      return (
+        session.workspace.entities.length === 1 &&
+        !session.workspace.ontology.example
+      );
+    })
+    .toBe(true);
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,

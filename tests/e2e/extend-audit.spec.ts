@@ -597,8 +597,8 @@ test("remembered action repeats against the current row and query, with correct 
   await choose("Subclass");
   await expect(addName()).toHaveValue("Psy");
   await back();
-  // Returning to the detached Find pane preserves the originating split control.
-  await expect(trigger()).toBeFocused();
+  // #93 returns through View > Find, which focuses its query.
+  await expect(query()).toBeFocused();
   await expect(primary()).toHaveText("+ Subclass");
   await expect(primary("Clinical Psychology")).toHaveText("+ Subclass");
   await query().fill("Clinical");

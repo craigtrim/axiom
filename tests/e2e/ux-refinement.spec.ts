@@ -9,7 +9,13 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  writeFile,
+  readFile,
+  copyFile,
+} from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 import { edgeKey } from "../../src/domain/viewport";
@@ -72,7 +78,7 @@ async function treeMenu(iri: string) {
   await row.click({ button: "right" });
   return page.getByRole("menu", { name: "Entity actions", exact: true });
 }
-test.beforeEach(async () => {
+test.beforeEach(async ({}, info) => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
   const profile = await mkdtemp(path.resolve("artifacts/testing/ux-"));
@@ -93,6 +99,13 @@ test.beforeEach(async () => {
       fs.writeFileSync(process.argv[process.argv.indexOf("--output-last-message")+1],JSON.stringify({suggestions}));
     });`,
   );
+  // This journey checks shared provider selection, not a model response. The
+  // local Node binary answers --version and cannot make an assistant API call.
+  if (info.title.startsWith("Claude is"))
+    await copyFile(
+      process.execPath,
+      path.join(bin, process.platform === "win32" ? "claude.exe" : "claude"),
+    );
   const env = {
     ...process.env,
     AXIOM_CACHE_HOME: path.join(profile, "cache"),
