@@ -140,7 +140,15 @@ async function launch(theme: string) {
   await page.keyboard.insertText(fixture.sample);
   await expect(pane().locator(".state")).toHaveText("15 matches");
   const opened = app.waitForEvent("window");
-  await app.evaluate(async ({ BrowserWindow }, reference) => {
+  // #165: #128 explicitly replaced click navigation and its help copy. Keep the
+  // hashed #79 design and its pixel assertions; apply only that approved wording.
+  const previousHelp = " Click a highlight to open <b>Details</b>.";
+  expect(html.split(previousHelp)).toHaveLength(2);
+  const currentReference = html.replace(
+    previousHelp,
+    " Ctrl+click a highlight to open <b>Details</b>.",
+  );
+  await app.evaluate(async ({ BrowserWindow }, currentReference) => {
     const win = new BrowserWindow({
       width: 1200,
       height: 900,
@@ -148,9 +156,11 @@ async function launch(theme: string) {
       focusable: false,
       webPreferences: { backgroundThrottling: false },
     });
-    await win.loadFile(reference);
+    await win.loadURL(
+      "data:text/html;charset=utf-8," + encodeURIComponent(currentReference),
+    );
     win.showInactive();
-  }, reference);
+  }, currentReference);
   specimen = await opened;
   await specimen.evaluate(
     (theme) => (document.documentElement.dataset.theme = theme),
