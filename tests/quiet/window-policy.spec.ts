@@ -49,6 +49,11 @@ test("quiet windows remain hidden through rendering and activation", async ({
     reference.destroy();
   });
   await expect(
+    d.app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].maximize(),
+    ),
+  ).rejects.toThrow("requires the normal Windows CI suite");
+  await expect(
     d.app.evaluate(({ dialog }) =>
       dialog.showMessageBoxSync({ message: "must not appear" }),
     ),

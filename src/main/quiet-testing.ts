@@ -44,6 +44,11 @@ export function installQuietTesting() {
     // Suppress native activation only. DOM focus and Playwright input remain real.
     win.show = win.showInactive = win.focus = win.restore = () => {};
     win.webContents.focus = () => {};
+    // Electron maximize also shows a hidden window. Native maximized geometry
+    // cannot be established by suppressing it, so require normal coverage.
+    win.maximize = () => {
+      throw Error("Maximizing native windows requires the normal Windows CI suite.");
+    };
     const setFocusable = win.setFocusable.bind(win);
     win.setFocusable = (value) => {
       if (value)

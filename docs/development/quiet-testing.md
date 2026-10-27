@@ -8,7 +8,9 @@ Run `npm run test:quiet`. It rebuilds the source before launching, so a stale
 application bundle cannot ignore the quiet flag and open a normal window.
 `npm run test:quiet -- --list` lists the allowed cases without launching Electron.
 The command rejects arbitrary arguments and packaged executables. Unexpected
-native dialogs or menus report that the test requires the normal Windows CI suite.
+native dialogs, menus, or native-window maximization report that the test requires
+the normal Windows CI suite. Maximization can reveal a hidden Electron window;
+quiet mode rejects it rather than pretending to establish maximized geometry.
 Do not set `AXIOM_TEST_QUIET` manually for unqualified specs.
 
 ## Coverage allocation
