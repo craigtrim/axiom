@@ -1282,6 +1282,10 @@ test("overflow keeps long active filters clearable and restores the findings", a
   await moreDialog()
     .getByRole("searchbox", { name: "Filter findings" })
     .fill("");
+  // #165: wait for the controlled filter's committed state before closing its popup.
+  await expect(
+    pane().locator('[data-quality-command="active-text"]'),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(pane()).not.toContainText(
     "No findings match the current filter.",

@@ -873,7 +873,7 @@ test("the sample graph fades other nodes while its source remains bright", async
           .panelState?.["graph.camera"],
     )
     .toBe(true);
-  const c = await page.evaluate(
+  let c = await page.evaluate(
     async () =>
       (await window.axiom.preferences.load()).panelState?.["graph.camera"] as {
         x: number;
@@ -885,6 +885,24 @@ test("the sample graph fades other nodes while its source remains bright", async
     x: n.x * c.zoom + c.x,
     y: n.y * c.zoom + c.y,
   });
+  // #165: confirm the stored camera agrees with real hit-testing after maximize/Fit.
+  await expect
+    .poll(async () => {
+      c = await page.evaluate(
+        async () =>
+          (await window.axiom.preferences.load()).panelState?.[
+            "graph.camera"
+          ] as typeof c,
+      );
+      const p = point(source),
+        area = (await canvas.boundingBox())!;
+      if (p.x <= 0 || p.y <= 0 || p.x >= area.width || p.y >= area.height)
+        return "";
+      await canvas.hover({ position: p });
+      return canvas.getAttribute("title");
+    })
+    .toContain(source.label + " ·");
+  await page.mouse.move(0, 0);
   const before = await canvas.screenshot();
   await canvas.click({ button: "right", position: point(source) });
   await page
