@@ -335,6 +335,21 @@ async function compare(
     [actual.toString("base64"), expected.toString("base64")],
   );
   await writeFile(`artifacts/issue-94/${name}.json`, JSON.stringify(diff));
+  // #165: retain exact failed frames for remote diagnosis; comparisons stay strict.
+  if (diff.pixels || JSON.stringify(diff.expected) !== JSON.stringify(diff.size)) {
+    await test.info().attach(name + " actual", {
+      body: actual,
+      contentType: "image/png",
+    });
+    await test.info().attach(name + " expected", {
+      body: expected,
+      contentType: "image/png",
+    });
+    await test.info().attach(name + " styles", {
+      body: Buffer.from(JSON.stringify({ actual: aStyles, expected: eStyles })),
+      contentType: "application/json",
+    });
+  }
   expect(diff.expected).toEqual(diff.size);
   expect(diff.pixels, name).toBe(0);
 }

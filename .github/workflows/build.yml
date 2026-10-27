@@ -64,6 +64,8 @@ jobs:
       # #165: report the graph creation regressions before the long visual inventory.
       - run: npm run test:desktop -- tests/e2e/authoring.spec.ts --max-failures=5
         if: matrix.shard == 1
+      - run: npm run test:desktop -- tests/e2e/utility-visual.spec.ts --grep "frame 07 " --max-failures=1
+        if: matrix.shard == 4
       # Every normal test remains selected; files keep their serial execution.
       - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4 --max-failures=5
       - run: npm audit --audit-level=moderate
