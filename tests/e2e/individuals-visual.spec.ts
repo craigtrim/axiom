@@ -320,7 +320,8 @@ async function capture(
     .locator(
       legend
         ? ".tbar, .tbar .btn, .tbar .fld, .pill"
-        : ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat",
+        // #165: give both keyboard separator focus rings the same paint boundary.
+        : ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
     )
     .evaluateAll((els, legend) => {
       for (const el of els) {

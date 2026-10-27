@@ -173,7 +173,9 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 20px;
+    /* #165: retain the reference height for short names and wrap long parents. */
+    min-height: 20px;
+    max-width: 100%;
     padding: 0 4px 0 var(--sp-2);
     border: 1px solid var(--border-ctl);
     border-radius: var(--r-pill);
@@ -185,7 +187,12 @@
     border-color: var(--accent);
     background: var(--accent-soft);
   }
+  .pchip .pname {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .pchip .x {
+    flex: none;
     width: 14px;
     height: 14px;
     padding: 0;

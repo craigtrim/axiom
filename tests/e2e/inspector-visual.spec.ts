@@ -57,6 +57,9 @@ async function open(theme: string) {
     });
     await win.loadFile(file);
     win.showInactive();
+    // #165: Windows clamps construction to the hosted display at scale 2.
+    // Match the application's explicit native resize before taking either crop.
+    win.setSize(1200, 900);
   }, inspectorReference);
   specimen = await opened;
   await specimen.evaluate(

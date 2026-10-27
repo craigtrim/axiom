@@ -62,7 +62,7 @@ jobs:
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
       # #165: report the graph creation regressions before the long visual inventory.
-      - run: npm run test:desktop -- tests/e2e/authoring.spec.ts tests/e2e/entity-context-menu.spec.ts tests/e2e/extend-audit.spec.ts --max-failures=5
+      - run: npm run test:desktop -- tests/e2e/authoring.spec.ts tests/e2e/entity-context-menu.spec.ts tests/e2e/extend-audit.spec.ts
         if: matrix.shard == 1
       - run: npm run test:desktop -- tests/e2e/individuals-visual.spec.ts tests/e2e/inspector-visual.spec.ts --grep "Individuals (supplementary )?reference light|light-01-class-expanded" --max-failures=5
         if: matrix.shard == 2
@@ -71,7 +71,7 @@ jobs:
       - run: npm run test:desktop -- tests/e2e/utility-visual.spec.ts --grep "frame 07 " --max-failures=1
         if: matrix.shard == 4
       # Every normal test remains selected; files keep their serial execution.
-      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4 --max-failures=5
+      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4
       - run: npm audit --audit-level=moderate
       - run: npm run package
         if: matrix.shard == 1

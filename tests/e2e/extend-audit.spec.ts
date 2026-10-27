@@ -30,6 +30,18 @@ const trigger = (name = "Psychology") =>
 const popup = () => page.getByRole("menu");
 const editor = () =>
   pane().getByRole("region", { name: "Add to the ontology", exact: true });
+// #165: #93 moved class/individual drafts to Add entity; properties stay in Find.
+const addEditor = () => main.locator('[data-panel="textentities"]');
+const addName = () =>
+  addEditor().getByRole("textbox", { name: "Name", exact: true });
+const parentChip = (name: string) =>
+  addEditor().locator(".pchip").filter({ hasText: name });
+const addIri = () =>
+  addEditor()
+    .locator(".frow")
+    .filter({ has: addName() })
+    .locator(".fnote .mono")
+    .innerText();
 async function menu(id: string) {
   const targetId = await (await app.browserWindow(page)).evaluate((w) => w.id);
   await app.evaluate(
@@ -111,25 +123,31 @@ async function noOverflow(target: Locator) {
       .toBe(true);
   } catch (error) {
     // #165: retain real layout evidence for remote diagnosis of overflow.
-    const geometry = await target.evaluate((el) => {
-      const ancestors = [];
-      for (let parent: Element | null = el; parent; parent = parent.parentElement) {
-        const style = getComputedStyle(parent);
-        ancestors.push({
-          tag: parent.tagName,
-          cls: parent.className,
-          box: parent.getBoundingClientRect().toJSON(),
-          scroll: parent.scrollWidth,
-          client: parent.clientWidth,
-          display: style.display,
-          visibility: style.visibility,
-          position: style.position,
-          overflow: style.overflow,
-          hidden: parent.hasAttribute("hidden"),
-        });
-      }
-      return { html: el.outerHTML, ancestors };
-    });
+    const geometry = (await target.count())
+      ? await target.evaluate((el) => {
+          const ancestors = [];
+          for (
+            let parent: Element | null = el;
+            parent;
+            parent = parent.parentElement
+          ) {
+            const style = getComputedStyle(parent);
+            ancestors.push({
+              tag: parent.tagName,
+              cls: parent.className,
+              box: parent.getBoundingClientRect().toJSON(),
+              scroll: parent.scrollWidth,
+              client: parent.clientWidth,
+              display: style.display,
+              visibility: style.visibility,
+              position: style.position,
+              overflow: style.overflow,
+              hidden: parent.hasAttribute("hidden"),
+            });
+          }
+          return { html: el.outerHTML, ancestors };
+        })
+      : { missing: true };
     await test.info().attach("overflow geometry", {
       body: Buffer.from(JSON.stringify(geometry)),
       contentType: "application/json",
@@ -306,12 +324,28 @@ for (const theme of ["light", "dark"] as const) {
       );
       await capture(`${theme}-${width}-long-menu`);
       await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-      await noOverflow(pane().locator(".extend-context"));
-      await expect(pane().locator(".extend-context")).toContainText(longName);
-      await capture(`${theme}-${width}-long-context`);
-      await pane()
-        .getByRole("button", { name: "Back to results", exact: true })
-        .click();
+      await expect(addName()).toHaveValue("Psy");
+      await main
+        .locator('[data-pane-id="textentities"]')
+        .evaluate((el, width) => {
+          Object.assign((el as HTMLElement).style, {
+            position: "fixed",
+            left: "24px",
+            top: "24px",
+            width: width + "px",
+            height: "558px",
+            zIndex: "1000",
+          });
+        }, width);
+      await expect(parentChip(longName)).toBeVisible();
+      await noOverflow(parentChip(longName));
+      await noOverflow(parentChip(longName).locator(".."));
+      await fitsViewport(parentChip(longName));
+      await test.info().attach(`${theme}-${width}-long-parent`, {
+        body: await addEditor().screenshot(),
+        contentType: "image/png",
+      });
+      await back();
     }
   });
   test(`#56 ${theme}: visible separators and accessible split targets`, async () => {
@@ -388,30 +422,48 @@ for (const [type, noun, target, predicate] of [
   ["ObjectProperty", "property", "teaches", "rdfs:subPropertyOf"],
 ] as const)
   test(`#56 Sibling context follows an edited ${noun} kind and the saved RDF`, async () => {
-    await open("Clinical Psychology");
+    // #93 keeps class/individual authoring separate from the property editor.
+    // Both paths still change kind and verify the resulting asserted relation.
+    await open(
+      noun === "property" ? "psychology annotation" : "Clinical Psychology",
+    );
     await page.getByRole("menuitem", { name: /^Sibling/ }).click();
-    await editor()
-      .getByRole("combobox", { name: "rdf:type", exact: true })
-      .selectOption("http://www.w3.org/2002/07/owl#" + type);
-    if (noun === "property")
+    let iri: string;
+    if (noun === "property") {
+      await editor()
+        .getByRole("combobox", { name: "rdf:type", exact: true })
+        .selectOption(NS.owl + type);
       await editor()
         .getByLabel("Parent property", { exact: true })
         .selectOption(extendBase + "teaches");
-    await editor()
-      .getByLabel(noun[0].toUpperCase() + noun.slice(1) + " label", {
-        exact: true,
-      })
-      .fill("Audit " + type);
-    await expect(pane().locator(".extend-context")).toHaveText(
-      `Back to resultsNew ${noun}, ${noun === "individual" ? "instance" : "subproperty"} of ${target}, asserted with ${predicate}`,
-    );
-    const iri = await editor()
-      .getByLabel("Subject IRI", { exact: true })
-      .inputValue();
-    await capture(`sibling-changed-${noun}`);
-    await editor()
-      .getByRole("button", { name: "Create " + noun, exact: true })
-      .click();
+      await editor()
+        .getByLabel("Property label", { exact: true })
+        .fill("Audit " + type);
+      await expect(pane().locator(".extend-context")).toHaveText(
+        `Back to resultsNew property, subproperty of ${target}, asserted with ${predicate}`,
+      );
+      iri = await editor()
+        .getByLabel("Subject IRI", { exact: true })
+        .inputValue();
+      await capture(`sibling-changed-${noun}`);
+      await editor()
+        .getByRole("button", { name: "Create property", exact: true })
+        .click();
+    } else {
+      await expect(addName()).toHaveValue("Psy");
+      await addEditor()
+        .getByRole("button", { name: "Individual", exact: true })
+        .click();
+      await addName().fill("Audit " + type);
+      await expect(parentChip(target)).toBeVisible();
+      await expect(
+        parentChip(target).locator("../../..").locator(".flbl"),
+      ).toHaveText("Type");
+      iri = await addIri();
+      await addEditor()
+        .getByRole("button", { name: "Create", exact: true })
+        .click();
+    }
     await expect
       .poll(async () =>
         (
@@ -439,19 +491,33 @@ for (const [type, noun, target, predicate] of [
 test("#56 removing a Subclass parent names the actual owl:Thing fallback", async () => {
   await open();
   await page.getByRole("menuitem", { name: /^Subclass/ }).click();
-  await editor()
-    .getByRole("button", {
-      name: "Remove this rdfs:subClassOf value",
-      exact: true,
-    })
+  await addEditor()
+    .getByRole("button", { name: "Remove Psychology", exact: true })
     .click();
-  await expect(pane().locator(".extend-context")).toContainText(
-    "subclass of owl:Thing, asserted with rdfs:subClassOf",
+  await expect(addEditor()).toContainText(
+    "none, so it would be created under owl:Thing",
   );
   await expect(
-    editor().getByRole("button", { name: "Create class", exact: true }),
+    addEditor().getByRole("button", { name: "Create", exact: true }),
   ).toBeEnabled();
-  await capture("cleared-subclass-parent");
+  const iri = await addIri();
+  await addEditor()
+    .getByRole("button", { name: "Create", exact: true })
+    .click();
+  await expect
+    .poll(async () => {
+      const doc = await main.evaluate(
+        (iri) =>
+          window.axiom.request<{ statements: Triple[] }>("entityDocument", {
+            iri,
+          }),
+        iri,
+      );
+      return doc.statements
+        .filter((t) => t.predicate === NS.rdfs + "subClassOf")
+        .map((t) => t.object.value);
+    })
+    .toEqual([NS.owl + "Thing"]);
 });
 
 const primary = (name = "Psychology") => row(name).locator(".ext-main");
@@ -500,8 +566,13 @@ for (const theme of ["light", "dark"] as const)
     await fitsViewport(trigger());
     await capture(`${theme}-150percent-split`);
   });
-const back = () =>
-  pane().getByRole("button", { name: "Back to results", exact: true }).click();
+async function back() {
+  if (await editor().count())
+    await pane()
+      .getByRole("button", { name: "Back to results", exact: true })
+      .click();
+  else await menu("view.find");
+}
 async function choose(action: string, name = "Psychology") {
   await open(name);
   await popup()
@@ -517,9 +588,7 @@ async function preferences() {
 
 test("remembered action repeats against the current row and query, with correct saved RDF and focus", async () => {
   await choose("Subclass");
-  await expect(editor().getByLabel("Class label", { exact: true })).toHaveValue(
-    "Psy",
-  );
+  await expect(addName()).toHaveValue("Psy");
   await back();
   await expect(trigger()).toBeFocused();
   await expect(primary()).toHaveText("+ Subclass");
@@ -531,20 +600,12 @@ test("remembered action repeats against the current row and query, with correct 
   );
   await row("Clinical Psychology").focus();
   await primary("Clinical Psychology").click();
-  await expect(editor().getByLabel("Class label", { exact: true })).toHaveValue(
-    "Clinical",
-  );
-  await expect(pane().locator(".extend-context")).toContainText(
-    "subclass of Clinical Psychology",
-  );
-  await editor()
-    .getByLabel("Class label", { exact: true })
-    .fill("Clinical audit child");
-  const iri = await editor()
-    .getByLabel("Subject IRI", { exact: true })
-    .inputValue();
-  await editor()
-    .getByRole("button", { name: "Create class", exact: true })
+  await expect(addName()).toHaveValue("Clinical");
+  await expect(parentChip("Clinical Psychology")).toBeVisible();
+  await addName().fill("Clinical audit child");
+  const iri = await addIri();
+  await addEditor()
+    .getByRole("button", { name: "Create", exact: true })
     .click();
   await expect
     .poll(async () =>
@@ -563,7 +624,11 @@ test("remembered action repeats against the current row and query, with correct 
       .filter((t) => t.predicate === NS.rdfs + "subClassOf")
       .map((t) => t.object.value),
   ).toEqual([extendBase + "ClinicalPsychology"]);
-  await expect(editor()).toHaveCount(0);
+  // #119 retains the successfully created draft and disables duplicate creation.
+  await expect(
+    addEditor().getByRole("button", { name: "Create", exact: true }),
+  ).toBeDisabled();
+  await back();
   await query().fill("Psy");
   await expect(row()).toBeVisible();
   await choose("Instance", "Clinical Psychology");
@@ -573,15 +638,15 @@ test("remembered action repeats against the current row and query, with correct 
   await expect(popup()).toBeVisible();
   await primary("General Psychology").press("Enter");
   await expect(popup()).toHaveCount(0);
-  await expect(pane().locator(".extend-context")).toContainText(
-    "instance of General Psychology",
-  );
+  await expect(parentChip("General Psychology")).toBeVisible();
   await expect(
-    editor().getByLabel("Individual label", { exact: true }),
-  ).toHaveValue("Psy");
-  await editor()
-    .getByLabel("Individual label", { exact: true })
-    .press("Escape");
+    addEditor().getByRole("button", { name: "Individual", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(addName()).toHaveValue("Psy");
+  await addEditor()
+    .getByRole("button", { name: "Discard draft", exact: true })
+    .click();
+  await back();
   await expect(primary("General Psychology")).toBeFocused();
   await capture("repeated-instance");
 });
@@ -725,9 +790,10 @@ test("remembered actions survive restart and are personal preferences outside sa
   await expect(primary("teaches")).toHaveText("+ Subproperty");
   await row().focus();
   await primary().click();
-  await expect(pane().locator(".extend-context")).toContainText(
-    "instance of Psychology",
-  );
+  await expect(parentChip("Psychology")).toBeVisible();
+  await expect(
+    addEditor().getByRole("button", { name: "Individual", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await back();
   await capture("restored-preferences");
 });

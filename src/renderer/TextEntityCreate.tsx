@@ -378,7 +378,10 @@ export function TextEntityCreate({
                 className={"pchip" + ("create" in p ? " draft" : "")}
                 key={("iri" in p ? p.iri : p.create.label) + i}
               >
-                {parentName(p) + ("create" in p ? " (new)" : "")}
+                {/* #165: long parent names wrap without losing their remove control. */}
+                <span className="pname">
+                  {parentName(p) + ("create" in p ? " (new)" : "")}
+                </span>
                 <button
                   className="x"
                   type="button"
