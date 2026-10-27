@@ -320,8 +320,8 @@ async function capture(
     .locator(
       legend
         ? ".tbar, .tbar .btn, .tbar .fld, .pill"
-        // #165: give both keyboard separator focus rings the same paint boundary.
-        : ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
+        : // #165: give both keyboard separator focus rings the same paint boundary.
+          ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
     )
     .evaluateAll((els, legend) => {
       for (const el of els) {
@@ -433,6 +433,33 @@ async function compare(
         };
       });
     });
+  // #165: rounded-edge differences need the clipping ancestors as well as content.
+  const paintAncestors = (root: Locator) =>
+    root.evaluate((el) => {
+      const result = [];
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        result.push({
+          tag: node.tagName,
+          cls: node.className,
+          box: node.getBoundingClientRect().toJSON(),
+          styles: Object.fromEntries(
+            [
+              "background-color",
+              "border",
+              "border-radius",
+              "overflow",
+              "transform",
+              "will-change",
+              "contain",
+              "clip-path",
+              "opacity",
+            ].map((key) => [key, style.getPropertyValue(key)]),
+          ),
+        });
+      }
+      return result;
+    });
   await writeFile(
     `artifacts/issue-61/${name}-layout.json`,
     JSON.stringify(
@@ -442,6 +469,12 @@ async function compare(
         coords: result.coords,
         app: await geometry(actual),
         reference: await geometry(expected),
+        ...(result.pixels
+          ? {
+              appFrame: await paintAncestors(actual),
+              referenceFrame: await paintAncestors(expected),
+            }
+          : {}),
       },
       null,
       2,
@@ -449,8 +482,12 @@ async function compare(
   );
   // #165: keep original captures and pixel coordinates available on CI failures.
   if (result.pixels) {
-    await test.info().attach(name + " actual", { body: a, contentType: "image/png" });
-    await test.info().attach(name + " expected", { body: b, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " actual", { body: a, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " expected", { body: b, contentType: "image/png" });
     await test.info().attach(name + " layout", {
       path: `artifacts/issue-61/${name}-layout.json`,
       contentType: "application/json",

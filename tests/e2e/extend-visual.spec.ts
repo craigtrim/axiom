@@ -614,68 +614,54 @@ for (const [theme, narrowOnly] of [
       await pane()
         .getByRole("button", { name: 'Add "Psy" as a new class', exact: true })
         .click();
-      let width =
-        (await pane().locator(".extend-context").boundingBox())!.width + 2;
-      await compare(
-        "header-context",
-        await referenceControl("#d figure:first-child .ctx", theme, width, [
-          ["Physiological Psychology", "Psy"],
-        ]),
-        pane().locator(".extend-context"),
-      );
-      await pane()
-        .getByRole("button", { name: "Back to results", exact: true })
-        .click();
-      for (const [name, target, item, selector, changes] of [
+      // #165: #93 replaced these four embedded contexts with Add entity. Assert
+      // the real handoff here; add-entity-visual.spec.ts owns its 56 exact frames.
+      // The property context below still uses this independent #56 pixel oracle.
+      const draft = page.locator('[data-panel="textentities"]');
+      await expect(
+        draft.getByRole("textbox", { name: "Name", exact: true }),
+      ).toHaveValue("Psy");
+      await expect(draft).toContainText("from your search Psy");
+      await menu("view.find");
+      for (const [target, item, kind, parents] of [
+        ["Psychology", "Subclass", "Class", ["Psychology"]],
+        ["Psychology", "Sibling", "Class", []],
         [
-          "subclass-context",
-          "Psychology",
-          "Subclass",
-          "#d figure:nth-child(2) .ctx",
-          [],
-        ],
-        [
-          "sibling-context",
-          "Psychology",
-          "Sibling",
-          "#d figure:nth-child(4) .ctx",
-          [],
-        ],
-        [
-          "instance-context",
           "General Psychology",
           "Instance",
-          "#d figure:nth-child(3) .ctx",
-          [],
-        ],
-        [
-          "subproperty-context",
-          "teaches",
-          "Subproperty",
-          "#d figure:nth-child(5) .ctx",
-          [],
+          "Individual",
+          ["General Psychology"],
         ],
       ] as const) {
         await openMenu(target);
         await page
           .getByRole("menuitem", { name: new RegExp("^" + item) })
           .click();
-        width =
-          (await pane().locator(".extend-context").boundingBox())!.width + 2;
-        await compare(
-          name,
-          await referenceControl(
-            selector,
-            theme,
-            width,
-            changes.map((p) => [...p]) as [string, string][],
-          ),
-          pane().locator(".extend-context"),
-        );
-        await pane()
-          .getByRole("button", { name: "Back to results", exact: true })
-          .click();
+        await expect(
+          draft.getByRole("textbox", { name: "Name", exact: true }),
+        ).toHaveValue("Psy");
+        await expect(
+          draft.getByRole("button", { name: kind, exact: true }),
+        ).toHaveAttribute("aria-pressed", "true");
+        await expect(draft.locator(".pchip .pname")).toHaveText([...parents]);
+        if (!parents.length)
+          await expect(draft).toContainText(
+            "none, so it would be created under owl:Thing",
+          );
+        await menu("view.find");
       }
+      await openMenu("teaches");
+      await page.getByRole("menuitem", { name: /^Subproperty/ }).click();
+      let width =
+        (await pane().locator(".extend-context").boundingBox())!.width + 2;
+      await compare(
+        "subproperty-context",
+        await referenceControl("#d figure:nth-child(5) .ctx", theme, width),
+        pane().locator(".extend-context"),
+      );
+      await pane()
+        .getByRole("button", { name: "Back to results", exact: true })
+        .click();
       await resize(760, 320);
       await expect(pane()).toHaveAttribute("data-layout", "shallow");
       await row().scrollIntoViewIfNeeded();
@@ -748,7 +734,18 @@ for (const [theme, narrowOnly] of [
           baselinePath,
           JSON.stringify({ referenceHash, images: generated }, null, 2) + "\n",
         );
-      else expect(Object.keys(generated)).toEqual(Object.keys(baseline));
+      else
+        expect(Object.keys(generated)).toEqual(
+          Object.keys(baseline).filter(
+            (name) =>
+              ![
+                "header-context",
+                "subclass-context",
+                "sibling-context",
+                "instance-context",
+              ].includes(name),
+          ),
+        );
       expect(errors).toEqual([]);
     } finally {
       await app.close();

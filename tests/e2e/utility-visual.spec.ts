@@ -199,7 +199,10 @@ async function compare(
           : host.querySelector<HTMLElement>(".utility-surface")!
         ).style.transform = "translateZ(0)";
         root
-          .querySelectorAll<HTMLElement>(".btn,.fld,.sel,.seg,.menu,.gl")
+          // #165: match the focused menu item's paint boundary in both captures.
+          .querySelectorAll<HTMLElement>(
+            ".btn,.fld,.sel,.seg,.menu,.menu [role=menuitem],.gl",
+          )
           .forEach((el) => (el.style.transform = "translateZ(0)"));
         if (reference && [2, 33, 34].includes(frame))
           root
@@ -336,7 +339,10 @@ async function compare(
   );
   await writeFile(`artifacts/issue-94/${name}.json`, JSON.stringify(diff));
   // #165: retain exact failed frames for remote diagnosis; comparisons stay strict.
-  if (diff.pixels || JSON.stringify(diff.expected) !== JSON.stringify(diff.size)) {
+  if (
+    diff.pixels ||
+    JSON.stringify(diff.expected) !== JSON.stringify(diff.size)
+  ) {
     await test.info().attach(name + " actual", {
       body: actual,
       contentType: "image/png",

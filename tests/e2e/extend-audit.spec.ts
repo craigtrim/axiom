@@ -37,11 +37,7 @@ const addName = () =>
 const parentChip = (name: string) =>
   addEditor().locator(".pchip").filter({ hasText: name });
 const addIri = () =>
-  addEditor()
-    .locator(".frow")
-    .filter({ has: addName() })
-    .locator(".fnote .mono")
-    .innerText();
+  addName().locator("..").locator(".fnote .mono").innerText();
 async function menu(id: string) {
   const targetId = await (await app.browserWindow(page)).evaluate((w) => w.id);
   await app.evaluate(
@@ -421,13 +417,17 @@ for (const [type, noun, target, predicate] of [
   ["NamedIndividual", "individual", "Psychology", "rdf:type"],
   ["ObjectProperty", "property", "teaches", "rdfs:subPropertyOf"],
 ] as const)
-  test(`#56 Sibling context follows an edited ${noun} kind and the saved RDF`, async () => {
+  test(`#56 creation context follows an edited ${noun} kind and the saved RDF`, async () => {
     // #93 keeps class/individual authoring separate from the property editor.
     // Both paths still change kind and verify the resulting asserted relation.
     await open(
       noun === "property" ? "psychology annotation" : "Clinical Psychology",
     );
-    await page.getByRole("menuitem", { name: /^Sibling/ }).click();
+    await page
+      .getByRole("menuitem", {
+        name: noun === "property" ? /^Subproperty/ : /^Sibling/,
+      })
+      .click();
     let iri: string;
     if (noun === "property") {
       await editor()
@@ -590,7 +590,8 @@ test("remembered action repeats against the current row and query, with correct 
   await choose("Subclass");
   await expect(addName()).toHaveValue("Psy");
   await back();
-  await expect(trigger()).toBeFocused();
+  // Returning through View > Find focuses its search field after the #93 handoff.
+  await expect(query()).toBeFocused();
   await expect(primary()).toHaveText("+ Subclass");
   await expect(primary("Clinical Psychology")).toHaveText("+ Subclass");
   await query().fill("Clinical");
@@ -647,7 +648,7 @@ test("remembered action repeats against the current row and query, with correct 
     .getByRole("button", { name: "Discard draft", exact: true })
     .click();
   await back();
-  await expect(primary("General Psychology")).toBeFocused();
+  await expect(query()).toBeFocused();
   await capture("repeated-instance");
 });
 

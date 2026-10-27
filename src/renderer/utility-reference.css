@@ -516,12 +516,14 @@
   flex-shrink: 100000;
 }
 .utility-surface .shared-command[data-pinned="true"] {
-  flex: 0 1 115.5px;
+  /* #165: the reference input's size follows the installed font metrics. */
+  flex: 0 1 max-content;
   min-width: 24px;
   margin-left: auto;
 }
 .utility-surface .shared-command[data-pinned="true"] .fld {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   min-width: 0;
 }
 .utility-surface .bar:has([data-pinned="true"]) .state {
