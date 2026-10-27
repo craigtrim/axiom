@@ -485,6 +485,9 @@ async function compare(
               "contain",
               "clip-path",
               "opacity",
+              "isolation",
+              "box-shadow",
+              "background-clip",
             ].map((key) => [key, style.getPropertyValue(key)]),
           ),
         });
@@ -500,7 +503,7 @@ async function compare(
         coords: result.coords,
         app: await geometry(actual),
         reference: await geometry(expected),
-        ...(result.pixels
+        ...(result.pixels || name.includes("16-filter-matches")
           ? {
               appFrame: await paintAncestors(actual),
               referenceFrame: await paintAncestors(expected),
@@ -511,8 +514,9 @@ async function compare(
       2,
     ),
   );
-  // #165: keep original captures and pixel coordinates available on CI failures.
-  if (result.pixels) {
+  // #165: retain both focused-filter paints to identify which surface changes.
+  // Every first-paint and repaint comparison still has its own exact assertion.
+  if (result.pixels || name.includes("16-filter-matches")) {
     await test
       .info()
       .attach(name + " actual", { body: a, contentType: "image/png" });
