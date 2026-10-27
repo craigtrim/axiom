@@ -1195,9 +1195,12 @@ test("Find filters, sorts and pages every match with useful result actions", asy
   await expect
     .poll(async () => Object.keys((await state()).graphs ?? {}).length)
     .toBe(2);
-  expect(
-    (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
-  ).toBe(true);
+  // #165: graph registration precedes the asynchronous active-view switch.
+  await expect
+    .poll(async () =>
+      (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
+    )
+    .toBe(true);
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");

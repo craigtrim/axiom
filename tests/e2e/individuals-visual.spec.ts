@@ -288,35 +288,42 @@ async function resize(ref: Locator, width: number, height: number, extra = 0) {
     .poll(async () => (await pane().boundingBox())?.height)
     .toBe(height);
 }
+const capturePages = new WeakSet<Page>();
 async function capture(
   root: Locator,
   crop?: "touchpoints",
   preserveInteraction = false,
 ) {
-  const { legend, pane: isPane } = await root.evaluate((el) => ({
-    legend: el.classList.contains("legend"),
-    pane: el.classList.contains("pane"),
-  }));
+  if (!capturePages.has(root.page())) {
+    // #165: keep the already-excluded caret hidden throughout the fixture.
+    // Per-screenshot inline-style changes otherwise repaint focused controls.
+    await root.page().addStyleTag({
+      content:
+        "input,textarea,[contenteditable]{caret-color:transparent!important}",
+    });
+    capturePages.add(root.page());
+  }
+  const legend = await root.evaluate((el) => el.classList.contains("legend"));
   await root.evaluate(async (el) => {
     // Reused React nodes and rebuilt reference nodes need fresh compositor layers.
     for (const node of [el.parentElement!, el, ...el.querySelectorAll("*")]) {
       (node as HTMLElement).style.removeProperty("transform");
       (node as HTMLElement).style.removeProperty("will-change");
-      (node as HTMLElement).style.removeProperty("isolation");
     }
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
   });
-  // #165: use the parent's rounded clipping layer for a pane. Promoting the
-  // pane as well creates two coincident compositor clips whose edge rounding
-  // depends on the previous focused-input paint. Legend has no such parent clip.
-  if (!isPane)
-    await root.evaluate((el) => {
-      (el as HTMLElement).style.transform = "translateZ(0)";
-      (el as HTMLElement).style.isolation = "isolate";
-    });
-  if (isPane) {
+  // Match compositing boundaries, as Details and Extend do, so Chromium uses
+  // the same fractional-edge rasterization. Geometry and reference tokens stay.
+  await root.evaluate((el, legend) => {
+    (el as HTMLElement).style.transform = "translateZ(0)";
+    // #165: composite each independently rendered pane against its own backing.
+    // This retains the full rounded border and avoids inherited blend groups.
+    (el as HTMLElement).style.isolation = "isolate";
+    if (!legend) (el as HTMLElement).style.willChange = "transform";
+  }, legend);
+  if (await root.evaluate((el) => el.classList.contains("pane"))) {
     await root.locator("..").evaluate((el) => {
       (el as HTMLElement).style.transform = "translateZ(0)";
       (el as HTMLElement).style.willChange = "transform";
@@ -328,7 +335,9 @@ async function capture(
       legend
         ? ".tbar, .tbar .btn, .tbar .fld, .pill"
         : // #165: give both keyboard separator focus rings the same paint boundary.
-          ".tbar, .tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
+          // Keep the toolbar in the pane layer: a focused field otherwise adds
+          // a different nested clipping boundary in the dock and standalone HTML.
+          ".tbar .btn, .tbar .fld, .pill, .pgn, .gstat, .rz",
     )
     .evaluateAll((els, legend) => {
       for (const el of els) {
@@ -342,6 +351,14 @@ async function capture(
       .page()
       .evaluate(() => (document.activeElement as HTMLElement)?.blur());
   }
+  await root
+    .page()
+    .evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
   const b = (await root.boundingBox())!;
   if (crop) {
     const top = (await root.locator(".phead:visible").boundingBox())!.y;
@@ -351,7 +368,14 @@ async function capture(
     b.width -= 2;
   }
   const take = () =>
-    root.page().screenshot({ clip: b, animations: "disabled", scale: "css" });
+    root
+      .page()
+      .screenshot({
+        clip: b,
+        animations: "disabled",
+        scale: "css",
+        caret: "initial",
+      });
   let previous = await take();
   for (let i = 0; i < 8; i++) {
     const next = await take();

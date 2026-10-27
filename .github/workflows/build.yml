@@ -61,6 +61,11 @@ jobs:
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
+      # #165: expose the repaired asynchronous and visual regressions early.
+      # A passing run still executes every one of these in the full inventory.
+      - name: Check native regressions first
+        if: matrix.shard == 1
+        run: node --import tsx scripts/test-native-ci.mjs regression
       # #165: execute the full inventory even after a failure, so reports account
       # for every case. Files retain their serial execution within each shard.
       - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}

@@ -8,11 +8,11 @@ const [shard, ...extra] = process.argv.slice(2);
 if (
   process.env.GITHUB_ACTIONS !== "true" ||
   process.platform !== "win32" ||
-  !/^[1-4]$/.test(shard ?? "") ||
+  !/^(?:[1-4]|regression)$/.test(shard ?? "") ||
   extra.length
 )
   throw Error(
-    "Native UI coverage requires a GitHub-hosted Windows runner and one shard number (1 to 4).",
+    "Native UI coverage requires a GitHub-hosted Windows runner and one shard number (1 to 4) or the regression batch.",
   );
 const root = path.resolve(import.meta.dirname, "..");
 const output = path.join(root, "artifacts/native");
@@ -23,7 +23,15 @@ const args = [
   "node_modules/@playwright/test/cli.js",
   "test",
   "--config=config/playwright.config.ts",
-  `--shard=${shard}/4`,
+  ...(shard === "regression"
+    ? [
+        "tests/e2e/individuals-visual.spec.ts",
+        "tests/e2e/authoring.spec.ts",
+        "tests/e2e/find.spec.ts",
+        "--grep",
+        String.raw`(?:individuals-visual\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$)`,
+      ]
+    : [`--shard=${shard}/4`]),
   "--forbid-only",
 ];
 function run(report, listing) {
@@ -67,6 +75,10 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(inventory, "utf8")),
   JSON.parse(readFileSync(results, "utf8")),
 );
+if (shard === "regression" && coverage.listed !== 10)
+  throw Error(
+    "The focused native regression inventory must contain all ten cases.",
+  );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),
   JSON.stringify(

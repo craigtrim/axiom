@@ -101,3 +101,9 @@ listed case to pass once. Missing cases, unexpected skips, expected-failure
 annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
+
+The first Windows shard also runs ten focused regression cases before its full
+inventory: all eight Individuals visual cases, the Details authoring save journey,
+and the Find result-to-graph journey. This gives earlier evidence when repairing
+these failures. It does not replace their normal full-suite coverage, add retries,
+or create another parallel runner. A failure still fails the CI run.
