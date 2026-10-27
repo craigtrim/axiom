@@ -286,6 +286,29 @@ async function compare(
     [actual.toString("base64"), expected.toString("base64")],
   );
   await writeFile(`artifacts/issue-90/${name}.json`, JSON.stringify(diff));
+  // #165: preserve native rendering evidence on the hosted runner for exact-pixel failures.
+  if (
+    diff.pixels ||
+    diff.size.width !== diff.expected.width ||
+    diff.size.height !== diff.expected.height
+  ) {
+    await test
+      .info()
+      .attach(name + "-actual", { body: actual, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + "-expected", { body: expected, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + "-diagnostics", {
+        body: JSON.stringify(
+          { diff, actual: actualStyles, expected: expectedStyles },
+          null,
+          2,
+        ),
+        contentType: "application/json",
+      });
+  }
   expect(diff.expected).toEqual(diff.size);
   expect(diff.pixels, name).toBe(0);
 }

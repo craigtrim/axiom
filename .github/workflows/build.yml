@@ -61,6 +61,39 @@ jobs:
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
+      # #165: temporary migration evidence; remove after committing reviewed HTML-derived captures.
+      - name: Generate independent Find reference captures
+        if: matrix.shard == 1
+        continue-on-error: true
+        run: npm run test:desktop -- tests/e2e/extend-visual.spec.ts --grep "#56"
+        env:
+          AXIOM_UPDATE_REFERENCE: "1"
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.shard == 1
+        with:
+          name: migrated-find-reference
+          path: |
+            tests/fixtures/extend-visual/v3-*.json
+            artifacts/playwright-report/**
+      - name: Verify migrated native coverage
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $cases = @{
+            1 = @('tests/e2e/add-entity-groups.spec.ts', 'tests/e2e/add-entity-visual.spec.ts', 'tests/e2e/extend-audit.spec.ts', 'tests/e2e/find-stability.spec.ts')
+            2 = @('tests/e2e/individuals-visual.spec.ts', 'tests/e2e/inspector-visual.spec.ts')
+            3 = @('tests/e2e/statement-groups.spec.ts', 'tests/e2e/seealso-warnings.spec.ts', 'tests/e2e/source-files.spec.ts', 'tests/e2e/sparsity-visual.spec.ts')
+            4 = @('tests/e2e/utility-visual.spec.ts')
+          }
+          npm run test:desktop -- @($cases[${{ matrix.shard }}])
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migrated-native-${{ matrix.shard }}
+          path: |
+            artifacts/playwright-report/**
+            artifacts/test-results/**
       # #165: execute the full inventory even after a failure, so reports account
       # for every case. Files retain their serial execution within each shard.
       - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4

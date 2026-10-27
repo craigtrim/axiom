@@ -117,7 +117,8 @@ test.beforeEach(async () => {
     `@prefix : <${base}> . @prefix owl: <${NS.owl}> . @prefix rdfs: <${NS.rdfs}> .
     : a owl:Ontology . :A a owl:Class; rdfs:label "First course"; rdfs:seeAlso "Shared", "Unique" .
     :B a owl:Class; rdfs:label "Second course"; rdfs:seeAlso "Shared", "Another shared value" .
-    :C a owl:Class; rdfs:label "Shared" .`,
+    :C a owl:Class; rdfs:label "Shared" .
+    :teaches a owl:ObjectProperty; rdfs:label "teaches" .`,
   );
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({
@@ -331,17 +332,22 @@ test("Find keeps Synonym for a name match and an existing value, including its f
   await capture("find-added-shared-value");
 });
 
-test("Find creation warns while typing but permits creating an entity with the shared value", async () => {
+test("Find property creation warns while typing but permits the shared value", async () => {
   await menu("view.find");
   const find = page.getByRole("region", { name: "Find entities results" });
-  await find.getByRole("searchbox").fill("New course with shared value");
+  // #165: property creation retains Find's warning editor after #93 moved classes.
+  await find.getByRole("searchbox").fill("teaches");
   await find
     .getByRole("button", {
-      name: 'Add "New Course With Shared Value" as a new class',
+      name: "More ways to extend teaches",
       exact: true,
     })
     .click();
+  await page.getByRole("menuitem", { name: /^Subproperty/ }).click();
   const form = find.getByRole("region", { name: "Add to the ontology" });
+  await form
+    .getByRole("textbox", { name: "Property label", exact: true })
+    .fill("New property with shared value");
   await form.getByRole("button", { name: "+ Add row", exact: true }).click();
   await form
     .getByRole("combobox", { name: "Predicate 1", exact: true })
@@ -356,10 +362,12 @@ test("Find creation warns while typing but permits creating an entity with the s
     .getByRole("textbox", { name: "Subject IRI", exact: true })
     .inputValue();
   await expect(
-    form.getByRole("button", { name: "Create class", exact: true }),
+    form.getByRole("button", { name: "Create property", exact: true }),
   ).toBeEnabled();
   await capture("creation-warning");
-  await form.getByRole("button", { name: "Create class", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Create property", exact: true })
+    .click();
   await expect.poll(() => saved(iri)).toEqual(["Shared"]);
 });
 

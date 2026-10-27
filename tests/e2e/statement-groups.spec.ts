@@ -43,7 +43,7 @@ let errors: string[];
 const details = () =>
   page.getByRole("region", { name: "Details", exact: true });
 const group = (predicate: string, root = details()) =>
-  root.locator(`tr[data-predicate="${predicate}"]`);
+  root.locator(`[data-predicate="${predicate}"]`);
 const fields = (row: Locator) => row.locator(".statement-value-field input");
 const saved = (predicate: string, subject = "PhysicalEducation") =>
   page.evaluate(
@@ -102,7 +102,8 @@ test.beforeEach(async () => {
     :Sports a owl:Class; rdfs:label "Sports"; rdfs:subClassOf :Course .
     :PhysicalEducation a owl:Class; rdfs:label "Physical Education"; rdfs:comment "Exercise and learning"; rdfs:subClassOf :Education, :Sports;
       rdfs:seeAlso ${aliases.map((a) => JSON.stringify(a)).join(", ")}; skos:altLabel "One", "Two", "Three", "Four"; :custom "Only" .
-    :Student a owl:NamedIndividual, :PhysicalEducation; rdfs:label "Student" .`;
+    :Student a owl:NamedIndividual, :PhysicalEducation; rdfs:label "Student" .
+    :teaches a owl:ObjectProperty; rdfs:label "teaches" .`;
   const parsed = await parseRdf(ttl, "group.ttl", base);
   const file = path.join(profile, "groups.rdf");
   await writeFile(file, await writeRdf(parsed.triples, "rdfxml"));
@@ -399,18 +400,29 @@ test("removing a newly entered value while its save reply is pending keeps it re
   await expect(fields(row).first()).toHaveValue("Only");
 });
 
-test("Find adds and saves more than 100 values without a statement limit", async () => {
-  test.setTimeout(120000);
+// #165: #93 moved class drafts to Add entity; #164 retains grouped-value coverage there.
+async function newClass(name: string) {
   await menu("view.find");
   const pane = page.getByRole("region", { name: "Find entities results" });
-  await pane
-    .getByRole("searchbox", { name: "Search the ontology" })
-    .fill("Many Grouped Values");
-  const create = pane.getByRole("region", { name: "Add to the ontology" });
-  await create.getByRole("button", { name: "+ Add row", exact: true }).click();
-  await create
-    .getByRole("combobox", { name: "Predicate 1", exact: true })
-    .selectOption(NS.rdfs + "seeAlso");
+  await pane.getByRole("searchbox", { name: "Search the ontology" }).fill(name);
+  await pane.getByRole("button", { name: "Add entity", exact: true }).click();
+  const create = page.locator('[data-panel="textentities"]');
+  await expect(
+    create.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue(name);
+  await create.getByRole("button", { name: "Add a statement" }).click();
+  return create;
+}
+const draftIri = (create: Locator) =>
+  create
+    .getByRole("textbox", { name: "Name", exact: true })
+    .locator("..")
+    .locator(".fnote .mono")
+    .innerText();
+
+test("Add entity adds and saves more than 100 values without a statement limit", async () => {
+  test.setTimeout(120000);
+  const create = await newClass("Many Grouped Values");
   const row = group(NS.rdfs + "seeAlso", create);
   const values = Array.from(
     { length: 101 },
@@ -425,14 +437,10 @@ test("Find adds and saves more than 100 values without a statement limit", async
     await fields(row).last().fill(value);
   }
   await expect(
-    create.getByRole("button", { name: "+ Add row", exact: true }),
+    create.getByRole("button", { name: "Add a statement", exact: true }),
   ).toBeEnabled();
-  const createdIri = await create
-    .getByRole("textbox", { name: "Subject IRI", exact: true })
-    .inputValue();
-  await create
-    .getByRole("button", { name: "Create class", exact: true })
-    .click();
+  const createdIri = await draftIri(create);
+  await create.getByRole("button", { name: "Create", exact: true }).click();
   await expect
     .poll(async () =>
       (
@@ -445,18 +453,8 @@ test("Find adds and saves more than 100 values without a statement limit", async
     .toEqual(values);
 });
 
-test("Find values share one predicate, source keeps delimiters and parents use individual fields", async () => {
-  await menu("view.find");
-  const pane = page.getByRole("region", { name: "Find entities results" });
-  await pane
-    .getByRole("searchbox", { name: "Search the ontology" })
-    .fill("Unlisted Grouped Subject");
-  const create = pane.getByRole("region", { name: "Add to the ontology" });
-  await expect(create).toBeVisible();
-  await create.getByRole("button", { name: "+ Add row", exact: true }).click();
-  await create
-    .getByRole("combobox", { name: "Predicate 1", exact: true })
-    .selectOption(NS.rdfs + "seeAlso");
+test("Add entity groups values, escapes source and retains independently selected parents", async () => {
+  const create = await newClass("Unlisted Grouped Subject");
   const row = group(NS.rdfs + "seeAlso", create);
   const values = ["PE:PE", "A,B;C|D", "<Course>&Fitness", "Final"];
   for (const [i, value] of values.entries()) {
@@ -471,36 +469,29 @@ test("Find values share one predicate, source keeps delimiters and parents use i
   await expect(
     row.getByRole("button", { name: "1 more", exact: true }),
   ).toBeVisible();
-  const height = (await row.boundingBox())!.height;
-  // The v5 Find specimen includes 2 px stack gaps and 3 px cell padding (#83).
-  expect(Math.round(height)).toBe(143);
-  await writeFile(
-    "artifacts/grouped-statements/find-geometry.json",
-    JSON.stringify({ height }, null, 2),
-  );
-  const parent = group(SUBCLASS, create);
-  await fields(parent).first().fill("Education");
+  await expect(row.locator("select")).toHaveCount(1);
+  const parent = create.getByRole("combobox", {
+    name: "Add a parent",
+    exact: true,
+  });
+  await parent.fill("Education");
   await page
     .getByRole("listbox")
     .getByRole("option", { name: /^Education/ })
     .first()
     .click();
-  await fields(parent).first().focus();
-  await parent
-    .getByRole("button", { name: "+ Add value", exact: true })
-    .click();
-  await expect(fields(parent)).toHaveCount(2);
-  await expect(fields(parent).last()).toBeFocused();
-  await fields(parent).last().fill("Sports");
+  await expect(parent).toBeFocused();
+  await parent.fill("Sports");
   await page
     .getByRole("listbox")
     .getByRole("option", { name: /^Sports/ })
     .first()
     .click();
-  await expect(fields(parent).first()).toHaveValue("Education");
-  await expect(fields(parent).last()).toHaveValue("Sports");
-  await create.getByRole("button", { name: "Source", exact: true }).click();
-  const source = create.getByLabel("RDF/XML source");
+  await expect(create.locator(".pchip .pname")).toHaveText([
+    "Education",
+    "Sports",
+  ]);
+  const source = create.getByLabel("Planned source");
   await expect(source).toContainText("&lt;Course&gt;&amp;Fitness");
   const parsed = await parseRdf(
     (await source.textContent())!,
@@ -515,12 +506,8 @@ test("Find values share one predicate, source keeps delimiters and parents use i
   await row.screenshot({
     path: "artifacts/grouped-statements/find-grouped.png",
   });
-  const createdIri = await create
-    .getByRole("textbox", { name: "Subject IRI", exact: true })
-    .inputValue();
-  await create
-    .getByRole("button", { name: "Create class", exact: true })
-    .click();
+  const createdIri = await draftIri(create);
+  await create.getByRole("button", { name: "Create", exact: true }).click();
   await expect
     .poll(async () =>
       (
@@ -534,4 +521,45 @@ test("Find values share one predicate, source keeps delimiters and parents use i
   await expect
     .poll(() => saved(SUBCLASS, createdIri))
     .toEqual([base + "Education", base + "Sports"]);
+});
+
+test("Find property groups retain the v5 collapsed geometry and separate value fields", async () => {
+  await menu("view.find");
+  const pane = page.getByRole("region", { name: "Find entities results" });
+  await pane.getByRole("searchbox").fill("teaches");
+  await pane
+    .getByRole("button", { name: "More ways to extend teaches" })
+    .click();
+  await page.getByRole("menuitem", { name: /^Subproperty/ }).click();
+  const create = pane.getByRole("region", { name: "Add to the ontology" });
+  await create.getByRole("button", { name: "+ Add row", exact: true }).click();
+  await create
+    .getByRole("combobox", { name: "Predicate 1", exact: true })
+    .selectOption(NS.rdfs + "seeAlso");
+  const row = group(NS.rdfs + "seeAlso", create);
+  for (const [i, value] of [
+    "PE:PE",
+    "A,B;C|D",
+    "<Course>&Fitness",
+    "Final",
+  ].entries()) {
+    if (i)
+      await row
+        .getByRole("button", { name: "+ Add value", exact: true })
+        .click();
+    await fields(row).nth(i).fill(value);
+  }
+  await row.getByRole("button", { name: "Show fewer", exact: true }).click();
+  await expect(fields(row)).toHaveCount(3);
+  await expect(row.locator("select")).toHaveCount(1);
+  await expect(
+    row.getByRole("button", { name: "1 more", exact: true }),
+  ).toBeVisible();
+  const height = (await row.boundingBox())!.height;
+  // The still-active v5 Find form keeps its original #83 geometry assertion.
+  expect(Math.round(height)).toBe(143);
+  await writeFile(
+    "artifacts/grouped-statements/find-geometry.json",
+    JSON.stringify({ height }, null, 2),
+  );
 });
