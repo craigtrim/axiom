@@ -92,8 +92,15 @@ async function find(text: string) {
 }
 async function openMore() {
   const trigger = pane().getByRole("button", { name: "More", exact: true });
-  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+  const disclosure = pane().getByRole("dialog", { name: "More", exact: true });
+  // #165: native hidePopover precedes its queued toggle event and React's
+  // aria-expanded update. A stale true value must not skip the next real click.
+  if (!(await disclosure.isVisible())) {
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await trigger.click();
+  }
+  await expect(disclosure).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
 }
 async function resultAction(name: string) {
   await openMore();

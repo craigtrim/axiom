@@ -31,7 +31,7 @@ const args = [
         "tests/e2e/add-entity-reference.spec.ts",
         "tests/e2e/edge-creation.spec.ts",
         "--grep",
-        String.raw`(?:individuals-visual\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$)`,
+        String.raw`(?:individuals-visual\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$)`,
       ]
     : [`--shard=${shard}/4`]),
   "--forbid-only",
@@ -77,9 +77,9 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(inventory, "utf8")),
   JSON.parse(readFileSync(results, "utf8")),
 );
-if (shard === "regression" && coverage.listed !== 12)
+if (shard === "regression" && coverage.listed !== 13)
   throw Error(
-    "The focused native regression inventory must contain all twelve cases.",
+    "The focused native regression inventory must contain all thirteen cases.",
   );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),
