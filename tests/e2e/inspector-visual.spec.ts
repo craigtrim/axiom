@@ -298,6 +298,16 @@ async function compare(name: string, actual: Locator, expected: Locator) {
     path.join(output, name + "-diff.json"),
     JSON.stringify(diff, null, 2),
   );
+  // #165: retain size mismatches and exact pixels without changing the oracle.
+  if (diff.pixels) {
+    await test.info().attach(name + " actual", { body: a, contentType: "image/png" });
+    await test.info().attach(name + " expected", { body: b, contentType: "image/png" });
+    for (const kind of ["layout", "diff"])
+      await test.info().attach(name + " " + kind, {
+        path: path.join(output, name + "-" + kind + ".json"),
+        contentType: "application/json",
+      });
+  }
   expect.soft(diff.pixels, name).toBe(0);
 }
 for (const theme of ["light", "dark"])

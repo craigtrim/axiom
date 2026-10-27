@@ -105,9 +105,37 @@ async function anchored() {
     .toBeLessThan(1);
 }
 async function noOverflow(target: Locator) {
-  await expect
-    .poll(() => target.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
-    .toBe(true);
+  try {
+    await expect
+      .poll(() => target.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
+      .toBe(true);
+  } catch (error) {
+    // #165: retain real layout evidence for remote diagnosis of overflow.
+    const geometry = await target.evaluate((el) => {
+      const ancestors = [];
+      for (let parent: Element | null = el; parent; parent = parent.parentElement) {
+        const style = getComputedStyle(parent);
+        ancestors.push({
+          tag: parent.tagName,
+          cls: parent.className,
+          box: parent.getBoundingClientRect().toJSON(),
+          scroll: parent.scrollWidth,
+          client: parent.clientWidth,
+          display: style.display,
+          visibility: style.visibility,
+          position: style.position,
+          overflow: style.overflow,
+          hidden: parent.hasAttribute("hidden"),
+        });
+      }
+      return { html: el.outerHTML, ancestors };
+    });
+    await test.info().attach("overflow geometry", {
+      body: Buffer.from(JSON.stringify(geometry)),
+      contentType: "application/json",
+    });
+    throw error;
+  }
 }
 async function capture(name: string) {
   await mkdir("artifacts/remembered-extend/audit", { recursive: true });

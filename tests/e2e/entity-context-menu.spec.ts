@@ -12,6 +12,8 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
 import { THING } from "../../src/domain/model";
+// #165: inspect Hierarchy's filter through its real responsive control.
+import { hierarchyFilter } from "./hierarchy-controls";
 
 const base = "https://example.test/menu#";
 let app: ElectronApplication, page: Page;
@@ -351,12 +353,10 @@ test("graph Find no longer conflicts with Rename, and taxonomy navigation retain
   menu = await open("graph", base + "Root");
   await menu.press("x");
   await expect(
-    page.getByRole("textbox", { name: "Filter hierarchy" }),
-  ).toHaveValue("");
-  await expect(
     page.locator('.tree-row[data-entity-iri="' + base + 'Root"]'),
   ).toBeVisible();
   await expect(page.getByTestId("graph-canvas")).toBeFocused();
+  await expect(await hierarchyFilter(page)).toHaveValue("");
 });
 
 test("Hierarchy neighbor expansion keeps its remapped key separate from Analyze", async () => {

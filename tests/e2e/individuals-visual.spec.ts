@@ -446,6 +446,15 @@ async function compare(
       2,
     ),
   );
+  // #165: keep original captures and pixel coordinates available on CI failures.
+  if (result.pixels) {
+    await test.info().attach(name + " actual", { body: a, contentType: "image/png" });
+    await test.info().attach(name + " expected", { body: b, contentType: "image/png" });
+    await test.info().attach(name + " layout", {
+      path: `artifacts/issue-61/${name}-layout.json`,
+      contentType: "application/json",
+    });
+  }
   expect.soft(result.pixels, name + " raw differing pixels").toBe(0);
 }
 test.afterEach(async () => {

@@ -379,7 +379,9 @@ export function QualityPanel() {
   const staleStore =
     !!shown &&
     (shown.datasetEpoch !== snapshot.datasetEpoch ||
-      (shown.version !== snapshot.version && !correctionInFlight));
+      // #165: the correction reply can precede its state broadcast. A newer
+      // report is awaiting that broadcast, not stale; Undo increments version.
+      (shown.version < snapshot.version && !correctionInFlight));
   const staleSettings =
     !!shown &&
     !staleStore &&

@@ -388,7 +388,8 @@ export function WorkbenchStatus({
   const stale =
     !!result &&
     (staleSettings ||
-      (result.version !== snapshot.version && !correctionInFlight));
+      // #165: a correction reply may arrive before the matching state broadcast.
+      (result.version < snapshot.version && !correctionInFlight));
   const dirty = info?.dirty ?? snapshot.dirty;
   return (
     <footer

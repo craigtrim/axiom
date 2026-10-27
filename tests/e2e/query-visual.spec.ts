@@ -19,6 +19,7 @@ import { queryCellText } from "../../src/shared/query-grid";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 let f: QueryFixture, specimen: Page;
+let pausedClock = false;
 let actualPane: Locator;
 const output = path.resolve(
   process.env.AXIOM_VISUAL_OUTPUT ?? "artifacts/issue-88-visual",
@@ -365,6 +366,7 @@ async function running() {
   const now = Date.now();
   await f.page.clock.install({ time: new Date(now) });
   await f.page.clock.pauseAt(new Date(now + 1000));
+  pausedClock = true;
   await f.composer
     .getByRole("button", { name: "Generate", exact: true })
     .click();
@@ -718,7 +720,13 @@ const frames: Record<string, () => Promise<void>> = {
   "32-recovery-220x300": async () => resize(220, 300),
 };
 test.afterEach(async () => {
-  await f?.app.close();
+  // #165: resume the fixture clock before Electron flushes the closing window.
+  try {
+    if (pausedClock) await f.page.clock.resume();
+  } finally {
+    pausedClock = false;
+    await f?.app.close();
+  }
 });
 for (const theme of ["light", "dark"])
   for (const [name, action] of Object.entries(frames))

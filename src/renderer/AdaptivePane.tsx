@@ -144,7 +144,18 @@ export function AdaptivePane({
     if (layout.recovery && previousFocus.current) {
       recover.current?.focus();
     } else if (!layout.recovery && recoveryFocused) {
-      const previous = previousFocus.current;
+      let previous = previousFocus.current;
+      // #165: responsive layouts may remount the same named control in a new
+      // cell while recovering. Restore that action, not a detached DOM element.
+      const label = previous?.getAttribute("aria-label");
+      if (previous && !previous.isConnected && label) {
+        const tag = previous.tagName;
+        previous =
+          [...(content.current?.querySelectorAll<HTMLElement>("[aria-label]") ?? [])]
+            .find((element) =>
+              element.tagName === tag && element.getAttribute("aria-label") === label,
+            ) ?? previous;
+      }
       // Quiet row actions become hidden when recovery moves focus away. Reveal
       // their still-mounted row before restoring the original action's focus.
       if (

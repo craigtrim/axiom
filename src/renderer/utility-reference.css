@@ -308,10 +308,11 @@
   }
   :scope .number-field {
     flex: none;
-    width: 82.5px;
+    /* #165: honor the reference's size attribute and current font metrics. */
+    width: max-content;
   }
   :scope .number-field .fld {
-    width: 82.5px;
+    width: auto;
   }
   :scope .number-field-error:empty {
     display: none;
