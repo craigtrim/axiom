@@ -5,7 +5,7 @@ if ($env:GITHUB_ACTIONS -ne 'true') {
 }
 $archive = Join-Path $env:RUNNER_TEMP 'mutatoc-0.7.0.zip'
 $extracted = Join-Path $env:RUNNER_TEMP 'mutatoc-0.7.0'
-Invoke-WebRequest -Uri 'https://github.com/craigtrim/mutatoc/releases/download/v0.7.0/mutatoc-win-x64-0.7.0.zip' -OutFile $archive
+Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/craigtrim/mutatoc/releases/download/v0.7.0/mutatoc-win-x64-0.7.0.zip' -OutFile $archive
 if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '21e08f5b4c31cf8dc8b2e15a34e6a4ac5fcb437e92552a2defdbcd376293e549') {
     throw 'Mutatoc 0.7.0 archive checksum mismatch.'
 }

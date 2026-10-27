@@ -606,6 +606,8 @@ test("graph creation dismisses with Escape, close, Cancel or an outside click wi
   const canvas = page.getByTestId("graph-canvas"),
     popup = page.locator(".graph-create"),
     filter = await hierarchyFilter(page);
+  // #165: a nonempty real filter stays visible after focus moves to the graph.
+  await filter.fill("Thing");
   for (const action of [
     "escape",
     "close",
@@ -735,6 +737,17 @@ test("new instance stays connected to its class through movement, themes, resizi
         ] as { x: number; y: number; zoom: number },
     );
   await expect.poll(async () => !!(await camera())).toBe(true);
+  // #165: the persisted camera can still describe the view before Fit's frame.
+  await expect
+    .poll(async () => {
+      const node = (await state()).graph.nodes.find((n) => n.iri === source)!,
+        current = await camera(),
+        area = (await canvas.boundingBox())!,
+        x = node.x * current.zoom + current.x,
+        y = node.y * current.zoom + current.y;
+      return x > 20 && y > 20 && x < area.width - 20 && y < area.height - 20;
+    })
+    .toBe(true);
   const n = (await state()).graph.nodes.find((n) => n.iri === source)!,
     c = await camera();
   await canvas.click({

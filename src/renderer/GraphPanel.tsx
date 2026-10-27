@@ -355,7 +355,9 @@ function GraphContent() {
     }
     if (
       !snapshot.entities.some((e) => e.iri === pendingRename.iri) ||
-      !info?.nodes.some((n) => n.iri === pendingRename.iri)
+      // #165: the live graph proxy can advance ahead of this render's selection.
+      // Wait for one coherent snapshot containing the newly placed node.
+      !snapshot.graph.nodes.some((n) => n.iri === pendingRename.iri)
     )
       return;
     if (
@@ -368,7 +370,7 @@ function GraphContent() {
         keepNameIfEmpty: true,
       });
     setPendingRename(null);
-  }, [pendingRename, snapshot, info]);
+  }, [pendingRename, snapshot]);
   useEffect(
     () =>
       onInlineRename(canvasRef.current!, () => {
