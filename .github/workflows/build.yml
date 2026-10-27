@@ -51,7 +51,7 @@ jobs:
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
       # Every normal test remains selected; files keep their serial execution.
-      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4
+      - run: npm run test:desktop -- --shard=${{ matrix.shard }}/4 --max-failures=1
       - run: npm audit --audit-level=moderate
       - run: npm run package
         if: matrix.shard == 1
