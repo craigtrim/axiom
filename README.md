@@ -101,8 +101,8 @@ npm run benchmark
 npm run benchmark:desktop
 ```
 
-For qualified tests that keep Electron windows hidden, use `npm run test:quiet`
-after building. See [quiet testing](docs/development/quiet-testing.md) for the
+For qualified tests that keep Electron windows hidden, use `npm run test:quiet`.
+It builds before launching. See [quiet testing](docs/development/quiet-testing.md) for the
 allowlist and the CI evidence required before adding a test. The normal desktop
 command opens windows and belongs on a Windows CI runner while working locally.
 

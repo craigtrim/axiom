@@ -13,6 +13,17 @@ if (process.env.AXIOM_TEST_EXE)
   throw Error(
     "Packaged executable tests have not been qualified for quiet rendering; use Windows CI.",
   );
+// An older dist/main bundle may ignore the quiet flag and open a normal window.
+// Rebuild before launching so a fresh checkout or stale build cannot do that.
+if (!args.length) {
+  const build = spawnSync(process.execPath, ["scripts/build.mjs"], {
+    cwd: root,
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  if (build.error) throw build.error;
+  if (build.status !== 0) process.exit(build.status || 1);
+}
 mkdirSync(path.join(root, "artifacts/quiet"), { recursive: true });
 const report = path.join(root, "artifacts/quiet/results.json");
 const result = spawnSync(

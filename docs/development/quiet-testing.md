@@ -4,7 +4,8 @@ Issue #165 adds an opt-in source-test mode that creates Electron windows hidden
 and prevents native show, restore, and focus calls from revealing them. Normal
 application launches and the normal desktop suite retain their existing behavior.
 
-After building the source with `npm run build`, run `npm run test:quiet`.
+Run `npm run test:quiet`. It rebuilds the source before launching, so a stale
+application bundle cannot ignore the quiet flag and open a normal window.
 `npm run test:quiet -- --list` lists the allowed cases without launching Electron.
 The command rejects arbitrary arguments and packaged executables. Unexpected
 native dialogs or menus report that the test requires the normal Windows CI suite.
