@@ -234,6 +234,63 @@
     min-width: 0;
   }
 
+  /* Issue 164 keeps the form geometry while sharing grouped value controls. */
+  .stmt.statement-group-row {
+    align-items: start;
+  }
+  .statement-group-predicate,
+  .statement-value-line {
+    min-height: 22px;
+  }
+  .statement-group-predicate > .sp2 {
+    flex: none;
+  }
+  .statement-group-values {
+    flex: 1;
+    min-width: 0;
+  }
+  .statement-value-field {
+    display: contents;
+  }
+  .statement-value-field > .sv {
+    width: auto;
+    min-height: 0;
+    height: 22px;
+  }
+  .statement-value-line {
+    gap: var(--sp-2);
+  }
+  .statement-value-remove {
+    flex: 0 1 auto;
+  }
+  .statement-text-action {
+    flex: none;
+    width: auto;
+    height: 22px;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: 12px/1.45 var(--font);
+    white-space: nowrap;
+  }
+  .statement-value-expand {
+    margin-inline-start: auto;
+  }
+  .statement-value-stack.grouped .statement-value-line + .statement-value-line {
+    margin-top: 4px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .statement-value-line > .statement-text-action {
+      display: none;
+    }
+    .statement-group-row:hover .statement-value-action,
+    .statement-group-row:focus-within .statement-value-action {
+      display: block;
+      visibility: visible;
+    }
+  }
+
   .srcbox {
     border-inline-start: 1px solid var(--border);
     display: none;

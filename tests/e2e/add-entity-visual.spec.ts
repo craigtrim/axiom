@@ -131,6 +131,13 @@ async function prepareReference(
       if(frame===13)D.stmts=[{p:'skos:altLabel',v:'Tech Writing'},{p:'rdfs:seeAlso',v:'https://en.wikipedia.org/wiki/Technical_writing'}];
       if(${JSON.stringify(context)}){D.context=${JSON.stringify(context)};D.name=T.titleCase(D.context);}
       T.render();
+      // Issue 164 adds the revealed action to frame 13 without rewriting the pinned reference.
+      if(frame===13){
+        const field=document.querySelector('[data-sv="1"]');
+        const action=document.createElement('button');action.type='button';action.textContent='+ Add value';
+        action.style.cssText='flex:none;width:auto;height:22px;min-height:0;padding:0 2px;border:0;background:none;color:var(--accent);font:12px/1.45 var(--font);white-space:nowrap';
+        field.parentElement.append(action);
+      }
       if(frame===18){document.querySelector('#aCreate').click();document.querySelector('#vb').innerHTML='';const st=document.querySelector('#state');st.className='state okink';st.textContent='Created';}
       if(frame===19){document.querySelector('#aClear').click();[...document.querySelectorAll('.frow')].find(r=>r.querySelector('.flbl').textContent==='Context').querySelector('.fnote').textContent='nothing, this is a blank form';}
       if(frame===27)T.toast('The planned source is on the clipboard.','It includes every parent that does not exist yet.');
@@ -190,6 +197,13 @@ async function compare(
         root
           .querySelectorAll<HTMLElement>(".form,.sc")
           .forEach((el) => (el.scrollTop = 0));
+        if (frame === 13) {
+          const field =
+            root.querySelectorAll<HTMLInputElement>(".stmt input")[1];
+          field.focus({ preventScroll: true });
+          field.setSelectionRange(0, 0);
+          field.scrollLeft = 0;
+        }
         if (reference && [3, 5, 7].includes(frame))
           root
             .querySelector<HTMLElement>(frame === 7 ? '[data-np="1"]' : "#pp")!
@@ -412,7 +426,11 @@ for (const theme of ["light", "dark"])
           .click();
       if (frame === 27) await f.more("Copy the planned source");
       await f.page.mouse.move(0, 0);
-      if (!pickerFrames.includes(frame) && !menuFrames.includes(frame))
+      if (
+        frame !== 13 &&
+        !pickerFrames.includes(frame) &&
+        !menuFrames.includes(frame)
+      )
         await f.page.evaluate(() =>
           (document.activeElement as HTMLElement)?.blur(),
         );

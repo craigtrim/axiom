@@ -10,7 +10,6 @@ import {
 import { NS, THING, shorten } from "../domain/model";
 import {
   addEntityIri,
-  addEntityPredicates,
   plannedEntitySource,
   type AddEntityInput,
   type AddEntityCheck,
@@ -26,6 +25,7 @@ import { updateFind } from "./find-state";
 import { defaultFindOptions } from "../shared/find";
 import { revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { AddEntityPicker } from "./AddEntityPicker";
+import { AddEntityStatements } from "./AddEntityStatements";
 import type {
   TextEntityDraft,
   TextEntityClassDraft,
@@ -661,89 +661,12 @@ export function TextEntityCreate({
                 <span className="st">Additional statements</span>
                 <span className="sn">{`${root.statements?.filter((s) => s.object.value.trim()).length ?? 0} with a value`}</span>
               </div>
-              {(root.statements ?? []).map((s, i) => (
-                <div className="stmt" key={i}>
-                  <select
-                    className="sel sp2"
-                    aria-label="Predicate"
-                    value={s.predicate}
-                    onChange={(e) =>
-                      changeRoot({
-                        ...root,
-                        statements: root.statements!.map((old, j) =>
-                          j === i ? { ...old, predicate: e.target.value } : old,
-                        ),
-                      })
-                    }
-                  >
-                    {addEntityPredicates.map((p) => (
-                      <option key={p} value={p}>
-                        {shorten(p)}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="fld sv"
-                    aria-label="Value"
-                    placeholder="Value, one literal per statement"
-                    maxLength={10000}
-                    value={s.object.value}
-                    onChange={(e) =>
-                      changeRoot({
-                        ...root,
-                        statements: root.statements!.map((old, j) =>
-                          j === i
-                            ? {
-                                ...old,
-                                object: {
-                                  ...old.object,
-                                  value: e.target.value,
-                                },
-                              }
-                            : old,
-                        ),
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="btn quiet iconbtn"
-                    aria-label="Remove statement"
-                    onClick={() =>
-                      changeRoot({
-                        ...root,
-                        statements: root.statements!.filter((_, j) => j !== i),
-                      })
-                    }
-                  >
-                    {cross()}
-                  </button>
-                </div>
-              ))}
-              <div className="stmt">
-                <button
-                  type="button"
-                  className="btn quiet"
-                  onClick={() =>
-                    changeRoot({
-                      ...root,
-                      statements: [
-                        ...(root.statements ?? []),
-                        {
-                          predicate: NS.rdfs + "seeAlso",
-                          object: { literal: true, value: "" },
-                        },
-                      ],
-                    })
-                  }
-                >
-                  Add a statement
-                </button>
-                <span className="fnote">
-                  a comma inside a literal is part of that literal, so use
-                  separate statements for separate aliases
-                </span>
-              </div>
+              {/* Issue 164 groups values over the retained flat draft. */}
+              <AddEntityStatements
+                statements={root.statements ?? []}
+                change={(statements) => changeRoot({ ...root, statements })}
+                removeIcon={cross()}
+              />
             </div>
           </div>
           <div className="srcbox">

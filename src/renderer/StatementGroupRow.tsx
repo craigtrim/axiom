@@ -22,6 +22,8 @@ export function StatementGroupRow<Value>({
   removable = () => true,
   details = false,
   find = false,
+  form = false,
+  removeIcon,
 }: {
   group: StatementGroup<Value>;
   name: string;
@@ -33,9 +35,14 @@ export function StatementGroupRow<Value>({
   removable?: (value: Value) => boolean;
   details?: boolean;
   find?: boolean;
+  form?: boolean;
+  removeIcon?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const row = useRef<HTMLTableRowElement>(null);
+  // Issue 164 shares value controls with Add entity's form rows.
+  const row = useRef<HTMLElement>(null);
+  const Row = form ? "div" : "tr";
+  const Cell = form ? "div" : "td";
   const pendingFocus = useRef<{ index: number; selector: string } | null>(null);
   const id = useId();
   const grouped = group.values.length > 1;
@@ -84,23 +91,25 @@ export function StatementGroupRow<Value>({
       </button>
     );
   return (
-    <tr
-      ref={row}
-      className="statement-group-row"
+    <Row
+      ref={(element) => {
+        row.current = element;
+      }}
+      className={form ? "stmt statement-group-row" : "statement-group-row"}
       data-predicate={group.predicate}
       data-readonly={
         group.values.every((value) => !removable(value)) || undefined
       }
     >
-      <td>
+      <Cell>
         <div className="statement-group-predicate">
           {predicateNode}
           {hidden > 0 && typeof predicate !== "function" && (
             <span className="statement-value-count">{group.values.length}</span>
           )}
         </div>
-      </td>
-      <td>
+      </Cell>
+      <Cell className={form ? "statement-group-values" : undefined}>
         <div
           id={id}
           className={`statement-value-stack${grouped ? " grouped" : ""}`}
@@ -121,8 +130,14 @@ export function StatementGroupRow<Value>({
               {removable(value) && (
                 <button
                   type="button"
-                  className="statement-value-action statement-value-remove"
-                  aria-label={`Remove this ${name} value`}
+                  className={
+                    form
+                      ? "btn quiet iconbtn statement-value-remove"
+                      : "statement-value-action statement-value-remove"
+                  }
+                  aria-label={
+                    form ? "Remove statement" : `Remove this ${name} value`
+                  }
                   title={`Remove this ${name} value`}
                   onMouseDown={(event) => {
                     if (details && event.button === 0) event.preventDefault();
@@ -136,13 +151,14 @@ export function StatementGroupRow<Value>({
                     remove(value, index);
                   }}
                 >
-                  {details ? (
-                    <DetailsGlyph kind="remove" />
-                  ) : find ? (
-                    <FindGlyph name="close" />
-                  ) : (
-                    "×"
-                  )}
+                  {removeIcon ??
+                    (details ? (
+                      <DetailsGlyph kind="remove" />
+                    ) : find ? (
+                      <FindGlyph name="close" />
+                    ) : (
+                      "×"
+                    ))}
                 </button>
               )}
               {/* Issue 85: Details reveals the tools line while the row holds focus. */}
@@ -177,7 +193,7 @@ export function StatementGroupRow<Value>({
             </div>
           )}
         </div>
-      </td>
-    </tr>
+      </Cell>
+    </Row>
   );
 }
