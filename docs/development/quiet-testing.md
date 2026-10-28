@@ -120,14 +120,14 @@ shortcut or responsive-overflow behavior; the existing 11 visual/input cases; an
 the large-import Quality cancellation journey. Query pixel comparisons run as a
 complete local family in both themes. Functional Query coverage remains on CI.
 
-All 231 assigned cases run locally with their existing assertions and may display
+All 232 assigned cases run locally with their existing assertions and may display
 or focus windows. The remaining 1,221 listed native cases run on GitHub, including
 the one existing opt-in benchmark exemption. The CI selection is the exact inverse
 of the local selection. New focus or overflow scenarios belong in this local
 assignment; moving a case changes its execution location without removing it.
 
 Run `npm run test:desktop:local` from a clean checkout to validate the local group.
-The command rebuilds that revision, runs one test at a time, and requires all 231
+The command rebuilds that revision, runs one test at a time, and requires all 232
 to pass without retries or skips. Reports are in `artifacts/local-desktop`.
 `npm run build:exe` runs this group itself after verifying the CI candidate.
 Delivery requires fresh local evidence for the same source commit and tree, and

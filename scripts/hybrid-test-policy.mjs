@@ -2,6 +2,12 @@
 // CI runs the exact complement; neither group is optional for delivery.
 // Keep keyboard/menu/modal suites and named focus/caret/overflow contracts together.
 export const localDesktopCases = [
+  // #174: native context-menu key handling and focus restoration run locally.
+  {
+    file: "find.spec.ts",
+    title:
+      "Find row context menu opens from both keyboard keys and restores row focus",
+  },
   {
     file: "adaptive-panes.spec.ts",
     title:

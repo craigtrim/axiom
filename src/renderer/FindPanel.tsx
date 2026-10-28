@@ -20,7 +20,8 @@ import { Modal } from "./Dialogs";
 import { editEntity } from "./authoring";
 import { revealInTaxonomy, revealInOpenTaxonomy } from "./taxonomy-navigation";
 import { compactIri } from "../shared/terms";
-import { kindLabel } from "../domain/model";
+import { kindLabel, THING } from "../domain/model";
+import { ContextMenu, type ContextAction } from "./ContextMenu";
 import { FindCreatePanel } from "./FindCreatePanel";
 import { EntityExtend, focusEntityExtendTrigger } from "./EntityExtend";
 import type { ExtendRelation } from "../shared/entity-extend";
@@ -308,6 +309,13 @@ export function FindPanel() {
   const [scopeOpen, setScopeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState("");
+  // #174: retain the actual row and its document for pointer and keyboard menus.
+  const [rowMenu, setRowMenu] = useState<{
+    row: FindRow;
+    document: Document;
+    x: number;
+    y: number;
+  } | null>(null);
   // Issue 156: moving the control between cells must preserve keyboard focus.
   const [extendFocus, setExtendFocus] = useState<{
     iri: string;
@@ -347,6 +355,10 @@ export function FindPanel() {
     });
   };
   const snapshot = useSnapshot()!;
+  useEffect(
+    () => setRowMenu(null),
+    [options, snapshot.datasetEpoch, snapshot.version],
+  );
   const root = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     if (!extendFocus) return;
@@ -552,6 +564,18 @@ export function FindPanel() {
   ) => {
     if (event.target !== event.currentTarget || !ready) return;
     const key = event.key;
+    if (key === "ContextMenu" || (event.shiftKey && key === "F10")) {
+      event.preventDefault();
+      event.stopPropagation();
+      const bounds = event.currentTarget.getBoundingClientRect();
+      openRowMenu(
+        rows[index],
+        event.currentTarget,
+        bounds.left + 16,
+        bounds.bottom,
+      );
+      return;
+    }
     if (
       ![
         "ArrowUp",
@@ -621,6 +645,59 @@ export function FindPanel() {
       if (state?.datasetEpoch !== snapshot.datasetEpoch) return;
       revealInOpenTaxonomy(iri);
     });
+  };
+  const openRowMenu = (
+    row: FindRow,
+    element: HTMLElement,
+    x: number,
+    y: number,
+  ) => {
+    if (!ready) return;
+    element.focus({ preventScroll: true });
+    choose(row.iri);
+    setRowMenu({ row, document: element.ownerDocument, x, y });
+  };
+  const rowActions = (): (ContextAction | null)[] => {
+    if (!rowMenu) return [];
+    const { row } = rowMenu;
+    const isClass = row.kind === "Class" || row.kind === "Defined";
+    // Selection is asynchronous: await the row before invoking selection-based commands.
+    const selectedAction = (action: () => unknown) =>
+      run(async () => {
+        await request("select", {
+          iri: row.iri,
+          datasetEpoch: snapshot.datasetEpoch,
+          version: snapshot.version,
+        });
+        if (
+          state?.datasetEpoch !== snapshot.datasetEpoch ||
+          state.selected !== row.iri
+        )
+          return;
+        await action();
+      });
+    return [
+      {
+        label: "Details",
+        key: "D",
+        run: () => selectedAction(() => editEntity(row.iri)),
+      },
+      {
+        label: "Show in Hierarchy",
+        key: "H",
+        visible: isClass || row.kind.endsWith("Property"),
+        run: () => selectedAction(() => revealInTaxonomy(row.iri)),
+      },
+      { label: "Copy IRI", key: "C", run: () => window.axiom.copy(row.iri) },
+      null,
+      {
+        label: "Delete class...",
+        key: "E",
+        visible: isClass,
+        enabled: row.iri !== THING,
+        run: () => selectedAction(() => command("entity.delete")),
+      },
+    ];
   };
   const reveal = async (
     iri: string,
@@ -1325,6 +1402,16 @@ export function FindPanel() {
                         if (!(event.target as HTMLElement).closest("button"))
                           choose(row.iri);
                       }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openRowMenu(
+                          row,
+                          event.currentTarget,
+                          event.clientX,
+                          event.clientY,
+                        );
+                      }}
                       onKeyDown={(event) => rowKeys(event, index)}
                     >
                       <td className="find-entity-cell">
@@ -1570,6 +1657,16 @@ export function FindPanel() {
             </span>
           </p>
         </section>
+      )}
+      {ready && rowMenu && (
+        <ContextMenu
+          document={rowMenu.document}
+          x={rowMenu.x}
+          y={rowMenu.y}
+          label="Find result actions"
+          close={() => setRowMenu(null)}
+          actions={rowActions()}
+        />
       )}
       <div className="find-store" hidden={layout.compact}>
         <span>
