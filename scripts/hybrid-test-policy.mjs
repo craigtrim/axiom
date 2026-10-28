@@ -662,6 +662,262 @@ export const localDesktopCases = [
       "the native graph action follows the focused results or query document",
   },
   {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 01-query-fields",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 02-fields-written",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 03-describe-idle",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 04-describe-context-open",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 05-describe-refine-on",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 06-describe-running",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 07-describe-validated",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 08-describe-validated-synonyms",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 09-describe-refused-update",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 10-describe-refused-term",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 11-describe-unsupported",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 12-describe-signed-out",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 13-describe-agents-refreshed",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 14-describe-cancelled",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 15-opened-in-editor",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 16-opened-for-correction",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 17-run-error",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 18-results-grid",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 19-results-run-toast",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 20-results-sorted",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 21-results-columns-menu",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 22-results-zero-rows",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 23-history-popup",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 24-more-menu-query",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 25-more-menu-results",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 26-narrow-800x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 27-narrow-compose-800x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 28-narrow-results-560x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 29-narrow-menu-420x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 30-shallow-900x360",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 31-shallow-results-900x360",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual dark 32-recovery-220x300",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 01-query-fields",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 02-fields-written",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 03-describe-idle",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 04-describe-context-open",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 05-describe-refine-on",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 06-describe-running",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 07-describe-validated",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 08-describe-validated-synonyms",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 09-describe-refused-update",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 10-describe-refused-term",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 11-describe-unsupported",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 12-describe-signed-out",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 13-describe-agents-refreshed",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 14-describe-cancelled",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 15-opened-in-editor",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 16-opened-for-correction",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 17-run-error",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 18-results-grid",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 19-results-run-toast",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 20-results-sorted",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 21-results-columns-menu",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 22-results-zero-rows",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 23-history-popup",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 24-more-menu-query",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 25-more-menu-results",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 26-narrow-800x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 27-narrow-compose-800x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 28-narrow-results-560x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 29-narrow-menu-420x560",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 30-shallow-900x360",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 31-shallow-results-900x360",
+  },
+  {
+    file: "query-visual.spec.ts",
+    title: "Query visual light 32-recovery-220x300",
+  },
+  {
     file: "resource-input-draft.spec.ts",
     title:
       "a focused draft is discarded when the value or resource kind changes",
