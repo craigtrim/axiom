@@ -24,6 +24,8 @@ A region is scrolled to the end of its body on both sides and captured over the 
 
 The reference is rendered fresh in every run; there are no checked-in baseline images, and the application is never used as a baseline. Each region must have zero differing raw pixels and the same left edge and width relative to its pane. Expected and actual captures and `*-results.json` diagnostics (pixel counts, positions and per-element layout differences) are written to `artifacts/issue-44`. Setting `AXIOM_QUALITY_PROBE=<selector>` also records computed-style differences for the first match on each side.
 
+After the visual assertions, teardown exits the isolated application directly and requires a clean process exit within ten seconds. This fixture uses simulated scan state and an extra specimen window; it does not claim to test the normal final-save handshake. `workspace-autosave.spec.ts` retains real close/restart checks for persisted drafts and the failed-final-save recovery journey.
+
 ## Comparisons
 
 Twenty cases run in each theme, so forty in all. Whole panes are compared where the specimen is a complete pane in the application's composition: exhibit A's canceled state, exhibit G's preview, and the recovery state. Running and failed command bars are compared as regions; #65 governs their bodies. Elsewhere the specimen depicts part of a pane (exhibit D shows only a results body; exhibit A's complete state omits the tools bar that exhibit H shows at the same size), so each depicted region is compared on its own: command bars, settings blocks, tools bars, rule bands, finding rows, detail rows, state bodies, coverage rows and notes, limits lines, footers, review rows and the rejection guard.
