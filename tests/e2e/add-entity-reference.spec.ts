@@ -430,3 +430,119 @@ test("a created class is not its own duplicate until the draft is edited", async
     "created, and selected in Hierarchy",
   );
 });
+
+// #169: the fresh form must discard fields and validation without writing RDF.
+test("Discard draft leaves a fresh form while validation is pending", async () => {
+  f = await launchAddEntity("light", "Engineering");
+  const pane = f.pane(),
+    status = pane.locator('[data-shared-command="state"]'),
+    discard = pane.getByRole("button", { name: "Discard draft", exact: true });
+  await f.choose("Writing Skills");
+  await pane
+    .getByRole("textbox", { name: "Comment", exact: true })
+    .fill("Discard this comment");
+  await pane
+    .getByRole("textbox", { name: "Value", exact: true })
+    .fill("Discard this value");
+  await f.picker().fill("Unselected parent");
+  await pane.getByRole("button", { name: "Individual", exact: true }).click();
+  await expect(pane.locator(".vmsg.bad2")).toContainText("already exists");
+  const before = await f.state();
+  await holdRequests(f.app, ["addEntityCheck"]);
+  await f.setName("Seminar");
+  await waitForPreview("Seminar");
+  await discard.click();
+  await expect(pane.locator(".toast")).toContainText("Draft discarded.");
+  await waitForPreview("");
+  await expect(f.name()).toHaveValue("");
+  await expect(
+    pane.getByRole("textbox", { name: "Comment", exact: true }),
+  ).toHaveValue("");
+  await expect(f.picker()).toHaveValue("");
+  await expect(pane.locator(".pchip")).toHaveCount(0);
+  await expect(
+    pane.getByRole("textbox", { name: "Value", exact: true }),
+  ).toHaveValue("");
+  await expect(pane.locator(".vmsg")).toHaveCount(0);
+  await expect(status).toHaveText("Draft");
+  await expect(status).not.toHaveClass(/badink|warnink|okink/);
+  await expect(
+    pane.getByRole("button", { name: "Create", exact: true }),
+  ).toBeDisabled();
+  await expect(discard).toBeDisabled();
+  await expect(
+    pane.getByRole("button", { name: "Individual", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(pane).toContainText("nothing, this is a blank form");
+  await releaseRequests(f.app, { reverse: true });
+  await expect(status).toHaveText("Draft");
+  await expect(pane.locator(".vmsg")).toHaveCount(0);
+  const after = await f.state();
+  expect(after.version).toBe(before.version);
+  expect(after.entities).toEqual(before.entities);
+  await f.setName("Next Draft");
+  await expect(discard).toBeEnabled();
+  await expect(status).toHaveText("Ready to create");
+});
+
+test("blank forms enable Discard only for content in the row and overflow menu", async () => {
+  f = await launchAddEntity("light", "");
+  const pane = f.pane(),
+    status = pane.locator('[data-shared-command="state"]'),
+    discard = pane.getByRole("button", { name: "Discard draft", exact: true });
+  await expect(status).toHaveText("Draft");
+  await expect(status).not.toHaveClass(/badink|warnink|okink/);
+  await expect(pane.locator(".vmsg")).toHaveCount(0);
+  await expect(discard).toBeDisabled();
+  const blankWidth = (await discard.boundingBox())!.width;
+  await pane.getByRole("button", { name: "Individual", exact: true }).click();
+  await expect(discard).toBeDisabled();
+  for (const field of [
+    f.name(),
+    pane.getByRole("textbox", { name: "Comment", exact: true }),
+    f.picker(),
+    pane.getByRole("textbox", { name: "Value", exact: true }),
+  ]) {
+    await field.fill(" ");
+    await expect(discard).toBeEnabled();
+    expect((await discard.boundingBox())!.width).toBe(blankWidth);
+    await field.fill("");
+    await expect(discard).toBeDisabled();
+  }
+  await expect(status).toHaveText("Draft");
+  await expect(pane.locator(".vmsg")).toHaveCount(0);
+  await f.choose("Enginee");
+  await expect(pane.locator(".pchip")).toHaveText(["Engineering"]);
+  await expect(discard).toBeEnabled();
+  await pane
+    .getByRole("button", { name: "Remove Engineering", exact: true })
+    .click();
+  await expect(discard).toBeDisabled();
+  await pane
+    .getByRole("button", { name: "Add a statement", exact: true })
+    .click();
+  await expect(discard).toBeDisabled();
+  await f.size(368, 530);
+  const more = pane.getByRole("button", { name: "More actions", exact: true });
+  await more.click();
+  await expect(
+    f.page.getByRole("menuitem", { name: "Discard draft", exact: true }),
+  ).toBeDisabled();
+  await f.page.keyboard.press("Escape");
+  await f.setName("Overflow Draft");
+  await more.click();
+  const overflowDiscard = f.page.getByRole("menuitem", {
+    name: "Discard draft",
+    exact: true,
+  });
+  await expect(overflowDiscard).toBeEnabled();
+  await overflowDiscard.click();
+  await expect(f.name()).toHaveValue("");
+  await f.size();
+  await expect(status).toHaveText("Draft");
+  await expect(pane.locator(".vmsg")).toHaveCount(0);
+  await expect(discard).toBeDisabled();
+  await expect(
+    pane.getByRole("button", { name: "Create", exact: true }),
+  ).toBeDisabled();
+});

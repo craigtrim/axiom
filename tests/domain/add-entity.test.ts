@@ -35,6 +35,68 @@ const fixture = async () =>
     "add",
   );
 describe("Add entity transactions", () => {
+  // #169: a blank preview is neutral, but it must never become a transaction.
+  it.each(["class", "individual"] as const)(
+    "shows no finding for an empty %s root",
+    async (kind) => {
+      const store = await fixture(),
+        before = [...store.scan()],
+        version = store.version;
+      expect(checkAddEntity(store, input(node(""), kind), 3).findings).toEqual(
+        [],
+      );
+      expect(store.version).toBe(version);
+      expect([...store.scan()]).toEqual(before);
+    },
+  );
+  it.each([
+    ["class", ""],
+    ["class", " \t "],
+    ["individual", ""],
+    ["individual", " \t "],
+  ] as const)(
+    "refuses an empty %s root %j without writing its named parent",
+    async (kind, label) => {
+      const store = await fixture(),
+        before = [...store.scan()],
+        version = store.version,
+        draft = input(
+          node(label, [{ create: node("Unwritten Parent") }]),
+          kind,
+        );
+      expect(() => createAddEntity(store, draft, 3)).toThrow(
+        "A name is required before this can be created.",
+      );
+      expect(store.version).toBe(version);
+      expect([...store.scan()]).toEqual(before);
+    },
+  );
+  it.each(["", "Named Root"])(
+    "still reports an unnamed parent under root %j",
+    async (label) => {
+      const store = await fixture();
+      expect(
+        checkAddEntity(store, input(node(label, [{ create: node("") }])), 3)
+          .findings,
+      ).toEqual([
+        {
+          kind: "bad2",
+          message: "A drafted parent needs a name.",
+          reveal: undefined,
+        },
+      ]);
+    },
+  );
+  it("retains the whitespace warning when the root contains only whitespace", async () => {
+    const store = await fixture();
+    expect(checkAddEntity(store, input(node(" \t ")), 3).findings).toEqual([
+      {
+        kind: "wrn2",
+        message:
+          "Leading, trailing or repeated whitespace is removed from the name before it becomes an IRI.",
+      },
+    ]);
+  });
   it("writes a recursive hierarchy as one undoable edit", async () => {
     const store = await fixture(),
       before = [...store.scan()],

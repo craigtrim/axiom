@@ -140,6 +140,8 @@ async function prepareReference(
       }
       if(frame===18){document.querySelector('#aCreate').click();document.querySelector('#vb').innerHTML='';const st=document.querySelector('#state');st.className='state okink';st.textContent='Created';}
       if(frame===19){document.querySelector('#aClear').click();[...document.querySelectorAll('.frow')].find(r=>r.querySelector('.flbl').textContent==='Context').querySelector('.fnote').textContent='nothing, this is a blank form';}
+      // #169: both empty frames are neutral and contain nothing to discard.
+      if([12,19].includes(frame)){document.querySelector("#vb").innerHTML="";const st=document.querySelector("#state");st.className="state";st.textContent="Draft";document.querySelector("#aClear").disabled=true;}
       if(frame===27)T.toast('The planned source is on the clipboard.','It includes every parent that does not exist yet.');
       window.dispatchEvent(new Event('resize'));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       if([14,25,26].includes(frame))document.querySelector('#aMore').click();
@@ -383,7 +385,13 @@ for (const theme of ["light", "dark"])
       }
       if (frame === 12) {
         await f.setName("");
-        await expect(f.pane().locator(".vmsg")).toContainText("required");
+        await expect(f.pane().locator(".vmsg")).toHaveCount(0);
+        await expect(
+          f.pane().locator('[data-shared-command="state"]'),
+        ).toHaveText("Draft");
+        await expect(
+          f.pane().getByRole("button", { name: "Discard draft", exact: true }),
+        ).toBeDisabled();
       }
       if (frame === 13) {
         await f
@@ -416,7 +424,13 @@ for (const theme of ["light", "dark"])
           .pane()
           .getByRole("button", { name: "Discard draft", exact: true })
           .click();
-        await expect(f.pane().locator(".vmsg")).toContainText("required");
+        await expect(f.pane().locator(".vmsg")).toHaveCount(0);
+        await expect(
+          f.pane().locator('[data-shared-command="state"]'),
+        ).toHaveText("Draft");
+        await expect(
+          f.pane().getByRole("button", { name: "Discard draft", exact: true }),
+        ).toBeDisabled();
       }
       await f.size(width, height);
       if (menuFrames.includes(frame))

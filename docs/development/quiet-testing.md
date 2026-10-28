@@ -81,9 +81,9 @@ The quiet allowlist remains limited to the two cases above.
 | Local parent-review dialog                            | Current Suggest > Add Parents uses a local CLI fixture through the real assistant pipeline. The journeys retain parent direction, Undo, invalid-input and stale-worker checks. Existing parents become disabled rows in the retained review; a fresh run excludes them. The original local matcher is still checked through the worker. |
 | New-workspace discard prompt                          | Automatic recovery replaced that prompt. Cancelled Save As and Open retain the ontology; malformed Open preserves its recoverable contents. Stylesheet reopening uses an independent saved copy because opening another file autosaves the current document.                                                                            |
 
-The combined inventory contains 1,445 native cases in 95 files: the original
-1,440 cases, four new #164 journeys, and the additional Find property geometry
-case. List the inventory without launching windows with
+The combined inventory contains 1,447 native cases in 95 files: the original
+1,440 cases, four new #164 journeys, the additional Find property geometry
+case, and two #169 blank-draft journeys. List the inventory without launching windows with
 `node node_modules/@playwright/test/cli.js test --config=config/playwright.config.ts --list`.
 The existing opt-in large-source benchmark is separate from the normal acceptance
 run; runtime-dependent tests must execute with their required engines installed.
@@ -102,11 +102,12 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-The first Windows shard also runs fifteen focused regression cases before its full
+The first Windows shard also runs 21 focused regression cases before its full
 inventory: all eight Individuals visual cases, the Details authoring save journey,
 the Find result-to-graph and Quick Find action journeys, the controlled preview
 failure, edge-drawing cancellation after closing a graph, and the DOAP
-save/close/reopen and unnamed-workspace recovery journeys. This gives earlier evidence when repairing
+save/close/reopen and unnamed-workspace recovery journeys. It also checks both
+#169 blank-draft journeys and frames 12 and 19 in both themes. This gives earlier evidence when repairing
 these failures. It does not replace their normal full-suite coverage, add retries,
 or create another parallel runner. A failure still fails the CI run.
 

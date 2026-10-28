@@ -106,6 +106,15 @@ export function TextEntityCreate({
   const root = value.frames[0].value,
     kind = value.kind ?? "class",
     context = value.phrase ?? phrase;
+  // #169: Discard resets retained validation; only actual draft content enables it.
+  const [draftEpoch, setDraftEpoch] = useState(0);
+  const hasDraft = !!(
+    root.label ||
+    root.comment ||
+    root.parents.length ||
+    root.pickerText ||
+    root.statements?.some((s) => s.object.value)
+  );
   const [busy, setBusy] = useState(false),
     pending = useRef(false),
     mounted = useRef(true);
@@ -133,7 +142,7 @@ export function TextEntityCreate({
   currentDraft.current = value;
   const check = useRetainedPreview<AddEntityCheck>(
     key,
-    String(datasetEpoch),
+    `${datasetEpoch}:${draftEpoch}`,
     () =>
       request("addEntityCheck", {
         creation,
@@ -157,7 +166,9 @@ export function TextEntityCreate({
       ? `${warnings} note${warnings === 1 ? "" : "s"}`
       : shown.length < findings.length
         ? "Created"
-        : "Ready to create";
+        : root.label.trim()
+          ? "Ready to create"
+          : "Draft";
   const changeRoot = (next: TextEntityClassDraft) =>
     setValue((v) => ({ ...v, created: undefined, frames: [{ value: next }] }));
   useEffect(() => {
@@ -196,6 +207,8 @@ export function TextEntityCreate({
       pane.dataset.source = String(layout.width >= 860 && !layout.shallow);
   }, [layout.width, layout.shallow]);
   const discard = () => {
+    if (busy || !hasDraft) return;
+    setDraftEpoch((epoch) => epoch + 1);
     setValue({
       frames: [{ value: emptyEntityDraft() }],
       kind,
@@ -433,7 +446,14 @@ export function TextEntityCreate({
   );
   const menu: SharedMenuItem[] = [
     ...(hidden.has("clear")
-      ? [{ id: "clear", label: "Discard draft", run: discard, disabled: busy }]
+      ? [
+          {
+            id: "clear",
+            label: "Discard draft",
+            run: discard,
+            disabled: busy || !hasDraft,
+          },
+        ]
       : []),
     ...(hidden.has("find")
       ? [
@@ -498,7 +518,7 @@ export function TextEntityCreate({
           ))}
         </span>
         <span
-          className={`state shared-command ${problems ? "badink" : warnings ? "warnink" : "okink"}`}
+          className={`state shared-command ${problems ? "badink" : warnings ? "warnink" : root.label.trim() ? "okink" : ""}`}
           data-shared-command="state"
           data-overflowed={hidden.has("state")}
           aria-hidden={hidden.has("state") || undefined}
@@ -551,7 +571,7 @@ export function TextEntityCreate({
           <button
             className="btn quiet"
             type="button"
-            disabled={busy}
+            disabled={busy || !hasDraft}
             onClick={discard}
           >
             Discard draft
