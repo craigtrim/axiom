@@ -1,6 +1,6 @@
 // Issue 85: exercise grouped annotations, field names, counts and the shared menu.
 import { test, expect, type Desktop } from "./modal-fixture";
-import { NS, type Triple } from "../../src/domain/model";
+import { NS, THING, type Triple } from "../../src/domain/model";
 import type { Snapshot } from "../../src/shared/protocol";
 import { holdRequests, releaseRequests, waitForHeld } from "./held-requests";
 
@@ -220,9 +220,21 @@ for (const theme of ["light", "dark"] as const)
       await more.press("ArrowDown");
       await expect(more).toHaveAttribute("aria-expanded", "true");
       await expect(item).toBeFocused();
-      for (const key of ["ArrowDown", "ArrowUp", "Home", "End"]) {
-        await item.press(key);
-        await expect(item).toBeFocused();
+      // #173: navigation visits Delete class while retaining Reload activation below.
+      const remove = pane.getByRole("menuitem", {
+        name: "Delete class...",
+        exact: true,
+      });
+      for (const [key, target] of [
+        ["ArrowDown", remove],
+        ["ArrowDown", item],
+        ["ArrowUp", remove],
+        ["Home", item],
+        ["End", remove],
+        ["Home", item],
+      ] as const) {
+        await d.page.keyboard.press(key);
+        await expect(target).toBeFocused();
       }
       const popup = pane.getByRole("menu", { name: "More", exact: true });
       const style = await popup.evaluate((el) => {
@@ -261,5 +273,158 @@ for (const theme of ["light", "dark"] as const)
       await expect(popup).toBeHidden();
       await expect(more).toBeFocused();
       await expect(more).toHaveAttribute("aria-expanded", "false");
+    }
+  });
+
+// #173: the header action uses the existing confirmation and restores the same RDF on Undo.
+for (const kind of ["Class", "Defined"] as const)
+  test(`Details More deletes a ${kind} and Undo restores its statements`, async ({
+    desktop: d,
+  }) => {
+    const pane = await open(
+      d,
+      'rdfs:label "Course"; rdfs:comment "Keep this statement"' +
+        (kind === "Defined" ? "; owl:equivalentClass owl:Thing" : ""),
+    );
+    const before = await d.request<{ statements: Triple[] }>("entityDocument", {
+      iri: base + "Course",
+    });
+    expect(
+      (await d.request<Snapshot>("state")).entities.find(
+        (e) => e.iri === base + "Course",
+      )?.kind,
+    ).toBe(kind);
+    await pane.getByRole("button", { name: "More", exact: true }).click();
+    const menu = pane.getByRole("menu", { name: "More", exact: true });
+    await expect(menu.getByRole("menuitem")).toHaveText([
+      "Reload",
+      "Delete class...",
+    ]);
+    await expect(menu.getByRole("separator")).toHaveCount(1);
+    await menu
+      .getByRole("menuitem", { name: "Delete class...", exact: true })
+      .click();
+    const dialog = d.page.getByRole("dialog", {
+      name: "Delete class",
+      exact: true,
+    });
+    await expect(dialog).toContainText("Course");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(
+      (await d.request<Snapshot>("state")).entities.some(
+        (e) => e.iri === base + "Course",
+      ),
+    ).toBe(true);
+    await pane.getByRole("button", { name: "More", exact: true }).click();
+    await menu
+      .getByRole("menuitem", { name: "Delete class...", exact: true })
+      .click();
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect
+      .poll(async () =>
+        (await d.request<Snapshot>("state")).entities.some(
+          (e) => e.iri === base + "Course",
+        ),
+      )
+      .toBe(false);
+    await d.menu("edit.undo");
+    await expect
+      .poll(async () =>
+        (await d.request<Snapshot>("state")).entities.some(
+          (e) => e.iri === base + "Course",
+        ),
+      )
+      .toBe(true);
+    expect(
+      (
+        await d.request<{ statements: Triple[] }>("entityDocument", {
+          iri: base + "Course",
+        })
+      ).statements,
+    ).toEqual(before.statements);
+  });
+
+test("Details More protects owl:Thing and keeps non-class menus limited to Reload", async ({
+  desktop: d,
+}) => {
+  const pane = await open(d);
+  await d.load(
+    `@prefix : <${base}> . @prefix owl: <${NS.owl}> . @prefix rdfs: <${NS.rdfs}> .
+    :Course a owl:Class; rdfs:label "Course" .
+    :Student a owl:NamedIndividual, :Course; rdfs:label "Student" .
+    :teaches a owl:ObjectProperty; rdfs:label "teaches" .`,
+    "details-kinds.ttl",
+  );
+  await d.menu("view.details");
+  for (const name of ["Student", "teaches"]) {
+    await d.request("select", { iri: base + name });
+    await expect(
+      pane.getByRole("textbox", { name: "rdfs:label value 1", exact: true }),
+    ).toHaveValue(name);
+    await pane.getByRole("button", { name: "More", exact: true }).click();
+    const menu = pane.getByRole("menu", { name: "More", exact: true });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Reload"]);
+    await expect(menu.getByRole("separator")).toHaveCount(0);
+    await d.page.keyboard.press("Escape");
+  }
+  await d.request("select", { iri: THING });
+  await expect(pane).toHaveAttribute("data-entity-iri", THING);
+  await pane.getByRole("button", { name: "More", exact: true }).click();
+  const remove = pane.getByRole("menuitem", {
+    name: "Delete class...",
+    exact: true,
+  });
+  await expect(remove).toHaveAttribute("aria-disabled", "true");
+  await remove.click({ force: true });
+  await expect(
+    d.page.getByRole("dialog", { name: "Delete class", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (await d.request<Snapshot>("state")).entities.some((e) => e.iri === THING),
+  ).toBe(true);
+});
+
+for (const mode of ["statements", "source"] as const)
+  test(`Details More disables deletion throughout a pending ${mode} save`, async ({
+    desktop: d,
+  }) => {
+    const pane = await open(d);
+    await holdRequests(d.app, [
+      mode === "source" ? "applyEntitySource" : "updateEntity",
+    ]);
+    try {
+      if (mode === "source") {
+        const editor = pane.getByRole("textbox", { name: /^Source for / });
+        await expect(editor).toHaveValue(/First comment/);
+        await editor.fill(
+          (await editor.inputValue()).replace("First comment", "Saved comment"),
+        );
+        await pane
+          .getByRole("button", { name: "Save source", exact: true })
+          .click();
+      } else {
+        const field = pane.getByRole("textbox", {
+          name: "rdfs:comment value 1",
+          exact: true,
+        });
+        await field.fill("Saved comment");
+        await field.press("Tab");
+      }
+      await waitForHeld(d.app);
+      await pane.getByRole("button", { name: "More", exact: true }).click();
+      const remove = pane.getByRole("menuitem", {
+        name: "Delete class...",
+        exact: true,
+      });
+      await expect(remove).toHaveAttribute("aria-disabled", "true");
+      await remove.click({ force: true });
+      await expect(
+        d.page.getByRole("dialog", { name: "Delete class", exact: true }),
+      ).toHaveCount(0);
+      await releaseRequests(d.app);
+      await expect(remove).not.toHaveAttribute("aria-disabled", "true");
+      expect(await values(d, NS.rdfs + "comment")).toEqual(["Saved comment"]);
+    } finally {
+      await releaseRequests(d.app);
     }
   });

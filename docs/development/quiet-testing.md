@@ -103,7 +103,7 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-An independent build/package job runs 49 focused CI regression cases before its
+An independent build/package job runs 47 focused CI regression cases before its
 packaged checks. The same cases remain in the regular CI inventory. Export
 comparisons wait for complete expected RDF semantics, and export-history checks
 wait for a preceding pane-close history entry. This adds earlier feedback without
@@ -112,17 +112,22 @@ retries or advisory failures.
 ## Required local desktop stage
 
 Craig authorized a hybrid split after desktop-sensitive tests proved unreliable
-on hosted Windows. The exact assignment is maintained in
-`scripts/hybrid-test-policy.mjs`: Touchpoints menu frames 14 and 15 in both themes,
-Quality's running bar in both themes, Hierarchy frame 27 in both themes, the two
-Text Analysis caret-click cases, and the window-menu keyboard journey. These 11
-cases run locally with their existing assertions and may display or focus windows.
-The remaining 1,436 listed native cases run on GitHub, including the one existing
-opt-in benchmark exemption. The CI selection is the exact inverse of the local
-selection, so moving a case changes its execution location without removing it.
+on hosted Windows. Keep related input behavior together rather than assigning
+only individual cases that have already failed. The exact assignment is maintained
+in `scripts/hybrid-test-policy.mjs` and includes the complete keyboard, menu,
+modal-stability and window-chrome suites; tests whose purpose is focus, caret,
+shortcut or responsive-overflow behavior; the existing 11 visual/input cases; and
+the large-import Quality cancellation journey. Query pixel comparisons run as a
+complete local family in both themes. Functional Query coverage remains on CI.
+
+All 231 assigned cases run locally with their existing assertions and may display
+or focus windows. The remaining 1,221 listed native cases run on GitHub, including
+the one existing opt-in benchmark exemption. The CI selection is the exact inverse
+of the local selection. New focus or overflow scenarios belong in this local
+assignment; moving a case changes its execution location without removing it.
 
 Run `npm run test:desktop:local` from a clean checkout to validate the local group.
-The command rebuilds that revision, runs one test at a time, and requires all 11
+The command rebuilds that revision, runs one test at a time, and requires all 231
 to pass without retries or skips. Reports are in `artifacts/local-desktop`.
 `npm run build:exe` runs this group itself after verifying the CI candidate.
 Delivery requires fresh local evidence for the same source commit and tree, and

@@ -51,6 +51,8 @@ async function openFile() {
   );
   await menu("file.open");
   await imported;
+  // #165: the import notification precedes React committing the replacement layout.
+  await expect(pane()).toHaveCount(0);
   await menu("tools.quality");
   await expect(pane()).toBeVisible();
   await size(1300, 720);
@@ -1046,7 +1048,14 @@ const moreTrigger = () =>
 const moreDialog = () =>
   pane().getByRole("dialog", { name: "More finding options", exact: true });
 async function openMore() {
-  if (!(await moreDialog().isVisible())) await moreTrigger().click();
+  if (!(await moreDialog().isVisible())) {
+    await moreTrigger().click();
+    await expect(moreDialog()).toBeVisible();
+    // #165: filling a filter must wait for native opening focus to finish.
+    await expect(
+      moreDialog().locator("select, input, button:not(:disabled)").first(),
+    ).toBeFocused();
+  }
   await expect(moreDialog()).toBeVisible();
 }
 
@@ -1205,14 +1214,27 @@ test("overflow retains keyboard focus when controls move and Escape returns to M
   await expect(moreTrigger()).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(moreDialog()).toBeVisible();
+  // #165: native popover visibility precedes its toggle handler and initial focus.
+  await expect(
+    moreDialog().getByRole("button", { name: "Findings", exact: true }),
+  ).toBeFocused();
   await moreDialog()
     .getByRole("searchbox", { name: "Filter findings" })
     .focus();
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toBeFocused();
   await page.keyboard.type("Industrial");
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Industrial");
   await page.keyboard.press("Escape");
   await expect(moreDialog()).not.toBeVisible();
   await expect(moreTrigger()).toBeFocused();
   await page.keyboard.press("Space");
+  await expect(
+    moreDialog().getByRole("button", { name: "Findings", exact: true }),
+  ).toBeFocused();
   await moreDialog()
     .getByRole("searchbox", { name: "Filter findings" })
     .focus();

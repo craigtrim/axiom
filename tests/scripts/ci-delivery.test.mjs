@@ -409,7 +409,7 @@ test("delivers verified bytes and records source, workflow URL, attempt and conc
     conclusion: "success",
   });
   assert.equal(receipt.packagedDesktopChecksPassed, 8);
-  assert.equal(receipt.localDesktopValidation.passed, 11);
+  assert.equal(receipt.localDesktopValidation.passed, localDesktopCases.length);
   assert.deepEqual(receipt.localDesktopValidation.source, source);
   assert.match(receipt.localDesktopValidation.resultsSha256, /^[a-f0-9]{64}$/);
   assert.equal(receipt.package.executable, result.executable);
