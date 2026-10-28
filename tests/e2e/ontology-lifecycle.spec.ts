@@ -1,5 +1,7 @@
 // craigtrim/axiom#94: provenance shows the selected folder as a retained path.
 import { launchExample } from "./example-fixture";
+// #166: the blank state precedes completion of the native Close checkpoint.
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -140,6 +142,7 @@ for (const fixture of manifest)
       await expect.poll(async () => (await state()).dirty).toBe(false);
       await menu("file.close");
       await expect.poll(async () => (await state()).classCount).toBe(1);
+      await waitWorkspaceCheckpoint(app, page);
       await source(file);
       await menu("file.open");
       await expect
@@ -252,6 +255,7 @@ test("Windows metadata produces auditable PROV and retains source content", asyn
   await expect.poll(async () => (await state()).dirty).toBe(false);
   await menu("file.close");
   await expect.poll(async () => (await state()).classCount).toBe(1);
+  await waitWorkspaceCheckpoint(app, page);
   await source(workspace);
   await menu("file.open");
   await expect.poll(async () => (await state()).tripleCount).toBe(count);
