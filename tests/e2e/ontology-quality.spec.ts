@@ -51,6 +51,8 @@ async function openFile() {
   );
   await menu("file.open");
   await imported;
+  // #165: the import notification precedes React committing the replacement layout.
+  await expect(pane()).toHaveCount(0);
   await menu("tools.quality");
   await expect(pane()).toBeVisible();
   await size(1300, 720);
