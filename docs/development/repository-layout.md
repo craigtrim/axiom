@@ -5,46 +5,47 @@ and the local PowerShell launcher. Test-runner and Electron Builder configuratio
 live in `config`; license notices live in `licenses`. The npm commands select their
 configuration explicitly, and test/report paths resolve from the repository root.
 
-| Location | Purpose |
-| --- | --- |
-| `src/domain`, `src/main`, `src/renderer`, `src/shared` | Application code and process boundaries |
-| `tests/domain`, `tests/e2e`, `tests/performance` | Automated checks and benchmarks |
-| `tests/fixtures`, `tests/conformance` | Reference material; preserve published bytes and checksums |
-| `docs/guides` | Installation and application behavior |
-| `docs/development` | Architecture, testing and maintenance |
-| `docs/validation` | Historical issue validation and audits |
-| `scripts` | Shared build, setup, test and maintenance commands |
-| `config` | Electron Builder, Vitest and Playwright configuration |
-| `assets`, `build`, `licenses` | Icons, installer resources and dependency licenses |
-| `vendor/mutatoc` | Installed native runtime; ignored by Git |
-| `archive` | Manifest and notes for the retired WinUI application |
-| `local` | Private notes and scratch files; ignored by Git |
+| Location                                               | Purpose                                                    |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
+| `src/domain`, `src/main`, `src/renderer`, `src/shared` | Application code and process boundaries                    |
+| `tests/domain`, `tests/e2e`, `tests/performance`       | Automated checks and benchmarks                            |
+| `tests/fixtures`, `tests/conformance`                  | Reference material; preserve published bytes and checksums |
+| `docs/guides`                                          | Installation and application behavior                      |
+| `docs/development`                                     | Architecture, testing and maintenance                      |
+| `docs/validation`                                      | Historical issue validation and audits                     |
+| `scripts`                                              | Shared build, setup, test and maintenance commands         |
+| `config`                                               | Electron Builder, Vitest and Playwright configuration      |
+| `assets`, `build`, `licenses`                          | Icons, installer resources and dependency licenses         |
+| `vendor/mutatoc`                                       | Installed native runtime; ignored by Git                   |
+| `archive`                                              | Manifest and notes for the retired WinUI application       |
+| `local`                                                | Private notes and scratch files; ignored by Git            |
 
 ## Build entry points
 
-`npm run build:exe` builds and checks the Windows executable and installer.
+`npm run build:exe` downloads and verifies the executable tested by hosted CI.
 Craig's ignored root launcher, D:\git\axiom\Build-Axiom-EXE.ps1, invokes the same
 helper. `npm run package` remains the packaging-only command. See
 [installation](../guides/installation.md) and the [script index](../../scripts/README.md).
 
 The files `licenses/LICENSES.md` and `licenses/THIRD-PARTY-NOTICES.txt` are
 packaging inputs. The build copies them under their original names into the
-application, and the delivery helper checks them. The `build` directory holds
+application, and the hosted package checks verify them. The `build` directory holds
 installer source resources; `dist` holds generated application files.
 
 ## Generated output
 
-| Location under `artifacts` | Contents |
-| --- | --- |
-| `installer` | Current installer and unpacked application; keep these paths stable |
-| `latest-electron.json` | Metadata locating the current application and installer |
-| `build-exe/<timestamp>` | Build logs, packaged desktop results and checksum receipt |
-| `reports` | Focused search, SPARQL and opt-in live-test JSON results |
-| `catalogs` | Generated search-query catalog |
-| `benchmarks` | Domain, desktop, graph and native text-analysis measurements |
-| `playwright-report`, `test-results`, `testing` | Current desktop reports, traces and isolated profiles |
-| `history/2026-10-20` | Archived loose files and historical run directories from the cleanup |
-| `repository-cleanup/2026-10-20` | Before-files, move manifest and cleanup verification |
+| Location under `artifacts`                     | Contents                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `installer`                                    | Current installer and unpacked application; keep these paths stable  |
+| `latest-electron.json`                         | Metadata locating the current application and installer              |
+| `build-exe`                                    | Current delivery receipt, lock and temporary artifact downloads      |
+| `packaged`                                     | Hosted packaged-test inventory, results, logs and failure traces     |
+| `reports`                                      | Focused search, SPARQL and opt-in live-test JSON results             |
+| `catalogs`                                     | Generated search-query catalog                                       |
+| `benchmarks`                                   | Domain, desktop, graph and native text-analysis measurements         |
+| `playwright-report`, `test-results`, `testing` | Current desktop reports, traces and isolated profiles                |
+| `history/2026-10-20`                           | Archived loose files and historical run directories from the cleanup |
+| `repository-cleanup/2026-10-20`                | Before-files, move manifest and cleanup verification                 |
 
 Some tests retain their established issue-specific output directories. Check their
 references before relocating those directories. New reports should use a named

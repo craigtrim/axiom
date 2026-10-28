@@ -4,48 +4,35 @@
 Running it installs Axiom for the current account, so no administrator prompt appears
 at any point.
 
-## Build a new executable yourself
+## Obtain a verified executable
 
-Run D:\git\axiom\Build-Axiom-EXE.ps1 from PowerShell. The local launcher is ignored
-by Git and calls the shared build helper. On any checkout with dependencies installed,
-the equivalent command is:
+Run D:\git\axiom\Build-Axiom-EXE.ps1 from PowerShell, or run `npm run build:exe`
+from a clean checkout. The ignored local launcher calls the same shared helper.
+Use Node.js 22.12 or later, Git and authenticated `gh` access to Axiom's Actions.
 
-```powershell
-cd D:\git\axiom
-npm run build:exe
-```
+The helper requires successful CI for the exact source revision and downloads the
+package tested by hosted Windows. All eight packaged checks, including semantic
+search, run there. Local delivery verifies the complete file manifest and records
+the source commit, workflow run, attempt, conclusion and checksums. It opens no
+application windows. A failed or unverifiable run blocks delivery and preserves
+the existing executable. See [CI delivery and retry instructions](../development/ci-delivery.md).
 
-Use Node.js 22.12 or later. On a fresh checkout, first run `npm ci` and
-`npm run setup:mutatoc -- <extracted-mutatoc-0.7.0-folder>` to install dependencies
-and the native runtime. Those are already set up in Craig's current checkout.
-Close any Axiom copy running from `artifacts\installer\win-unpacked` before
-rebuilding it. The helper builds the current files, including local edits.
-
-The helper checks the native runtime and TypeScript, builds the application and
-installer, and runs six desktop checks using separate test profiles. These cover
-literal Find synonyms, editing highlighted text with automatic analysis on and off,
-updates across panes, search without a local model, and autosave recovery after a
-forced exit. If the local MPNet model is installed, it also runs two semantic-search
-checks. It then compares the packaged files with the build output, checks the native
-runtime and licenses, and records SHA-256 hashes for the executable and installer.
-This is a focused package check; `npm run verify` remains the broader test command.
-
-Logs, desktop results and `receipt.json` are retained in a timestamped folder under
-`artifacts\build-exe`. A failed step stops the process, prints `BUILD FAILED` and the
-log path, and returns a nonzero exit code. A build is ready when `BUILD VERIFIED`
-appears. Packaging can take several minutes; progress messages show the active log.
-The helper does not publish a GitHub release or run the installer.
-
-With the current version, the outputs are:
+Close an Axiom copy running from the output directory before replacing its files.
+A successful delivery prints `BUILD VERIFIED` and these absolute paths:
 
 Application: D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe
 
 Installer: D:\git\axiom\artifacts\installer\Axiom-Setup-1.0.0.exe
 
-Keep the entire `win-unpacked` folder together when using the application directly.
-The installer is the single file to use when installing or sharing a build.
+Receipt: D:\git\axiom\artifacts\build-exe\receipt.json
 
-Builds require the complete Mutatoc 0.7.0 Windows package for Text Analysis (craigtrim/axiom#140). See [runtime setup](text-analysis.md#runtime) for the verified package and installation command.
+Keep the entire `win-unpacked` folder together for portable use. The installer is
+the single file for installing or sharing a build. Delivery does not run the
+installer or publish a release.
+
+Source packaging uses the complete Mutatoc 0.7.0 Windows runtime. CI installs its
+verified package before building; see [runtime setup](text-analysis.md#runtime)
+for development setup.
 
 ## What the installer does
 

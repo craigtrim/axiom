@@ -17,6 +17,7 @@
     "verify": "npm run check:docs && npm run typecheck && npm test && npm run build && npm run test:desktop",
     "package": "npm run build && node scripts/package.mjs",
     "build:exe": "node scripts/build-exe.mjs",
+    "test:ci-delivery": "node --test tests/scripts/ci-delivery.test.mjs",
     "check:docs": "node scripts/check-doc-links.mjs",
     "benchmark": "tsx tests/performance/benchmark.ts",
     "benchmark:search": "npm run build && tsx tests/performance/search-worker.ts",

@@ -37,6 +37,7 @@ Using and installing Axiom.
 
 Architecture, testing, performance and repository maintenance.
 
+- [ci-delivery.md](development/ci-delivery.md)
 - [decisions.md](development/decisions.md)
 - [repository-layout.md](development/repository-layout.md)
 - [quiet-testing.md](development/quiet-testing.md)

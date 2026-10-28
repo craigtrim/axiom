@@ -1,8 +1,15 @@
 name: Electron desktop
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
+# #166: cancel obsolete runs; use standard hosted runners and one run per PR.
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   # #165: qualify hidden rendering against unchanged native tests and a real bug.
   quiet-qualification:
@@ -30,6 +37,7 @@ jobs:
             artifacts/test-results/**
   windows:
     runs-on: windows-latest
+    timeout-minutes: 60
     env:
       AXIOM_EMBEDDING_MODEL_DIR: ${{ github.workspace }}/artifacts/ci-model
     strategy:
@@ -56,8 +64,13 @@ jobs:
         shell: powershell
         run: .\scripts\setup-ci-display.ps1
       - run: npm run check:docs
+        if: matrix.shard == 1
       - run: npm run typecheck
+        if: matrix.shard == 1
       - run: npm test
+        if: matrix.shard == 1
+      - run: npm run test:ci-delivery
+        if: matrix.shard == 1
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
@@ -66,22 +79,37 @@ jobs:
       - name: Check native regressions first
         if: matrix.shard == 1
         run: node --import tsx scripts/test-native-ci.mjs regression
-      # #165: execute the full inventory even after a failure, so reports account
-      # for every case. Files retain their serial execution within each shard.
-      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
-      - run: npm audit --audit-level=moderate
+      # #166: exercise the actual executable early; the local gate still requires
+      # the entire workflow, including every native shard, to finish successfully.
       - run: npm run package
         if: matrix.shard == 1
         env:
           AXIOM_LOCAL_BUILD: "1"
+      - name: Verify packaged executable
+        if: matrix.shard == 1
+        run: node --import tsx scripts/check-ci-package.mjs
+      - uses: actions/upload-artifact@v4
+        if: matrix.shard == 1
+        with:
+          name: axiom-candidate-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            artifacts/installer/**
+            artifacts/candidate.json
+      # #165: execute the full inventory even after a failure, so reports account
+      # for every case. Files retain their serial execution within each shard.
+      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
+      - run: npm audit --audit-level=moderate
+        if: matrix.shard == 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: axiom-windows-x64-${{ matrix.shard }}
           retention-days: 7
           path: |
-            artifacts/installer/**
-            artifacts/latest-electron.json
             artifacts/playwright-report/**
             artifacts/test-results/**
             artifacts/native/**
+            artifacts/packaged/**
