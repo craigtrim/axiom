@@ -35,8 +35,13 @@ const args = [
         "tests/e2e/edge-creation.spec.ts",
         "tests/e2e/ontology-lifecycle.spec.ts",
         "tests/e2e/workspace-autosave.spec.ts",
+        "tests/e2e/touchpoints-visual.spec.ts",
+        "tests/e2e/quality-visual.spec.ts",
+        "tests/e2e/text-analysis.spec.ts",
+        "tests/e2e/hierarchy-visual.spec.ts",
+        "tests/e2e/edge-visibility.spec.ts",
         "--grep",
-        String.raw`(?:individuals-visual\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$|DOAP: import, view, edit, create, save, close and reopen$|an unnamed workspace saves on File Close and remains accessible as a complete recovery workspace$|Discard draft leaves a fresh form while validation is pending$|blank forms enable Discard only for content in the row and overflow menu$|(?:light|dark) frame (?:12|19) matches raw reference pixels$)`,
+        String.raw`(?:individuals-visual\.spec\.ts|edge-visibility\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$|DOAP: import, view, edit, create, save, close and reopen$|an unnamed workspace saves on File Close and remains accessible as a complete recovery workspace$|Discard draft leaves a fresh form while validation is pending$|blank forms enable Discard only for content in the row and overflow menu$|add-entity-visual\.spec\.ts.*(?:light|dark) frame (?:12|19) matches raw reference pixels$|touchpoints-visual\.spec\.ts.*(?:light|dark) frame (?:14|15) matches raw reference pixels$|quality-visual\.spec\.ts.*(?:light|dark) a2-running-bar$|#128 plain highlight clicks keep the caret and focus with Auto (?:on|off)$|hierarchy-visual\.spec\.ts.*(?:light|dark) frame 27 matches raw reference pixels$)`,
       ]
     : [`--shard=${shard}/4`]),
   "--forbid-only",
@@ -82,9 +87,9 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(inventory, "utf8")),
   JSON.parse(readFileSync(results, "utf8")),
 );
-if (shard === "regression" && coverage.listed !== 21)
+if (shard === "regression" && coverage.listed !== 34)
   throw Error(
-    "The focused native regression inventory must contain all twenty-one cases.",
+    "The focused native regression inventory must contain all thirty-four cases.",
   );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),

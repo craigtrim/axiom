@@ -1566,7 +1566,26 @@ const cases: Case[] = [
 ];
 
 test.afterEach(async () => {
-  await app?.close();
+  if (!app) return;
+  const process = app.process();
+  if (process.exitCode === null && process.signalCode === null) {
+    // This disposable profile has mocked scan state and a test-owned specimen
+    // window. Its visual assertions are complete; do not run the real final-save
+    // handshake while all of those windows close. workspace-autosave.spec.ts
+    // separately verifies ordinary quit, persisted drafts and failed final saves.
+    const closed = app.waitForEvent("close", { timeout: 10000 });
+    await Promise.all([
+      closed,
+      app
+        .evaluate(({ app }) => app.exit(0))
+        .catch(() => {
+          // Exiting can close the evaluation transport before it replies.
+          // The close event and clean process exit below must still be observed.
+        }),
+    ]);
+  }
+  await expect.poll(() => process.exitCode, { timeout: 10000 }).toBe(0);
+  expect(process.signalCode).toBeNull();
 });
 for (const theme of ["light", "dark"] as const)
   for (const c of cases)

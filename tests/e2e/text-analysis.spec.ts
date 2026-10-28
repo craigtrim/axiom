@@ -1510,14 +1510,30 @@ for (const auto of [true, false]) {
     await editor().focus();
     await page.keyboard.press("Control+End");
     const highlight = panel().locator(`.view-lines .${className}`).first();
-    const point = await highlight.evaluate((element) => {
-      const range = document.createRange();
-      range.setStart(element.firstChild!, 3);
-      range.collapse(true);
-      const r = range.getBoundingClientRect();
-      return { x: r.left, y: r.top + r.height / 2 };
-    });
-    await page.mouse.click(point.x, point.y);
+    // Switching Auto can relayout Monaco between measuring and clicking.
+    // Wait for a rendered character, then let locator.click resolve the current
+    // screen position and check actionability. Never click a stale (0, 0) range.
+    let point = { x: 0, y: 0 };
+    await expect
+      .poll(async () => {
+        const measured = await highlight.evaluate((element) => {
+          const range = document.createRange();
+          range.setStart(element.firstChild!, 3);
+          range.setEnd(element.firstChild!, 4);
+          const r = range.getBoundingClientRect();
+          const box = element.getBoundingClientRect();
+          return {
+            x: r.left - box.left,
+            y: r.top - box.top + r.height / 2,
+            rendered:
+              r.width > 0 && r.height > 0 && box.width > 0 && box.height > 0,
+          };
+        });
+        point = { x: measured.x, y: measured.y };
+        return measured.rendered;
+      })
+      .toBe(true);
+    await highlight.click({ position: point });
     await expect(editor()).toBeFocused();
     await expect(panel().locator(".ta-caret")).toHaveText("canine");
     await expect(detailsTab()).toHaveCount(0);

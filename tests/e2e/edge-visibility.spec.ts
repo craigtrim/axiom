@@ -100,7 +100,10 @@ test("Show edges affects only visibility, removes hidden targets, supports Undo 
   });
   const canvas = page.getByTestId("graph-canvas");
   const before = await canvas.screenshot();
-  await checkbox().uncheck();
+  // State returns asynchronously from the domain worker; click once, then
+  // await the observable result instead of requiring a synchronous toggle.
+  await checkbox().click();
+  await expect(checkbox()).not.toBeChecked();
   await expect.poll(async () => (await state()).graph.edgesVisible).toBe(false);
   await expect(canvas).toHaveAttribute("data-selected-edge", "");
   await expect(
@@ -139,7 +142,8 @@ test("Show edges affects only visibility, removes hidden targets, supports Undo 
   await expect(checkbox()).toBeChecked();
   await page.keyboard.press("Control+y");
   await expect(checkbox()).not.toBeChecked();
-  await checkbox().check();
+  await checkbox().click();
+  await expect(checkbox()).toBeChecked();
   await expect(
     page.getByRole("combobox", { name: "Select edge", exact: true }),
   ).toBeEnabled();
@@ -154,7 +158,10 @@ test("each graph remembers edge and count visibility in a saved workspace and re
   await expect(counts()).toBeChecked();
   await counts().click();
   await expect(counts()).not.toBeChecked();
-  await checkbox().uncheck();
+  // State returns asynchronously from the domain worker; click once, then
+  // await the observable result instead of requiring a synchronous toggle.
+  await checkbox().click();
+  await expect(checkbox()).not.toBeChecked();
   await (await hierarchyFilter(page)).fill("Pizza");
   await page
     .locator('[data-entity-iri$="#Pizza"]')
