@@ -159,6 +159,8 @@ export function TextEntityCreate({
   const renameChoice =
     !!createdRoot &&
     root.label.trim() !== (createdRoot.label ?? createdRoot.name);
+  // #177: completed-result state must not depend on delayed creation feedback.
+  const alreadyCreated = !!createdRoot && !renameChoice;
   const newIri = addEntityIri(root.label, snapshot.ontology.namespace);
   const replacesPlaceholder =
     !!createdRoot &&
@@ -269,6 +271,7 @@ export function TextEntityCreate({
   };
   const submit = async () => {
     if (
+      alreadyCreated ||
       pending.current ||
       errors.length ||
       check.error ||
@@ -625,6 +628,7 @@ export function TextEntityCreate({
           className={renameChoice ? "btn" : "btn primary"}
           data-fixed-action
           disabled={
+            alreadyCreated ||
             busy ||
             !!errors.length ||
             !!check.error ||

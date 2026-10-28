@@ -2,6 +2,20 @@
 // CI runs the exact complement; neither group is optional for delivery.
 // Keep keyboard/menu/modal suites and named focus/caret/overflow contracts together.
 export const localDesktopCases = [
+  // #177 delivery: preserve exact shell pixels and resize/scroll state locally.
+  {
+    file: "workbench-shell.spec.ts",
+    title: "the complete shell matches its reference in light",
+  },
+  {
+    file: "workbench-shell.spec.ts",
+    title: "the complete shell matches its reference in dark",
+  },
+  {
+    file: "hierarchy-reference.spec.ts",
+    title:
+      "presentation hysteresis and recovery preserve expansion, selection and scroll",
+  },
   // #177 validation: retain cross-window focus and camera/keyboard checks locally.
   {
     file: "multi-instance.spec.ts",

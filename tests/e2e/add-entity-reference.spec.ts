@@ -813,3 +813,32 @@ test("Add entity pending rename preserves newer Name edits and the root identity
     await releaseRequests(f.app);
   }
 });
+
+// #177: a completed rename must not wait for creation feedback to disable Create.
+test("Add entity keeps completed Rename disabled while creation feedback is delayed", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  await createAction("Individual").click();
+  const iri = await createTracked();
+  await f.setName("Speed Readings");
+  await expect(draftStatus()).toHaveText("Ready to rename or create");
+  await holdRequests(f.app, ["addEntityCheck"]);
+  try {
+    await createAction("Rename").click();
+    await waitForHeld(f.app);
+    await expect(f.pane().locator(".toast")).toContainText(
+      "Renamed Speed Reading to Speed Readings.",
+    );
+    await expect(draftStatus()).toHaveText("Created");
+    await expect(createAction("Create")).toBeDisabled();
+    expect(await requestCount(f.app, "addEntityCreate")).toBe(0);
+    await releaseRequests(f.app);
+    await expect(createAction("Create")).toBeDisabled();
+    expect(
+      (await f.state()).entities
+        .filter((e) => e.label === "Speed Readings")
+        .map((e) => e.iri),
+    ).toEqual([iri]);
+  } finally {
+    await releaseRequests(f.app);
+  }
+});
