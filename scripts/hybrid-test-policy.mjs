@@ -590,6 +590,11 @@ export const localDesktopCases = [
   {
     file: "ontology-quality.spec.ts",
     title:
+      "failure and cancellation cannot be mistaken for a completed clean scan",
+  },
+  {
+    file: "ontology-quality.spec.ts",
+    title:
       "overflow keeps every severity, suppression and view control usable at minimum width",
   },
   {

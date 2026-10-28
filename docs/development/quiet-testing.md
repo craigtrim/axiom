@@ -116,16 +116,17 @@ on hosted Windows. Keep related input behavior together rather than assigning
 only individual cases that have already failed. The exact assignment is maintained
 in `scripts/hybrid-test-policy.mjs` and includes the complete keyboard, menu,
 modal-stability and window-chrome suites; tests whose purpose is focus, caret,
-shortcut or responsive-overflow behavior; and the existing 11 visual/input cases.
+shortcut or responsive-overflow behavior; the existing 11 visual/input cases; and
+the large-import Quality cancellation journey.
 
-All 166 assigned cases run locally with their existing assertions and may display
-or focus windows. The remaining 1,281 listed native cases run on GitHub, including
+All 167 assigned cases run locally with their existing assertions and may display
+or focus windows. The remaining 1,280 listed native cases run on GitHub, including
 the one existing opt-in benchmark exemption. The CI selection is the exact inverse
 of the local selection. New focus or overflow scenarios belong in this local
 assignment; moving a case changes its execution location without removing it.
 
 Run `npm run test:desktop:local` from a clean checkout to validate the local group.
-The command rebuilds that revision, runs one test at a time, and requires all 166
+The command rebuilds that revision, runs one test at a time, and requires all 167
 to pass without retries or skips. Reports are in `artifacts/local-desktop`.
 `npm run build:exe` runs this group itself after verifying the CI candidate.
 Delivery requires fresh local evidence for the same source commit and tree, and

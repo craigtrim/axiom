@@ -1205,14 +1205,27 @@ test("overflow retains keyboard focus when controls move and Escape returns to M
   await expect(moreTrigger()).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(moreDialog()).toBeVisible();
+  // #165: native popover visibility precedes its toggle handler and initial focus.
+  await expect(
+    moreDialog().getByRole("button", { name: "Findings", exact: true }),
+  ).toBeFocused();
   await moreDialog()
     .getByRole("searchbox", { name: "Filter findings" })
     .focus();
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toBeFocused();
   await page.keyboard.type("Industrial");
+  await expect(
+    moreDialog().getByRole("searchbox", { name: "Filter findings" }),
+  ).toHaveValue("Industrial");
   await page.keyboard.press("Escape");
   await expect(moreDialog()).not.toBeVisible();
   await expect(moreTrigger()).toBeFocused();
   await page.keyboard.press("Space");
+  await expect(
+    moreDialog().getByRole("button", { name: "Findings", exact: true }),
+  ).toBeFocused();
   await moreDialog()
     .getByRole("searchbox", { name: "Filter findings" })
     .focus();

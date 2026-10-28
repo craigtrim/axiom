@@ -2,7 +2,7 @@
 
 Issue #166 moves packaged-application testing to GitHub-hosted Windows. Local
 `npm run build:exe` and Craig's ignored PowerShell launcher use the same helper.
-They download the executable that CI tested, verify its files, and run the 166
+They download the executable that CI tested, verify its files, and run the 167
 required local desktop cases before delivery. Those cases may display windows and
 take focus. The [test allocation](quiet-testing.md) assigns every native case to
 CI or the local desktop; all required coverage must pass.
@@ -50,7 +50,7 @@ CI runs its assigned native cases across eight separate Windows runners, with on
 test at a time per runner and no prerequisite package job. An independent job runs
 unit, type, documentation and delivery-gate checks, the early native regression
 batch, packaging and the audit. Quiet qualification remains a separate required
-job. Every job and all 166 local desktop cases must pass. The two native selections
+job. Every job and all 167 local desktop cases must pass. The two native selections
 are complementary; splitting the work does not reduce required coverage.
 
 CI builds the package and runs all eight existing packaged checks, including both
@@ -70,7 +70,7 @@ instead of recompiling different bytes on the local machine.
 The current receipt is `artifacts/build-exe/receipt.json`. It records source and
 checkout commits, tree, workflow path, run URL/ID/attempt/conclusion, packaged
 checks, local desktop validation and file hashes. Local evidence includes the
-source commit/tree, a fresh validation ID, all 166 passing cases and the result-file
+source commit/tree, a fresh validation ID, all 167 passing cases and the result-file
 hash. Missing, stale, skipped, retried or failed local results block delivery.
 `artifacts/latest-electron.json` retains local output paths.
 Gate, download or verification failures leave the previous executable and receipt
