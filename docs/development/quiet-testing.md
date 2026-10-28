@@ -121,7 +121,7 @@ the large-import Quality cancellation journey. Query pixel comparisons run as a
 complete local family in both themes. Functional Query coverage remains on CI.
 
 All 231 assigned cases run locally with their existing assertions and may display
-or focus windows. The remaining 1,216 listed native cases run on GitHub, including
+or focus windows. The remaining 1,221 listed native cases run on GitHub, including
 the one existing opt-in benchmark exemption. The CI selection is the exact inverse
 of the local selection. New focus or overflow scenarios belong in this local
 assignment; moving a case changes its execution location without removing it.
