@@ -27,11 +27,14 @@ export function DetailsHeader({
   source,
   status = "Saved",
   reload,
+  deleteClass,
 }: {
   name: string;
   source?: EntitySourceController;
   status?: string;
   reload?: () => void;
+  // #173: the owner supplies deletion only for the class displayed in Details.
+  deleteClass?: { disabled: boolean; run: () => void };
 }) {
   const { recovery, narrow } = usePaneLayout();
   const anchor = useRef<HTMLSpanElement>(null),
@@ -93,7 +96,15 @@ export function DetailsHeader({
           triggerContent="More"
           triggerClassName="btn more"
           hidden={narrow}
-          items={[{ id: "reload", label: "Reload", run: reload }]}
+          items={[
+            { id: "reload", label: "Reload", run: reload },
+            ...(deleteClass
+              ? [
+                  { id: "delete-separator", separator: true as const },
+                  { id: "delete", label: "Delete class...", ...deleteClass },
+                ]
+              : []),
+          ]}
         />
       )}
       <span className="vh" aria-live="polite" aria-atomic="true">

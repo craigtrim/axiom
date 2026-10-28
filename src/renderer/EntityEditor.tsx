@@ -9,9 +9,9 @@ import { IntersectionDetails } from "./ClassExpressions";
 import { PaneToolbar } from "./AdaptivePane";
 import { EntitySource, useEntitySource } from "./EntitySource";
 import { DetailsHeader, DetailsFooter } from "./DetailsChrome";
-import { useSnapshot } from "./client";
+import { command, useSnapshot } from "./client";
 import { displayName } from "../domain/rdf-model";
-import { SUBCLASS } from "../domain/model";
+import { SUBCLASS, THING } from "../domain/model";
 import { namedClass } from "../domain/class-expressions";
 import { useEntityEditor } from "./useEntityEditor";
 export function DetailsPanel({ panelId }: { panelId: string }) {
@@ -112,6 +112,18 @@ export function EntityEditor({
         reload={() => {
           if (!saving) void reload(true);
         }}
+        // #173: retain the existing confirmation and Undo path, with both save guards.
+        deleteClass={
+          loaded && namedClass(loaded.entity)
+            ? {
+                disabled: saving || source.busy || iri === THING,
+                run: () => {
+                  if (!saving && !source.busy && iri !== THING)
+                    command("entity.delete");
+                },
+              }
+            : undefined
+        }
       />
       <div className="entity-editor-content pbody">
         {error && <ErrorNotice error={error} />}
