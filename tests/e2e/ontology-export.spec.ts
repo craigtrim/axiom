@@ -255,6 +255,11 @@ for (const kind of ["valid", "invalid", "stale"] as const)
       if (closed) {
         await menu("pane.close");
         await expect(source()).toHaveCount(0);
+        // Layout history is queued after the DOM closes. Its 300 ms debounce
+        // must complete before we measure whether exporting changes history.
+        await expect
+          .poll(async () => (await history()).undoLabel)
+          .toBe("Arrange panes");
       }
       const original = await history();
       await exportMatches(before);

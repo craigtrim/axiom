@@ -43,6 +43,12 @@ HEAD, and the tested merge tree must equal the local tree. After merging a PR,
 the new default-branch commit needs its own successful run. A different revision
 cannot borrow approval, even when it has the same tree.
 
+CI runs the full native suite across eight separate Windows runners, with one
+test at a time per runner and no prerequisite package job. An independent job runs
+unit, type, documentation and delivery-gate checks, the early native regression
+batch, packaging and the audit. Quiet qualification remains a separate required
+job. Every job must pass; splitting the work does not reduce required coverage.
+
 CI builds the package and runs all eight existing packaged checks, including both
 MPNet semantic-search journeys. The other checks cover literal Find synonyms,
 highlight editing with automatic analysis on and off, cross-pane label updates,

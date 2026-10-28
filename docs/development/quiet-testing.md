@@ -54,7 +54,7 @@ desktop suite there while qualification remains partial.
 
 The native CI suite uses a verified 1920 by 1080 display. A smaller hosted display
 can put otherwise ordinary panes into their responsive recovery state and hide
-the controls a journey is meant to exercise. Four Windows shards retain the full
+the controls a journey is meant to exercise. Eight Windows shards retain the full
 normal suite; tests within each file remain serial. Display setup runs only in CI
 and never changes the local desktop.
 
@@ -102,8 +102,8 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-The first Windows shard also runs 60 focused regression cases before its full
-inventory: all eight Individuals visual cases, the Details authoring save journey,
+An independent build/package job runs 60 focused regression cases while all eight
+Windows shards execute the full inventory: all eight Individuals visual cases, the Details authoring save journey,
 the Find result-to-graph and Quick Find action journeys, the controlled preview
 failure, edge-drawing cancellation after closing a graph, and the DOAP
 save/close/reopen and unnamed-workspace recovery journeys. It also checks both
@@ -117,7 +117,7 @@ accepting a newly created file before its write finishes. The window-menu keyboa
 journey also verifies initial menu focus before subsequent navigation keys.
 This gives earlier evidence when repairing
 these failures. It does not replace their normal full-suite coverage, add retries,
-or create another parallel runner. A failure still fails the CI run.
+or make failures advisory. Every job must pass before delivery.
 
 Individuals captures must settle to the same bitmap across fresh paint-layer
 setups before comparison with the independent reference. Stability is decided

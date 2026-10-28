@@ -10,11 +10,11 @@ const [shard, ...extra] = process.argv.slice(2);
 if (
   process.env.GITHUB_ACTIONS !== "true" ||
   process.platform !== "win32" ||
-  !/^(?:[1-4]|regression)$/.test(shard ?? "") ||
+  !/^(?:[1-8]|regression)$/.test(shard ?? "") ||
   extra.length
 )
   throw Error(
-    "Native UI coverage requires a GitHub-hosted Windows runner and one shard number (1 to 4) or the regression batch.",
+    "Native UI coverage requires a GitHub-hosted Windows runner and one shard number (1 to 8) or the regression batch.",
   );
 const root = path.resolve(import.meta.dirname, "..");
 const output = path.join(root, "artifacts/native");
@@ -45,7 +45,7 @@ const args = [
         "--grep",
         String.raw`(?:menus share native state and support keyboard navigation, compact folds, scrolling and the palette$|ontology-export\.spec\.ts|individuals-visual\.spec\.ts|edge-visibility\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$|DOAP: import, view, edit, create, save, close and reopen$|an unnamed workspace saves on File Close and remains accessible as a complete recovery workspace$|Discard draft leaves a fresh form while validation is pending$|blank forms enable Discard only for content in the row and overflow menu$|add-entity-visual\.spec\.ts.*(?:light|dark) frame (?:12|19) matches raw reference pixels$|touchpoints-visual\.spec\.ts.*(?:light|dark) frame (?:14|15) matches raw reference pixels$|quality-visual\.spec\.ts.*(?:light|dark) a2-running-bar$|#128 plain highlight clicks keep the caret and focus with Auto (?:on|off)$|hierarchy-visual\.spec\.ts.*(?:light|dark) frame 27 matches raw reference pixels$)`,
       ]
-    : [`--shard=${shard}/4`]),
+    : [`--shard=${shard}/8`]),
   "--forbid-only",
 ];
 function run(report, listing) {
