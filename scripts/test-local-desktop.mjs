@@ -55,6 +55,8 @@ function run(stepArgs, extra = {}) {
 console.log(
   `Running ${localDesktopCases.length} required local desktop tests. Application windows may take focus.`,
 );
+// Validate/install the required native runtime before any visible test starts.
+run(["scripts/setup-mutatoc.mjs"]);
 run(["scripts/build.mjs"]);
 const base = [
   "node_modules/@playwright/test/cli.js",
