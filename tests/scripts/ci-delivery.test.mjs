@@ -1,5 +1,7 @@
 // #166: exercise fail-closed delivery with real files and controlled GitHub responses.
 import test from "node:test";
+import { createHash } from "node:crypto";
+import { localDesktopCases } from "../../scripts/hybrid-test-policy.mjs";
 import assert from "node:assert/strict";
 import {
   mkdtemp,
@@ -159,7 +161,7 @@ function runner(options = {}) {
   let sourceReads = 0,
     queries = 0,
     downloads = 0;
-  const run = async (file, args) => {
+  const run = async (file, args, root) => {
     if (file === "git") {
       if (options.nonGit) throw Error("not a repository");
       if (args[0] === "rev-parse" && args[1] === "HEAD") {
@@ -192,6 +194,54 @@ function runner(options = {}) {
         recursive: true,
       });
       return "";
+    }
+    if (
+      file === process.execPath &&
+      args[0] === "scripts/test-local-desktop.mjs"
+    ) {
+      if (options.localFailure) throw Error("Local desktop test failed");
+      const output = path.join(root, "artifacts/local-desktop");
+      await mkdir(output, { recursive: true });
+      if (options.localMissing) return "";
+      const specs = localDesktopCases.map(({ file, title }) => ({
+        file,
+        title,
+        tests: [
+          {
+            expectedStatus: "passed",
+            status: "expected",
+            results: [{ status: "passed" }],
+          },
+        ],
+      }));
+      if (options.localMissingCase) specs.pop();
+      if (options.localDuplicateCase) specs.push(specs[0]);
+      if (options.localFailedCase)
+        specs[0].tests[0].results[0].status = "failed";
+      if (options.localSkippedCase)
+        specs[0].tests[0].results[0].status = "skipped";
+      if (options.localRetry)
+        specs[0].tests[0].results.unshift({ status: "failed" });
+      const bytes = JSON.stringify({ suites: [{ specs }] });
+      const proof = {
+        schema: 1,
+        validationId: options.localStaleToken ? "old-validation" : args[2],
+        source: {
+          commit: options.localWrongCommit ? "d".repeat(40) : source.commit,
+          tree: options.localWrongTree ? "d".repeat(40) : source.tree,
+        },
+        listed: localDesktopCases.length,
+        passed: localDesktopCases.length,
+        skipped: [],
+        completedAt: new Date().toISOString(),
+        resultsSha256: createHash("sha256").update(bytes).digest("hex"),
+      };
+      await writeFile(
+        path.join(output, "results.json"),
+        bytes + (options.localAlteredReport ? " " : ""),
+      );
+      await writeFile(path.join(output, "receipt.json"), JSON.stringify(proof));
+      return "Local desktop validation passed";
     }
     throw Error(`Unexpected command: ${file} ${args.join(" ")}`);
   };
@@ -359,6 +409,9 @@ test("delivers verified bytes and records source, workflow URL, attempt and conc
     conclusion: "success",
   });
   assert.equal(receipt.packagedDesktopChecksPassed, 8);
+  assert.equal(receipt.localDesktopValidation.passed, 11);
+  assert.deepEqual(receipt.localDesktopValidation.source, source);
+  assert.match(receipt.localDesktopValidation.resultsSha256, /^[a-f0-9]{64}$/);
   assert.equal(receipt.package.executable, result.executable);
 });
 test("a promotion failure restores the previous executable and metadata", async (t) => {
@@ -444,3 +497,29 @@ test("incomplete history fails closed", async () => {
     /Incomplete workflow history/,
   );
 });
+
+for (const failure of [
+  "localFailure",
+  "localMissing",
+  "localStaleToken",
+  "localWrongCommit",
+  "localWrongTree",
+  "localMissingCase",
+  "localDuplicateCase",
+  "localFailedCase",
+  "localSkippedCase",
+  "localRetry",
+  "localAlteredReport",
+]) {
+  test(
+    "rejects " + failure + " and preserves the existing EXE despite passing CI",
+    async (t) => {
+      const root = await previousDelivery(t);
+      const proposed = await candidate(t);
+      const simulated = runner({ candidate: proposed.dir, [failure]: true });
+      await assert.rejects(deliver(root, simulated.run));
+      assert.equal(simulated.downloads(), 1);
+      await assertPrevious(root);
+    },
+  );
+}

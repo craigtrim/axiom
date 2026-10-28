@@ -2,16 +2,18 @@
 
 Issue #166 moves packaged-application testing to GitHub-hosted Windows. Local
 `npm run build:exe` and Craig's ignored PowerShell launcher use the same helper.
-They download the executable that CI tested and verify its files without opening
-application windows. The [quiet test inventory](quiet-testing.md) remains the rule
-for local UI testing; every unqualified family stays in the full native CI suite.
+They download the executable that CI tested, verify its files, and run the 11
+required local desktop cases before delivery. Those cases may display windows and
+take focus. The [test allocation](quiet-testing.md) assigns every native case to
+CI or the local desktop; all required coverage must pass.
 
 ## Deliver an executable
 
 Use Node.js 22.12 or later, Git, and an authenticated GitHub CLI with access to
 craigtrim/axiom and its Actions artifacts. The delivery helper uses Node's built-in
-modules, so downloading an already tested build does not require `npm ci`.
-Run these commands from a clean checkout:
+modules for download verification. The required local test stage also needs this
+checkout's npm dependencies and the normal local test runtimes. Install dependencies
+with `npm ci` when needed, then run these commands from a clean checkout:
 
 ```powershell
 gh auth status
@@ -21,7 +23,8 @@ npm run build:exe
 
 Craig can also run D:\git\axiom\Build-Axiom-EXE.ps1. Close an Axiom instance running
 from the output folder before replacing its files. The helper does not close it,
-launch the downloaded application, run the installer, or publish a release.
+run the installer or publish a release. It rebuilds the current source and opens
+test windows for the required local desktop group before replacing output files.
 
 A successful delivery prints `BUILD VERIFIED` and the absolute paths. The usual
 application is D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe, and the
@@ -43,11 +46,12 @@ HEAD, and the tested merge tree must equal the local tree. After merging a PR,
 the new default-branch commit needs its own successful run. A different revision
 cannot borrow approval, even when it has the same tree.
 
-CI runs the full native suite across eight separate Windows runners, with one
+CI runs its assigned native cases across eight separate Windows runners, with one
 test at a time per runner and no prerequisite package job. An independent job runs
 unit, type, documentation and delivery-gate checks, the early native regression
 batch, packaging and the audit. Quiet qualification remains a separate required
-job. Every job must pass; splitting the work does not reduce required coverage.
+job. Every job and all 11 local desktop cases must pass. The two native selections
+are complementary; splitting the work does not reduce required coverage.
 
 CI builds the package and runs all eight existing packaged checks, including both
 MPNet semantic-search journeys. The other checks cover literal Find synonyms,
@@ -65,7 +69,10 @@ instead of recompiling different bytes on the local machine.
 
 The current receipt is `artifacts/build-exe/receipt.json`. It records source and
 checkout commits, tree, workflow path, run URL/ID/attempt/conclusion, packaged
-checks and file hashes. `artifacts/latest-electron.json` retains local output paths.
+checks, local desktop validation and file hashes. Local evidence includes the
+source commit/tree, a fresh validation ID, all 11 passing cases and the result-file
+hash. Missing, stale, skipped, retried or failed local results block delivery.
+`artifacts/latest-electron.json` retains local output paths.
 Gate, download or verification failures leave the previous executable and receipt
 intact. File replacement uses backups and rollback; a locked file stops delivery.
 A crash can leave `artifacts/build-exe/delivery.lock`. Remove that file only after
@@ -102,8 +109,8 @@ npm run build:exe
 
 A partial rerun may leave only the previous attempt's package. That artifact is
 rejected, even if the workflow later turns green. Rerun all jobs to produce and
-verify a candidate for the current attempt. The helper never retries visible
-tests on the local desktop and never falls back to an older successful run.
+verify a candidate for the current attempt. The helper runs the assigned local desktop group once for each delivery attempt.
+It does not retry failures or fall back to an older successful run.
 
 ## Notifications and runner usage
 
@@ -124,5 +131,7 @@ cancel obsolete runs for the same branch or PR.
 
 `npm run test:ci-delivery` exercises current and stale runs, failure states, source
 identity, artifact corruption, missing files and rollback using controlled API
-responses and temporary files. It launches no application windows. Hosted CI
-provides the actual packaged-executable and complete native-test evidence.
+responses and temporary files. It also verifies rejection of incomplete or stale
+local results without opening application windows. Hosted CI supplies packaged
+and assigned native evidence; the local desktop runner supplies the remaining
+required native evidence.

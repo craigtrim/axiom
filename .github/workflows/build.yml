@@ -128,7 +128,7 @@ jobs:
         run: .\scripts\setup-ci-display.ps1
       - run: npm run build
       - run: npx playwright install chromium
-      # Each VM runs one test at a time; every file remains in the required suite.
+      # Each VM runs one test at a time. The local desktop group is required at delivery.
       - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
