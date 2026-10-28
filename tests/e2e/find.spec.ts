@@ -2166,3 +2166,135 @@ test("reading and comp ranks Reading Comprehension first in quick Find and the r
   );
   expect(resources[0].iri).toBe(base + "Reading");
 });
+
+// #174: Find menus target their row, preserve class-only deletion, and reuse Undo.
+const rowContext = () =>
+  page.getByRole("menu", { name: "Find result actions" });
+const resultRow = (iri: string) =>
+  pane().locator(`tr[data-entity-iri="${iri}"]`);
+const classActions = [
+  "Details",
+  "Show in Hierarchy",
+  "Copy IRI",
+  "Delete class...",
+];
+
+test("Find class context menu reveals its row, confirms deletion and restores RDF with Undo", async () => {
+  await find("Basic");
+  const iri = base + "Basic";
+  const row = resultRow(iri);
+  // Start on a different entity so a stale selection would delete the wrong class.
+  await page.evaluate(
+    (iri) => window.axiom.request("select", { iri }),
+    base + "Course",
+  );
+  const before = await page.evaluate(
+    (iri) => window.axiom.request("entityDocument", { iri }),
+    iri,
+  );
+  await row.click({ button: "right" });
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(rowContext().getByRole("menuitem")).toHaveText(classActions);
+  await expect(rowContext().getByRole("separator")).toHaveCount(1);
+  await rowContext()
+    .getByRole("menuitem", { name: "Show in Hierarchy", exact: true })
+    .click();
+  await expect(
+    page.locator(`[data-panel="hierarchy"] [data-entity-iri="${iri}"]`),
+  ).toHaveAttribute("aria-selected", "true");
+  await row.click({ button: "right" });
+  await rowContext()
+    .getByRole("menuitem", { name: "Delete class...", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Delete class",
+    exact: true,
+  });
+  await expect(dialog.locator("strong")).toHaveText("Basic English");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect((await state()).entities.some((e) => e.iri === iri)).toBe(true);
+  await row.click({ button: "right" });
+  await rowContext()
+    .getByRole("menuitem", { name: "Delete class...", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect
+    .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+    .toBe(false);
+  expect((await state()).entities.some((e) => e.iri === base + "Course")).toBe(
+    true,
+  );
+  await menu("edit.undo");
+  await expect
+    .poll(async () => (await state()).entities.some((e) => e.iri === iri))
+    .toBe(true);
+  const after = await page.evaluate(
+    (iri) => window.axiom.request("entityDocument", { iri }),
+    iri,
+  );
+  expect((after as any).statements).toEqual((before as any).statements);
+});
+
+for (const [name, local, actions] of [
+  ["English learner", "student", ["Details", "Copy IRI"]],
+  ["English teaching", "teaches", ["Details", "Show in Hierarchy", "Copy IRI"]],
+] as const)
+  test(`Find ${local} context menu limits actions and opens Details for its row`, async () => {
+    await find(name);
+    const iri = base + local;
+    const row = resultRow(iri);
+    await row.click({ button: "right" });
+    await expect(rowContext().getByRole("menuitem")).toHaveText([...actions]);
+    await expect(rowContext().getByRole("separator")).toHaveCount(0);
+    await rowContext()
+      .getByRole("menuitem", { name: "Copy IRI", exact: true })
+      .click();
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
+      iri,
+    );
+    await row.click({ button: "right" });
+    await rowContext()
+      .getByRole("menuitem", { name: "Details", exact: true })
+      .click();
+    await expect(
+      page.locator(`.details-pane[data-entity-iri="${iri}"]`),
+    ).toBeVisible();
+  });
+
+test("Find context menu protects owl:Thing from deletion", async () => {
+  await find("Thing");
+  await resultRow(NS.owl + "Thing").click({ button: "right" });
+  const remove = rowContext().getByRole("menuitem", {
+    name: "Delete class...",
+    exact: true,
+  });
+  await expect(remove).toHaveAttribute("aria-disabled", "true");
+  await remove.click({ force: true });
+  await expect(
+    page.getByRole("dialog", { name: "Delete class", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("Find row context menu opens from both keyboard keys and restores row focus", async () => {
+  await find("Basic");
+  const row = resultRow(base + "Basic");
+  for (const key of ["Shift+F10", "ContextMenu"]) {
+    await row.focus();
+    await row.press(key);
+    await expect(rowContext().getByRole("menuitem")).toHaveText(classActions);
+    await expect(
+      rowContext().getByRole("menuitem", { name: "Details", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(
+      rowContext().getByRole("menuitem", {
+        name: "Delete class...",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(rowContext()).toHaveCount(0);
+    await expect(row).toBeFocused();
+    await expect(row).toHaveAttribute("aria-selected", "true");
+  }
+});
