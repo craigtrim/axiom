@@ -142,6 +142,8 @@ export function captureAddEntityDraft(): SavedAddEntity | undefined {
       manualParents: false,
     },
     created: draft?.created,
+    // #177: keep the rename/create choice through workspace saves and remounts.
+    createdRootIris: draft?.createdRootIris,
     error: draft?.error,
   });
 }
@@ -160,6 +162,7 @@ export function restoreAddEntityDraft(value: SavedAddEntity) {
     origin: saved.origin,
     phrase: saved.phrase,
     created: saved.created,
+    createdRootIris: saved.createdRootIris,
     error: saved.error,
     frames: [{ value: node(saved.root) }],
   });

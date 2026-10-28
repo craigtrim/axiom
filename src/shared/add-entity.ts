@@ -17,6 +17,8 @@ export interface SavedAddEntity {
   kind: AddEntityInput["kind"];
   root: AddEntityNode;
   created?: string[];
+  // #177: persist the root separately so reopening the draft cannot rename a parent.
+  createdRootIris?: string[];
   error?: string;
 }
 export function readSavedAddEntity(value: unknown): SavedAddEntity {
@@ -28,6 +30,12 @@ export function readSavedAddEntity(value: unknown): SavedAddEntity {
     !["selection", "find", "blank"].includes(saved.origin) ||
     (saved.error !== undefined &&
       (typeof saved.error !== "string" || saved.error.length > 10000)) ||
+    (saved.createdRootIris !== undefined &&
+      (!Array.isArray(saved.createdRootIris) ||
+        saved.createdRootIris.length > 1000 ||
+        saved.createdRootIris.some(
+          (i) => typeof i !== "string" || !i || i.length > 10000,
+        ))) ||
     (saved.created !== undefined &&
       (!Array.isArray(saved.created) ||
         saved.created.length > 1000 ||

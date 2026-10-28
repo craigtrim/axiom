@@ -333,6 +333,8 @@ describe("Add entity transactions", () => {
       origin: "find" as const,
       error: "Retained error",
       created: [base + "Prior"],
+      // #177: root identity persists independently of other entities created together.
+      createdRootIris: [base + "Prior"],
     };
     expect(readSavedAddEntity(JSON.parse(JSON.stringify(saved)))).toEqual(
       saved,
@@ -343,6 +345,9 @@ describe("Add entity transactions", () => {
         root: { ...root, parents: [{ create: root, iri: THING }] },
       }),
     ).toThrow();
+    expect(() =>
+      readSavedAddEntity({ ...saved, createdRootIris: [42] }),
+    ).toThrow("Invalid saved Add entity draft.");
     root.parents.push({ create: root });
     expect(() => readSavedAddEntity(saved)).toThrow();
   });

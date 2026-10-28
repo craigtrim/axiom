@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { NS, THING, shorten } from "../domain/model";
+import { isDefaultIdentifier } from "../domain/rdf-model";
+import { entityRetargeted } from "./editor-drafts";
 import {
   addEntityIri,
   plannedEntitySource,
@@ -150,27 +152,54 @@ export function TextEntityCreate({
         version: snapshot.version,
       }),
   );
+  // #177: Name edits retain the root identity; Undo/Redo can restore either rename IRI.
+  const createdRoot = value.createdRootIris
+    ?.map((iri) => snapshot.entities.find((entity) => entity.iri === iri))
+    .find((entity) => !!entity);
+  const renameChoice =
+    !!createdRoot &&
+    root.label.trim() !== (createdRoot.label ?? createdRoot.name);
+  const newIri = addEntityIri(root.label, snapshot.ontology.namespace);
+  const replacesPlaceholder =
+    !!createdRoot &&
+    isDefaultIdentifier(createdRoot.iri) &&
+    !isDefaultIdentifier(newIri);
   const findings = check.value?.findings ?? [],
     errors = findings.filter((f) => f.kind === "bad2");
   // craigtrim/axiom#119: what this draft just wrote is its result, so the band leaves it out while Create stays blocked.
   const shown = findings.filter(
-      (f) => !f.reveal || !value.created?.includes(f.reveal.iri),
+      (f) =>
+        !f.reveal ||
+        (!value.created?.includes(f.reveal.iri) &&
+          !(createdRoot && !renameChoice)),
     ),
     problems = shown.filter((f) => f.kind === "bad2").length,
     warnings = shown.length - problems;
   const drafts = countDrafts(root),
     source = plannedEntitySource(creation, snapshot.ontology.namespace);
-  const stateText = problems
-    ? `${problems} problem${problems === 1 ? "" : "s"}`
-    : warnings
-      ? `${warnings} note${warnings === 1 ? "" : "s"}`
-      : shown.length < findings.length
+  const stateText =
+    renameChoice && root.label.trim()
+      ? errors.length
+        ? "Ready to rename"
+        : "Ready to rename or create"
+      : createdRoot && !renameChoice
         ? "Created"
-        : root.label.trim()
-          ? "Ready to create"
-          : "Draft";
-  const changeRoot = (next: TextEntityClassDraft) =>
-    setValue((v) => ({ ...v, created: undefined, frames: [{ value: next }] }));
+        : problems
+          ? `${problems} problem${problems === 1 ? "" : "s"}`
+          : warnings
+            ? `${warnings} note${warnings === 1 ? "" : "s"}`
+            : shown.length < findings.length
+              ? "Created"
+              : root.label.trim()
+                ? "Ready to create"
+                : "Draft";
+  const changeRoot = (next: TextEntityClassDraft, nameOnly = false) =>
+    setValue((v) => ({
+      ...v,
+      created: nameOnly ? v.created : undefined,
+      createdRootIris: nameOnly ? v.createdRootIris : undefined,
+      frames: [{ value: next }],
+    }));
   useEffect(() => {
     changeDraft(value);
   }, [value, changeDraft]);
@@ -291,6 +320,7 @@ export function TextEntityCreate({
           : {
               ...v,
               created: result.created,
+              createdRootIris: [result.iri],
               error: undefined,
               frames: [
                 {
@@ -327,6 +357,64 @@ export function TextEntityCreate({
       if (mounted.current) setBusy(false);
     }
   };
+  const renameCreated = async () => {
+    if (
+      pending.current ||
+      !createdRoot ||
+      !renameChoice ||
+      !root.label.trim() ||
+      state?.datasetEpoch !== datasetEpoch
+    )
+      return;
+    pending.current = true;
+    setBusy(true);
+    const original = createdRoot,
+      name = root.label.trim(),
+      rootIris = value.createdRootIris;
+    try {
+      const iri = await request<string>("rename", {
+        iri: original.iri,
+        name,
+        datasetEpoch,
+      });
+      if (!mounted.current || state?.datasetEpoch !== datasetEpoch) return;
+      if (iri !== original.iri)
+        entityRetargeted(original.iri, iri, datasetEpoch);
+      await request("select", { iri, datasetEpoch });
+      const next = await request<Snapshot>("state");
+      if (
+        !mounted.current ||
+        next.datasetEpoch !== datasetEpoch ||
+        state?.datasetEpoch !== datasetEpoch
+      )
+        return;
+      setState(next);
+      setValue((v) =>
+        v.createdRootIris !== rootIris
+          ? v
+          : {
+              ...v,
+              created: [...new Set([...(v.created ?? []), iri])],
+              createdRootIris: [
+                iri,
+                ...(rootIris ?? []).filter((old) => old !== iri),
+              ],
+              error: undefined,
+            },
+      );
+      revealInOpenTaxonomy(iri);
+      notify(
+        `Renamed ${original.label ?? original.name} to ${name}.`,
+        `${iri === original.iri ? "The IRI did not change: " : "The placeholder IRI changed to "}${iri}. One Undo restores the old name${iri === original.iri ? "." : " and IRI."}`,
+      );
+    } catch (e) {
+      if (mounted.current)
+        setValue((v) => ({ ...v, error: (e as Error).message }));
+    } finally {
+      pending.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
   const mutate = (
     path: number[],
     edit: (n: TextEntityClassDraft) => TextEntityClassDraft,
@@ -348,6 +436,7 @@ export function TextEntityCreate({
     setValue((v) => ({
       ...v,
       created: undefined,
+      createdRootIris: undefined,
       frames: [{ value: walk(v.frames[0].value, 0) }],
     }));
   };
@@ -473,18 +562,7 @@ export function TextEntityCreate({
       label: "Re-run the title case conversion",
       disabled: !context || busy,
       run: () =>
-        setValue((v) => ({
-          ...v,
-          created: undefined,
-          frames: [
-            {
-              value: {
-                ...v.frames[0].value,
-                label: selectedEntityName(context),
-              },
-            },
-          ],
-        })),
+        changeRoot({ ...root, label: selectedEntityName(context) }, true),
     },
     { id: "separator", separator: true },
     { id: "copy", label: "Copy the planned source", run: () => void copy() },
@@ -510,7 +588,12 @@ export function TextEntityCreate({
               aria-pressed={kind === k}
               disabled={busy}
               onClick={() =>
-                setValue((v) => ({ ...v, created: undefined, kind: k }))
+                setValue((v) => ({
+                  ...v,
+                  created: undefined,
+                  createdRootIris: undefined,
+                  kind: k,
+                }))
               }
             >
               {k === "class" ? "Class" : "Individual"}
@@ -518,7 +601,7 @@ export function TextEntityCreate({
           ))}
         </span>
         <span
-          className={`state shared-command ${problems ? "badink" : warnings ? "warnink" : root.label.trim() ? "okink" : ""}`}
+          className={`state shared-command ${renameChoice && root.label.trim() ? "okink" : problems ? "badink" : warnings ? "warnink" : root.label.trim() ? "okink" : ""}`}
           data-shared-command="state"
           data-overflowed={hidden.has("state")}
           aria-hidden={hidden.has("state") || undefined}
@@ -526,9 +609,20 @@ export function TextEntityCreate({
           {stateText}
         </span>
         <span className="od-fill" />
+        {renameChoice && (
+          <button
+            type="button"
+            className="btn primary"
+            data-fixed-action
+            disabled={busy || !root.label.trim()}
+            onClick={() => void renameCreated()}
+          >
+            Rename
+          </button>
+        )}
         <button
           type="button"
-          className="btn primary"
+          className={renameChoice ? "btn" : "btn primary"}
           data-fixed-action
           disabled={
             busy ||
@@ -539,11 +633,13 @@ export function TextEntityCreate({
           }
           onClick={() => void submit()}
         >
-          {drafts === 0
-            ? "Create"
-            : drafts === 1
-              ? "Create both"
-              : "Create all"}
+          {renameChoice
+            ? "Create new"
+            : drafts === 0
+              ? "Create"
+              : drafts === 1
+                ? "Create both"
+                : "Create all"}
         </button>
         <span
           className="shared-command"
@@ -583,6 +679,11 @@ export function TextEntityCreate({
         <div className="work2">
           <div className="form">
             <div role="status" className="validation-band">
+              {renameChoice && (
+                <div className="vmsg rename-choice">
+                  {`${createdRoot!.label ?? createdRoot!.name} was created from this draft. Rename changes its name; Create new adds ${root.label.trim() || "a new entity"} beside it.`}
+                </div>
+              )}
               {shown.map((f, i) => (
                 <div className={`vmsg ${f.kind}`} key={i}>
                   <span
@@ -591,7 +692,7 @@ export function TextEntityCreate({
                   >
                     <span className="gl" />
                   </span>
-                  {f.message}
+                  {renameChoice ? `Create new: ${f.message}` : f.message}
                   {f.reveal && (
                     <>
                       {" "}
@@ -620,14 +721,29 @@ export function TextEntityCreate({
                     maxLength={256}
                     value={root.label}
                     onChange={(e) =>
-                      changeRoot({ ...root, label: e.target.value })
+                      changeRoot({ ...root, label: e.target.value }, true)
                     }
                   />
                   <div className="fnote">
-                    IRI{" "}
-                    <span className="mono">
-                      {addEntityIri(root.label, snapshot.ontology.namespace)}
-                    </span>
+                    {renameChoice ? (
+                      <>
+                        {replacesPlaceholder
+                          ? "Rename replaces the placeholder IRI "
+                          : "Rename keeps IRI "}
+                        <span className="mono">{createdRoot!.iri}</span>
+                        {"; Create new writes "}
+                        <span className="mono">{newIri}</span>
+                        {replacesPlaceholder &&
+                          ". Rename chooses an unused IRI from the new name."}
+                      </>
+                    ) : (
+                      <>
+                        IRI{" "}
+                        <span className="mono">
+                          {createdRoot?.iri ?? newIri}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -691,7 +807,7 @@ export function TextEntityCreate({
           </div>
           <div className="srcbox">
             <div className="sh">
-              Planned source
+              {renameChoice ? "Source for Create new" : "Planned source"}
               <span className="sn2">{`${drafts + 1} ${drafts ? "entities" : "entity"}, one transaction`}</span>
             </div>
             <pre className="sc" aria-label="Planned source" tabIndex={0}>

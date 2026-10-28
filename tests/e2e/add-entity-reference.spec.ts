@@ -387,8 +387,8 @@ test("creates a recursive draft atomically and retains the form after undo/redo"
     )
     .toBe(true);
 });
-// craigtrim/axiom#119: the class a Create wrote reads as its result, and the duplicate returns once the draft changes.
-test("a created class is not its own duplicate until the draft is edited", async () => {
+// #177: Name edits retain the created root; other edits still start a new draft.
+test("a created class stays its own result when Name changes and returns", async () => {
   f = await launchAddEntity();
   await f.setName("Speed Reading");
   const status = f.pane().locator('[data-shared-command="state"]'),
@@ -417,16 +417,11 @@ test("a created class is not its own duplicate until the draft is edited", async
   await expect(create).toBeDisabled();
   await f.setName("Speed Readings");
   await f.setName("Speed Reading");
-  await expect(band.locator(".vmsg.bad2")).toContainText(
-    "A class named Speed Reading already exists.",
-  );
-  await expect(
-    band.getByRole("button", { name: "Reveal Speed Reading", exact: true }),
-  ).toBeVisible();
-  await expect(status).toHaveText("1 problem");
-  await expect(status).toHaveClass(/badink/);
+  await expect(status).toHaveText("Created");
+  await expect(status).toHaveClass(/okink/);
+  await expect(band.locator(".vmsg")).toHaveCount(0);
   await expect(create).toBeDisabled();
-  await expect(f.pane().locator(".foot")).not.toContainText(
+  await expect(f.pane().locator(".foot")).toContainText(
     "created, and selected in Hierarchy",
   );
 });
@@ -545,4 +540,276 @@ test("blank forms enable Discard only for content in the row and overflow menu",
   await expect(
     pane.getByRole("button", { name: "Create", exact: true }),
   ).toBeDisabled();
+});
+
+// #177: exercise both explicit outcomes against the real store, including persisted identity.
+const createAction = (name: string) =>
+  f.pane().getByRole("button", { name, exact: true });
+const draftStatus = () => f.pane().locator('[data-shared-command="state"]');
+const rootDocument = (iri: string) =>
+  f.page.evaluate(
+    async (iri) =>
+      (
+        await window.axiom.request<{
+          statements: import("../../src/domain/model").Triple[];
+        }>("entityDocument", { iri })
+      ).statements,
+    iri,
+  );
+async function createTracked(name = "Speed Reading") {
+  await f.setName(name);
+  await createAction("Create").click();
+  await expect(draftStatus()).toHaveText("Created");
+  return (await f.state()).entities.find((e) => e.label === name)!.iri;
+}
+async function expectRenameChoice(
+  from = "Speed Reading",
+  to = "Speed Readings",
+) {
+  await expect(createAction("Rename")).toBeEnabled();
+  await expect(createAction("Create new")).toBeVisible();
+  await expect(createAction("Create")).toHaveCount(0);
+  await expect(f.pane().locator(".rename-choice")).toContainText(
+    `${from} was created from this draft. Rename changes its name; Create new adds ${to} beside it.`,
+  );
+  await expect(f.page.locator("dialog[open], :popover-open")).toHaveCount(0);
+}
+for (const kind of ["Class", "Individual"] as const)
+  test(`Add entity renames its created ${kind} only and one Undo restores every statement`, async () => {
+    f = await launchAddEntity("light", "Speed Reading");
+    await createAction(kind).click();
+    await f.choose("Writing Skills");
+    await f
+      .pane()
+      .getByRole("textbox", { name: "Comment", exact: true })
+      .fill("Keep this description.");
+    await f
+      .pane()
+      .getByRole("textbox", { name: "Value", exact: true })
+      .fill("Read quickly");
+    await createAction("Create both").click();
+    await expect(draftStatus()).toHaveText("Created");
+    const original = (await f.state()).entities.find(
+      (e) => e.label === "Speed Reading",
+    )!;
+    const parent = (await f.state()).entities.find(
+      (e) => e.label === "Writing Skills",
+    )!;
+    const before = await rootDocument(original.iri),
+      parentBefore = await rootDocument(parent.iri);
+    await f.setName("Speed Readings");
+    await expectRenameChoice();
+    await expect(draftStatus()).toHaveText("Ready to rename or create");
+    await expect(f.pane().locator(".fnote").first()).toContainText(
+      `Rename keeps IRI ${original.iri}; Create new writes ${f.fixture.base}SpeedReadings`,
+    );
+    if (kind === "Class") {
+      await f.page.screenshot({ path: "artifacts/issue-177/choice-wide.png" });
+      await f.size(360, 530);
+      await f.page.screenshot({
+        path: "artifacts/issue-177/choice-narrow.png",
+      });
+      for (const name of ["Rename", "Create new"]) {
+        const box = await createAction(name).boundingBox(),
+          bar = await f.pane().locator(".bar").boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width);
+      }
+    }
+    const version = (await f.state()).version;
+    await createAction("Rename").click();
+    await expect(draftStatus()).toHaveText("Created");
+    await expect(createAction("Create")).toBeDisabled();
+    await expect(f.pane().locator(".toast")).toContainText(
+      "Renamed Speed Reading to Speed Readings.",
+    );
+    await expect(f.pane().locator(".toast")).toContainText(
+      "The IRI did not change",
+    );
+    const after = await f.state();
+    expect(after.version).toBe(version + 1);
+    expect(
+      after.entities.filter((e) => e.label === "Speed Reading"),
+    ).toHaveLength(0);
+    expect(
+      after.entities
+        .filter((e) => e.label === "Speed Readings")
+        .map((e) => e.iri),
+    ).toEqual([original.iri]);
+    expect(after.selected).toBe(original.iri);
+    const changed = await rootDocument(original.iri);
+    expect(changed.filter((t) => t.predicate !== NS.rdfs + "label")).toEqual(
+      before.filter((t) => t.predicate !== NS.rdfs + "label"),
+    );
+    expect(await rootDocument(parent.iri)).toEqual(parentBefore);
+    await addEntityMenu(f.app, "edit.undo");
+    await expect.poll(() => rootDocument(original.iri)).toEqual(before);
+    await expectRenameChoice();
+    expect(await rootDocument(parent.iri)).toEqual(parentBefore);
+    await addEntityMenu(f.app, "edit.redo");
+    await expect(draftStatus()).toHaveText("Created");
+    expect(await rootDocument(original.iri)).toEqual(changed);
+  });
+
+for (const kind of ["Class", "Individual"] as const)
+  test(`Add entity Create new preserves the first ${kind} and tracks the second`, async () => {
+    f = await launchAddEntity("light", "Speed Reading");
+    await createAction(kind).click();
+    const first = await createTracked(),
+      before = await rootDocument(first);
+    await f.setName("Speed Readings");
+    await expectRenameChoice();
+    await createAction("Create new").click();
+    await expect(draftStatus()).toHaveText("Created");
+    const second = (await f.state()).entities.find(
+      (e) => e.label === "Speed Readings",
+    )!.iri;
+    expect(second).not.toBe(first);
+    expect(await rootDocument(first)).toEqual(before);
+    await f.setName("Speed Reading Skills");
+    await expectRenameChoice("Speed Readings", "Speed Reading Skills");
+    await createAction("Rename").click();
+    await expect(draftStatus()).toHaveText("Created");
+    expect(
+      (await f.state()).entities.find((e) => e.iri === second)?.label,
+    ).toBe("Speed Reading Skills");
+    expect(await rootDocument(first)).toEqual(before);
+  });
+
+test("Add entity edited Name choice follows creation Undo and Redo", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  await f.setName("Speed Readings");
+  await expectRenameChoice();
+  // Native Undo belongs to Name while it has text focus; target ontology history here.
+  await createAction("Rename").focus();
+  await addEntityMenu(f.app, "edit.undo");
+  await expect(createAction("Rename")).toHaveCount(0);
+  await expect(createAction("Create")).toBeEnabled();
+  expect((await f.state()).entities.some((e) => e.iri === iri)).toBe(false);
+  await addEntityMenu(f.app, "edit.redo");
+  await expectRenameChoice();
+  await f.setName("Speed Reading");
+  await expect(draftStatus()).toHaveText("Created");
+  await expect(f.pane().locator(".validation-band .vmsg")).toHaveCount(0);
+  await expect(createAction("Create")).toBeDisabled();
+});
+
+test("Add entity non-Name edits release the created root identity", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  const before = await rootDocument(iri);
+  await f.setName("Speed Readings");
+  await expectRenameChoice();
+  await f
+    .pane()
+    .getByRole("textbox", { name: "Comment", exact: true })
+    .fill("Another description");
+  await expect(createAction("Rename")).toHaveCount(0);
+  await expect(createAction("Create")).toBeEnabled();
+  await f.setName("Speed Reading");
+  await expect(draftStatus()).toHaveText("1 problem");
+  await expect(f.pane().locator(".vmsg.bad2")).toContainText("already exists");
+  expect(await rootDocument(iri)).toEqual(before);
+});
+
+test("Add entity rename choice survives saving and restart", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  await f.setName("Speed Readings");
+  await expectRenameChoice();
+  await addEntityMenu(f.app, "file.save");
+  const profile = f.profile;
+  await f.close();
+  expect(f.errors).toEqual([]);
+  f = await launchAddEntity("light", "", profile);
+  await expectRenameChoice();
+  await createAction("Rename").click();
+  await expect(draftStatus()).toHaveText("Created");
+  expect((await f.state()).entities.find((e) => e.iri === iri)?.label).toBe(
+    "Speed Readings",
+  );
+});
+
+test("Add entity placeholder rename keeps existing rename rules and survives Undo and Redo", async () => {
+  f = await launchAddEntity("light", "New Class");
+  const original = await createTracked("New Class");
+  const engineering = await rootDocument(f.fixture.base + "Engineering");
+  await f.setName("Engineering");
+  await expectRenameChoice("New Class", "Engineering");
+  await expect(createAction("Create new")).toBeDisabled();
+  await expect(draftStatus()).toHaveText("Ready to rename");
+  await expect(f.pane().locator(".fnote").first()).toContainText(
+    "Rename replaces the placeholder IRI",
+  );
+  await createAction("Rename").click();
+  await expect(draftStatus()).toHaveText("Created");
+  await expect(f.pane().locator(".validation-band .vmsg")).toHaveCount(0);
+  const renamed = f.fixture.base + "Engineering2";
+  expect((await f.state()).entities.some((e) => e.iri === original)).toBe(
+    false,
+  );
+  expect((await f.state()).entities.find((e) => e.iri === renamed)?.label).toBe(
+    "Engineering",
+  );
+  await expect(f.pane().locator(".toast")).toContainText(
+    `The placeholder IRI changed to ${renamed}`,
+  );
+  expect(await rootDocument(f.fixture.base + "Engineering")).toEqual(
+    engineering,
+  );
+  await addEntityMenu(f.app, "edit.undo");
+  await expectRenameChoice("New Class", "Engineering");
+  expect(
+    (await f.state()).entities.find((e) => e.iri === original)?.label,
+  ).toBe("New Class");
+  await addEntityMenu(f.app, "edit.redo");
+  await expect(draftStatus()).toHaveText("Created");
+  await f.setName("Engineering Seminar");
+  await expectRenameChoice("Engineering", "Engineering Seminar");
+  await createAction("Rename").click();
+  await expect(draftStatus()).toHaveText("Created");
+  expect((await f.state()).entities.find((e) => e.iri === renamed)?.label).toBe(
+    "Engineering Seminar",
+  );
+});
+
+test("Add entity pending rename preserves newer Name edits and the root identity", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  await f.setName("Speed Readings");
+  await expectRenameChoice();
+  await holdRequests(f.app, ["rename"]);
+  try {
+    await createAction("Rename").click();
+    await waitForHeld(f.app);
+    // The real store broadcasts the completed rename before this fixture releases its reply.
+    await expect
+      .poll(
+        async () =>
+          (await f.state()).entities.find((e) => e.iri === iri)?.label,
+      )
+      .toBe("Speed Readings");
+    await expect(createAction("Create")).toBeDisabled();
+    await f.setName("Speed Reading Skills");
+    await expect(createAction("Rename")).toBeDisabled();
+    await expect(createAction("Create new")).toBeDisabled();
+    expect(await requestCount(f.app, "rename")).toBe(1);
+    await releaseRequests(f.app);
+    await expect
+      .poll(
+        async () =>
+          (await f.state()).entities.find((e) => e.iri === iri)?.label,
+      )
+      .toBe("Speed Readings");
+    await expect(f.name()).toHaveValue("Speed Reading Skills");
+    await expectRenameChoice("Speed Readings", "Speed Reading Skills");
+    await createAction("Rename").click();
+    await expect(draftStatus()).toHaveText("Created");
+    expect((await f.state()).entities.find((e) => e.iri === iri)?.label).toBe(
+      "Speed Reading Skills",
+    );
+  } finally {
+    await releaseRequests(f.app);
+  }
 });
