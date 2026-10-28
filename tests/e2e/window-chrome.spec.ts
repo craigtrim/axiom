@@ -458,9 +458,18 @@ for (const theme of ["light", "dark"])
 test("menus share native state and support keyboard navigation, compact folds, scrolling and the palette", async () => {
   await launch("light");
   const native = await page.evaluate(() => window.axiom.chrome.menus());
+  const ready = async (label: string, initial: "first" | "menu") => {
+    await expect(menus()).toHaveAttribute("aria-label", label);
+    // The DOM can appear before the opening effect assigns focus. Observe the
+    // application's focus transition before sending the next navigation key.
+    await expect(
+      initial === "menu" ? menus() : menus().locator(".mi").first(),
+    ).toBeFocused();
+  };
   for (const root of native) {
     await title().locator(`[data-menu-id="${root.id}"]`).click();
     await expect(menus()).toHaveCount(1);
+    await ready(root.label, "menu");
     const rows = menus().locator(".mi");
     const expected = root.children!.filter((i) => !i.separator && i.visible);
     expect(await rows.locator(".lab").allTextContents()).toEqual(
@@ -486,20 +495,20 @@ test("menus share native state and support keyboard navigation, compact folds, s
   }
   for (const [i, root] of native.entries()) {
     await page.keyboard.press("Alt+" + root.key.toLowerCase());
-    await expect(menus()).toHaveAttribute("aria-label", root.label);
+    await ready(root.label, "first");
     await page.keyboard.press("Escape");
     await page.keyboard.press("F10");
     await expect(title().locator('[data-menu-id="menu.file"]')).toBeFocused();
     for (let n = 0; n < i; n++) await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowDown");
-    await expect(menus()).toHaveAttribute("aria-label", root.label);
+    await ready(root.label, "first");
     await page.keyboard.press("Escape");
   }
   await page.keyboard.press("Alt");
   await expect(title().locator('[data-menu-id="menu.file"]')).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowDown");
-  await expect(menus()).toHaveAttribute("aria-label", "Edit");
+  await ready("Edit", "first");
   await page.keyboard.press("End");
   await expect(menus().locator(".mi").last()).toBeFocused();
   await page.keyboard.press("Home");
@@ -508,11 +517,11 @@ test("menus share native state and support keyboard navigation, compact folds, s
   await page.keyboard.press("F10");
   await expect(title().locator('[data-menu-id="menu.file"]')).toBeFocused();
   await page.keyboard.press("Alt+v");
-  await expect(menus()).toHaveAttribute("aria-label", "View");
+  await ready("View", "first");
   await page.keyboard.press("Escape");
   await resize(840, 600);
   await title().locator('[data-menu-id="menu.view"]').click();
-  await expect(menus()).toHaveAttribute("aria-label", "View");
+  await ready("View", "menu");
   await page.keyboard.press("End");
   await expect(menus().locator(".mi").last()).toBeInViewport();
   expect(await menus().evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(
@@ -525,11 +534,15 @@ test("menus share native state and support keyboard navigation, compact folds, s
     .getByRole("button", { name: "Application menu", exact: true })
     .click();
   await expect(menus().locator(".mi")).toHaveCount(8);
+  await ready("Application menu", "menu");
   await page.keyboard.press("Home");
+  await expect(menus().locator(".mi").first()).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(menus()).toHaveCount(2);
+  await expect(menus().last().locator(".mi").first()).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menus()).toHaveCount(1);
+  await expect(menus().locator(".mi").first()).toBeFocused();
   await page.keyboard.press("Escape");
   await title().locator(".doc").click();
   await expect(

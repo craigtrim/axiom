@@ -35,15 +35,12 @@ jobs:
             artifacts/quiet-qualification/**
             artifacts/quiet/results.json
             artifacts/test-results/**
-  windows:
+  # Build and packaged checks run alongside the full UI suite, without delaying it.
+  package:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     env:
       AXIOM_EMBEDDING_MODEL_DIR: ${{ github.workspace }}/artifacts/ci-model
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,32 +61,24 @@ jobs:
         shell: powershell
         run: .\scripts\setup-ci-display.ps1
       - run: npm run check:docs
-        if: matrix.shard == 1
       - run: npm run typecheck
-        if: matrix.shard == 1
       - run: npm test
-        if: matrix.shard == 1
       - run: npm run test:ci-delivery
-        if: matrix.shard == 1
       - run: npm run build
       # The shared component specimens use Playwright's Chromium (craigtrim/axiom#81).
       - run: npx playwright install chromium
       # #165: expose the repaired asynchronous and visual regressions early.
       # A passing run still executes every one of these in the full inventory.
       - name: Check native regressions first
-        if: matrix.shard == 1
         run: node --import tsx scripts/test-native-ci.mjs regression
       # #166: exercise the actual executable early; the local gate still requires
       # the entire workflow, including every native shard, to finish successfully.
       - run: npm run package
-        if: matrix.shard == 1
         env:
           AXIOM_LOCAL_BUILD: "1"
       - name: Verify packaged executable
-        if: matrix.shard == 1
         run: node --import tsx scripts/check-ci-package.mjs
       - uses: actions/upload-artifact@v4
-        if: matrix.shard == 1
         with:
           name: axiom-candidate-${{ github.run_attempt }}
           retention-days: 7
@@ -98,11 +87,49 @@ jobs:
           path: |
             artifacts/installer/**
             artifacts/candidate.json
-      # #165: execute the full inventory even after a failure, so reports account
-      # for every case. Files retain their serial execution within each shard.
-      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
       - run: npm audit --audit-level=moderate
-        if: matrix.shard == 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: axiom-package-checks
+          retention-days: 7
+          path: |
+            artifacts/playwright-report/**
+            artifacts/test-results/**
+            artifacts/native/**
+            artifacts/packaged/**
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      AXIOM_EMBEDDING_MODEL_DIR: ${{ github.workspace }}/artifacts/ci-model
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # #165: native tests must use real dependencies instead of silently skipping.
+      - name: Install verified Mutatoc runtime
+        shell: powershell
+        run: .\scripts\setup-ci-mutatoc.ps1
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.AXIOM_EMBEDDING_MODEL_DIR }}
+          key: mpnet-fp32-${{ runner.os }}-${{ hashFiles('src/shared/embeddings.ts') }}
+      - run: npm run setup:embeddings
+      - name: Configure native test display
+        shell: powershell
+        run: .\scripts\setup-ci-display.ps1
+      - run: npm run build
+      - run: npx playwright install chromium
+      # Each VM runs one test at a time. The local desktop group is required at delivery.
+      - run: node --import tsx scripts/test-native-ci.mjs ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -112,4 +139,3 @@ jobs:
             artifacts/playwright-report/**
             artifacts/test-results/**
             artifacts/native/**
-            artifacts/packaged/**

@@ -31,7 +31,8 @@
     "test:text-analysis": "node scripts/test-text-analysis.mjs",
     "test:desktop": "playwright test --config config/playwright.config.ts",
     "test:quiet": "node scripts/test-quiet.mjs",
-    "test:quiet:qualify": "node scripts/qualify-quiet.mjs"
+    "test:quiet:qualify": "node scripts/qualify-quiet.mjs",
+    "test:desktop:local": "node scripts/test-local-desktop.mjs"
   },
   "dependencies": {
     "@comunica/actor-function-factory-term-datatype": "5.4.0",

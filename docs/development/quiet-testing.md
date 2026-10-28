@@ -11,17 +11,17 @@ Electron. Use the direct Node command for arguments in PowerShell; forwarding
 arguments through an npm PowerShell wrapper can lose them.
 The command rejects arbitrary arguments and packaged executables. Unexpected
 native dialogs, menus, or native-window maximization report that the test requires
-the normal Windows CI suite. Maximization can reveal a hidden Electron window;
+the normal native test stage. Maximization can reveal a hidden Electron window;
 quiet mode rejects it rather than pretending to establish maximized geometry.
 Do not set `AXIOM_TEST_QUIET` manually for unqualified specs.
 
 ## Coverage allocation
 
-| Test                                                                                      | Quiet coverage                                                                                                                 | Normal Windows CI coverage                           |
+| Test                                                                                      | Quiet coverage                                                                                                                 | Normal native coverage                               |
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
 | `state-updates.spec.ts`: a label delta refreshes Hierarchy, Find, Individuals and Details | Same scenario and assertions; real IPC edits and renderer results                                                              | Retained in the full desktop suite and qualification |
 | `tests/quiet/window-policy.spec.ts`                                                       | Startup, hidden child/reference windows, activation requests, DOM keyboard input, rendered pixels, and rejected native dialogs | Quiet policy is exercised on a Windows runner        |
-| Every other desktop spec, including future specs                                          | Unqualified; excluded from the quiet command                                                                                   | Retained in the full native desktop suite            |
+| Every other desktop spec, including future specs                                          | Unqualified; excluded from the quiet command                                                                                   | Required in CI or the explicit local desktop stage   |
 
 The allowlist includes exact scenario names. Adding a test to a file does not
 automatically qualify it. The quiet runner requires both listed cases to pass
@@ -49,14 +49,15 @@ equivalence for native activation or pixel baselines in other suites.
 
 New families need the same passing baseline and meaningful negative control before
 joining the allowlist. Preserve their assertions, screenshot tolerances, and native
-coverage; move tests that cannot meet those conditions to Windows CI. Keep the full
-desktop suite there while qualification remains partial.
+coverage. Tests that cannot run quietly still run visibly, either on GitHub or in
+the required local desktop stage. Quiet qualification does not decide whether a
+test is reliable on a hosted desktop.
 
 The native CI suite uses a verified 1920 by 1080 display. A smaller hosted display
 can put otherwise ordinary panes into their responsive recovery state and hide
-the controls a journey is meant to exercise. Four Windows shards retain the full
-normal suite; tests within each file remain serial. Display setup runs only in CI
-and never changes the local desktop.
+the controls a journey is meant to exercise. Eight Windows shards execute the CI
+portion; tests within each file remain serial. Display setup runs only in CI and
+never changes the local desktop.
 
 Native CI installs the checksum-pinned Mutatoc 0.7.0 runtime and the project's
 pinned full-precision MPNet model before validation. Their tests must execute
@@ -102,18 +103,31 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-The first Windows shard also runs 34 focused regression cases before its full
-inventory: all eight Individuals visual cases, the Details authoring save journey,
-the Find result-to-graph and Quick Find action journeys, the controlled preview
-failure, edge-drawing cancellation after closing a graph, and the DOAP
-save/close/reopen and unnamed-workspace recovery journeys. It also checks both
-#169 blank-draft journeys and Add entity frames 12 and 19 in both themes, plus
-Touchpoints menu frames 14 and 15 and the Quality running bar in both themes,
-the Text Analysis caret-click journeys with Auto on and off, and Hierarchy
-frame 27 in both themes. All three edge/count visibility, export, Undo and
-persistence journeys also run here. This gives earlier evidence when repairing
-these failures. It does not replace their normal full-suite coverage, add retries,
-or create another parallel runner. A failure still fails the CI run.
+An independent build/package job runs 49 focused CI regression cases before its
+packaged checks. The same cases remain in the regular CI inventory. Export
+comparisons wait for complete expected RDF semantics, and export-history checks
+wait for a preceding pane-close history entry. This adds earlier feedback without
+retries or advisory failures.
+
+## Required local desktop stage
+
+Craig authorized a hybrid split after desktop-sensitive tests proved unreliable
+on hosted Windows. The exact assignment is maintained in
+`scripts/hybrid-test-policy.mjs`: Touchpoints menu frames 14 and 15 in both themes,
+Quality's running bar in both themes, Hierarchy frame 27 in both themes, the two
+Text Analysis caret-click cases, and the window-menu keyboard journey. These 11
+cases run locally with their existing assertions and may display or focus windows.
+The remaining 1,436 listed native cases run on GitHub, including the one existing
+opt-in benchmark exemption. The CI selection is the exact inverse of the local
+selection, so moving a case changes its execution location without removing it.
+
+Run `npm run test:desktop:local` from a clean checkout to validate the local group.
+The command rebuilds that revision, runs one test at a time, and requires all 11
+to pass without retries or skips. Reports are in `artifacts/local-desktop`.
+`npm run build:exe` runs this group itself after verifying the CI candidate.
+Delivery requires fresh local evidence for the same source commit and tree, and
+retains that evidence in its receipt. A passing GitHub run alone cannot authorize
+an EXE. The two-case quiet allowlist remains unchanged.
 
 Individuals captures must settle to the same bitmap across fresh paint-layer
 setups before comparison with the independent reference. Stability is decided
