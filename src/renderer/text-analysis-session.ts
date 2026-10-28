@@ -31,6 +31,8 @@ export interface TextEntityDraft {
   origin?: "selection" | "find" | "blank";
   phrase?: string;
   created?: string[];
+  // #177: root identifiers remain distinct from parents, including rename Undo aliases.
+  createdRootIris?: string[];
   error?: string;
   frames: { value: TextEntityClassDraft; editIndex?: number }[];
 }
