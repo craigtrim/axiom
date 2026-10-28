@@ -1048,7 +1048,14 @@ const moreTrigger = () =>
 const moreDialog = () =>
   pane().getByRole("dialog", { name: "More finding options", exact: true });
 async function openMore() {
-  if (!(await moreDialog().isVisible())) await moreTrigger().click();
+  if (!(await moreDialog().isVisible())) {
+    await moreTrigger().click();
+    await expect(moreDialog()).toBeVisible();
+    // #165: filling a filter must wait for native opening focus to finish.
+    await expect(
+      moreDialog().locator("select, input, button:not(:disabled)").first(),
+    ).toBeFocused();
+  }
   await expect(moreDialog()).toBeVisible();
 }
 
