@@ -40,6 +40,9 @@ export async function launchHierarchy(theme = "light", savedProfile?: string) {
   const app = await _electron.launch({
     args: [
       ".",
+      // Load the real RDF through the application launch path. Fixture setup
+      // must not request a final-save capture while the renderer is mounting.
+      ...(!savedProfile ? [file] : []),
       "--force-device-scale-factor=2",
       "--disable-lcd-text",
       "--disable-gpu",
@@ -71,12 +74,23 @@ export async function launchHierarchy(theme = "light", savedProfile?: string) {
   }, file);
   const state = () =>
     page.evaluate(() => window.axiom.request<Snapshot>("state"));
-  if (!savedProfile) await hierarchyMenu(app, "file.open");
-  await expect
-    .poll(async () =>
-      (await state()).entities.some((e) => e.iri === fixture.iri("Agent")),
-    )
-    .toBe(true);
+  try {
+    await expect
+      .poll(
+        async () =>
+          (await state()).entities.some((e) => e.iri === fixture.iri("Agent")),
+        {
+          timeout: 30000,
+          message: "The real Hierarchy seed ontology must finish loading",
+        },
+      )
+      .toBe(true);
+  } catch (error) {
+    // A failed launch has not returned its app to afterEach; dispose only this
+    // fixture's process so it cannot interfere with the remaining native cases.
+    await app.evaluate(({ app }) => app.exit(1)).catch(() => {});
+    throw error;
+  }
   await hierarchyMenu(app, "view.hierarchy");
   const host = page.locator('.adaptive-pane[data-pane-id="hierarchy"]');
   const pane = host.getByRole("region", {
