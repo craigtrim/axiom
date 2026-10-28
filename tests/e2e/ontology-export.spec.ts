@@ -93,15 +93,33 @@ async function written(file: string) {
     .not.toBeNull();
   return readFile(file, "utf8");
 }
+async function expectExport(file: string, before: SourceDocument) {
+  const expected = await canonicalText(
+    before.text,
+    "before." + (before.format === "trig" ? "trig" : "ttl"),
+  );
+  // Creating the file does not mean writeFile has finished. Wait for the exact
+  // canonical RDF, so empty, truncated, or partially written exports cannot
+  // pass merely because the path exists or an incomplete prefix parses.
+  await expect
+    .poll(
+      async () => {
+        try {
+          return await canonicalText(await readFile(file, "utf8"), file);
+        } catch (error) {
+          return { unreadableExport: String(error) };
+        }
+      },
+      {
+        message: "Export must finish writing the exact committed RDF snapshot",
+      },
+    )
+    .toBe(expected);
+}
 async function exportMatches(before: SourceDocument, name = "export.ttl") {
   const file = await chooseOutput(name);
   await menu("file.exportOntology");
-  expect(await canonicalText(await written(file), file)).toBe(
-    await canonicalText(
-      before.text,
-      "before." + (before.format === "trig" ? "trig" : "ttl"),
-    ),
-  );
+  await expectExport(file, before);
   return file;
 }
 async function openDetails() {
@@ -354,9 +372,7 @@ test("an automatic cell save finishing during the file dialog belongs to the nex
     .poll(async () => (await sourceDocument()).text)
     .toContain("Automatic commit during dialog");
   await app.evaluate(() => (globalThis as any).__releaseExport());
-  expect(await canonicalText(await written(file), file)).toBe(
-    await canonicalText(before.text, "before.ttl"),
-  );
+  await expectExport(file, before);
   await expect(comment).toHaveValue("Automatic commit during dialog");
   await exportMatches(await sourceDocument(), "subsequent.ttl");
 });

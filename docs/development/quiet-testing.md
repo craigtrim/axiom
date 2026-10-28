@@ -102,7 +102,7 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-The first Windows shard also runs 34 focused regression cases before its full
+The first Windows shard also runs 60 focused regression cases before its full
 inventory: all eight Individuals visual cases, the Details authoring save journey,
 the Find result-to-graph and Quick Find action journeys, the controlled preview
 failure, edge-drawing cancellation after closing a graph, and the DOAP
@@ -111,7 +111,11 @@ save/close/reopen and unnamed-workspace recovery journeys. It also checks both
 Touchpoints menu frames 14 and 15 and the Quality running bar in both themes,
 the Text Analysis caret-click journeys with Auto on and off, and Hierarchy
 frame 27 in both themes. All three edge/count visibility, export, Undo and
-persistence journeys also run here. This gives earlier evidence when repairing
+persistence journeys also run here, along with all 25 ontology export cases.
+Export comparisons wait for the complete expected RDF semantics, rather than
+accepting a newly created file before its write finishes. The window-menu keyboard
+journey also verifies initial menu focus before subsequent navigation keys.
+This gives earlier evidence when repairing
 these failures. It does not replace their normal full-suite coverage, add retries,
 or create another parallel runner. A failure still fails the CI run.
 
