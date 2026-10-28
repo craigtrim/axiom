@@ -13,7 +13,13 @@ import {
 import type { Store, ClassCreation } from "./store";
 
 // craigtrim/axiom#93: validate every drafted node before the single store transaction.
-function inspect(store: Store, value: unknown, datasetEpoch: number) {
+// #169: preview permits an unnamed root; creation still validates it before writing.
+function inspect(
+  store: Store,
+  value: unknown,
+  datasetEpoch: number,
+  requireRootName: boolean,
+) {
   const input = readAddEntityInput(value),
     findings: AddEntityFinding[] = [];
   const classes: ClassCreation[] = [],
@@ -28,13 +34,14 @@ function inspect(store: Store, value: unknown, datasetEpoch: number) {
     const bad = (message: string, reveal?: AddEntityFinding["reveal"]) =>
       findings.push({ kind: "bad2", message, reveal });
     let duplicate = false;
-    if (!name)
-      bad(
-        i
-          ? "A drafted parent needs a name."
-          : "A name is required before this can be created.",
-      );
-    else {
+    if (!name) {
+      if (i || requireRootName)
+        bad(
+          i
+            ? "A drafted parent needs a name."
+            : "A name is required before this can be created.",
+        );
+    } else {
       const draft = textAnalysisDraft(store, name, datasetEpoch);
       if (!i) defaultParent = draft.defaultParent;
       const existing = draft.existing[0];
@@ -115,7 +122,7 @@ function inspect(store: Store, value: unknown, datasetEpoch: number) {
       language: "en",
     });
   }
-  if (!findings.some((f) => f.kind === "bad2")) {
+  if (classes[0].name && !findings.some((f) => f.kind === "bad2")) {
     try {
       store.planClassHierarchy(classes);
     } catch (e) {
@@ -134,10 +141,10 @@ function inspect(store: Store, value: unknown, datasetEpoch: number) {
   };
 }
 export function checkAddEntity(store: Store, value: unknown, epoch: number) {
-  return inspect(store, value, epoch).check;
+  return inspect(store, value, epoch, false).check;
 }
 export function createAddEntity(store: Store, value: unknown, epoch: number) {
-  const { classes, check } = inspect(store, value, epoch);
+  const { classes, check } = inspect(store, value, epoch, true);
   const first = check.findings.find((f) => f.kind === "bad2");
   if (first) throw Error(first.message);
   const ids = store.createClassHierarchy(classes);
