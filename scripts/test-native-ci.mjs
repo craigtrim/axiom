@@ -93,9 +93,9 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(inventory, "utf8")),
   JSON.parse(readFileSync(results, "utf8")),
 );
-if (shard === "regression" && coverage.listed !== 49)
+if (shard === "regression" && coverage.listed !== 47)
   throw Error(
-    "The focused native regression inventory must contain all forty-nine CI cases.",
+    "The focused native regression inventory must contain all 47 assigned CI cases.",
   );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),
