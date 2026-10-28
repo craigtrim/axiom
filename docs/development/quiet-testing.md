@@ -102,11 +102,11 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-The first Windows shard also runs thirteen focused regression cases before its full
+The first Windows shard also runs fifteen focused regression cases before its full
 inventory: all eight Individuals visual cases, the Details authoring save journey,
 the Find result-to-graph and Quick Find action journeys, the controlled preview
-failure, and edge-drawing
-cancellation after closing a graph. This gives earlier evidence when repairing
+failure, edge-drawing cancellation after closing a graph, and the DOAP
+save/close/reopen and unnamed-workspace recovery journeys. This gives earlier evidence when repairing
 these failures. It does not replace their normal full-suite coverage, add retries,
 or create another parallel runner. A failure still fails the CI run.
 

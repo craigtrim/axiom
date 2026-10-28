@@ -36,10 +36,12 @@ npm run package
 
 Packaging builds the installer and the unpacked application under artifacts/installer/, and prints the absolute path to both. The latest build is also recorded in artifacts/latest-electron.json.
 
-Run `npm run build:exe` to build and verify a Windows executable. Craig's local
-shortcut is D:\git\axiom\Build-Axiom-EXE.ps1. The helper checks TypeScript, builds
-the installer, runs focused packaged tests and verifies the bundled files. It prints
-the application and installer paths. See [installation](docs/guides/installation.md).
+Run `npm run build:exe` to obtain the Windows executable verified by GitHub CI.
+Craig's local shortcut is D:\git\axiom\Build-Axiom-EXE.ps1. The helper requires a
+successful current run for the exact clean source revision, downloads the tested
+package and verifies all file checksums without opening application windows.
+See [CI delivery](docs/development/ci-delivery.md) and
+[installation](docs/guides/installation.md).
 
 ## Repository layout
 

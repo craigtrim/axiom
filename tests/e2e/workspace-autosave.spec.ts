@@ -1,5 +1,7 @@
 // craigtrim/axiom#94: the Source action row reports draft state directly.
 // Issue 85: Details fields use predicate names and per-group value numbers.
+// #166: reopening a recovered workspace waits for Close to finish its checkpoint.
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -173,6 +175,7 @@ test("an unnamed workspace saves on File Close and remains accessible as a compl
   await expect
     .poll(async () => (await state()).entities.some((e) => e.iri === iri))
     .toBe(false);
+  await waitWorkspaceCheckpoint(app!, page);
   const files = (await readdir(path.join(profile, "workspaces"))).filter((f) =>
     f.endsWith(".axiom"),
   );
