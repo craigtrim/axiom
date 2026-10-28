@@ -166,12 +166,12 @@ export function TextEntityCreate({
     !isDefaultIdentifier(newIri);
   const findings = check.value?.findings ?? [],
     errors = findings.filter((f) => f.kind === "bad2");
-  // craigtrim/axiom#119: what this draft just wrote is its result, so the band leaves it out while Create stays blocked.
+  // #119/#177: hide the completed result, but explain blocked creation during a rename choice.
   const shown = findings.filter(
       (f) =>
         !f.reveal ||
-        (!value.created?.includes(f.reveal.iri) &&
-          !(createdRoot && !renameChoice)),
+        (renameChoice ||
+          (!value.created?.includes(f.reveal.iri) && !createdRoot)),
     ),
     problems = shown.filter((f) => f.kind === "bad2").length,
     warnings = shown.length - problems;

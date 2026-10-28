@@ -473,10 +473,16 @@ for (const label of ["Law & Society", "Law and Society"]) {
     await create()
       .getByRole("textbox", { name: "Name", exact: true })
       .fill("Law & Society");
+    // #177: Name edits retain the root; duplicate creation stays blocked.
     await expect(
-      create().getByRole("button", { name: "Create", exact: true }),
+      create().getByRole("button", { name: "Create new", exact: true }),
     ).toBeDisabled();
-    await expect(create().locator(".vmsg")).toContainText("already exists");
+    await expect(
+      create().getByRole("button", { name: "Rename", exact: true }),
+    ).toBeEnabled();
+    await expect(create().locator(".vmsg.bad2")).toContainText(
+      "Create new: A class named Law and Society already exists.",
+    );
   });
 }
 

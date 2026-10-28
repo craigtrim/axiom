@@ -2,6 +2,17 @@
 // CI runs the exact complement; neither group is optional for delivery.
 // Keep keyboard/menu/modal suites and named focus/caret/overflow contracts together.
 export const localDesktopCases = [
+  // #177 validation: retain cross-window focus and camera/keyboard checks locally.
+  {
+    file: "multi-instance.spec.ts",
+    title:
+      "Open, Recent and Save As refuse another instance's file without changing either workspace",
+  },
+  {
+    file: "graph-spacing.spec.ts",
+    title:
+      "the footer slider changes every layout, keeps zoom and pins, and retains spacing on relayout",
+  },
   // #174: native context-menu key handling and focus restoration run locally.
   {
     file: "find.spec.ts",
