@@ -212,12 +212,23 @@ test("main, worker and window failures each leave one detailed record", async ()
   expect(gone.details["Axiom processes"]).toBeTruthy();
 
   // Closing needs a live renderer to capture the open views, so restore one first.
+  // Playwright's page does not follow a crashed renderer, so main checks the new one.
   await app!.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].webContents.reload(),
   );
-  await expect(
-    page.getByRole("contentinfo", { name: "Workbench status" }),
-  ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        app!.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]
+            .webContents.executeJavaScript(
+              `!!document.querySelector('[aria-label="Workbench status"]')`,
+            )
+            .catch(() => false),
+        ),
+      { timeout: 30000 },
+    )
+    .toBe(true);
   // Every record is listed by the Error Log after a clean restart, with no unexpected-exit record.
   await app!.close();
   await launch();
