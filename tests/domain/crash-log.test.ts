@@ -171,13 +171,33 @@ it("reports a run that never closed, with its last activity", async () => {
     processes: "",
     activity: [],
   }));
-  const previous = next.previous();
-  expect(previous).toMatchObject({
-    runId: crashed.runId,
-    pid: process.pid,
-    workspace: "schools.ttl",
-    processes: "Browser pid 1",
-    activity: [{ method: "individualGrid", args: "page=2" }],
+  expect(next.previous()).toMatchObject({
+    state: "open",
+    run: {
+      runId: crashed.runId,
+      pid: process.pid,
+      workspace: "schools.ttl",
+      processes: "Browser pid 1",
+      activity: [{ method: "individualGrid", args: "page=2" }],
+    },
+  });
+});
+
+it("claims the folder synchronously at start, before any activity", () => {
+  const crashed = new RunLog(root, () => ({
+    workspace: "",
+    processes: "",
+    activity: [],
+  }));
+  crashed.start();
+  const next = new RunLog(root, () => ({
+    workspace: "",
+    processes: "",
+    activity: [],
+  }));
+  expect(next.previous()).toMatchObject({
+    state: "open",
+    run: { runId: crashed.runId, activity: [] },
   });
 });
 
@@ -187,6 +207,7 @@ it("treats a closed run as normal even when an activity write lands after the cl
     processes: "",
     activity: [],
   }));
+  run.start();
   run.touch();
   run.close();
   run.touch();
@@ -200,17 +221,17 @@ it("treats a closed run as normal even when an activity write lands after the cl
       processes: "",
       activity: [],
     })).previous(),
-  ).toBeUndefined();
+  ).toEqual({ state: "closed" });
 });
 
-it("reports nothing for a folder with no earlier run", () => {
-  expect(
-    new RunLog(root, () => ({
-      workspace: "",
-      processes: "",
-      activity: [],
-    })).previous(),
-  ).toBeUndefined();
+it("reads a missing or damaged run file as unknown", async () => {
+  const log = () =>
+    new RunLog(root, () => ({ workspace: "", processes: "", activity: [] }));
+  expect(log().previous()).toEqual({ state: "unknown" });
+  await writeFile(path.join(root, "crash-activity.json"), "{not json");
+  expect(log().previous()).toEqual({ state: "unknown" });
+  await writeFile(path.join(root, "crash-activity.json"), '{"runId":4}');
+  expect(log().previous()).toEqual({ state: "unknown" });
 });
 
 it("finds each new minidump once, oldest first", async () => {

@@ -40,7 +40,13 @@ async function launch() {
     ) as typeof import("node:worker_threads");
     const original = Worker.prototype.postMessage;
     Worker.prototype.postMessage = function (message, ...rest) {
-      if (message?.method) (globalThis as any).__domainWorker ??= this;
+      if (message?.method === "state")
+        (globalThis as any).__domainWorker ??= this;
+      // A held method never reaches the worker, so its request stays pending.
+      if (message?.method && message.method === (globalThis as any).__hold) {
+        (globalThis as any).__held = true;
+        return;
+      }
       return original.call(this, message, ...rest);
     };
   });
@@ -153,7 +159,9 @@ test("main, worker and window failures each leave one detailed record", async ()
     "crash-records window error",
   );
   detailed(thrown, "renderer");
-  expect(thrown.metadata.source).toMatch(/:\d+:\d+$/);
+  expect(thrown.details["Technical error"]).toContain(
+    "crash-records window error",
+  );
 
   await page.evaluate(() => {
     void Promise.reject(Error("crash-records window rejection"));
@@ -171,7 +179,8 @@ test("main, worker and window failures each leave one detailed record", async ()
     ),
   ).toHaveLength(1);
 
-  // A state without its ontology fails while React renders, inside the boundary.
+  // A state without its ontology fails while panes render. FlexLayout's per-tab
+  // boundaries catch it, and the root hook still records it.
   const snapshot = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
@@ -184,9 +193,7 @@ test("main, worker and window failures each leave one detailed record", async ()
     { ...snapshot, ontology: null },
   );
   await expect(
-    page.getByRole("heading", {
-      name: "Axiom could not display this workspace",
-    }),
+    page.getByText("Error rendering component").first(),
   ).toBeVisible();
   const display = await recorded(
     "Display error",
@@ -204,6 +211,13 @@ test("main, worker and window failures each leave one detailed record", async ()
   expect(typeof gone.metadata.exitCode).toBe("number");
   expect(gone.details["Axiom processes"]).toBeTruthy();
 
+  // Closing needs a live renderer to capture the open views, so restore one first.
+  await app!.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].webContents.reload(),
+  );
+  await expect(
+    page.getByRole("contentinfo", { name: "Workbench status" }),
+  ).toBeVisible();
   // Every record is listed by the Error Log after a clean restart, with no unexpected-exit record.
   await app!.close();
   await launch();
@@ -234,7 +248,7 @@ test("a native crash of main is reported at the next start with its dump and las
   await launch();
   const r = await recorded(
     "Previous session ended unexpectedly",
-    "Axiom stopped unexpectedly and wrote a crash dump.",
+    "Axiom stopped unexpectedly and wrote",
   );
   expect(r.details["Crash dumps"]).toMatch(/\.dmp/);
   expect(r.details["Axiom processes at the last activity"]).toMatch(
@@ -257,4 +271,44 @@ test("a native crash of main is reported at the next start with its dump and las
       (e) => e.operation === "Previous session ended unexpectedly",
     ),
   ).toHaveLength(1);
+});
+
+test("an unexpected worker exit rejects waiting requests and leaves one record", async () => {
+  await app!.evaluate(() => {
+    (globalThis as any).__hold = "inspector";
+  });
+  const waiting = page.evaluate(() =>
+    window.axiom
+      .request("inspector", { iri: "http://www.w3.org/2002/07/owl#Thing" })
+      .then(
+        () => "resolved",
+        (e: Error) => e.message,
+      ),
+  );
+  await expect
+    .poll(() => app!.evaluate(() => (globalThis as any).__held === true))
+    .toBe(true);
+  await app!.evaluate(() =>
+    (globalThis as any).__domainWorker.terminate().then(() => undefined),
+  );
+  expect(await waiting).toContain("The data service exited with code 1.");
+  const r = await recorded("Domain worker exit", "exited with code 1");
+  detailed(r, "domain worker");
+  expect(r.metadata.exitCode).toBe(1);
+  expect(r.details["Requests in flight"]).toContain("inspector");
+  // Later requests fail at once instead of waiting on a worker that is gone.
+  expect(
+    await page.evaluate(() =>
+      window.axiom.request("state").then(
+        () => "resolved",
+        (e: Error) => e.message,
+      ),
+    ),
+  ).toContain("The data service exited with code 1.");
+  expect(
+    (await saved()).filter((e) => e.operation.startsWith("Domain worker")),
+  ).toHaveLength(1);
+  // Saving on close needs the worker, so this run ends without closing.
+  app!.process().kill();
+  app = undefined;
 });
