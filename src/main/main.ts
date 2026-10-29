@@ -389,10 +389,11 @@ const runLog = instanceProfile
   : undefined;
 const previousRun = runLog?.previous();
 const activity = new ActivityTrail(100, () => runLog?.touch());
-runLog?.touch();
+runLog?.start();
 const failures = new FailureGate();
 const staleMessages = new Set<string>();
-let quitting = false;
+let quitting = false,
+  workerStopped: Error | undefined;
 function crashState() {
   const read = <T>(value: () => T) => {
     try {
@@ -479,35 +480,47 @@ async function reportPreviousRun() {
     app.getPath("crashDumps"),
     path.join(app.getPath("userData"), "crash-dumps-reported.json"),
   );
-  if (previousRun)
+  const count =
+    dumps.length === 1 ? "a crash dump" : dumps.length + " crash dumps";
+  if (previousRun?.state === "open") {
+    const run = previousRun.run;
     await errorLog.record(
       dumps.length
-        ? `Axiom stopped unexpectedly and wrote ${dumps.length === 1 ? "a crash dump" : dumps.length + " crash dumps"}.`
+        ? `Axiom stopped unexpectedly and wrote ${count}.`
         : "Axiom stopped unexpectedly. No crash dump was written.",
       "Previous session ended unexpectedly",
       {
         ...errorContext(),
-        workspace: previousRun.workspace,
+        workspace: run.workspace,
         process: "main",
-        previousProcessId: previousRun.pid,
-        previousStart: previousRun.startedAt,
-        lastActivity: previousRun.updatedAt,
+        previousProcessId: run.pid,
+        previousStart: run.startedAt,
+        lastActivity: run.updatedAt,
       },
       {
         stack:
           "The previous session did not close. Its last recorded activity is in the timeline.",
-        events: activityEvents(
-          previousRun.activity,
-          Date.parse(previousRun.updatedAt),
-        ),
+        events: activityEvents(run.activity, Date.parse(run.updatedAt)),
         details: {
           ...(dumps.length ? { "Crash dumps": dumpList(dumps) } : {}),
-          ...(previousRun.processes
-            ? { "Axiom processes at the last activity": previousRun.processes }
+          ...(run.processes
+            ? { "Axiom processes at the last activity": run.processes }
             : {}),
         },
       },
     );
+  } else if (previousRun?.state === "unknown" && dumps.length)
+    // Without a readable run file the dumps cannot be matched, so they are reported, never dropped.
+    await errorLog.record(
+      `Axiom found ${count} from a session it has no activity record for.`,
+      "Crash dumps found",
+      { ...errorContext(), process: "main" },
+      {
+        stack: "No readable activity record matched these crash dumps.",
+        details: { "Crash dumps": dumpList(dumps) },
+      },
+    );
+  // After a closed run, each dump belongs to a crash that was recorded when it happened.
   await remember();
 }
 if (runLog) void reportPreviousRun().catch(() => {});
@@ -535,6 +548,8 @@ function request<T = unknown>(
   method: DomainMethod,
   args: Record<string, unknown> = {},
 ): Promise<T> {
+  // A stopped worker never replies, so the request fails at once instead of waiting.
+  if (workerStopped) return Promise.reject(workerStopped);
   return new Promise((resolve, reject) => {
     const id = ++sequence;
     const finish = activity.begin(method, args);
@@ -1604,12 +1619,15 @@ app.whenReady().then(async () => {
   });
   // An exit without an error event would otherwise leave every pending request waiting.
   worker.on("exit", (code) => {
-    if (closing || quitting || workerFailed) return;
+    if (closing || quitting) return;
     const error = Error(`The data service exited with code ${code}.`);
-    void recordCrash(error.message, "Domain worker exit", {
-      process: "domain worker",
-      exitCode: code,
-    });
+    workerStopped = error;
+    // After an error event the worker's failure is already recorded.
+    if (!workerFailed)
+      void recordCrash(error.message, "Domain worker exit", {
+        process: "domain worker",
+        exitCode: code,
+      });
     for (const p of pending.values()) p.reject(error);
     pending.clear();
   });

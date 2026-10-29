@@ -39,11 +39,6 @@ class ErrorBoundary extends React.Component<
   static getDerivedStateFromError(e: Error) {
     return { error: e.message };
   }
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    reportCrash("render", error, {
-      componentStack: info.componentStack ?? undefined,
-    });
-  }
   render() {
     return this.state.error ? (
       <div className="startup-error">
@@ -71,7 +66,16 @@ class ErrorBoundary extends React.Component<
     );
   }
 }
-const root = createRoot(document.getElementById("root")!);
+// Each FlexLayout tab has its own boundary that records nothing, so render failures are
+// reported at the root, whichever boundary catches them.
+const rendered = (error: unknown, info: { componentStack?: string }) => {
+  console.error(error);
+  reportCrash("render", error, { componentStack: info.componentStack });
+};
+const root = createRoot(document.getElementById("root")!, {
+  onCaughtError: rendered,
+  onUncaughtError: rendered,
+});
 root.render(<div className="startup">Loading Axiom...</div>);
 initialise()
   .then(() => {

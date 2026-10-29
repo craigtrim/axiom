@@ -217,23 +217,45 @@ export class RunLog {
   private get marker() {
     return path.join(this.folder, "crash-activity.closed");
   }
-  /** The previous run's record, when it did not close. Call before the first touch. */
-  previous(): RunRecord | undefined {
+  /**
+   * How the previous run in this folder ended. "unknown" means its file is missing or
+   * unreadable, so a minidump cannot be matched to a run. Call before `start`.
+   */
+  previous():
+    | { state: "closed" }
+    | { state: "open"; run: RunRecord }
+    | { state: "unknown" } {
+    let run: RunRecord;
     try {
-      const run = JSON.parse(readFileSync(this.file, "utf8")) as RunRecord;
-      let closed = "";
-      try {
-        closed = readFileSync(this.marker, "utf8").trim();
-      } catch {
-        /* No run has closed in this folder yet. */
-      }
-      return typeof run.runId === "string" &&
-        run.runId !== closed &&
-        Array.isArray(run.activity)
-        ? run
-        : undefined;
+      run = JSON.parse(readFileSync(this.file, "utf8"));
     } catch {
-      return undefined;
+      return { state: "unknown" };
+    }
+    if (typeof run?.runId !== "string" || !Array.isArray(run.activity))
+      return { state: "unknown" };
+    let closed = "";
+    try {
+      closed = readFileSync(this.marker, "utf8").trim();
+    } catch {
+      /* No run has closed in this folder yet. */
+    }
+    return run.runId === closed ? { state: "closed" } : { state: "open", run };
+  }
+  private record(): RunRecord {
+    return {
+      runId: this.runId,
+      pid: process.pid,
+      startedAt: this.startedAt,
+      updatedAt: new Date().toISOString(),
+      ...this.snapshot(),
+    };
+  }
+  /** Claims the folder for this run at once, so a crash before the first request still counts. */
+  start() {
+    try {
+      writeFileSync(this.file, JSON.stringify(this.record()), "utf8");
+    } catch {
+      /* The next start then reads this run as unknown and still reports any minidump. */
     }
   }
   touch() {
@@ -245,17 +267,7 @@ export class RunLog {
       this.dirty = false;
       const temporary = this.file + "." + process.pid + ".tmp";
       try {
-        await writeFile(
-          temporary,
-          JSON.stringify({
-            runId: this.runId,
-            pid: process.pid,
-            startedAt: this.startedAt,
-            updatedAt: new Date().toISOString(),
-            ...this.snapshot(),
-          } satisfies RunRecord),
-          "utf8",
-        );
+        await writeFile(temporary, JSON.stringify(this.record()), "utf8");
         await rename(temporary, this.file);
       } catch {
         /* Activity is diagnostic only; a failed write never interrupts the request. */
