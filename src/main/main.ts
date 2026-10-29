@@ -23,6 +23,17 @@ import {
 import { SuggestionService } from "./suggestion-service";
 import { SuggestionBatches } from "./suggestion-batches";
 import { AuditLog, auditFailureId } from "./audit-log";
+import {
+  ActivityTrail,
+  FailureGate,
+  RunLog,
+  activityEvents,
+  crashDetails,
+  dumpList,
+  processTable,
+  unreportedDumps,
+  type ProcessMetric,
+} from "./crash-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { SessionStore, SessionSizeError } from "./session-store";
@@ -81,6 +92,7 @@ import {
   ClipboardItem,
   nativeImage,
   screen,
+  crashReporter,
   type MenuItemConstructorOptions,
 } from "electron";
 import { Worker } from "node:worker_threads";
@@ -92,9 +104,10 @@ import {
   copyFile,
   stat,
 } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { getHeapStatistics } from "node:v8";
 import type { DomainMethod, Preferences, Snapshot } from "../shared/protocol";
 installQuietTesting();
 protocol.registerSchemesAsPrivileged([
@@ -123,6 +136,14 @@ const instanceProfile = selectInstanceProfile(
   process.env.AXIOM_USER_DATA,
 );
 if (!instanceProfile) app.exit(0);
+// craigtrim/axiom#182: a native crash leaves a local minidump in this instance's folder.
+// The folder must exist before setPath, and nothing is uploaded.
+if (instanceProfile) {
+  const dumps = path.join(instanceProfile, "Crashpad");
+  mkdirSync(dumps, { recursive: true });
+  app.setPath("crashDumps", dumps);
+  crashReporter.start({ uploadToServer: false });
+}
 let instanceRegistry: InstanceRegistry;
 try {
   instanceRegistry = new InstanceRegistry(
@@ -345,6 +366,151 @@ function errorContext() {
     version: lastState?.version ?? 0,
   };
 }
+// Every crash record carries recent worker requests and the state of
+// each Axiom process. The run log keeps that activity on disk for a crash of main itself.
+let processSample = { at: 0, text: "" };
+const runLog = instanceProfile
+  ? new RunLog(app.getPath("userData"), () => {
+      if (Date.now() - processSample.at > 5000)
+        try {
+          processSample = {
+            at: Date.now(),
+            text: processTable(app.getAppMetrics() as ProcessMetric[]),
+          };
+        } catch {
+          /* Metrics are unavailable before the app is ready. */
+        }
+      return {
+        workspace: workspacePath ?? lastState?.ontology.name ?? "",
+        processes: processSample.text,
+        activity: activity.list(),
+      };
+    })
+  : undefined;
+const previousRun = runLog?.previous();
+const activity = new ActivityTrail(100, () => runLog?.touch());
+runLog?.touch();
+const failures = new FailureGate();
+const staleMessages = new Set<string>();
+let quitting = false;
+function crashState() {
+  const read = <T>(value: () => T) => {
+    try {
+      return value();
+    } catch {
+      return undefined;
+    }
+  };
+  const window =
+    mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  return crashDetails({
+    activity,
+    metrics: read(() => app.getAppMetrics() as ProcessMetric[]),
+    memory: read(() => process.memoryUsage()),
+    heapLimit: read(() => getHeapStatistics().heap_size_limit),
+    system: read(() => process.getSystemMemoryInfo()),
+    window:
+      window &&
+      read(() => ({
+        bounds: window.getBounds(),
+        maximized: window.isMaximized(),
+        fullScreen: window.isFullScreen(),
+        visible: window.isVisible(),
+      })),
+    entities: lastState?.entities.length,
+    storeVersion: lastState?.version,
+  });
+}
+function recordCrash(
+  message: string,
+  operation: string,
+  metadata: Record<string, string | number | boolean | null> = {},
+  stack?: string,
+  details: Record<string, string> = {},
+) {
+  return errorLog.record(
+    message,
+    operation,
+    { ...errorContext(), ...metadata },
+    {
+      stack: stack ?? message,
+      events: activityEvents(activity.list()),
+      details: { ...details, ...crashState() },
+    },
+  );
+}
+// Electron's own handler shows a dialog for an uncaught exception and keeps main running;
+// this keeps both. A rejection is recorded without a dialog.
+function mainFailure(operation: string, error: unknown, notify: boolean) {
+  if ((error as { stale?: unknown } | null)?.stale === true) return;
+  const message = cleanErrorMessage(error) || "Unknown error";
+  const stack = error instanceof Error ? error.stack : undefined;
+  if (!failures.admit(message, stack)) return;
+  void recordCrash(message, operation, { process: "main" }, stack).then(
+    (id) => {
+      if (!notify) return;
+      if (mainWindow && !mainWindow.isDestroyed())
+        void dialog
+          .showMessageBox(mainWindow, {
+            type: "error",
+            message: "Axiom hit an unexpected error and is still running.",
+            detail: message,
+            buttons: ["Close", "Error details"],
+            defaultId: 0,
+            cancelId: 0,
+          })
+          .then((r) => {
+            if (r.response === 1) send("audit.open:" + id);
+          })
+          .catch(() => {});
+      else if (!app.isReady())
+        dialog.showErrorBox("Axiom hit an unexpected error", message);
+    },
+  );
+}
+process.on("uncaughtException", (error) =>
+  mainFailure("Uncaught exception in main", error, true),
+);
+process.on("unhandledRejection", (reason) =>
+  mainFailure("Unhandled rejection in main", reason, false),
+);
+async function reportPreviousRun() {
+  const { dumps, remember } = await unreportedDumps(
+    app.getPath("crashDumps"),
+    path.join(app.getPath("userData"), "crash-dumps-reported.json"),
+  );
+  if (previousRun)
+    await errorLog.record(
+      dumps.length
+        ? `Axiom stopped unexpectedly and wrote ${dumps.length === 1 ? "a crash dump" : dumps.length + " crash dumps"}.`
+        : "Axiom stopped unexpectedly. No crash dump was written.",
+      "Previous session ended unexpectedly",
+      {
+        ...errorContext(),
+        workspace: previousRun.workspace,
+        process: "main",
+        previousProcessId: previousRun.pid,
+        previousStart: previousRun.startedAt,
+        lastActivity: previousRun.updatedAt,
+      },
+      {
+        stack:
+          "The previous session did not close. Its last recorded activity is in the timeline.",
+        events: activityEvents(
+          previousRun.activity,
+          Date.parse(previousRun.updatedAt),
+        ),
+        details: {
+          ...(dumps.length ? { "Crash dumps": dumpList(dumps) } : {}),
+          ...(previousRun.processes
+            ? { "Axiom processes at the last activity": previousRun.processes }
+            : {}),
+        },
+      },
+    );
+  await remember();
+}
+if (runLog) void reportPreviousRun().catch(() => {});
 function handle(
   channel: string,
   listener: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any,
@@ -371,7 +537,17 @@ function request<T = unknown>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = ++sequence;
-    pending.set(id, { resolve, reject });
+    const finish = activity.begin(method, args);
+    pending.set(id, {
+      resolve: (value) => {
+        finish();
+        resolve(value);
+      },
+      reject: (error) => {
+        finish(error);
+        reject(error);
+      },
+    });
     worker.postMessage({ id, method, args });
   });
 }
@@ -1388,6 +1564,9 @@ app.whenReady().then(async () => {
     const p = pending.get(packet.id);
     if (!p) return;
     pending.delete(packet.id);
+    // #67: a stale reply that the renderer leaves unhandled is still not a failure.
+    if (packet.error && packet.stale === true && staleMessages.size < 100)
+      staleMessages.add(String(packet.error));
     if (packet.error)
       p.reject(
         Object.assign(
@@ -1397,15 +1576,69 @@ app.whenReady().then(async () => {
       );
     else p.resolve(packet.value);
   });
+  let workerFailed = false;
   worker.on("error", (e) => {
+    workerFailed = true;
+    // Capture the requests in flight before they are rejected.
+    const recorded = recordCrash(
+      "The data service stopped: " + cleanErrorMessage(e),
+      "Domain worker error",
+      { process: "domain worker" },
+      e.stack,
+    );
     for (const p of pending.values()) p.reject(e);
     pending.clear();
     if (mainWindow)
-      void dialog.showMessageBox(mainWindow, {
-        type: "error",
-        message: "The data service stopped.",
-        detail: e.message,
-      });
+      void dialog
+        .showMessageBox(mainWindow, {
+          type: "error",
+          message: "The data service stopped.",
+          detail: e.message,
+          buttons: ["Close", "Error details"],
+          defaultId: 0,
+          cancelId: 0,
+        })
+        .then(async (r) => {
+          if (r.response === 1) send("audit.open:" + (await recorded));
+        });
+  });
+  // An exit without an error event would otherwise leave every pending request waiting.
+  worker.on("exit", (code) => {
+    if (closing || quitting || workerFailed) return;
+    const error = Error(`The data service exited with code ${code}.`);
+    void recordCrash(error.message, "Domain worker exit", {
+      process: "domain worker",
+      exitCode: code,
+    });
+    for (const p of pending.values()) p.reject(error);
+    pending.clear();
+  });
+  app.on("render-process-gone", (_event, contents, details) => {
+    if (details.reason === "clean-exit" || quitting) return;
+    void recordCrash(
+      `A window's renderer process stopped: ${details.reason}, exit code ${details.exitCode}.`,
+      "Renderer process stopped",
+      {
+        process: "renderer",
+        reason: details.reason,
+        exitCode: details.exitCode,
+        url: contents.isDestroyed() ? "" : contents.getURL(),
+      },
+    );
+  });
+  app.on("child-process-gone", (_event, details) => {
+    if (details.reason === "clean-exit" || quitting) return;
+    void recordCrash(
+      `The ${details.name ?? details.type} process stopped: ${details.reason}, exit code ${details.exitCode}.`,
+      "Child process stopped",
+      {
+        process: details.type,
+        name: details.name ?? "",
+        serviceName: details.serviceName ?? "",
+        reason: details.reason,
+        exitCode: details.exitCode,
+      },
+    );
   });
   await recentFiles.load();
   const restoredSession = await sessions.restore(async (session) => {
@@ -1861,6 +2094,43 @@ app.whenReady().then(async () => {
     authorised(event);
     return taxonomyAssistant.run(input);
   });
+  // Renderer errors arrive with their stacks; repeats and stale replies are dropped.
+  ipcMain.handle("audit:crash", async (event, input) => {
+    authorised(event);
+    const operations: Record<string, string> = {
+      error: "Uncaught error in the window",
+      rejection: "Unhandled rejection in the window",
+      render: "Display error",
+    };
+    const text = (value: unknown) =>
+      value === undefined || typeof value === "string";
+    if (
+      !input ||
+      !Object.hasOwn(operations, input.kind) ||
+      typeof input.message !== "string" ||
+      input.message.length > 20000 ||
+      ![input.stack, input.componentStack, input.source].every(text)
+    )
+      throw Error("Invalid error report.");
+    const message = cleanErrorMessage(input.message) || "Unknown error";
+    if (
+      [...staleMessages].some((stale) => message.includes(stale)) ||
+      !failures.admit(message, input.stack)
+    )
+      return "";
+    return recordCrash(
+      message,
+      operations[input.kind],
+      {
+        process: "renderer",
+        ...(input.source ? { source: input.source.slice(0, 500) } : {}),
+      },
+      input.stack?.slice(0, 20000),
+      input.componentStack
+        ? { "Component stack": input.componentStack.slice(0, 20000) }
+        : {},
+    );
+  });
   ipcMain.handle("audit:record", (event, input) => {
     authorised(event);
     if (
@@ -2236,6 +2506,8 @@ app.whenReady().then(async () => {
       .catch(async (e) => {
         closePending = false;
         closing = false;
+        // The quit was abandoned, so later crashes are recorded again.
+        quitting = false;
         const result = await dialog.showMessageBox(mainWindow!, {
           type: "error",
           message: "Axiom could not save the workspace. It has been kept open.",
@@ -2279,8 +2551,12 @@ app.on("will-quit", () => {
   workspaceLease?.release();
   launchLease?.release();
   instanceRegistry.leave();
+  runLog?.close();
 });
+// The closed marker is written synchronously, because asynchronous work at exit is abandoned.
+process.on("exit", () => runLog?.close());
 app.on("before-quit", () => {
+  quitting = true;
   suggestionBatches.close();
   textAnalysis.close();
   const suggestion = suggestions.status();

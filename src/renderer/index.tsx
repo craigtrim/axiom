@@ -4,6 +4,33 @@ import "flexlayout-react/style/combined.css";
 import "./styles.css";
 import { initialise } from "./client";
 import { App, applyTheme } from "./App";
+// craigtrim/axiom#182: uncaught window errors and render failures reach the error log.
+function reportCrash(
+  kind: "error" | "rejection" | "render",
+  error: unknown,
+  extra: { componentStack?: string; source?: string } = {},
+) {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "Unknown error");
+  // Chromium raises this layout notice as a window error; nothing has failed.
+  if (/ResizeObserver loop/.test(message)) return;
+  void window.axiom?.audit
+    .crash({
+      kind,
+      message,
+      stack: error instanceof Error ? error.stack : undefined,
+      ...extra,
+    })
+    .catch(() => {});
+}
+window.addEventListener("error", (e) =>
+  reportCrash("error", e.error ?? e.message, {
+    source: e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : undefined,
+  }),
+);
+window.addEventListener("unhandledrejection", (e) =>
+  reportCrash("rejection", e.reason),
+);
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: string }
@@ -11,6 +38,11 @@ class ErrorBoundary extends React.Component<
   state = { error: "" };
   static getDerivedStateFromError(e: Error) {
     return { error: e.message };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    reportCrash("render", error, {
+      componentStack: info.componentStack ?? undefined,
+    });
   }
   render() {
     return this.state.error ? (
