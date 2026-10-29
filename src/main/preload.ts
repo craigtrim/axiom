@@ -41,6 +41,8 @@ const bridge: AxiomBridge = {
   },
   audit: {
     record: (input) => invoke("audit:record", input),
+    // craigtrim/axiom#182: renderer errors reach the error log with their stacks.
+    crash: (input) => invoke("audit:crash", input),
     list: () => invoke("audit:list"),
     read: (id) => invoke("audit:read", id),
     reveal: (id) => invoke("audit:reveal", id),

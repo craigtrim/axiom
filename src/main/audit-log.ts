@@ -11,6 +11,7 @@ import {
 import path from "node:path";
 import {
   cleanErrorMessage,
+  type AuditEvent,
   type AuditRecord,
   type AuditSummary,
 } from "../shared/audit";
@@ -177,10 +178,22 @@ export class AuditLog {
     message: string,
     operation: string,
     metadata: AuditRecord["metadata"] = {},
+    // craigtrim/axiom#182: a crash record carries its own stack, details and earlier activity.
+    extra: {
+      stack?: string;
+      details?: Record<string, unknown>;
+      events?: AuditEvent[];
+    } = {},
   ) {
     const error = Error(message);
+    if (extra.stack) error.stack = extra.stack;
     try {
       await this.run(operation, metadata, () => {
+        const record = contexts.getStore()!;
+        record.events.unshift(...(extra.events ?? []).slice(-150));
+        if (extra.stack) auditDetail("Technical error", extra.stack);
+        for (const [name, value] of Object.entries(extra.details ?? {}))
+          auditDetail(name, value);
         throw error;
       });
     } catch {

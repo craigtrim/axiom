@@ -291,6 +291,14 @@ export interface AxiomBridge {
   };
   audit: {
     record(input: { message: string; operation: string }): Promise<string>;
+    // craigtrim/axiom#182: an uncaught renderer error, rejection or React render failure.
+    crash(input: {
+      kind: "error" | "rejection" | "render";
+      message: string;
+      stack?: string;
+      componentStack?: string;
+      source?: string;
+    }): Promise<string>;
     list(): Promise<import("./audit").AuditSummary[]>;
     read(id: string): Promise<import("./audit").AuditRecord>;
     reveal(id: string): Promise<void>;
