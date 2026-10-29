@@ -6,6 +6,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { AuditRecord } from "../../src/shared/audit";
@@ -55,6 +56,21 @@ async function launch() {
   ).toBeVisible();
   // Requests before a failure must appear in its timeline.
   await page.evaluate(() => window.axiom.request("state"));
+}
+// When main dies abruptly on Windows, its GPU, renderer, utility and crash handler
+// processes outlive it and keep Playwright's pipes open, which stalls worker teardown.
+// Windows keeps each child's parent id after the parent exits, so they can be found.
+function stopOrphans(pid: number) {
+  if (process.platform !== "win32") return;
+  execFileSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-Command",
+      `Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+    ],
+    { windowsHide: true },
+  );
 }
 // Read from disk, because a crashed window can no longer answer.
 async function saved() {
@@ -250,12 +266,14 @@ test("main, worker and window failures each leave one detailed record", async ()
 
 test("a native crash of main is reported at the next start with its dump and last activity", async () => {
   await page.evaluate(() => window.axiom.request("state"));
+  const pid = app!.process().pid!;
   const exited = new Promise((resolve) => app!.process().once("exit", resolve));
   await app!.evaluate(() => {
     setTimeout(() => process.crash(), 100);
   });
   await exited;
   app = undefined;
+  stopOrphans(pid);
   await launch();
   const r = await recorded(
     "Previous session ended unexpectedly",
@@ -320,6 +338,10 @@ test("an unexpected worker exit rejects waiting requests and leaves one record",
     (await saved()).filter((e) => e.operation.startsWith("Domain worker")),
   ).toHaveLength(1);
   // Saving on close needs the worker, so this run ends without closing.
+  const pid = app!.process().pid!;
+  const exited = new Promise((resolve) => app!.process().once("exit", resolve));
   app!.process().kill();
+  await exited;
   app = undefined;
+  stopOrphans(pid);
 });
