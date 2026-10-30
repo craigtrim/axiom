@@ -24,6 +24,8 @@ export interface GraphNode {
   dragging: boolean;
   layoutFixed?: boolean;
   taxonomyAncestors?: string[];
+  // craigtrim/axiom#185: palette position of the node's cluster, if any.
+  cluster?: number;
 }
 export interface EdgeBend {
   x: number;
@@ -69,6 +71,7 @@ export class Viewport {
   edges = new Map<string, GraphEdge>();
   edgesVisible = true;
   countsVisible = true;
+  clusterColors = false;
   routes = new Map<string, EdgeBend>();
   selectedEdge: string | null = null;
   focus = new Set<string>();

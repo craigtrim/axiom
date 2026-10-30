@@ -279,6 +279,7 @@ const methods = new Set<DomainMethod>([
   "spacing",
   "edgeVisibility",
   "countVisibility",
+  "clusterColors",
   "freeze",
   "clear",
   "rename",

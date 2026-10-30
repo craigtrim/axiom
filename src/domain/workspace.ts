@@ -49,6 +49,8 @@ export interface Workspace {
     spacing?: number;
     edgesVisible?: boolean;
     countsVisible?: boolean;
+    // craigtrim/axiom#185: Color clusters, off unless saved on.
+    clusterColors?: boolean;
     expanded?: string[];
     stylesheet?: string;
     routes?: (EdgeBend & { key: string })[];
@@ -213,6 +215,7 @@ export function readWorkspace(input: unknown) {
     (g.spacing !== undefined && !validGraphSpacing(g.spacing)) ||
     (g.edgesVisible !== undefined && typeof g.edgesVisible !== "boolean") ||
     (g.countsVisible !== undefined && typeof g.countsVisible !== "boolean") ||
+    (g.clusterColors !== undefined && typeof g.clusterColors !== "boolean") ||
     (g.expanded !== undefined && !strings(g.expanded, MAX_VISIBLE_NODES))
   )
     throw Error("Invalid graph settings.");
@@ -295,6 +298,7 @@ export function readWorkspace(input: unknown) {
   );
   view.edgesVisible = g.edgesVisible !== false;
   view.countsVisible = g.countsVisible !== false;
+  view.clusterColors = g.clusterColors === true;
   if (
     g.evictionMode !== undefined &&
     !["degree", "lru", "refuse"].includes(g.evictionMode)

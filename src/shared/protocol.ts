@@ -17,6 +17,9 @@ export interface GraphSnapshot {
   spacing?: number;
   edgesVisible?: boolean;
   countsVisible?: boolean;
+  // craigtrim/axiom#185: cluster colors and the number of displayed clusters.
+  clusterColors?: boolean;
+  clusterCount?: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
   focus: string[];
@@ -184,6 +187,7 @@ export type DomainMethod =
   | "spacing"
   | "edgeVisibility"
   | "countVisibility"
+  | "clusterColors"
   | "freeze"
   | "clear"
   | "rename"

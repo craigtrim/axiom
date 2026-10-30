@@ -16,6 +16,7 @@ import type { GraphNode, GraphEdge } from "../domain/viewport";
 import { hidden, edgeKey } from "../domain/viewport";
 import { TYPE, SUBCLASS, kindLabel, type Kind } from "../domain/model";
 import { isHierarchy } from "../domain/force";
+import { clusterFills } from "../domain/graph-clusters";
 import tokens from "../domain/data/tokens.json";
 export interface Camera {
   x: number;
@@ -457,6 +458,17 @@ function shape(
     d.path(points, color, stroke || 1, !stroke);
   }
 }
+// craigtrim/axiom#185: while clusters are colored, the cluster color replaces
+// every other fill and nodes outside a cluster turn neutral.
+const nodeFill = (
+  n: GraphNode,
+  style: { fill?: string },
+  clustered: Map<string, string> | undefined,
+  palette: Record<string, string>,
+) =>
+  clustered
+    ? (clustered.get(n.iri) ?? palette["e-literal"])
+    : (style.fill ?? palette[kindToken[n.kind]]);
 const alpha = (hex: string, a: number) =>
   hex +
   Math.round(a * 255)
@@ -481,6 +493,7 @@ export function render(
 ) {
   const orderedLabels = labelOrder(g, selected, hover);
   const visibleEdges = g.edgesVisible === false ? [] : g.edges;
+  const clustered = clusterFills(g, dark);
   const rules = styleRules(g.stylesheet),
     styles = new Map(
       rules.length
@@ -671,7 +684,7 @@ export function render(
       p,
       r,
       alpha(
-        style.fill ?? C(kindToken[n.kind]),
+        nodeFill(n, style, clustered, palette),
         (style.opacity ?? 1) * (hover && !near.has(n.iri) ? 0.25 : 1),
       ),
     );
@@ -976,14 +989,20 @@ export function exportScene(
   if (footer) {
     if (!transparent)
       d.rect({ x: 0, y: height - footer, width, height: footer }, p.surface);
-    const legendRules = styleRules(g.stylesheet);
+    const legendRules = styleRules(g.stylesheet),
+      legendClusters = clusterFills(g, dark);
     legendKinds.forEach((kind, i) => {
       const variants = g.nodes
         .filter((n) => n.kind === kind)
         .map((n) => {
           const style = nodeStyle(legendRules, n, selected);
           return {
-            fill: style.fill ?? (p as Record<string, string>)[kindToken[kind]],
+            fill: nodeFill(
+              n,
+              style,
+              legendClusters,
+              p as Record<string, string>,
+            ),
             kind: style.shape
               ? (
                   {

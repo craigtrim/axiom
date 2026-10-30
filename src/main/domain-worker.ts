@@ -75,6 +75,7 @@ import { isLayoutMode, isExternalLayout } from "../shared/layout-options";
 import { buildStore, generate } from "../domain/fixture";
 import { Store } from "../domain/store";
 import { Viewport, admissionText, edgeKey } from "../domain/viewport";
+import { assignClusters } from "../domain/graph-clusters";
 import { Layouts, type LayoutMode } from "../domain/layouts";
 import {
   NS,
@@ -260,6 +261,7 @@ function sessionState() {
       s.view.evictionMode,
       s.view.edgesVisible,
       s.view.countsVisible,
+      s.view.clusterColors,
       s.layouts.choice,
       s.layouts.spacing,
       s.frozen,
@@ -313,6 +315,7 @@ function serializeWorkspace() {
           spacing: session.layouts.spacing,
           edgesVisible: session.view.edgesVisible,
           countsVisible: session.view.countsVisible,
+          clusterColors: session.view.clusterColors,
           expanded: [...session.view.nodes.values()]
             .filter((n) => n.expanded)
             .map((n) => n.iri),
@@ -350,6 +353,7 @@ function serializeWorkspace() {
       spacing: layouts.spacing,
       edgesVisible: view.edgesVisible,
       countsVisible: view.countsVisible,
+      clusterColors: view.clusterColors,
       expanded: [...view.nodes.values()]
         .filter((n) => n.expanded)
         .map((n) => n.iri),
@@ -367,6 +371,7 @@ function captureView(v: Viewport, l: Layouts, isFrozen: boolean) {
     selectedEdge: v.selectedEdge,
     edgesVisible: v.edgesVisible,
     countsVisible: v.countsVisible,
+    clusterColors: v.clusterColors,
     focus: [...v.focus],
     budget: v.budget,
     eviction: v.evictionMode,
@@ -417,6 +422,7 @@ function restoreFrame(frame: Frame) {
     v.selectedEdge = saved.selectedEdge;
     v.edgesVisible = saved.edgesVisible;
     v.countsVisible = saved.countsVisible;
+    v.clusterColors = saved.clusterColors;
     v.focus = new Set(saved.focus);
     v.budget = saved.budget;
     v.evictionMode = saved.eviction;
@@ -548,6 +554,7 @@ const tracked = new Set<DomainMethod>([
   "spacing",
   "edgeVisibility",
   "countVisibility",
+  "clusterColors",
   "freeze",
   "clear",
   "rename",
@@ -604,7 +611,9 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
   )
     return false;
   if (
-    !["spacing", "edgeVisibility", "countVisibility"].includes(method) &&
+    !["spacing", "edgeVisibility", "countVisibility", "clusterColors"].includes(
+      method,
+    ) &&
     (method !== "drag" || !args.dragging)
   )
     stopExternal();
@@ -665,6 +674,7 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 spacing: "Change node spacing",
                 edgeVisibility: "Show or hide edges",
                 countVisibility: "Show or hide counts",
+                clusterColors: "Color clusters",
                 freeze: "Freeze or resume layout",
                 clear: "Clear graph",
                 tableGraph: "Show filtered individuals",
@@ -732,6 +742,12 @@ function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
     spacing: l.spacing,
     edgesVisible: v.edgesVisible,
     countsVisible: v.countsVisible,
+    clusterColors: v.clusterColors,
+    clusterCount: assignClusters(
+      [...v.nodes.values()],
+      [...v.edges.values()],
+      v.clusterColors,
+    ),
     groups: l.groups,
     rings: l.rings,
     ringOrigin: l.ringOrigin,
@@ -2100,6 +2116,14 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       changed(
         view.countsVisible ? "Number badges shown." : "Number badges hidden.",
       );
+      return true;
+    case "clusterColors":
+      if (typeof a.enabled !== "boolean")
+        throw Error("Choose whether to color clusters.");
+      view.clusterColors = a.enabled;
+      // craigtrim/axiom#185: turning colors on numbers clusters afresh, largest first.
+      for (const n of view.nodes.values()) delete n.cluster;
+      changed(view.clusterColors ? "Clusters colored." : "Cluster colors off.");
       return true;
     case "edgeVisibility":
       if (typeof a.visible !== "boolean")
