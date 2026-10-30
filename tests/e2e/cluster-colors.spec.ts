@@ -186,6 +186,9 @@ test("Color clusters appears after a split, colors each cluster and keeps other 
       }
     })
     .toMatch(/#3f90da/i);
+  // The second is #C68101 in the light theme and #FFA90E in the dark one, so
+  // two clusters were drawn in two different colors.
+  expect(await readFile(svg, "utf8")).toMatch(/#c68101|#ffa90e/i);
 
   await colorClusters().click();
   await expect

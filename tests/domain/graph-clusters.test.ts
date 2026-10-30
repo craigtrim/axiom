@@ -1,5 +1,5 @@
 // craigtrim/axiom#185: cluster detection, stable numbering and the palette's rules.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assignClusters,
   clusterFills,
@@ -18,6 +18,8 @@ import {
   type GraphNode,
 } from "../../src/domain/viewport";
 import tokens from "../../src/domain/data/tokens.json";
+import { exportScene } from "../../src/renderer/scene";
+import type { GraphSnapshot } from "../../src/shared/protocol";
 
 const node = (iri: string, x = 0, y = 0) => ({ iri, x, y }) as GraphNode;
 const edge = (source: string, target: string) =>
@@ -154,19 +156,127 @@ describe("cluster fills", () => {
     expect(dark.get("b1")).toBe(clusterPalette.dark[1]);
   });
 
+  // Two-node clusters c00, c01 and so on, numbered in name order. Cluster 7
+  // sits far to the right and the last cluster far to the left.
+  function spread(count: number) {
+    const nodes: GraphNode[] = [],
+      edges: GraphEdge[] = [];
+    for (let k = 0; k < count; k++) {
+      const id = "c" + String(k).padStart(2, "0"),
+        x = k === 7 ? 10000 : k === count - 1 ? -10000 : k * 10;
+      nodes.push(node(id + "a", x, 0), node(id + "b", x, 5));
+      edges.push(edge(id + "a", id + "b"));
+    }
+    return { nodes, edges };
+  }
+
   it("reuses the color whose clusters are farthest away once the sequence runs out", () => {
-    const sequence = clusterPalette.light,
-      nodes: GraphNode[] = [];
-    sequence.forEach((_, p) =>
-      nodes.push({ ...node("c" + p, p === 7 ? 10000 : p * 10, 0), cluster: p }),
-    );
-    nodes.push({ ...node("extra", -10000, 0), cluster: sequence.length });
-    const fills = clusterFills(
-      { nodes, clusterColors: true, clusterCount: nodes.length },
+    const length = clusterPalette.light.length,
+      g = spread(length + 1),
+      clusterCount = assignClusters(g.nodes, g.edges, true),
+      last = "c" + length + "a";
+    const light = clusterFills(
+      { nodes: g.nodes, clusterColors: true, clusterCount },
       false,
     )!;
-    expect(fills.get("extra")).toBe(sequence[7]);
-    expect(fills.get("c3")).toBe(sequence[3]);
+    expect(light.get(last)).toBe(clusterPalette.light[7]);
+    expect(light.get("c03a")).toBe(clusterPalette.light[3]);
+    const dark = clusterFills(
+      { nodes: g.nodes, clusterColors: true, clusterCount },
+      true,
+    )!;
+    expect(dark.get(last)).toBe(clusterPalette.dark[length]);
+  });
+
+  it("keeps a repeated color when another cluster is hidden", () => {
+    let g = spread(clusterPalette.light.length + 2);
+    assignClusters(g.nodes, g.edges, true);
+    const before = Object.fromEntries(
+      g.nodes.map((n) => [n.iri, n.clusterColor]),
+    );
+    g = without(g, "c07a");
+    assignClusters(g.nodes, g.edges, true);
+    for (const n of g.nodes)
+      if (!n.iri.startsWith("c07"))
+        expect(n.clusterColor).toEqual(before[n.iri]);
+  });
+
+  it("numbers and colors 15,000 nodes quickly in one cluster or in 7,500", () => {
+    const chain = graph([Array.from({ length: 15000 }, (_, i) => "n" + i)]);
+    let started = performance.now();
+    expect(assignClusters(chain.nodes, chain.edges, true)).toBe(1);
+    const one = performance.now() - started;
+    const pairs = { nodes: [] as GraphNode[], edges: [] as GraphEdge[] };
+    for (let k = 0; k < 7500; k++) {
+      const x = (k % 100) * 50,
+        y = Math.floor(k / 100) * 50;
+      pairs.nodes.push(node("a" + k, x, y), node("b" + k, x + 10, y));
+      pairs.edges.push(edge("a" + k, "b" + k));
+    }
+    started = performance.now();
+    const clusterCount = assignClusters(pairs.nodes, pairs.edges, true);
+    clusterFills(
+      { nodes: pairs.nodes, clusterColors: true, clusterCount },
+      false,
+    );
+    const many = performance.now() - started;
+    expect(clusterCount).toBe(7500);
+    // Ceilings well above the measured 30 ms and 300 ms; the quadratic
+    // versions this replaced took about 0.5 s and 1.2 s.
+    expect(one).toBeLessThan(300);
+    expect(many).toBeLessThan(2000);
+  });
+});
+
+describe("cluster rendering", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("draws each cluster in its own color in an exported image", () => {
+    const store = buildEmptyStore(),
+      a = store.createClass("Alpha", THING),
+      b = store.createClass("Beta", a),
+      c = store.createClass("Gamma", THING),
+      d = store.createClass("Delta", c);
+    const view = new Viewport(store);
+    view.seed([a, b, c, d], true, false);
+    const nodes = [...view.nodes.values()],
+      edges = [...view.edges.values()];
+    const graph: GraphSnapshot = {
+      nodes,
+      edges,
+      focus: [],
+      budget: 1000,
+      hidden: 0,
+      revision: 0,
+      mode: "circle",
+      choice: "circle",
+      groups: [],
+      rings: [],
+      ringOrigin: { x: 0, y: 0 },
+      frozen: true,
+      clusterColors: true,
+      clusterCount: assignClusters(nodes, edges, true),
+    };
+    nodes.forEach((n, i) => {
+      n.x = i * 80;
+      n.y = 0;
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({
+        getContext: () => ({
+          measureText: (text: string) => ({ width: text.length * 7 }),
+        }),
+      }),
+    });
+    const svg = (g: GraphSnapshot) =>
+      exportScene(g, false, "svg", null, { caption: false, legend: false })
+        .data;
+    expect(graph.clusterCount).toBe(2);
+    const colored = svg(graph);
+    for (const color of clusterPalette.light.slice(0, 2))
+      expect(colored).toMatch(new RegExp(color, "i"));
+    const plain = svg({ ...graph, clusterColors: false, nodes: [...nodes] });
+    expect(plain).not.toMatch(new RegExp(clusterPalette.light[1], "i"));
+    expect(plain).toMatch(new RegExp(tokens.light["e-class"], "i"));
   });
 });
 
