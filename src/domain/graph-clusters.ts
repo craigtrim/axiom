@@ -252,7 +252,8 @@ const firstIri = (members: GraphNode[]) =>
  * Gives each cluster its sequence index for one theme. Positions inside the
  * sequence use their own index; a new position past its end reuses the color
  * whose nearest cluster is farthest away on screen. A grid scanned outward
- * from the new cluster stops once no unscanned cluster could be nearer.
+ * from the new cluster stops once no unscanned cluster could be nearer, or
+ * after a bounded number of clusters, so uneven layouts stay fast.
  */
 function repeatColors(
   placed: { members: GraphNode[]; position: number; color: number[] }[],
@@ -267,28 +268,29 @@ function repeatColors(
     y: members.reduce((s, n) => s + n.y, 0) / members.length,
   });
   const centres = new Map(placed.map((c) => [c, centre(c.members)]));
-  let left = Infinity,
-    top = Infinity,
-    right = -Infinity,
-    bottom = -Infinity;
-  for (const p of centres.values()) {
-    left = Math.min(left, p.x);
-    top = Math.min(top, p.y);
-    right = Math.max(right, p.x);
-    bottom = Math.max(bottom, p.y);
-  }
-  const span = Math.max(right - left, bottom - top, 1),
-    size = span / Math.ceil(Math.sqrt(placed.length)),
-    columns = Math.floor(span / size) + 1;
-  const cell = (p: { x: number; y: number }) => [
-    Math.floor((p.x - left) / size),
-    Math.floor((p.y - top) / size),
-  ];
+  // The grid covers the middle 90% of centres; outliers clamp to edge cells,
+  // which can only make them look nearer, so the stopping rule stays sound.
+  const middle = (values: number[]) => {
+    values.sort((a, b) => a - b);
+    return [
+      values[Math.floor(values.length * 0.05)],
+      values[Math.ceil(values.length * 0.95) - 1],
+    ];
+  };
+  const [left, right] = middle([...centres.values()].map((p) => p.x)),
+    [top, bottom] = middle([...centres.values()].map((p) => p.y)),
+    columns = Math.ceil(Math.sqrt(placed.length)),
+    size = Math.max(right - left, bottom - top, 1) / columns;
+  const index = (v: number, start: number) =>
+    Math.min(columns - 1, Math.max(0, Math.floor((v - start) / size)));
   const grid: { x: number; y: number; color: number }[][] = [],
-    users = new Array<number>(length).fill(0);
+    users = new Array<number>(length).fill(0),
+    limit = 8 * length;
   const add = (p: { x: number; y: number }, color: number) => {
-    const [cx, cy] = cell(p);
-    (grid[cy * columns + cx] ??= []).push({ ...p, color });
+    (grid[index(p.y, top) * columns + index(p.x, left)] ??= []).push({
+      ...p,
+      color,
+    });
     users[color]++;
   };
   for (const c of placed)
@@ -298,18 +300,21 @@ function repeatColors(
     let color = users.indexOf(0);
     if (color < 0) {
       const nearest = new Array<number>(length).fill(Infinity),
-        [cx, cy] = cell(here);
-      let unseen = length;
+        cx = index(here.x, left),
+        cy = index(here.y, top);
+      let unseen = length,
+        examined = 0;
       const scan = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= columns || y >= columns) return;
         for (const u of grid[y * columns + x] ?? []) {
+          if (examined++ >= limit) return;
           const d = Math.hypot(u.x - here.x, u.y - here.y);
           if (nearest[u.color] === Infinity) unseen--;
           if (d < nearest[u.color]) nearest[u.color] = d;
         }
       };
       // Walk only each ring's border; cells beyond ring r are at least r cells away.
-      for (let ring = 0; ring <= columns; ring++) {
+      for (let ring = 0; ring < columns && examined < limit; ring++) {
         for (let i = -ring; i <= ring; i++) {
           scan(cx + i, cy - ring);
           if (ring) scan(cx + i, cy + ring);
@@ -320,7 +325,15 @@ function repeatColors(
         }
         if (!unseen && ring * size >= Math.max(...nearest)) break;
       }
-      color = nearest.indexOf(Math.max(...nearest));
+      // A color not met within the limit is farther than every color met;
+      // among those, the least used one spreads repeats evenly.
+      color = unseen
+        ? nearest.reduce(
+            (best, d, i) =>
+              d === Infinity && (best < 0 || users[i] < users[best]) ? i : best,
+            -1,
+          )
+        : nearest.indexOf(Math.max(...nearest));
     }
     c.color[t] = color;
     add(here, color);
