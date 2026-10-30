@@ -251,9 +251,9 @@ const firstIri = (members: GraphNode[]) =>
 /**
  * Gives each cluster its sequence index for one theme. Positions inside the
  * sequence use their own index; a new position past its end reuses the color
- * whose nearest cluster is farthest away on screen. A grid scanned outward
- * from the new cluster stops once no unscanned cluster could be nearer, or
- * after a bounded number of clusters, so uneven layouts stay fast.
+ * whose nearest cluster is farthest away on screen. A k-d tree over the
+ * cluster centres lists colored clusters nearest first, skipping uncolored
+ * branches, so the farthest color is the last one met.
  */
 function repeatColors(
   placed: { members: GraphNode[]; position: number; color: number[] }[],
@@ -261,82 +261,129 @@ function repeatColors(
   length: number,
 ) {
   for (const c of placed) if (c.position < length) c.color[t] = c.position;
-  const pending = placed.filter((c) => c.color[t] === undefined);
-  if (!pending.length) return;
-  const centre = (members: GraphNode[]) => ({
-    x: members.reduce((s, n) => s + n.x, 0) / members.length,
-    y: members.reduce((s, n) => s + n.y, 0) / members.length,
-  });
-  const centres = new Map(placed.map((c) => [c, centre(c.members)]));
-  // The grid covers the middle 90% of centres; outliers clamp to edge cells,
-  // which can only make them look nearer, so the stopping rule stays sound.
-  const middle = (values: number[]) => {
-    values.sort((a, b) => a - b);
-    return [
-      values[Math.floor(values.length * 0.05)],
-      values[Math.ceil(values.length * 0.95) - 1],
-    ];
+  if (placed.every((c) => c.color[t] !== undefined)) return;
+  const points = placed.map((c) => ({
+    x: c.members.reduce((s, n) => s + n.x, 0) / c.members.length,
+    y: c.members.reduce((s, n) => s + n.y, 0) / c.members.length,
+  }));
+  const leaves: Branch[] = [];
+  const build = (ids: number[], parent?: Branch): Branch => {
+    const b: Branch = {
+      x0: Infinity,
+      y0: Infinity,
+      x1: -Infinity,
+      y1: -Infinity,
+      colored: 0,
+      parent,
+    };
+    for (const i of ids) {
+      b.x0 = Math.min(b.x0, points[i].x);
+      b.y0 = Math.min(b.y0, points[i].y);
+      b.x1 = Math.max(b.x1, points[i].x);
+      b.y1 = Math.max(b.y1, points[i].y);
+    }
+    if (ids.length === 1) {
+      b.point = ids[0];
+      leaves[ids[0]] = b;
+      return b;
+    }
+    const axis = b.x1 - b.x0 >= b.y1 - b.y0 ? "x" : "y";
+    ids.sort((i, j) => points[i][axis] - points[j][axis]);
+    const half = ids.length >> 1;
+    b.children = [build(ids.slice(0, half), b), build(ids.slice(half), b)];
+    return b;
   };
-  const [left, right] = middle([...centres.values()].map((p) => p.x)),
-    [top, bottom] = middle([...centres.values()].map((p) => p.y)),
-    columns = Math.ceil(Math.sqrt(placed.length)),
-    size = Math.max(right - left, bottom - top, 1) / columns;
-  const index = (v: number, start: number) =>
-    Math.min(columns - 1, Math.max(0, Math.floor((v - start) / size)));
-  const grid: { x: number; y: number; color: number }[][] = [],
-    users = new Array<number>(length).fill(0),
-    limit = 8 * length;
-  const add = (p: { x: number; y: number }, color: number) => {
-    (grid[index(p.y, top) * columns + index(p.x, left)] ??= []).push({
-      ...p,
-      color,
-    });
+  const root = build(placed.map((_, i) => i)),
+    users = new Array<number>(length).fill(0);
+  const colorAt = (i: number, color: number) => {
+    placed[i].color[t] = color;
     users[color]++;
+    for (let b: Branch | undefined = leaves[i]; b; b = b.parent) b.colored++;
   };
-  for (const c of placed)
-    if (c.color[t] !== undefined) add(centres.get(c)!, c.color[t]);
-  for (const c of pending) {
-    const here = centres.get(c)!;
+  placed.forEach((c, i) => {
+    if (c.color[t] !== undefined) colorAt(i, c.color[t]);
+  });
+  placed.forEach((c, i) => {
+    if (c.color[t] !== undefined) return;
     let color = users.indexOf(0);
     if (color < 0) {
-      const nearest = new Array<number>(length).fill(Infinity),
-        cx = index(here.x, left),
-        cy = index(here.y, top);
-      let unseen = length,
-        examined = 0;
-      const scan = (x: number, y: number) => {
-        if (x < 0 || y < 0 || x >= columns || y >= columns) return;
-        for (const u of grid[y * columns + x] ?? []) {
-          if (examined++ >= limit) return;
-          const d = Math.hypot(u.x - here.x, u.y - here.y);
-          if (nearest[u.color] === Infinity) unseen--;
-          if (d < nearest[u.color]) nearest[u.color] = d;
-        }
-      };
-      // Walk only each ring's border; cells beyond ring r are at least r cells away.
-      for (let ring = 0; ring < columns && examined < limit; ring++) {
-        for (let i = -ring; i <= ring; i++) {
-          scan(cx + i, cy - ring);
-          if (ring) scan(cx + i, cy + ring);
-        }
-        for (let j = 1 - ring; j < ring; j++) {
-          scan(cx - ring, cy + j);
-          scan(cx + ring, cy + j);
-        }
-        if (!unseen && ring * size >= Math.max(...nearest)) break;
+      const { x, y } = points[i],
+        met = new Uint8Array(length),
+        queue = new Queue();
+      let unmet = length;
+      queue.push(root, 0);
+      while (unmet) {
+        const b = queue.pop()!;
+        if (b.point !== undefined) {
+          const seen = placed[b.point].color[t];
+          if (!met[seen]) {
+            met[seen] = 1;
+            unmet--;
+            color = seen;
+          }
+        } else
+          for (const child of b.children!)
+            if (child.colored) queue.push(child, gap(child, x, y));
       }
-      // A color not met within the limit is farther than every color met;
-      // among those, the least used one spreads repeats evenly.
-      color = unseen
-        ? nearest.reduce(
-            (best, d, i) =>
-              d === Infinity && (best < 0 || users[i] < users[best]) ? i : best,
-            -1,
-          )
-        : nearest.indexOf(Math.max(...nearest));
     }
-    c.color[t] = color;
-    add(here, color);
+    colorAt(i, color);
+  });
+}
+interface Branch {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  // Clusters in this branch that already have a color for the theme.
+  colored: number;
+  parent?: Branch;
+  children?: [Branch, Branch];
+  point?: number;
+}
+// Squared distance from a point to a branch's bounding box.
+const gap = (b: Branch, x: number, y: number) => {
+  const dx = Math.max(b.x0 - x, 0, x - b.x1),
+    dy = Math.max(b.y0 - y, 0, y - b.y1);
+  return dx * dx + dy * dy;
+};
+// A binary min-heap of branches keyed by their distance from the new cluster.
+class Queue {
+  private branches: Branch[] = [];
+  private keys: number[] = [];
+  push(b: Branch, d: number) {
+    const { branches, keys } = this;
+    let i = branches.length;
+    while (i > 0) {
+      const up = (i - 1) >> 1;
+      if (keys[up] <= d) break;
+      branches[i] = branches[up];
+      keys[i] = keys[up];
+      i = up;
+    }
+    branches[i] = b;
+    keys[i] = d;
+  }
+  pop() {
+    const { branches, keys } = this,
+      top = branches[0],
+      last = branches.pop()!,
+      d = keys.pop()!,
+      size = branches.length;
+    if (size) {
+      let i = 0;
+      for (;;) {
+        let child = 2 * i + 1;
+        if (child >= size) break;
+        if (child + 1 < size && keys[child + 1] < keys[child]) child++;
+        if (keys[child] >= d) break;
+        branches[i] = branches[child];
+        keys[i] = keys[child];
+        i = child;
+      }
+      branches[i] = last;
+      keys[i] = d;
+    }
+    return top;
   }
 }
 
