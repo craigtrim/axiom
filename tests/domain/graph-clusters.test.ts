@@ -201,31 +201,43 @@ describe("cluster fills", () => {
         expect(n.clusterColor).toEqual(before[n.iri]);
   });
 
-  it("numbers and colors 15,000 nodes quickly in one cluster or in 7,500", () => {
+  it("numbers 15,000 nodes in one cluster quickly", () => {
     const chain = graph([Array.from({ length: 15000 }, (_, i) => "n" + i)]);
-    let started = performance.now();
+    const started = performance.now();
     expect(assignClusters(chain.nodes, chain.edges, true)).toBe(1);
-    const one = performance.now() - started;
-    const pairs = { nodes: [] as GraphNode[], edges: [] as GraphEdge[] };
-    for (let k = 0; k < 7500; k++) {
-      const x = (k % 100) * 50,
-        y = Math.floor(k / 100) * 50;
-      pairs.nodes.push(node("a" + k, x, y), node("b" + k, x + 10, y));
-      pairs.edges.push(edge("a" + k, "b" + k));
-    }
-    started = performance.now();
-    const clusterCount = assignClusters(pairs.nodes, pairs.edges, true);
-    clusterFills(
-      { nodes: pairs.nodes, clusterColors: true, clusterCount },
-      false,
-    );
-    const many = performance.now() - started;
-    expect(clusterCount).toBe(7500);
-    // Ceilings well above the measured 30 ms and 300 ms; the quadratic
-    // versions this replaced took about 0.5 s and 1.2 s.
-    expect(one).toBeLessThan(300);
-    expect(many).toBeLessThan(2000);
+    // Measured near 30 ms; the quadratic grouping this replaced took 0.5 s.
+    expect(performance.now() - started).toBeLessThan(300);
   });
+
+  // 7,500 two-node clusters: a regular grid, the same grid with one cluster
+  // dragged far away, and most clusters packed into a tiny clump.
+  const grid = (k: number) => [(k % 100) * 50, Math.floor(k / 100) * 50];
+  for (const [layout, place] of [
+    ["a regular grid", grid],
+    ["one far outlier", (k: number) => (k === 7499 ? [10000, 10000] : grid(k))],
+    [
+      "a dense clump",
+      (k: number) =>
+        k < 7000
+          ? [(k % 7) * 0.01, Math.floor(k / 7) * 0.001]
+          : [(k % 25) * 400, Math.floor(k / 25) * 400],
+    ],
+  ] as const)
+    it(`colors 7,500 clusters quickly in ${layout}`, () => {
+      const nodes: GraphNode[] = [],
+        edges: GraphEdge[] = [];
+      for (let k = 0; k < 7500; k++) {
+        const [x, y] = place(k);
+        nodes.push(node("a" + k, x, y), node("b" + k, x + 10, y));
+        edges.push(edge("a" + k, "b" + k));
+      }
+      const started = performance.now();
+      const clusterCount = assignClusters(nodes, edges, true);
+      clusterFills({ nodes, clusterColors: true, clusterCount }, false);
+      expect(clusterCount).toBe(7500);
+      // Measured from 270 to 400 ms; the versions this replaced took 1.1 to 1.9 s.
+      expect(performance.now() - started).toBeLessThan(1000);
+    });
 });
 
 describe("cluster rendering", () => {
