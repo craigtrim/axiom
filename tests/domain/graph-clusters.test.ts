@@ -209,6 +209,39 @@ describe("cluster fills", () => {
     expect(performance.now() - started).toBeLessThan(300);
   });
 
+  // Checks each repeat against a brute-force search over the clusters numbered
+  // before it: its color's nearest earlier use must be as far as any color's.
+  function expectFarthestRepeats(nodes: GraphNode[], upTo: number) {
+    const centres = new Map<number, { x: number; y: number; n: number }>(),
+      colors = new Map<number, [number, number]>();
+    for (const n of nodes) {
+      const c = centres.get(n.cluster!) ?? { x: 0, y: 0, n: 0 };
+      c.x += n.x;
+      c.y += n.y;
+      c.n++;
+      centres.set(n.cluster!, c);
+      colors.set(n.cluster!, n.clusterColor!);
+    }
+    for (const [t, sequence] of [
+      clusterPalette.light,
+      clusterPalette.dark,
+    ].entries())
+      for (let p = sequence.length; p < upTo; p++) {
+        const here = centres.get(p)!,
+          nearest = new Array<number>(sequence.length).fill(Infinity);
+        for (let q = 0; q < p; q++) {
+          const c = centres.get(q)!,
+            d = Math.hypot(
+              c.x / c.n - here.x / here.n,
+              c.y / c.n - here.y / here.n,
+            ),
+            color = colors.get(q)![t];
+          nearest[color] = Math.min(nearest[color], d);
+        }
+        expect(nearest[colors.get(p)![t]]).toBeCloseTo(Math.max(...nearest), 9);
+      }
+  }
+
   // 7,500 two-node clusters: a regular grid, the same grid with one cluster
   // dragged far away, and most clusters packed into a tiny clump.
   const grid = (k: number) => [(k % 100) * 50, Math.floor(k / 100) * 50];
@@ -234,9 +267,11 @@ describe("cluster fills", () => {
       const started = performance.now();
       const clusterCount = assignClusters(nodes, edges, true);
       clusterFills({ nodes, clusterColors: true, clusterCount }, false);
+      const elapsed = performance.now() - started;
       expect(clusterCount).toBe(7500);
-      // Measured from 270 to 400 ms; the versions this replaced took 1.1 to 1.9 s.
-      expect(performance.now() - started).toBeLessThan(1000);
+      // Measured from 160 to 540 ms; the versions this replaced took 1.1 to 1.9 s.
+      expect(elapsed).toBeLessThan(1000);
+      expectFarthestRepeats(nodes, 550);
     });
 });
 
