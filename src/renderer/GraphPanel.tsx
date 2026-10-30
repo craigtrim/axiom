@@ -1469,6 +1469,19 @@ function GraphContent() {
           />
           Show counts
         </label>
+        {/* craigtrim/axiom#185: offered only once hiding splits the graph into clusters. */}
+        {(info?.clusterCount ?? 0) > 1 && (
+          <label title="Give each group of connected nodes its own color.">
+            <input
+              type="checkbox"
+              checked={info?.clusterColors === true}
+              onChange={(event) =>
+                void act("clusterColors", { enabled: event.target.checked })
+              }
+            />
+            Color clusters
+          </label>
+        )}
         <GraphSpacing
           value={info?.spacing ?? 1}
           epoch={snapshot.datasetEpoch}

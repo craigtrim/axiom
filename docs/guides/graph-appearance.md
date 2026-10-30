@@ -120,6 +120,16 @@ The setting belongs to each graph and is saved with workspaces and sessions. Und
 
 Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include count visibility changes. PNG and SVG exports use the same visibility setting as the graph.
 
+## Cluster colors
+
+Hiding nodes can split a graph into clusters: groups of displayed nodes joined by relationships in either direction and joined to nothing else on screen. A cluster has at least two nodes. As soon as a graph shows two or more clusters, **Color clusters** appears beside **Show counts** in the graph footer. Checking it fills each cluster's nodes with one color in every layout. Shapes, sizes, labels, edges and selection marks stay as they are, and the + and AND marks stay readable on every cluster color. Nodes with no displayed relationship turn neutral grey, so a lone node never reads as part of a colored cluster. While the box is checked, cluster colors replace stylesheet fills.
+
+Turning the colors on numbers the clusters by size, largest first. After that a cluster keeps its color as nodes are hidden or shown. When a cluster splits, the part holding most of its nodes keeps the color and the other part takes the first unused one. When clusters merge, the merged cluster keeps the color of the part that held more nodes. Clusters come from relationships rather than drawn lines, so **Show edges** does not change them.
+
+The colors come from ordered light and dark sequences that start from Petroff's accessible ten-color sequence (research in #184, derivation in #185). Every color keeps 3:1 contrast with its canvas. In the light theme the first 9 colors stay apart under simulated protanopia, deuteranopia and tritanopia, and the first 51 stay apart for normal color vision; the dark theme's figures are 12 and 79. Past the end of a sequence, colors repeat, and a repeated color goes to the cluster farthest on screen from the clusters already using it. [Petroff, Accessible Color Sequences for Data Visualization](https://arxiv.org/abs/2107.02270)
+
+Each graph saves its own setting in workspaces and restored sessions, and Undo and Redo include it. The box disappears when the graph joins back into one cluster, and a graph left checked colors its clusters again when they return. PNG and SVG exports carry the same colors. The minimap keeps its single color.
+
 ## Expand max
 
 **Expand max** starts from every node currently visible in the active graph. It follows connections breadth-first, admitting nearer neighbours before more distant nodes, until the Visible node limit is reached or all reachable nodes are visible. It follows connections in either direction and uses the same projected intersection branches as the graph. Disconnected ontology components stay outside the view.
