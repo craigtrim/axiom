@@ -26,6 +26,8 @@ export interface GraphNode {
   taxonomyAncestors?: string[];
   // craigtrim/axiom#185: palette position of the node's cluster, if any.
   cluster?: number;
+  // Its light and dark sequence indexes, fixed once a repeat is chosen.
+  clusterColor?: [light: number, dark: number];
 }
 export interface EdgeBend {
   x: number;

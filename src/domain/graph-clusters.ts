@@ -159,14 +159,17 @@ export function graphClusters(nodes: GraphNode[], edges: GraphEdge[]) {
       parent.set(root(e.source), root(e.target));
   const groups = new Map<string, GraphNode[]>();
   for (const n of nodes) {
-    const r = root(n.iri);
-    groups.set(r, [...(groups.get(r) ?? []), n]);
+    const r = root(n.iri),
+      group = groups.get(r);
+    if (group) group.push(n);
+    else groups.set(r, [n]);
   }
   return [...groups.values()].filter((g) => g.length > 1);
 }
 
 /**
- * Numbers clusters into palette positions and stores each on node.cluster.
+ * Numbers clusters into palette positions and stores each on node.cluster,
+ * with the light and dark sequence indexes on node.clusterColor.
  * A cluster keeps the position most of its nodes held before; a split leaves
  * the position with the larger part. Unmatched clusters take the lowest free
  * positions, largest first. Returns the number of clusters.
@@ -177,14 +180,19 @@ export function assignClusters(
   enabled: boolean,
 ) {
   const clusters = graphClusters(nodes, edges);
-  const previous = new Map(nodes.map((n) => [n.iri, n.cluster]));
-  for (const n of nodes) delete n.cluster;
+  const previous = new Map(
+    nodes.map((n) => [n.iri, [n.cluster, n.clusterColor] as const]),
+  );
+  for (const n of nodes) {
+    delete n.cluster;
+    delete n.clusterColor;
+  }
   if (!enabled) return clusters.length;
   const shares: { cluster: number; position: number; count: number }[] = [];
   clusters.forEach((members, cluster) => {
     const counts = new Map<number, number>();
     for (const n of members) {
-      const p = previous.get(n.iri);
+      const p = previous.get(n.iri)![0];
       if (p !== undefined) counts.set(p, (counts.get(p) ?? 0) + 1);
     }
     for (const [position, count] of counts)
@@ -217,13 +225,107 @@ export function assignClusters(
     positions.set(cluster, free);
     used.add(free);
   }
-  clusters.forEach((members, cluster) => {
-    for (const n of members) n.cluster = positions.get(cluster);
-  });
+  const placed = clusters
+    .map((members, cluster) => {
+      const position = positions.get(cluster)!;
+      // A cluster that kept its position keeps the colors chosen for it.
+      const kept = members
+        .map((n) => previous.get(n.iri)!)
+        .find(([p, color]) => p === position && color)?.[1];
+      return { members, position, color: kept ? [...kept] : [] };
+    })
+    .sort((a, b) => a.position - b.position);
+  (["light", "dark"] as const).forEach((theme, t) =>
+    repeatColors(placed, t, clusterPalette[theme].length),
+  );
+  for (const c of placed)
+    for (const n of c.members) {
+      n.cluster = c.position;
+      n.clusterColor = [c.color[0], c.color[1]];
+    }
   return clusters.length;
 }
 const firstIri = (members: GraphNode[]) =>
   members.reduce((a, n) => (n.iri < a ? n.iri : a), members[0].iri);
+
+/**
+ * Gives each cluster its sequence index for one theme. Positions inside the
+ * sequence use their own index; a new position past its end reuses the color
+ * whose nearest cluster is farthest away on screen. A grid scanned outward
+ * from the new cluster stops once no unscanned cluster could be nearer.
+ */
+function repeatColors(
+  placed: { members: GraphNode[]; position: number; color: number[] }[],
+  t: number,
+  length: number,
+) {
+  for (const c of placed) if (c.position < length) c.color[t] = c.position;
+  const pending = placed.filter((c) => c.color[t] === undefined);
+  if (!pending.length) return;
+  const centre = (members: GraphNode[]) => ({
+    x: members.reduce((s, n) => s + n.x, 0) / members.length,
+    y: members.reduce((s, n) => s + n.y, 0) / members.length,
+  });
+  const centres = new Map(placed.map((c) => [c, centre(c.members)]));
+  let left = Infinity,
+    top = Infinity,
+    right = -Infinity,
+    bottom = -Infinity;
+  for (const p of centres.values()) {
+    left = Math.min(left, p.x);
+    top = Math.min(top, p.y);
+    right = Math.max(right, p.x);
+    bottom = Math.max(bottom, p.y);
+  }
+  const span = Math.max(right - left, bottom - top, 1),
+    size = span / Math.ceil(Math.sqrt(placed.length)),
+    columns = Math.floor(span / size) + 1;
+  const cell = (p: { x: number; y: number }) => [
+    Math.floor((p.x - left) / size),
+    Math.floor((p.y - top) / size),
+  ];
+  const grid: { x: number; y: number; color: number }[][] = [],
+    users = new Array<number>(length).fill(0);
+  const add = (p: { x: number; y: number }, color: number) => {
+    const [cx, cy] = cell(p);
+    (grid[cy * columns + cx] ??= []).push({ ...p, color });
+    users[color]++;
+  };
+  for (const c of placed)
+    if (c.color[t] !== undefined) add(centres.get(c)!, c.color[t]);
+  for (const c of pending) {
+    const here = centres.get(c)!;
+    let color = users.indexOf(0);
+    if (color < 0) {
+      const nearest = new Array<number>(length).fill(Infinity),
+        [cx, cy] = cell(here);
+      let unseen = length;
+      const scan = (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= columns || y >= columns) return;
+        for (const u of grid[y * columns + x] ?? []) {
+          const d = Math.hypot(u.x - here.x, u.y - here.y);
+          if (nearest[u.color] === Infinity) unseen--;
+          if (d < nearest[u.color]) nearest[u.color] = d;
+        }
+      };
+      // Walk only each ring's border; cells beyond ring r are at least r cells away.
+      for (let ring = 0; ring <= columns; ring++) {
+        for (let i = -ring; i <= ring; i++) {
+          scan(cx + i, cy - ring);
+          if (ring) scan(cx + i, cy + ring);
+        }
+        for (let j = 1 - ring; j < ring; j++) {
+          scan(cx - ring, cy + j);
+          scan(cx + ring, cy + j);
+        }
+        if (!unseen && ring * size >= Math.max(...nearest)) break;
+      }
+      color = nearest.indexOf(Math.max(...nearest));
+    }
+    c.color[t] = color;
+    add(here, color);
+  }
+}
 
 const fillCache = new WeakMap<
   GraphNode[],
@@ -231,8 +333,7 @@ const fillCache = new WeakMap<
 >();
 /**
  * Fill colors for clustered nodes, or undefined while cluster colors are off
- * or fewer than two clusters are displayed. Positions past the end of the
- * sequence reuse the color whose clusters are farthest away on screen.
+ * or fewer than two clusters are displayed.
  */
 export function clusterFills(
   g: { nodes: GraphNode[]; clusterColors?: boolean; clusterCount?: number },
@@ -241,50 +342,11 @@ export function clusterFills(
   if (!g.clusterColors || (g.clusterCount ?? 0) < 2) return undefined;
   const cached = fillCache.get(g.nodes);
   if (cached?.dark === dark) return cached.fills;
-  const sequence = clusterPalette[dark ? "dark" : "light"];
-  const centres = new Map<number, { x: number; y: number; n: number }>();
-  for (const node of g.nodes)
-    if (node.cluster !== undefined) {
-      const c = centres.get(node.cluster) ?? { x: 0, y: 0, n: 0 };
-      c.x += node.x;
-      c.y += node.y;
-      c.n++;
-      centres.set(node.cluster, c);
-    }
-  const colors = new Map<number, number>(),
-    users = sequence.map(() => [] as { x: number; y: number }[]);
-  const centre = (p: number) => {
-    const c = centres.get(p)!;
-    return { x: c.x / c.n, y: c.y / c.n };
-  };
-  const positions = [...centres.keys()].sort((a, b) => a - b);
-  for (const p of positions)
-    if (p < sequence.length) {
-      colors.set(p, p);
-      users[p].push(centre(p));
-    }
-  for (const p of positions)
-    if (p >= sequence.length) {
-      const here = centre(p);
-      let best = 0,
-        bestDistance = -1;
-      users.forEach((list, color) => {
-        const distance = Math.min(
-          Infinity,
-          ...list.map((u) => Math.hypot(u.x - here.x, u.y - here.y)),
-        );
-        if (distance > bestDistance) {
-          best = color;
-          bestDistance = distance;
-        }
-      });
-      colors.set(p, best);
-      users[best].push(here);
-    }
-  const fills = new Map<string, string>();
-  for (const node of g.nodes)
-    if (node.cluster !== undefined)
-      fills.set(node.iri, sequence[colors.get(node.cluster)!]);
+  const sequence = clusterPalette[dark ? "dark" : "light"],
+    fills = new Map<string, string>();
+  for (const n of g.nodes)
+    if (n.clusterColor)
+      fills.set(n.iri, sequence[n.clusterColor[dark ? 1 : 0]]);
   fillCache.set(g.nodes, { dark, fills });
   return fills;
 }
