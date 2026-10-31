@@ -16,7 +16,12 @@ import {
   type ExportStreamRequest,
   type ReportData,
 } from "../shared/export";
-import { formatCeiling, sendsRows } from "../shared/raster-layout";
+import {
+  formatCeiling,
+  MAX_BYTE_STREAM,
+  MAX_STREAM_CHUNK,
+  sendsRows,
+} from "../shared/raster-layout";
 import {
   bmpWriter,
   byteWriter,
@@ -178,6 +183,7 @@ interface ExportStream {
   temp: string | null;
   writer: StreamWriter | null;
   clipboard: Buffer[] | null;
+  clipboardBytes: number;
   queue: Promise<void>;
 }
 const streams = new Map<string, ExportStream>(),
@@ -227,6 +233,7 @@ export async function openExportStream(
       temp: null,
       writer: null,
       clipboard: null,
+      clipboardBytes: 0,
       queue: Promise.resolve(),
     };
   if (o.format === "clipboard") stream.clipboard = [];
@@ -236,14 +243,19 @@ export async function openExportStream(
     const temp = file + "." + randomUUID() + ".axiom-export.tmp";
     stream.file = file;
     stream.temp = temp;
-    stream.writer =
-      encoding === "bytes"
-        ? await byteWriter(temp)
-        : o.format === "png"
-          ? await pngWriter(temp, width, height)
-          : o.format === "tiff"
-            ? await tiffWriter(temp, width, height)
-            : await bmpWriter(temp, width, height);
+    try {
+      stream.writer =
+        encoding === "bytes"
+          ? await byteWriter(temp, MAX_BYTE_STREAM)
+          : o.format === "png"
+            ? await pngWriter(temp, width, height)
+            : o.format === "tiff"
+              ? await tiffWriter(temp, width, height)
+              : await bmpWriter(temp, width, height);
+    } catch (e) {
+      await rm(temp, { force: true });
+      throw e;
+    }
   }
   streams.set(id, stream);
   return id;
@@ -260,10 +272,15 @@ export async function writeExportStream(
   owner: number,
 ) {
   const stream = ownStream(id, owner);
-  if (!(chunk instanceof Uint8Array)) throw Error("Invalid export data.");
+  if (!(chunk instanceof Uint8Array) || chunk.length > MAX_STREAM_CHUNK)
+    throw Error("Invalid export data.");
   stream.queue = stream.queue.then(async () => {
-    if (stream.clipboard) stream.clipboard.push(Buffer.from(chunk));
-    else await stream.writer!.write(chunk);
+    if (stream.clipboard) {
+      stream.clipboardBytes += chunk.length;
+      if (stream.clipboardBytes > MAX_BYTE_STREAM)
+        throw Error("The export sent more data than allowed.");
+      stream.clipboard.push(Buffer.from(chunk));
+    } else await stream.writer!.write(chunk);
   });
   await stream.queue;
 }

@@ -11,9 +11,72 @@ export const fitsCanvas = (width: number, height: number) =>
   width <= CANVAS_SIDE &&
   height <= CANVAS_SIDE &&
   width * height <= CANVAS_AREA;
-/** Rows per band for an image this wide. */
+/** Rows per band for an image this wide; a band is also a canvas, so it stays within the canvas side. */
 export const bandRows = (width: number, height: number) =>
-  Math.max(1, Math.min(height, Math.floor(BAND_PIXELS / width)));
+  Math.max(1, Math.min(height, CANVAS_SIDE, Math.floor(BAND_PIXELS / width)));
+/** The largest single write a stream accepts: one band of RGBA plus PNG filter bytes, with room to spare. */
+export const MAX_STREAM_CHUNK = 100663296;
+/** The most a finished-bytes stream may hold: past this no single canvas's encoding or SVG string reaches. */
+export const MAX_BYTE_STREAM = 2147483647;
+/** Bytes a row stream carries per image row. */
+export const rowStreamBytes = (format: string, width: number) =>
+  format === "png"
+    ? 1 + width * 4
+    : format === "bmp"
+      ? bmpStride(width)
+      : width * 4;
+/**
+ * Rows in the order the writers expect: top to bottom, PNG rows led by filter byte 0,
+ * BMP rows as BGR padded to its stride.
+ */
+export function encodeRows(
+  format: string,
+  rgba: Uint8ClampedArray,
+  width: number,
+  rows: number,
+) {
+  if (format === "tiff")
+    return new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
+  const out = new Uint8Array(rows * rowStreamBytes(format, width));
+  for (let r = 0; r < rows; r++)
+    out.set(
+      encodeSegment(
+        format,
+        rgba.subarray(r * width * 4, (r + 1) * width * 4),
+        width,
+        true,
+        true,
+      ),
+      r * rowStreamBytes(format, width),
+    );
+  return out;
+}
+/** One piece of one row, for images too wide to hold a whole row of RGBA. */
+export function encodeSegment(
+  format: string,
+  rgba: Uint8ClampedArray,
+  width: number,
+  first: boolean,
+  last: boolean,
+  rowWidth = width,
+) {
+  if (format === "png") {
+    const out = new Uint8Array(width * 4 + (first ? 1 : 0));
+    out.set(rgba, first ? 1 : 0);
+    return out;
+  }
+  if (format === "bmp") {
+    const pad = last ? bmpStride(rowWidth) - rowWidth * 3 : 0,
+      out = new Uint8Array(width * 3 + pad);
+    for (let x = 0; x < width; x++) {
+      out[x * 3] = rgba[x * 4 + 2];
+      out[x * 3 + 1] = rgba[x * 4 + 1];
+      out[x * 3 + 2] = rgba[x * 4];
+    }
+    return out;
+  }
+  return new Uint8Array(rgba);
+}
 /** Column widths that keep every tile inside one canvas. */
 export function tileColumns(width: number) {
   const count = Math.ceil(width / CANVAS_SIDE),

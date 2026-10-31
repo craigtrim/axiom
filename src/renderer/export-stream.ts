@@ -3,8 +3,10 @@ import { exportScene, exportTiles } from "./scene";
 import type { GraphSnapshot } from "../shared/protocol";
 import type { ExportOptions, ExportStreamRequest } from "../shared/export";
 import {
+  BAND_PIXELS,
   bandRows,
-  bmpStride,
+  encodeRows,
+  encodeSegment,
   fitsCanvas,
   sendsRows,
   tileColumns,
@@ -33,37 +35,6 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
     ),
   );
 }
-/** One band as the writer for this format expects it. */
-function encodeBand(
-  format: string,
-  rgba: Uint8ClampedArray,
-  width: number,
-  rows: number,
-) {
-  const row = width * 4;
-  if (format === "tiff")
-    return new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
-  if (format === "png") {
-    // Each row starts with PNG filter 0, which the zeroed buffer already holds.
-    const out = new Uint8Array(rows * (row + 1));
-    for (let r = 0; r < rows; r++)
-      out.set(rgba.subarray(r * row, (r + 1) * row), r * (row + 1) + 1);
-    return out;
-  }
-  // BMP: padded BGR rows, bottom row first, as they sit in the file.
-  const stride = bmpStride(width),
-    out = new Uint8Array(rows * stride);
-  for (let r = 0; r < rows; r++) {
-    const from = (rows - 1 - r) * row,
-      to = r * stride;
-    for (let x = 0; x < width; x++) {
-      out[to + x * 3] = rgba[from + x * 4 + 2];
-      out[to + x * 3 + 1] = rgba[from + x * 4 + 1];
-      out[to + x * 3 + 2] = rgba[from + x * 4];
-    }
-  }
-  return out;
-}
 async function sendRows(
   id: string,
   format: string,
@@ -75,10 +46,13 @@ async function sendRows(
     columns = tileColumns(width);
   for (let y = 0; y < height; y += rows) {
     const n = Math.min(rows, height - y);
-    let rgba: Uint8ClampedArray;
-    if (columns.length === 1) rgba = region(0, y, width, n);
-    else {
-      rgba = new Uint8ClampedArray(width * n * 4);
+    if (columns.length === 1)
+      await window.axiom.exportWrite(
+        id,
+        encodeRows(format, region(0, y, width, n), width, n),
+      );
+    else if (width * n <= BAND_PIXELS) {
+      const rgba = new Uint8ClampedArray(width * n * 4);
       for (const c of columns) {
         const part = region(c.x, y, c.width, n);
         for (let r = 0; r < n; r++)
@@ -87,8 +61,21 @@ async function sendRows(
             (r * width + c.x) * 4,
           );
       }
-    }
-    await window.axiom.exportWrite(id, encodeBand(format, rgba, width, n));
+      await window.axiom.exportWrite(id, encodeRows(format, rgba, width, n));
+    } else
+      // A single row wider than a band leaves one column at a time, so no whole row is held.
+      for (let i = 0; i < columns.length; i++)
+        await window.axiom.exportWrite(
+          id,
+          encodeSegment(
+            format,
+            region(columns[i].x, y, columns[i].width, 1),
+            columns[i].width,
+            i === 0,
+            i === columns.length - 1,
+            width,
+          ),
+        );
   }
 }
 export async function streamDiagram({

@@ -1,13 +1,67 @@
 // craigtrim/axiom#188: write PNG, TIFF and BMP band by band, so no whole image is ever held in memory.
-import { open } from "node:fs/promises";
+import { open, type FileHandle } from "node:fs/promises";
 import { finished } from "node:stream/promises";
 import { once } from "node:events";
 import { createDeflate, crc32 } from "node:zlib";
-import { bmpBytes, bmpStride, tiffLayout } from "../shared/raster-layout";
+import {
+  bmpBytes,
+  bmpStride,
+  rowStreamBytes,
+  tiffLayout,
+} from "../shared/raster-layout";
 export interface StreamWriter {
   write(chunk: Uint8Array): Promise<void>;
   finish(): Promise<void>;
   abort(): Promise<void>;
+}
+type Writable = Pick<FileHandle, "write">;
+/** A write can land fewer bytes than asked for, so keep going until all of them are down. */
+export async function writeAll(
+  fh: Writable,
+  bytes: Uint8Array,
+  position?: number,
+) {
+  for (let done = 0; done < bytes.length;) {
+    const { bytesWritten } = await fh.write(
+      bytes,
+      done,
+      bytes.length - done,
+      position === undefined ? null : position + done,
+    );
+    if (bytesWritten <= 0)
+      throw Error("The export file stopped accepting data.");
+    done += bytesWritten;
+  }
+}
+/** Opens the file and runs the header step, closing the file if that step fails. */
+async function openWith(
+  file: string,
+  start: (fh: FileHandle) => Promise<void>,
+) {
+  const fh = await open(file, "w");
+  try {
+    await start(fh);
+  } catch (e) {
+    await fh.close().catch(() => undefined);
+    throw e;
+  }
+  return fh;
+}
+/** Counts a row stream's bytes and refuses more than the image holds. */
+function tally(expected: number) {
+  let received = 0;
+  return {
+    add(bytes: number) {
+      received += bytes;
+      if (received > expected)
+        throw Error("The export sent more rows than the image holds.");
+      return received - bytes;
+    },
+    check() {
+      if (received !== expected)
+        throw Error("The export ended before every row arrived.");
+    },
+  };
 }
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 function pngChunk(type: string, data: Uint8Array) {
@@ -18,50 +72,42 @@ function pngChunk(type: string, data: Uint8Array) {
   out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
   return out;
 }
-/** Rows arrive with their PNG filter byte; the writer deflates them into IDAT chunks. */
+/** Rows arrive led by their PNG filter byte; the writer deflates them into IDAT chunks. */
 export async function pngWriter(
   file: string,
   width: number,
   height: number,
 ): Promise<StreamWriter> {
-  const fh = await open(file, "w"),
-    rowBytes = 1 + width * 4,
-    expected = rowBytes * height,
-    header = Buffer.alloc(13);
+  const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
   header[8] = 8;
   header[9] = 6;
-  await fh.write(Buffer.concat([signature, pngChunk("IHDR", header)]));
-  const deflate = createDeflate({ level: 6, chunkSize: 1 << 20 });
-  let received = 0,
-    written = Promise.resolve();
+  const fh = await openWith(file, (fh) =>
+      writeAll(fh, Buffer.concat([signature, pngChunk("IHDR", header)])),
+    ),
+    count = tally(rowStreamBytes("png", width) * height),
+    deflate = createDeflate({ level: 6, chunkSize: 1 << 20 });
+  let written = Promise.resolve();
   deflate.on("data", (data: Buffer) => {
-    written = written.then(async () => {
-      await fh.write(pngChunk("IDAT", data));
-    });
+    written = written.then(() => writeAll(fh, pngChunk("IDAT", data)));
     // The caller awaits `written`; this keeps a failed write from surfacing as an unhandled rejection meanwhile.
     written.catch(() => undefined);
   });
   const ended = finished(deflate);
   ended.catch(() => undefined);
   return {
-    async write(rows) {
-      if (rows.length % rowBytes)
-        throw Error("A PNG band must hold whole rows.");
-      received += rows.length;
-      if (received > expected)
-        throw Error("The export sent more rows than the image holds.");
-      if (!deflate.write(rows)) await once(deflate, "drain");
+    async write(bytes) {
+      count.add(bytes.length);
+      if (!deflate.write(bytes)) await once(deflate, "drain");
       await written;
     },
     async finish() {
-      if (received !== expected)
-        throw Error("The export ended before every row arrived.");
+      count.check();
       deflate.end();
       await ended;
       await written;
-      await fh.write(pngChunk("IEND", new Uint8Array(0)));
+      await writeAll(fh, pngChunk("IEND", new Uint8Array(0)));
       await fh.close();
     },
     async abort() {
@@ -95,11 +141,11 @@ function tiffHeader(width: number, height: number, classicLimit?: number) {
     put(2, 42, 2);
     put(4, t.header, 4);
   }
-  for (let i = 0; i < t.strips; i++) {
-    if (t.strips === 1) break;
-    put(arrays + i * word, offset(i), word);
-    put(arrays + (t.strips + i) * word, count(i), word);
-  }
+  if (t.strips > 1)
+    for (let i = 0; i < t.strips; i++) {
+      put(arrays + i * word, offset(i), word);
+      put(arrays + (t.strips + i) * word, count(i), word);
+    }
   // [tag, type, count, inline values or an offset]; types: 3 SHORT, 4 LONG, 5 RATIONAL, 16 LONG8.
   const long = t.big ? 16 : 4,
     extra = t.header + t.ifd,
@@ -149,29 +195,24 @@ function tiffHeader(width: number, height: number, classicLimit?: number) {
   }
   return head;
 }
-/** Rows arrive as RGBA, top to bottom, and go to the file unchanged. */
+/** RGBA arrives top to bottom and goes to the file unchanged. */
 export async function tiffWriter(
   file: string,
   width: number,
   height: number,
   classicLimit?: number,
 ): Promise<StreamWriter> {
-  const fh = await open(file, "w"),
-    row = width * 4,
-    expected = row * height;
-  await fh.write(tiffHeader(width, height, classicLimit));
-  let received = 0;
+  const fh = await openWith(file, (fh) =>
+      writeAll(fh, tiffHeader(width, height, classicLimit)),
+    ),
+    count = tally(width * 4 * height);
   return {
-    async write(rows) {
-      if (rows.length % row) throw Error("A TIFF band must hold whole rows.");
-      received += rows.length;
-      if (received > expected)
-        throw Error("The export sent more rows than the image holds.");
-      await fh.write(rows);
+    async write(bytes) {
+      count.add(bytes.length);
+      await writeAll(fh, bytes);
     },
     async finish() {
-      if (received !== expected)
-        throw Error("The export ended before every row arrived.");
+      count.check();
       await fh.close();
     },
     async abort() {
@@ -179,14 +220,13 @@ export async function tiffWriter(
     },
   };
 }
-/** Each band arrives as padded BGR rows, bottom row first, and lands where BMP's bottom-up order puts it. */
+/** Padded BGR rows arrive top to bottom; each lands where BMP's bottom-up order puts it. */
 export async function bmpWriter(
   file: string,
   width: number,
   height: number,
 ): Promise<StreamWriter> {
-  const fh = await open(file, "w"),
-    stride = bmpStride(width),
+  const stride = bmpStride(width),
     size = bmpBytes(width, height),
     header = Buffer.alloc(54);
   header.write("BM", 0, "latin1");
@@ -198,22 +238,29 @@ export async function bmpWriter(
   header.writeUInt16LE(1, 26);
   header.writeUInt16LE(24, 28);
   header.writeUInt32LE(stride * height, 34);
-  await fh.write(header, 0, 54, 0);
-  await fh.truncate(size);
-  let rows = 0;
+  const fh = await openWith(file, async (fh) => {
+      await writeAll(fh, header, 0);
+      await fh.truncate(size);
+    }),
+    count = tally(stride * height);
   return {
-    async write(block) {
-      if (block.length % stride)
-        throw Error("A BMP band must hold whole rows.");
-      const n = block.length / stride;
-      if (rows + n > height)
-        throw Error("The export sent more rows than the image holds.");
-      await fh.write(block, 0, block.length, 54 + (height - rows - n) * stride);
-      rows += n;
+    async write(bytes) {
+      let from = count.add(bytes.length);
+      for (let done = 0; done < bytes.length;) {
+        const row = Math.floor(from / stride),
+          offset = from % stride,
+          piece = Math.min(stride - offset, bytes.length - done);
+        await writeAll(
+          fh,
+          bytes.subarray(done, done + piece),
+          54 + (height - 1 - row) * stride + offset,
+        );
+        done += piece;
+        from += piece;
+      }
     },
     async finish() {
-      if (rows !== height)
-        throw Error("The export ended before every row arrived.");
+      count.check();
       await fh.close();
     },
     async abort() {
@@ -221,14 +268,19 @@ export async function bmpWriter(
     },
   };
 }
-/** Finished file bytes, appended in order. */
-export async function byteWriter(file: string): Promise<StreamWriter> {
+/** Finished file bytes, appended in order, up to `limit`. */
+export async function byteWriter(
+  file: string,
+  limit: number,
+): Promise<StreamWriter> {
   const fh = await open(file, "w");
   let received = 0;
   return {
     async write(bytes) {
       received += bytes.length;
-      await fh.write(bytes);
+      if (received > limit)
+        throw Error("The export sent more data than allowed.");
+      await writeAll(fh, bytes);
     },
     async finish() {
       if (!received) throw Error("The export produced no data.");
