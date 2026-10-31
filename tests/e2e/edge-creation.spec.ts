@@ -330,12 +330,20 @@ test("Hand moves any node from the grabbed point and drags empty canvas to move 
     .poll(async () => (await nodeAt(ids.a)).x)
     .toBeCloseTo(-180 + 60 / zoom, 1);
   expect((await nodeAt(ids.a)).y).toBeCloseTo(30 / zoom, 1);
-  const moved = await state();
+  const moved = await state(),
+    dropped = moved.graph.nodes.find((n) => n.iri === ids.a)!;
   expect(moved.tripleCount).toBe(before.tripleCount);
   expect(moved.selected).toBeNull();
+  // Setup moves already left "Move node" on the stack, so check the release itself finished the move.
+  expect(dropped.dragging).toBe(false);
+  expect(dropped.dropHeld).toBe(true);
   expect(moved.undoLabel).toBe("Move node");
   await menu("edit.undo");
   await expect.poll(async () => (await nodeAt(ids.a)).x).toBe(-180);
+  await menu("edit.redo");
+  await expect
+    .poll(async () => (await nodeAt(ids.a)).x)
+    .toBeCloseTo(-180 + 60 / zoom, 1);
   const box = (await canvas.boundingBox())!,
     empty = { x: Math.round(box.x + 40), y: Math.round(box.y + 40) },
     start = await camera();
