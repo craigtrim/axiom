@@ -128,11 +128,7 @@ export async function exportDocument(
     await writeFile(temp, output, { flag: "r+" });
     await rename(temp, file);
   } catch (e) {
-    // Untracked only once it is gone, so the quit sweep can retry a removal that failed here.
-    await rm(temp, { force: true }).then(
-      () => doomed.delete(temp),
-      () => undefined,
-    );
+    await removeTemp(temp);
     throw e;
   }
   doomed.delete(temp);
@@ -205,10 +201,26 @@ function createTemp(file: string) {
   try {
     closeSync(openSync(temp, "wx"));
   } catch (e) {
-    doomed.delete(temp);
+    // The open can fail after it made the file, so the temp stays tracked unless it is gone.
+    try {
+      rmSync(temp, { force: true });
+      doomed.delete(temp);
+    } catch {
+      // Left for the quit sweep.
+    }
     throw e;
   }
   return temp;
+}
+/**
+ * Removes a temp file and untracks it once it is gone. A removal that fails leaves it tracked for the quit sweep and
+ * does not reject, so a cleanup started without a caller, as when a window goes away, never surfaces as a failure.
+ */
+async function removeTemp(temp: string) {
+  await rm(temp, { force: true }).then(
+    () => doomed.delete(temp),
+    () => undefined,
+  );
 }
 function retire(owner: number) {
   generations.set(owner, (generations.get(owner) ?? 0) + 1);
@@ -233,10 +245,7 @@ async function discard(stream: ExportStream) {
   if (stream.temp) doomed.add(stream.temp);
   await stream.queue.catch(() => undefined);
   await stream.writer?.abort();
-  if (stream.temp) {
-    await rm(stream.temp, { force: true });
-    doomed.delete(stream.temp);
-  }
+  if (stream.temp) await removeTemp(stream.temp);
 }
 /** Removes every export temp file synchronously, because asynchronous work at quit is abandoned. */
 export function abandonExportStreams() {
@@ -319,8 +328,7 @@ export async function openExportStream(
               ? await tiffWriter(temp, width, height)
               : await bmpWriter(temp, width, height);
     } catch (e) {
-      await rm(temp, { force: true });
-      doomed.delete(temp);
+      await removeTemp(temp);
       throw e;
     }
   }
