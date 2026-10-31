@@ -380,8 +380,47 @@ test("the Export dialog opens at once for a layout tens of millions of units wid
   expect(width).toBeGreaterThan(16000000);
   expect(height).toBeLessThan(200);
   await expect(dialog.getByRole("alert")).toHaveCount(0);
-  // The preview leaves out a grid of millions of dots, so it stays small enough to show.
-  expect((await preview.getAttribute("src"))!.length).toBeLessThan(5000000);
+  // The grid is one SVG pattern, so neither the preview nor a saved SVG grows with the layout's area.
+  expect((await preview.getAttribute("src"))!.length).toBeLessThan(100000);
+  await dialog
+    .getByRole("combobox", { name: "Export format", exact: true })
+    .selectOption("svg");
+  const file = path.join(profile, "wide.svg");
+  await exportTo(dialog, file);
+  const svg = await readFile(file, "utf8");
+  expect(svg.length).toBeLessThan(100000);
+  expect(Number(svg.match(/<svg [^>]*width="(\d+)"/)![1])).toBeGreaterThan(
+    64000000,
+  );
+  expect(svg).toMatch(/fill="url\(#axiom-grid-[0-9a-z]+\)"/);
+  // Past 250,000 dots a PDF keeps the pattern as well, so it stays small.
+  const again = await exportDialog("png", 0.25),
+    pdf = path.join(profile, "wide.pdf");
+  await again
+    .getByRole("combobox", { name: "Export format", exact: true })
+    .selectOption("pdf");
+  await exportTo(again, pdf);
+  const bytes = await readFile(pdf);
+  expect(bytes.toString("latin1", 0, 5)).toBe("%PDF-");
+  expect(bytes.length).toBeLessThan(1000000);
+});
+
+test("a PDF of a normal diagram prints its grid as vector dots", async () => {
+  await scene([
+    [0, 0],
+    [300, 200],
+    [-150, 120],
+  ]);
+  const dialog = await exportDialog("png", 1),
+    file = path.join(profile, "normal.pdf");
+  await dialog
+    .getByRole("combobox", { name: "Export format", exact: true })
+    .selectOption("pdf");
+  await exportTo(dialog, file);
+  const pdf = (await readFile(file)).toString("latin1");
+  expect(pdf.startsWith("%PDF-")).toBe(true);
+  // Chromium prints an SVG pattern as a bitmap, so a grid of single dots leaves the PDF with no image at all.
+  expect(pdf).not.toMatch(/\/Subtype\s*\/Image/);
 });
 
 test("TIFF and BMP stream rows that decode at the size the dialog shows", async () => {
@@ -496,14 +535,25 @@ function directExport(format: string, width: number, height: number) {
   );
 }
 
-test("the clipboard refuses a PNG whose size differs from the declared export", async () => {
+test("the clipboard refuses empty writes, more than 1,024 writes and a PNG whose size differs from the declared export", async () => {
   await scene([
     [0, 0],
     [300, 200],
   ]);
   const id = await directExport("clipboard", 1, 1);
   expect(id).toBeTruthy();
-  const message = await page.evaluate(async (id) => {
+  const [empty, many, mismatch] = await page.evaluate(async (id) => {
+    const refusal = async (work: () => Promise<unknown>) => {
+      try {
+        await work();
+        return "accepted";
+      } catch (e) {
+        return (e as Error).message;
+      }
+    };
+    const empty = await refusal(() =>
+      window.axiom.exportWrite(id, new Uint8Array(0)),
+    );
     const canvas = document.createElement("canvas");
     canvas.width = 2;
     canvas.height = 2;
@@ -514,14 +564,17 @@ test("the clipboard refuses a PNG whose size differs from the declared export", 
       id,
       new Uint8Array(await blob.arrayBuffer()),
     );
-    try {
-      await window.axiom.exportClose(id);
-      return "copied";
-    } catch (e) {
-      return (e as Error).message;
-    }
+    // A 1 x 1 PNG may take about 1 MB, so 1,023 one-byte writes stay under the byte limit.
+    for (let i = 0; i < 1023; i++)
+      await window.axiom.exportWrite(id, new Uint8Array(1));
+    const many = await refusal(() =>
+      window.axiom.exportWrite(id, new Uint8Array(1)),
+    );
+    return [empty, many, await refusal(() => window.axiom.exportClose(id))];
   }, id!);
-  expect(message).toContain("The clipboard image does not match the export.");
+  expect(empty).toContain("Invalid export data.");
+  expect(many).toContain("The export sent more data than allowed.");
+  expect(mismatch).toContain("The clipboard image does not match the export.");
 });
 
 test("closing Axiom during an export leaves no temp file", async () => {
