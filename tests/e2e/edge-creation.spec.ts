@@ -1,5 +1,6 @@
 import { launchExample } from "./example-fixture";
 import { hierarchyFilter } from "./hierarchy-controls";
+import { holdRequests, releaseRequests, waitForHeld } from "./held-requests";
 import AxeBuilder from "@axe-core/playwright";
 import {
   test,
@@ -432,6 +433,63 @@ test("Hand is one setting across graph views and survives a pane layout reset", 
   await hand(id).click();
   await expect(hand(id)).toHaveAttribute("aria-pressed", "false");
   await expect(hand()).toHaveAttribute("aria-pressed", "false");
+});
+
+test("Hand drops a fast drag at the last pointer position after a position broadcast", async () => {
+  const ids = await prepare();
+  await hand().click();
+  await expect(hand()).toHaveAttribute("aria-pressed", "true");
+  const a = await at(ids.a),
+    zoom = (await camera()).zoom,
+    grab = { x: Math.round(a.x), y: Math.round(a.y) },
+    beta = await nodeAt(ids.b);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + 15, grab.y);
+  await page.mouse.move(grab.x + 150, grab.y);
+  // Moving Beta broadcasts every position, including Alpha at the last sample sent.
+  // A broadcast between the last pointer move and the release used to rewind the drop.
+  await request("drag", { ...beta, iri: ids.b, dragging: true });
+  await request("drag", { ...beta, iri: ids.b, dragging: false });
+  await page.waitForTimeout(100);
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await nodeAt(ids.a)).x)
+    .toBeCloseTo(-180 + 150 / zoom, 1);
+  expect((await nodeAt(ids.a)).y).toBeCloseTo(0, 1);
+});
+
+test("switching Hand cancels a reconnect that is still loading its edge", async () => {
+  const ids = await prepare(),
+    canvas = page.getByTestId("graph-canvas");
+  await gesture(ids.a, ids.b);
+  await page.mouse.up();
+  const key = JSON.stringify([ids.a, SUBCLASS, ids.b]);
+  await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
+  await holdRequests(app, ["edgeDocument"]);
+  await canvas.focus();
+  await page.keyboard.press("Shift+F10");
+  await page
+    .getByRole("menuitem", { name: "Reconnect source", exact: true })
+    .click();
+  await waitForHeld(app);
+  await hand().click();
+  await expect(hand()).toHaveAttribute("aria-pressed", "true");
+  await releaseRequests(app);
+  // Give the late edge document time to reach the panel before checking it changed nothing.
+  await page.waitForTimeout(300);
+  await expect(
+    page.getByText("Click the new source node. Escape cancels.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await clickNode(ids.c);
+  await expect.poll(async () => (await state()).selected).toBe(ids.c);
+  expect(
+    (await state()).graph.edges.map((e) =>
+      JSON.stringify([e.source, e.predicate, e.target]),
+    ),
+  ).toContain(key);
 });
 
 test("empty-space drops add bends and the completed route survives Undo and workspace reload", async () => {

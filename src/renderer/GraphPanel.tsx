@@ -127,10 +127,12 @@ function GraphContent() {
   }, [snapshot?.datasetEpoch]);
   // craigtrim/axiom#189: with Hand on, a drag moves the node under it or the view; switching drops an unfinished edge.
   const hand = useHandTool();
+  const reconnectRun = useRef(0);
   useEffect(
     () =>
       onHandTool(() => {
         if (connectRef.current?.active()) connectRef.current.cancel();
+        reconnectRun.current++;
         setReconnecting(null);
       }),
     [],
@@ -162,8 +164,10 @@ function GraphContent() {
     });
   };
   const reconnect = async (key: string, endpoint: "source" | "target") => {
+    const run = ++reconnectRun.current;
     try {
       const doc = await request<EdgeDocument>("edgeDocument", { key });
+      if (run !== reconnectRun.current) return;
       if (doc.statements.length !== 1) {
         report(
           doc.reason ??
@@ -809,6 +813,9 @@ function GraphContent() {
     y: number;
     ox: number;
     oy: number;
+    // The latest pointer position for the node; position broadcasts can rewind d.node mid-drag.
+    wx: number;
+    wy: number;
     cx: number;
     cy: number;
     moved: boolean;
@@ -820,8 +827,8 @@ function GraphContent() {
     if (d?.node && d.moved && !d.connect)
       void act("drag", {
         iri: d.node.iri,
-        x: d.node.x,
-        y: d.node.y,
+        x: d.wx,
+        y: d.wy,
         dragging: false,
       });
     if (d?.connect) connectRef.current?.cancel();
@@ -1053,6 +1060,8 @@ function GraphContent() {
               y: p.y,
               ox: node ? node.x - world.x : 0,
               oy: node ? node.y - world.y : 0,
+              wx: node?.x ?? 0,
+              wy: node?.y ?? 0,
               cx: camera.current.x,
               cy: camera.current.y,
               moved: false,
@@ -1091,16 +1100,16 @@ function GraphContent() {
                 return;
               }
               if (d.node) {
-                d.node.x =
-                  (p.x - camera.current.x) / camera.current.zoom + d.ox;
-                d.node.y =
-                  (p.y - camera.current.y) / camera.current.zoom + d.oy;
+                d.wx = (p.x - camera.current.x) / camera.current.zoom + d.ox;
+                d.wy = (p.y - camera.current.y) / camera.current.zoom + d.oy;
+                d.node.x = d.wx;
+                d.node.y = d.wy;
                 if (performance.now() - d.last > 20) {
                   d.last = performance.now();
                   void act("drag", {
                     iri: d.node.iri,
-                    x: d.node.x,
-                    y: d.node.y,
+                    x: d.wx,
+                    y: d.wy,
                     dragging: true,
                   });
                 }
@@ -1176,8 +1185,8 @@ function GraphContent() {
               if (d.node && d.moved && !d.connect)
                 void act("drag", {
                   iri: d.node.iri,
-                  x: d.node.x,
-                  y: d.node.y,
+                  x: d.wx,
+                  y: d.wy,
                   dragging: false,
                 });
               else if (!d.moved && d.edge)
