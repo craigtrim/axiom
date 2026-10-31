@@ -128,11 +128,14 @@ export async function exportDocument(
     await writeFile(temp, output, { flag: "r+" });
     await rename(temp, file);
   } catch (e) {
-    await rm(temp, { force: true });
+    // Untracked only once it is gone, so the quit sweep can retry a removal that failed here.
+    await rm(temp, { force: true }).then(
+      () => doomed.delete(temp),
+      () => undefined,
+    );
     throw e;
-  } finally {
-    doomed.delete(temp);
   }
+  doomed.delete(temp);
   return file;
 }
 async function chooseExportFile(owner: BrowserWindow, o: ExportOptions) {
@@ -189,11 +192,14 @@ const streams = new Map<string, ExportStream>(),
   // Every export temp file from creation until it is renamed or removed; the quit sweep removes what is left.
   doomed = new Set<string>(),
   pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+// Set by the quit sweep: no export temp file may be created after it.
+let swept = false;
 /**
  * A new export temp file beside `file`, tracked until it is renamed or removed. It is created synchronously as it is
  * tracked and later only reopened, so no write still in flight at quit can create it after the sweep.
  */
 function createTemp(file: string) {
+  if (swept) throw Error("Axiom is closing.");
   const temp = file + "." + randomUUID() + ".axiom-export.tmp";
   doomed.add(temp);
   try {
@@ -234,10 +240,16 @@ async function discard(stream: ExportStream) {
 }
 /** Removes every export temp file synchronously, because asynchronous work at quit is abandoned. */
 export function abandonExportStreams() {
+  swept = true;
   for (const stream of streams.values())
     if (stream.temp) doomed.add(stream.temp);
   streams.clear();
-  for (const temp of doomed) rmSync(temp, { force: true });
+  for (const temp of doomed)
+    try {
+      rmSync(temp, { force: true });
+    } catch {
+      // Quitting cannot wait or retry, and one locked temp must not keep the others or the rest of quit from running.
+    }
   doomed.clear();
 }
 export async function openExportStream(
