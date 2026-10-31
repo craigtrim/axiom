@@ -1,6 +1,6 @@
 // Issue 87 retains the regression for published suggestion completion and saved metadata.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { entity } from "../../src/domain/model";
@@ -77,8 +77,10 @@ beforeEach(async () => {
   };
   service = create();
 });
-afterEach(() => {
+afterEach(async () => {
   services.splice(0).forEach((s) => s.close());
+  // craigtrim/axiom#195: remove the batch folder after closing its services.
+  await rm(root, { recursive: true, force: true, maxRetries: 3 });
 });
 describe("suggestions for explicit selected nodes", () => {
   it("publishes completion only after review metadata and the result are saved", async () => {

@@ -1,5 +1,5 @@
-import { beforeEach, describe, it, expect } from "vitest";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { QueryHistoryService } from "../../src/main/query-history-service";
 import { QueryResultCache } from "../../src/main/query-result-cache";
@@ -52,6 +52,10 @@ beforeEach(async () => {
   );
   file = path.join(dir, "queries.json");
   service = new QueryHistoryService(file, () => initial);
+});
+// craigtrim/axiom#195: remove each test's history folder.
+afterEach(async () => {
+  await rm(path.dirname(file), { recursive: true, force: true, maxRetries: 3 });
 });
 describe("persistent query documents", () => {
   it("imports the existing editor and retains drafts across restart", async () => {

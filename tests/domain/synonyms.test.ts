@@ -1,5 +1,5 @@
-import { it, expect } from "vitest";
-import { mkdtemp, writeFile, readFile } from "node:fs/promises";
+import { afterEach, it, expect } from "vitest";
+import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { parseRdf, storeFromRdf } from "../../src/domain/rdf-io";
@@ -208,6 +208,12 @@ it("retains synonym pane targets through preference validation", () => {
   ).toEqual(target);
 });
 
+// craigtrim/axiom#195: remove every service fixture folder after its test.
+const directories: string[] = [];
+afterEach(async () => {
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
+});
 async function serviceFixture(
   raw: unknown = {
     suggestions: values(
@@ -222,6 +228,7 @@ async function serviceFixture(
 ) {
   const store = await fixture();
   const root = await mkdtemp(path.join(os.tmpdir(), "axiom-synonyms-"));
+  directories.push(root);
   const script = path.join(root, "mock.cjs"),
     capture = path.join(root, "prompt.txt");
   await writeFile(

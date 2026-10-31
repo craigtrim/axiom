@@ -1,13 +1,20 @@
-import { describe, it, expect } from "vitest";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { afterEach, describe, it, expect } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FilePreviewService } from "../../src/main/file-preview-service";
 import type { LinkedFile } from "../../src/shared/source";
 const preview = { dataUrl: "data:image/png;base64,AAAA", width: 2, height: 2 };
+// craigtrim/axiom#195: remove every fixture folder after its test.
+const directories: string[] = [];
+afterEach(async () => {
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
+});
 const fixture = async (): Promise<LinkedFile> => {
   const dir = await mkdtemp(path.join(tmpdir(), "axiom-preview-test-")),
     file = path.join(dir, "image.png");
+  directories.push(dir);
   await writeFile(file, "initial");
   return { iri: "urn:test", path: file, name: "image.png", image: true };
 };

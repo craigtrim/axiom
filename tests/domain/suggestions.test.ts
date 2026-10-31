@@ -1,5 +1,5 @@
-import { it, expect } from "vitest";
-import { mkdtemp, writeFile, readFile } from "node:fs/promises";
+import { afterEach, it, expect } from "vitest";
+import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { SuggestionService } from "../../src/main/suggestion-service";
@@ -20,6 +20,12 @@ const definition: SuggestionDefinition = {
   predicate: "http://www.w3.org/2004/02/skos/core#altLabel",
   valueType: "text",
 };
+// craigtrim/axiom#195: remove every fixture folder after its test.
+const directories: string[] = [];
+afterEach(async () => {
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
+});
 async function fixture(
   raw: unknown = {
     suggestions: [
@@ -28,6 +34,7 @@ async function fixture(
   },
 ) {
   const root = await mkdtemp(path.join(os.tmpdir(), "axiom-suggestions-"));
+  directories.push(root);
   const script = path.join(root, "mock.cjs");
   await writeFile(
     script,
