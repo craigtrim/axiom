@@ -366,6 +366,24 @@ test("an image past the old 9,000-pixel guard that fits one canvas exports as PN
   }
 });
 
+test("the Export dialog opens at once for a layout tens of millions of units wide", async () => {
+  await scene([
+    [0, 0],
+    [64000000, 0],
+  ]);
+  const dialog = await exportDialog("png", 0.25),
+    { width, height } = await shownSize(dialog),
+    preview = dialog.getByRole("img", {
+      name: "Export diagram preview",
+      exact: true,
+    });
+  expect(width).toBeGreaterThan(16000000);
+  expect(height).toBeLessThan(200);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  // The preview leaves out a grid of millions of dots, so it stays small enough to show.
+  expect((await preview.getAttribute("src"))!.length).toBeLessThan(5000000);
+});
+
 test("TIFF and BMP stream rows that decode at the size the dialog shows", async () => {
   await scene([
     [0, 0],

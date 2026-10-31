@@ -4,7 +4,7 @@ import { buildEmptyStore } from "../../src/domain/workspace";
 import { THING } from "../../src/domain/model";
 import { Viewport } from "../../src/domain/viewport";
 import { Layouts } from "../../src/domain/layouts";
-import { Draw, render } from "../../src/renderer/scene";
+import { Draw, exportScene, render } from "../../src/renderer/scene";
 import type { GraphSnapshot } from "../../src/shared/protocol";
 function graph(): GraphSnapshot {
   const store = buildEmptyStore(),
@@ -73,4 +73,21 @@ it("draws only the grid dots that reach a tile, where the whole scene draws them
     expect(expected.length).toBeGreaterThan(0);
     expect(dots(tile).sort()).toEqual(expected.sort());
   }
+});
+it("leaves an SVG's grid out past its dot limit and says so", () => {
+  vi.stubGlobal("document", {
+    createElement: () => ({
+      getContext: () => ({
+        measureText: (text: string) => ({ width: text.length * 7 }),
+      }),
+    }),
+  });
+  const g = graph(),
+    full = exportScene(g, false, "svg", null, { gridLimit: 1e9 }),
+    capped = exportScene(g, false, "svg", null, { gridLimit: 10 });
+  expect(full.gridOmitted).toBe(false);
+  expect(full.data).toContain('r="0.65"');
+  expect(capped.gridOmitted).toBe(true);
+  expect(capped.data).not.toContain('r="0.65"');
+  expect([capped.width, capped.height]).toEqual([full.width, full.height]);
 });
