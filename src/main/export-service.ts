@@ -192,6 +192,8 @@ interface ExportStream {
   writing: boolean;
   queue: Promise<void>;
 }
+// The renderer sends a clipboard PNG in 16 MiB pieces, so even a 2 GiB one needs 128; tiny writes cannot pile up past this.
+const MAX_CLIPBOARD_CHUNKS = 1024;
 const streams = new Map<string, ExportStream>(),
   watched = new Set<number>(),
   // Bumped whenever a window's renderer goes away, so an open that was still in its save dialog knows to stop.
@@ -327,12 +329,20 @@ export async function writeExportStream(
   owner: number,
 ) {
   const stream = ownStream(id, owner);
-  if (!(chunk instanceof Uint8Array) || chunk.length > MAX_STREAM_CHUNK)
+  // An empty write would cost a round trip and a queued await while adding nothing.
+  if (
+    !(chunk instanceof Uint8Array) ||
+    chunk.length === 0 ||
+    chunk.length > MAX_STREAM_CHUNK
+  )
     throw Error("Invalid export data.");
   // One write at a time, with its bytes reserved before any are held.
   if (stream.writing) throw Error("Wait for the previous export write.");
   if (stream.clipboard) {
-    if (stream.clipboardBytes + chunk.length > stream.clipboardLimit)
+    if (
+      stream.clipboardBytes + chunk.length > stream.clipboardLimit ||
+      stream.clipboard.length >= MAX_CLIPBOARD_CHUNKS
+    )
       throw Error("The export sent more data than allowed.");
     stream.clipboardBytes += chunk.length;
   }
