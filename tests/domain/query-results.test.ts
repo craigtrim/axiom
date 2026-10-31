@@ -1,5 +1,5 @@
-import { beforeEach, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { afterEach, beforeEach, expect, it } from "vitest";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { QueryHistoryService } from "../../src/main/query-history-service";
 import {
@@ -16,6 +16,10 @@ beforeEach(async () => {
   );
   service = new QueryHistoryService(file, () => text);
   queryId = (await service.load()).activeId;
+});
+// craigtrim/axiom#195: remove each test's history folder.
+afterEach(async () => {
+  await rm(path.dirname(file), { recursive: true, force: true });
 });
 const record = (id = 1, query = text): QueryRunRecord => ({
   text: query,

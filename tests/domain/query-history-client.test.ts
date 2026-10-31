@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { QueryHistoryService } from "../../src/main/query-history-service";
 import type { QueryAssistantResponse } from "../../src/shared/query-assistant";
@@ -85,5 +85,7 @@ it("retains the last keystroke before explicitly opening a completed proposal", 
     expect(client.historyState().view?.current.text).toContain("42");
   } finally {
     vi.unstubAllGlobals();
+    // craigtrim/axiom#195: remove the history folder this test created.
+    await rm(dir, { recursive: true, force: true });
   }
 });
