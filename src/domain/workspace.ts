@@ -49,6 +49,8 @@ export interface Workspace {
     spacing?: number;
     edgesVisible?: boolean;
     countsVisible?: boolean;
+    // craigtrim/axiom#187: Show labels, on unless saved off.
+    labelsVisible?: boolean;
     // craigtrim/axiom#185: Color clusters, off unless saved on.
     clusterColors?: boolean;
     expanded?: string[];
@@ -215,6 +217,7 @@ export function readWorkspace(input: unknown) {
     (g.spacing !== undefined && !validGraphSpacing(g.spacing)) ||
     (g.edgesVisible !== undefined && typeof g.edgesVisible !== "boolean") ||
     (g.countsVisible !== undefined && typeof g.countsVisible !== "boolean") ||
+    (g.labelsVisible !== undefined && typeof g.labelsVisible !== "boolean") ||
     (g.clusterColors !== undefined && typeof g.clusterColors !== "boolean") ||
     (g.expanded !== undefined && !strings(g.expanded, MAX_VISIBLE_NODES))
   )
@@ -298,6 +301,7 @@ export function readWorkspace(input: unknown) {
   );
   view.edgesVisible = g.edgesVisible !== false;
   view.countsVisible = g.countsVisible !== false;
+  view.labelsVisible = g.labelsVisible !== false;
   view.clusterColors = g.clusterColors === true;
   if (
     g.evictionMode !== undefined &&

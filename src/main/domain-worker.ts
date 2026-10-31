@@ -261,6 +261,7 @@ function sessionState() {
       s.view.evictionMode,
       s.view.edgesVisible,
       s.view.countsVisible,
+      s.view.labelsVisible,
       s.view.clusterColors,
       s.layouts.choice,
       s.layouts.spacing,
@@ -315,6 +316,7 @@ function serializeWorkspace() {
           spacing: session.layouts.spacing,
           edgesVisible: session.view.edgesVisible,
           countsVisible: session.view.countsVisible,
+          labelsVisible: session.view.labelsVisible,
           clusterColors: session.view.clusterColors,
           expanded: [...session.view.nodes.values()]
             .filter((n) => n.expanded)
@@ -353,6 +355,7 @@ function serializeWorkspace() {
       spacing: layouts.spacing,
       edgesVisible: view.edgesVisible,
       countsVisible: view.countsVisible,
+      labelsVisible: view.labelsVisible,
       clusterColors: view.clusterColors,
       expanded: [...view.nodes.values()]
         .filter((n) => n.expanded)
@@ -371,6 +374,7 @@ function captureView(v: Viewport, l: Layouts, isFrozen: boolean) {
     selectedEdge: v.selectedEdge,
     edgesVisible: v.edgesVisible,
     countsVisible: v.countsVisible,
+    labelsVisible: v.labelsVisible,
     clusterColors: v.clusterColors,
     focus: [...v.focus],
     budget: v.budget,
@@ -422,6 +426,7 @@ function restoreFrame(frame: Frame) {
     v.selectedEdge = saved.selectedEdge;
     v.edgesVisible = saved.edgesVisible;
     v.countsVisible = saved.countsVisible;
+    v.labelsVisible = saved.labelsVisible;
     v.clusterColors = saved.clusterColors;
     v.focus = new Set(saved.focus);
     v.budget = saved.budget;
@@ -554,6 +559,7 @@ const tracked = new Set<DomainMethod>([
   "spacing",
   "edgeVisibility",
   "countVisibility",
+  "labelVisibility",
   "clusterColors",
   "freeze",
   "clear",
@@ -613,9 +619,13 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
   )
     return false;
   if (
-    !["spacing", "edgeVisibility", "countVisibility", "clusterColors"].includes(
-      method,
-    ) &&
+    ![
+      "spacing",
+      "edgeVisibility",
+      "countVisibility",
+      "labelVisibility",
+      "clusterColors",
+    ].includes(method) &&
     (method !== "drag" || !args.dragging)
   )
     stopExternal();
@@ -676,6 +686,7 @@ async function operate(method: DomainMethod, args: Record<string, unknown>) {
                 spacing: "Change node spacing",
                 edgeVisibility: "Show or hide edges",
                 countVisibility: "Show or hide counts",
+                labelVisibility: "Show or hide labels",
                 clusterColors: "Color clusters",
                 freeze: "Freeze or resume layout",
                 clear: "Clear graph",
@@ -744,6 +755,7 @@ function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
     spacing: l.spacing,
     edgesVisible: v.edgesVisible,
     countsVisible: v.countsVisible,
+    labelsVisible: v.labelsVisible,
     clusterColors: v.clusterColors,
     clusterCount: assignClusters(
       [...v.nodes.values()],
@@ -2119,6 +2131,13 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       changed(
         view.countsVisible ? "Number badges shown." : "Number badges hidden.",
       );
+      return true;
+    // craigtrim/axiom#187: hides or shows the name under every node; nodes keep their places.
+    case "labelVisibility":
+      if (typeof a.visible !== "boolean")
+        throw Error("Choose whether to show labels.");
+      view.labelsVisible = a.visible;
+      changed(view.labelsVisible ? "Labels shown." : "Labels hidden.");
       return true;
     case "clusterColors":
       if (typeof a.enabled !== "boolean")

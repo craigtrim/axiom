@@ -830,7 +830,8 @@ export function render(
     }));
   const occupied = new Map<string, Rect[]>();
   let labels = 0;
-  for (const ranked of orderedLabels) {
+  // craigtrim/axiom#187: with labels hidden no node gets one, the selected, hovered and right-clicked ones included.
+  for (const ranked of g.labelsVisible === false ? [] : orderedLabels) {
     if (labels >= maxLabels) break;
     const n = nodes.get(ranked.iri)!;
     const p = screenPoint(n, c);
@@ -961,7 +962,7 @@ function exportLayout(
 ) {
   const b = bounds(g),
     measurer = new Draw(null, 1, 1);
-  if (options.allLabels && !options.viewport) {
+  if (options.allLabels && g.labelsVisible !== false && !options.viewport) {
     let left = b.x,
       right = b.x + b.width,
       bottom = b.y + b.height;

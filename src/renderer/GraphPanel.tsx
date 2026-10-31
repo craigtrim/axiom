@@ -1515,6 +1515,17 @@ function GraphContent() {
           />
           Show edges
         </label>
+        {/* craigtrim/axiom#187: hides the name under every node; nodes keep their places. */}
+        <label title="Show the name under each node.">
+          <input
+            type="checkbox"
+            checked={info?.labelsVisible !== false}
+            onChange={(event) =>
+              void act("labelVisibility", { visible: event.target.checked })
+            }
+          />
+          Show labels
+        </label>
         <label title="Show the +N badges for neighbours not displayed in this graph.">
           <input
             type="checkbox"

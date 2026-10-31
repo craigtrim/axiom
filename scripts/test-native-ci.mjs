@@ -93,9 +93,10 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(inventory, "utf8")),
   JSON.parse(readFileSync(results, "utf8")),
 );
-if (shard === "regression" && coverage.listed !== 47)
+// craigtrim/axiom#187 added the Show labels journey to edge-visibility.spec.ts, which this shard runs whole.
+if (shard === "regression" && coverage.listed !== 48)
   throw Error(
-    "The focused native regression inventory must contain all 47 assigned CI cases.",
+    "The focused native regression inventory must contain all 48 assigned CI cases.",
   );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),

@@ -17,6 +17,8 @@ export interface GraphSnapshot {
   spacing?: number;
   edgesVisible?: boolean;
   countsVisible?: boolean;
+  // craigtrim/axiom#187: false hides the name under every node.
+  labelsVisible?: boolean;
   // craigtrim/axiom#185: cluster colors and the number of displayed clusters.
   clusterColors?: boolean;
   clusterCount?: number;
@@ -187,6 +189,7 @@ export type DomainMethod =
   | "spacing"
   | "edgeVisibility"
   | "countVisibility"
+  | "labelVisibility"
   | "clusterColors"
   | "freeze"
   | "clear"

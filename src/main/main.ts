@@ -285,6 +285,8 @@ const methods = new Set<DomainMethod>([
   "spacing",
   "edgeVisibility",
   "countVisibility",
+  // craigtrim/axiom#187: show or hide every node label.
+  "labelVisibility",
   "clusterColors",
   "freeze",
   "clear",

@@ -75,6 +75,8 @@ export class Viewport {
   edges = new Map<string, GraphEdge>();
   edgesVisible = true;
   countsVisible = true;
+  // craigtrim/axiom#187: Show labels, on unless switched off.
+  labelsVisible = true;
   clusterColors = false;
   routes = new Map<string, EdgeBend>();
   selectedEdge: string | null = null;
