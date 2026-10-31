@@ -1885,6 +1885,20 @@ a {
   max-width: 100%;
   min-width: 100px;
 }
+/* craigtrim/axiom#189: the pressed Hand toggle borrows the shared chip's accent border, without bold text that would shift the toolbar. */
+.graph-panel .graph-hand[aria-pressed="true"],
+.graph-panel .graph-hand[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+@media (forced-colors: active) {
+  .graph-panel .graph-hand[aria-pressed="true"],
+  .graph-panel .graph-hand[aria-pressed="true"]:hover:not(:disabled) {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
 .graph-edge-handles {
   position: absolute;
   inset: 0;

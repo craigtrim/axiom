@@ -42,6 +42,16 @@ export function installKeyboard(doc: Document) {
       )
     )
       return;
+    // craigtrim/axiom#189: a marked control keeps native Space and Enter activation.
+    if (
+      (e.key === " " || e.key === "Enter") &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey &&
+      !e.shiftKey &&
+      (e.target as HTMLElement)?.closest("[data-native-activation]")
+    )
+      return;
     const context = keyboardContext(doc);
     const hierarchyTree = (e.target as HTMLElement)?.closest(
       '[role="tree"][aria-multiselectable="true"]',

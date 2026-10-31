@@ -587,7 +587,9 @@ const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
 async function operate(method: DomainMethod, args: Record<string, unknown>) {
-  if (typeof args.graphId === "string") activateGraph(args.graphId);
+  // Ending a drawing in another graph view must not change the active graph.
+  if (typeof args.graphId === "string" && method !== "graphInteraction")
+    activateGraph(args.graphId);
   if (["new", "example", "load", "importRdf"].includes(method)) {
     if (method !== "load") stopExternal();
     const value = await dispatch(method, args);
@@ -2073,7 +2075,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "drag": {
       const n = view.nodes.get(string(a, "iri"));
       if (n) {
-        n.layoutFixed = false;
+        // craigtrim/axiom#189: a dropped node keeps a position hold, so a running layout leaves it where it landed.
+        n.layoutFixed = n.dropHeld = !a.dragging;
         n.x = number(a, "x", -1e8, 1e8);
         n.y = number(a, "y", -1e8, 1e8);
         n.dragging = !!a.dragging;

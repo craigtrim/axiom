@@ -54,6 +54,7 @@ import {
 } from "./scene";
 import type { GraphNode } from "../domain/viewport";
 import { NumberField } from "./NumberField";
+import { onHandTool, setHandTool, useHandTool } from "./graph-hand";
 export function GraphPanel({ graphId = "graph" }: { graphId?: string }) {
   return (
     <GraphScope.Provider value={graphId}>
@@ -124,6 +125,18 @@ function GraphContent() {
     setReconnecting(null);
     setEdgeContext(null);
   }, [snapshot?.datasetEpoch]);
+  // craigtrim/axiom#189: with Hand on, a drag moves the node under it or the view; switching drops an unfinished edge.
+  const hand = useHandTool();
+  const reconnectRun = useRef(0);
+  useEffect(
+    () =>
+      onHandTool(() => {
+        if (connectRef.current?.active()) connectRef.current.cancel(false);
+        reconnectRun.current++;
+        setReconnecting(null);
+      }),
+    [],
+  );
   const edgeName = (edge: GraphEdge) =>
     (graph?.nodes.find((n) => n.iri === edge.source)?.label ?? edge.source) +
     " → " +
@@ -151,8 +164,10 @@ function GraphContent() {
     });
   };
   const reconnect = async (key: string, endpoint: "source" | "target") => {
+    const run = ++reconnectRun.current;
     try {
       const doc = await request<EdgeDocument>("edgeDocument", { key });
+      if (run !== reconnectRun.current) return;
       if (doc.statements.length !== 1) {
         report(
           doc.reason ??
@@ -792,9 +807,15 @@ function GraphContent() {
     node?: GraphNode;
     connect: boolean;
     label: boolean;
+    edge?: string;
     epoch: number;
     x: number;
     y: number;
+    ox: number;
+    oy: number;
+    // The latest pointer position for the node; position broadcasts can rewind d.node mid-drag.
+    wx: number;
+    wy: number;
     cx: number;
     cy: number;
     moved: boolean;
@@ -806,11 +827,12 @@ function GraphContent() {
     if (d?.node && d.moved && !d.connect)
       void act("drag", {
         iri: d.node.iri,
-        x: d.node.x,
-        y: d.node.y,
+        x: d.wx,
+        y: d.wy,
         dragging: false,
       });
     if (d?.connect) connectRef.current?.cancel();
+    if (d && hand) canvasRef.current!.style.cursor = "grab";
     savePanel(cameraKey, camera.current);
   };
   const selected = state?.selected;
@@ -887,6 +909,15 @@ function GraphContent() {
           ))}
         </select>
         <button
+          className="graph-hand"
+          data-native-activation
+          aria-pressed={hand}
+          title="Drag a node to move it, or drag anywhere else to move the view"
+          onClick={() => setHandTool(!hand)}
+        >
+          Hand
+        </button>
+        <button
           onClick={centerNow}
           disabled={!info?.nodes.length}
           title="Center the view on the central node, keeping the current zoom"
@@ -943,7 +974,11 @@ function GraphContent() {
           aria-label={
             "Ontology graph, " +
             (info?.nodes.length ?? 0) +
-            " nodes. Click a node before dragging to move it; drag from an unselected node to connect. Arrows select nodes and edges, E cycles edges, Alt+arrows pan, plus and minus zoom, Enter expands a node or edits an edge, Delete removes the selection, F fits."
+            " nodes. " +
+            (hand
+              ? "Hand tool on: drag a node to move it; drag anywhere else to move the view."
+              : "Click a node before dragging to move it; drag from an unselected node to connect.") +
+            " Arrows select nodes and edges, E cycles edges, Alt+arrows pan, plus and minus zoom, Enter expands a node or edits an edge, Delete removes the selection, F fits."
           }
           role="listbox"
           aria-activedescendant={
@@ -1001,22 +1036,33 @@ function GraphContent() {
               return;
             }
             const edge =
-              !node && graph
-                ? nearestEdge(graph, p, camera.current)
-                : undefined;
-            if (edge) {
+                !node && graph
+                  ? nearestEdge(graph, p, camera.current)
+                  : undefined,
+              panFromEdge = hand && !reconnecting;
+            if (edge && !panFromEdge) {
               void act("selectEdge", { key: edgeKey(edge) });
               return;
             }
             e.preventDefault();
             canvasRef.current!.setPointerCapture(e.pointerId);
+            if (hand) canvasRef.current!.style.cursor = "grabbing";
+            const world = {
+              x: (p.x - camera.current.x) / camera.current.zoom,
+              y: (p.y - camera.current.y) / camera.current.zoom,
+            };
             drag.current = {
               node,
-              connect: !!node && state?.selected !== node.iri,
+              connect: !hand && !!node && state?.selected !== node.iri,
               label: !!label,
+              edge: edge ? edgeKey(edge) : undefined,
               epoch: state!.datasetEpoch,
               x: p.x,
               y: p.y,
+              ox: node ? node.x - world.x : 0,
+              oy: node ? node.y - world.y : 0,
+              wx: node?.x ?? 0,
+              wy: node?.y ?? 0,
               cx: camera.current.x,
               cy: camera.current.y,
               moved: false,
@@ -1027,6 +1073,7 @@ function GraphContent() {
             const p = point(e),
               d = drag.current;
             if (connectRef.current?.active()) {
+              if (hand) canvasRef.current!.style.cursor = "crosshair";
               connectRef.current.move(p);
               return;
             }
@@ -1054,14 +1101,16 @@ function GraphContent() {
                 return;
               }
               if (d.node) {
-                d.node.x = (p.x - camera.current.x) / camera.current.zoom;
-                d.node.y = (p.y - camera.current.y) / camera.current.zoom;
+                d.wx = (p.x - camera.current.x) / camera.current.zoom + d.ox;
+                d.wy = (p.y - camera.current.y) / camera.current.zoom + d.oy;
+                d.node.x = d.wx;
+                d.node.y = d.wy;
                 if (performance.now() - d.last > 20) {
                   d.last = performance.now();
                   void act("drag", {
                     iri: d.node.iri,
-                    x: d.node.x,
-                    y: d.node.y,
+                    x: d.wx,
+                    y: d.wy,
                     dragging: true,
                   });
                 }
@@ -1093,21 +1142,25 @@ function GraphContent() {
                   " · " +
                   n.degree +
                   " neighbours. " +
-                  (state?.selected === n.iri
+                  (hand || state?.selected === n.iri
                     ? "Drag to move."
                     : "Click to select; drag to connect.")
                 : edge
                   ? edgeName(edge)
-                  : "Click empty space to deselect.";
+                  : hand
+                    ? "Drag to move the view. Click empty space to deselect."
+                    : "Click empty space to deselect.";
               canvasRef.current!.style.cursor = reconnecting
                 ? "crosshair"
-                : n
-                  ? state?.selected === n.iri
-                    ? "grab"
-                    : "crosshair"
-                  : edge
-                    ? "pointer"
-                    : "default";
+                : hand
+                  ? "grab"
+                  : n
+                    ? state?.selected === n.iri
+                      ? "grab"
+                      : "crosshair"
+                    : edge
+                      ? "pointer"
+                      : "default";
             }
           }}
           onPointerLeave={() => {
@@ -1133,10 +1186,12 @@ function GraphContent() {
               if (d.node && d.moved && !d.connect)
                 void act("drag", {
                   iri: d.node.iri,
-                  x: d.node.x,
-                  y: d.node.y,
+                  x: d.wx,
+                  y: d.wy,
                   dragging: false,
                 });
+              else if (!d.moved && d.edge)
+                void act("selectEdge", { key: d.edge });
               else if (!d.moved) {
                 const selectedBefore = state?.selected;
                 void request("select", { iri: d.node?.iri ?? null })
@@ -1162,6 +1217,7 @@ function GraphContent() {
                   .catch((e) => report(e.message, true));
               }
             }
+            if (d && hand) canvasRef.current!.style.cursor = "grab";
             if (canvasRef.current!.hasPointerCapture(e.pointerId))
               canvasRef.current!.releasePointerCapture(e.pointerId);
             savePanel(cameraKey, camera.current);
@@ -1599,8 +1655,9 @@ function GraphContent() {
           </>
         ) : (
           <span>
-            Click a node to select it for moving. Drag from an unselected node
-            to connect.
+            {hand
+              ? "Drag a node to move it. Drag anywhere else to move the view."
+              : "Click a node to select it for moving. Drag from an unselected node to connect."}
           </span>
         )}
       </div>

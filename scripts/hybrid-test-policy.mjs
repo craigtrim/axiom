@@ -2,6 +2,17 @@
 // CI runs the exact complement; neither group is optional for delivery.
 // Keep keyboard/menu/modal suites and named focus/caret/overflow contracts together.
 export const localDesktopCases = [
+  // #189: Hand keyboard activation and cross-view focus stay local.
+  {
+    file: "edge-creation.spec.ts",
+    title:
+      "Space and Enter press the focused Hand toggle instead of running graph shortcuts",
+  },
+  {
+    file: "edge-creation.spec.ts",
+    title:
+      "switching Hand in one graph view drops an unfinished edge in another view without activating it",
+  },
   // #177 delivery: preserve exact shell pixels and resize/scroll state locally.
   {
     file: "workbench-shell.spec.ts",
