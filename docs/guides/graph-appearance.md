@@ -138,6 +138,6 @@ The action fills available slots without evicting existing nodes. Existing nodes
 
 ## Image export size
 
-Export writes a raster diagram at the pixel size the dialog shows, with no Axiom limit (craigtrim/axiom#188). An image that fits one canvas, up to 65,535 pixels per side and 268,435,456 pixels, is drawn whole. PNG, TIFF and BMP images past that are drawn in bands and streamed into the file, so a large export needs disk space rather than memory.
+Export writes a raster diagram at the pixel size the dialog shows, with no Axiom limit (craigtrim/axiom#188). An image that fits one canvas, up to 65,535 pixels per side and 268,435,456 pixels, is drawn whole. PNG, TIFF and BMP images past that are drawn in bands and streamed into the file, so a large export needs disk space rather than memory. An SVG draws the background dot grid as one repeating pattern, so its file size does not grow with the diagram's area. A PDF draws a grid of up to 250,000 dots one dot at a time, so the dots print sharply; a larger grid uses the pattern, which Chromium prints as a 72-dpi image.
 
 Some formats have their own ceiling, and the dialog names it and disables Export when the image passes it: WebP holds up to 16,383 pixels per side, JPEG up to 65,500 pixels per side and 268,435,456 pixels in Axiom, and BMP files up to 4,294,967,295 bytes. The clipboard takes images up to the canvas size. A TIFF past 4 GB is written as BigTIFF, and the dialog notes that some viewers, such as Windows Photos, cannot open it. PNG has no ceiling.
