@@ -33,12 +33,15 @@ export async function writeAll(
     done += bytesWritten;
   }
 }
-/** Opens the file and runs the header step, closing the file if that step fails. */
+/**
+ * Opens the export's temp file, which the caller created, and runs the header step, closing the file if that step
+ * fails. It never creates the file, so a temp the quit sweep removed cannot come back.
+ */
 async function openWith(
   file: string,
   start: (fh: FileHandle) => Promise<void>,
 ) {
-  const fh = await open(file, "w");
+  const fh = await open(file, "r+");
   try {
     await start(fh);
   } catch (e) {
@@ -276,12 +279,12 @@ export async function bmpWriter(
     },
   };
 }
-/** Finished file bytes, appended in order, up to `limit`. */
+/** Finished file bytes, appended in order, up to `limit`, into a temp file the caller created. */
 export async function byteWriter(
   file: string,
   limit: number,
 ): Promise<StreamWriter> {
-  const fh = await open(file, "w");
+  const fh = await open(file, "r+");
   let received = 0;
   return {
     async write(bytes) {

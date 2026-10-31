@@ -8,7 +8,7 @@ import {
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { writeFile, rename, rm } from "node:fs/promises";
-import { rmSync } from "node:fs";
+import { closeSync, openSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
   validateExport,
@@ -142,9 +142,16 @@ export async function exportDocument(
       if (!win.isDestroyed()) win.destroy();
     }
   }
-  const temp = file + "." + randomUUID() + ".axiom-export.tmp";
-  await writeFile(temp, output);
-  await rename(temp, file);
+  const temp = createTemp(file);
+  try {
+    await writeFile(temp, output, { flag: "r+" });
+    await rename(temp, file);
+  } catch (e) {
+    await rm(temp, { force: true });
+    throw e;
+  } finally {
+    doomed.delete(temp);
+  }
   return file;
 }
 async function chooseExportFile(owner: BrowserWindow, o: ExportOptions) {
@@ -201,6 +208,21 @@ const streams = new Map<string, ExportStream>(),
   // Every export temp file from creation until it is renamed or removed; the quit sweep removes what is left.
   doomed = new Set<string>(),
   pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+/**
+ * A new export temp file beside `file`, tracked until it is renamed or removed. It is created synchronously as it is
+ * tracked and later only reopened, so no write still in flight at quit can create it after the sweep.
+ */
+function createTemp(file: string) {
+  const temp = file + "." + randomUUID() + ".axiom-export.tmp";
+  doomed.add(temp);
+  try {
+    closeSync(openSync(temp, "wx"));
+  } catch (e) {
+    doomed.delete(temp);
+    throw e;
+  }
+  return temp;
+}
 function retire(owner: number) {
   generations.set(owner, (generations.get(owner) ?? 0) + 1);
   for (const [key, stream] of streams)
@@ -291,10 +313,9 @@ export async function openExportStream(
   else {
     const file = await chooseExportFile(owner, o);
     if (!file) return null;
-    const temp = file + "." + randomUUID() + ".axiom-export.tmp";
+    const temp = createTemp(file);
     stream.file = file;
     stream.temp = temp;
-    doomed.add(temp);
     try {
       stream.writer =
         encoding === "bytes"
