@@ -1536,19 +1536,27 @@ function GraphContent() {
           />
           Show counts
         </label>
-        {/* craigtrim/axiom#185: offered only once hiding splits the graph into clusters. */}
-        {(info?.clusterCount ?? 0) > 1 && (
-          <label title="Give each group of connected nodes its own color.">
-            <input
-              type="checkbox"
-              checked={info?.clusterColors === true}
-              onChange={(event) =>
-                void act("clusterColors", { enabled: event.target.checked })
-              }
-            />
-            Color clusters
-          </label>
-        )}
+        {/* craigtrim/axiom#200: always shown, disabled with its reason below two clusters (#185). */}
+        <label
+          className="graph-cluster-colors"
+          title={
+            (info?.clusterCount ?? 0) > 1
+              ? "Give each group of connected nodes its own color."
+              : info?.clusterCount === 1
+                ? "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it."
+                : "Needs two or more clusters. No displayed nodes are connected to each other."
+          }
+        >
+          <input
+            type="checkbox"
+            disabled={(info?.clusterCount ?? 0) < 2}
+            checked={info?.clusterColors === true}
+            onChange={(event) =>
+              void act("clusterColors", { enabled: event.target.checked })
+            }
+          />
+          Color clusters
+        </label>
         <GraphSpacing
           value={info?.spacing ?? 1}
           epoch={snapshot.datasetEpoch}
