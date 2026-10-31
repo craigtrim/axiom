@@ -22,7 +22,7 @@ Show instances scopes the Individuals grid in place for an imported ontology, fr
 
 The report identifies its class and direct-instance count. If its last instance is removed while the report is open, it displays an empty state. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
 
-Dragging from an unselected node draws an edge; dragging an already selected node moves it. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-editing.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
+Dragging from an unselected node draws an edge; dragging an already selected node moves it. With **Hand** pressed in the graph toolbar (craigtrim/axiom#189), dragging any node moves it and dragging anywhere else moves the view. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-editing.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
 
 ## Counts and action availability
 

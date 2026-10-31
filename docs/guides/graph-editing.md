@@ -40,6 +40,12 @@ Graph gestures follow the selection behavior documented in the [yEd Edit Mode ma
 | Release over another node | Attach the edge. |
 | Release in empty space | Add a bend and continue drawing. Further empty-space clicks add bends; clicking a target finishes. |
 | Escape or right-click while drawing | Cancel the unfinished edge. |
+| With **Hand** on, drag any node | Move it, whether or not it is selected. |
+| With **Hand** on, drag anywhere else | Move the view, including a drag that starts on an edge. A click on an edge still selects it. |
+
+**Hand** in the graph toolbar switches drags from drawing edges to moving (craigtrim/axiom#189). While it is pressed the pointer is a hand, and clicks, double-clicks, menus and the wheel work as they do without it. Turning Hand on or off cancels an unfinished edge and a pending reconnect. Every graph view in a window shares one Hand setting, which starts off at each launch and is not saved.
+
+Every node move keeps the grabbed point under the pointer. A dropped node stays where it lands while the force-directed layout settles, without setting Pin, until it is dragged again or a new layout, a Node spacing change, Expand or Collapse releases it.
 
 The graph toolbar stays available while drawing. A thin arrow follows the pointer and the target receives a small outline. Nodes pause during the gesture; the saved Freeze setting stays unchanged. Target hit areas are at least 48 pixels across at low zoom, and visible node labels also accept drops. Graph seed membership has no selection outline.
 
@@ -131,4 +137,4 @@ Grid edits refresh Source. Source typing remains a separate draft until Save sou
 
 ## Expand and Collapse position
 
-Expand and Collapse hold the action node at its exact graph coordinates and screen position. Toolbar reflow is compensated without changing zoom. Other nodes may rearrange around it. The hold applies to force settling, built-in layouts and asynchronous ELK results, without setting the user-controlled Pin flag. Dragging the node or explicitly running a new layout releases the hold.
+Expand and Collapse hold the action node at its exact graph coordinates and screen position. Toolbar reflow is compensated without changing zoom. Other nodes may rearrange around it. The hold applies to force settling, built-in layouts and asynchronous ELK results, without setting the user-controlled Pin flag. Dragging the node moves the hold to where it is dropped, and explicitly running a new layout releases it.
