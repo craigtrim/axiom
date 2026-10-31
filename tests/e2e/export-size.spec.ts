@@ -7,12 +7,16 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { access, mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { createInflate } from "node:zlib";
 import UTIF from "utif";
 import type { Snapshot } from "../../src/shared/protocol";
-let app: ElectronApplication, page: Page, profile: string;
+import type { ExportOptions } from "../../src/shared/export";
+let app: ElectronApplication,
+  page: Page,
+  profile: string,
+  closed = false;
 const errors: string[] = [];
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
@@ -29,6 +33,7 @@ async function menu(id: string) {
 }
 test.beforeEach(async () => {
   errors.length = 0;
+  closed = false;
   await mkdir("artifacts/testing", { recursive: true });
   profile = await mkdtemp(path.resolve("artifacts/testing/export-size-"));
   const env = {
@@ -51,6 +56,7 @@ test.beforeEach(async () => {
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
 });
 test.afterEach(async ({}, info) => {
+  if (closed) return;
   if (info.status !== info.expectedStatus)
     await info.attach("export-size-failure", {
       body: await page.screenshot(),
@@ -343,4 +349,94 @@ test("a format past its own ceiling names it, disables Export and writes nothing
   await expect(dialog).toBeVisible();
   await expect(access(file)).rejects.toThrow();
   expect(await page.content()).not.toContain("9,000 pixels");
+});
+
+/** A Diagram export request built in the page, for driving the export bridge directly. */
+function directExport(format: string, width: number, height: number) {
+  return page.evaluate(
+    async ({ format, width, height }) => {
+      const s = await window.axiom.request<Snapshot>("state"),
+        options: ExportOptions = {
+          content: "diagram",
+          format,
+          scope: "graph",
+          background: "light",
+          scale: 1,
+          quality: 90,
+          caption: true,
+          legend: true,
+          allLabels: true,
+          includeGraph: true,
+          includeStatements: true,
+          pageSize: "A4",
+          landscape: true,
+          marginMm: 12,
+          title: "Direct export",
+          area: "graph",
+        };
+      return window.axiom.exportOpen({
+        options,
+        datasetEpoch: s.datasetEpoch,
+        version: s.version,
+        iris: [],
+        encoding: format === "tiff" ? "rows" : "bytes",
+        width,
+        height,
+      });
+    },
+    { format, width, height },
+  );
+}
+
+test("the clipboard refuses a PNG whose size differs from the declared export", async () => {
+  await scene([
+    [0, 0],
+    [300, 200],
+  ]);
+  const id = await directExport("clipboard", 1, 1);
+  expect(id).toBeTruthy();
+  const message = await page.evaluate(async (id) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 2;
+    canvas.height = 2;
+    const blob = await new Promise<Blob>((resolve) =>
+      canvas.toBlob((b) => resolve(b!), "image/png"),
+    );
+    await window.axiom.exportWrite(
+      id,
+      new Uint8Array(await blob.arrayBuffer()),
+    );
+    try {
+      await window.axiom.exportClose(id);
+      return "copied";
+    } catch (e) {
+      return (e as Error).message;
+    }
+  }, id!);
+  expect(message).toContain("The clipboard image does not match the export.");
+});
+
+test("closing Axiom during an export leaves no temp file", async () => {
+  await scene([
+    [0, 0],
+    [300, 200],
+  ]);
+  const file = path.join(profile, "unfinished.tiff"),
+    temps = async () =>
+      (await readdir(profile)).filter((name) =>
+        name.endsWith(".axiom-export.tmp"),
+      );
+  await saveTo(file);
+  const id = await directExport("tiff", 10, 10);
+  expect(id).toBeTruthy();
+  await page.evaluate(
+    (id) => window.axiom.exportWrite(id, new Uint8Array(40)),
+    id!,
+  );
+  expect(await temps()).toHaveLength(1);
+  closed = true;
+  await app.close();
+  expect(errors).toEqual([]);
+  expect(await temps()).toEqual([]);
+  await expect(access(file)).rejects.toThrow();
 });
