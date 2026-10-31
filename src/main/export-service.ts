@@ -8,6 +8,7 @@ import {
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { writeFile, rename, rm } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import path from "node:path";
 import {
   validateExport,
@@ -180,6 +181,8 @@ async function chooseExportFile(owner: BrowserWindow, o: ExportOptions) {
 // craigtrim/axiom#188: a Diagram export arrives in awaited bands, so no whole image passes through one message.
 interface ExportStream {
   owner: number;
+  width: number;
+  height: number;
   file: string | null;
   temp: string | null;
   writer: StreamWriter | null;
@@ -192,11 +195,45 @@ interface ExportStream {
 const streams = new Map<string, ExportStream>(),
   watched = new Set<number>(),
   // Bumped whenever a window's renderer goes away, so an open that was still in its save dialog knows to stop.
-  generations = new Map<number, number>();
+  generations = new Map<number, number>(),
+  // Temp files not yet owned by a registered stream, or whose removal has started; the quit sweep removes them.
+  doomed = new Set<string>(),
+  pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 function retire(owner: number) {
   generations.set(owner, (generations.get(owner) ?? 0) + 1);
   for (const [key, stream] of streams)
     if (stream.owner === owner) void cancelExportStream(key, owner);
+}
+function watch(contents: WebContents) {
+  const sender = contents.id;
+  if (watched.has(sender)) return;
+  watched.add(sender);
+  // A crashed or reloaded renderer has lost its export ids, so its open exports end with it.
+  contents.on("render-process-gone", () => retire(sender));
+  contents.on("did-start-navigation", (details) => {
+    if (details.isMainFrame && !details.isSameDocument) retire(sender);
+  });
+  contents.once("destroyed", () => {
+    watched.delete(sender);
+    retire(sender);
+  });
+}
+async function discard(stream: ExportStream) {
+  if (stream.temp) doomed.add(stream.temp);
+  await stream.queue.catch(() => undefined);
+  await stream.writer?.abort();
+  if (stream.temp) {
+    await rm(stream.temp, { force: true });
+    doomed.delete(stream.temp);
+  }
+}
+/** Removes every export temp file synchronously, because asynchronous work at quit is abandoned. */
+export function abandonExportStreams() {
+  for (const stream of streams.values())
+    if (stream.temp) doomed.add(stream.temp);
+  streams.clear();
+  for (const temp of doomed) rmSync(temp, { force: true });
+  doomed.clear();
 }
 export async function openExportStream(
   input: ExportStreamRequest,
@@ -207,7 +244,11 @@ export async function openExportStream(
     args?: Record<string, unknown>,
   ) => Promise<unknown>,
 ) {
-  const r = validateExport({ ...input, data: undefined }),
+  const sender = contents.id;
+  // Watch the window and note its generation before the first await, so any crash or reload from here on counts.
+  watch(contents);
+  const generation = generations.get(sender) ?? 0,
+    r = validateExport({ ...input, data: undefined }),
     o = r.options,
     { width, height, encoding } = input;
   if (o.content !== "diagram" || o.format === "pdf")
@@ -227,26 +268,14 @@ export async function openExportStream(
     throw Error(
       "The ontology changed while export was open. Reopen Export to use the current data.",
     );
-  const sender = contents.id;
-  if (!watched.has(sender)) {
-    watched.add(sender);
-    // A crashed or reloaded renderer has lost its export ids, so its open exports end with it.
-    contents.on("render-process-gone", () => retire(sender));
-    contents.on("did-start-navigation", (details) => {
-      if (details.isMainFrame && !details.isSameDocument) retire(sender);
-    });
-    contents.once("destroyed", () => {
-      watched.delete(sender);
-      retire(sender);
-    });
-  }
   // The dialog runs one export at a time, so an older stream from this window is stale.
   for (const [key, stream] of streams)
     if (stream.owner === sender) await cancelExportStream(key, sender);
-  const generation = generations.get(sender) ?? 0,
-    id = randomUUID(),
+  const id = randomUUID(),
     stream: ExportStream = {
       owner: sender,
+      width,
+      height,
       file: null,
       temp: null,
       writer: null,
@@ -263,6 +292,7 @@ export async function openExportStream(
     const temp = file + "." + randomUUID() + ".axiom-export.tmp";
     stream.file = file;
     stream.temp = temp;
+    doomed.add(temp);
     try {
       stream.writer =
         encoding === "bytes"
@@ -274,15 +304,16 @@ export async function openExportStream(
               : await bmpWriter(temp, width, height);
     } catch (e) {
       await rm(temp, { force: true });
+      doomed.delete(temp);
       throw e;
     }
   }
   if ((generations.get(sender) ?? 0) !== generation || contents.isDestroyed()) {
-    await stream.writer?.abort();
-    if (stream.temp) await rm(stream.temp, { force: true });
+    await discard(stream);
     throw Error("The window that started this export closed.");
   }
   streams.set(id, stream);
+  if (stream.temp) doomed.delete(stream.temp);
   return id;
 }
 function ownStream(id: string, owner: number) {
@@ -322,7 +353,17 @@ export async function closeExportStream(id: string, owner: number) {
   streams.delete(id);
   if (stream.clipboard) {
     await stream.queue;
-    const image = nativeImage.createFromBuffer(Buffer.concat(stream.clipboard));
+    const png = Buffer.concat(stream.clipboard);
+    // Decode only the PNG that was declared: its header must name the declared size.
+    if (
+      png.length < 24 ||
+      !png.subarray(0, 8).equals(pngSignature) ||
+      png.toString("latin1", 12, 16) !== "IHDR" ||
+      png.readUInt32BE(16) !== stream.width ||
+      png.readUInt32BE(20) !== stream.height
+    )
+      throw Error("The clipboard image does not match the export.");
+    const image = nativeImage.createFromBuffer(png);
     if (image.isEmpty()) throw Error("No image is available to copy.");
     await clipboard.write([
       new ClipboardItem({
@@ -338,8 +379,7 @@ export async function closeExportStream(id: string, owner: number) {
     await stream.writer!.finish();
     await rename(stream.temp!, stream.file!);
   } catch (e) {
-    await stream.writer!.abort();
-    await rm(stream.temp!, { force: true });
+    await discard(stream);
     throw e;
   }
   return stream.file!;
@@ -348,7 +388,5 @@ export async function cancelExportStream(id: string, owner: number) {
   const stream = streams.get(id);
   if (!stream || stream.owner !== owner) return;
   streams.delete(id);
-  await stream.queue.catch(() => undefined);
-  await stream.writer?.abort();
-  if (stream.temp) await rm(stream.temp, { force: true });
+  await discard(stream);
 }

@@ -52,6 +52,7 @@ import { ProvenanceService } from "./provenance-service";
 import { FilePreviewService } from "./file-preview-service";
 import type { LinkedFile } from "../shared/source";
 import {
+  abandonExportStreams,
   cancelExportStream,
   closeExportStream,
   exportDocument,
@@ -2598,6 +2599,8 @@ app.on("will-quit", () => {
   workspaceLease?.release();
   launchLease?.release();
   instanceRegistry.leave();
+  // craigtrim/axiom#188: an export still writing at quit leaves no temp file behind.
+  abandonExportStreams();
   runLog?.close();
 });
 // The closed marker is written synchronously, because asynchronous work at exit is abandoned.

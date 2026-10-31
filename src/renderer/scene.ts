@@ -489,6 +489,8 @@ export function render(
     selectedEdge?: string | null;
     hoveredEdge?: string | null;
     onLabel?: (iri: string, rect: Rect) => void;
+    // craigtrim/axiom#188: an export tile passes its own area, so only its grid dots are drawn.
+    clip?: Rect;
   } = {},
 ) {
   const orderedLabels = labelOrder(g, selected, hover);
@@ -517,10 +519,19 @@ export function render(
     d.rect({ x: 0, y: 0, width: w, height: h }, C("canvas"));
   d.beginBatch();
   const step = 34 * k;
-  if (step > 11 && !options.transparent)
-    for (let x = c.x % step; x < w; x += step)
-      for (let y = c.y % step; y < h; y += step)
+  if (step > 11 && !options.transparent) {
+    const clip = options.clip,
+      x0 = c.x % step,
+      y0 = c.y % step,
+      // A dot is 0.65 wide, so a 1-unit margin keeps the ones that straddle the clip.
+      from = (origin: number, edge: number) =>
+        origin + Math.max(0, Math.ceil((edge - 1 - origin) / step)) * step,
+      right = clip ? Math.min(w, clip.x + clip.width + 1) : w,
+      bottom = clip ? Math.min(h, clip.y + clip.height + 1) : h;
+    for (let x = clip ? from(x0, clip.x) : x0; x < right; x += step)
+      for (let y = clip ? from(y0, clip.y) : y0; y < bottom; y += step)
         d.circle({ x, y }, 0.65, C("canvas-grid"));
+  }
   for (const r of g.rings)
     d.circle(screenPoint(g.ringOrigin, c), r * k, C("canvas-grid"), 1);
   for (const b of g.groups) {
@@ -956,6 +967,7 @@ function drawExport(
   selected: string | null,
   options: ExportSceneOptions,
   layout: ReturnType<typeof exportLayout>,
+  clip?: Rect,
 ) {
   const {
     width,
@@ -978,7 +990,7 @@ function drawExport(
     selected,
     null,
     options.allLabels === false ? 900 : 4000,
-    { transparent, allLabels: options.allLabels ?? false },
+    { transparent, allLabels: options.allLabels ?? false, clip },
   );
   if (header) {
     if (!transparent) d.rect({ x: 0, y: 0, width, height: header }, p.surface);
@@ -1101,7 +1113,12 @@ export function exportTiles(
       // A reused tile starts from a fresh context, as the first one did; drawing leaves state such as lineJoin behind.
       ctx.reset();
       ctx.setTransform(scale, 0, 0, scale, -x, -y);
-      drawExport(ctx, g, dark, selected, options, layout);
+      drawExport(ctx, g, dark, selected, options, layout, {
+        x: x / scale,
+        y: y / scale,
+        width: width / scale,
+        height: height / scale,
+      });
       return ctx.getImageData(0, 0, width, height).data;
     },
   };
