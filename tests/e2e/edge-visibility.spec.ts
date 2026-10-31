@@ -362,8 +362,12 @@ test("Show labels hides every node name and its click target without moving node
     )
     .toBe(true);
   await page.mouse.move(0, 0);
-  const preview = await stylePreview(),
-    initial = await state(),
+  const preview = await stylePreview();
+  // A stylesheet that hides every name gives the preview without names, so the plain preview is shown to draw them.
+  await request("stylesheet", { text: "node { label: none; }" });
+  expect((await stylePreview()).equals(preview)).toBe(false);
+  await request("stylesheet", { text: "" });
+  const initial = await state(),
     view = (await camera())!,
     screen = (n: { x: number; y: number }) => ({
       x: n.x * view.zoom + view.x,
@@ -413,11 +417,11 @@ test("Show labels hides every node name and its click target without moving node
   // The Graph appearance preview draws sample nodes, not the graph, so it keeps their names.
   expect((await stylePreview()).equals(preview)).toBe(true);
   await canvas.click({ position: spot(node) });
+  // The click sends its selection on pointer up, ahead of this state request.
+  expect((await state()).selected).toBeNull();
   await labels().focus();
   await page.keyboard.press("Control+z");
   await expect(labels()).toBeChecked();
-  // Undo ran after the click, so a selection from that click would show by now.
-  expect((await state()).selected).toBeNull();
   await page.keyboard.press("Control+y");
   await expect(labels()).not.toBeChecked();
   await labels().click();
