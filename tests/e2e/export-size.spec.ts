@@ -13,6 +13,7 @@ import { createInflate } from "node:zlib";
 import UTIF from "utif";
 import type { Snapshot } from "../../src/shared/protocol";
 import type { ExportOptions } from "../../src/shared/export";
+import { bandRows, bmpStride } from "../../src/shared/raster-layout";
 let app: ElectronApplication,
   page: Page,
   profile: string,
@@ -121,55 +122,133 @@ async function exportTo(dialog: Locator, file: string, timeout = 30000) {
   await expect(dialog).toBeHidden({ timeout });
 }
 
-/** Inflates a PNG's IDAT stream and checks that every row arrived drawn on the opaque background. */
+/** Collects pixels in the class node fill (#0F6CBD, the light theme's e-class token) into 16 px cells. */
+function classMarks() {
+  const cells = new Map<string, { x: number; y: number; n: number }>();
+  return {
+    row(
+      y: number,
+      bytes: Uint8Array,
+      at: number,
+      width: number,
+      channels: 3 | 4,
+    ) {
+      for (let x = 0; x < width; x++) {
+        const i = at + x * channels,
+          [r, b] =
+            channels === 3
+              ? [bytes[i + 2], bytes[i]]
+              : [bytes[i], bytes[i + 2]];
+        if (
+          r === 15 &&
+          bytes[i + 1] === 108 &&
+          b === 189 &&
+          (channels === 3 || bytes[i + 3] === 255)
+        ) {
+          const key = Math.floor(x / 16) + "," + Math.floor(y / 16),
+            cell = cells.get(key) ?? { x: 0, y: 0, n: 0 };
+          cell.x += x;
+          cell.y += y;
+          cell.n++;
+          cells.set(key, cell);
+        }
+      }
+    },
+    /** Two node shapes must sit exactly this far apart, which fails if any band or column came from the wrong offset. */
+    expectApart(dx: number, dy: number) {
+      const seen = new Set<string>(),
+        shapes: { x: number; y: number }[] = [];
+      for (const start of cells.keys()) {
+        if (seen.has(start)) continue;
+        let x = 0,
+          y = 0,
+          n = 0;
+        const queue = [start];
+        seen.add(start);
+        while (queue.length) {
+          const key = queue.pop()!,
+            cell = cells.get(key)!,
+            [cx, cy] = key.split(",").map(Number);
+          x += cell.x;
+          y += cell.y;
+          n += cell.n;
+          for (const ox of [-1, 0, 1])
+            for (const oy of [-1, 0, 1]) {
+              const next = cx + ox + "," + (cy + oy);
+              if (cells.has(next) && !seen.has(next)) {
+                seen.add(next);
+                queue.push(next);
+              }
+            }
+        }
+        shapes.push({ x: x / n, y: y / n });
+      }
+      expect(
+        shapes.some((a) =>
+          shapes.some(
+            (b) =>
+              Math.abs(b.x - a.x - dx) <= 3 && Math.abs(b.y - a.y - dy) <= 3,
+          ),
+        ),
+      ).toBe(true);
+    },
+  };
+}
+/** Reverses one PNG row filter in place (bytes per pixel 4). */
+function unfilter(type: number, row: Uint8Array, prior: Uint8Array) {
+  for (let i = 0; i < row.length; i++) {
+    const left = i >= 4 ? row[i - 4] : 0,
+      up = prior[i],
+      corner = i >= 4 ? prior[i - 4] : 0;
+    if (type === 1) row[i] += left;
+    else if (type === 2) row[i] += up;
+    else if (type === 3) row[i] += (left + up) >> 1;
+    else if (type === 4) {
+      const p = left + up - corner,
+        pa = Math.abs(p - left),
+        pb = Math.abs(p - up),
+        pc = Math.abs(p - corner);
+      row[i] += pa <= pb && pa <= pc ? left : pb <= pc ? up : corner;
+    }
+  }
+}
+/** Decodes a PNG row by row: every row arrives, sits on the opaque background, and the two nodes are where they belong. */
 async function checkPng(
   file: string,
   width: number,
   height: number,
-  between: [number, number],
+  [dx, dy]: [number, number],
 ) {
   const bytes = await readFile(file);
   expect(bytes.readUInt32BE(16)).toBe(width);
   expect(bytes.readUInt32BE(20)).toBe(height);
   const rowBytes = 1 + width * 4,
     inflate = createInflate(),
-    blankRows: number[] = [],
-    sums = new Set<number>(),
-    // Class nodes are filled with the light theme's e-class token, #0F6CBD.
-    marks = new Map<string, { x: number; y: number; n: number }>(),
-    pixel = new Uint8Array(4);
-  let position = 0,
-    rows = 0,
-    sum = 0;
+    marks = classMarks(),
+    blankRows: number[] = [];
+  let row = new Uint8Array(width * 4),
+    prior = new Uint8Array(width * 4),
+    filter = 0,
+    filled = -1,
+    y = 0;
   inflate.on("data", (chunk: Buffer) => {
-    for (let i = 0; i < chunk.length; i++, position++) {
-      const at = position % rowBytes;
-      if (at === 4 && chunk[i] !== 255)
-        blankRows.push(Math.floor(position / rowBytes));
-      if (at > 0) {
-        pixel[(at - 1) % 4] = chunk[i];
-        if (
-          (at - 1) % 4 === 3 &&
-          pixel[0] === 15 &&
-          pixel[1] === 108 &&
-          pixel[2] === 189 &&
-          pixel[3] === 255
-        ) {
-          const x = (at - 1) / 4 - 0.75,
-            y = Math.floor(position / rowBytes),
-            key = Math.floor(x / 16) + "," + Math.floor(y / 16),
-            cell = marks.get(key) ?? { x: 0, y: 0, n: 0 };
-          cell.x += x;
-          cell.y += y;
-          cell.n++;
-          marks.set(key, cell);
-        }
+    for (let i = 0; i < chunk.length;) {
+      if (filled < 0) {
+        filter = chunk[i++];
+        filled = 0;
+        continue;
       }
-      sum += chunk[i];
-      if (at === rowBytes - 1) {
-        sums.add(sum);
-        sum = 0;
-        rows++;
+      const take = Math.min(row.length - filled, chunk.length - i);
+      row.set(chunk.subarray(i, i + take), filled);
+      filled += take;
+      i += take;
+      if (filled === row.length) {
+        unfilter(filter, row, prior);
+        if (row[3] !== 255) blankRows.push(y);
+        marks.row(y, row, 0, width, 4);
+        [row, prior] = [prior, row];
+        filled = -1;
+        y++;
       }
     }
   });
@@ -185,49 +264,10 @@ async function checkPng(
   }
   inflate.end();
   await done;
-  expect(position).toBe(rowBytes * height);
-  expect(rows).toBe(height);
+  expect(y).toBe(height);
   // The scaled height rounds up, so only the last row may be partly covered.
-  expect(blankRows.filter((row) => row !== height - 1)).toEqual([]);
-  expect(sums.size).toBeGreaterThan(10);
-  // Join neighbouring marked cells into shapes; two node shapes must sit exactly the scaled node distance apart,
-  // which fails if a band or column is drawn from the wrong offset.
-  const seen = new Set<string>(),
-    shapes: { x: number; y: number }[] = [];
-  for (const start of marks.keys()) {
-    if (seen.has(start)) continue;
-    let x = 0,
-      y = 0,
-      n = 0;
-    const queue = [start];
-    seen.add(start);
-    while (queue.length) {
-      const key = queue.pop()!,
-        cell = marks.get(key)!,
-        [cx, cy] = key.split(",").map(Number);
-      x += cell.x;
-      y += cell.y;
-      n += cell.n;
-      for (const dx of [-1, 0, 1])
-        for (const dy of [-1, 0, 1]) {
-          const next = cx + dx + "," + (cy + dy);
-          if (marks.has(next) && !seen.has(next)) {
-            seen.add(next);
-            queue.push(next);
-          }
-        }
-    }
-    shapes.push({ x: x / n, y: y / n });
-  }
-  expect(
-    shapes.some((a) =>
-      shapes.some(
-        (b) =>
-          Math.abs(b.x - a.x - between[0]) <= 3 &&
-          Math.abs(b.y - a.y - between[1]) <= 3,
-      ),
-    ),
-  ).toBe(true);
+  expect(blankRows.filter((r) => r !== height - 1)).toEqual([]);
+  marks.expectApart(dx, dy);
 }
 
 test("a PNG past the canvas area is drawn in bands at the size the dialog shows", async () => {
@@ -274,6 +314,56 @@ test("a PNG wider than the canvas side is drawn in columns and joined row by row
   const file = path.join(profile, "wide.png");
   await exportTo(dialog, file, 240000);
   await checkPng(file, width, height, [9000 * 8, 100 * 8]);
+});
+
+test("an image past the old 9,000-pixel guard that fits one canvas exports as PNG, TIFF and BMP across bands", async () => {
+  test.setTimeout(420000);
+  await scene([
+    [0, 0],
+    [2000, 1950],
+  ]);
+  for (const format of ["png", "tiff", "bmp"]) {
+    const dialog = await exportDialog(format, 5),
+      { width, height } = await shownSize(dialog),
+      file = path.join(profile, "past-guard." + format);
+    // Past the old guard, inside one canvas, and more than one band of rows.
+    expect(Math.max(width, height)).toBeGreaterThan(9000);
+    expect(width * height).toBeGreaterThan(40000000);
+    expect(width * height).toBeLessThanOrEqual(268435456);
+    expect(height).toBeGreaterThan(bandRows(width, height));
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await exportTo(dialog, file, 300000);
+    if (format === "png") {
+      await checkPng(file, width, height, [2000 * 5, 1950 * 5]);
+      continue;
+    }
+    const bytes = await readFile(file),
+      marks = classMarks();
+    if (format === "tiff") {
+      const ifd = UTIF.decode(bytes)[0],
+        first = (ifd.t273 as number[])[0];
+      expect([(ifd.t256 as number[])[0], (ifd.t257 as number[])[0]]).toEqual([
+        width,
+        height,
+      ]);
+      // The writer lays strips out in order, so rows follow one another from the first strip.
+      for (let y = 0; y < height; y++) {
+        const at = first + y * width * 4;
+        if (y < height - 1) expect(bytes[at + 3]).toBe(255);
+        marks.row(y, bytes, at, width, 4);
+      }
+    } else {
+      const stride = bmpStride(width);
+      expect([bytes.readInt32LE(18), bytes.readInt32LE(22)]).toEqual([
+        width,
+        height,
+      ]);
+      expect(bytes.length).toBe(54 + stride * height);
+      for (let y = 0; y < height; y++)
+        marks.row(y, bytes, 54 + (height - 1 - y) * stride, width, 3);
+    }
+    marks.expectApart(2000 * 5, 1950 * 5);
+  }
 });
 
 test("TIFF and BMP stream rows that decode at the size the dialog shows", async () => {
