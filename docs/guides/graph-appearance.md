@@ -114,9 +114,15 @@ The mouse wheel and graph zoom shortcuts continue below 5%, so large layouts can
 
 The setting belongs to each graph and is saved with workspaces and sessions. Undo and Redo include visibility changes. Image exports follow the current visibility setting.
 
+## Label visibility
+
+**Show labels** is checked by default between **Show edges** and **Show counts** in each graph footer (craigtrim/axiom#187). Uncheck it to hide the name under every node, including the selected node, the hovered node and the node whose right-click menu is open. Nodes keep their positions, and the hierarchy layout still spaces its rows by label width. Relationship captions stay under **Show edges** and the +N badges under **Show counts**; the AND and + marks inside nodes and the Cluster grid group headings do not change. A hidden label is not a click target, while clicks, drags and right-clicks on a node work as before. The graph's screen-reader list keeps every node's name.
+
+Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include label visibility changes. Image exports follow the setting, so an export of a graph with labels hidden has no node labels even when **All node labels** is checked.
+
 ## Number badge visibility
 
-**Show counts** is checked by default beside **Show edges** in each graph footer. Uncheck it to hide the +N number badges on graph nodes. These badges count neighbours not currently displayed; hiding them preserves all data and node positions. Hierarchy instance counts remain available.
+**Show counts** is checked by default beside **Show labels** in each graph footer. Uncheck it to hide the +N number badges on graph nodes. These badges count neighbours not currently displayed; hiding them preserves all data and node positions. Hierarchy instance counts remain available.
 
 Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include count visibility changes. PNG and SVG exports use the same visibility setting as the graph.
 

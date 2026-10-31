@@ -103,7 +103,7 @@ annotations, retries and focused-only tests fail the job. The existing opt-in
 large-source timing benchmark is the only declared skip. Inventory, execution and
 coverage reports are retained under the artifact's `native` directory.
 
-An independent build/package job runs 47 focused CI regression cases before its
+An independent build/package job runs 48 focused CI regression cases before its
 packaged checks. The same cases remain in the regular CI inventory. Export
 comparisons wait for complete expected RDF semantics, and export-history checks
 wait for a preceding pane-close history entry. This adds earlier feedback without

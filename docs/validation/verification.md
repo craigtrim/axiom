@@ -645,6 +645,12 @@ Executable:
 D:\git\axiom\artifacts\electron-20260917T214159Z\Axiom-win32-x64\Axiom.exe
 ```
 
+## Graph label visibility (31 October 2026)
+
+Show labels sits between Show edges and Show counts, checked by default (craigtrim/axiom#187). Unchecked, it hides the name under every node on the canvas and in image exports, including the selected, hovered and right-clicked nodes, and a hidden name is no longer a click or edge-drop target. RDF, node positions, edges, number badges and the screen-reader node list are unchanged, and the Graph appearance preview keeps its sample names. Each graph saves its setting in workspaces and restored sessions, and Undo/Redo and image exports follow it.
+
+TypeScript, eight focused domain tests and four desktop journeys passed against the development build, with the full unit suite of 12,437 tests and 83 neighbouring desktop journeys. The new and extended checks were each run against a build with their part of the change removed, and failed there. No packaged executable was built for this check.
+
 ## Expand max
 
 The graph toolbar now expands from all visible nodes breadth-first until the visible-node limit or reachable component is exhausted. Existing nodes are retained and stay fixed through layout. The action follows projected intersection branches, handles cycles and large adjacency lists, and is scoped to its graph tab. One Undo restores the previous view.
