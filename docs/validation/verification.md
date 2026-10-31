@@ -653,9 +653,9 @@ TypeScript, eight focused domain tests and four desktop journeys passed against 
 
 ## Color clusters availability (31 October 2026)
 
-Color clusters stays in every graph footer after Show counts (craigtrim/axiom#200). While the graph shows fewer than two clusters the box is disabled and dimmed, and its tooltip says why: the displayed nodes form one cluster that hiding nodes can split, or no displayed nodes are connected. It becomes available when hiding splits the graph and is disabled again when the graph joins back into one cluster, keeping the saved setting.
+Color clusters stays in every graph footer after Show counts (craigtrim/axiom#200). While the graph shows fewer than two clusters the box is disabled and dimmed, and its tooltip says why: the displayed nodes form one cluster that hiding nodes can split, no displayed nodes are connected, or the graph shows no nodes. Screen readers read the reason as the checkbox's description. It becomes available when hiding splits the graph and is disabled again when the graph joins back into one cluster, keeping the saved setting.
 
-TypeScript and both cluster colors desktop journeys passed five times in a row against the development build, with 23 neighbouring graph journeys. The disabled-state check failed against a build without the disabled attribute. No packaged executable was built for this check.
+TypeScript, five domain tests of the availability rule and both cluster colors desktop journeys passed, the journeys five times in a row against the development build, with 23 neighbouring graph journeys. The disabled-state check failed against a build without the disabled attribute, and the description check failed against a build without the checkbox's title. No packaged executable was built for this check.
 
 ## Expand max
 
