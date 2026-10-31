@@ -76,20 +76,15 @@ export function ExportDialog({
     : options.background === "dark"
       ? "dark"
       : "light";
-  const sceneOptions = {
-      ...options,
-      background: effectiveBackground,
-      viewport: options.area === "viewport" ? { ...size, camera } : undefined,
-    },
-    // craigtrim/axiom#188: a huge scene's grid would be millions of SVG dots, too small to see in the preview.
-    preview = useMemo(
-      () =>
-        exportScene(diagram, options.background === "dark", "svg", selected, {
-          ...sceneOptions,
-          gridLimit: 250000,
-        }),
-      [diagram, options, size, camera, selected],
-    );
+  const preview = useMemo(
+    () =>
+      exportScene(diagram, options.background === "dark", "svg", selected, {
+        ...options,
+        background: effectiveBackground,
+        viewport: options.area === "viewport" ? { ...size, camera } : undefined,
+      }),
+    [diagram, options, size, camera, selected],
+  );
   // craigtrim/axiom#188: no Axiom maximum; only the chosen format's own ceiling stops an export.
   const pixels = {
       width: Math.max(1, Math.round(preview.width * options.scale)),
@@ -106,18 +101,7 @@ export function ExportDialog({
     setBusy(true);
     setError("");
     try {
-      // An SVG or PDF export carries the grid the preview left out, up to about 240 MB of dots,
-      // which stays under the 536,870,888-character string limit.
-      const svg = preview.gridOmitted
-          ? exportScene(
-              diagram,
-              options.background === "dark",
-              "svg",
-              selected,
-              { ...sceneOptions, gridLimit: 4000000 },
-            )
-          : preview,
-        exportOptions = { ...options, background: effectiveBackground },
+      const exportOptions = { ...options, background: effectiveBackground },
         request = {
           options: exportOptions,
           datasetEpoch: epoch,
@@ -134,12 +118,12 @@ export function ExportDialog({
                 viewport:
                   options.area === "viewport" ? { ...size, camera } : undefined,
               },
-              svg,
+              svg: preview,
               request,
             })
           : await window.axiom.exportDocument({
               ...request,
-              data: svg.data,
+              data: preview.data,
             });
       if (result) {
         report(

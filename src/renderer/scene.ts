@@ -132,6 +132,8 @@ export const screenPoint = (n: Point, c: Camera) => ({
   x: n.x * c.zoom + c.x,
   y: n.y * c.zoom + c.y,
 });
+// About 15 MB of SVG; past this the grid is drawn as one pattern even for PDF (craigtrim/axiom#188).
+const VECTOR_GRID_DOTS = 250000;
 export class Draw {
   private batches: Map<
     string,
@@ -253,6 +255,78 @@ export class Draw {
             : 'fill="' + color + '"') +
           "/>",
       );
+  }
+  /**
+   * craigtrim/axiom#188: a dot at every (x0 + i * step, y0 + j * step). SVG draws them as one pattern, so its size
+   * does not grow with the area, and a canvas draws only the dots that reach `clip`. Chromium prints a pattern as a
+   * 72-dpi bitmap, so an SVG bound for PDF (`vector`) draws its dots one by one up to VECTOR_GRID_DOTS.
+   */
+  dotGrid(
+    x0: number,
+    y0: number,
+    step: number,
+    color: string,
+    clip?: Rect,
+    vector = false,
+  ) {
+    if (
+      this.context ||
+      (vector && (this.width / step) * (this.height / step) <= VECTOR_GRID_DOTS)
+    ) {
+      this.gridDots(x0, y0, step, color, clip);
+      return;
+    }
+    const x = num(x0 - step / 2),
+      y = num(y0 - step / 2),
+      size = num(step);
+    // Named after its own contents, so grids inlined into one page never draw each other's.
+    let hash = 2166136261;
+    for (const ch of x + "," + y + "," + size + "," + color)
+      hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+    const id = "axiom-grid-" + (hash >>> 0).toString(36);
+    this.parts.push(
+      '<defs><pattern id="' +
+        id +
+        '" patternUnits="userSpaceOnUse" x="' +
+        x +
+        '" y="' +
+        y +
+        '" width="' +
+        size +
+        '" height="' +
+        size +
+        '"><circle cx="' +
+        num(step / 2) +
+        '" cy="' +
+        num(step / 2) +
+        '" r="0.65" fill="' +
+        color +
+        '"/></pattern></defs><rect width="' +
+        num(this.width) +
+        '" height="' +
+        num(this.height) +
+        '" fill="url(#' +
+        id +
+        ')"/>',
+    );
+  }
+  /** Draws each grid dot that reaches `clip`, or the drawing; a dot is 0.65 wide, so a 1-unit margin keeps the ones that straddle it. */
+  protected gridDots(
+    x0: number,
+    y0: number,
+    step: number,
+    color: string,
+    clip?: Rect,
+  ) {
+    const from = (origin: number, edge: number) =>
+        origin + Math.max(0, Math.ceil((edge - 1 - origin) / step)) * step,
+      right = clip ? Math.min(this.width, clip.x + clip.width + 1) : this.width,
+      bottom = clip
+        ? Math.min(this.height, clip.y + clip.height + 1)
+        : this.height;
+    for (let x = clip ? from(x0, clip.x) : x0; x < right; x += step)
+      for (let y = clip ? from(y0, clip.y) : y0; y < bottom; y += step)
+        this.circle({ x, y }, 0.65, color);
   }
   circle(p: Point, r: number, color: string, stroke = 0) {
     const c = this.context;
@@ -491,7 +565,8 @@ export function render(
     onLabel?: (iri: string, rect: Rect) => void;
     // craigtrim/axiom#188: an export tile passes its own area, so only its grid dots are drawn.
     clip?: Rect;
-    grid?: boolean;
+    // craigtrim/axiom#188: an SVG bound for PDF draws its grid dots one by one, as far as Draw.dotGrid allows.
+    vectorGrid?: boolean;
   } = {},
 ) {
   const orderedLabels = labelOrder(g, selected, hover);
@@ -520,19 +595,15 @@ export function render(
     d.rect({ x: 0, y: 0, width: w, height: h }, C("canvas"));
   d.beginBatch();
   const step = 34 * k;
-  if (step > 11 && !options.transparent && options.grid !== false) {
-    const clip = options.clip,
-      x0 = c.x % step,
-      y0 = c.y % step,
-      // A dot is 0.65 wide, so a 1-unit margin keeps the ones that straddle the clip.
-      from = (origin: number, edge: number) =>
-        origin + Math.max(0, Math.ceil((edge - 1 - origin) / step)) * step,
-      right = clip ? Math.min(w, clip.x + clip.width + 1) : w,
-      bottom = clip ? Math.min(h, clip.y + clip.height + 1) : h;
-    for (let x = clip ? from(x0, clip.x) : x0; x < right; x += step)
-      for (let y = clip ? from(y0, clip.y) : y0; y < bottom; y += step)
-        d.circle({ x, y }, 0.65, C("canvas-grid"));
-  }
+  if (step > 11 && !options.transparent)
+    d.dotGrid(
+      c.x % step,
+      c.y % step,
+      step,
+      C("canvas-grid"),
+      options.clip,
+      options.vectorGrid,
+    );
   for (const r of g.rings)
     d.circle(screenPoint(g.ringOrigin, c), r * k, C("canvas-grid"), 1);
   for (const b of g.groups) {
@@ -881,8 +952,6 @@ export function render(
 }
 type ExportSceneOptions = Partial<import("../shared/export").ExportOptions> & {
   viewport?: { width: number; height: number; camera: Camera };
-  /** An SVG past this many grid dots leaves the grid out; the dialog's preview sets it. */
-  gridLimit?: number;
 };
 // craigtrim/axiom#188: one layout serves the whole-canvas export and the tiles past Chromium's canvas ceilings.
 function exportLayout(
@@ -963,16 +1032,6 @@ function exportLayout(
     camera,
   };
 }
-const gridDots = (layout: ReturnType<typeof exportLayout>) => {
-  const step = 34 * layout.camera.zoom;
-  return step > 11
-    ? Math.ceil(layout.width / step) * Math.ceil(layout.height / step)
-    : 0;
-};
-const gridOmitted = (
-  layout: ReturnType<typeof exportLayout>,
-  options: ExportSceneOptions,
-) => options.gridLimit !== undefined && gridDots(layout) > options.gridLimit;
 function drawExport(
   ctx: CanvasRenderingContext2D | null,
   g: GraphSnapshot,
@@ -1007,7 +1066,7 @@ function drawExport(
       transparent,
       allLabels: options.allLabels ?? false,
       clip,
-      grid: !gridOmitted(layout, options),
+      vectorGrid: options.format === "pdf",
     },
   );
   if (header) {
@@ -1082,7 +1141,6 @@ export function exportScene(
       width: layout.width,
       height: layout.height,
       canvas: undefined,
-      gridOmitted: gridOmitted(layout, options),
     };
   const scale = exportScale(options.scale ?? (format === "png3" ? 3 : 2)),
     { canvas, ctx } = exportCanvas(
@@ -1091,13 +1149,7 @@ export function exportScene(
     );
   ctx.scale(scale, scale);
   drawExport(ctx, g, dark, selected, options, layout);
-  return {
-    data: "",
-    width: canvas.width,
-    height: canvas.height,
-    canvas,
-    gridOmitted: false,
-  };
+  return { data: "", width: canvas.width, height: canvas.height, canvas };
 }
 function exportScale(scale: number) {
   if (!Number.isFinite(scale) || scale <= 0)
