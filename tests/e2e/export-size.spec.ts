@@ -82,6 +82,7 @@ async function scene(points: [number, number][]) {
         dragging: false,
         datasetEpoch: s.datasetEpoch,
       });
+    await window.axiom.request("select", { iri: null });
   }, points);
 }
 async function exportDialog(format: string, scale: number) {
@@ -115,14 +116,22 @@ async function exportTo(dialog: Locator, file: string, timeout = 30000) {
 }
 
 /** Inflates a PNG's IDAT stream and checks that every row arrived drawn on the opaque background. */
-async function checkPng(file: string, width: number, height: number) {
+async function checkPng(
+  file: string,
+  width: number,
+  height: number,
+  between: [number, number],
+) {
   const bytes = await readFile(file);
   expect(bytes.readUInt32BE(16)).toBe(width);
   expect(bytes.readUInt32BE(20)).toBe(height);
   const rowBytes = 1 + width * 4,
     inflate = createInflate(),
     blankRows: number[] = [],
-    sums = new Set<number>();
+    sums = new Set<number>(),
+    // Class nodes are filled with the light theme's e-class token, #0F6CBD.
+    marks = new Map<string, { x: number; y: number; n: number }>(),
+    pixel = new Uint8Array(4);
   let position = 0,
     rows = 0,
     sum = 0;
@@ -131,6 +140,25 @@ async function checkPng(file: string, width: number, height: number) {
       const at = position % rowBytes;
       if (at === 4 && chunk[i] !== 255)
         blankRows.push(Math.floor(position / rowBytes));
+      if (at > 0) {
+        pixel[(at - 1) % 4] = chunk[i];
+        if (
+          (at - 1) % 4 === 3 &&
+          pixel[0] === 15 &&
+          pixel[1] === 108 &&
+          pixel[2] === 189 &&
+          pixel[3] === 255
+        ) {
+          const x = (at - 1) / 4 - 0.75,
+            y = Math.floor(position / rowBytes),
+            key = Math.floor(x / 16) + "," + Math.floor(y / 16),
+            cell = marks.get(key) ?? { x: 0, y: 0, n: 0 };
+          cell.x += x;
+          cell.y += y;
+          cell.n++;
+          marks.set(key, cell);
+        }
+      }
       sum += chunk[i];
       if (at === rowBytes - 1) {
         sums.add(sum);
@@ -156,6 +184,44 @@ async function checkPng(file: string, width: number, height: number) {
   // The scaled height rounds up, so only the last row may be partly covered.
   expect(blankRows.filter((row) => row !== height - 1)).toEqual([]);
   expect(sums.size).toBeGreaterThan(10);
+  // Join neighbouring marked cells into shapes; two node shapes must sit exactly the scaled node distance apart,
+  // which fails if a band or column is drawn from the wrong offset.
+  const seen = new Set<string>(),
+    shapes: { x: number; y: number }[] = [];
+  for (const start of marks.keys()) {
+    if (seen.has(start)) continue;
+    let x = 0,
+      y = 0,
+      n = 0;
+    const queue = [start];
+    seen.add(start);
+    while (queue.length) {
+      const key = queue.pop()!,
+        cell = marks.get(key)!,
+        [cx, cy] = key.split(",").map(Number);
+      x += cell.x;
+      y += cell.y;
+      n += cell.n;
+      for (const dx of [-1, 0, 1])
+        for (const dy of [-1, 0, 1]) {
+          const next = cx + dx + "," + (cy + dy);
+          if (marks.has(next) && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+    }
+    shapes.push({ x: x / n, y: y / n });
+  }
+  expect(
+    shapes.some((a) =>
+      shapes.some(
+        (b) =>
+          Math.abs(b.x - a.x - between[0]) <= 3 &&
+          Math.abs(b.y - a.y - between[1]) <= 3,
+      ),
+    ),
+  ).toBe(true);
 }
 
 test("a PNG past the canvas area is drawn in bands at the size the dialog shows", async () => {
@@ -170,7 +236,7 @@ test("a PNG past the canvas area is drawn in bands at the size the dialog shows"
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   const file = path.join(profile, "large.png");
   await exportTo(dialog, file, 240000);
-  await checkPng(file, width, height);
+  await checkPng(file, width, height, [2000 * 8, 1950 * 8]);
 });
 
 test("a tall, narrow PNG past the canvas side streams in canvas-high bands", async () => {
@@ -186,7 +252,22 @@ test("a tall, narrow PNG past the canvas side streams in canvas-high bands", asy
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   const file = path.join(profile, "tall.png");
   await exportTo(dialog, file, 150000);
-  await checkPng(file, width, height);
+  await checkPng(file, width, height, [0, 270000 * 0.25]);
+});
+
+test("a PNG wider than the canvas side is drawn in columns and joined row by row", async () => {
+  test.setTimeout(300000);
+  await scene([
+    [0, 0],
+    [9000, 100],
+  ]);
+  const dialog = await exportDialog("png", 8),
+    { width, height } = await shownSize(dialog);
+  expect(width).toBeGreaterThan(65535);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  const file = path.join(profile, "wide.png");
+  await exportTo(dialog, file, 240000);
+  await checkPng(file, width, height, [9000 * 8, 100 * 8]);
 });
 
 test("TIFF and BMP stream rows that decode at the size the dialog shows", async () => {

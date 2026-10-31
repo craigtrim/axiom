@@ -9,6 +9,7 @@ import {
   bmpWriter,
   byteWriter,
   pngWriter,
+  tiffHeader,
   tiffWriter,
   writeAll,
 } from "../../src/main/raster-writer";
@@ -17,10 +18,13 @@ import {
   bigTiffNote,
   bmpBytes,
   bmpStride,
+  clipboardLimit,
   encodeRows,
   encodeSegment,
   fitsCanvas,
   formatCeiling,
+  MAX_BYTE_STREAM,
+  MAX_TIFF_STRIPS,
   sendsRows,
   tiffLayout,
   tileColumns,
@@ -138,6 +142,31 @@ describe("raster layout", () => {
     expect(bigTiffNote("tiff", 30000, 30000)).toBe("");
     expect(bigTiffNote("tiff", 32768, 32768)).toContain("BigTIFF");
     expect(bigTiffNote("png", 32768, 32768)).toBe("");
+  });
+  it("keeps TIFF strip arrays bounded and BigTIFF offsets exact past 2^53 bytes", () => {
+    const huge = tiffLayout(300000, 300000000);
+    expect(huge.big).toBe(true);
+    expect(huge.strips).toBeLessThanOrEqual(MAX_TIFF_STRIPS);
+    expect(huge.dataOffset).toBeLessThan(17 * 1048576);
+    const width = 1599999999,
+      height = 6000000,
+      t = tiffLayout(width, height),
+      head = tiffHeader(width, height),
+      arrays = t.header + t.ifd + t.extra,
+      last = t.strips - 1,
+      exact =
+        BigInt(t.dataOffset) +
+        BigInt(last) * BigInt(t.rowsPerStrip) * BigInt(width) * 4n;
+    expect(exact).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+    expect(head.readBigUInt64LE(arrays + last * 8)).toBe(exact);
+    expect(head.readBigUInt64LE(arrays + (t.strips + last) * 8)).toBe(
+      BigInt(height - last * t.rowsPerStrip) * BigInt(width) * 4n,
+    );
+  });
+  it("sizes the clipboard's byte limit from the declared image", () => {
+    expect(clipboardLimit(1, 1)).toBeLessThan(1048576 + 16);
+    expect(clipboardLimit(16384, 16384)).toBeGreaterThan(16384 * 16384 * 4);
+    expect(clipboardLimit(65535, 65535)).toBe(MAX_BYTE_STREAM);
   });
   it("sends pixel rows for TIFF, BMP and PNG past the canvas", () => {
     expect(sendsRows("tiff", 10, 10)).toBe(true);
