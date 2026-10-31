@@ -1,4 +1,5 @@
-// craigtrim/axiom#185: Color clusters appears once hiding splits the graph.
+// craigtrim/axiom#185: Color clusters colors each cluster once hiding splits the graph.
+// craigtrim/axiom#200: the box always shows and says why while it is disabled.
 import { launchExample } from "./example-fixture";
 import {
   test,
@@ -79,6 +80,13 @@ const colorClusters = () =>
   page
     .locator(".graph-panel:visible")
     .getByRole("checkbox", { name: "Color clusters", exact: true });
+const clusterLabel = () =>
+  page.locator(".graph-panel:visible .graph-cluster-colors");
+const reasons = {
+  enabled: "Give each group of connected nodes its own color.",
+  one: "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it.",
+  none: "Needs two or more clusters. No displayed nodes are connected to each other.",
+};
 // Connected groups of two or more displayed nodes, as the issue defines them.
 function clusters(g: Snapshot["graph"], skip?: string) {
   const iris = g.nodes.map((n) => n.iri).filter((iri) => iri !== skip);
@@ -113,9 +121,10 @@ async function split() {
   await expect
     .poll(async () => (await state()).graph.clusterCount)
     .toBeGreaterThan(1);
+  return cut.iri;
 }
 
-test("Color clusters appears after a split, colors each cluster and keeps other clusters' colors when a node is hidden", async () => {
+test("Color clusters is disabled with its reason until a split, colors each cluster and keeps other clusters' colors when a node is hidden", async () => {
   await request("freeze");
   await request("layout", { mode: "circle" });
   await menu("graph.fit");
@@ -123,9 +132,26 @@ test("Color clusters appears after a split, colors each cluster and keeps other 
   expect(initial.graph.clusterCount).toBe(
     clusters(initial.graph).groups.length,
   );
-  if (initial.graph.clusterCount! < 2)
-    await expect(colorClusters()).toHaveCount(0);
-  await split();
+  expect(
+    initial.graph.clusterCount,
+    "the example graph opens as one cluster",
+  ).toBe(1);
+  await expect(colorClusters()).toBeVisible();
+  await expect(colorClusters()).toBeDisabled();
+  await expect(clusterLabel()).toHaveAttribute("title", reasons.one);
+  const cut = await split();
+  await expect(colorClusters()).toBeEnabled();
+  await expect(clusterLabel()).toHaveAttribute("title", reasons.enabled);
+  // Showing the hidden node again joins the graph back into one cluster.
+  await request("seed", { iris: [cut], replace: false, expand: false });
+  await expect.poll(async () => (await state()).graph.clusterCount).toBe(1);
+  await expect(colorClusters()).toBeDisabled();
+  await expect(clusterLabel()).toHaveAttribute("title", reasons.one);
+  await request("remove", { iri: cut });
+  await expect
+    .poll(async () => (await state()).graph.clusterCount)
+    .toBeGreaterThan(1);
+  await expect(colorClusters()).toBeEnabled();
   await expect(colorClusters()).not.toBeChecked();
   const canvas = page.getByTestId("graph-canvas");
   const before = await canvas.screenshot();
@@ -197,6 +223,11 @@ test("Color clusters appears after a split, colors each cluster and keeps other 
   expect(
     (await state()).graph.nodes.every((n) => n.cluster === undefined),
   ).toBe(true);
+
+  await request("clear");
+  await expect.poll(async () => (await state()).graph.clusterCount).toBe(0);
+  await expect(colorClusters()).toBeDisabled();
+  await expect(clusterLabel()).toHaveAttribute("title", reasons.none);
 });
 
 test("Color clusters is saved with the workspace and restored on reopen", async () => {
