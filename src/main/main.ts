@@ -51,7 +51,14 @@ import examples from "../domain/data/examples.json";
 import { ProvenanceService } from "./provenance-service";
 import { FilePreviewService } from "./file-preview-service";
 import type { LinkedFile } from "../shared/source";
-import { exportDocument } from "./export-service";
+import {
+  abandonExportStreams,
+  cancelExportStream,
+  closeExportStream,
+  exportDocument,
+  openExportStream,
+  writeExportStream,
+} from "./export-service";
 import {
   qualityExport,
   readQualityExceptions,
@@ -89,7 +96,6 @@ import {
   net,
   nativeTheme,
   clipboard,
-  ClipboardItem,
   nativeImage,
   screen,
   crashReporter,
@@ -2468,41 +2474,27 @@ app.whenReady().then(async () => {
       request,
     );
   });
-  handle("export", async (event, format: string, data: string) => {
+  // craigtrim/axiom#188: Diagram exports stream in awaited bands.
+  handle("export:open", async (event, input) => {
     authorised(event);
-    if (
-      !["svg", "png", "clipboard"].includes(format) ||
-      typeof data !== "string" ||
-      data.length > 150000000
-    )
-      throw Error("Invalid export.");
-    if (format === "clipboard") {
-      const image = nativeImage.createFromDataURL(data);
-      if (image.isEmpty()) throw Error("The image could not be copied.");
-      await clipboard.write([
-        new ClipboardItem({
-          "image/png": new Blob([new Uint8Array(image.toPNG())], {
-            type: "image/png",
-          }),
-        }),
-      ]);
-      return "clipboard";
-    }
-    const r = await dialog.showSaveDialog(mainWindow!, {
-      title: "Export graph",
-      defaultPath: "axiom-graph." + format,
-      filters: [
-        { name: format.toUpperCase() + " image", extensions: [format] },
-      ],
-    });
-    if (r.canceled || !r.filePath) return null;
-    await writeFile(
-      r.filePath,
-      format === "svg"
-        ? data
-        : Buffer.from(data.replace(/^data:image\/png;base64,/, ""), "base64"),
+    return openExportStream(
+      input,
+      BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
+      event.sender,
+      request,
     );
-    return r.filePath;
+  });
+  handle("export:write", async (event, id: string, chunk: Uint8Array) => {
+    authorised(event);
+    return writeExportStream(id, chunk, event.sender.id);
+  });
+  handle("export:close", async (event, id: string) => {
+    authorised(event);
+    return closeExportStream(id, event.sender.id);
+  });
+  handle("export:cancel", async (event, id: string) => {
+    authorised(event);
+    return cancelExportStream(id, event.sender.id);
   });
   mainWindow.on("close", (event) => {
     if (closing) return;
@@ -2570,6 +2562,8 @@ app.on("will-quit", () => {
   workspaceLease?.release();
   launchLease?.release();
   instanceRegistry.leave();
+  // craigtrim/axiom#188: an export still writing at quit leaves no temp file behind.
+  abandonExportStreams();
   runLog?.close();
 });
 // The closed marker is written synchronously, because asynchronous work at exit is abandoned.

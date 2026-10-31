@@ -7,6 +7,8 @@ import {
 } from "./NumberField";
 import { state, report } from "./client";
 import { exportScene, type Camera } from "./scene";
+import { streamDiagram } from "./export-stream";
+import { bigTiffNote, formatCeiling } from "../shared/raster-layout";
 import type { GraphSnapshot } from "../shared/protocol";
 import {
   defaultExportOptions,
@@ -14,65 +16,6 @@ import {
   reportFormats,
   type ExportOptions,
 } from "../shared/export";
-async function imageData(
-  canvas: HTMLCanvasElement,
-  format: string,
-  quality: number,
-) {
-  if (format === "tiff") {
-    const module = await import("utif");
-    const utif = module.default ?? module;
-    const ctx = canvas.getContext("2d")!;
-    const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const data = utif.encodeImage(
-      new Uint8Array(rgba.buffer),
-      canvas.width,
-      canvas.height,
-    );
-    return dataUrl(new Uint8Array(data), "image/tiff");
-  }
-  if (format === "bmp") {
-    const w = canvas.width,
-      h = canvas.height,
-      stride = (w * 3 + 3) & ~3,
-      bytes = new Uint8Array(54 + stride * h),
-      d = new DataView(bytes.buffer);
-    bytes[0] = 66;
-    bytes[1] = 77;
-    d.setUint32(2, bytes.length, true);
-    d.setUint32(10, 54, true);
-    d.setUint32(14, 40, true);
-    d.setInt32(18, w, true);
-    d.setInt32(22, h, true);
-    d.setUint16(26, 1, true);
-    d.setUint16(28, 24, true);
-    d.setUint32(34, stride * h, true);
-    const rgba = canvas.getContext("2d")!.getImageData(0, 0, w, h).data;
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4,
-          j = 54 + (h - y - 1) * stride + x * 3;
-        bytes[j] = rgba[i + 2];
-        bytes[j + 1] = rgba[i + 1];
-        bytes[j + 2] = rgba[i];
-      }
-    return dataUrl(bytes, "image/bmp");
-  }
-  return canvas.toDataURL(
-    format === "jpg"
-      ? "image/jpeg"
-      : format === "webp"
-        ? "image/webp"
-        : "image/png",
-    quality / 100,
-  );
-}
-function dataUrl(bytes: Uint8Array, mime: string) {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 32768)
-    binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
-  return "data:" + mime + ";base64," + btoa(binary);
-}
 export function ExportDialog({
   graph,
   camera,
@@ -142,45 +85,46 @@ export function ExportDialog({
       }),
     [diagram, options, size, camera, selected],
   );
+  // craigtrim/axiom#188: no Axiom maximum; only the chosen format's own ceiling stops an export.
+  const pixels = {
+      width: Math.max(1, Math.round(preview.width * options.scale)),
+      height: Math.max(1, Math.round(preview.height * options.scale)),
+    },
+    ceiling = raster
+      ? formatCeiling(options.format, pixels.width, pixels.height)
+      : "",
+    tiffNote = raster
+      ? bigTiffNote(options.format, pixels.width, pixels.height)
+      : "";
   async function save() {
-    if (numbers.invalid || busy) return;
+    if (numbers.invalid || busy || ceiling) return;
     setBusy(true);
     setError("");
     try {
-      let data = preview.data;
-      if (raster) {
-        const scene = exportScene(
-          diagram,
-          options.background === "dark",
-          "png",
-          selected,
-          {
-            ...options,
-            background: compatibleTransparency
-              ? options.background
-              : options.background === "dark"
-                ? "dark"
-                : "light",
-            viewport:
-              options.area === "viewport" ? { ...size, camera } : undefined,
-          },
-        );
-        data = await imageData(scene.canvas!, options.format, options.quality);
-      }
-      const result = await window.axiom.exportDocument({
-        options: {
-          ...options,
-          background: compatibleTransparency
-            ? options.background
-            : options.background === "dark"
-              ? "dark"
-              : "light",
-        },
-        data,
-        datasetEpoch: epoch,
-        version,
-        iris: diagram.nodes.map((n) => n.iri),
-      });
+      const exportOptions = { ...options, background: effectiveBackground },
+        request = {
+          options: exportOptions,
+          datasetEpoch: epoch,
+          version,
+          iris: diagram.nodes.map((n) => n.iri),
+        };
+      const result =
+        options.content === "diagram" && options.format !== "pdf"
+          ? await streamDiagram({
+              diagram,
+              selected,
+              options: {
+                ...exportOptions,
+                viewport:
+                  options.area === "viewport" ? { ...size, camera } : undefined,
+              },
+              svg: preview,
+              request,
+            })
+          : await window.axiom.exportDocument({
+              ...request,
+              data: preview.data,
+            });
       if (result) {
         report(
           result === "clipboard"
@@ -463,14 +407,11 @@ export function ExportDialog({
                 </p>
                 {raster && (
                   <p>
-                    {Math.round(preview.width * options.scale).toLocaleString()}{" "}
-                    ×{" "}
-                    {Math.round(
-                      preview.height * options.scale,
-                    ).toLocaleString()}{" "}
-                    pixels
+                    {pixels.width.toLocaleString()} ×{" "}
+                    {pixels.height.toLocaleString()} pixels
                   </p>
                 )}
+                {tiffNote && <p>{tiffNote}</p>}
               </>
             ) : (
               <div>
@@ -497,9 +438,9 @@ export function ExportDialog({
             )}
           </div>
         </div>
-        {error && (
+        {(ceiling || error) && (
           <div className="error" role="alert">
-            {error}
+            {ceiling || error}
           </div>
         )}
         <footer>
@@ -509,7 +450,7 @@ export function ExportDialog({
           <button
             className="primary"
             onClick={() => void save()}
-            disabled={busy || numbers.invalid}
+            disabled={busy || numbers.invalid || !!ceiling}
           >
             {busy
               ? "Exporting..."

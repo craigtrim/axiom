@@ -1,5 +1,6 @@
 import { cleanErrorMessage } from "../shared/audit";
 import { contextBridge, ipcRenderer } from "electron";
+import { MAX_STREAM_CHUNK } from "../shared/raster-layout";
 import type {
   AxiomBridge,
   DomainMethod,
@@ -12,6 +13,28 @@ const invoke = async (channel: string, ...args: unknown[]) => {
     throw Error(cleanErrorMessage(error));
   }
 };
+// craigtrim/axiom#188: an export write is checked here, before IPC copies it into the main process, and only one
+// is in flight at a time. IPC copies a view's whole buffer, so a view over a larger one is sent as its own bytes.
+let exportWriting = false;
+async function writeExport(id: string, chunk: Uint8Array) {
+  if (
+    !(chunk instanceof Uint8Array) ||
+    chunk.length === 0 ||
+    chunk.length > MAX_STREAM_CHUNK
+  )
+    throw Error("Invalid export data.");
+  if (exportWriting) throw Error("Wait for the previous export write.");
+  exportWriting = true;
+  try {
+    return await invoke(
+      "export:write",
+      id,
+      chunk.byteLength === chunk.buffer.byteLength ? chunk : chunk.slice(),
+    );
+  } finally {
+    exportWriting = false;
+  }
+}
 const listen = (channel: string, fn: (value: any) => void) => {
   const handler = (_event: Electron.IpcRendererEvent, value: any) => fn(value);
   ipcRenderer.on(channel, handler);
@@ -124,8 +147,12 @@ const bridge: AxiomBridge = {
   onCommand: (fn) => listen("command", fn),
   menuState: (state) => ipcRenderer.send("menu:state", state),
   command: (command) => ipcRenderer.send("command", command),
-  exportFile: (format, data) => invoke("export", format, data),
   exportDocument: (input) => invoke("export:document", input),
+  // craigtrim/axiom#188: streamed Diagram exports.
+  exportOpen: (input) => invoke("export:open", input),
+  exportWrite: (id, chunk) => writeExport(id, chunk),
+  exportClose: (id) => invoke("export:close", id),
+  exportCancel: (id) => invoke("export:cancel", id),
   qualityExport: (input) => invoke("quality:export", input),
   copy: (text) => invoke("copy", text),
   copyQueryCsv: (input) => invoke("query:copyCsv", input),

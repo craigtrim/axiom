@@ -61,6 +61,12 @@ export interface ExportRequest {
   version: number;
   iris: string[];
 }
+// craigtrim/axiom#188: a streamed Diagram export states its pixel size and whether it sends pixel rows or finished bytes.
+export interface ExportStreamRequest extends Omit<ExportRequest, "data"> {
+  encoding: "rows" | "bytes";
+  width: number;
+  height: number;
+}
 export interface ReportData {
   ontology: OntologyInfo;
   entities: Entity[];

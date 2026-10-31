@@ -282,6 +282,16 @@ export class GpuDraw extends Draw {
         this.segment(points[i], points[(i + 1) % points.length], c, stroke);
     else this.polygon(points, c);
   }
+  /** craigtrim/axiom#188: Draw writes an SVG pattern when it has no 2D context, so the GPU draws each dot itself. */
+  override dotGrid(
+    x0: number,
+    y0: number,
+    step: number,
+    color: string,
+    clip?: Rect,
+  ) {
+    this.gridDots(x0, y0, step, color, clip);
+  }
   override circle(p: Point, r: number, color: string, stroke = 0) {
     this.switch("shape");
     if (r <= 0) return;
