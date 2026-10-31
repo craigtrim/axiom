@@ -126,6 +126,11 @@ const bridge: AxiomBridge = {
   command: (command) => ipcRenderer.send("command", command),
   exportFile: (format, data) => invoke("export", format, data),
   exportDocument: (input) => invoke("export:document", input),
+  // craigtrim/axiom#188: streamed Diagram exports.
+  exportOpen: (input) => invoke("export:open", input),
+  exportWrite: (id, chunk) => invoke("export:write", id, chunk),
+  exportClose: (id) => invoke("export:close", id),
+  exportCancel: (id) => invoke("export:cancel", id),
   qualityExport: (input) => invoke("quality:export", input),
   copy: (text) => invoke("copy", text),
   copyQueryCsv: (input) => invoke("query:copyCsv", input),

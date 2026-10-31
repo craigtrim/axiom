@@ -421,6 +421,13 @@ export interface AxiomBridge {
   exportDocument(
     input: import("./export").ExportRequest,
   ): Promise<string | null>;
+  // craigtrim/axiom#188: a streamed Diagram export; open returns null when the save dialog is cancelled.
+  exportOpen(
+    input: import("./export").ExportStreamRequest,
+  ): Promise<string | null>;
+  exportWrite(id: string, chunk: Uint8Array): Promise<void>;
+  exportClose(id: string): Promise<string>;
+  exportCancel(id: string): Promise<void>;
   copy(text: string): Promise<void>;
   copyQueryCsv(input: {
     id: number;

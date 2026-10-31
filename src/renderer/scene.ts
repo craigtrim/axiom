@@ -867,14 +867,14 @@ export function render(
   }
   return labels;
 }
-export function exportScene(
+type ExportSceneOptions = Partial<import("../shared/export").ExportOptions> & {
+  viewport?: { width: number; height: number; camera: Camera };
+};
+// craigtrim/axiom#188: one layout serves the whole-canvas export and the tiles past Chromium's canvas ceilings.
+function exportLayout(
   g: GraphSnapshot,
-  dark: boolean,
-  format: "svg" | "png" | "png3" | "clipboard",
   selected: string | null,
-  options: Partial<import("../shared/export").ExportOptions> & {
-    viewport?: { width: number; height: number; camera: Camera };
-  } = {},
+  options: ExportSceneOptions,
 ) {
   const b = bounds(g),
     measurer = new Draw(null, 1, 1);
@@ -938,30 +938,35 @@ export function exportScene(
   const camera = options.viewport
     ? { ...options.viewport.camera, y: options.viewport.camera.y + header }
     : { x: (width - b.width) / 2 - b.x, y: header - b.y, zoom: 1 };
-  let canvas: HTMLCanvasElement | undefined,
-    ctx: CanvasRenderingContext2D | null = null;
-  if (format !== "svg") {
-    canvas = document.createElement("canvas");
-    const requested = options.scale ?? (format === "png3" ? 3 : 2),
-      scale =
-        options.scale === undefined
-          ? Math.min(requested, 9000 / width, 9000 / height)
-          : requested;
-    if (
-      !Number.isFinite(scale) ||
-      scale <= 0 ||
-      width * scale > 9000 ||
-      height * scale > 9000 ||
-      width * height * scale * scale > 40000000
-    )
-      throw Error(
-        "The image is too large. Lower the scale or export the current view. Raster exports support up to 9,000 pixels per side and 40 megapixels.",
-      );
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    ctx = canvas.getContext("2d")!;
-    ctx.scale(scale, scale);
-  }
+  return {
+    width,
+    height,
+    header,
+    footer,
+    caption,
+    legendKinds,
+    legendColumns,
+    camera,
+  };
+}
+function drawExport(
+  ctx: CanvasRenderingContext2D | null,
+  g: GraphSnapshot,
+  dark: boolean,
+  selected: string | null,
+  options: ExportSceneOptions,
+  layout: ReturnType<typeof exportLayout>,
+) {
+  const {
+    width,
+    height,
+    header,
+    footer,
+    caption,
+    legendKinds,
+    legendColumns,
+    camera,
+  } = layout;
   const d = new Draw(ctx, width, height),
     p = dark ? tokens.dark : tokens.light,
     transparent = options.background === "transparent";
@@ -1031,10 +1036,73 @@ export function exportScene(
       );
     });
   }
+  return d;
+}
+export function exportScene(
+  g: GraphSnapshot,
+  dark: boolean,
+  format: "svg" | "png" | "png3" | "clipboard",
+  selected: string | null,
+  options: ExportSceneOptions = {},
+) {
+  const layout = exportLayout(g, selected, options);
+  if (format === "svg")
+    return {
+      data: drawExport(null, g, dark, selected, options, layout).finish(),
+      width: layout.width,
+      height: layout.height,
+      canvas: undefined,
+    };
+  const scale = exportScale(options.scale ?? (format === "png3" ? 3 : 2)),
+    { canvas, ctx } = exportCanvas(
+      Math.max(1, Math.round(layout.width * scale)),
+      Math.max(1, Math.round(layout.height * scale)),
+    );
+  ctx.scale(scale, scale);
+  drawExport(ctx, g, dark, selected, options, layout);
+  return { data: "", width: canvas.width, height: canvas.height, canvas };
+}
+function exportScale(scale: number) {
+  if (!Number.isFinite(scale) || scale <= 0)
+    throw Error("Choose a scale greater than zero.");
+  return scale;
+}
+function exportCanvas(width: number, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  // Past its ceilings Chromium draws nothing and raises no error, so read one pixel back.
+  ctx?.fillRect(0, 0, 1, 1);
+  if (!ctx || ctx.getImageData(0, 0, 1, 1).data[3] !== 255)
+    throw Error(
+      "Axiom could not draw an image this large. Lower the scale or export the current view.",
+    );
+  ctx.clearRect(0, 0, 1, 1);
+  return { canvas, ctx };
+}
+/** The full image's pixel size, and its RGBA one rectangle at a time; every tile draws the whole scene. */
+export function exportTiles(
+  g: GraphSnapshot,
+  dark: boolean,
+  selected: string | null,
+  options: ExportSceneOptions = {},
+) {
+  const layout = exportLayout(g, selected, options),
+    scale = exportScale(options.scale ?? 2);
+  let tile: ReturnType<typeof exportCanvas> | undefined;
   return {
-    data: format === "svg" ? d.finish() : canvas!.toDataURL("image/png"),
-    width: canvas?.width ?? width,
-    height: canvas?.height ?? height,
-    canvas,
+    width: Math.max(1, Math.round(layout.width * scale)),
+    height: Math.max(1, Math.round(layout.height * scale)),
+    region(x: number, y: number, width: number, height: number) {
+      if (tile?.canvas.width !== width || tile.canvas.height !== height)
+        tile = exportCanvas(width, height);
+      const { ctx } = tile;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.setTransform(scale, 0, 0, scale, -x, -y);
+      drawExport(ctx, g, dark, selected, options, layout);
+      return ctx.getImageData(0, 0, width, height).data;
+    },
   };
 }

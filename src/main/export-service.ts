@@ -4,15 +4,26 @@ import {
   clipboard,
   nativeImage,
   ClipboardItem,
+  type WebContents,
 } from "electron";
 import { randomUUID } from "node:crypto";
-import { writeFile, rename } from "node:fs/promises";
+import { writeFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   validateExport,
+  type ExportOptions,
   type ExportRequest,
+  type ExportStreamRequest,
   type ReportData,
 } from "../shared/export";
+import { formatCeiling, sendsRows } from "../shared/raster-layout";
+import {
+  bmpWriter,
+  byteWriter,
+  pngWriter,
+  tiffWriter,
+  type StreamWriter,
+} from "./raster-writer";
 import { htmlDocument, reportDocument, escapeHtml } from "./report";
 import type { DomainMethod, Snapshot } from "../shared/protocol";
 // #165: PDF helper windows obey the same quiet policy as the main window.
@@ -46,34 +57,8 @@ export async function exportDocument(
     ]);
     return "clipboard";
   }
-  const result = await dialog.showSaveDialog(owner, {
-    title: "Export " + (o.content === "diagram" ? "diagram" : "report"),
-    defaultPath: "axiom-" + o.content + "." + o.format,
-    filters: [
-      {
-        name: o.format.toUpperCase(),
-        extensions: [
-          o.format,
-          ...(o.format === "jpg"
-            ? ["jpeg"]
-            : o.format === "tiff"
-              ? ["tif"]
-              : []),
-        ],
-      },
-    ],
-  });
-  if (result.canceled || !result.filePath) return null;
-  const ext = path.extname(result.filePath).toLowerCase(),
-    allowed = [
-      "." + o.format,
-      ...(o.format === "jpg" ? [".jpeg"] : o.format === "tiff" ? [".tif"] : []),
-    ];
-  const file = ext ? result.filePath : result.filePath + "." + o.format;
-  if (ext && !allowed.includes(ext))
-    throw Error(
-      "Use the selected " + o.format.toUpperCase() + " filename extension.",
-    );
+  const file = await chooseExportFile(owner, o);
+  if (!file) return null;
   let output: string | Buffer;
   if (o.content === "report") {
     const data = (await request("reportData", {
@@ -154,4 +139,166 @@ export async function exportDocument(
   await writeFile(temp, output);
   await rename(temp, file);
   return file;
+}
+async function chooseExportFile(owner: BrowserWindow, o: ExportOptions) {
+  const result = await dialog.showSaveDialog(owner, {
+    title: "Export " + (o.content === "diagram" ? "diagram" : "report"),
+    defaultPath: "axiom-" + o.content + "." + o.format,
+    filters: [
+      {
+        name: o.format.toUpperCase(),
+        extensions: [
+          o.format,
+          ...(o.format === "jpg"
+            ? ["jpeg"]
+            : o.format === "tiff"
+              ? ["tif"]
+              : []),
+        ],
+      },
+    ],
+  });
+  if (result.canceled || !result.filePath) return null;
+  const ext = path.extname(result.filePath).toLowerCase(),
+    allowed = [
+      "." + o.format,
+      ...(o.format === "jpg" ? [".jpeg"] : o.format === "tiff" ? [".tif"] : []),
+    ];
+  const file = ext ? result.filePath : result.filePath + "." + o.format;
+  if (ext && !allowed.includes(ext))
+    throw Error(
+      "Use the selected " + o.format.toUpperCase() + " filename extension.",
+    );
+  return file;
+}
+// craigtrim/axiom#188: a Diagram export arrives in awaited bands, so no whole image passes through one message.
+interface ExportStream {
+  owner: number;
+  file: string | null;
+  temp: string | null;
+  writer: StreamWriter | null;
+  clipboard: Buffer[] | null;
+  queue: Promise<void>;
+}
+const streams = new Map<string, ExportStream>(),
+  watched = new Set<number>();
+export async function openExportStream(
+  input: ExportStreamRequest,
+  owner: BrowserWindow,
+  contents: WebContents,
+  request: (
+    method: DomainMethod,
+    args?: Record<string, unknown>,
+  ) => Promise<unknown>,
+) {
+  const r = validateExport({ ...input, data: undefined }),
+    o = r.options,
+    { width, height, encoding } = input;
+  if (o.content !== "diagram" || o.format === "pdf")
+    throw Error("Invalid export options.");
+  if (
+    ![width, height].every(
+      (n) => Number.isSafeInteger(n) && n >= 1 && n <= 2147483647,
+    ) ||
+    encoding !== (sendsRows(o.format, width, height) ? "rows" : "bytes")
+  )
+    throw Error("Invalid export size.");
+  const ceiling =
+    o.format === "svg" ? "" : formatCeiling(o.format, width, height);
+  if (ceiling) throw Error(ceiling);
+  const s = (await request("state")) as Snapshot;
+  if (s.datasetEpoch !== r.datasetEpoch || s.version !== r.version)
+    throw Error(
+      "The ontology changed while export was open. Reopen Export to use the current data.",
+    );
+  if (!watched.has(contents.id)) {
+    const id = contents.id;
+    watched.add(id);
+    contents.once("destroyed", () => {
+      watched.delete(id);
+      for (const [key, stream] of streams)
+        if (stream.owner === id) void cancelExportStream(key, id);
+    });
+  }
+  const id = randomUUID(),
+    stream: ExportStream = {
+      owner: contents.id,
+      file: null,
+      temp: null,
+      writer: null,
+      clipboard: null,
+      queue: Promise.resolve(),
+    };
+  if (o.format === "clipboard") stream.clipboard = [];
+  else {
+    const file = await chooseExportFile(owner, o);
+    if (!file) return null;
+    const temp = file + "." + randomUUID() + ".axiom-export.tmp";
+    stream.file = file;
+    stream.temp = temp;
+    stream.writer =
+      encoding === "bytes"
+        ? await byteWriter(temp)
+        : o.format === "png"
+          ? await pngWriter(temp, width, height)
+          : o.format === "tiff"
+            ? await tiffWriter(temp, width, height)
+            : await bmpWriter(temp, width, height);
+  }
+  streams.set(id, stream);
+  return id;
+}
+function ownStream(id: string, owner: number) {
+  const stream = streams.get(id);
+  if (!stream || stream.owner !== owner)
+    throw Error("This export is no longer open.");
+  return stream;
+}
+export async function writeExportStream(
+  id: string,
+  chunk: Uint8Array,
+  owner: number,
+) {
+  const stream = ownStream(id, owner);
+  if (!(chunk instanceof Uint8Array)) throw Error("Invalid export data.");
+  stream.queue = stream.queue.then(async () => {
+    if (stream.clipboard) stream.clipboard.push(Buffer.from(chunk));
+    else await stream.writer!.write(chunk);
+  });
+  await stream.queue;
+}
+export async function closeExportStream(id: string, owner: number) {
+  const stream = ownStream(id, owner);
+  streams.delete(id);
+  if (stream.clipboard) {
+    await stream.queue;
+    const image = nativeImage.createFromBuffer(Buffer.concat(stream.clipboard));
+    if (image.isEmpty()) throw Error("No image is available to copy.");
+    await clipboard.write([
+      new ClipboardItem({
+        "image/png": new Blob([new Uint8Array(image.toPNG())], {
+          type: "image/png",
+        }),
+      }),
+    ]);
+    return "clipboard";
+  }
+  try {
+    await stream.queue;
+    await stream.writer!.finish();
+    await rename(stream.temp!, stream.file!);
+  } catch (e) {
+    await stream.writer!.abort();
+    await rm(stream.temp!, { force: true });
+    throw e;
+  }
+  return stream.file!;
+}
+export async function cancelExportStream(id: string, owner: number) {
+  const stream = streams.get(id);
+  if (!stream || stream.owner !== owner) return;
+  streams.delete(id);
+  await stream.queue.catch(() => undefined);
+  await stream.writer?.abort();
+  if (stream.temp) await rm(stream.temp, { force: true });
 }

@@ -51,7 +51,13 @@ import examples from "../domain/data/examples.json";
 import { ProvenanceService } from "./provenance-service";
 import { FilePreviewService } from "./file-preview-service";
 import type { LinkedFile } from "../shared/source";
-import { exportDocument } from "./export-service";
+import {
+  cancelExportStream,
+  closeExportStream,
+  exportDocument,
+  openExportStream,
+  writeExportStream,
+} from "./export-service";
 import {
   qualityExport,
   readQualityExceptions,
@@ -2467,6 +2473,28 @@ app.whenReady().then(async () => {
       BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
       request,
     );
+  });
+  // craigtrim/axiom#188: Diagram exports stream in awaited bands.
+  handle("export:open", async (event, input) => {
+    authorised(event);
+    return openExportStream(
+      input,
+      BrowserWindow.fromWebContents(event.sender) ?? mainWindow!,
+      event.sender,
+      request,
+    );
+  });
+  handle("export:write", async (event, id: string, chunk: Uint8Array) => {
+    authorised(event);
+    return writeExportStream(id, chunk, event.sender.id);
+  });
+  handle("export:close", async (event, id: string) => {
+    authorised(event);
+    return closeExportStream(id, event.sender.id);
+  });
+  handle("export:cancel", async (event, id: string) => {
+    authorised(event);
+    return cancelExportStream(id, event.sender.id);
   });
   handle("export", async (event, format: string, data: string) => {
     authorised(event);
