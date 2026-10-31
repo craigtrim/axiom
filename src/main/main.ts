@@ -96,7 +96,6 @@ import {
   net,
   nativeTheme,
   clipboard,
-  ClipboardItem,
   nativeImage,
   screen,
   crashReporter,
@@ -2496,42 +2495,6 @@ app.whenReady().then(async () => {
   handle("export:cancel", async (event, id: string) => {
     authorised(event);
     return cancelExportStream(id, event.sender.id);
-  });
-  handle("export", async (event, format: string, data: string) => {
-    authorised(event);
-    if (
-      !["svg", "png", "clipboard"].includes(format) ||
-      typeof data !== "string" ||
-      data.length > 150000000
-    )
-      throw Error("Invalid export.");
-    if (format === "clipboard") {
-      const image = nativeImage.createFromDataURL(data);
-      if (image.isEmpty()) throw Error("The image could not be copied.");
-      await clipboard.write([
-        new ClipboardItem({
-          "image/png": new Blob([new Uint8Array(image.toPNG())], {
-            type: "image/png",
-          }),
-        }),
-      ]);
-      return "clipboard";
-    }
-    const r = await dialog.showSaveDialog(mainWindow!, {
-      title: "Export graph",
-      defaultPath: "axiom-graph." + format,
-      filters: [
-        { name: format.toUpperCase() + " image", extensions: [format] },
-      ],
-    });
-    if (r.canceled || !r.filePath) return null;
-    await writeFile(
-      r.filePath,
-      format === "svg"
-        ? data
-        : Buffer.from(data.replace(/^data:image\/png;base64,/, ""), "base64"),
-    );
-    return r.filePath;
   });
   mainWindow.on("close", (event) => {
     if (closing) return;

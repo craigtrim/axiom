@@ -414,10 +414,6 @@ export interface AxiomBridge {
   onCommand(fn: (command: string) => void): () => void;
   command(command: string): void;
   menuState(state: Record<string, boolean>): void;
-  exportFile(
-    format: "svg" | "png" | "clipboard",
-    data: string,
-  ): Promise<string | null>;
   exportDocument(
     input: import("./export").ExportRequest,
   ): Promise<string | null>;

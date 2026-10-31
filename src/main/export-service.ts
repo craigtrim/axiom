@@ -44,6 +44,9 @@ export async function exportDocument(
   ) => Promise<unknown>,
 ) {
   const r = validateExport(input);
+  // craigtrim/axiom#188: every other Diagram export streams, so only a PDF or a report arrives whole.
+  if (r.options.content === "diagram" && r.options.format !== "pdf")
+    throw Error("Invalid export options.");
   if (r.data?.startsWith("<?xml"))
     r.data = r.data.slice(r.data.indexOf("?>") + 2).trimStart();
   const o = r.options,
@@ -52,18 +55,6 @@ export async function exportDocument(
     throw Error(
       "The ontology changed while export was open. Reopen Export to use the current data.",
     );
-  if (o.format === "clipboard") {
-    const image = nativeImage.createFromDataURL(r.data ?? "");
-    if (image.isEmpty()) throw Error("No image is available to copy.");
-    await clipboard.write([
-      new ClipboardItem({
-        "image/png": new Blob([new Uint8Array(image.toPNG())], {
-          type: "image/png",
-        }),
-      }),
-    ]);
-    return "clipboard";
-  }
   const file = await chooseExportFile(owner, o);
   if (!file) return null;
   let output: string | Buffer;
@@ -75,22 +66,12 @@ export async function exportDocument(
     if (data.datasetEpoch !== r.datasetEpoch || data.version !== r.version)
       throw Error("The ontology changed during export. Try again.");
     output = reportDocument(data, o, r.data ?? "");
-  } else if (o.format === "pdf")
+  } else
     output = htmlDocument(
       o.title,
       '<div class="diagram">' + (r.data ?? "") + "</div>",
       o,
     );
-  else if (o.format === "svg") {
-    if (!r.data?.startsWith("<svg")) throw Error("Invalid SVG export.");
-    output = r.data;
-  } else {
-    const m = r.data?.match(
-      /^data:image\/(?:png|jpeg|webp|tiff|bmp);base64,([A-Za-z0-9+/=\r\n]+)$/,
-    );
-    if (!m) throw Error("Invalid image export.");
-    output = Buffer.from(m[1], "base64");
-  }
   if (o.format === "pdf") {
     const win = new BrowserWindow(
       testWindowOptions({
