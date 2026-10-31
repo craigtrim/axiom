@@ -82,6 +82,14 @@ confirming no delivery process is still running.
 not establish verified delivery and does not produce a successful delivery receipt.
 Use `npm run build:exe` for the checked executable.
 
+## Dependency audit
+
+The last check in the `package` job is `npm run check:audit` (craigtrim/axiom#193). It runs `npm audit --omit=dev` and fails on any advisory of moderate severity or higher in a production dependency, with no exceptions. It then audits the full tree, build tools included, and fails on any advisory of moderate severity or higher that is not on the accepted list in `scripts/dependency-audit.mjs`. A report npm cannot produce, for example when the registry does not answer, also fails the check.
+
+An accepted advisory passes only when every vulnerable copy reaches the project through `electron-builder` or `@electron/packager`, the two tools that run only while packaging. The check traces each copy through `package-lock.json` to the direct dependencies that install it. A copy reached through any other dependency fails the check, and so does one the lockfile cannot trace. Electron counts as shipped even though it is a devDependency, because its runtime is part of the executable, so an advisory that reaches Electron can never be accepted.
+
+Each accepted entry names the advisory, its package and the reason the packaging tools cannot trigger it. The list holds two advisories published on 2026-10-30: GHSA-3g3m-2fjr-6pw4 for glob and GHSA-g3hv-75wg-m249 for minimatch. On 2026-10-31 no released version of either packaging tool used a patched copy, and forcing one with `overrides` breaks packaging: minimatch 10 and 11 have no default export, which `@electron/asar` 3.4.1 calls. Add an entry only through an issue that records the assessment. When an accepted advisory stops failing the audit, the check prints a warning to remove it and still passes.
+
 ## Diagnose and retry
 
 Open the run linked in `BUILD FAILED`, or list recent runs:
@@ -135,3 +143,5 @@ responses and temporary files. It also verifies rejection of incomplete or stale
 local results without opening application windows. Hosted CI supplies packaged
 and assigned native evidence; the local desktop runner supplies the remaining
 required native evidence.
+
+The same command checks the dependency audit rule against reports and lockfile trees shaped like npm's own. The accepted advisories pass when they arrive through the packaging tools. A new advisory fails, as does a production advisory, an accepted advisory reached through any other dependency, a copy the lockfile cannot trace and an npm error. A stale entry only warns.
