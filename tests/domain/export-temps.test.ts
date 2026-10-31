@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   failWrite: false,
   failRemove: false,
   locked: "",
+  failOpen: false,
+  lockTemps: false,
 }));
 vi.mock("electron", () => ({
   app: {},
@@ -41,9 +43,20 @@ vi.mock("node:fs", async (original) => {
   return {
     ...fs,
     rmSync: (...args: Parameters<typeof fs.rmSync>) => {
-      if (args[0] === mocks.locked)
+      if (
+        args[0] === mocks.locked ||
+        (mocks.lockTemps && String(args[0]).endsWith(".axiom-export.tmp"))
+      )
         throw Error("EBUSY: resource busy or locked");
       return fs.rmSync(...args);
+    },
+    // Windows can run out of descriptors after CreateFileW has already made the file.
+    openSync: (...args: Parameters<typeof fs.openSync>) => {
+      if (mocks.failOpen) {
+        fs.writeFileSync(args[0], "");
+        throw Error("EMFILE: too many open files");
+      }
+      return fs.openSync(...args);
     },
   };
 });
@@ -72,6 +85,21 @@ const owner = {} as BrowserWindow,
           datasetEpoch: 1,
           version: 1,
         };
+const contents = {
+    id: 7,
+    isDestroyed: () => false,
+    on: () => contents,
+    once: () => contents,
+  } as unknown as WebContents,
+  stream = {
+    options: { ...defaultExportOptions, format: "png" as const },
+    datasetEpoch: 1,
+    version: 1,
+    iris: [],
+    encoding: "bytes" as const,
+    width: 10,
+    height: 10,
+  };
 let directory: string;
 // Each test loads export-service afresh, so the quit sweep of one does not carry into the next.
 const load = () => import("../../src/main/export-service");
@@ -81,6 +109,7 @@ beforeEach(() => {
   mocks.file = path.join(directory, "report.json");
   mocks.failWrite = mocks.failRemove = false;
   mocks.locked = "";
+  mocks.failOpen = mocks.lockTemps = false;
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));
 it("writes a report through a temp file and leaves only the report", async () => {
@@ -108,28 +137,9 @@ it("creates no temp file once the quit sweep has run", async () => {
   await expect(exportDocument(report, owner, request)).rejects.toThrow(
     "Axiom is closing.",
   );
-  const contents = {
-    id: 7,
-    isDestroyed: () => false,
-    on: () => contents,
-    once: () => contents,
-  } as unknown as WebContents;
   mocks.file = path.join(directory, "diagram.png");
   await expect(
-    openExportStream(
-      {
-        options: { ...defaultExportOptions, format: "png" },
-        datasetEpoch: 1,
-        version: 1,
-        iris: [],
-        encoding: "bytes",
-        width: 10,
-        height: 10,
-      },
-      owner,
-      contents,
-      request,
-    ),
+    openExportStream(stream, owner, contents, request),
   ).rejects.toThrow("Axiom is closing.");
   expect(readdirSync(directory)).toEqual([]);
 });
@@ -149,4 +159,33 @@ it("sweeps every other temp at quit when one cannot be removed", async () => {
   mocks.locked = path.join(directory, locked);
   expect(() => abandonExportStreams()).not.toThrow();
   expect(readdirSync(directory)).toEqual([locked]);
+});
+it("removes a temp whose creation failed after making the file, or leaves it to the quit sweep", async () => {
+  const { exportDocument, abandonExportStreams } = await load();
+  mocks.failOpen = true;
+  await expect(exportDocument(report, owner, request)).rejects.toThrow(
+    "EMFILE",
+  );
+  expect(readdirSync(directory)).toEqual([]);
+  mocks.lockTemps = true;
+  await expect(exportDocument(report, owner, request)).rejects.toThrow(
+    "EMFILE",
+  );
+  expect(readdirSync(directory)).toHaveLength(1);
+  mocks.failOpen = mocks.lockTemps = false;
+  abandonExportStreams();
+  expect(readdirSync(directory)).toEqual([]);
+});
+it("cancels a stream whose temp cannot be removed without failing, and leaves the temp to the quit sweep", async () => {
+  const { openExportStream, cancelExportStream, abandonExportStreams } =
+    await load();
+  mocks.file = path.join(directory, "diagram.png");
+  const id = await openExportStream(stream, owner, contents, request);
+  expect(readdirSync(directory)).toHaveLength(1);
+  mocks.failRemove = true;
+  await expect(cancelExportStream(id!, 7)).resolves.toBeUndefined();
+  expect(readdirSync(directory)).toHaveLength(1);
+  mocks.failRemove = false;
+  abandonExportStreams();
+  expect(readdirSync(directory)).toEqual([]);
 });
