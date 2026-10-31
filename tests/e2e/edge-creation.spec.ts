@@ -492,6 +492,76 @@ test("switching Hand cancels a reconnect that is still loading its edge", async 
   ).toContain(key);
 });
 
+test("Space and Enter press the focused Hand toggle instead of running graph shortcuts", async () => {
+  const ids = await prepare();
+  await clickNode(ids.a);
+  await expect.poll(async () => (await state()).selected).toBe(ids.a);
+  const before = await state();
+  await hand().focus();
+  await page.keyboard.press("Space");
+  await expect(hand()).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Enter");
+  await expect(hand()).toHaveAttribute("aria-pressed", "false");
+  await expect(hand()).toBeFocused();
+  const after = await state();
+  // Space would toggle Freeze and Enter would expand the selected node.
+  expect(after.graph.frozen).toBe(before.graph.frozen);
+  expect(after.graph.nodes.length).toBe(before.graph.nodes.length);
+  expect(after.undoLabel).toBe(before.undoLabel);
+});
+
+test("switching Hand in one graph view drops an unfinished edge in another view without activating it", async () => {
+  const ids = await prepare(),
+    main = page.locator('[data-graph-id="graph"]'),
+    mainCanvas = main.getByTestId("graph-canvas");
+  await (await hierarchyFilter(page)).fill("Alpha");
+  await page
+    .locator('[data-entity-iri="' + ids.a + '"]')
+    .first()
+    .click({ button: "right" });
+  await page
+    .getByRole("menu", { name: "Entity actions", exact: true })
+    .getByRole("menuitem", { name: "Show in graph", exact: true })
+    .hover();
+  await page
+    .getByRole("menu", { name: "Show in graph", exact: true })
+    .getByRole("menuitem", { name: "New graph", exact: true })
+    .click();
+  await expect
+    .poll(async () => (await state()).activeGraphId)
+    .not.toBe("graph");
+  const id = (await state()).activeGraphId!,
+    second = page.locator('[data-graph-id="' + id + '"]');
+  await second
+    .getByTestId("graph-canvas")
+    .click({ position: { x: 12, y: 12 } });
+  await menu("pane.move.right");
+  await expect(mainCanvas).toBeVisible();
+  await expect(second.getByTestId("graph-canvas")).toBeVisible();
+  // A hidden canvas cancels its drawing, so draw only once both views are on screen.
+  await mainCanvas.click({ position: { x: 12, y: 12 } });
+  await expect.poll(async () => (await state()).activeGraphId).toBe("graph");
+  await fitGraph();
+  const view = await state(),
+    c = await camera(),
+    box = (await mainCanvas.boundingBox())!,
+    gamma = view.graph.nodes.find((n) => n.iri === ids.c)!;
+  await page.mouse.move(
+    box.x + gamma.x * c.zoom + c.x,
+    box.y + gamma.y * c.zoom + c.y,
+  );
+  await page.mouse.down();
+  await page.mouse.move(box.x + 30, box.y + box.height - 30, { steps: 10 });
+  await page.mouse.up();
+  await expect(main.getByTestId("edge-preview")).toBeVisible();
+  await hand(id).click();
+  await expect(main.getByTestId("edge-preview")).toHaveCount(0);
+  // Give a focus-driven activation of the other view time to reach the worker.
+  await page.waitForTimeout(300);
+  expect((await state()).activeGraphId).toBe(id);
+  await expect(mainCanvas).not.toBeFocused();
+});
+
 test("empty-space drops add bends and the completed route survives Undo and workspace reload", async () => {
   const ids = await prepare(),
     a = await at(ids.a),

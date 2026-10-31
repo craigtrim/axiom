@@ -21,7 +21,8 @@ export interface ConnectionController {
   active: () => boolean;
   move: (point: Point) => void;
   release: (point: Point) => void;
-  cancel: () => void;
+  // craigtrim/axiom#189: a Hand switch cancels without focusing, so another graph view is not activated.
+  cancel: (refocus?: boolean) => void;
   key: (event: React.KeyboardEvent) => void;
 }
 export function GraphConnections({
@@ -59,13 +60,13 @@ export function GraphConnections({
     target.current = iri;
     setCandidate(iri);
   };
-  const cancel = () => {
+  const cancel = (refocus = true) => {
     if (submitting.current) return;
     active(null);
     hover();
     pointer.current = undefined;
     setError("");
-    canvas.current?.focus();
+    if (refocus) canvas.current?.focus();
   };
   const start = (source?: string, point?: Point) => {
     if (!state || submitting.current) return;
@@ -454,7 +455,7 @@ export function GraphConnections({
                 >
                   Attach
                 </button>
-                <button type="button" disabled={busy} onClick={cancel}>
+                <button type="button" disabled={busy} onClick={() => cancel()}>
                   Cancel
                 </button>
               </div>

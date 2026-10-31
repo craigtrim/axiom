@@ -131,7 +131,7 @@ function GraphContent() {
   useEffect(
     () =>
       onHandTool(() => {
-        if (connectRef.current?.active()) connectRef.current.cancel();
+        if (connectRef.current?.active()) connectRef.current.cancel(false);
         reconnectRun.current++;
         setReconnecting(null);
       }),
@@ -910,6 +910,7 @@ function GraphContent() {
         </select>
         <button
           className="graph-hand"
+          data-native-activation
           aria-pressed={hand}
           title="Drag a node to move it, or drag anywhere else to move the view"
           onClick={() => setHandTool(!hand)}
