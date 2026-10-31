@@ -79,8 +79,8 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   services.splice(0).forEach((s) => s.close());
-  // craigtrim/axiom#195: remove the batch folder once its services stop.
-  await rm(root, { recursive: true, force: true });
+  // craigtrim/axiom#195: remove the batch folder after closing its services.
+  await rm(root, { recursive: true, force: true, maxRetries: 3 });
 });
 describe("suggestions for explicit selected nodes", () => {
   it("publishes completion only after review metadata and the result are saved", async () => {

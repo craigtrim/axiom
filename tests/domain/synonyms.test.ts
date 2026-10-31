@@ -212,7 +212,7 @@ it("retains synonym pane targets through preference validation", () => {
 const directories: string[] = [];
 afterEach(async () => {
   for (const directory of directories.splice(0))
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
 });
 async function serviceFixture(
   raw: unknown = {

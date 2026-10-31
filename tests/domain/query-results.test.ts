@@ -19,7 +19,7 @@ beforeEach(async () => {
 });
 // craigtrim/axiom#195: remove each test's history folder.
 afterEach(async () => {
-  await rm(path.dirname(file), { recursive: true, force: true });
+  await rm(path.dirname(file), { recursive: true, force: true, maxRetries: 3 });
 });
 const record = (id = 1, query = text): QueryRunRecord => ({
   text: query,

@@ -84,8 +84,11 @@ it("retains the last keystroke before explicitly opening a completed proposal", 
     await client.selectQuery(original);
     expect(client.historyState().view?.current.text).toContain("42");
   } finally {
+    // craigtrim/axiom#195: save any pending edit, then remove the history folder this test created.
+    const { flushQueryHistory } =
+      await import("../../src/renderer/query-history");
+    await flushQueryHistory().catch(() => {});
     vi.unstubAllGlobals();
-    // craigtrim/axiom#195: remove the history folder this test created.
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 3 });
   }
 });

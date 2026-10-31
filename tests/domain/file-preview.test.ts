@@ -9,7 +9,7 @@ const preview = { dataUrl: "data:image/png;base64,AAAA", width: 2, height: 2 };
 const directories: string[] = [];
 afterEach(async () => {
   for (const directory of directories.splice(0))
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
 });
 const fixture = async (): Promise<LinkedFile> => {
   const dir = await mkdtemp(path.join(tmpdir(), "axiom-preview-test-")),

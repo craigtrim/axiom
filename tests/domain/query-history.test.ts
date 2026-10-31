@@ -55,7 +55,7 @@ beforeEach(async () => {
 });
 // craigtrim/axiom#195: remove each test's history folder.
 afterEach(async () => {
-  await rm(path.dirname(file), { recursive: true, force: true });
+  await rm(path.dirname(file), { recursive: true, force: true, maxRetries: 3 });
 });
 describe("persistent query documents", () => {
   it("imports the existing editor and retains drafts across restart", async () => {
