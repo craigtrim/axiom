@@ -11,7 +11,8 @@ let directory: string,
   worker: Worker,
   nextId = 0;
 let alpha = 0,
-  frames = 0;
+  frames = 0,
+  replied = 0;
 const pending = new Map<
   number,
   { resolve(value: any): void; reject(error: Error): void }
@@ -32,7 +33,7 @@ afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 beforeEach(() => {
-  alpha = 0;
+  alpha = frames = replied = 0;
   worker = new Worker(path.join(directory, "domain-worker.cjs"));
   worker.on("message", (packet) => {
     if (packet.event?.type === "positions") {
@@ -42,6 +43,7 @@ beforeEach(() => {
     const p = pending.get(packet.id);
     if (!p) return;
     pending.delete(packet.id);
+    replied = frames;
     if (packet.error) p.reject(Error(packet.error));
     else p.resolve(packet.value);
   });
@@ -79,12 +81,12 @@ async function forceGraph() {
     expand: false,
   });
   await request("layout", { mode: "force" });
-  // craigtrim/axiom#197: alpha may still hold an earlier value, so wait for the new layout's last frame.
-  await settle(frames);
+  await settle();
 }
-const settle = (after = -1) =>
+// craigtrim/axiom#197: only a frame sent after the latest reply ends the wait, so alpha left from an earlier layout cannot.
+const settle = () =>
   expect
-    .poll(() => frames > after && alpha < 0.004, { timeout: 10000 })
+    .poll(() => frames > replied && alpha < 0.004, { timeout: 10000 })
     .toBe(true);
 async function position(iri: string) {
   const n = (await request<Snapshot>("state")).graph.nodes.find(
