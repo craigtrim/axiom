@@ -86,7 +86,13 @@ const reasons = {
   enabled: "Give each group of connected nodes its own color.",
   one: "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it.",
   none: "Needs two or more clusters. No displayed nodes are connected to each other.",
+  empty: "Needs two or more clusters. The graph shows no nodes.",
 };
+// The reason shows on hover over the box or its name, and screen readers read it.
+async function reason(text: string) {
+  await expect(clusterLabel()).toHaveAttribute("title", text);
+  await expect(colorClusters()).toHaveAccessibleDescription(text);
+}
 // Connected groups of two or more displayed nodes, as the issue defines them.
 function clusters(g: Snapshot["graph"], skip?: string) {
   const iris = g.nodes.map((n) => n.iri).filter((iri) => iri !== skip);
@@ -138,15 +144,15 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   ).toBe(1);
   await expect(colorClusters()).toBeVisible();
   await expect(colorClusters()).toBeDisabled();
-  await expect(clusterLabel()).toHaveAttribute("title", reasons.one);
+  await reason(reasons.one);
   const cut = await split();
   await expect(colorClusters()).toBeEnabled();
-  await expect(clusterLabel()).toHaveAttribute("title", reasons.enabled);
+  await reason(reasons.enabled);
   // Showing the hidden node again joins the graph back into one cluster.
   await request("seed", { iris: [cut], replace: false, expand: false });
   await expect.poll(async () => (await state()).graph.clusterCount).toBe(1);
   await expect(colorClusters()).toBeDisabled();
-  await expect(clusterLabel()).toHaveAttribute("title", reasons.one);
+  await reason(reasons.one);
   await request("remove", { iri: cut });
   await expect
     .poll(async () => (await state()).graph.clusterCount)
@@ -225,9 +231,15 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   ).toBe(true);
 
   await request("clear");
-  await expect.poll(async () => (await state()).graph.clusterCount).toBe(0);
+  await expect.poll(async () => (await state()).graph.nodes.length).toBe(0);
   await expect(colorClusters()).toBeDisabled();
-  await expect(clusterLabel()).toHaveAttribute("title", reasons.none);
+  await reason(reasons.empty);
+  // One node on its own is displayed but belongs to no cluster.
+  await request("seed", { iris: [cut], replace: false, expand: false });
+  await expect.poll(async () => (await state()).graph.nodes.length).toBe(1);
+  expect((await state()).graph.clusterCount).toBe(0);
+  await expect(colorClusters()).toBeDisabled();
+  await reason(reasons.none);
 });
 
 test("Color clusters is saved with the workspace and restored on reopen", async () => {

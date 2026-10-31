@@ -1,5 +1,7 @@
 // craigtrim/axiom#185: cluster detection, stable numbering and the palette's rules.
+// craigtrim/axiom#200: when Color clusters is available, and the reason it is not.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clusterColorsAction } from "../../src/shared/action-state";
 import {
   assignClusters,
   clusterFills,
@@ -594,4 +596,33 @@ describe("cluster palette", () => {
         }
       }
     });
+});
+
+describe("Color clusters availability", () => {
+  const nodes = (count: number) => Array.from({ length: count }, () => ({}));
+  it.each([
+    [undefined, false, "Needs two or more clusters. The graph shows no nodes."],
+    [
+      { nodes: [], clusterCount: 0 },
+      false,
+      "Needs two or more clusters. The graph shows no nodes.",
+    ],
+    [
+      { nodes: nodes(3), clusterCount: 0 },
+      false,
+      "Needs two or more clusters. No displayed nodes are connected to each other.",
+    ],
+    [
+      { nodes: nodes(3), clusterCount: 1 },
+      false,
+      "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it.",
+    ],
+    [
+      { nodes: nodes(4), clusterCount: 2 },
+      true,
+      "Give each group of connected nodes its own color.",
+    ],
+  ])("%o is enabled %s with the title %s", (graph, enabled, title) => {
+    expect(clusterColorsAction(graph)).toEqual({ enabled, title });
+  });
 });
