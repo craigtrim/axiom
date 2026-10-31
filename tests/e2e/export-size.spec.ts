@@ -499,41 +499,77 @@ test("a format past its own ceiling names it, disables Export and writes nothing
 });
 
 /** A Diagram export request built in the page, for driving the export bridge directly. */
+/** Options for a Diagram export made straight through the bridge. */
+function directOptions(format: string): ExportOptions {
+  return {
+    content: "diagram",
+    format,
+    scope: "graph",
+    background: "light",
+    scale: 1,
+    quality: 90,
+    caption: true,
+    legend: true,
+    allLabels: true,
+    includeGraph: true,
+    includeStatements: true,
+    pageSize: "A4",
+    landscape: true,
+    marginMm: 12,
+    title: "Direct export",
+    area: "graph",
+  } as ExportOptions;
+}
 function directExport(format: string, width: number, height: number) {
   return page.evaluate(
-    async ({ format, width, height }) => {
-      const s = await window.axiom.request<Snapshot>("state"),
-        options: ExportOptions = {
-          content: "diagram",
-          format,
-          scope: "graph",
-          background: "light",
-          scale: 1,
-          quality: 90,
-          caption: true,
-          legend: true,
-          allLabels: true,
-          includeGraph: true,
-          includeStatements: true,
-          pageSize: "A4",
-          landscape: true,
-          marginMm: 12,
-          title: "Direct export",
-          area: "graph",
-        };
+    async ({ options, encoding, width, height }) => {
+      const s = await window.axiom.request<Snapshot>("state");
       return window.axiom.exportOpen({
         options,
         datasetEpoch: s.datasetEpoch,
         version: s.version,
         iris: [],
-        encoding: format === "tiff" ? "rows" : "bytes",
+        encoding,
         width,
         height,
       });
     },
-    { format, width, height },
+    {
+      options: directOptions(format),
+      encoding: (format === "tiff" ? "rows" : "bytes") as "rows" | "bytes",
+      width,
+      height,
+    },
   );
 }
+
+test("a whole-image diagram export is refused, so every one goes through the stream's limits", async () => {
+  await scene([
+    [0, 0],
+    [300, 200],
+  ]);
+  const [whole, legacy] = await page.evaluate(async (options) => {
+    const s = await window.axiom.request<Snapshot>("state");
+    try {
+      // A 1 x 1 PNG: the main process must refuse it before decoding anything.
+      await window.axiom.exportDocument({
+        options,
+        datasetEpoch: s.datasetEpoch,
+        version: s.version,
+        iris: [],
+        data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      });
+      return ["copied", typeof Reflect.get(window.axiom, "exportFile")];
+    } catch (e) {
+      return [
+        (e as Error).message,
+        typeof Reflect.get(window.axiom, "exportFile"),
+      ];
+    }
+  }, directOptions("clipboard"));
+  expect(whole).toContain("Invalid export options.");
+  expect(legacy).toBe("undefined");
+});
 
 test("the clipboard refuses empty writes, more than 1,024 writes and a PNG whose size differs from the declared export", async () => {
   await scene([

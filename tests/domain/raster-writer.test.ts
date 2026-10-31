@@ -1,6 +1,7 @@
 // craigtrim/axiom#188: the streaming writers produce files that decode back to the rows they were given.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { crc32, inflateSync } from "node:zlib";
@@ -37,7 +38,12 @@ beforeAll(async () => {
 afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
 });
-const file = (ext: string) => path.join(directory, "image-" + ++next + ext);
+/** A temp file as openExportStream makes one: created empty before a writer opens it. */
+const file = (ext: string) => {
+  const target = path.join(directory, "image-" + ++next + ext);
+  writeFileSync(target, "");
+  return target;
+};
 /** Deterministic RGBA pixels with varied alpha. */
 function pixels(width: number, height: number) {
   const rgba = new Uint8Array(width * height * 4);
@@ -407,5 +413,22 @@ describe("byte writer", () => {
       "more data than allowed",
     );
     await over.abort();
+  });
+});
+
+describe("temp files at quit", () => {
+  it("never creates its file, so a temp the quit sweep removed stays gone", async () => {
+    for (const writer of [
+      (target: string) => pngWriter(target, 1, 1),
+      (target: string) => tiffWriter(target, 1, 1),
+      (target: string) => bmpWriter(target, 1, 1),
+      (target: string) => byteWriter(target, 100),
+    ]) {
+      // The sweep removes the temp while the writer's open is still on its way.
+      const target = file(".axiom-export.tmp");
+      await rm(target);
+      await expect(writer(target)).rejects.toThrow("ENOENT");
+      await expect(access(target)).rejects.toThrow("ENOENT");
+    }
   });
 });
