@@ -196,7 +196,7 @@ const streams = new Map<string, ExportStream>(),
   watched = new Set<number>(),
   // Bumped whenever a window's renderer goes away, so an open that was still in its save dialog knows to stop.
   generations = new Map<number, number>(),
-  // Temp files not yet owned by a registered stream, or whose removal has started; the quit sweep removes them.
+  // Every export temp file from creation until it is renamed or removed; the quit sweep removes what is left.
   doomed = new Set<string>(),
   pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 function retire(owner: number) {
@@ -313,7 +313,6 @@ export async function openExportStream(
     throw Error("The window that started this export closed.");
   }
   streams.set(id, stream);
-  if (stream.temp) doomed.delete(stream.temp);
   return id;
 }
 function ownStream(id: string, owner: number) {
@@ -378,6 +377,7 @@ export async function closeExportStream(id: string, owner: number) {
     await stream.queue;
     await stream.writer!.finish();
     await rename(stream.temp!, stream.file!);
+    doomed.delete(stream.temp!);
   } catch (e) {
     await discard(stream);
     throw e;

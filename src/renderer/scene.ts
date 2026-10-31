@@ -491,6 +491,7 @@ export function render(
     onLabel?: (iri: string, rect: Rect) => void;
     // craigtrim/axiom#188: an export tile passes its own area, so only its grid dots are drawn.
     clip?: Rect;
+    grid?: boolean;
   } = {},
 ) {
   const orderedLabels = labelOrder(g, selected, hover);
@@ -519,7 +520,7 @@ export function render(
     d.rect({ x: 0, y: 0, width: w, height: h }, C("canvas"));
   d.beginBatch();
   const step = 34 * k;
-  if (step > 11 && !options.transparent) {
+  if (step > 11 && !options.transparent && options.grid !== false) {
     const clip = options.clip,
       x0 = c.x % step,
       y0 = c.y % step,
@@ -880,6 +881,8 @@ export function render(
 }
 type ExportSceneOptions = Partial<import("../shared/export").ExportOptions> & {
   viewport?: { width: number; height: number; camera: Camera };
+  /** An SVG past this many grid dots leaves the grid out; the dialog's preview sets it. */
+  gridLimit?: number;
 };
 // craigtrim/axiom#188: one layout serves the whole-canvas export and the tiles past Chromium's canvas ceilings.
 function exportLayout(
@@ -960,6 +963,16 @@ function exportLayout(
     camera,
   };
 }
+const gridDots = (layout: ReturnType<typeof exportLayout>) => {
+  const step = 34 * layout.camera.zoom;
+  return step > 11
+    ? Math.ceil(layout.width / step) * Math.ceil(layout.height / step)
+    : 0;
+};
+const gridOmitted = (
+  layout: ReturnType<typeof exportLayout>,
+  options: ExportSceneOptions,
+) => options.gridLimit !== undefined && gridDots(layout) > options.gridLimit;
 function drawExport(
   ctx: CanvasRenderingContext2D | null,
   g: GraphSnapshot,
@@ -990,7 +1003,12 @@ function drawExport(
     selected,
     null,
     options.allLabels === false ? 900 : 4000,
-    { transparent, allLabels: options.allLabels ?? false, clip },
+    {
+      transparent,
+      allLabels: options.allLabels ?? false,
+      clip,
+      grid: !gridOmitted(layout, options),
+    },
   );
   if (header) {
     if (!transparent) d.rect({ x: 0, y: 0, width, height: header }, p.surface);
@@ -1064,6 +1082,7 @@ export function exportScene(
       width: layout.width,
       height: layout.height,
       canvas: undefined,
+      gridOmitted: gridOmitted(layout, options),
     };
   const scale = exportScale(options.scale ?? (format === "png3" ? 3 : 2)),
     { canvas, ctx } = exportCanvas(
@@ -1072,7 +1091,13 @@ export function exportScene(
     );
   ctx.scale(scale, scale);
   drawExport(ctx, g, dark, selected, options, layout);
-  return { data: "", width: canvas.width, height: canvas.height, canvas };
+  return {
+    data: "",
+    width: canvas.width,
+    height: canvas.height,
+    canvas,
+    gridOmitted: false,
+  };
 }
 function exportScale(scale: number) {
   if (!Number.isFinite(scale) || scale <= 0)
