@@ -5,6 +5,8 @@ export const WEBP_SIDE = 16383;
 export const JPEG_SIDE = 65500;
 export const BMP_MAX_BYTES = 4294967295;
 const CLASSIC_TIFF_MAX = 4294967295;
+/** Keeps a TIFF's strip arrays within 16 MB however tall the image is. */
+export const MAX_TIFF_STRIPS = 1048576;
 /** Pixels rendered and sent per band, so a band holds 64 MB of RGBA. */
 export const BAND_PIXELS = 16777216;
 export const fitsCanvas = (width: number, height: number) =>
@@ -18,6 +20,11 @@ export const bandRows = (width: number, height: number) =>
 export const MAX_STREAM_CHUNK = 100663296;
 /** The most a finished-bytes stream may hold: past this no single canvas's encoding or SVG string reaches. */
 export const MAX_BYTE_STREAM = 2147483647;
+/** The most bytes a PNG of this size can take, even stored without compression, for the clipboard. */
+export const clipboardLimit = (width: number, height: number) => {
+  const raw = height * (1 + width * 4);
+  return Math.min(MAX_BYTE_STREAM, raw + Math.ceil(raw / 64) + 1048576);
+};
 /** Bytes a row stream carries per image row. */
 export const rowStreamBytes = (format: string, width: number) =>
   format === "png"
@@ -98,7 +105,11 @@ export function tiffLayout(
   classicLimit = CLASSIC_TIFF_MAX,
 ) {
   const row = width * 4,
-    rowsPerStrip = Math.max(1, Math.min(height, Math.floor(1048576 / row))),
+    rowsPerStrip = Math.max(
+      1,
+      Math.min(height, Math.floor(1048576 / row)),
+      Math.ceil(height / MAX_TIFF_STRIPS),
+    ),
     strips = Math.ceil(height / rowsPerStrip),
     entries = 14;
   for (const big of [false, true]) {

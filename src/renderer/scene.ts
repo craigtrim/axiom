@@ -1098,8 +1098,8 @@ export function exportTiles(
       if (tile?.canvas.width !== width || tile.canvas.height !== height)
         tile = exportCanvas(width, height);
       const { ctx } = tile;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, width, height);
+      // A reused tile starts from a fresh context, as the first one did; drawing leaves state such as lineJoin behind.
+      ctx.reset();
       ctx.setTransform(scale, 0, 0, scale, -x, -y);
       drawExport(ctx, g, dark, selected, options, layout);
       return ctx.getImageData(0, 0, width, height).data;

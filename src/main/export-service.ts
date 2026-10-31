@@ -17,6 +17,7 @@ import {
   type ReportData,
 } from "../shared/export";
 import {
+  clipboardLimit,
   formatCeiling,
   MAX_BYTE_STREAM,
   MAX_STREAM_CHUNK,
@@ -184,10 +185,19 @@ interface ExportStream {
   writer: StreamWriter | null;
   clipboard: Buffer[] | null;
   clipboardBytes: number;
+  clipboardLimit: number;
+  writing: boolean;
   queue: Promise<void>;
 }
 const streams = new Map<string, ExportStream>(),
-  watched = new Set<number>();
+  watched = new Set<number>(),
+  // Bumped whenever a window's renderer goes away, so an open that was still in its save dialog knows to stop.
+  generations = new Map<number, number>();
+function retire(owner: number) {
+  generations.set(owner, (generations.get(owner) ?? 0) + 1);
+  for (const [key, stream] of streams)
+    if (stream.owner === owner) void cancelExportStream(key, owner);
+}
 export async function openExportStream(
   input: ExportStreamRequest,
   owner: BrowserWindow,
@@ -217,23 +227,33 @@ export async function openExportStream(
     throw Error(
       "The ontology changed while export was open. Reopen Export to use the current data.",
     );
-  if (!watched.has(contents.id)) {
-    const id = contents.id;
-    watched.add(id);
+  const sender = contents.id;
+  if (!watched.has(sender)) {
+    watched.add(sender);
+    // A crashed or reloaded renderer has lost its export ids, so its open exports end with it.
+    contents.on("render-process-gone", () => retire(sender));
+    contents.on("did-start-navigation", (details) => {
+      if (details.isMainFrame && !details.isSameDocument) retire(sender);
+    });
     contents.once("destroyed", () => {
-      watched.delete(id);
-      for (const [key, stream] of streams)
-        if (stream.owner === id) void cancelExportStream(key, id);
+      watched.delete(sender);
+      retire(sender);
     });
   }
-  const id = randomUUID(),
+  // The dialog runs one export at a time, so an older stream from this window is stale.
+  for (const [key, stream] of streams)
+    if (stream.owner === sender) await cancelExportStream(key, sender);
+  const generation = generations.get(sender) ?? 0,
+    id = randomUUID(),
     stream: ExportStream = {
-      owner: contents.id,
+      owner: sender,
       file: null,
       temp: null,
       writer: null,
       clipboard: null,
       clipboardBytes: 0,
+      clipboardLimit: clipboardLimit(width, height),
+      writing: false,
       queue: Promise.resolve(),
     };
   if (o.format === "clipboard") stream.clipboard = [];
@@ -257,6 +277,11 @@ export async function openExportStream(
       throw e;
     }
   }
+  if ((generations.get(sender) ?? 0) !== generation || contents.isDestroyed()) {
+    await stream.writer?.abort();
+    if (stream.temp) await rm(stream.temp, { force: true });
+    throw Error("The window that started this export closed.");
+  }
   streams.set(id, stream);
   return id;
 }
@@ -274,15 +299,23 @@ export async function writeExportStream(
   const stream = ownStream(id, owner);
   if (!(chunk instanceof Uint8Array) || chunk.length > MAX_STREAM_CHUNK)
     throw Error("Invalid export data.");
+  // One write at a time, with its bytes reserved before any are held.
+  if (stream.writing) throw Error("Wait for the previous export write.");
+  if (stream.clipboard) {
+    if (stream.clipboardBytes + chunk.length > stream.clipboardLimit)
+      throw Error("The export sent more data than allowed.");
+    stream.clipboardBytes += chunk.length;
+  }
+  stream.writing = true;
   stream.queue = stream.queue.then(async () => {
-    if (stream.clipboard) {
-      stream.clipboardBytes += chunk.length;
-      if (stream.clipboardBytes > MAX_BYTE_STREAM)
-        throw Error("The export sent more data than allowed.");
-      stream.clipboard.push(Buffer.from(chunk));
-    } else await stream.writer!.write(chunk);
+    if (stream.clipboard) stream.clipboard.push(Buffer.from(chunk));
+    else await stream.writer!.write(chunk);
   });
-  await stream.queue;
+  try {
+    await stream.queue;
+  } finally {
+    stream.writing = false;
+  }
 }
 export async function closeExportStream(id: string, owner: number) {
   const stream = ownStream(id, owner);

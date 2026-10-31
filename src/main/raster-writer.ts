@@ -47,15 +47,16 @@ async function openWith(
   }
   return fh;
 }
-/** Counts a row stream's bytes and refuses more than the image holds. */
-function tally(expected: number) {
-  let received = 0;
+/** Counts a row stream's bytes exactly, past 2^53 too, and refuses more than the image holds. */
+function tally(expected: bigint) {
+  let received = 0n;
   return {
     add(bytes: number) {
-      received += bytes;
+      const start = received;
+      received += BigInt(bytes);
       if (received > expected)
         throw Error("The export sent more rows than the image holds.");
-      return received - bytes;
+      return start;
     },
     check() {
       if (received !== expected)
@@ -86,7 +87,7 @@ export async function pngWriter(
   const fh = await openWith(file, (fh) =>
       writeAll(fh, Buffer.concat([signature, pngChunk("IHDR", header)])),
     ),
-    count = tally(rowStreamBytes("png", width) * height),
+    count = tally(BigInt(rowStreamBytes("png", width)) * BigInt(height)),
     deflate = createDeflate({ level: 6, chunkSize: 1 << 20 });
   let written = Promise.resolve();
   deflate.on("data", (data: Buffer) => {
@@ -117,21 +118,27 @@ export async function pngWriter(
     },
   };
 }
-function tiffHeader(width: number, height: number, classicLimit?: number) {
+/** Offsets and byte counts are exact bigints, so BigTIFF stays correct past 2^53 bytes. */
+export function tiffHeader(
+  width: number,
+  height: number,
+  classicLimit?: number,
+) {
   const t = tiffLayout(width, height, classicLimit),
-    row = width * 4,
+    row = BigInt(width) * 4n,
     head = Buffer.alloc(t.dataOffset),
     word = t.big ? 8 : 4,
     arrays = t.header + t.ifd + t.extra,
-    offset = (i: number) => t.dataOffset + i * t.rowsPerStrip * row,
+    offset = (i: number) =>
+      BigInt(t.dataOffset) + BigInt(i) * BigInt(t.rowsPerStrip) * row,
     count = (i: number) =>
-      Math.min(t.rowsPerStrip, height - i * t.rowsPerStrip) * row;
-  const put = (at: number, value: number, bytes: number) =>
+      BigInt(Math.min(t.rowsPerStrip, height - i * t.rowsPerStrip)) * row;
+  const put = (at: number, value: number | bigint, bytes: number) =>
     bytes === 8
       ? head.writeBigUInt64LE(BigInt(value), at)
       : bytes === 4
-        ? head.writeUInt32LE(value, at)
-        : head.writeUInt16LE(value, at);
+        ? head.writeUInt32LE(Number(value), at)
+        : head.writeUInt16LE(Number(value), at);
   head.write("II", 0, "latin1");
   if (t.big) {
     put(2, 43, 2);
@@ -149,7 +156,7 @@ function tiffHeader(width: number, height: number, classicLimit?: number) {
   // [tag, type, count, inline values or an offset]; types: 3 SHORT, 4 LONG, 5 RATIONAL, 16 LONG8.
   const long = t.big ? 16 : 4,
     extra = t.header + t.ifd,
-    entries: [number, number, number, number[] | number][] = [
+    entries: [number, number, number, (number | bigint)[] | number][] = [
       [256, 4, 1, [width]],
       [257, 4, 1, [height]],
       [258, 3, 4, t.big ? [8, 8, 8, 8] : extra],
@@ -205,7 +212,7 @@ export async function tiffWriter(
   const fh = await openWith(file, (fh) =>
       writeAll(fh, tiffHeader(width, height, classicLimit)),
     ),
-    count = tally(width * 4 * height);
+    count = tally(BigInt(width) * 4n * BigInt(height));
   return {
     async write(bytes) {
       count.add(bytes.length);
@@ -242,10 +249,11 @@ export async function bmpWriter(
       await writeAll(fh, header, 0);
       await fh.truncate(size);
     }),
-    count = tally(stride * height);
+    count = tally(BigInt(stride) * BigInt(height));
   return {
     async write(bytes) {
-      let from = count.add(bytes.length);
+      // BMP files stay under 4 GB, so the position fits a number.
+      let from = Number(count.add(bytes.length));
       for (let done = 0; done < bytes.length;) {
         const row = Math.floor(from / stride),
           offset = from % stride,
