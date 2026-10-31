@@ -383,6 +383,8 @@ export function StylesDialog({
     if (!target || parsed.error) return;
     const g = {
       ...s.graph,
+      // craigtrim/axiom#187: the preview's sample names show whatever the graph's Show labels setting.
+      labelsVisible: true,
       stylesheet: text,
       nodes: previewNodes,
       edges:
