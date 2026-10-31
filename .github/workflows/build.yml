@@ -87,7 +87,9 @@ jobs:
           path: |
             artifacts/installer/**
             artifacts/candidate.json
-      - run: npm audit --audit-level=moderate
+      # #193: no exceptions for production dependencies; the script lists the
+      # reviewed build-tool advisories the full audit accepts.
+      - run: npm run check:audit
       - uses: actions/upload-artifact@v4
         if: always()
         with:
