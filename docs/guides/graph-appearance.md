@@ -135,3 +135,9 @@ Each graph saves its own setting in workspaces and restored sessions, and Undo a
 **Expand max** starts from every node currently visible in the active graph. It follows connections breadth-first, admitting nearer neighbours before more distant nodes, until the Visible node limit is reached or all reachable nodes are visible. It follows connections in either direction and uses the same projected intersection branches as the graph. Disconnected ontology components stay outside the view.
 
 The action fills available slots without evicting existing nodes. Existing nodes keep their positions while new nodes are laid out. One Undo restores the previous map. The button is disabled for empty maps, maps at the limit, and maps with no hidden neighbours. Raising the node limit enables further expansion when more connected nodes remain.
+
+## Image export size
+
+Export writes a raster diagram at the pixel size the dialog shows, with no Axiom limit (craigtrim/axiom#188). An image that fits one canvas, up to 65,535 pixels per side and 268,435,456 pixels, is drawn whole. PNG, TIFF and BMP images past that are drawn in bands and streamed into the file, so a large export needs disk space rather than memory.
+
+Some formats have their own ceiling, and the dialog names it and disables Export when the image passes it: WebP holds up to 16,383 pixels per side, JPEG up to 65,500 pixels per side and 268,435,456 pixels in Axiom, and BMP files up to 4,294,967,295 bytes. The clipboard takes images up to the canvas size. A TIFF past 4 GB is written as BigTIFF, and the dialog notes that some viewers, such as Windows Photos, cannot open it. PNG has no ceiling.

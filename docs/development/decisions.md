@@ -16,7 +16,7 @@ The corrected triple count includes the 140 flattened restriction triples: 7,629
 
 A budget reduction below the number of pinned or focused nodes is rejected. Protected nodes are retained and the required minimum is reported. This resolves the conflicting over-budget and strict-ceiling requirements as the native implementation did.
 
-Unbound FILTER operands do not pass. Fractional LIMIT values truncate toward zero; negative values are rejected. The first example uses rdfs:subClassOf for NamedPizza. Multi-root radial placement, opposite-direction parallel routes, export-caption width and the 9,000-pixel raster guard retain their corrected behavior.
+Unbound FILTER operands do not pass. Fractional LIMIT values truncate toward zero; negative values are rejected. The first example uses rdfs:subClassOf for NamedPizza. Multi-root radial placement, opposite-direction parallel routes and export-caption width retain their corrected behavior. Raster exports have no Axiom size limit (craigtrim/axiom#188).
 
 The Electron regression suite additionally found asymmetric schema adjacency. Reverse type, inverse and disjoint relationships now participate in neighbour accounting. The demo Order grouping edge is represented at both endpoints. This keeps degree, visible degree and held-back counts consistent across arbitrary admissions.
 
