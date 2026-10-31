@@ -11,6 +11,7 @@ from their own location; keep that behavior if scripts are moved.
 | `npm run build`                                                                | Bundle the application into `dist`                                |
 | `npm run package`                                                              | Build the application, notices and Windows installer              |
 | `npm run check:docs`                                                           | Check local documentation links                                   |
+| `npm run check:audit`                                                          | Audit dependencies, accepting only listed advisories (#193)       |
 | `npm test`, `npm run test:desktop`                                             | Domain and desktop checks using the configurations in `config`    |
 | `npm run setup:mutatoc -- <folder>`                                            | Verify and install the native runtime                             |
 | `npm run setup:embeddings`                                                     | Download and verify the optional local search model               |
