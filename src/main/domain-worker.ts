@@ -2073,7 +2073,8 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
     case "drag": {
       const n = view.nodes.get(string(a, "iri"));
       if (n) {
-        n.layoutFixed = false;
+        // craigtrim/axiom#189: a dropped node keeps a position hold, so a running layout leaves it where it landed.
+        n.layoutFixed = !a.dragging;
         n.x = number(a, "x", -1e8, 1e8);
         n.y = number(a, "y", -1e8, 1e8);
         n.dragging = !!a.dragging;
