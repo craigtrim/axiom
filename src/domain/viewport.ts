@@ -23,6 +23,8 @@ export interface GraphNode {
   expanded: boolean;
   dragging: boolean;
   layoutFixed?: boolean;
+  // craigtrim/axiom#189: a hold left by a drop fixes the position for layouts but does not protect the node from paging.
+  dropHeld?: boolean;
   taxonomyAncestors?: string[];
   // craigtrim/axiom#185: palette position of the node's cluster, if any.
   cluster?: number;
@@ -89,7 +91,8 @@ export class Viewport {
   }
   evictionOrder() {
     const ns = [...this.nodes.values()].filter(
-      (n) => !n.pinned && !n.layoutFixed && !this.focus.has(n.iri),
+      (n) =>
+        !n.pinned && (!n.layoutFixed || n.dropHeld) && !this.focus.has(n.iri),
     );
     return ns.sort((a, b) =>
       this.evictionMode === "lru"
@@ -219,6 +222,7 @@ export class Viewport {
   holdPosition(iri: string) {
     for (const node of this.nodes.values()) {
       node.layoutFixed = node.iri === iri;
+      node.dropHeld = false;
       if (node.layoutFixed) node.vx = node.vy = 0;
     }
   }
@@ -287,6 +291,7 @@ export class Viewport {
     if (!fresh.length) return { added: 0, limitReached: false };
     for (const n of original) {
       n.layoutFixed = true;
+      n.dropHeld = false;
       n.vx = n.vy = 0;
     }
     const report = this.admit(fresh.map((n) => n.iri));

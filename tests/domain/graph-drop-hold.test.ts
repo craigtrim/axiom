@@ -123,3 +123,34 @@ it("puts a dropped node back with one Undo", async () => {
   await request("undo");
   expect(await position(school)).toEqual(before);
 });
+
+it("lets the node limit page out dropped nodes", async () => {
+  await request("importRdf", {
+    text: schoolOntology(130),
+    fileName: "schools.ttl",
+    baseIRI: schoolBase,
+  });
+  await request("seed", { iris: [schoolBase + "School"], expand: true });
+  const shown = (await request<Snapshot>("state")).graph.nodes;
+  expect(shown).toHaveLength(131);
+  for (const [i, n] of shown.entries())
+    if (n.iri !== schoolBase + "School")
+      await request("drag", { iri: n.iri, x: i * 10, y: 0, dragging: false });
+  await request("budget", { value: 100 });
+  expect((await request<Snapshot>("state")).graph.nodes).toHaveLength(100);
+});
+
+it("ends a drawing in another graph view without switching the active graph", async () => {
+  await forceGraph();
+  const second = await request<string>("graphCreate", { iris: [school] });
+  await request("graphActivate", { id: second });
+  const { datasetEpoch } = await request<Snapshot>("state");
+  for (const active of [true, false])
+    await request("graphInteraction", {
+      token: "other-view",
+      active,
+      datasetEpoch,
+      graphId: "graph",
+    });
+  expect((await request<Snapshot>("state")).activeGraphId).toBe(second);
+});
