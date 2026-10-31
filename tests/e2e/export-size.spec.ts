@@ -114,29 +114,18 @@ async function exportTo(dialog: Locator, file: string, timeout = 30000) {
   await expect(dialog).toBeHidden({ timeout });
 }
 
-test("a PNG past the canvas area is drawn in bands at the size the dialog shows", async () => {
-  test.setTimeout(300000);
-  await scene([
-    [0, 0],
-    [2000, 1950],
-  ]);
-  const dialog = await exportDialog("png", 8),
-    { width, height } = await shownSize(dialog);
-  expect(width * height).toBeGreaterThan(268435456);
-  await expect(dialog.getByRole("alert")).toHaveCount(0);
-  const file = path.join(profile, "large.png");
-  await exportTo(dialog, file, 240000);
+/** Inflates a PNG's IDAT stream and checks that every row arrived drawn on the opaque background. */
+async function checkPng(file: string, width: number, height: number) {
   const bytes = await readFile(file);
   expect(bytes.readUInt32BE(16)).toBe(width);
   expect(bytes.readUInt32BE(20)).toBe(height);
-  // Inflate the IDAT stream and check that every row arrived and was drawn on the opaque background.
   const rowBytes = 1 + width * 4,
-    inflate = createInflate();
+    inflate = createInflate(),
+    blankRows: number[] = [],
+    sums = new Set<number>();
   let position = 0,
     rows = 0,
-    blankRows: number[] = [],
     sum = 0;
-  const sums = new Set<number>();
   inflate.on("data", (chunk: Buffer) => {
     for (let i = 0; i < chunk.length; i++, position++) {
       const at = position % rowBytes;
@@ -167,6 +156,37 @@ test("a PNG past the canvas area is drawn in bands at the size the dialog shows"
   // The scaled height rounds up, so only the last row may be partly covered.
   expect(blankRows.filter((row) => row !== height - 1)).toEqual([]);
   expect(sums.size).toBeGreaterThan(10);
+}
+
+test("a PNG past the canvas area is drawn in bands at the size the dialog shows", async () => {
+  test.setTimeout(300000);
+  await scene([
+    [0, 0],
+    [2000, 1950],
+  ]);
+  const dialog = await exportDialog("png", 8),
+    { width, height } = await shownSize(dialog);
+  expect(width * height).toBeGreaterThan(268435456);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  const file = path.join(profile, "large.png");
+  await exportTo(dialog, file, 240000);
+  await checkPng(file, width, height);
+});
+
+test("a tall, narrow PNG past the canvas side streams in canvas-high bands", async () => {
+  test.setTimeout(180000);
+  await scene([
+    [0, 0],
+    [0, 270000],
+  ]);
+  const dialog = await exportDialog("png", 0.25),
+    { width, height } = await shownSize(dialog);
+  expect(height).toBeGreaterThan(65535);
+  expect(width).toBeLessThan(256);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  const file = path.join(profile, "tall.png");
+  await exportTo(dialog, file, 150000);
+  await checkPng(file, width, height);
 });
 
 test("TIFF and BMP stream rows that decode at the size the dialog shows", async () => {

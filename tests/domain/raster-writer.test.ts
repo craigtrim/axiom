@@ -10,12 +10,15 @@ import {
   byteWriter,
   pngWriter,
   tiffWriter,
+  writeAll,
 } from "../../src/main/raster-writer";
 import {
   bandRows,
   bigTiffNote,
   bmpBytes,
   bmpStride,
+  encodeRows,
+  encodeSegment,
   fitsCanvas,
   formatCeiling,
   sendsRows,
@@ -58,6 +61,53 @@ describe("raster layout", () => {
     expect(bandRows(14823, 16488) * 14823).toBeLessThanOrEqual(16777216);
     expect(bandRows(20000000, 3)).toBe(1);
     expect(bandRows(10, 5)).toBe(5);
+    // A narrow, tall image keeps each band inside the canvas side.
+    expect(bandRows(200, 100000)).toBe(65535);
+  });
+  it("encodes a row the same whether it leaves whole or in column segments", () => {
+    const width = 7,
+      rgba = new Uint8ClampedArray(pixels(width, 1));
+    for (const format of ["png", "tiff", "bmp"]) {
+      const whole = encodeRows(format, rgba, width, 1),
+        pieces = [
+          encodeSegment(format, rgba.subarray(0, 12), 3, true, false, width),
+          encodeSegment(format, rgba.subarray(12, 28), 4, false, true, width),
+        ],
+        joined = new Uint8Array(pieces.reduce((n, p) => n + p.length, 0));
+      pieces.reduce((at, p) => (joined.set(p, at), at + p.length), 0);
+      expect([...joined]).toEqual([...whole]);
+    }
+    expect(encodeRows("bmp", rgba, width, 1)).toHaveLength(bmpStride(width));
+  });
+  it("keeps writing until a short write has put every byte down", async () => {
+    const landed: [number, number | null][] = [];
+    await writeAll(
+      {
+        write: (async (
+          bytes: Uint8Array,
+          offset: number,
+          length: number,
+          position: number | null,
+        ) => {
+          const n = Math.min(length, 3);
+          landed.push([offset, position]);
+          return { bytesWritten: n, buffer: bytes };
+        }) as never,
+      },
+      new Uint8Array(8),
+      100,
+    );
+    expect(landed).toEqual([
+      [0, 100],
+      [3, 103],
+      [6, 106],
+    ]);
+    await expect(
+      writeAll(
+        { write: (async () => ({ bytesWritten: 0 })) as never },
+        new Uint8Array(1),
+      ),
+    ).rejects.toThrow("stopped accepting data");
   });
   it("names only the ceiling of the chosen format", () => {
     expect(formatCeiling("webp", 16383, 16383)).toBe("");
@@ -149,12 +199,36 @@ describe("PNG writer", () => {
     );
     expect(raw.equals(Buffer.from(filtered(0, height)))).toBe(true);
   });
-  it("refuses a band of partial rows and an image that ends early", async () => {
-    const png = await pngWriter(file(".png"), 3, 2);
-    await expect(png.write(new Uint8Array(5))).rejects.toThrow("whole rows");
-    await png.write(new Uint8Array(13));
-    await expect(png.finish()).rejects.toThrow("before every row arrived");
-    await png.abort();
+  it("accepts chunks that split rows and refuses too much or too little", async () => {
+    const width = 3,
+      height = 2,
+      rgba = pixels(width, height),
+      stream = encodeRows("png", new Uint8ClampedArray(rgba), width, height),
+      target = file(".png"),
+      png = await pngWriter(target, width, height);
+    for (const [from, to] of [
+      [0, 5],
+      [5, 17],
+      [17, stream.length],
+    ])
+      await png.write(stream.subarray(from, to));
+    await png.finish();
+    const chunks = pngChunks(await readFile(target)),
+      raw = inflateSync(
+        Buffer.concat(
+          chunks.filter((c) => c.type === "IDAT").map((c) => c.data),
+        ),
+      );
+    expect(raw.equals(Buffer.from(stream))).toBe(true);
+    const short = await pngWriter(file(".png"), 3, 2);
+    await short.write(new Uint8Array(13));
+    await expect(short.finish()).rejects.toThrow("before every row arrived");
+    await short.abort();
+    const long = await pngWriter(file(".png"), 3, 2);
+    await expect(long.write(new Uint8Array(27))).rejects.toThrow(
+      "more rows than the image holds",
+    );
+    await long.abort();
   });
 });
 
@@ -242,25 +316,21 @@ describe("TIFF writer", () => {
 });
 
 describe("BMP writer", () => {
-  it("places bottom-first bands so the file keeps BMP's bottom-up rows", async () => {
+  it("maps top-down rows, split anywhere, onto BMP's bottom-up rows", async () => {
     const width = 3,
       height = 4,
       stride = bmpStride(width),
       rgba = pixels(width, height),
+      stream = encodeRows("bmp", new Uint8ClampedArray(rgba), width, height),
       target = file(".bmp"),
-      bmp = await bmpWriter(target, width, height),
-      band = (from: number, to: number) => {
-        const out = new Uint8Array((to - from) * stride);
-        for (let r = 0; r < to - from; r++)
-          for (let x = 0; x < width; x++) {
-            const y = to - 1 - r,
-              i = (y * width + x) * 4;
-            out.set([rgba[i + 2], rgba[i + 1], rgba[i]], r * stride + x * 3);
-          }
-        return out;
-      };
-    await bmp.write(band(0, 3));
-    await bmp.write(band(3, 4));
+      bmp = await bmpWriter(target, width, height);
+    expect(stream).toHaveLength(stride * height);
+    for (const [from, to] of [
+      [0, 7],
+      [7, 30],
+      [30, stream.length],
+    ])
+      await bmp.write(stream.subarray(from, to));
     await bmp.finish();
     const bytes = await readFile(target);
     expect(bytes.length).toBe(bmpBytes(width, height));
@@ -293,15 +363,20 @@ describe("BMP writer", () => {
 });
 
 describe("byte writer", () => {
-  it("appends finished bytes and refuses an empty export", async () => {
+  it("appends finished bytes and refuses an empty export or one past its limit", async () => {
     const target = file(".svg"),
-      bytes = await byteWriter(target);
+      bytes = await byteWriter(target, 100);
     await bytes.write(new TextEncoder().encode("<svg>"));
     await bytes.write(new TextEncoder().encode("</svg>"));
     await bytes.finish();
     expect(await readFile(target, "utf8")).toBe("<svg></svg>");
-    const empty = await byteWriter(file(".png"));
+    const empty = await byteWriter(file(".png"), 100);
     await expect(empty.finish()).rejects.toThrow("no data");
     await empty.abort();
+    const over = await byteWriter(file(".png"), 4);
+    await expect(over.write(new Uint8Array(5))).rejects.toThrow(
+      "more data than allowed",
+    );
+    await over.abort();
   });
 });
