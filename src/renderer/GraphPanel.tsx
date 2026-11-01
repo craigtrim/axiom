@@ -5,7 +5,7 @@ import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
 import { GraphScope, useGraphScope } from "./GraphScope";
 import { revealInTaxonomy } from "./taxonomy-navigation";
-import { instanceAction } from "../shared/action-state";
+import { clusterColorsAction, instanceAction } from "../shared/action-state";
 import { showInstances } from "./instance-report";
 import {
   GraphConnections,
@@ -844,6 +844,7 @@ function GraphContent() {
     graph?.edgesVisible === false
       ? undefined
       : graph?.edges.find((e) => edgeKey(e) === graph?.selectedEdge);
+  const clusterAction = clusterColorsAction(info);
   const nodeNames = new Map(info?.nodes.map((n) => [n.iri, n.label]));
   return (
     <section
@@ -1536,19 +1537,19 @@ function GraphContent() {
           />
           Show counts
         </label>
-        {/* craigtrim/axiom#185: offered only once hiding splits the graph into clusters. */}
-        {(info?.clusterCount ?? 0) > 1 && (
-          <label title="Give each group of connected nodes its own color.">
-            <input
-              type="checkbox"
-              checked={info?.clusterColors === true}
-              onChange={(event) =>
-                void act("clusterColors", { enabled: event.target.checked })
-              }
-            />
-            Color clusters
-          </label>
-        )}
+        {/* craigtrim/axiom#200: always shown, disabled with its reason below two clusters (#185). */}
+        <label className="graph-cluster-colors" title={clusterAction.title}>
+          <input
+            type="checkbox"
+            title={clusterAction.title}
+            disabled={!clusterAction.enabled}
+            checked={info?.clusterColors === true}
+            onChange={(event) =>
+              void act("clusterColors", { enabled: event.target.checked })
+            }
+          />
+          Color clusters
+        </label>
         <GraphSpacing
           value={info?.spacing ?? 1}
           epoch={snapshot.datasetEpoch}

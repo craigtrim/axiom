@@ -822,13 +822,16 @@ test("new instance stays connected to its class through movement, themes, resizi
     "http://www.w3.org/2002/07/owl#Thing",
   );
   await checkPlacement();
+  const wide = (await canvas.boundingBox())!.width;
+  // craigtrim/axiom#200: at 740 pixels high the footer's wrapped rows left the
+  // anchor below the canvas, which closes the callout by design.
   await app.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].setSize(1060, 740),
+    BrowserWindow.getAllWindows()[0].setSize(1060, 900),
   );
   await menu("graph.fit");
   await expect
-    .poll(async () => (await canvas.boundingBox())!.height)
-    .toBeLessThan(600);
+    .poll(async () => (await canvas.boundingBox())!.width)
+    .toBeLessThan(wide);
   await expect(
     popup.getByRole("button", { name: "Close create entity" }),
   ).toBeInViewport();

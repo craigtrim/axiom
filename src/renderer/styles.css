@@ -3243,6 +3243,10 @@ a {
   height: 14px;
   margin: 0;
 }
+/* craigtrim/axiom#200: dims like a disabled button while there are too few clusters. */
+.graph-footer .graph-cluster-colors:has(input:disabled) {
+  opacity: 0.45;
+}
 
 .subclass-suggestions {
   max-height: 50vh;
