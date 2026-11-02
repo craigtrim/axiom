@@ -1,6 +1,50 @@
 # Menu organization for Axiom
 
-Design review and implementation record, updated 30 September 2026. The source audit and original proposals below record the design rationale. The delivered behavior includes the approved Analyze, Find and Suggest grouping and instance-report shortcuts.
+Design review and implementation record, updated 1 November 2026. The source audit and original proposals below record the design rationale. The delivered behavior includes the approved Analyze, Find and Suggest grouping and instance-report shortcuts.
+
+## Command consistency (1 November 2026)
+
+The graph's buttons and settings had been added one issue at a time, and the same action carried different names in different places. This pass gives every command one label, one shortcut and one enabled and checked state, all defined in [commands.ts](../../src/shared/commands.ts). The menu bar, the command palette, the graph's command row and the context menus read from that definition.
+
+### Graph chrome
+
+The graph pane follows the rule the other views already follow: one 28 px action row and nothing else. The toolbar (43 px, and it wrapped), the settings footer and the selection bar together took about 115 CSS px of the pane; the canvas now gets that height back, less the 28 px row. The row is a `SharedActionRow`, so it measures its width and moves commands into More actions in a fixed order rather than wrapping.
+
+| Position | Control | Menu equivalent |
+| --- | --- | --- |
+| Left, never overflows | Add entity | Graph > Add entity (Insert) |
+| Right | Expand to limit | Graph > Expand to limit |
+| | Hand, a toggle with a pressed state | Graph > Hand, checked |
+| | Fit, Center | Graph > Fit graph (F), Center graph |
+| | Relayout, the layout list | Graph > Relayout (L), Layout, a radio group |
+| | Freeze layout, a toggle with a pressed state | Graph > Freeze layout (Space), checked |
+| | Cancel layout, only while one runs | Graph > Cancel running layout |
+| | Display, opening Display options | Graph > Display options |
+| | Export | Graph > Export... (Ctrl+Shift+E) |
+| | More actions | Select edge..., Graph appearance..., Graph stylesheet..., Clear graph |
+
+Display options holds what the footer held: Show edges, Show labels, Show counts, Color clusters, Node spacing, Visible node limit and Eviction policy. The same settings appear in Graph > Show and Graph > Eviction policy, so all of them are reachable from the menu bar and the palette. Select edge... replaces the toolbar's edge list, which listed every edge in view; it opens a filterable list instead.
+
+A toggle keeps its label and shows its state as a pressed button in the row and a checkmark in menus. Freeze no longer becomes Resume, and Pin no longer becomes Unpin.
+
+The status bar shows the active graph's readout in the main window: the node count against the limit, the layout, relationships and held-back neighbors, and the selected node or edge. Clicking the node count opens Display options. Detached windows have no status bar, so the graph row shows the node count there, and the reconnect instruction appears in the row in either window.
+
+Object commands left the pane chrome. A node's Expand, Collapse, Pin in graph, Show in Hierarchy, Touchpoints and Show instances are in its context menu, the Graph and Edit menus and the keyboard. An edge's Details, Reset route and Remove edge are in its context menu and Graph > Edges.
+
+### Menu rules
+
+- One label per behavior. Where a command row button repeats the view's name, it drops it ("Fit" in the row, "Fit graph" in the menu), following rule 3 of [adaptive layouts](adaptive-pane-ux.md#rules-every-applicable-view-shares).
+- Sentence case and US English, following Microsoft's style guide: Add children, Define new, Maximize pane, neighbors.
+- An ellipsis on a menu item that opens a dialog for more input, such as Export..., Select edge... or Delete class.... Command row buttons omit it.
+- Context menus show the shortcut right-aligned and set the object's default action in bold: Expand for a node, Details for an edge and for a Hierarchy row. The shortcut is shown but not announced, so an item's accessible name stays its label.
+- Access keys are unique within each menu level. Details is T in every entity and edge menu. Each item announces both the bare letter and Alt with it, since both work.
+- Shift+F10 and the Menu key open the menu for the selected node or edge. With nothing selected on the graph they open the canvas menu at the canvas center.
+- The menu bar order is File, Edit, View, Graph, Query, Tools, Window, Help, with Tools after the application's own menus.
+- Commands that had been reachable only from a context menu are now also on the menu bar: Edit > Show in Hierarchy, Add neighbors to graph and Copy IRI, and Query > New query.
+
+### Not changed in this pass
+
+Right-click menus (`ContextMenu`) and pane overflow menus (`SharedMenu`) are still two components. They now share the same checkmark, radio and shortcut conventions. The other views keep their own More triggers because their visual references pin them, but Details' More no longer hides in a narrow pane, where it was the only path to Reload.
 
 ## Editor context-menu access keys (4 October 2026)
 
@@ -12,21 +56,21 @@ The adapter observes Monaco's open shadow-root popups, suspends application acce
 
 File > Open contains Workspace... (Ctrl+O), Recent and Examples. Examples contains Pizza. Recent retains up to 12 successfully opened or saved workspace and ontology files across restarts, newest first. Reopening a file moves it to the top without adding a duplicate. Every entry shows its full absolute file path. Recent is disabled when empty. Recent-file clicks use the same unsaved-change handling and file validation as Workspace...; a failed or cancelled open does not add that file to the list.
 
-Hierarchy and graph context menus now use separators for logical groups. Common commands remain directly accessible. Pin in graph shows a checkmark; class-only commands are omitted for other entity types; Delete class remains last. Graph canvas menus contain the two creation actions. Window now has a Move pane submenu with Left, Right, Top and Bottom. Menu entries retain explicit access keys, disabled items are focusable without being executable, Escape restores focus, and Tab moves outside the popup.
+Hierarchy and graph context menus now use separators for logical groups. Common commands remain directly accessible. Pin in graph shows a checkmark; class-only commands are omitted for other entity types; Delete class remains last. Graph canvas menus contain the two creation actions followed by the view commands. Window now has a Move pane submenu with Left, Right, Top and Bottom. Menu entries retain explicit access keys, disabled items are focusable without being executable, Escape restores focus, and Tab moves outside the popup.
 
-Entity menus in Hierarchy and Graph place **Analyze**, **Find** and **Suggest** together. Analyze contains **Sparsity** and appears for classes only. Find contains **Similar**, **Synonyms** and **Touchpoints**; Hierarchy classes also offer **Instances**. Suggest contains **Add Children**, **Add Parents** and **Define New**. Research has been replaced by Touchpoints. Blank nodes retain disabled Synonyms and Touchpoints actions. Sparsity is also disabled for anonymous classes because the report analyzes named-class branches.
+Entity menus in Hierarchy and Graph place **Analyze**, **Find** and **Suggest** together. Analyze contains **Sparsity** and appears for classes only. Find contains **Similar**, **Synonyms** and **Touchpoints**; Hierarchy classes also offer **Instances**. Suggest contains **Add children**, **Add parents** and **Define new**. Research has been replaced by Touchpoints. Blank nodes retain disabled Synonyms and Touchpoints actions. Sparsity is also disabled for anonymous classes because the report analyzes named-class branches.
 
-With the context menu open, **A**, **F** and **G** open Analyze, Find and Suggest on either surface. Inside Find, **S**, **Y**, **T** and **I** select Similar, Synonyms, Touchpoints and Instances respectively. Sparsity uses **S** inside Analyze; Suggest uses **C**, **P** and **N**. Hierarchy's Add neighbours to graph uses **E**. Graph's Find in taxonomy uses **X**, while Rename retains **N**. Left or Escape closes a submenu and returns focus to its trigger, including after switching submenus with the pointer.
+With the context menu open, **A**, **F** and **G** open Analyze, Find and Suggest on either surface. Inside Find, **S**, **Y**, **T** and **I** select Similar, Synonyms, Touchpoints and Instances respectively. Sparsity uses **S** inside Analyze; Suggest uses **C**, **P** and **N**. Hierarchy's Add neighbors to graph uses **E**. Graph's Show in Hierarchy uses **Y**, the same letter as Edit > Show in Hierarchy, while Rename retains **N**. Details is **T** in every entity and edge menu. Left or Escape closes a submenu and returns focus to its trigger, including after switching submenus with the pointer.
 
 Show instances scopes the Individuals grid in place for an imported ontology, from the hierarchy, graph or Edit menu. The class choice above the grid uses the same scope and retains each class's column layout. Each page contains at most 100 records. The built-in example's generated records retain their read-only instance report. Showing individuals never seeds, expands or replaces the graph. Selecting a row fills Inspector.
 
 The report identifies its class and direct-instance count. If its last instance is removed while the report is open, it displays an empty state. It stays scoped to that class when other selections change. Switching workspaces clears the report, and closing then reopening the Individuals pane retains it during the current session. Detached panes use the same report.
 
-Dragging from an unselected node draws an edge; dragging an already selected node moves it. With **Hand** pressed in the graph toolbar (craigtrim/axiom#189), dragging any node moves it and dragging anywhere else moves the view. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-editing.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
+Dragging from an unselected node draws an edge; dragging an already selected node moves it. With **Hand** pressed in the graph's command row (craigtrim/axiom#189), dragging any node moves it and dragging anywhere else moves the view. Connect nodes is available through Graph > Edges and the command palette, with C as the graph shortcut. The node context menu omits this command. These commands support keyboard endpoint selection and share the same attachment behavior as dragging. See [Connecting nodes](graph-editing.md#connecting-nodes) for the gesture rules and ontology relationship defaults.
 
 ## Counts and action availability
 
-Actions that open an existing collection show its current count and remain visible but disabled when that count is zero. Show instances uses the same direct-membership count in hierarchy and graph menus, the graph selection button, Inspector, Edit and the command palette. Labels read Show instances (527) or Show instances (0). Inspector shortcuts show the number directly. Hierarchy counts are plain text and omit zero; its row menu retains Show instances (#91). Class choices in the report and Individuals filters also show counts and disable empty choices.
+Actions that open an existing collection show its current count and remain visible but disabled when that count is zero. Show instances uses the same direct-membership count in hierarchy and graph menus, Inspector, Edit and the command palette. Labels read Show instances (527) or Show instances (0). Inspector shortcuts show the number directly. Hierarchy counts are plain text and omit zero; its row menu retains Show instances (#91). Class choices in the report and Individuals filters also show counts and disable empty choices.
 
 Counts update after edits and Undo. Instance buttons and popup items explain the empty state in their tooltip, and the shared invocation guard blocks stale or remapped requests. A report already open remains available when its last instance disappears. The application menu updates labels and availability through Electron's [dynamic MenuItem properties](https://www.electronjs.org/docs/latest/api/menu-item#instance-properties).
 
@@ -71,24 +115,24 @@ These outlines show the implemented logical boundaries, not pixel specifications
 ### Hierarchy class
 
 ```text
-Show in graph
+Show in graph > New graph / Current graph (Ctrl+G)
 Show instances
 Expand branch
-Add neighbours to graph
+Add neighbors to graph
 Pin in graph
 --------------------------
-Details
-Rename
-New subclass
-New instance
+Details                    Alt+Enter    bold: Enter opens it
+Rename                     F2
+New subclass               Ctrl+Shift+N
+New instance               Ctrl+Shift+I
 --------------------------
 Analyze > Sparsity
 Find > Similar / Synonyms / Touchpoints / Instances
-Suggest > Add Children / Add Parents / Define New
+Suggest > Add children / Add parents / Define new
 --------------------------
 Copy IRI
 --------------------------
-Delete class...
+Delete class...            Delete
 ```
 
 Show in graph is prominent because moving an entity into the graph is central to this workbench. The four editing and creation actions stay together. Analyze, Find and Suggest form an adjacent group. Find > Instances discovers new members of a class, while Show instances opens the existing records. Copy IRI remains a single direct command. Delete class has its own final group to make accidental selection less likely.
@@ -98,37 +142,71 @@ The additional separators make this menu taller. Check it at high display scalin
 ### Graph node
 
 ```text
-Expand (Collapse when expanded)
-Hide
-Rename
-Details
-Find in taxonomy
+Expand (Collapse when expanded)    Enter (Shift+Enter)    bold: the default
+Hide                               Delete
+Rename                             F2
+Details                            Alt+Enter
+Show in Hierarchy
 New instance
 Show instances (count)
 --------------------------
 Analyze > Sparsity
 Find > Similar / Synonyms / Touchpoints
-Suggest > Add Children / Add Parents / Define New
+Suggest > Add children / Add parents / Define new
 --------------------------
-Pin in graph
+Pin in graph                       P
 Copy IRI
 ```
 
-Hide removes the node from the current view and preserves ontology data. Expand and Collapse share one position in the menu. Expansion state is saved per graph. Find in taxonomy reveals the row while keyboard focus stays on Graph. Show instances opens the existing report and is disabled at zero.
+Hide removes the node from the current view and preserves ontology data. Expand and Collapse share one position in the menu. Expansion state is saved per graph. Show in Hierarchy reveals the row while keyboard focus stays on Graph. Show instances opens the existing report and is disabled at zero.
 
-Add Parents uses the selected assistant to propose existing parents from the ontology catalog. Users review the matches before Axiom adds parent relationships. Touchpoints independently searches Wikipedia for external resources.
+Add parents uses the selected assistant to propose existing parents from the ontology catalog. Users review the matches before Axiom adds parent relationships. Touchpoints independently searches Wikipedia for external resources.
 
 ### Graph edge
 
 ```text
-Details
-Reconnect source
-Reconnect target
+Details              (T)    Enter     bold: the default
+Reconnect source     (S)
+Reconnect target     (G)
 --------------------------
-Reset route
+Reset route          (R)
 --------------------------
-Remove edge
+Remove edge          (M)    Delete
 ```
+
+### Graph canvas
+
+The empty canvas is the graph view itself, so its menu carries the view commands. Shift+F10 or the Menu key opens it at the canvas center when nothing is selected.
+
+```text
+New class here
+New instance here
+--------------------------
+Fit graph                   F
+Center graph
+Relayout                    L
+Freeze layout               Space    (checked while frozen)
+--------------------------
+Show > Show edges / Show labels / Show counts / Color clusters
+Display options
+--------------------------
+Export...                   Ctrl+Shift+E
+```
+
+### Pane tab
+
+```text
+Rename tab
+Tab history
+--------------------------
+Maximize pane
+Float pane
+Detach pane to window
+--------------------------
+Close tab                   Ctrl+W
+```
+
+The three pane commands come from the Window menu and act on the tab that was right-clicked.
 
 ### Application Window menu
 
@@ -146,7 +224,7 @@ Group pane with graph
 Make pane wider
 Make pane narrower
 --------------------------
-Maximise / restore pane
+Maximize pane
 Float pane
 Detach pane to window
 Return all panes to main window

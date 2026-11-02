@@ -1,6 +1,6 @@
 # Graph appearance
 
-Axiom has a CSS-like graph stylesheet. The visual editor is under **Edit > Settings > Graph appearance**; the Graph pane's **Styles** button opens the same editor. **Graph > Edit graph stylesheet** opens its Advanced section directly.
+Axiom has a CSS-like graph stylesheet. The visual editor is under **Edit > Settings > Graph appearance**; **Graph appearance...** in the graph row's More actions menu opens the same editor. **Graph > Graph stylesheet...** opens its Advanced section directly.
 
 ## Research and design
 
@@ -88,13 +88,13 @@ The class picker and Hierarchy share taxonomy traversal, ordering, markers and i
 
 ## Node spacing
 
-Each graph footer has a **Node spacing** slider, from 50% to 300%, with 100% as the default. It changes the distance between nodes for every layout, including within Cluster grid groups. Node sizes and camera zoom stay unchanged. Group frames, radial guides and manual edge bends follow the spacing. Pinned nodes stay fixed.
+Each graph's Display options flyout has a **Node spacing** slider, from 50% to 300%, with 100% as the default. It changes the distance between nodes for every layout, including within Cluster grid groups. Node sizes and camera zoom stay unchanged. Group frames, radial guides and manual edge bends follow the spacing. Pinned nodes stay fixed.
 
 The slider previews changes while dragging. One drag is one Undo operation; keyboard arrows, Home and End also work. Spacing works while the layout is frozen and remains in effect after Relayout, Expand or Collapse. Each graph tab saves its own value in workspaces and the restored session.
 
 ## Center the graph
 
-**Center**, beside Fit in the graph toolbar, brings the graph's first remaining starting node to the middle of the canvas at the current zoom. If none of the starting nodes remain, it centres on the visible node with the most visible connections. Selection, node positions and relationships stay unchanged. The action is also available from Graph > Center graph and the command palette. Each graph keeps its own camera, and Center is disabled on empty graphs.
+**Center**, beside Fit in the graph's command row, brings the graph's first remaining starting node to the middle of the canvas at the current zoom. If none of the starting nodes remain, it centres on the visible node with the most visible connections. Selection, node positions and relationships stay unchanged. The action is also available from Graph > Center graph and the command palette. Each graph keeps its own camera, and Center is disabled on empty graphs.
 
 ## Label relevance at crowded zoom levels
 
@@ -110,19 +110,19 @@ The mouse wheel and graph zoom shortcuts continue below 5%, so large layouts can
 
 ## Edge visibility
 
-**Show edges** is checked by default in each graph footer. Uncheck it to hide relationship lines, arrowheads and labels while keeping every relationship in the ontology and graph layout. Hidden edges cannot be selected on the canvas. Check it again to restore them.
+**Show edges** is checked by default in each graph's Display options, and in **Graph > Show**. Uncheck it to hide relationship lines, arrowheads and labels while keeping every relationship in the ontology and graph layout. Hidden edges cannot be selected on the canvas. Check it again to restore them.
 
 The setting belongs to each graph and is saved with workspaces and sessions. Undo and Redo include visibility changes. Image exports follow the current visibility setting.
 
 ## Label visibility
 
-**Show labels** is checked by default between **Show edges** and **Show counts** in each graph footer (craigtrim/axiom#187). Uncheck it to hide the name under every node, including the selected node, the hovered node and the node whose right-click menu is open. Nodes keep their positions, and the hierarchy layout still spaces its rows by label width. Relationship captions stay under **Show edges** and the +N badges under **Show counts**; the AND and + marks inside nodes and the Cluster grid group headings do not change. A hidden label is not a click target, while clicks, drags and right-clicks on a node work as before. The graph's screen-reader list keeps every node's name.
+**Show labels** is checked by default between **Show edges** and **Show counts** in Display options (craigtrim/axiom#187). Uncheck it to hide the name under every node, including the selected node, the hovered node and the node whose right-click menu is open. Nodes keep their positions, and the hierarchy layout still spaces its rows by label width. Relationship captions stay under **Show edges** and the +N badges under **Show counts**; the AND and + marks inside nodes and the Cluster grid group headings do not change. A hidden label is not a click target, while clicks, drags and right-clicks on a node work as before. The graph's screen-reader list keeps every node's name.
 
 Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include label visibility changes. Image exports follow the setting, so an export of a graph with labels hidden has no node labels even when **All node labels** is checked.
 
 ## Number badge visibility
 
-**Show counts** is checked by default beside **Show labels** in each graph footer. Uncheck it to hide the +N number badges on graph nodes. These badges count neighbours not currently displayed; hiding them preserves all data and node positions. Hierarchy instance counts remain available.
+**Show counts** is checked by default beside **Show labels** in Display options. Uncheck it to hide the +N number badges on graph nodes. These badges count neighbours not currently displayed; hiding them preserves all data and node positions. Hierarchy instance counts remain available.
 
 Each graph saves its own setting in workspaces and restored sessions. Undo and Redo include count visibility changes. PNG and SVG exports use the same visibility setting as the graph.
 
@@ -136,11 +136,11 @@ The colors come from ordered light and dark sequences that start from Petroff's 
 
 Each graph saves its own setting in workspaces and restored sessions, and Undo and Redo include it. The box is disabled again when the graph joins back into one cluster. It keeps showing the saved setting, so a graph left checked shows a checked, disabled box and colors its clusters again when they return. PNG and SVG exports carry the same colors. The minimap keeps its single color.
 
-## Expand max
+## Expand to limit
 
-**Expand max** starts from every node currently visible in the active graph. It follows connections breadth-first, admitting nearer neighbours before more distant nodes, until the Visible node limit is reached or all reachable nodes are visible. It follows connections in either direction and uses the same projected intersection branches as the graph. Disconnected ontology components stay outside the view.
+**Expand to limit** starts from every node currently visible in the active graph. It follows connections breadth-first, admitting nearer neighbors before more distant nodes, until the Visible node limit is reached or all reachable nodes are visible. It follows connections in either direction and uses the same projected intersection branches as the graph. Disconnected ontology components stay outside the view.
 
-The action fills available slots without evicting existing nodes. Existing nodes keep their positions while new nodes are laid out. One Undo restores the previous map. The button is disabled for empty maps, maps at the limit, and maps with no hidden neighbours. Raising the node limit enables further expansion when more connected nodes remain.
+The action fills available slots without evicting existing nodes. Existing nodes keep their positions while new nodes are laid out. One Undo restores the previous map. The button, **Graph > Expand to limit** and the command palette entry are disabled for empty maps, maps at the limit, and maps with no hidden neighbors. Raising the node limit enables further expansion when more connected nodes remain.
 
 ## Image export size
 
