@@ -129,31 +129,36 @@ export async function launchUtility(
       })
       .toBe(true);
     // Open the recorded history through the normal preferences load after importing this fixture dataset.
-    await page.evaluate(
-      async ({ history, theme, all }) => {
-        const prefs = await window.axiom.preferences.load();
-        await window.axiom.preferences.save({
-          ...prefs,
-          theme: theme as "light" | "dark",
-          tabSavePolicy: all ? "all" : "named",
-          tabHistory: { version: 1, entries: history, counters: {} },
-        });
-      },
-      { history, theme, all: false },
-    );
-    await app.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows()[0].webContents.send(
-        "command",
-        "workspace.preferences",
-      ),
-    );
-    await expect
-      .poll(
-        async () =>
-          (await page.evaluate(() => window.axiom.preferences.load()))
-            .tabHistory?.entries.length,
-      )
-      .toBe(history.length);
+    // A later automatic capture can save the window's earlier preferences over it before the
+    // reload, so install again until the recorded history is what the app holds.
+    await expect(async () => {
+      await page.evaluate(
+        async ({ history, theme, all }) => {
+          const prefs = await window.axiom.preferences.load();
+          await window.axiom.preferences.save({
+            ...prefs,
+            theme: theme as "light" | "dark",
+            tabSavePolicy: all ? "all" : "named",
+            tabHistory: { version: 1, entries: history, counters: {} },
+          });
+        },
+        { history, theme, all: false },
+      );
+      await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].webContents.send(
+          "command",
+          "workspace.preferences",
+        ),
+      );
+      await expect
+        .poll(
+          async () =>
+            (await page.evaluate(() => window.axiom.preferences.load()))
+              .tabHistory?.entries.length,
+          { timeout: 2000 },
+        )
+        .toBe(history.length);
+    }).toPass({ timeout: 15000 });
     // Visual source uses the published document; mutation tests separately exercise the serializer and parser.
     const doc = await page.evaluate(() =>
       window.axiom.request<any>("sourceDocument", { format: "trig" }),
