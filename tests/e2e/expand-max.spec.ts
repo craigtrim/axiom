@@ -55,9 +55,21 @@ async function attach() {
     ).evaluate((w) => w.setFocusable(false));
   await expect(
     page
-      .locator(".graph-panel:visible")
-      .getByRole("checkbox", { name: "Show edges", exact: true })
+      .locator(".graph-panel:visible .graph-command-layer")
+      .getByRole("button", { name: "Display", exact: true })
       .first(),
+  ).toBeVisible();
+}
+// The node limit lives in the Display flyout, a light-dismiss popover.
+async function openDisplay() {
+  const scope = page.locator(".graph-panel:visible").first(),
+    trigger = scope
+      .locator(".graph-command-layer")
+      .getByRole("button", { name: "Display", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+    await trigger.click();
+  await expect(
+    scope.getByRole("dialog", { name: "Display options", exact: true }),
   ).toBeVisible();
 }
 test.beforeEach(async () => {
@@ -80,7 +92,7 @@ test.afterEach(async ({}, info) => {
 const button = () =>
   page
     .locator(".graph-panel:visible")
-    .getByRole("button", { name: "Expand max", exact: true })
+    .getByRole("button", { name: "Expand to limit", exact: true })
     .first();
 const base = "http://expand.test/#";
 async function loadFixture() {
@@ -132,7 +144,7 @@ async function loadFixture() {
   await request("layout", { mode: "circle" });
   await request("budget", { value: 100 });
 }
-test("Expand max uses breadth-first traversal to the slider limit and one Undo restores the map", async () => {
+test("Expand to limit uses breadth-first traversal to the slider limit and one Undo restores the map", async () => {
   await loadFixture();
   await expect(button()).toBeEnabled();
   const before = await state();
@@ -162,6 +174,7 @@ test("Expand max uses breadth-first traversal to the slider limit and one Undo r
   await menu("edit.redo");
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(100);
   // Increasing the slider resumes from the current visible frontier.
+  await openDisplay();
   await page
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .fill("300");
@@ -176,7 +189,7 @@ test("Expand max uses breadth-first traversal to the slider limit and one Undo r
   ).toBe(false);
   await expect(button()).toBeDisabled();
 });
-test("Expand max stays within its graph tab and is disabled on empty or isolated maps", async () => {
+test("Expand to limit stays within its graph tab and is disabled on empty or isolated maps", async () => {
   await loadFixture();
   const original = (await state()).graph.nodes.map((n) => n.iri);
   await (await hierarchyFilter(page)).fill("A");
@@ -220,6 +233,7 @@ test("node limit slider reaches 15000 and survives workspace reopening", async (
     name: "Visible node limit",
     exact: true,
   });
+  await openDisplay();
   await expect(slider).toHaveAttribute("max", "15000");
   await expect(number).toHaveAttribute("aria-valuemax", "15000");
   await slider.focus();
@@ -250,6 +264,8 @@ test("node limit slider reaches 15000 and survives workspace reopening", async (
   await expect.poll(async () => (await state()).graph.budget).toBe(357);
   await menu("file.open");
   await expect.poll(async () => (await state()).graph.budget).toBe(15000);
+  // The Expand to limit click dismissed the flyout.
+  await openDisplay();
   await expect(slider).toHaveValue("15000");
   await expect(number).toHaveValue("15000");
 });

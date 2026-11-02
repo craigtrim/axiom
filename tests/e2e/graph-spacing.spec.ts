@@ -51,8 +51,22 @@ async function attach() {
     await (
       await app.browserWindow(page)
     ).evaluate((w) => w.setFocusable(false));
+  await expect(displayTrigger()).toBeVisible();
+}
+// Node spacing lives in the graph's Display flyout, a light-dismiss popover.
+const displayTrigger = () =>
+  page
+    .locator(".graph-panel:visible .graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true })
+    .first();
+async function openDisplay() {
+  if ((await displayTrigger().getAttribute("aria-expanded")) !== "true")
+    await displayTrigger().click();
   await expect(
-    page.getByRole("slider", { name: "Node spacing", exact: true }).first(),
+    page
+      .locator(".graph-panel:visible")
+      .getByRole("dialog", { name: "Display options", exact: true })
+      .first(),
   ).toBeVisible();
 }
 test.beforeEach(async () => {
@@ -81,6 +95,7 @@ const camera = () =>
 const coordinates = (g: Snapshot["graph"]) =>
   g.nodes.map((n) => [n.iri, n.x, n.y]);
 
+// The title is pinned in scripts/hybrid-test-policy.mjs; the slider now lives in the Display flyout.
 test("the footer slider changes every layout, keeps zoom and pins, and retains spacing on relayout", async () => {
   test.setTimeout(120000);
   await request("freeze");
@@ -108,6 +123,7 @@ test("the footer slider changes every layout, keeps zoom and pins, and retains s
       cameraBefore = await camera();
     const pin = before.nodes[0];
     await request("pin", { iri: pin.iri });
+    await openDisplay();
     await slider().focus();
     await page.keyboard.press("End");
     await expect.poll(async () => (await state()).graph.spacing).toBe(3);
@@ -141,6 +157,7 @@ test("the footer slider changes every layout, keeps zoom and pins, and retains s
       expect(n.x, mode + " relayout x").toBeCloseTo(old.x * 3);
       expect(n.y, mode + " relayout y").toBeCloseTo(old.y * 3);
     }
+    await openDisplay();
     await slider().focus();
     await page.keyboard.press("Home");
     await expect.poll(async () => (await state()).graph.spacing).toBe(0.5);
@@ -152,6 +169,7 @@ test("a pointer drag previews spacing and creates one undo step", async () => {
   await request("layout", { mode: "grid" });
   await menu("graph.fit");
   const before = (await state()).graph;
+  await openDisplay();
   const box = (await slider().boundingBox())!;
   const x = (value: number) =>
     box.x + 8 + ((box.width - 16) * (value - 50)) / 250;
@@ -178,6 +196,7 @@ test("a pointer drag previews spacing and creates one undo step", async () => {
     .poll(async () => (await state()).graph.spacing)
     .toBe(after.spacing);
   expect(coordinates((await state()).graph)).toEqual(coordinates(after));
+  await openDisplay();
   await slider().focus();
   await page.keyboard.press("Control+z");
   await expect.poll(async () => (await state()).graph.spacing).toBe(1);

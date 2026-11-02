@@ -51,6 +51,15 @@ for (const [format, label, bad, corrected] of [
 test("Visible node limit rejects incomplete and fractional edits without resetting on blur or Enter", async ({
   desktop: d,
 }) => {
+  // The node limit lives in the graph's Display flyout, a light-dismiss popover.
+  await d.page
+    .locator(".graph-panel:visible .graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true })
+    .first()
+    .click();
+  await expect(
+    d.page.getByRole("dialog", { name: "Display options", exact: true }),
+  ).toBeVisible();
   const field = d.page.getByRole("spinbutton", {
     name: "Visible node limit",
     exact: true,
@@ -84,7 +93,7 @@ test("Visible node limit rejects incomplete and fractional edits without resetti
     .toBe(14999);
 });
 
-test("Styles keeps invalid numeric edits visible and leaves the last valid stylesheet intact", async ({
+test("Graph appearance keeps invalid numeric edits visible and leaves the last valid stylesheet intact", async ({
   desktop: d,
 }) => {
   await d.menu("graph.appearance");

@@ -6,6 +6,7 @@ import {
   expect,
   _electron as electron,
   type ElectronApplication,
+  type Locator,
   type Page,
 } from "@playwright/test";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
@@ -55,10 +56,35 @@ async function attach() {
     ).evaluate((w) => w.setFocusable(false));
   await expect(
     page
-      .locator(".graph-panel:visible")
-      .getByRole("checkbox", { name: "Show counts", exact: true })
+      .locator(".graph-panel:visible .graph-command-layer")
+      .getByRole("button", { name: "Display", exact: true })
       .first(),
   ).toBeVisible();
+}
+// The graph's display settings live in the Display flyout, a light-dismiss popover.
+const displayTrigger = (scope: Locator) =>
+  scope
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true });
+async function openDisplay(scope = page.locator(".graph-panel:visible")) {
+  const trigger = displayTrigger(scope);
+  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+    await trigger.click();
+  const flyout = scope.getByRole("dialog", {
+    name: "Display options",
+    exact: true,
+  });
+  await expect(flyout).toBeVisible();
+  return flyout;
+}
+// Closed before canvas screenshots, which would otherwise include the flyout.
+async function closeDisplay(scope = page.locator(".graph-panel:visible")) {
+  const trigger = displayTrigger(scope);
+  if ((await trigger.getAttribute("aria-expanded")) === "true")
+    await trigger.click();
+  await expect(
+    scope.getByRole("dialog", { name: "Display options", exact: true }),
+  ).toBeHidden();
 }
 test.beforeEach(async () => {
   errors.length = 0;
@@ -142,6 +168,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
     initial.graph.clusterCount,
     "the example graph opens as one cluster",
   ).toBe(1);
+  await openDisplay();
   await expect(colorClusters()).toBeVisible();
   await expect(colorClusters()).toBeDisabled();
   await reason(reasons.one);
@@ -160,10 +187,13 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   await expect(colorClusters()).toBeEnabled();
   await expect(colorClusters()).not.toBeChecked();
   const canvas = page.getByTestId("graph-canvas");
+  await closeDisplay();
   const before = await canvas.screenshot();
+  await openDisplay();
   await colorClusters().click();
   await expect.poll(async () => (await state()).graph.clusterColors).toBe(true);
   await expect(colorClusters()).toBeChecked();
+  await closeDisplay();
   const colored = (await state()).graph,
     { groups, links } = clusters(colored),
     number = new Map(colored.nodes.map((n) => [n.iri, n.cluster]));
@@ -179,6 +209,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
     .toBe(false);
   await page.screenshot({ path: "artifacts/testing/cluster-colors.png" });
 
+  await openDisplay();
   await colorClusters().focus();
   await page.keyboard.press("Control+z");
   await expect(colorClusters()).not.toBeChecked();
@@ -187,6 +218,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   expect((await state()).graph.nodes.map((n) => [n.iri, n.cluster])).toEqual(
     colored.nodes.map((n) => [n.iri, n.cluster]),
   );
+  await closeDisplay();
 
   // A leaf of a cluster of three or more leaves that cluster in one piece.
   const largest = groups.reduce((a, g) => (g.length > a.length ? g : a));
@@ -222,6 +254,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   // two clusters were drawn in two different colors.
   expect(await readFile(svg, "utf8")).toMatch(/#c68101|#ffa90e/i);
 
+  await openDisplay();
   await colorClusters().click();
   await expect
     .poll(async () => (await state()).graph.clusterColors)
@@ -244,6 +277,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
 
 test("Color clusters is saved with the workspace and restored on reopen", async () => {
   await split();
+  await openDisplay();
   await colorClusters().click();
   await expect.poll(async () => (await state()).graph.clusterColors).toBe(true);
   const file = path.join(profile, "Clusters.axiom");
@@ -261,5 +295,6 @@ test("Color clusters is saved with the workspace and restored on reopen", async 
   expect(restored.graphs!.graph.clusterColors).toBe(true);
   expect(restored.graph.clusterCount).toBeGreaterThan(1);
   await page.getByRole("tab", { name: "Graph", exact: true }).click();
+  await openDisplay();
   await expect(colorClusters()).toBeChecked();
 });

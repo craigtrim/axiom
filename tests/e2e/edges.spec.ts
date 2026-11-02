@@ -97,21 +97,41 @@ async function prepare() {
     return { a, b, c, predicate, key: JSON.stringify([a, predicate, b]) };
   });
   await menu("graph.fit");
-  await expect(
-    page
-      .getByRole("combobox", { name: "Select edge", exact: true })
-      .locator("option"),
-  ).toHaveCount(2);
+  // The edge picker lists the one shown relationship; Enter closes it.
+  const list = await edgePicker();
+  await expect(list.locator("option")).toHaveCount(1);
+  await list.press("Enter");
+  await expect(list).toBeHidden();
   return ids;
 }
+/** Select edge... in the graph row's More actions menu opens the edge picker. */
+async function edgePicker() {
+  const graph = page.locator('[data-panel="graph"]');
+  await graph
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  const item = graph.getByRole("menuitem", {
+    name: "Select edge...",
+    exact: true,
+  });
+  await expect(item).not.toHaveAttribute("aria-disabled", "true");
+  await item.click();
+  const list = graph
+    .getByRole("dialog", { name: "Select edge", exact: true })
+    .getByRole("listbox", { name: "Edges", exact: true });
+  await expect(list).toBeVisible();
+  return list;
+}
 const selectEdge = async (key: string) => {
-  await page
-    .getByRole("combobox", { name: "Select edge", exact: true })
-    .selectOption(key);
+  const list = await edgePicker();
+  await list.selectOption(key);
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
     "data-selected-edge",
     key,
   );
+  await list.press("Enter");
+  await expect(list).toBeHidden();
 };
 test("edges select on the line, edit endpoints and predicates, and delete independently of nodes", async () => {
   const ids = await prepare(),
@@ -307,11 +327,10 @@ test("context-menu reconnection works and Escape cancels a route drag", async ()
   await page
     .getByRole("menuitem", { name: "Reconnect target", exact: true })
     .click();
-  await expect(
-    page.getByText("Click the new target node. Escape cancels.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  // The reconnect prompt sits in the graph row's state slot.
+  await expect(page.locator(".graph-command-layer .state")).toHaveText(
+    "Click the new target node. Escape cancels.",
+  );
   // #165: Fit and pane layout persist their camera after rendering. Verify the
   // real hit target before clicking, rather than using a previous frame's coordinates.
   let destination = { x: 0, y: 0 };
