@@ -474,7 +474,7 @@ export function TaxonomyAssistant({
       >
         {!targetExists && (
           <p>
-            Right-click a class and choose Suggest &gt; Add Children to begin.
+            Right-click a class and choose Suggest &gt; Add children to begin.
             Earlier runs remain available in Run history.
           </p>
         )}

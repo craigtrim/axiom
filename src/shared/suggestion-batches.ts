@@ -2,10 +2,10 @@ import type { AssistantId } from "./assistant";
 import type { Entity } from "../domain/model";
 
 export const batchModes = {
-  children: "Add Children",
-  synonyms: "Find Synonyms",
-  parents: "Add Parents",
-  instances: "Find Instances",
+  children: "Add children",
+  synonyms: "Find synonyms",
+  parents: "Add parents",
+  instances: "Find instances",
 } as const;
 export type BatchMode = keyof typeof batchModes;
 export type BatchRunState =

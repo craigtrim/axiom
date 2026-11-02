@@ -68,7 +68,7 @@ export type SuggestionWorkbenchProps<T extends SuggestionItem> = {
 };
 const modeWording = {
   children: {
-    label: "Add Children",
+    label: "Add children",
     heading: "Add children to",
     table: "Suggested child classes",
     description: "Definition",
@@ -80,7 +80,7 @@ const modeWording = {
       "The assistant proposes immediate child classes for your review. Start a run when ready.",
   },
   parents: {
-    label: "Add Parents",
+    label: "Add parents",
     heading: "Add parents to",
     table: "Suggested parent classes",
     description: "Definition",
@@ -92,7 +92,7 @@ const modeWording = {
       "The assistant proposes existing parent classes using their meaning and hierarchy. Start a run when ready.",
   },
   synonyms: {
-    label: "Find Synonyms",
+    label: "Find synonyms",
     heading: "Find synonyms for",
     table: "Suggested synonyms",
     description: "Explanation",

@@ -47,12 +47,12 @@ export function SuggestionsPanel({ paneId }: { paneId: string }) {
     };
   }, []);
   const modes = [
-    { id: "children", name: "Add Children" },
-    { id: "parents", name: "Add Parents" },
-    { id: "synonyms", name: "Find Synonyms" },
+    { id: "children", name: "Add children" },
+    { id: "parents", name: "Add parents" },
+    { id: "synonyms", name: "Find synonyms" },
     ...definitions.map((d) => ({ id: "custom:" + d.id, name: d.name })),
-    { id: "instances", name: "Find Instances" },
-    { id: "define", name: "Define New" },
+    { id: "instances", name: "Find instances" },
+    { id: "define", name: "Define new" },
   ];
   const mode = target?.mode ?? "children",
     index = modes.findIndex((m) => m.id === mode);
@@ -681,7 +681,7 @@ function SavedSuggestionView({
             <option value="">New run</option>
             {runs.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.label} · {r.definition?.name ?? "Add Parents"} ·{" "}
+                {r.label} · {r.definition?.name ?? "Add parents"} ·{" "}
                 {new Date(r.startedAt).toLocaleString()} · {r.state}
                 {r.applied.length ? " · " + r.applied.length + " added" : ""}
               </option>
