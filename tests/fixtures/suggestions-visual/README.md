@@ -42,3 +42,5 @@ Additional browser tests cover selection across filters, resets and retained sor
 acknowledgement lifetime, keyboard and panel behavior, the view's own width tiers,
 shared recovery, cached controls and zoomed panel placement. Electron checks cover
 classic desktop scrollbars, both themes, detached windows, accessibility and zoom.
+
+Command consistency (1 November 2026): Suggestions mode names are in sentence case. `suggestions-visual.spec.ts` renames the reference's Add Children in memory, and `workbench.tsx` uses the app's mode names. The HTML on disk stays hash-pinned.

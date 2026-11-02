@@ -30,3 +30,5 @@ There are no image masks, app-generated expected images, or pixel-count allowanc
 The reference's actual narrow layout has horizontal overflow and clips long header state/action combinations at very small widths. Those are retained: #57 expressly makes the rendered reference authoritative over prose about appearance.
 
 Evidence is written under `D:\git\axiom\artifacts\issue-57`: paired `*-app.png` / `*-reference.png` and `*-layout.json`. There are no baseline updates to accept after a visual failure; fix the implementation or explain a proven capture issue.
+
+Command consistency (1 November 2026): the app keeps More in a narrow pane, since Reload has no other path there. `details-visual.spec.ts` deletes the reference's narrow `.phead .more { display: none; }` rule in memory. The HTML on disk stays hash-pinned.
