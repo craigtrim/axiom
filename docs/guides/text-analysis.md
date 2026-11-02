@@ -2,11 +2,11 @@
 
 Open **View > Text Analysis** and type or paste plain text. **Auto** is on by default and runs matching after a 60 ms typing pause. Turn it off to edit without running matching. The last settled highlights stay visible and move with the text. They turn gray when text or ontology changes make the results **out of date**. Press **Analyze now** to refresh them. Turning Auto back on analyzes outstanding edits immediately. The switch supports Space and Enter and retains its state across restarts (craigtrim/axiom#79).
 
-The 28 pixel action row contains Auto, the match count, the **Text | Summary** switch, **View in Graph** and **More actions**. Analyze now appears only with Auto off and is enabled when analysis is outstanding. Narrow panes move View in Graph into More actions first, then Text and Summary. The row is one tab stop; Left, Right, Home and End move between its controls. More actions contains **Add entity** and **Help**, with keyboard letters A and H. Overflowed Graph, Text and Summary use V, T and S. Escape or Tab closes the menu and restores focus to More actions.
+The 28 pixel action row contains Auto, the match count, the **Text | Summary** switch, **Show in graph** and **More actions**. Analyze now appears only with Auto off and is enabled when analysis is outstanding. Narrow panes move Show in graph into More actions first, then Text and Summary. The row is one tab stop; Left, Right, Home and End move between its controls. More actions contains **Add entity** and **Help**, with keyboard letters A and H. Overflowed Graph, Text and Summary use V, T and S. Escape or Tab closes the menu and restores focus to More actions.
 
 An empty editor displays instructions without adding them to the text. Help opens the same instructions in a dismissible sheet at the bottom of the editor. The sheet closes when the pane becomes shallow. Below the shared recovery limits, the pane retains its editor and offers **Maximize pane**.
 
-With Auto off, reopening Text Analysis, restarting Axiom, and editing or switching ontologies do not start matching. Analyze now, View in Graph, or choosing a retained match explicitly analyzes the current text. Text is saved after a typing pause and captured before closing the view or saving the workspace. Editing remains available during analysis, and results for an earlier edit cannot replace the current results.
+With Auto off, reopening Text Analysis, restarting Axiom, and editing or switching ontologies do not start matching. Analyze now, Show in graph, or choosing a retained match explicitly analyzes the current text. Text is saved after a typing pause and captured before closing the view or saving the workspace. Editing remains available during analysis, and results for an earlier edit cannot replace the current results.
 
 Matches use the currently open ontology, including unsaved changes already applied through Axiom's editors. Saving an RDF file is unnecessary. With Auto on, editing the ontology triggers a new analysis of the same text. The last settled highlights, match count and Summary legend stay visible until that analysis completes, then update together. Named graphs contribute their union of asserted statements to matching; the original dataset remains unchanged.
 
@@ -48,7 +48,7 @@ Findings appear above the form. Existing class names and aliases block creation 
 
 ## Viewing matches in the graph
 
-**View in Graph** opens a new graph containing every matched ontology entry and each direct parent path to its root. Repeated matches and shared ancestors appear once. All parent branches are retained when an entity has multiple parents. Existing graph views keep their contents. The graph includes the ancestor paths without expanding unrelated siblings or descendants.
+**Show in graph** opens a new graph containing every matched ontology entry and each direct parent path to its root. Repeated matches and shared ancestors appear once. All parent branches are retained when an entity has multiple parents. Existing graph views keep their contents. The graph includes the ancestor paths without expanding unrelated siblings or descendants.
 
 The action stays available with stale results in either mode. It shows **Analyzing first.**, analyzes the current text, then builds the graph from the fresh matches. Further text edits or ontology changes cancel a waiting action. If the complete ancestry exceeds the application's graph limit, the action reports that limit before creating a graph.
 

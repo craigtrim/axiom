@@ -1,6 +1,6 @@
 # Model cache
 
-Find Synonyms, Add Parents, Add Children and Find Instances reuse successful replies for the same entity, provider and exact prompt. Draft Add Parents requests also participate. Query generation and custom Define New actions remain uncached.
+Find synonyms, Add parents, Add children and Find instances reuse successful replies for the same entity, provider and exact prompt. Draft Add parents requests also participate. Query generation and custom Define new actions remain uncached.
 
 Each cache hit creates an ordinary new run-history record and passes through the normal parser and local validation. The review shows **Cached result**, its original completion date and the reported model, when available. **Run again** explicitly bypasses the cache. Changing providers causes a fresh call and replaces that entry. **Edit > Settings > Clear model cache** removes saved model replies.
 

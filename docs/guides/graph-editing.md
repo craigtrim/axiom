@@ -3,7 +3,7 @@
 
 ## Graph styles
 
-Open **Edit > Settings > Graph appearance** or use **Styles** in the graph toolbar for category colors, palettes, and bounded sizing rules. **Graph > Edit graph stylesheet** opens the Advanced section. See [Graph appearance](graph-appearance.md) for the Neo4j research, controls, and sizing definitions.
+Open **Edit > Settings > Graph appearance**, or **Graph appearance...** in the graph row's More actions menu, for category colors, palettes, and bounded sizing rules. **Graph > Graph stylesheet...** opens the Advanced section. See [Graph appearance](graph-appearance.md) for the Neo4j research, controls, and sizing definitions.
 
 ```css
 node.Class { fill: #4096d8; size: 32px; }
@@ -43,11 +43,11 @@ Graph gestures follow the selection behavior documented in the [yEd Edit Mode ma
 | With **Hand** on, drag any node | Move it, whether or not it is selected. |
 | With **Hand** on, drag anywhere else | Move the view, including a drag that starts on an edge. A click on an edge still selects it. |
 
-**Hand** in the graph toolbar switches drags from drawing edges to moving (craigtrim/axiom#189). While it is pressed the pointer is a hand, and clicks, double-clicks, menus and the wheel work as they do without it. Turning Hand on or off cancels an unfinished edge and a pending reconnect. Every graph view in a window shares one Hand setting, which starts off at each launch and is not saved.
+**Hand** in the graph's command row, or **Graph > Hand**, switches drags from drawing edges to moving (craigtrim/axiom#189). While it is pressed the pointer is a hand, and clicks, double-clicks, menus and the wheel work as they do without it. Turning Hand on or off cancels an unfinished edge and a pending reconnect. Every graph view in a window shares one Hand setting, which starts off at each launch and is not saved.
 
 Every node move keeps the grabbed point under the pointer. A dropped node stays where it lands while the force-directed layout settles, without setting Pin, until it is dragged again or a new layout, a Node spacing change, Expand or Collapse releases it.
 
-The graph toolbar stays available while drawing. A thin arrow follows the pointer and the target receives a small outline. Nodes pause during the gesture; the saved Freeze setting stays unchanged. Target hit areas are at least 48 pixels across at low zoom, and visible node labels also accept drops. Graph seed membership has no selection outline.
+The graph's command row stays available while drawing. A thin arrow follows the pointer and the target receives a small outline. Nodes pause during the gesture; the saved Freeze setting stays unchanged. Target hit areas are at least 48 pixels across at low zoom, and visible node labels also accept drops. Graph seed membership has no selection outline.
 
 Axiom supplies ontology meaning when an edge attaches: class to class creates subclass-of; individual to class creates instance-of; properties of the same kind create subproperty-of. The arrow runs from the child or instance to its parent or type. Other pairs stay attached as a preview while a small property picker asks for the relationship. Details can edit the relationship after creation.
 
@@ -57,7 +57,7 @@ Creation and any drawn bends form one Undo operation. Redo and workspace files r
 
 ## Edge editing
 
-Click a line to select it, or use the Select edge list in the graph toolbar. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens Details for the selected edge. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.
+Click a line to select it, or choose **Select edge...** in the graph row's More actions menu (also **Graph > Edges**) to pick one by name from a filterable list. Arrow keys move through nodes and edges; E and Shift+E cycle through edges. Enter opens Details for the selected edge. Shift+F10 opens the selected edge's context menu. These controls also work in detached graph panes.
 
 The same Details tab follows either a node or an edge selection. Selecting an edge updates an open tab without opening or focusing a closed or background tab. View > Details, the graph Details action, the edge context menu and Alt+Enter explicitly open it.
 
@@ -75,18 +75,18 @@ Summarized OWL axioms and generated sample relationships can be selected and rer
 
 Double-click a branch to expand or collapse that branch. It keeps the graph membership unchanged. Right-click any taxonomy row, or focus it and press Shift+F10, for its context menu. The menu offers graph navigation, branch expansion, pins, creation, rename, deletion, copying the IRI and finding touchpoints as applicable to the entity. Disabled actions retain their place in the menu.
 
-**Suggest > Add Children** uses the selected local assistant on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. Hierarchy's **Find > Instances** uses a distinct prompt for named individuals. Both actions open the Suggestions view for review and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
+**Suggest > Add children** uses the selected local assistant on PATH to propose immediate subclasses grounded in the selected class's ancestry and descendants. Hierarchy's **Find > Instances** uses a distinct prompt for named individuals. Both actions open the Suggestions view for review and permit an empty result. See [Taxonomy suggestions](taxonomy-suggestions.md) for context, insertion and test details.
 
 ## Layout choices
 
-The graph toolbar, Graph menu and command palette expose the same choices.
+The layout list in the graph's command row, **Graph > Layout** and the command palette expose the same choices.
 
 | Choice | Intended use |
 | --- | --- |
 | Auto layout | Select an existing layout based on the visible graph. |
 | Force-directed | Explore relationships with spring attraction and repulsion. |
 | Hierarchy | Arrange superclass and type relationships by rank. |
-| Radial | Inspect neighbours around a focus. |
+| Radial | Inspect neighbors around a focus. |
 | Cluster grid | Compare groups of visible entities. |
 | Circular | Place visible nodes around a circle in label order. |
 | ELK layered (Sugiyama) | Arrange directed graphs in layers and reduce crossings. |
@@ -97,9 +97,9 @@ The added algorithms use elkjs 0.12.0. ELK documents its [layered method](https:
 
 ELK runs in a separate worker. Cancellation terminates that worker, and a 30-second timeout prevents a layout from running indefinitely. Only currently visible nodes participate. Pinned nodes keep their coordinates when results are applied; this can constrain the appearance of an otherwise automatic layout. Axiom uses the calculated node positions with its own edge renderer.
 
-The graph footer also has a **Node spacing** slider (50% to 300%). It changes distances within clusters for every layout without resizing nodes or changing zoom. Each graph tab remembers its own spacing, including after restart. Pinned nodes stay fixed, and each slider drag is one Undo operation.
+**Display** in the graph's command row opens Display options, which has a **Node spacing** slider (50% to 300%). It changes distances within clusters for every layout without resizing nodes or changing zoom. Each graph tab remembers its own spacing, including after restart. Pinned nodes stay fixed, and each slider drag is one Undo operation.
 
-The hard visible-node limit remains an exact, configurable integer from 100 to 15,000, starting at 1,000. The layout choice never raises the limit. Reduce the limit when labels and relationships become difficult to read.
+The hard visible-node limit, also in Display options, remains an exact, configurable integer from 100 to 15,000, starting at 1,000. The status bar's node count opens the same flyout. The layout choice never raises the limit. Reduce the limit when labels and relationships become difficult to read.
 
 ## Undo and Redo
 
@@ -111,7 +111,7 @@ History is session-local and resets when opening a different workspace. It retai
 
 ## Find Touchpoints
 
-Use **Find > Touchpoints** in a node menu, the Inspector or graph toolbar, or **View > Touchpoints**. Search English Wikipedia, review candidate resources and apply the chosen relationships as one undoable batch. See [Find Touchpoints](touchpoints.md) for search, predicates and cache controls.
+Use **Find > Touchpoints** in a node menu, the Inspector, **Edit > Find touchpoints**, or **View > Touchpoints**. Search English Wikipedia, review candidate resources and apply the chosen relationships as one undoable batch. See [Find Touchpoints](touchpoints.md) for search, predicates and cache controls.
 
 ## Widescreen arrangement
 
@@ -125,7 +125,7 @@ Dragging a divider or moving a pane makes the arrangement custom so subsequent w
 
 **Show in graph > Current graph** targets the active or last active graph. **New graph** opens an independent graph tab. Each view keeps its nodes, positions, routes, layout and camera; styles remain shared. Workspace files retain the graph views, and Undo restores graph state alongside ontology changes.
 
-**Find in taxonomy** is available in the graph node menu and selection toolbar. It reveals the Hierarchy pane, clears a hiding filter, expands ancestors and scrolls to the selected row. Keyboard focus stays on Graph.
+**Show in Hierarchy** is available in the graph node menu and as **Edit > Show in Hierarchy**. It reveals the Hierarchy pane, clears a hiding filter, expands ancestors and scrolls to the selected row. Keyboard focus stays on Graph.
 
 ### Details grid and entity source
 

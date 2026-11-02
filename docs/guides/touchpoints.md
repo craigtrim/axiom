@@ -12,7 +12,7 @@ When the local MPNet model is available, Axiom uses the entity's label, parents 
 
 Select the rows to add and review their relationship and target. A matching label, alias or redirect suggests `skos:exactMatch`; other candidates start with `skos:closeMatch`. You can also choose `skos:broadMatch`, `skos:narrowMatch`, `skos:relatedMatch` or `rdfs:seeAlso`. Individuals additionally offer `owl:sameAs`.
 
-DBpedia is the default target. Wikidata is available when Wikipedia reports an item ID. Wikipedia is also available and becomes the default target for `rdfs:seeAlso`. Every touchpoint is a resource statement. Text synonyms continue to use the separate Find Synonyms action.
+DBpedia is the default target. Wikidata is available when Wikipedia reports an item ID. Wikipedia is also available and becomes the default target for `rdfs:seeAlso`. Every touchpoint is a resource statement. Text synonyms continue to use the separate Find synonyms action.
 
 Disambiguation pages cannot be selected. A candidate already linked through its Wikipedia, DBpedia or Wikidata identity is marked **Linked**. Both resource objects and `xsd:anyURI` literals count as links. Linked rows remain selectable so you can add a different relationship or target. An exact duplicate resource statement rejects the whole batch and names the row. **Apply selected touchpoints** adds the reviewed statements as one Undo operation. If the ontology changes after a search, search again before applying. Validation rejects the whole batch if any selected statement is unavailable or invalid, keeping your choices. A successful apply allows another batch without searching again.
 
