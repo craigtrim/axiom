@@ -231,11 +231,12 @@ test("Details shows compact statements and preserves language, datatype, and edi
     .toBe(4);
   await page.screenshot({ path: "artifacts/testing/ux-compact-details.png" });
 });
+// The title stays as scripts/hybrid-test-policy.mjs lists it; the command is now Show in Hierarchy.
 test("Find in taxonomy clears filters, reveals the row, and retains graph focus", async () => {
   await (await hierarchyFilter(page)).fill("no matches");
-  await graph()
-    .getByRole("button", { name: "Find in taxonomy", exact: true })
-    .click();
+  // The selection bar's button is gone; Edit > Show in Hierarchy acts on the selected node.
+  await graph().getByTestId("graph-canvas").focus();
+  await menu("entity.reveal");
   await expect(
     page.getByRole("textbox", {
       name: "Filter hierarchy",
@@ -248,7 +249,7 @@ test("Find in taxonomy clears filters, reveals the row, and retains graph focus"
   await expect(graph().getByTestId("graph-canvas")).toBeFocused();
   const m = await nodeMenu(target);
   await m
-    .getByRole("menuitem", { name: "Find in taxonomy", exact: true })
+    .getByRole("menuitem", { name: "Show in Hierarchy", exact: true })
     .click();
   await expect(graph().getByTestId("graph-canvas")).toBeFocused();
 });
@@ -447,7 +448,7 @@ async function parentReview() {
   await m.getByRole("menuitem", { name: "Suggest", exact: true }).click();
   await page
     .getByRole("menu", { name: "Suggest", exact: true })
-    .getByRole("menuitem", { name: "Add Parents", exact: true })
+    .getByRole("menuitem", { name: "Add parents", exact: true })
     .click();
   await expect(
     view.getByRole("checkbox", { name: /^Select (Ultrafast|Laser)/ }),
@@ -521,7 +522,7 @@ test("graph node menu uses the requested groups and toggles Expand and Collapse"
     "Hide",
     "Rename",
     "Details",
-    "Find in taxonomy",
+    "Show in Hierarchy",
     "New instance",
     "Show instances (0)",
     "---",

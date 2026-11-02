@@ -218,7 +218,7 @@ for (const surface of ["hierarchy", "graph"] as const) {
       ).toHaveCount(isClass ? 1 : 0);
       await expect(
         menu.getByRole("menuitem", {
-          name: /^(Research|Analyze sparsity|Find instances|Find Synonyms|Find similar)/,
+          name: /^(Research|Analyze sparsity|Find instances|Find synonyms|Find similar)/,
         }),
       ).toHaveCount(0);
       if (isClass) {
@@ -270,11 +270,11 @@ for (const surface of ["hierarchy", "graph"] as const) {
       ).toBeFocused();
       const suggest = await child(menu, "g", "Suggest");
       await expect(suggest.getByRole("menuitem")).toHaveText([
-        "Add Children",
-        "Add Parents",
-        "Define New",
+        "Add children",
+        "Add parents",
+        "Define new",
       ]);
-      for (const name of ["Add Children", "Add Parents"]) {
+      for (const name of ["Add children", "Add parents"]) {
         if (isClass)
           await expect(
             suggest.getByRole("menuitem", { name, exact: true }),
@@ -351,7 +351,8 @@ test("graph Find no longer conflicts with Rename, and taxonomy navigation retain
   await expect(page.locator(".inline-rename")).toBeVisible();
   await page.keyboard.press("Escape");
   menu = await open("graph", base + "Root");
-  await menu.press("x");
+  // Show in Hierarchy (formerly Find in taxonomy) uses Y.
+  await menu.press("y");
   await expect(
     page.locator('.tree-row[data-entity-iri="' + base + 'Root"]'),
   ).toBeVisible();

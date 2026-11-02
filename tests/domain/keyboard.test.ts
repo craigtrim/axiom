@@ -27,13 +27,14 @@ describe("keyboard conventions and settings", () => {
       expect(accessEntries.filter((e) => e.id === c.id)).toHaveLength(1);
       expect(accessPath(c.id)).toMatch(/^Alt+[+]?[A-Z0-9]/);
     }
+    // Tools follows the application's own menus, as Windows places it.
     expect(menuTree.map((m) => m.key)).toEqual([
       "F",
       "E",
       "V",
-      "T",
       "G",
       "Q",
+      "T",
       "W",
       "H",
     ]);

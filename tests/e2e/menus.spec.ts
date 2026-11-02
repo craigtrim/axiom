@@ -274,6 +274,8 @@ journey(
       page.locator('[data-panel="individuals"] tbody tr[data-iri]').first(),
     ).toContainText("Alice");
     await expect.poll(() => enabled("entity.delete")).toBe(false);
+    // The node limit lives in Display options, which Graph > Display options opens.
+    await menu("graph.display");
     const limit = page.getByRole("spinbutton", {
       name: "Visible node limit",
       exact: true,
@@ -317,6 +319,8 @@ journey(
     await openFrom(second);
     await menu("file.open");
     await expect.poll(async () => (await state()).classCount).toBe(3);
+    // Opening the file closed Display options; open it again to read the limit.
+    await menu("graph.display");
     await expect(limit).toHaveValue("357");
     await expect
       .poll(() =>
@@ -529,8 +533,12 @@ journey(
     for (const mode of ["auto", "force", "hierarchy", "radial", "grid"]) {
       await menu("graph.layout." + mode);
       await expect.poll(async () => (await state()).graph.choice).toBe(mode);
+      // The command row may overflow the layout choice into More actions; it still follows.
       await expect(
-        page.getByRole("combobox", { name: "Graph layout" }),
+        page.getByRole("combobox", {
+          name: "Graph layout",
+          includeHidden: true,
+        }),
       ).toHaveValue(mode);
     }
     await menu("graph.freeze");
@@ -898,8 +906,9 @@ test("graph commands operate in a detached window and reopen a closed graph", as
   await expect(child.getByTestId("graph-canvas")).toBeVisible();
   await menu("graph.layout.grid");
   await expect.poll(async () => (await state()).graph.choice).toBe("grid");
+  // A narrow detached row may overflow the layout choice into More actions.
   await expect(
-    child.getByRole("combobox", { name: "Graph layout" }),
+    child.getByRole("combobox", { name: "Graph layout", includeHidden: true }),
   ).toHaveValue("grid");
   await menu("graph.clear");
   await expect(
@@ -1856,8 +1865,9 @@ journey(
 
 journey(
   "Query menus format text and open the agent composer",
-  ["query.format", "query.generate"],
+  ["query.new", "query.format", "query.generate"],
   async () => {
+    const history = () => page.evaluate(() => window.axiom.queryHistory.load());
     await queryText("select ?s where { ?s ?p ?o . } limit 3");
     await menu("query.format");
     await expect
@@ -1872,6 +1882,12 @@ journey(
     await expect(
       page.getByRole("region", { name: "Compose a SPARQL query" }),
     ).toBeVisible();
+    // New query opens an empty document and keeps the previous one in history.
+    const first = (await history()).activeId;
+    await menu("query.new");
+    await expect.poll(async () => (await history()).activeId).not.toBe(first);
+    await expect.poll(async () => (await history()).current.text).toBe("");
+    expect((await history()).entries.some((e) => e.id === first)).toBe(true);
   },
 );
 
@@ -1891,5 +1907,169 @@ journey(
       "527 direct instances",
     );
     expect((await state()).graph.nodes.map((n) => n.iri)).toEqual(before);
+  },
+);
+
+// The Graph menu reaches every setting the command row and Display flyout hold.
+journey(
+  "Graph menus switch display settings, Hand and eviction, open Display options and the edge picker, and expand to the limit",
+  [
+    "graph.hand",
+    "graph.showEdges",
+    "graph.showLabels",
+    "graph.showCounts",
+    "graph.clusterColors",
+    "graph.eviction.degree",
+    "graph.eviction.lru",
+    "graph.eviction.refuse",
+    "graph.display",
+    "graph.selectEdge",
+    "graph.expandToLimit",
+  ],
+  async () => {
+    const checked = (id: string) =>
+      app.evaluate(
+        ({ Menu }, id) =>
+          Menu.getApplicationMenu()!.getMenuItemById(id)?.checked,
+        id,
+      );
+    const graph = page.locator('[data-panel="graph"]');
+    const hand = graph.locator(".graph-hand");
+    await menu("graph.hand");
+    await expect(hand).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => checked("graph.hand")).toBe(true);
+    await menu("graph.hand");
+    await expect(hand).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => checked("graph.hand")).toBe(false);
+    for (const [id, field] of [
+      ["graph.showEdges", "edgesVisible"],
+      ["graph.showLabels", "labelsVisible"],
+      ["graph.showCounts", "countsVisible"],
+    ] as const) {
+      await expect.poll(() => checked(id)).toBe(true);
+      await menu(id);
+      await expect.poll(async () => (await state()).graph[field]).toBe(false);
+      await expect.poll(() => checked(id)).toBe(false);
+      await menu(id);
+      await expect
+        .poll(async () => (await state()).graph[field])
+        .not.toBe(false);
+      await expect.poll(() => checked(id)).toBe(true);
+    }
+    for (const mode of ["lru", "refuse", "degree"]) {
+      await menu("graph.eviction." + mode);
+      await expect
+        .poll(async () => (await state()).graph.evictionMode)
+        .toBe(mode);
+      await expect.poll(() => checked("graph.eviction." + mode)).toBe(true);
+    }
+    // Display options opens the flyout, which shows what the menu set.
+    await menu("graph.display");
+    const display = page.getByRole("dialog", {
+      name: "Display options",
+      exact: true,
+    });
+    await expect(display).toBeVisible();
+    await expect(
+      graph.getByRole("button", { name: "Display", exact: true }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      display.getByRole("combobox", { name: "Eviction policy", exact: true }),
+    ).toHaveValue("degree");
+    for (const name of ["Show edges", "Show labels", "Show counts"])
+      await expect(
+        display.getByRole("checkbox", { name, exact: true }),
+      ).toBeChecked();
+    await page.keyboard.press("Escape");
+    await expect(display).toBeHidden();
+    // Hiding a node that joins two groups gives Color clusters two clusters.
+    const clusterCount = (g: Snapshot["graph"], skip: string) => {
+      const iris = g.nodes.map((n) => n.iri).filter((iri) => iri !== skip);
+      const root = new Map(iris.map((iri) => [iri, iri]));
+      const find = (iri: string): string =>
+        root.get(iri) === iri ? iri : find(root.get(iri)!);
+      for (const e of g.edges)
+        if (root.has(e.source) && root.has(e.target))
+          root.set(find(e.source), find(e.target));
+      const sizes = new Map<string, number>();
+      for (const iri of iris)
+        sizes.set(find(iri), (sizes.get(find(iri)) ?? 0) + 1);
+      return [...sizes.values()].filter((size) => size > 1).length;
+    };
+    const example = (await state()).graph;
+    const cut = example.nodes.find((n) => clusterCount(example, n.iri) > 1);
+    expect(cut, "the example graph has a node that splits it").toBeTruthy();
+    await request("remove", { iri: cut!.iri });
+    await expect
+      .poll(async () => (await state()).graph.clusterCount)
+      .toBeGreaterThan(1);
+    await menu("graph.clusterColors");
+    await expect
+      .poll(async () => (await state()).graph.clusterColors)
+      .toBe(true);
+    await expect.poll(() => checked("graph.clusterColors")).toBe(true);
+    await menu("graph.clusterColors");
+    await expect
+      .poll(async () => (await state()).graph.clusterColors)
+      .not.toBe(true);
+    // Select edge... opens the picker, which selects a relationship by name.
+    await menu("graph.selectEdge");
+    const picker = page.getByRole("dialog", {
+      name: "Select edge",
+      exact: true,
+    });
+    await expect(picker).toBeVisible();
+    await expect(
+      picker.getByRole("searchbox", { name: "Filter edges", exact: true }),
+    ).toBeFocused();
+    const list = picker.getByRole("listbox", { name: "Edges", exact: true });
+    const key = (await list.locator("option").first().getAttribute("value"))!;
+    await list.selectOption(key);
+    await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
+    await list.press("Enter");
+    await expect(picker).toBeHidden();
+    const center = NS.pizza + "PizzaTopping";
+    await request("seed", { iris: [center], expand: false });
+    await expect.poll(async () => (await state()).graph.nodes.length).toBe(1);
+    await menu("graph.expandToLimit");
+    await expect
+      .poll(async () => (await state()).graph.nodes.length)
+      .toBeGreaterThan(1);
+    const s = await state();
+    expect(s.graph.nodes.some((n) => n.iri === center)).toBe(true);
+    expect(s.graph.nodes.length).toBeLessThanOrEqual(s.graph.budget);
+  },
+);
+
+// These three were reachable only from context menus before the Edit menu named them.
+journey(
+  "Edit reveals the selection in Hierarchy, adds its neighbors to the graph and copies its IRI",
+  ["entity.reveal", "entity.addNeighbours", "entity.copyIri"],
+  async () => {
+    const iri = NS.pizza + "NutTopping",
+      pizza = NS.pizza + "Pizza";
+    await request("seed", { iris: [pizza], expand: false });
+    await request("select", { iri });
+    await menu("entity.reveal");
+    await expect(
+      page.locator('.tree-row[data-entity-iri="' + iri + '"]'),
+    ).toBeVisible();
+    await menu("entity.addNeighbours");
+    await expect
+      .poll(async () => (await state()).graph.nodes.map((n) => n.iri))
+      .toEqual(expect.arrayContaining([pizza, iri]));
+    expect((await state()).graph.nodes.length).toBeGreaterThan(2);
+    const saved = await app.evaluate(({ clipboard }) => clipboard.readText());
+    try {
+      await menu("entity.copyIri");
+      await expect
+        .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .toBe(iri);
+    } finally {
+      await app.evaluate(
+        ({ clipboard }, text) => clipboard.writeText(text),
+        saved,
+      );
+    }
   },
 );
