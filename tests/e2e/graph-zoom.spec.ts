@@ -53,10 +53,11 @@ async function attach() {
     await (
       await app.browserWindow(page)
     ).evaluate((w) => w.setFocusable(false));
+  // The graph's command row is drawn once the pane is ready.
   await expect(
     page
-      .locator(".graph-panel:visible")
-      .getByRole("checkbox", { name: "Show edges", exact: true })
+      .locator(".graph-panel:visible .graph-command-layer")
+      .getByRole("button", { name: "Display", exact: true })
       .first(),
   ).toBeVisible();
 }

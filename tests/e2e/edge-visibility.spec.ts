@@ -6,6 +6,7 @@ import {
   expect,
   _electron as electron,
   type ElectronApplication,
+  type Locator,
   type Page,
 } from "@playwright/test";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
@@ -53,12 +54,46 @@ async function attach() {
     await (
       await app.browserWindow(page)
     ).evaluate((w) => w.setFocusable(false));
+  await expect(displayTrigger(graphPane())).toBeVisible();
+}
+const graphPane = () => page.locator(".graph-panel:visible").first();
+// The graph's display settings live in the Display flyout, a light-dismiss popover.
+const displayTrigger = (scope: Locator) =>
+  scope
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true });
+async function openDisplay(scope = graphPane()) {
+  const trigger = displayTrigger(scope);
+  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+    await trigger.click();
+  const flyout = scope.getByRole("dialog", {
+    name: "Display options",
+    exact: true,
+  });
+  await expect(flyout).toBeVisible();
+  return flyout;
+}
+// Closed before canvas clicks and screenshots, which the flyout would cover.
+async function closeDisplay(scope = graphPane()) {
+  const trigger = displayTrigger(scope);
+  if ((await trigger.getAttribute("aria-expanded")) === "true")
+    await trigger.click();
   await expect(
-    page
-      .locator(".graph-panel:visible")
-      .getByRole("checkbox", { name: "Show edges", exact: true })
-      .first(),
-  ).toBeVisible();
+    scope.getByRole("dialog", { name: "Display options", exact: true }),
+  ).toBeHidden();
+}
+// Choosing an edge by name is More actions > Select edge..., left open for the caller.
+async function selectEdgeItem(scope = graphPane()) {
+  await scope
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  const item = scope.getByRole("menuitem", {
+    name: "Select edge...",
+    exact: true,
+  });
+  await expect(item).toBeVisible();
+  return item;
 }
 test.beforeEach(async () => {
   errors.length = 0;
@@ -156,6 +191,7 @@ async function viewportExport(name: string, allLabels: boolean) {
   };
 }
 test("Show edges affects only visibility, removes hidden targets, supports Undo and exports the visible view", async () => {
+  await openDisplay();
   await expect(checkbox()).toBeChecked();
   await request("freeze");
   await request("layout", { mode: "circle" });
@@ -167,22 +203,25 @@ test("Show edges affects only visibility, removes hidden targets, supports Undo 
     key: JSON.stringify([edge.source, edge.predicate, edge.target]),
   });
   const canvas = page.getByTestId("graph-canvas");
+  await closeDisplay();
   const before = await canvas.screenshot();
+  await openDisplay();
   // State returns asynchronously from the domain worker; click once, then
   // await the observable result instead of requiring a synchronous toggle.
   await checkbox().click();
   await expect(checkbox()).not.toBeChecked();
   await expect.poll(async () => (await state()).graph.edgesVisible).toBe(false);
   await expect(canvas).toHaveAttribute("data-selected-edge", "");
-  await expect(
-    page.getByRole("combobox", { name: "Select edge", exact: true }),
-  ).toBeDisabled();
+  // With edges hidden there is no relationship to pick by name.
+  await expect(await selectEdgeItem()).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
   await expect(canvas.locator('[id^="graph-edge-option-"]')).toHaveCount(0);
   expect(shape(await state())).toEqual(shape(initial));
   await canvas.focus();
   await page.keyboard.press("e");
   expect((await state()).graph.selectedEdge).toBeNull();
-  await checkbox().focus();
+  // Focus leaves the canvas, as it was for the first screenshot.
+  await displayTrigger(graphPane()).focus();
   await page.waitForTimeout(150);
   expect((await canvas.screenshot()).equals(before)).toBe(false);
   await page.screenshot({ path: "artifacts/testing/hidden-edges.png" });
@@ -205,6 +244,7 @@ test("Show edges affects only visibility, removes hidden targets, supports Undo 
     })
     .toContain("relationships (hidden)");
   expect(await readFile(svg, "utf8")).not.toContain("#ed1278");
+  await openDisplay();
   await checkbox().focus();
   await page.keyboard.press("Control+z");
   await expect(checkbox()).toBeChecked();
@@ -212,9 +252,11 @@ test("Show edges affects only visibility, removes hidden targets, supports Undo 
   await expect(checkbox()).not.toBeChecked();
   await checkbox().click();
   await expect(checkbox()).toBeChecked();
-  await expect(
-    page.getByRole("combobox", { name: "Select edge", exact: true }),
-  ).toBeEnabled();
+  await expect(await selectEdgeItem()).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.keyboard.press("Escape");
   expect(shape(await state())).toEqual(shape(initial));
 });
 test("each graph remembers edge, label and count visibility in a saved workspace and restored session", async () => {
@@ -223,6 +265,7 @@ test("each graph remembers edge, label and count visibility in a saved workspace
       .locator(".graph-panel:visible")
       .getByRole("checkbox", { name: "Show counts", exact: true })
       .first();
+  await openDisplay();
   await expect(counts()).toBeChecked();
   await counts().click();
   await expect(counts()).not.toBeChecked();
@@ -250,9 +293,13 @@ test("each graph remembers edge, label and count visibility in a saved workspace
     .poll(async () => (await state()).activeGraphId)
     .not.toBe("graph");
   const id = (await state()).activeGraphId!;
-  const second = page
-    .locator('[data-graph-id="' + id + '"]')
-    .getByRole("checkbox", { name: "Show edges", exact: true });
+  const secondPane = page.locator('[data-graph-id="' + id + '"]');
+  const second = secondPane.getByRole("checkbox", {
+    name: "Show edges",
+    exact: true,
+  });
+  // The new graph has its own Display flyout.
+  await openDisplay(secondPane);
   await expect(second).toBeChecked();
   await expect(counts()).toBeChecked();
   await expect(labels()).toBeChecked();
@@ -282,6 +329,7 @@ test("each graph remembers edge, label and count visibility in a saved workspace
   expect(restored.graphs!.graph.labelsVisible).toBe(false);
   expect(restored.graphs![id].labelsVisible).toBe(true);
   await page.getByRole("tab", { name: "Graph", exact: true }).click();
+  await openDisplay();
   await expect(checkbox()).not.toBeChecked();
   await expect(counts()).not.toBeChecked();
   await expect(labels()).not.toBeChecked();
@@ -292,6 +340,7 @@ test("Show counts hides badges without moving nodes or hiding edges and supports
     .locator(".graph-panel:visible")
     .getByRole("checkbox", { name: "Show counts", exact: true })
     .first();
+  await openDisplay();
   await expect(counts).toBeChecked();
   await request("freeze");
   await request("layout", { mode: "circle" });
@@ -300,13 +349,16 @@ test("Show counts hides badges without moving nodes or hiding edges and supports
   const initial = await state();
   expect(initial.graph.nodes.some((n) => n.degree > n.shownDegree)).toBe(true);
   const canvas = page.getByTestId("graph-canvas");
+  await closeDisplay();
   const before = await canvas.screenshot();
+  await openDisplay();
   await counts.click();
   await expect
     .poll(async () => (await state()).graph.countsVisible)
     .toBe(false);
   await expect(checkbox()).toBeChecked();
   expect(shape(await state())).toEqual(shape(initial));
+  await closeDisplay();
   await expect
     .poll(async () => (await canvas.screenshot()).equals(before))
     .toBe(false);
@@ -330,6 +382,7 @@ test("Show counts hides badges without moving nodes or hiding edges and supports
     })
     .toContain("#ed1278");
   expect(await readFile(svg, "utf8")).not.toMatch(/>\+\d[^<]*</);
+  await openDisplay();
   await counts.focus();
   await page.keyboard.press("Control+z");
   await expect(counts).toBeChecked();
@@ -341,7 +394,9 @@ test("Show counts hides badges without moving nodes or hiding edges and supports
 });
 
 test("Show labels hides every node name and its click target without moving nodes, keeps edges and badges, and supports Undo", async () => {
+  await openDisplay();
   await expect(labels()).toBeChecked();
+  await closeDisplay();
   await request("freeze");
   await request("layout", { mode: "circle" });
   // Unstyled radii, so a node's name starts where the test expects it.
@@ -399,11 +454,13 @@ test("Show labels hides every node name and its click target without moving node
   await canvas.click({ position: spot(node) });
   await expect.poll(async () => (await state()).selected).toBe(node.iri);
   await request("select", { iri: null });
+  await openDisplay();
   await labels().click();
   await expect
     .poll(async () => (await state()).graph.labelsVisible)
     .toBe(false);
   expect(shape(await state())).toEqual(shape(initial));
+  await closeDisplay();
   for (const [name, allLabels] of [
     ["labels-hidden", false],
     ["labels-hidden-all", true],
@@ -419,6 +476,7 @@ test("Show labels hides every node name and its click target without moving node
   await canvas.click({ position: spot(node) });
   // The click sends its selection on pointer up, ahead of this state request.
   expect((await state()).selected).toBeNull();
+  await openDisplay();
   await labels().focus();
   await page.keyboard.press("Control+z");
   await expect(labels()).toBeChecked();

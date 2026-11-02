@@ -283,6 +283,17 @@ const hand = (id = "graph") =>
   page
     .locator('[data-graph-id="' + id + '"]')
     .getByRole("button", { name: "Hand", exact: true, includeHidden: true });
+// A narrow graph row moves Hand into More actions, where it is a checkbox item.
+async function toggleHand(id = "graph") {
+  if (await hand(id).evaluate((el) => !el.closest('[data-overflowed="true"]')))
+    return hand(id).click();
+  const view = page.locator('[data-graph-id="' + id + '"]');
+  await view
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await view.getByRole("menuitemcheckbox", { name: /^(✓ )?Hand$/ }).click();
+}
 const nodeAt = async (iri: string) => {
   const n = (await state()).graph.nodes.find((n) => n.iri === iri)!;
   return { x: n.x, y: n.y };
@@ -299,14 +310,11 @@ const onEdge = async (source: string, target: string) => {
 test("Hand moves any node from the grabbed point and drags empty canvas to move the view", async () => {
   const ids = await prepare(),
     before = await state(),
-    canvas = page.getByTestId("graph-canvas"),
-    hint = page.locator(".graph-selection");
+    canvas = page.getByTestId("graph-canvas");
   await expect(hand()).toHaveAttribute("aria-pressed", "false");
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
-  await expect(hint).toHaveText(
-    "Drag a node to move it. Drag anywhere else to move the view.",
-  );
+  // The visible idle hint is gone; the canvas label still describes the gestures.
   await expect(canvas).toHaveAttribute(
     "aria-label",
     /nodes\. Hand tool on: drag a node to move it; drag anywhere else to move the view\. Arrows/,
@@ -318,7 +326,7 @@ test("Hand moves any node from the grabbed point and drags empty canvas to move 
   await expect(canvas).toHaveCSS("cursor", "grab");
   await expect
     .poll(() => canvas.getAttribute("title"))
-    .toMatch(/· \d+ neighbours\. Drag to move\.$/);
+    .toMatch(/· \d+ neighbors\. Drag to move\.$/);
   await page.mouse.down();
   await page.mouse.move(grab.x + 60, grab.y + 30, { steps: 8 });
   await expect(canvas).toHaveCSS("cursor", "grabbing");
@@ -356,10 +364,11 @@ test("Hand moves any node from the grabbed point and drags empty canvas to move 
     .poll(async () => (await camera()).x)
     .toBeCloseTo(start.x + 50, 1);
   expect((await camera()).y).toBeCloseTo(start.y + 20, 1);
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "false");
-  await expect(hint).toHaveText(
-    "Click a node to select it for moving. Drag from an unselected node to connect.",
+  await expect(canvas).toHaveAttribute(
+    "aria-label",
+    /nodes\. Click a node before dragging to move it; drag from an unselected node to connect\. Arrows/,
   );
   await gesture(ids.a, ids.b);
   await expect(preview()).toHaveAttribute("data-source-iri", ids.a);
@@ -378,7 +387,7 @@ test("Hand drags from an edge to move the view, clicks select the edge, and swit
   await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
   await deselect();
   expect((await state()).graph.selectedEdge).toBeNull();
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
   const line = await onEdge(ids.a, ids.b),
     start = await camera();
@@ -395,7 +404,7 @@ test("Hand drags from an edge to move the view, clicks select the edge, and swit
   await page.mouse.click(click.x, click.y);
   await expect.poll(async () => (await state()).graph.selectedEdge).toBe(key);
   await deselect();
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "false");
   const c = await at(ids.c),
     box = (await canvas.boundingBox())!;
@@ -405,7 +414,7 @@ test("Hand drags from an edge to move the view, clicks select the edge, and swit
   await page.mouse.up();
   await expect(preview()).toBeVisible();
   const triples = (await state()).tripleCount;
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
   await expect(preview()).toHaveCount(0);
   await clickNode(ids.a);
@@ -415,7 +424,7 @@ test("Hand drags from an edge to move the view, clicks select the edge, and swit
 
 test("Hand is one setting across graph views and survives a pane layout reset", async () => {
   const ids = await prepare();
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
   await menu("layout.reset");
   await expect(hand()).toBeVisible();
@@ -438,14 +447,14 @@ test("Hand is one setting across graph views and survives a pane layout reset", 
     .not.toBe("graph");
   const id = (await state()).activeGraphId!;
   await expect(hand(id)).toHaveAttribute("aria-pressed", "true");
-  await hand(id).click();
+  await toggleHand(id);
   await expect(hand(id)).toHaveAttribute("aria-pressed", "false");
   await expect(hand()).toHaveAttribute("aria-pressed", "false");
 });
 
 test("Hand drops a fast drag at the last pointer position after a position broadcast", async () => {
   const ids = await prepare();
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
   const a = await at(ids.a),
     zoom = (await camera()).zoom,
@@ -481,16 +490,18 @@ test("switching Hand cancels a reconnect that is still loading its edge", async 
     .getByRole("menuitem", { name: "Reconnect source", exact: true })
     .click();
   await waitForHeld(app);
-  await hand().click();
+  await toggleHand();
   await expect(hand()).toHaveAttribute("aria-pressed", "true");
   await releaseRequests(app);
   // Give the late edge document time to reach the panel before checking it changed nothing.
   await page.waitForTimeout(300);
+  // The reconnect prompt would appear in the graph row's state slot.
   await expect(
     page.getByText("Click the new source node. Escape cancels.", {
       exact: true,
     }),
   ).toHaveCount(0);
+  await expect(page.locator(".graph-command-layer .state")).toHaveCount(0);
   await clickNode(ids.c);
   await expect.poll(async () => (await state()).selected).toBe(ids.c);
   expect(
@@ -562,7 +573,7 @@ test("switching Hand in one graph view drops an unfinished edge in another view 
   await page.mouse.move(box.x + 30, box.y + box.height - 30, { steps: 10 });
   await page.mouse.up();
   await expect(main.getByTestId("edge-preview")).toBeVisible();
-  await hand(id).click();
+  await toggleHand(id);
   await expect(main.getByTestId("edge-preview")).toHaveCount(0);
   // Give a focus-driven activation of the other view time to reach the worker.
   await page.waitForTimeout(300);
@@ -576,7 +587,9 @@ test("empty-space drops add bends and the completed route survives Undo and work
     b = await at(ids.b),
     canvas = page.getByTestId("graph-canvas"),
     box = (await canvas.boundingBox())!;
-  const bend1 = { x: a.x, y: box.y + box.height - 34 },
+  // Bends sit along the top edge: the minimap covers the bottom-right corner, and
+  // the taller canvas fits Beta far enough right to sit above it.
+  const bend1 = { x: a.x, y: box.y + 34 },
     bend2 = { x: b.x, y: bend1.y };
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
@@ -660,7 +673,8 @@ test("Escape, right-click, stale data and pane closure cancel drawing without ed
 
 test("low-zoom drops, keyboard commands and detached panes retain direct attachment", async () => {
   const ids = await prepare();
-  for (let i = 0; i < 6; i++) await menu("graph.zoom.out");
+  // The canvas is taller without the footer and selection bar, so Fit starts at a higher zoom.
+  for (let i = 0; i < 8; i++) await menu("graph.zoom.out");
   await expect.poll(async () => (await camera()).zoom).toBeLessThan(0.5);
   await gesture(ids.a, ids.b, -21);
   await expect(preview()).toHaveAttribute("data-target-iri", ids.b);
