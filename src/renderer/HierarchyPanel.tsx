@@ -595,7 +595,7 @@ function HierarchyContent({
     {
       id: "details",
       priority: 4,
-      label: "Open in Details",
+      label: "Details",
       disabled: selection.ids.length !== 1,
       run: details,
     },

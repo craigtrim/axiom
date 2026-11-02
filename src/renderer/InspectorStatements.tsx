@@ -175,7 +175,7 @@ export function InspectorStatements({ data }: { data: InspectorData }) {
   if (hidden.has("details"))
     overflow.push({
       id: "details",
-      label: "Open in Details",
+      label: "Details",
       run: () => editEntity(e.iri),
     });
   if (hidden.has("discard"))
@@ -319,7 +319,7 @@ export function InspectorStatements({ data }: { data: InspectorData }) {
         {slot(
           "details",
           <button className="btn quiet" onClick={() => editEntity(e.iri)}>
-            Open in Details
+            Details
           </button>,
         )}
         <SharedMenu trigger={more} items={overflow} />

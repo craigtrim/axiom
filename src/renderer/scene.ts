@@ -996,7 +996,7 @@ function exportLayout(
     g.budget +
     " · " +
     g.hidden.toLocaleString() +
-    " neighbours held back";
+    " neighbors held back";
   const header = options.caption === false ? 0 : 80,
     legendKinds = [...new Set(g.nodes.map((n) => n.kind))],
     measure = new Draw(null, 1, 1),

@@ -260,7 +260,7 @@ function SparsityContent() {
   if (hidden.has("details"))
     menu.push({
       id: "details",
-      label: "Open in Details",
+      label: "Details",
       disabled: !selected,
       run: () => navigate(true),
     });
@@ -380,7 +380,7 @@ function SparsityContent() {
             disabled={!selected}
             onClick={() => navigate(true)}
           >
-            Open in Details
+            Details
           </button>,
         )}
         <SharedMenu trigger={more} items={menu} />

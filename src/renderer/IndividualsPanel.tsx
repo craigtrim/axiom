@@ -352,7 +352,7 @@ function ExampleIndividualsPanel() {
           onChange={(e) => update({ ...filter, query: e.target.value })}
         />
         <button onClick={() => command("entity.createIndividual")}>
-          New individual
+          New instance
         </button>
       </PaneToolbar>
       <div className="table-summary">
