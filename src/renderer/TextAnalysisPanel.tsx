@@ -440,7 +440,7 @@ export function TextAnalysisPanel() {
     setGraphError("");
     try {
       const fresh = await waitForCurrentTextAnalysis(
-        "View in Graph waits for the current matches before building.",
+        "Show in graph waits for the current matches before building.",
       );
       if (
         !fresh ||

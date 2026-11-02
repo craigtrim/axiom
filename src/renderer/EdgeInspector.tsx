@@ -296,11 +296,11 @@ export function EdgeInspector({
                 disabled={!edge?.bend}
                 onClick={() => void resetEdgeRoute(edgeId)}
               >
-                Reset edge route
+                Reset route
               </button>
             </PaneDetails>
             <button type="button" onClick={() => editEntity(data.edge.source)}>
-              Open source details
+              Source details
             </button>
           </>
         )}

@@ -704,7 +704,7 @@ export function OntologyIndividualsPanel() {
           className="btn wide"
           onClick={() => command("entity.createIndividual")}
         >
-          New individual
+          New instance
         </button>
       </div>
       <div className="gstat" aria-live="polite">

@@ -60,7 +60,7 @@ export function TextAnalysisToolbar(props: {
       ? [
           {
             id: "graph",
-            label: "View in Graph",
+            label: "Show in graph",
             accessKey: "v",
             commandId: "graph",
             run: props.graph,
@@ -236,7 +236,7 @@ export function TextAnalysisToolbar(props: {
           tabIndex={-1}
           onClick={props.graph}
         >
-          View in Graph
+          Show in graph
         </button>
       </div>
       <SharedMenu trigger={more} items={items} />

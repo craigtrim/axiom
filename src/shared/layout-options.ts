@@ -18,7 +18,7 @@ export const layoutOptions = [
   {
     id: "radial",
     label: "Radial",
-    description: "Places neighbours in rings around your focus.",
+    description: "Places neighbors in rings around your focus.",
   },
   {
     id: "grid",
