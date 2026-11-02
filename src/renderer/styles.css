@@ -699,48 +699,6 @@ a {
   width: 300px;
   color: var(--text-secondary);
 }
-.graph-footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 6px 10px;
-  font-size: 11px;
-  border-top: 1px solid var(--stroke-divider);
-  color: var(--text-secondary);
-}
-.graph-footer label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.graph-footer input {
-  width: 110px;
-  padding: 0;
-}
-.graph-footer select {
-  font-size: 11px;
-  min-height: 24px;
-  max-width: 150px;
-}
-.graph-selection {
-  padding: 5px 10px;
-  min-height: 35px;
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 11px;
-  border-top: 1px solid var(--stroke-divider);
-}
-.graph-selection strong {
-  font-size: 12px;
-}
-.graph-selection button {
-  font-size: 11px;
-  min-height: 24px;
-  padding: 1px 7px;
-}
 .context-menu {
   position: fixed;
   z-index: 9999;
@@ -1185,9 +1143,6 @@ a {
   .panel-toolbar {
     gap: 4px;
   }
-  .graph-footer {
-    gap: 5px;
-  }
   .minimap {
     width: 112px;
     height: 75px;
@@ -1294,12 +1249,6 @@ a {
 .node-limit {
   width: 76px !important;
   min-width: 64px;
-}
-.graph-footer input[type="range"] {
-  width: 110px;
-}
-.graph-footer label {
-  flex-wrap: wrap;
 }
 .panel-note {
   flex-shrink: 0;
@@ -1880,21 +1829,16 @@ a {
   }
 }
 
-.graph-panel .panel-toolbar select[aria-label="Select edge"] {
-  width: 210px;
-  max-width: 100%;
-  min-width: 100px;
-}
-/* craigtrim/axiom#189: the pressed Hand toggle borrows the shared chip's accent border, without bold text that would shift the toolbar. */
-.graph-panel .graph-hand[aria-pressed="true"],
-.graph-panel .graph-hand[aria-pressed="true"]:hover:not(:disabled) {
+/* craigtrim/axiom#189: a pressed toggle (Hand, Freeze layout) borrows the shared chip's accent border, without bold text that would shift the row. */
+.graph-panel .graph-toggle[aria-pressed="true"],
+.graph-panel .graph-toggle[aria-pressed="true"]:hover:not(:disabled) {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--text);
 }
 @media (forced-colors: active) {
-  .graph-panel .graph-hand[aria-pressed="true"],
-  .graph-panel .graph-hand[aria-pressed="true"]:hover:not(:disabled) {
+  .graph-panel .graph-toggle[aria-pressed="true"],
+  .graph-panel .graph-toggle[aria-pressed="true"]:hover:not(:disabled) {
     background: Highlight;
     color: HighlightText;
   }
@@ -1949,11 +1893,6 @@ a {
 }
 .edge-graph-name {
   overflow-wrap: anywhere;
-}
-.graph-selection strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .graph-create.compact-callout .inline-create-heading {
@@ -3005,6 +2944,24 @@ a {
   font-size: 18px;
   line-height: 1;
 }
+/* Windows menu columns: check, label, then the shortcut pushed to the right edge. */
+.entity-context-menu .menu-accelerator {
+  margin-inline-start: auto;
+  padding-inline-start: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.entity-context-menu .menu-accelerator::after {
+  content: attr(data-accelerator);
+}
+.entity-context-menu button[aria-disabled="true"] .menu-accelerator {
+  color: inherit;
+}
+.entity-context-menu .menu-default .menu-label,
+.entity-context-menu.chrome-menu .menu-default .lab {
+  font-weight: 600;
+}
 
 .edge-source-compact {
   display: flex;
@@ -3225,27 +3182,120 @@ a {
   min-width: 0;
 }
 
-.graph-footer .graph-spacing {
-  flex-wrap: nowrap;
+/* The graph's whole chrome is one shared 28px row; the canvas takes the rest. */
+.graph-panel > .graph-command-layer {
+  flex: none;
+}
+.graph-panel .graph-command-layer .sel {
+  max-width: 180px;
+}
+.graph-panel .graph-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.graph-panel .graph-dropdown .od-icon {
+  display: inline-block;
+  inline-size: 12px;
+  block-size: 12px;
+}
+/* Display options and Select edge open from the row, in the top layer. */
+.graph-flyout {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  display: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 280px;
+  max-width: calc(100vw - 8px);
+  max-height: calc(100vh - 8px);
+  overflow: auto;
+  padding: var(--sp-3);
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+}
+.graph-flyout:popover-open {
+  display: flex;
+}
+.graph-flyout-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 24px;
+  white-space: nowrap;
+}
+.graph-flyout-check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+/* craigtrim/axiom#200: dims like a disabled button while there are too few clusters. */
+.graph-flyout .graph-cluster-colors:has(input:disabled) {
+  opacity: 0.45;
+}
+.graph-flyout-sep {
+  height: 1px;
+  background: var(--border);
+}
+.graph-flyout-field {
+  display: grid;
+  gap: var(--sp-1);
+}
+.graph-flyout-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.graph-flyout-controls input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.graph-flyout output,
+.graph-flyout-note {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.graph-flyout .graph-spacing {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-1) var(--sp-2);
+  align-items: center;
+}
+.graph-flyout .graph-spacing input[type="range"] {
+  grid-column: 1 / -1;
 }
 .graph-spacing output {
   min-width: 4ch;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
-
-.graph-footer .graph-edge-visibility {
-  flex-wrap: nowrap;
-  white-space: nowrap;
+.graph-edge-picker {
+  width: 360px;
 }
-.graph-footer input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  margin: 0;
+.graph-edge-list {
+  width: 100%;
+  min-height: 200px;
+  font-size: 12px;
+  border: 1px solid var(--border-ctl);
+  border-radius: var(--r-ctl);
+  background: var(--ground);
+  color: var(--text);
 }
-/* craigtrim/axiom#200: dims like a disabled button while there are too few clusters. */
-.graph-footer .graph-cluster-colors:has(input:disabled) {
-  opacity: 0.45;
+@media (prefers-reduced-motion: no-preference) {
+  .graph-flyout:popover-open {
+    animation: graph-flyout-in 120ms ease-out;
+  }
+}
+@keyframes graph-flyout-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
 }
 
 .subclass-suggestions {

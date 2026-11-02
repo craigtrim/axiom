@@ -19,6 +19,9 @@ import { useSourceDraft } from "./source-draft";
 import { ContextMenu } from "./ContextMenu";
 import { chromeActions } from "./chrome-menu";
 import { ChromeGlyph, type ChromeIcon } from "./ChromeGlyph";
+import { layoutOptions } from "../shared/layout-options";
+import { edgeKey } from "../domain/viewport";
+import { shorten } from "../domain/model";
 import "./workbench-shell.css";
 
 const panes = [
@@ -364,6 +367,70 @@ export function DocumentTabs({
   );
 }
 
+/**
+ * The graph readout the pane's footer and selection bar used to show. The
+ * count opens Display options, where the limit and eviction policy live.
+ */
+function GraphStatus({ snapshot }: { snapshot: Snapshot }) {
+  const graph = snapshot.graph;
+  const names = new Map(graph.nodes.map((n) => [n.iri, n.label]));
+  const node = graph.nodes.find((n) => n.iri === snapshot.selected);
+  const edge =
+    graph.edgesVisible === false
+      ? undefined
+      : graph.edges.find((e) => edgeKey(e) === graph.selectedEdge);
+  const layout = (id: string) =>
+    layoutOptions.find((p) => p.id === id)?.label ?? id;
+  const selection = edge
+    ? (names.get(edge.source) ?? edge.source) +
+      " → " +
+      shorten(edge.predicate) +
+      " → " +
+      (names.get(edge.target) ?? edge.target)
+    : node
+      ? node.label +
+        " · " +
+        number(node.degree) +
+        (node.degree === 1 ? " neighbor" : " neighbors")
+      : "";
+  return (
+    <>
+      <button
+        type="button"
+        className="si status-graph-nodes"
+        title="Visible node limit and eviction policy"
+        onClick={() => command("graph.display")}
+      >
+        <span>
+          <span className="num">{number(graph.nodes.length)}</span> of{" "}
+          <span className="num">{number(graph.budget)}</span> nodes
+        </span>
+      </button>
+      <span className="si opt status-graph-layout">
+        {graph.choice === "auto"
+          ? "Auto: " + layout(graph.mode)
+          : layout(graph.choice)}
+      </span>
+      <span className="si opt status-graph-edges">
+        <span>
+          <span className="num">{number(graph.edges.length)}</span>{" "}
+          relationships · <span className="num">{number(graph.hidden)}</span>{" "}
+          held back
+        </span>
+      </span>
+      {selection && (
+        <span
+          className="si status-graph-selection"
+          title={selection}
+          aria-live="polite"
+        >
+          {selection}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function WorkbenchStatus({
   snapshot,
   active,
@@ -401,6 +468,7 @@ export function WorkbenchStatus({
         <ChromeGlyph name={pane.icon} />
         <span>{pane.label}</span>
       </span>
+      {active === "graph" && <GraphStatus snapshot={snapshot} />}
       <span className="si opt">
         <span className="num">{number(snapshot.classCount)}</span> classes
       </span>

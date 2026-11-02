@@ -34,12 +34,14 @@ import {
   startInlineRename,
 } from "./InlineRename";
 import { ContextMenu } from "./ContextMenu";
-import { keyHint } from "./keyboard";
+import { keyHint, keyLabel } from "./keyboard";
+import { SharedActionRow, type SharedMenuItem } from "./SharedPane";
+import { evictionPolicies } from "../shared/commands";
 import { styledRadius } from "../domain/graph-style";
 import { layoutOptions } from "../shared/layout-options";
 import { kindLabel } from "../domain/model";
 import { GpuDraw } from "./GpuDraw";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { onGraph, panel, savePanel, report, command } from "./client";
 import {
   Draw,
@@ -54,7 +56,20 @@ import {
 } from "./scene";
 import type { GraphNode } from "../domain/viewport";
 import { NumberField } from "./NumberField";
-import { onHandTool, setHandTool, useHandTool } from "./graph-hand";
+import { handTool, onHandTool, setHandTool, useHandTool } from "./graph-hand";
+/** Opens below the anchor, right-aligned, inside the window that owns it. */
+function placeFlyout(popup: HTMLElement, anchor: HTMLElement | null) {
+  const win = popup.ownerDocument.defaultView!,
+    box = (anchor ?? popup.ownerDocument.body).getBoundingClientRect(),
+    w = popup.offsetWidth,
+    h = popup.offsetHeight;
+  popup.style.left =
+    Math.max(4, Math.min(box.right - w, win.innerWidth - w - 4)) + "px";
+  popup.style.top =
+    (box.bottom + 2 + h <= win.innerHeight - 4
+      ? box.bottom + 2
+      : Math.max(4, box.top - h - 2)) + "px";
+}
 export function GraphPanel({ graphId = "graph" }: { graphId?: string }) {
   return (
     <GraphScope.Provider value={graphId}>
@@ -480,6 +495,50 @@ function GraphContent() {
     savePanel(cameraKey, camera.current);
   };
   const exportGraph = (format = "png") => setExportDialog(format);
+  // The command row's two flyouts: display settings and the edge picker.
+  const rowMore = useRef<HTMLButtonElement>(null),
+    displayTrigger = useRef<HTMLButtonElement>(null),
+    displayFlyout = useRef<HTMLDivElement>(null),
+    edgeFlyout = useRef<HTMLDivElement>(null),
+    edgeList = useRef<HTMLSelectElement>(null);
+  const [displayOpen, setDisplayOpen] = useState(false),
+    [edgePickerOpen, setEdgePickerOpen] = useState(false),
+    [edgeFilter, setEdgeFilter] = useState("");
+  const displayId = useId(),
+    edgePickerId = useId();
+  const openFlyout = (popup: HTMLElement | null) => {
+    if (popup && !popup.matches(":popover-open")) popup.showPopover();
+  };
+  // An overflowed Display button is hidden, so its flyout opens under More.
+  const displayAnchor = () => {
+    const t = displayTrigger.current;
+    return t && !t.closest('[data-overflowed="true"]') ? t : rowMore.current;
+  };
+  const closeEdgePicker = () => {
+    edgeFlyout.current?.hidePopover();
+    canvasRef.current?.focus();
+  };
+  const expanding = useRef(false);
+  const expandToLimit = async () => {
+    if (expanding.current) return;
+    expanding.current = true;
+    setExpandingMax(true);
+    try {
+      await act("expandMax");
+    } finally {
+      expanding.current = false;
+      setExpandingMax(false);
+    }
+  };
+  const showEdges = (visible: boolean) => {
+    hoveredEdge.current = null;
+    setEdgeContext(null);
+    setReconnecting(null);
+    void act("edgeVisibility", { visible });
+  };
+  const relayout = () => void act("layout", { mode: graph?.choice ?? "auto" });
+  const chooseLayout = (mode: string) =>
+    void act("layout", { mode }).then(() => fitNow());
   useEffect(() => {
     const canvas = canvasRef.current!,
       win = canvas.ownerDocument.defaultView!,
@@ -529,10 +588,10 @@ function GraphContent() {
       width();
       const toolbar = canvas
           .closest(".graph-panel")
-          ?.querySelector(":scope > .panel-toolbar"),
+          ?.querySelector(":scope > .graph-command-layer"),
         nextToolbarHeight = toolbar?.getBoundingClientRect().height ?? 0;
-      // Relationship choices and an external layout's cancel action can wrap
-      // the toolbar. Keep a held node fixed in the window as well as the graph.
+      // The command row does not wrap, but its height still follows zoom.
+      // Keep a held node fixed in the window as well as the graph.
       if (
         toolbarHeight !== undefined &&
         nextToolbarHeight !== toolbarHeight &&
@@ -740,6 +799,30 @@ function GraphContent() {
       if (id === "graph.cancelLayout") void act("cancelLayout");
       if (id === "graph.freeze") void act("freeze");
       if (id === "graph.clear") void act("clear");
+      // Settings that once lived only in the toolbar and footer.
+      if (id === "graph.expandToLimit") void expandToLimit();
+      if (id === "graph.hand") setHandTool(!handTool());
+      if (id === "graph.showEdges") showEdges(graph?.edgesVisible === false);
+      if (id === "graph.showLabels")
+        void act("labelVisibility", {
+          visible: graph?.labelsVisible === false,
+        });
+      if (id === "graph.showCounts")
+        void act("countVisibility", {
+          visible: graph?.countsVisible === false,
+        });
+      if (id === "graph.clusterColors" && (graph?.clusterCount ?? 0) > 1)
+        void act("clusterColors", { enabled: graph?.clusterColors !== true });
+      if (id.startsWith("graph.eviction."))
+        void act("eviction", { mode: id.slice(15) });
+      if (id === "graph.display" || id === "graph.selectEdge") {
+        command("view.graph");
+        win.requestAnimationFrame(() =>
+          openFlyout(
+            id === "graph.display" ? displayFlyout.current : edgeFlyout.current,
+          ),
+        );
+      }
       if (
         [
           "graph.expand",
@@ -836,16 +919,347 @@ function GraphContent() {
     savePanel(cameraKey, camera.current);
   };
   const selected = state?.selected;
-  const selection = graph?.nodes.find((n) => n.iri === selected);
-  const instances = instanceAction(
-    snapshot?.entities.find((e) => e.iri === selection?.iri),
-  );
   const selectedEdge =
     graph?.edgesVisible === false
       ? undefined
       : graph?.edges.find((e) => edgeKey(e) === graph?.selectedEdge);
   const clusterAction = clusterColorsAction(info);
   const nodeNames = new Map(info?.nodes.map((n) => [n.iri, n.label]));
+  // Detaching or returning a pane moves this component to another window
+  // without remounting it, so both checks repeat on every render. Detached
+  // panes have no status bar, so their row carries the node count.
+  const ownerDocument = canvasRef.current?.ownerDocument;
+  const detached = !!ownerDocument && ownerDocument !== document;
+  useEffect(() => {
+    // The move closes an open flyout without a toggle event.
+    if (displayOpen && !displayFlyout.current?.matches(":popover-open"))
+      setDisplayOpen(false);
+    if (edgePickerOpen && !edgeFlyout.current?.matches(":popover-open"))
+      setEdgePickerOpen(false);
+  });
+  const shown = info?.nodes.length ?? 0,
+    budget = info?.budget ?? 1000;
+  const expandDisabled =
+    expandingMax || !shown || shown >= budget || info?.hidden === 0;
+  const expandTitle =
+    "Expand all visible nodes breadth-first until the node limit is reached or no more connected nodes remain.";
+  const edgeReason =
+    info?.edgesVisible === false
+      ? "Show edges to select a relationship."
+      : !info?.edges.length
+        ? "The graph shows no relationships."
+        : "Choose a relationship by name (" +
+          keyLabel("edge.next") +
+          " cycles edges on the canvas).";
+  const rowState = reconnecting
+    ? "Click the new " + reconnecting.endpoint + " node. Escape cancels."
+    : detached
+      ? shown.toLocaleString("en-GB") +
+        " of " +
+        budget.toLocaleString("en-GB") +
+        " nodes"
+      : undefined;
+  const edgeChoices = edgePickerOpen
+    ? (info?.edgesVisible === false ? [] : (info?.edges ?? []))
+        .map((e) => ({
+          key: edgeKey(e),
+          name:
+            nodeNames.get(e.source) +
+            " → " +
+            shorten(e.predicate) +
+            " → " +
+            nodeNames.get(e.target),
+        }))
+        .filter((e) =>
+          e.name.toLowerCase().includes(edgeFilter.trim().toLowerCase()),
+        )
+    : [];
+  // One row of chrome: view-level commands only; objects use their context menus.
+  const rowCommands = [
+    {
+      id: "expand",
+      priority: 7,
+      content: (
+        <button
+          type="button"
+          className="btn"
+          disabled={expandDisabled}
+          title={expandTitle}
+          onClick={() => void expandToLimit()}
+        >
+          {expandingMax ? "Expanding..." : "Expand to limit"}
+        </button>
+      ),
+      overflow: [
+        {
+          id: "expand",
+          label: "Expand to limit",
+          disabled: expandDisabled,
+          reason: expandTitle,
+          run: () => void expandToLimit(),
+        },
+      ],
+    },
+    {
+      id: "hand",
+      priority: 4,
+      content: (
+        <button
+          type="button"
+          className="btn graph-toggle graph-hand"
+          data-native-activation
+          aria-pressed={hand}
+          title="Drag a node to move it, or drag anywhere else to move the view"
+          onClick={() => setHandTool(!hand)}
+        >
+          Hand
+        </button>
+      ),
+      overflow: [
+        {
+          id: "hand",
+          label: "Hand",
+          checkbox: true,
+          checked: hand,
+          run: () => setHandTool(!hand),
+        },
+      ],
+    },
+    {
+      id: "fit",
+      priority: 3,
+      content: (
+        <button
+          type="button"
+          className="btn"
+          disabled={!shown}
+          title={"Fit graph (" + keyLabel("graph.fit") + ")"}
+          onClick={() => fitNow(true)}
+        >
+          Fit
+        </button>
+      ),
+      overflow: [
+        {
+          id: "fit",
+          label: "Fit graph",
+          shortcut: keyLabel("graph.fit"),
+          disabled: !shown,
+          run: () => fitNow(true),
+        },
+      ],
+    },
+    {
+      id: "center",
+      priority: 8,
+      content: (
+        <button
+          type="button"
+          className="btn"
+          disabled={!shown}
+          title="Center the view on the central node, keeping the current zoom"
+          onClick={centerNow}
+        >
+          Center
+        </button>
+      ),
+      overflow: [
+        {
+          id: "center",
+          label: "Center graph",
+          disabled: !shown,
+          run: centerNow,
+        },
+      ],
+    },
+    {
+      id: "relayout",
+      priority: 5,
+      content: (
+        <button
+          type="button"
+          className="btn"
+          disabled={!shown}
+          title={"Relayout (" + keyLabel("graph.relayout") + ")"}
+          onClick={relayout}
+        >
+          Relayout
+        </button>
+      ),
+      overflow: [
+        {
+          id: "relayout",
+          label: "Relayout",
+          shortcut: keyLabel("graph.relayout"),
+          disabled: !shown,
+          run: relayout,
+        },
+      ],
+    },
+    {
+      id: "layout",
+      priority: 6,
+      content: (
+        <select
+          className="sel"
+          aria-label="Graph layout"
+          value={info?.choice ?? "auto"}
+          onChange={(e) => chooseLayout(e.target.value)}
+        >
+          {layoutOptions.map((m) => (
+            <option key={m.id} value={m.id} title={m.description}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      ),
+      overflow: layoutOptions.map((m) => ({
+        id: "layout-" + m.id,
+        label: m.label,
+        radio: true,
+        checked: (info?.choice ?? "auto") === m.id,
+        run: () => chooseLayout(m.id),
+      })),
+    },
+    {
+      id: "freeze",
+      priority: 6,
+      content: (
+        <button
+          type="button"
+          className="btn graph-toggle"
+          aria-pressed={info?.frozen ?? false}
+          disabled={!shown}
+          title={"Freeze layout (" + keyLabel("graph.freeze") + ")"}
+          onClick={() => void act("freeze")}
+        >
+          Freeze layout
+        </button>
+      ),
+      overflow: [
+        {
+          id: "freeze",
+          label: "Freeze layout",
+          checkbox: true,
+          checked: !!info?.frozen,
+          shortcut: keyLabel("graph.freeze"),
+          disabled: !shown,
+          run: () => void act("freeze"),
+        },
+      ],
+    },
+    ...(info?.layoutPending
+      ? [
+          {
+            id: "cancel",
+            priority: 0,
+            content: (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void act("cancelLayout")}
+              >
+                Cancel layout
+              </button>
+            ),
+            overflow: [
+              {
+                id: "cancel",
+                label: "Cancel running layout",
+                run: () => void act("cancelLayout"),
+              },
+            ],
+          },
+        ]
+      : []),
+    {
+      id: "display",
+      priority: 1,
+      content: (
+        <button
+          ref={displayTrigger}
+          type="button"
+          className="btn graph-dropdown"
+          popoverTarget={displayId}
+          aria-haspopup="dialog"
+          aria-expanded={displayOpen}
+          title="Edges, labels, counts, spacing and the visible node limit"
+        >
+          Display
+          <svg
+            className="od-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      ),
+      overflow: [
+        {
+          id: "display",
+          label: "Display options",
+          run: () => openFlyout(displayFlyout.current),
+        },
+      ],
+    },
+    {
+      id: "export",
+      priority: 2,
+      content: (
+        <button
+          type="button"
+          className="btn"
+          disabled={!shown}
+          title={"Export (" + keyLabel("graph.export") + ")"}
+          onClick={() => void exportGraph()}
+        >
+          Export
+        </button>
+      ),
+      overflow: [
+        {
+          id: "export",
+          label: "Export...",
+          shortcut: keyLabel("graph.export"),
+          disabled: !shown,
+          run: () => exportGraph(),
+        },
+      ],
+    },
+  ];
+  const rowItems: SharedMenuItem[] = [
+    {
+      id: "select-edge",
+      label: "Select edge...",
+      disabled: info?.edgesVisible === false || !info?.edges.length,
+      reason: edgeReason,
+      run: () => openFlyout(edgeFlyout.current),
+    },
+    { id: "style-separator", separator: true },
+    {
+      id: "appearance",
+      label: "Graph appearance...",
+      run: () => command("graph.appearance"),
+    },
+    {
+      id: "stylesheet",
+      label: "Graph stylesheet...",
+      run: () => command("graph.styles"),
+    },
+    { id: "clear-separator", separator: true },
+    {
+      id: "clear",
+      label: "Clear graph",
+      disabled: !shown,
+      run: () => void act("clear"),
+    },
+  ];
   return (
     <section
       className="panel graph-panel"
@@ -861,113 +1275,29 @@ function GraphContent() {
           void act("graphActivate", { id: graphId });
       }}
     >
-      <div className="panel-toolbar">
-        <button
-          onClick={() => createAt("Class")}
-          title="Add a class or instance at the graph center (Insert)"
-        >
-          Add entity
-        </button>
-        <button
-          disabled={
-            expandingMax ||
-            !info?.nodes.length ||
-            info.nodes.length >= info.budget ||
-            info.hidden === 0
+      <div className="shared-layer graph-command-layer">
+        <SharedActionRow
+          label="Graph actions"
+          moreRef={rowMore}
+          primary={
+            <button
+              type="button"
+              className="btn"
+              title={
+                "Add a class or instance at the graph center (" +
+                keyLabel("graph.create") +
+                ")"
+              }
+              onClick={() => createAt("Class")}
+            >
+              Add entity
+            </button>
           }
-          title="Expand all visible nodes breadth-first until the node limit is reached or no more connected nodes remain."
-          onClick={async () => {
-            if (expandingMax) return;
-            setExpandingMax(true);
-            try {
-              await act("expandMax");
-            } finally {
-              setExpandingMax(false);
-            }
-          }}
-        >
-          {expandingMax ? "Expanding..." : "Expand max"}
-        </button>
-        <select
-          aria-label="Select edge"
-          title={
-            info?.edgesVisible === false
-              ? "Show edges to select a relationship"
-              : "Select a relationship (E cycles edges)"
-          }
-          disabled={info?.edgesVisible === false}
-          value={info?.selectedEdge ?? ""}
-          onChange={(e) => {
-            if (e.target.value) void act("selectEdge", { key: e.target.value });
-          }}
-        >
-          <option value="">Select edge…</option>
-          {info?.edges.map((e) => (
-            <option key={edgeKey(e)} value={edgeKey(e)}>
-              {nodeNames.get(e.source)} → {shorten(e.predicate)} →{" "}
-              {nodeNames.get(e.target)}
-            </option>
-          ))}
-        </select>
-        <button
-          className="graph-hand"
-          data-native-activation
-          aria-pressed={hand}
-          title="Drag a node to move it, or drag anywhere else to move the view"
-          onClick={() => setHandTool(!hand)}
-        >
-          Hand
-        </button>
-        <button
-          onClick={centerNow}
-          disabled={!info?.nodes.length}
-          title="Center the view on the central node, keeping the current zoom"
-        >
-          Center
-        </button>
-        <button
-          onClick={() => fitNow(true)}
-          title={"Fit graph (" + keyHint("graph.fit") + ")"}
-        >
-          Fit
-        </button>
-        <button
-          onClick={() => void act("layout", { mode: graph?.choice ?? "auto" })}
-        >
-          Relayout
-        </button>
-        <select
-          aria-label="Graph layout"
-          value={info?.choice ?? "auto"}
-          onChange={(e) =>
-            void act("layout", { mode: e.target.value }).then(() => fitNow())
-          }
-        >
-          {layoutOptions.map((m) => (
-            <option key={m.id} value={m.id} title={m.description}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-        <button
-          aria-pressed={info?.frozen ?? false}
-          onClick={() => void act("freeze")}
-        >
-          {info?.frozen ? "Resume" : "Freeze"}
-        </button>
-        <button onClick={() => command("graph.appearance")}>Styles</button>
-        {info?.layoutPending && (
-          <button onClick={() => void act("cancelLayout")}>
-            Cancel layout
-          </button>
-        )}
-        <span className="toolbar-spacer" />
-        <button
-          disabled={!info?.nodes.length}
-          onClick={() => void exportGraph()}
-        >
-          Export
-        </button>
+          state={rowState}
+          commands={rowCommands}
+          items={rowItems}
+          separateOverflow
+        />
       </div>
       <div className="canvas-host">
         <canvas
@@ -1142,7 +1472,7 @@ function GraphContent() {
                 ? n.label +
                   " · " +
                   n.degree +
-                  " neighbours. " +
+                  " neighbors. " +
                   (hand || state?.selected === n.iri
                     ? "Drag to move."
                     : "Click to select; drag to connect.")
@@ -1354,15 +1684,19 @@ function GraphContent() {
                   next.key ? { key: next.key } : { iri: next.iri },
                 );
             } else if (
-              (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) &&
-              state?.selected
+              e.key === "ContextMenu" ||
+              (e.shiftKey && e.key === "F10")
             ) {
               e.preventDefault();
-              const n = graph.nodes.find((n) => n.iri === state?.selected);
+              const n = graph.nodes.find((n) => n.iri === state?.selected),
+                r = e.currentTarget.getBoundingClientRect();
               if (n) {
-                const p = screenPoint(n, camera.current),
-                  r = e.currentTarget.getBoundingClientRect();
+                const p = screenPoint(n, camera.current);
                 setContext({ iri: n.iri, x: r.x + p.x, y: r.y + p.y });
+                // With nothing selected, the menu belongs to the canvas, opened at its center.
+              } else if (!state?.selected) {
+                const p = { x: r.width / 2, y: r.height / 2 };
+                setBlankMenu({ x: r.x + p.x, y: r.y + p.y, point: p });
               }
             } else if (e.key === "Escape") setContext(null);
           }}
@@ -1374,7 +1708,7 @@ function GraphContent() {
               role="option"
               aria-selected={n.iri === selected}
             >
-              {n.label}, {kindLabel(n.kind)}, {n.degree} neighbours
+              {n.label}, {kindLabel(n.kind)}, {n.degree} neighbors
               {n.pinned ? ", pinned" : ""}
             </span>
           ))}
@@ -1502,22 +1836,36 @@ function GraphContent() {
           }}
         />
       </div>
-      <div className="graph-footer">
-        <label className="graph-edge-visibility">
+      {/* Display settings: the controls the footer used to hold, one click away. */}
+      <div
+        ref={displayFlyout}
+        id={displayId}
+        popover="auto"
+        role="dialog"
+        aria-label="Display options"
+        className="shared-layer graph-flyout graph-display"
+        onToggle={(event) => {
+          const open = event.newState === "open";
+          setDisplayOpen(open);
+          if (open) {
+            placeFlyout(event.currentTarget, displayAnchor());
+            event.currentTarget.querySelector<HTMLElement>("input")?.focus();
+          }
+        }}
+      >
+        <label className="graph-flyout-check graph-edge-visibility">
           <input
             type="checkbox"
             checked={info?.edgesVisible !== false}
-            onChange={(event) => {
-              hoveredEdge.current = null;
-              setEdgeContext(null);
-              setReconnecting(null);
-              void act("edgeVisibility", { visible: event.target.checked });
-            }}
+            onChange={(event) => showEdges(event.target.checked)}
           />
           Show edges
         </label>
         {/* craigtrim/axiom#187: hides the name under every node; nodes keep their places. */}
-        <label title="Show the name under each node.">
+        <label
+          className="graph-flyout-check"
+          title="Show the name under each node."
+        >
           <input
             type="checkbox"
             checked={info?.labelsVisible !== false}
@@ -1527,7 +1875,10 @@ function GraphContent() {
           />
           Show labels
         </label>
-        <label title="Show the +N badges for neighbours not displayed in this graph.">
+        <label
+          className="graph-flyout-check"
+          title="Show the +N badges for neighbors not displayed in this graph."
+        >
           <input
             type="checkbox"
             checked={info?.countsVisible !== false}
@@ -1538,7 +1889,10 @@ function GraphContent() {
           Show counts
         </label>
         {/* craigtrim/axiom#200: always shown, disabled with its reason below two clusters (#185). */}
-        <label className="graph-cluster-colors" title={clusterAction.title}>
+        <label
+          className="graph-flyout-check graph-cluster-colors"
+          title={clusterAction.title}
+        >
           <input
             type="checkbox"
             title={clusterAction.title}
@@ -1550,128 +1904,119 @@ function GraphContent() {
           />
           Color clusters
         </label>
+        <div className="graph-flyout-sep" role="separator" />
         <GraphSpacing
           value={info?.spacing ?? 1}
           epoch={snapshot.datasetEpoch}
         />
-        <label>
-          Visible node limit{" "}
-          <input
-            aria-label="Visible node limit slider"
-            type="range"
-            min="100"
-            max={MAX_VISIBLE_NODES}
-            step="1"
-            value={info?.budget ?? 1000}
-            onChange={(e) => void setLimit(+e.target.value)}
-          />
-          <NumberField
-            key={snapshot.datasetEpoch + ":" + graphId}
-            className="node-limit"
-            aria-label="Visible node limit"
-            min={100}
-            max={MAX_VISIBLE_NODES}
-            integer
-            value={info?.budget ?? 1000}
-            change={(value) => void setLimit(value)}
-          />
+        <label className="graph-flyout-field graph-node-limit">
+          <span>Visible node limit</span>
+          <span className="graph-flyout-controls">
+            <input
+              aria-label="Visible node limit slider"
+              type="range"
+              min="100"
+              max={MAX_VISIBLE_NODES}
+              step="1"
+              value={budget}
+              onChange={(e) => void setLimit(+e.target.value)}
+            />
+            <NumberField
+              key={snapshot.datasetEpoch + ":" + graphId}
+              className="node-limit fld"
+              aria-label="Visible node limit"
+              min={100}
+              max={MAX_VISIBLE_NODES}
+              integer
+              value={budget}
+              change={(value) => void setLimit(value)}
+            />
+          </span>
           <output>
-            {info?.nodes.length.toLocaleString("en-GB") ?? 0} /
-            {info?.budget.toLocaleString("en-GB") ?? 1000} displayed
+            {shown.toLocaleString("en-GB")} of {budget.toLocaleString("en-GB")}{" "}
+            displayed
           </output>
         </label>
-        <select
-          aria-label="Eviction policy"
-          value={info?.evictionMode ?? "degree"}
-          onChange={(e) => void act("eviction", { mode: e.target.value })}
-        >
-          <option value="degree">Distant, low degree</option>
-          <option value="lru">Least recently used</option>
-          <option value="refuse">Refuse new nodes</option>
-        </select>
-        <span>
-          {info?.mode} · {info?.edges.length.toLocaleString("en-GB")}{" "}
-          relationships · {info?.hidden.toLocaleString("en-GB")} held back
-        </span>
+        <label className="graph-flyout-field">
+          <span>Eviction policy</span>
+          <select
+            className="sel"
+            aria-label="Eviction policy"
+            value={info?.evictionMode ?? "degree"}
+            onChange={(e) => void act("eviction", { mode: e.target.value })}
+          >
+            {evictionPolicies.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      <div className="graph-selection" aria-live="polite">
-        {selectedEdge ? (
-          <>
-            <strong>{edgeName(selectedEdge)}</strong>
-            <button onClick={inspectEdge}>Details</button>
-            <button onClick={() => void removeEdge(edgeKey(selectedEdge))}>
-              Remove edge
-            </button>
-            <button
-              disabled={!selectedEdge.bend}
-              onClick={() => void resetEdgeRoute(edgeKey(selectedEdge))}
-            >
-              Reset route
-            </button>
-            {reconnecting && (
-              <span>
-                Click the new {reconnecting.endpoint} node. Escape cancels.
-              </span>
-            )}
-          </>
-        ) : selection ? (
-          <>
-            <strong>{selection.label}</strong>
-            <button
-              onClick={() => {
-                revealInTaxonomy(selection.iri);
-                canvasRef.current?.focus();
-              }}
-              disabled={
-                !snapshot?.entities.some(
-                  (e) =>
-                    e.iri === selection.iri &&
-                    (["Class", "Defined"].includes(e.kind) ||
-                      e.kind.endsWith("Property")),
-                )
+      {/* Choosing a relationship by name; arrows and E stay the canvas keyboard path. */}
+      <div
+        ref={edgeFlyout}
+        id={edgePickerId}
+        popover="auto"
+        role="dialog"
+        aria-label="Select edge"
+        className="shared-layer graph-flyout graph-edge-picker"
+        onToggle={(event) => {
+          const open = event.newState === "open";
+          setEdgePickerOpen(open);
+          if (open) {
+            setEdgeFilter("");
+            placeFlyout(event.currentTarget, rowMore.current);
+            event.currentTarget.querySelector<HTMLElement>("input")?.focus();
+          }
+        }}
+      >
+        <label className="graph-flyout-field">
+          <span>Filter</span>
+          <input
+            className="fld"
+            type="search"
+            aria-label="Filter edges"
+            value={edgeFilter}
+            onChange={(e) => setEdgeFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                edgeList.current?.focus();
               }
-            >
-              Find in taxonomy
-            </button>
-            <button onClick={() => command("touchpoints.open")}>
-              Find Touchpoints
-            </button>
-            {instances.visible && (
-              <button
-                disabled={!instances.enabled}
-                title={instances.title}
-                onClick={() => showInstances(selection.iri)}
-              >
-                {instances.label}
-              </button>
-            )}
-            <span>{selection.degree} neighbours</span>
-            <button
-              disabled={selection.degree === 0}
-              onClick={() => void act("expand", { iri: selection.iri })}
-            >
-              Expand
-            </button>
-            <button
-              disabled={selection.shownDegree === 0}
-              onClick={() => void act("collapse", { iri: selection.iri })}
-            >
-              Collapse
-            </button>
-            <button
-              aria-pressed={selection.pinned}
-              onClick={() => void act("pin", { iri: selection.iri })}
-            >
-              {selection.pinned ? "Unpin" : "Pin"}
-            </button>
-          </>
-        ) : (
-          <span>
-            {hand
-              ? "Drag a node to move it. Drag anywhere else to move the view."
-              : "Click a node to select it for moving. Drag from an unselected node to connect."}
-          </span>
-        )}
+            }}
+          />
+        </label>
+        <select
+          ref={edgeList}
+          className="graph-edge-list"
+          size={10}
+          aria-label="Edges"
+          value={info?.selectedEdge ?? ""}
+          onChange={(e) => {
+            if (e.target.value) void act("selectEdge", { key: e.target.value });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              closeEdgePicker();
+            }
+          }}
+        >
+          {edgeChoices.slice(0, 500).map((e) => (
+            <option key={e.key} value={e.key}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+        <output className="graph-flyout-note">
+          {edgeChoices.length > 500
+            ? "First 500 of " +
+              edgeChoices.length.toLocaleString("en-GB") +
+              " matches. Type to narrow."
+            : edgeChoices.length.toLocaleString("en-GB") +
+              (edgeChoices.length === 1 ? " relationship" : " relationships")}
+        </output>
       </div>
       {exportDialog && graph && (
         <ExportDialog
@@ -1696,6 +2041,8 @@ function GraphContent() {
             {
               label: "Details",
               key: "T",
+              default: true,
+              accelerator: keyLabel("graph.expand"),
               run: () => {
                 setEdgeContext(null);
                 inspectEdge();
@@ -1712,7 +2059,7 @@ function GraphContent() {
             },
             {
               label: "Reconnect target",
-              key: "T",
+              key: "G",
               run: () => {
                 const key = edgeContext.key;
                 setEdgeContext(null);
@@ -1732,7 +2079,8 @@ function GraphContent() {
             null,
             {
               label: "Remove edge",
-              key: "D",
+              key: "M",
+              accelerator: keyLabel("graph.remove"),
               run: () => {
                 void removeEdge(edgeContext.key);
                 setEdgeContext(null);
@@ -1748,6 +2096,7 @@ function GraphContent() {
           y={blankMenu.y}
           label="Graph canvas actions"
           close={() => setBlankMenu(null)}
+          // The canvas is the graph view itself, so its menu holds the view commands.
           actions={[
             {
               label: "New class here",
@@ -1758,6 +2107,92 @@ function GraphContent() {
               label: "New instance here",
               key: "I",
               run: () => createAt("Individual", blankMenu.point),
+            },
+            null,
+            {
+              label: "Fit graph",
+              key: "F",
+              accelerator: keyLabel("graph.fit"),
+              enabled: !!shown,
+              run: () => fitNow(true),
+            },
+            {
+              label: "Center graph",
+              key: "T",
+              enabled: !!shown,
+              run: centerNow,
+            },
+            {
+              label: "Relayout",
+              key: "R",
+              accelerator: keyLabel("graph.relayout"),
+              enabled: !!shown,
+              run: relayout,
+            },
+            {
+              label: "Freeze layout",
+              key: "Z",
+              accelerator: keyLabel("graph.freeze"),
+              enabled: !!shown,
+              checked: !!info?.frozen,
+              run: () => act("freeze"),
+            },
+            null,
+            {
+              label: "Show",
+              key: "W",
+              run: () => {},
+              children: [
+                {
+                  label: "Show edges",
+                  key: "E",
+                  checked: info?.edgesVisible !== false,
+                  run: () => showEdges(info?.edgesVisible === false),
+                },
+                {
+                  label: "Show labels",
+                  key: "L",
+                  checked: info?.labelsVisible !== false,
+                  run: () =>
+                    act("labelVisibility", {
+                      visible: info?.labelsVisible === false,
+                    }),
+                },
+                {
+                  label: "Show counts",
+                  key: "C",
+                  checked: info?.countsVisible !== false,
+                  run: () =>
+                    act("countVisibility", {
+                      visible: info?.countsVisible === false,
+                    }),
+                },
+                {
+                  label: "Color clusters",
+                  key: "R",
+                  title: clusterAction.title,
+                  enabled: clusterAction.enabled,
+                  checked: info?.clusterColors === true,
+                  run: () =>
+                    act("clusterColors", {
+                      enabled: info?.clusterColors !== true,
+                    }),
+                },
+              ],
+            },
+            {
+              label: "Display options",
+              key: "D",
+              // Through the command, so the flyout opens after the menu returns focus.
+              run: () => command("graph.display"),
+            },
+            null,
+            {
+              label: "Export...",
+              key: "X",
+              accelerator: keyLabel("graph.export"),
+              enabled: !!shown,
+              run: () => exportGraph(),
             },
           ]}
         />
@@ -1777,6 +2212,12 @@ function GraphContent() {
               key: graph?.nodes.find((n) => n.iri === context.iri)?.expanded
                 ? "C"
                 : "E",
+              default: true,
+              accelerator: keyLabel(
+                graph?.nodes.find((n) => n.iri === context.iri)?.expanded
+                  ? "graph.collapse"
+                  : "graph.expand",
+              ),
               enabled: !!graph?.nodes.find((n) => n.iri === context.iri)
                 ?.degree,
               run: () =>
@@ -1790,11 +2231,13 @@ function GraphContent() {
             {
               label: "Hide",
               key: "H",
+              accelerator: keyLabel("graph.remove"),
               run: () => act("remove", { iri: context.iri }),
             },
             {
               label: "Rename",
               key: "N",
+              accelerator: keyLabel("entity.rename"),
               enabled:
                 !!state?.entities.some(
                   (e) => e.iri === context.iri && e.kind !== "Intersection",
@@ -1810,12 +2253,13 @@ function GraphContent() {
             {
               label: "Details",
               key: "T",
+              accelerator: keyLabel("entity.edit"),
               enabled: !!state?.entities.some((e) => e.iri === context.iri),
               run: () => editEntity(context.iri),
             },
             {
-              label: "Find in taxonomy",
-              key: "X",
+              label: "Show in Hierarchy",
+              key: "Y",
               enabled: !!snapshot?.entities.some(
                 (e) =>
                   e.iri === context.iri &&
@@ -1909,7 +2353,7 @@ function GraphContent() {
               run: () => {},
               children: [
                 {
-                  label: "Add Children",
+                  label: "Add children",
                   enabled: !!snapshot?.entities.some(
                     (e) =>
                       e.iri === context.iri &&
@@ -1919,7 +2363,7 @@ function GraphContent() {
                   run: () => openTaxonomy(context.iri, "children"),
                 },
                 {
-                  label: "Add Parents",
+                  label: "Add parents",
                   enabled: !!snapshot?.entities.some(
                     (e) =>
                       e.iri === context.iri &&
@@ -1929,7 +2373,7 @@ function GraphContent() {
                   run: () => openTaxonomy(context.iri, "parents"),
                 },
                 {
-                  label: "Define New",
+                  label: "Define new",
                   key: "N",
                   run: () => openTaxonomy(context.iri, "define"),
                 },
@@ -1939,6 +2383,7 @@ function GraphContent() {
             {
               label: "Pin in graph",
               key: "P",
+              accelerator: keyLabel("graph.pin"),
               checked: !!graph?.nodes.find((n) => n.iri === context.iri)
                 ?.pinned,
               run: () => act("pin", { iri: context.iri }),
