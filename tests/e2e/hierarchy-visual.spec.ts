@@ -38,7 +38,9 @@ async function prepareReference(
       "CLASSES.length - 1, properties: PROPS.length - 2",
       "CLASSES.length, properties: PROPS.length",
     )
-    .replace("Maximise pane", "Maximize pane");
+    .replace("Maximise pane", "Maximize pane")
+    // The command consistency pass names this action Details everywhere.
+    .replace(">Open in Details<", ">Details<");
   return f.app.evaluate(
     async ({ BrowserWindow }, { html, frame, theme, width, height }) => {
       const ref = new BrowserWindow({
@@ -83,7 +85,7 @@ async function prepareReference(
       if(frame===21)expand('Organization');
       window.dispatchEvent(new Event('resize'));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       if(frame===25){const state=document.querySelector('#state');Object.assign(state.style,{flex:'0 1 auto',minWidth:'0',overflow:'hidden',textOverflow:'ellipsis'});}
-      if([8,23].includes(frame)){document.querySelector('#aMore').click();document.querySelectorAll('.menu button').forEach(b=>{const id={'Open in Details':'aDetails','Show in graph':'aGraph'}[b.textContent];if(id&&document.getElementById(id).disabled)b.setAttribute('aria-disabled','true');});}
+      if([8,23].includes(frame)){document.querySelector('#aMore').click();document.querySelectorAll('.menu button').forEach(b=>{const id={'Details':'aDetails','Show in graph':'aGraph'}[b.textContent];if(id&&document.getElementById(id).disabled)b.setAttribute('aria-disabled','true');});}
       const pane=document.querySelector('#pane'),box=pane.getBoundingClientRect(),menu=document.querySelector('.menu');
       if(menu){const m=menu.getBoundingClientRect();menu.style.left=(m.x-box.x)+'px';menu.style.top=(m.y-box.y)+'px';}
       return {css:[...document.querySelectorAll('style')].map(s=>s.textContent).join('\\n'),html:pane.outerHTML,menu:menu?.outerHTML??''};

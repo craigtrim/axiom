@@ -53,7 +53,9 @@ async function prepareReference(
     )
     .replaceAll("aria-selected", "aria-pressed")
     .replaceAll('role="option"', "")
-    .replace("Maximise pane", "Maximize pane");
+    .replace("Maximise pane", "Maximize pane")
+    // The command consistency pass names this action Details everywhere.
+    .replace(">Open in Details<", ">Details<");
   return f.app.evaluate(
     async (
       { BrowserWindow },

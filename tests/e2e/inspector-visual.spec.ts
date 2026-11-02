@@ -73,6 +73,10 @@ async function open(theme: string) {
   await specimen
     .locator("#recovBtn")
     .evaluate((el) => (el.textContent = "Maximize pane"));
+  // The command consistency pass names this action Details everywhere.
+  await specimen
+    .locator("#aDetails")
+    .evaluate((el) => (el.textContent = "Details"));
   // Equal viewport coordinates avoid origin-dependent Chromium curve rasterization.
   await align();
 }
@@ -303,8 +307,12 @@ async function compare(name: string, actual: Locator, expected: Locator) {
   );
   // #165: retain size mismatches and exact pixels without changing the oracle.
   if (diff.pixels) {
-    await test.info().attach(name + " actual", { body: a, contentType: "image/png" });
-    await test.info().attach(name + " expected", { body: b, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " actual", { body: a, contentType: "image/png" });
+    await test
+      .info()
+      .attach(name + " expected", { body: b, contentType: "image/png" });
     for (const kind of ["layout", "diff"])
       await test.info().attach(name + " " + kind, {
         path: path.join(output, name + "-" + kind + ".json"),

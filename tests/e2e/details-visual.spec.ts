@@ -135,6 +135,17 @@ async function launch(theme: "light" | "dark") {
     (theme) => (document.documentElement.dataset.theme = theme),
     theme,
   );
+  // The command consistency pass keeps More in a narrow pane: Reload has no other path.
+  await specimen.evaluate(() => {
+    for (const sheet of document.styleSheets)
+      for (const rule of sheet.cssRules)
+        if (rule instanceof CSSContainerRule)
+          for (let i = rule.cssRules.length - 1; i >= 0; i--)
+            if (
+              (rule.cssRules[i] as CSSStyleRule).selectorText === ".phead .more"
+            )
+              rule.deleteRule(i);
+  });
 }
 async function resize(width: number, height: number) {
   for (const root of [host()])
