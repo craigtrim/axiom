@@ -490,6 +490,16 @@ export const localDesktopCases = [
   {
     file: "menus.spec.ts",
     title:
+      "Graph menus switch display settings, Hand and eviction, open Display options and the edge picker, and expand to the limit",
+  },
+  {
+    file: "menus.spec.ts",
+    title:
+      "Edit reveals the selection in Hierarchy, adds its neighbors to the graph and copies its IRI",
+  },
+  {
+    file: "menus.spec.ts",
+    title:
       "Query menus run, cancel and send results even after the query pane closes",
   },
   {

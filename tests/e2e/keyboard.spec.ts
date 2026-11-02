@@ -129,7 +129,7 @@ test("the shortcut editor records bindings, reports collisions and removes the o
   ).toBeDisabled();
   await d
     .getByRole("button", {
-      name: "Remove Ctrl+S from Pin / unpin selected node",
+      name: "Remove Ctrl+S from Pin in graph",
     })
     .click();
   await d.getByRole("button", { name: "Save shortcuts", exact: true }).click();

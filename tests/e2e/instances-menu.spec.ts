@@ -96,6 +96,16 @@ async function graphMenu(iri: string) {
   await page.keyboard.press("Shift+F10");
   return page.getByRole("menu", { name: "Graph node actions" });
 }
+/** The main window's status bar names the selected graph node and its neighbors. */
+async function selectionReadout(iri: string) {
+  const node = (await state()).graph.nodes.find((n) => n.iri === iri)!;
+  return (
+    node.label +
+    " · " +
+    node.degree.toLocaleString("en-US") +
+    (node.degree === 1 ? " neighbor" : " neighbors")
+  );
+}
 test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
@@ -319,10 +329,9 @@ test("hierarchy menu, graph menu, graph action, and existing class filter open t
   );
   expect(graphKeys(await state())).toEqual(graphBefore);
   await report().getByRole("button", { name: "All individuals" }).click();
-  await page
-    .locator(".graph-selection")
-    .getByRole("button", { name: /^Show instances \(\d[\d,]*\)$/, exact: true })
-    .click();
+  // The graph selection bar is gone; Edit > Show instances acts on the selected node.
+  expect((await state()).selected).toBe(iri);
+  await menu("entity.showInstances");
   await expect(report().getByRole("status")).toContainText(
     "527 direct instances",
   );
@@ -612,11 +621,10 @@ test("empty instance actions stay visible and disabled in menus, graph, hierarch
   await expect(context).toBeVisible();
   await expect(report()).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(
-    page
-      .locator(".graph-selection")
-      .getByRole("button", { name: "Show instances (0)", exact: true }),
-  ).toBeDisabled();
+  // The selection bar's button is gone; the status bar still names the selected node.
+  await expect(page.locator(".status-graph-selection")).toHaveText(
+    await selectionReadout(iri),
+  );
   await expect
     .poll(nativeInstances)
     .toEqual({ label: "Show instances (0)", enabled: false });
@@ -776,12 +784,11 @@ test("known-empty graph operations are disabled consistently with the native men
     }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
-  for (const name of ["Expand", "Collapse"])
-    await expect(
-      page
-        .locator(".graph-selection")
-        .getByRole("button", { name, exact: true }),
-    ).toBeDisabled();
+  // The selection bar's Expand and Collapse buttons are gone; the status bar
+  // reports the zero neighbors that disable both commands.
+  await expect(page.locator(".status-graph-selection")).toHaveText(
+    await selectionReadout(THING),
+  );
   const enabled = await app.evaluate(({ Menu }) =>
     ["graph.expand", "graph.collapse"].map(
       (id) => Menu.getApplicationMenu()!.getMenuItemById(id)!.enabled,
@@ -791,10 +798,10 @@ test("known-empty graph operations are disabled consistently with the native men
   await menu("palette");
   await page
     .getByRole("combobox", { name: "Command palette" })
-    .fill("Collapse selected node");
+    .fill("Collapse");
   await expect(
     page.getByRole("option", {
-      name: /^Collapse selected node(?:\s|$)/,
+      name: /^Collapse(?:\s|$)/,
     }),
   ).toBeDisabled();
 });

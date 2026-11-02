@@ -48,6 +48,27 @@ async function menu(label: string) {
     await waitWorkspaceCheckpoint(application, page);
   }
 }
+// The node limit lives in the graph's Display flyout, a light-dismiss popover.
+async function openDisplay(scope: Page = page) {
+  const trigger = scope
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true")
+    await trigger.click();
+  await expect(
+    scope.getByRole("dialog", { name: "Display options", exact: true }),
+  ).toBeVisible();
+}
+async function closeDisplay(scope: Page = page) {
+  const trigger = scope
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "Display", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) === "true")
+    await trigger.click();
+  await expect(
+    scope.getByRole("dialog", { name: "Display options", exact: true }),
+  ).toBeHidden();
+}
 test.beforeEach(async () => {
   await mkdir("artifacts/testing", { recursive: true });
   const userData = await mkdtemp(path.resolve("artifacts/testing/profile-"));
@@ -99,9 +120,9 @@ test("native menus, fixture, table and query", async () => {
     "File",
     "Edit",
     "View",
-    "Tools",
     "Graph",
     "Query",
+    "Tools",
     "Window",
     "Help",
   ]);
@@ -298,7 +319,11 @@ test("export SVG, PNG and clipboard and use global search", async () => {
   ).toContainText("Pizza 000001");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await menu("entity.showGraph");
-  await expect(page.locator(".graph-selection")).toContainText("AX-100000");
+  // The status bar reads out the graph selection while the Graph pane is active.
+  await page.getByTestId("graph-canvas").focus();
+  await expect(page.locator(".status-graph-selection")).toContainText(
+    "AX-100000",
+  );
   const svg = path.resolve("artifacts/testing/graph-" + Date.now() + ".svg");
   await application.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({
@@ -315,7 +340,7 @@ test("export SVG, PNG and clipboard and use global search", async () => {
     .poll(() => readFile(svg, "utf8").catch(() => ""))
     .toContain("<svg");
   const content = await readFile(svg, "utf8");
-  expect(content).toContain("neighbours held back");
+  expect(content).toContain("neighbors held back");
   expect(content).toContain("AX-100000");
   const png = path.resolve("artifacts/testing/graph-" + Date.now() + ".png");
   await application.evaluate(({ dialog }, file) => {
@@ -380,12 +405,14 @@ test("keyboard commands, themes and accessible controls", async () => {
   await page.screenshot({ path: "artifacts/testing/dark.png" });
 });
 test("pane layout and filters survive a restart", async () => {
+  await openDisplay();
   await page
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .fill("357");
   await page
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .press("Enter");
+  await closeDisplay();
   await page
     .getByRole("button", { name: "More individual actions and filters" })
     .click();
@@ -461,6 +488,7 @@ test("pane layout and filters survive a restart", async () => {
       )
     ).graph.stylesheet,
   ).toBe("node.Class {fill:#aa7733}");
+  await openDisplay();
   await expect(
     page.getByRole("spinbutton", { name: "Visible node limit", exact: true }),
   ).toHaveValue("357");
@@ -471,6 +499,7 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
     name: "Visible node limit",
     exact: true,
   });
+  await openDisplay();
   await limit.fill("357");
   await limit.press("Enter");
   await expect(
@@ -485,6 +514,7 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
     "aria-label",
     /357 nodes/,
   );
+  await openDisplay();
   await limit.fill("123");
   await limit.press("Enter");
   await expect(page.getByTestId("graph-canvas")).toHaveAttribute(
@@ -503,11 +533,13 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
   await menu("Detach pane to window");
   await expect.poll(() => application.windows().length).toBe(2);
   const child = application.windows().find((window) => window !== page)!;
+  await openDisplay(child);
   await expect(
     child.getByRole("spinbutton", { name: "Visible node limit", exact: true }),
   ).toHaveValue("123");
   await menu("Return all panes to main window");
   await expect.poll(() => application.windows().length).toBe(1);
+  await openDisplay();
   await expect(
     page.getByRole("spinbutton", { name: "Visible node limit", exact: true }),
   ).toHaveValue("123");
@@ -515,7 +547,7 @@ test("exact visible-node limit caps admissions and survives pane recreation", as
 
 test("create an individual with validation and undo, and delete a class with undo", async () => {
   await page
-    .getByRole("button", { name: "New individual", exact: true })
+    .getByRole("button", { name: "New instance", exact: true })
     .first()
     .click();
   const dialog = page.getByRole("form", { name: "Create entity" }),
