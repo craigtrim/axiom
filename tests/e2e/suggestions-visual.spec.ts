@@ -55,7 +55,10 @@ async function prepare(page: Page, actual: boolean, cached: boolean) {
       const source = (await readFile(fixture)).toString();
       await route.fulfill({
         contentType: "text/html",
-        body: source.replace("</style>", corrections + "</style>"),
+        // The command consistency pass puts mode names in sentence case.
+        body: source
+          .replace("</style>", corrections + "</style>")
+          .replaceAll("Add Children", "Add children"),
       });
     });
   await page.goto(

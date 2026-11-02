@@ -144,10 +144,10 @@ async function launch(theme: string) {
   // hashed #79 design and its pixel assertions; apply only that approved wording.
   const previousHelp = " Click a highlight to open <b>Details</b>.";
   expect(html.split(previousHelp)).toHaveLength(2);
-  const currentReference = html.replace(
-    previousHelp,
-    " Ctrl+click a highlight to open <b>Details</b>.",
-  );
+  // The command consistency pass renamed View in Graph to Show in graph, as Hierarchy says it.
+  const currentReference = html
+    .replace(previousHelp, " Ctrl+click a highlight to open <b>Details</b>.")
+    .replaceAll("View in Graph", "Show in graph");
   await app.evaluate(async ({ BrowserWindow }, currentReference) => {
     const win = new BrowserWindow({
       width: 1200,
@@ -426,7 +426,7 @@ for (const theme of ["light", "dark"])
     await specimen.keyboard.press("Control+Home");
     await specimen.keyboard.insertText("Notes ");
     await pane()
-      .getByRole("button", { name: "View in Graph", exact: true })
+      .getByRole("button", { name: "Show in graph", exact: true })
       .click();
     await specimen.locator("#graph").click();
     await expect(pane().locator(".state")).toHaveText("15 matches");

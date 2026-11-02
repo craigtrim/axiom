@@ -493,6 +493,14 @@ async function mountReference(theme: string, paletteFilter?: string) {
       document
         .querySelector('.rail [aria-current="true"]')
         ?.getAttribute("data-pane") ?? "graph",
+    // The command consistency pass adds the active graph's readout after the pane name.
+    graphStatus: [
+      ...document.querySelectorAll(
+        ".statusbar :is(.status-graph-nodes,.status-graph-layout,.status-graph-edges,.status-graph-selection)",
+      ),
+    ]
+      .map((el) => el.outerHTML)
+      .join(""),
     quality: Number(
       document
         .querySelector('.rail [data-pane="quality"]')
@@ -579,6 +587,16 @@ async function mountReference(theme: string, paletteFilter?: string) {
     .replace("staleScan: true", "staleScan: " + live.stale)
     .replace("badge: 10", "badge: " + live.suggestions)
     .replace("badge: 6844", "badge: " + live.quality)
+    .replace(
+      '"<span>" + esc(p.label) + "</span></span>";',
+      '"<span>" + esc(p.label) + "</span></span>" + ' +
+        JSON.stringify(live.graphStatus) +
+        ";",
+    )
+    .replace(
+      ".statusbar .num {",
+      ".statusbar .status-graph-selection { flex: 0 1 auto; min-width: 0; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; color: var(--text); }\n.statusbar .num {",
+    )
     .replaceAll("6,172", live.snapshot.classCount.toLocaleString("en-US"))
     .replaceAll("21,461", live.snapshot.individualCount.toLocaleString("en-US"))
     .replaceAll("4,812", live.snapshot.version.toLocaleString("en-US"));

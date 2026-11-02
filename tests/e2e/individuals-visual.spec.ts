@@ -114,6 +114,20 @@ async function menu(id: string, target = page) {
     { id, win: await win.evaluate((w) => w.id) },
   );
 }
+// The command consistency pass names this command New instance everywhere. The
+// reference redraws its toolbar, so the rename follows every redraw.
+const renameNewButton = (specimen: Page) =>
+  specimen.evaluate(() => {
+    const fix = () =>
+      document.querySelectorAll("button").forEach((b) => {
+        if (b.textContent === "New individual") b.textContent = "New instance";
+      });
+    fix();
+    new MutationObserver(fix).observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  });
 async function launch(theme: "light" | "dark", file: string) {
   expect(
     createHash("sha256")
@@ -196,6 +210,7 @@ async function launch(theme: "light" | "dark", file: string) {
     w.setContentSize(4000, 1000);
   }, reference);
   specimen = await opened;
+  await renameNewButton(specimen);
   // Decisions 2, 8, 9 and 10 correct the specimen's documented defects.
   await specimen.addStyleTag({
     content: `
@@ -554,6 +569,7 @@ for (const theme of ["light", "dark"] as const) {
       await pane().getByRole("checkbox", { name, exact: true }).check();
     await page.keyboard.press("Escape");
     await specimen.goto(pathToFileURL(referenceV2).href);
+    await renameNewButton(specimen);
     await specimen.addStyleTag({ content: specimenLook });
     await specimen.evaluate(
       ({ theme, layout, polytechnicOrder }) => {
@@ -949,7 +965,7 @@ for (const theme of ["light", "dark"] as const) {
       .evaluate((el) => (el.textContent = "Columns 5 of 15"));
     await specimen
       .getByRole("region", { name: "Individuals, expanded", exact: true })
-      .getByRole("button", { name: "New individual" })
+      .getByRole("button", { name: "New instance" })
       .evaluate((el) => ((el as HTMLButtonElement).disabled = false));
     for (const [shape, w, h] of shapes) {
       const ref = specimen.locator(
