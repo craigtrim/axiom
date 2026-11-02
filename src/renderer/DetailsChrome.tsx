@@ -89,13 +89,13 @@ export function DetailsHeader({
         )}
       </div>
       {/* Issue 85 uses the shared keyboard menu with the reference's text trigger. */}
+      {/* It stays when narrow: Reload has no other path, and Delete class none in this pane. */}
       {reload && (
         <SharedMenu
           trigger={more}
           label="More"
           triggerContent="More"
           triggerClassName="btn more"
-          hidden={narrow}
           items={[
             { id: "reload", label: "Reload", run: reload },
             ...(deleteClass

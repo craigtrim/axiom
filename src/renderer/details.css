@@ -720,9 +720,6 @@
   .details-source-stack {
     max-width: none;
   }
-  .phead .more {
-    display: none;
-  }
 }
 .adaptive-pane[data-pane-id="details"] > .pane-recovery-own {
   padding: 0;
