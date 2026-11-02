@@ -9,3 +9,5 @@ Issue #89 owns this specimen. The HTML retains its published bytes from https://
 Both renderings use device scale 2, as the published frames do, with sRGB output and LCD text disabled. The pane occupies the same viewport coordinates in each window. The capture setup gives each pane, input, kind pill and SVG its own compositing surface, and gives visible menus the same transform hint. These capture-only settings apply equally to the application and specimen. Screenshots retain device pixels and compare all four bitmap channels without masks or a color tolerance. Measured layouts include the focused control's computed styles.
 
 Run `npm run build`, then `npm run test:desktop -- tests/e2e/inspector-visual.spec.ts`. PNG pairs, raw bitmap differences and measured layouts are written to `artifacts/issue-89-visual`; `AXIOM_VISUAL_OUTPUT` can select another output directory. The behavioral suite is `inspector-reference.spec.ts`.
+
+Command consistency (1 November 2026): the action reads Details, not Open in Details. `inspector-visual.spec.ts` renames the reference's `#aDetails` button in memory. The HTML on disk stays hash-pinned.

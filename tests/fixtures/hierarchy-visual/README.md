@@ -16,3 +16,5 @@ npm run test:desktop -- tests/e2e/hierarchy-reference.spec.ts --workers=1
 ```
 
 Images, raw comparison results and measured geometry are written to `artifacts/issue-91`. Run native suites sequentially.
+
+Command consistency (1 November 2026): the action and its overflow item read Details, not Open in Details. `hierarchy-visual.spec.ts` renames the reference's button in memory and maps the Details overflow item to its disabled state. The HTML on disk stays hash-pinned.

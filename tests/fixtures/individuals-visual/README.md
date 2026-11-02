@@ -817,3 +817,5 @@ The prototype is the defect in every row.
 **C.4** No test file was read. `tests/domain/entity-merge.test.ts` and `tests/domain/editor-drafts.test.ts` are named by `docs/entity-editing.md` as the coverage for IND-114 and IND-115 and would confirm the merge outcomes this document defers to rather than restates.
 
 **C.5** No surface specified in this document has ever run in Axiom, so no capture of a correct implementation exists and none could be taken. The visual reference beside this file carries that load.
+
+Command consistency (1 November 2026): the creation button reads New instance, the label the Edit, Hierarchy and Graph menus use for the same command. `individuals-visual.spec.ts` renames the reference's button in memory and repeats the rename whenever the reference redraws its toolbar. The HTML on disk stays hash-pinned.

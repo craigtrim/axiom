@@ -149,11 +149,11 @@ function Harness() {
         navigation={{
           sorts: sorts.current,
           modes: [
-            { id: "children", name: "Add Children" },
-            { id: "parents", name: "Add Parents" },
-            { id: "synonyms", name: "Find Synonyms" },
-            { id: "instances", name: "Find Instances" },
-            { id: "define", name: "Define New" },
+            { id: "children", name: "Add children" },
+            { id: "parents", name: "Add parents" },
+            { id: "synonyms", name: "Find synonyms" },
+            { id: "instances", name: "Find instances" },
+            { id: "define", name: "Define new" },
           ],
           changeMode: () => {},
           openAnother: () => {},

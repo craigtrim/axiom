@@ -15,3 +15,5 @@ Run after `npm run build`:
 ```powershell
 npm run test:desktop -- tests/e2e/text-analysis-visual.spec.ts --workers=1
 ```
+
+Command consistency (1 November 2026): the graph action reads Show in graph, as Hierarchy says it, not View in Graph. `text-analysis-visual.spec.ts` renames every occurrence in the reference in memory. The HTML on disk stays hash-pinned.
