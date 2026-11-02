@@ -77,6 +77,7 @@ import {
   menuTree,
   commandById,
   datasetSizes,
+  checkedCommands,
   type MenuDefinition,
 } from "../shared/commands";
 import {
@@ -1298,6 +1299,8 @@ async function command(id: string, recentFile?: string, atStartup = false) {
 let queryRunning = false,
   hasQueryResults = false;
 let paneMenuState: Record<string, boolean> = {};
+// Hand is a window setting the renderer owns; the menu mirrors it.
+let handChecked = false;
 const modalWindows = new Map<number, number>();
 const modalTracked = new Set<number>();
 let datasetMenuSize: number | undefined;
@@ -1345,8 +1348,48 @@ function refreshMenu() {
   );
   set("graph.pin", !!node);
   set("graph.connect", !!lastState?.entities.length);
-  set("graph.expand", !!node?.degree || !!selectedEdge);
-  set("graph.remove", !!node || !!selectedEdge);
+  // Enter and Delete still act on a selected edge; these menu items name the node action.
+  set("graph.expand", !!node?.degree);
+  set("graph.remove", !!node);
+  const graph = lastState?.graph;
+  const check = (id: string, on: boolean) => {
+    const item = menu.getMenuItemById(id);
+    if (item) item.checked = on;
+  };
+  check("graph.hand", handChecked);
+  check("graph.freeze", !!graph?.frozen);
+  check("graph.showEdges", graph?.edgesVisible !== false);
+  check("graph.showLabels", graph?.labelsVisible !== false);
+  check("graph.showCounts", graph?.countsVisible !== false);
+  check("graph.clusterColors", graph?.clusterColors === true);
+  check("graph.pin", !!node?.pinned);
+  // Electron selects a radio item on any assignment to checked, false included,
+  // and clears its siblings; so only the active choice is assigned.
+  const choose = (id: string) => {
+    const item = menu.getMenuItemById(id);
+    if (item && !item.checked) item.checked = true;
+  };
+  choose("graph.layout." + (graph?.choice ?? "auto"));
+  choose("graph.eviction." + (graph?.evictionMode ?? "degree"));
+  set("graph.clusterColors", (graph?.clusterCount ?? 0) > 1);
+  set(
+    "graph.expandToLimit",
+    !!graph?.nodes.length &&
+      graph.nodes.length < graph.budget &&
+      graph.hidden > 0,
+  );
+  set(
+    "graph.selectEdge",
+    graph?.edgesVisible !== false && !!graph?.edges.length,
+  );
+  set(
+    "entity.reveal",
+    !!selected &&
+      (["Class", "Defined"].includes(selected.kind) ||
+        selected.kind.endsWith("Property")),
+  );
+  set("entity.addNeighbours", !!selected);
+  set("entity.copyIri", !!lastState?.selected);
   for (const id of ["edge.edit", "edge.remove"]) set(id, !!selectedEdge);
   set("edge.resetRoute", !!selectedEdge?.bend);
   for (const id of ["edge.next", "edge.previous"])
@@ -1476,6 +1519,14 @@ function installMenu() {
         click: () => void command(node),
       };
       if (c.role) item.role = c.role as MenuItemConstructorOptions["role"];
+      // Toggles carry a checkmark and exclusive choices a dot; refreshMenu sets them.
+      if ((checkedCommands as readonly string[]).includes(node))
+        item.type = "checkbox";
+      if (
+        node.startsWith("graph.layout.") ||
+        node.startsWith("graph.eviction.")
+      )
+        item.type = "radio";
       if (node.startsWith("tools.dataset.")) {
         item.type = "radio";
         item.checked = datasetMenuSize === Number(node.slice(14));
@@ -2386,14 +2437,16 @@ app.whenReady().then(async () => {
   ipcMain.on("menu:state", (event, state: Record<string, boolean>) => {
     authorised(event);
     if (!state || typeof state !== "object") return;
-    paneMenuState = Object.fromEntries(
-      Object.entries(state).filter(
-        ([key, value]) =>
-          /^pane\.(next|previous|nextTab|previousTab|move\.(left|right|top|bottom)|group|wider|narrower|maximise|float|detach|reattach|close)$/.test(
-            key,
-          ) && typeof value === "boolean",
-      ),
+    const pane = Object.entries(state).filter(
+      ([key, value]) =>
+        /^pane\.(next|previous|nextTab|previousTab|move\.(left|right|top|bottom)|group|wider|narrower|maximise|float|detach|reattach|close)$/.test(
+          key,
+        ) && typeof value === "boolean",
     );
+    // The Hand toggle reports on its own, so it must not clear the pane states.
+    if (pane.length) paneMenuState = Object.fromEntries(pane);
+    if (typeof state["graph.hand"] === "boolean")
+      handChecked = state["graph.hand"];
     refreshMenu();
   });
   handle("pane:maximizeWindow", (event, url: string) => {
@@ -2413,7 +2466,13 @@ app.whenReady().then(async () => {
     authorised(event);
     if (commandById.has(id)) {
       const item = Menu.getApplicationMenu()?.getMenuItemById(id);
-      if (!item || item.enabled) void command(id);
+      // Enter and Delete act on a selected edge too. Their Graph menu items
+      // name the node action, so they stay disabled while only an edge is selected.
+      const edgeKey =
+        (id === "graph.expand" || id === "graph.remove") &&
+        !!lastState?.graph.selectedEdge &&
+        lastState.graph.edgesVisible !== false;
+      if (!item || item.enabled || edgeKey) void command(id);
     }
   });
   handle("copy", (event, text: string) => {

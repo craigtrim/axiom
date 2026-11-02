@@ -1,4 +1,4 @@
-import { clearTaxonomyReveal } from "./taxonomy-navigation";
+import { clearTaxonomyReveal, revealInTaxonomy } from "./taxonomy-navigation";
 import { pulseTab } from "./tab-pulse";
 // craigtrim/axiom#111: adopted panes register their ranges in the destination window.
 import { watchSyntaxDocument } from "./syntax-paint";
@@ -80,7 +80,7 @@ import { startInlineRename } from "./InlineRename";
 import { StylesDialog } from "./StylesDialog";
 import { TouchpointsPanel } from "./TouchpointsPanel";
 import { layoutOptions } from "../shared/layout-options";
-import { installKeyboard, keyHint } from "./keyboard";
+import { installKeyboard, keyHint, keyLabel } from "./keyboard";
 import { KeyboardDialog } from "./KeyboardDialog";
 import { KeyboardHelp } from "./KeyboardHelp";
 import { useEffect, useRef, useState, lazy, Suspense } from "react";
@@ -1266,6 +1266,19 @@ export function App() {
           );
       } else if (id === "entity.showInstances") {
         if (state?.selected) showInstances(state.selected);
+        // These three were reachable only from context menus.
+      } else if (id === "entity.reveal") {
+        if (state?.selected) revealInTaxonomy(state.selected);
+      } else if (id === "entity.addNeighbours") {
+        if (state?.selected)
+          void request("seed", { iris: [state.selected], replace: false })
+            .then(() => {
+              show("graph");
+              command("graph.fit");
+            })
+            .catch((e) => report(e.message, true));
+      } else if (id === "entity.copyIri") {
+        if (state?.selected) window.axiom.copy(state.selected);
       } else if (id === "entity.rename") {
         const iri = state?.selected;
         if (iri && !startInlineRename(iri)) {
@@ -1719,7 +1732,43 @@ export function App() {
             },
             { label: "Tab history", key: "H", run: () => show("tabhistory") },
             null,
-            { label: "Close tab", key: "C", run: () => closeTab(tabMenu.id) },
+            // The Window menu's pane commands, aimed at the tab that was right-clicked.
+            ...(["pane.maximise", "pane.float", "pane.detach"] as const).map(
+              (id) => {
+                const n = modelRef.current.getNodeById(tabMenu.id),
+                  tab = n instanceof TabNode ? n : undefined;
+                return {
+                  label: {
+                    "pane.maximise": "Maximize pane",
+                    "pane.float": "Float pane",
+                    "pane.detach": "Detach pane to window",
+                  }[id],
+                  key: {
+                    "pane.maximise": "X",
+                    "pane.float": "F",
+                    "pane.detach": "D",
+                  }[id],
+                  enabled:
+                    !!tab &&
+                    (id === "pane.maximise"
+                      ? tab.getParent() instanceof TabSetNode
+                      : id === "pane.float"
+                        ? tab.getLayoutId() === Model.MAIN_LAYOUT_ID
+                        : tab.getWindow() === window),
+                  run: () => {
+                    active.current = tabMenu.id;
+                    pane(id);
+                  },
+                };
+              },
+            ),
+            null,
+            {
+              label: "Close tab",
+              key: "C",
+              accelerator: keyLabel("pane.close"),
+              run: () => closeTab(tabMenu.id),
+            },
           ]}
         />
       )}

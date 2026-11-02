@@ -1,5 +1,24 @@
 // craigtrim/axiom#94: keep the utility title in sentence case.
 import { layoutOptions } from "./layout-options";
+/** The graph's eviction choices, shared by its Display flyout and the Graph menu. */
+export const evictionPolicies = [
+  { id: "degree", label: "Distant, low degree" },
+  { id: "lru", label: "Least recently used" },
+  { id: "refuse", label: "Refuse new nodes" },
+] as const;
+/**
+ * Commands that show a checkmark wherever they appear. The menu bar, the
+ * command palette and the graph pane read their state from the snapshot.
+ */
+export const checkedCommands = [
+  "graph.hand",
+  "graph.freeze",
+  "graph.showEdges",
+  "graph.showLabels",
+  "graph.showCounts",
+  "graph.clusterColors",
+  "graph.pin",
+] as const;
 // Issue 87: the example dataset controls live in the installed Tools menu.
 export const datasetSizes = [1000, 12000, 50000, 100000];
 export const scopes = [
@@ -87,7 +106,8 @@ export const menuTree: MenuDefinition[] = [
     null,
     c("entity.search", "Find...", "Edit", app("Ctrl+F")),
     c("entity.createClass", "New class", "Edit", app("Ctrl+Shift+N")),
-    c("entity.createIndividual", "New individual", "Edit", app("Ctrl+Shift+I")),
+    // One noun for one action: menus elsewhere say New instance.
+    c("entity.createIndividual", "New instance", "Edit", app("Ctrl+Shift+I")),
     // craigtrim/axiom#91: Enter opens the focused Hierarchy row in Details.
     c("entity.edit", "Details", "Edit", [
       ...app("Alt+Enter"),
@@ -100,7 +120,10 @@ export const menuTree: MenuDefinition[] = [
       ...app("Ctrl+G"),
     ]),
     c("entity.showInstances", "Show instances", "Edit"),
-    c("touchpoints.open", "Find Touchpoints for selected entity...", "Edit"),
+    c("entity.reveal", "Show in Hierarchy", "Edit"),
+    c("entity.addNeighbours", "Add neighbors to graph", "Edit"),
+    c("touchpoints.open", "Find touchpoints", "Edit"),
+    c("entity.copyIri", "Copy IRI", "Edit"),
     null,
     menu("menu.settings", "Settings", "S", [
       c("graph.appearance", "Graph appearance...", "Edit > Settings"),
@@ -174,78 +197,16 @@ export const menuTree: MenuDefinition[] = [
       "togglefullscreen",
     ),
   ]),
-  menu("menu.tools", "Tools", "T", [
-    c("tools.quality", "Check ontology...", "Tools"),
-    menu(
-      "menu.dataset",
-      "Dataset size",
-      "D",
-      datasetSizes.map((size) =>
-        c(
-          "tools.dataset." + size,
-          size.toLocaleString("en-GB") + " orders",
-          "Tools > Dataset size",
-        ),
-      ),
-    ),
-  ]),
+  // Every graph setting the pane shows is also here, so the menu bar and the
+  // command palette reach what the graph's command row and Display flyout hold.
   menu("menu.graph", "Graph", "G", [
-    c(
-      "graph.create",
-      "Add entity at graph position",
-      "Graph",
-      at("graph", "Insert"),
-    ),
+    c("graph.create", "Add entity", "Graph", at("graph", "Insert")),
+    c("graph.expandToLimit", "Expand to limit", "Graph"),
     c("graph.export", "Export...", "Graph", app("Ctrl+Shift+E")),
-    c("graph.center", "Center graph", "Graph"),
-    c("graph.fit", "Fit graph", "Graph", at("graph", "F")),
-    c("graph.relayout", "Relayout", "Graph", at("graph", "L")),
-    menu(
-      "menu.graphLayout",
-      "Layout",
-      "L",
-      layoutOptions.map((p) =>
-        c("graph.layout." + p.id, p.label, "Graph > Layout"),
-      ),
-    ),
-    c("graph.cancelLayout", "Cancel running layout", "Graph"),
-    c("graph.styles", "Edit graph stylesheet...", "Graph"),
-    c("graph.freeze", "Freeze / resume", "Graph", at("graph", "Space")),
     null,
-    c(
-      "graph.expand",
-      "Expand node or edit edge",
-      "Graph",
-      at("graph", "Enter"),
-    ),
-    c(
-      "graph.collapse",
-      "Collapse selected node",
-      "Graph",
-      at("graph", "Shift+Enter"),
-    ),
-    c("graph.pin", "Pin / unpin selected node", "Graph", at("graph", "P")),
-    c(
-      "graph.remove",
-      "Remove selected node or edge",
-      "Graph",
-      at("graph", "Delete"),
-    ),
-    menu("menu.edge", "Edges", "E", [
-      c("graph.connect", "Connect nodes...", "Graph > Edges", at("graph", "C")),
-      null,
-      c("edge.edit", "Details", "Graph > Edges"),
-      c("edge.remove", "Remove selected edge", "Graph > Edges"),
-      c("edge.resetRoute", "Reset edge route", "Graph > Edges"),
-      c("edge.next", "Select next edge", "Graph > Edges", at("graph", "E")),
-      c(
-        "edge.previous",
-        "Select previous edge",
-        "Graph > Edges",
-        at("graph", "Shift+E"),
-      ),
-    ]),
-    c("graph.clear", "Clear graph", "Graph"),
+    c("graph.hand", "Hand", "Graph"),
+    c("graph.fit", "Fit graph", "Graph", at("graph", "F")),
+    c("graph.center", "Center graph", "Graph"),
     menu("menu.graphNavigation", "Pan and zoom", "Z", [
       ...["Left", "Right", "Up", "Down"].map((d) =>
         c(
@@ -268,14 +229,82 @@ export const menuTree: MenuDefinition[] = [
         at("graph", "Minus"),
       ),
     ]),
+    null,
+    c("graph.relayout", "Relayout", "Graph", at("graph", "L")),
+    menu(
+      "menu.graphLayout",
+      "Layout",
+      "L",
+      layoutOptions.map((p) =>
+        c("graph.layout." + p.id, p.label, "Graph > Layout"),
+      ),
+    ),
+    c("graph.freeze", "Freeze layout", "Graph", at("graph", "Space")),
+    c("graph.cancelLayout", "Cancel running layout", "Graph"),
+    null,
+    menu("menu.graphShow", "Show", "W", [
+      c("graph.showEdges", "Show edges", "Graph > Show"),
+      c("graph.showLabels", "Show labels", "Graph > Show"),
+      c("graph.showCounts", "Show counts", "Graph > Show"),
+      c("graph.clusterColors", "Color clusters", "Graph > Show"),
+    ]),
+    menu(
+      "menu.graphEviction",
+      "Eviction policy",
+      "V",
+      evictionPolicies.map((p) =>
+        c("graph.eviction." + p.id, p.label, "Graph > Eviction policy"),
+      ),
+    ),
+    c("graph.display", "Display options", "Graph"),
+    null,
+    c("graph.expand", "Expand", "Graph", at("graph", "Enter")),
+    c("graph.collapse", "Collapse", "Graph", at("graph", "Shift+Enter")),
+    c("graph.pin", "Pin in graph", "Graph", at("graph", "P")),
+    c("graph.remove", "Hide", "Graph", at("graph", "Delete")),
+    menu("menu.edge", "Edges", "E", [
+      c("graph.connect", "Connect nodes...", "Graph > Edges", at("graph", "C")),
+      c("graph.selectEdge", "Select edge...", "Graph > Edges"),
+      c("edge.next", "Select next edge", "Graph > Edges", at("graph", "E")),
+      c(
+        "edge.previous",
+        "Select previous edge",
+        "Graph > Edges",
+        at("graph", "Shift+E"),
+      ),
+      null,
+      c("edge.edit", "Details", "Graph > Edges"),
+      c("edge.resetRoute", "Reset route", "Graph > Edges"),
+      c("edge.remove", "Remove edge", "Graph > Edges"),
+    ]),
+    null,
+    c("graph.styles", "Graph stylesheet...", "Graph"),
+    c("graph.clear", "Clear graph", "Graph"),
   ]),
   menu("menu.query", "Query", "Q", [
+    c("query.new", "New query", "Query"),
     c("query.run", "Run query", "Query", app("Ctrl+Enter")),
     c("query.cancel", "Cancel query", "Query", app("Ctrl+Shift+Enter")),
     c("query.graph", "Send results to graph", "Query"),
     null,
     c("query.format", "Format SPARQL", "Query", at("query", "Shift+Alt+F")),
     c("query.generate", "Compose query with an agent", "Query"),
+  ]),
+  // Windows places Tools after the application's own menus.
+  menu("menu.tools", "Tools", "T", [
+    c("tools.quality", "Check ontology...", "Tools"),
+    menu(
+      "menu.dataset",
+      "Dataset size",
+      "D",
+      datasetSizes.map((size) =>
+        c(
+          "tools.dataset." + size,
+          size.toLocaleString("en-GB") + " orders",
+          "Tools > Dataset size",
+        ),
+      ),
+    ),
   ]),
   menu("menu.window", "Window", "W", [
     c("pane.next", "Next pane", "Window", app("F6")),
@@ -295,7 +324,7 @@ export const menuTree: MenuDefinition[] = [
     c("pane.wider", "Make pane wider", "Window"),
     c("pane.narrower", "Make pane narrower", "Window"),
     null,
-    c("pane.maximise", "Maximise / restore pane", "Window"),
+    c("pane.maximise", "Maximize pane", "Window"),
     c("pane.float", "Float pane", "Window"),
     c("pane.detach", "Detach pane to window", "Window"),
     c("pane.reattach", "Return all panes to main window", "Window"),
@@ -327,19 +356,47 @@ export const preferredAccessKeys: Record<string, string> = {
   "entity.rename": "M",
   "entity.delete": "D",
   "entity.showGraph": "G",
-  "touchpoints.open": "E",
+  "entity.edit": "L",
+  "entity.createProperty": "E",
+  "entity.showInstances": "W",
+  "entity.reveal": "Y",
+  "entity.addNeighbours": "B",
+  "touchpoints.open": "H",
+  "entity.copyIri": "O",
   "keyboard.settings": "K",
+  // Graph menu: every letter is named so none depends on menu order.
+  "graph.create": "D",
+  "graph.expandToLimit": "M",
+  "graph.export": "X",
+  "graph.hand": "N",
   "graph.fit": "F",
+  "graph.center": "T",
+  "menu.graphNavigation": "O",
   "graph.relayout": "R",
-  "graph.cancelLayout": "A",
-  "graph.styles": "S",
   "graph.freeze": "Z",
+  "graph.cancelLayout": "A",
+  "graph.eviction.degree": "D",
+  "graph.eviction.lru": "L",
+  "graph.eviction.refuse": "R",
+  "graph.display": "I",
+  "graph.showEdges": "E",
+  "graph.showLabels": "L",
+  "graph.showCounts": "C",
+  "graph.clusterColors": "R",
   "graph.expand": "E",
   "graph.collapse": "C",
   "graph.pin": "P",
-  "graph.remove": "M",
+  "graph.remove": "H",
+  "graph.connect": "C",
+  "graph.selectEdge": "S",
+  "edge.next": "N",
+  "edge.previous": "V",
+  "edge.edit": "D",
+  "edge.resetRoute": "R",
+  "edge.remove": "M",
+  "graph.styles": "S",
   "graph.clear": "G",
-  "menu.graphNavigation": "O",
+  "query.new": "N",
   "help.shortcuts": "K",
   "help.about": "A",
 };
