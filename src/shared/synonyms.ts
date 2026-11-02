@@ -6,7 +6,7 @@ export const synonymKey = (value: string) =>
   normalizeDistanceText(value.trim());
 export const synonymDefinition: SuggestionDefinition = {
   id: "find-synonyms",
-  name: "Find Synonyms",
+  name: "Find synonyms",
   predicate: NS.rdfs + "seeAlso",
   valueType: "text",
   instructions:

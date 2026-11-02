@@ -150,7 +150,7 @@ export function parseParentSuggestions(
 ): SuggestionValue[] {
   const values = parseSuggestionValues(raw, {
     id: "parents",
-    name: "Add Parents",
+    name: "Add parents",
     instructions: "",
     examples: "",
     predicate: "http://www.w3.org/2000/01/rdf-schema#subClassOf",
