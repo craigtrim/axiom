@@ -89,11 +89,28 @@ test.afterEach(async ({}, info) => {
   expect(errors).toEqual([]);
 });
 
+// A narrow graph row moves Expand to limit into More actions; the hidden row button keeps its state.
 const button = () =>
   page
     .locator(".graph-panel:visible")
-    .getByRole("button", { name: "Expand to limit", exact: true })
+    .getByRole("button", {
+      name: "Expand to limit",
+      exact: true,
+      includeHidden: true,
+    })
     .first();
+async function expand() {
+  if (await button().evaluate((el) => !el.closest('[data-overflowed="true"]')))
+    return button().click();
+  const view = page.locator(".graph-panel:visible").first();
+  await view
+    .locator(".graph-command-layer")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await view
+    .getByRole("menuitem", { name: "Expand to limit", exact: true })
+    .click();
+}
 const base = "http://expand.test/#";
 async function loadFixture() {
   const file = path.join(profile, "expand.ttl");
@@ -148,7 +165,7 @@ test("Expand to limit uses breadth-first traversal to the slider limit and one U
   await loadFixture();
   await expect(button()).toBeEnabled();
   const before = await state();
-  await button().click();
+  await expand();
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(100);
   const after = await state();
   for (const root of ["A", "B"]) {
@@ -182,7 +199,7 @@ test("Expand to limit uses breadth-first traversal to the slider limit and one U
     .getByRole("spinbutton", { name: "Visible node limit", exact: true })
     .press("Tab");
   await expect(button()).toBeEnabled();
-  await button().click();
+  await expand();
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(242);
   expect(
     (await state()).graph.nodes.some((n) => n.iri === base + "Unrelated"),
@@ -210,7 +227,7 @@ test("Expand to limit stays within its graph tab and is disabled on empty or iso
     .not.toBe("graph");
   const id = (await state()).activeGraphId!;
   await request("budget", { value: 100 });
-  await button().click();
+  await expand();
   await expect
     .poll(async () => (await state()).graphs![id].nodes.length)
     .toBe(100);
@@ -240,7 +257,7 @@ test("node limit slider reaches 15000 and survives workspace reopening", async (
   await slider.press("End");
   await expect.poll(async () => (await state()).graph.budget).toBe(15000);
   await expect(number).toHaveValue("15000");
-  await button().click();
+  await expand();
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(242);
   const file = path.join(profile, "Large-limit.axiom");
   await app.evaluate(({ dialog }, file) => {
