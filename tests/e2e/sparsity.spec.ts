@@ -269,9 +269,7 @@ test("navigation works and report settings survive close, workspace save and res
   await hierarchy.click();
   await expect(treeRow("B")).toHaveAttribute("aria-selected", "true");
   await expect(hierarchy).toBeFocused();
-  await pane()
-    .getByRole("button", { name: "Open in Details", exact: true })
-    .click();
+  await pane().getByRole("button", { name: "Details", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Details", exact: true }),
   ).toContainText("B");

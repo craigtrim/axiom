@@ -223,7 +223,7 @@ for (const mode of ["children", "instances"])
         .click();
       await page
         .getByRole("menuitem", {
-          name: mode === "children" ? "Add Children" : "Instances",
+          name: mode === "children" ? "Add children" : "Instances",
           exact: true,
         })
         .click();

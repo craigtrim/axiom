@@ -292,7 +292,11 @@ test("Entity statements and query results retain their working content when resi
   );
   await main.evaluate((iri) => window.axiom.request("select", { iri }), iri);
   await menu("view.inspector");
-  await main.getByRole("button", { name: "Details", exact: true }).click();
+  // The Inspector's and Hierarchy's Details commands share the rail button's name.
+  await main
+    .getByRole("navigation", { name: "Panes", exact: true })
+    .getByRole("button", { name: "Details", exact: true })
+    .click();
   const editor = main.getByRole("region", {
     name: "Details",
     exact: true,

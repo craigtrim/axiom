@@ -238,7 +238,7 @@ test("actions overflow in order and menus preserve the draft and owner focus", a
   const popup = f.pane.getByRole("menu", { name: "More actions", exact: true });
   await expect(popup.getByRole("menuitem")).toHaveText([
     "Add statement",
-    "Open in Details",
+    "Details",
     "Discard",
     "Copy IRI",
     "Find touchpoints",
@@ -334,9 +334,7 @@ test("Copy IRI, Details navigation, and removing a predicate preserve the subjec
   await f.pane
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Retained in Details");
-  await f.pane
-    .getByRole("button", { name: "Open in Details", exact: true })
-    .click();
+  await f.pane.getByRole("button", { name: "Details", exact: true }).click();
   const details = f.page.getByRole("region", {
     name: "Details",
     exact: true,

@@ -105,7 +105,7 @@ test("overflow runs navigation, pins a revealed filter and retains the keyboard 
     .poll(async () => (await f.state()).selected)
     .toBe(f.fixture.iri("Business Artifact 1.4"));
   await expect(more).toBeFocused();
-  await f.more("Open in Details");
+  await f.more("Details");
   await expect(
     f.page.getByRole("region", { name: "Details", exact: true }),
   ).toContainText("Business Artifact 1.4");
