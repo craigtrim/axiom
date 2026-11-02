@@ -12,5 +12,8 @@ export function setHandTool(on: boolean) {
   if (hand === on) return;
   hand = on;
   for (const listener of listeners) listener();
+  // Graph > Hand shows the same checkmark as the pressed toolbar toggle.
+  globalThis.window?.axiom?.menuState({ "graph.hand": on });
 }
 export const useHandTool = () => useSyncExternalStore(onHandTool, () => hand);
+export const handTool = () => hand;

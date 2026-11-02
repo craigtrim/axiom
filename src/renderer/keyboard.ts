@@ -4,6 +4,7 @@ import {
   ShortcutResolver,
   eventStroke,
   shortcutText,
+  effectiveBindings,
   type KeyboardContext,
 } from "../shared/shortcuts";
 import { preferences, command, rememberDocument, report } from "./client";
@@ -179,3 +180,6 @@ export function installKeyboard(doc: Document) {
   };
 }
 export const keyHint = (id: string) => shortcutText(id, preferences.keyboard);
+/** The first binding's keys, as a menu shows them right-aligned. Follows remapping. */
+export const keyLabel = (id: string) =>
+  effectiveBindings(id, preferences.keyboard)[0]?.keys ?? "";

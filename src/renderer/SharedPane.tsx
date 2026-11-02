@@ -22,6 +22,8 @@ export interface SharedMenuAction {
   reason?: string;
   shortcut?: string;
   checked?: boolean;
+  /** One of several exclusive choices: a dot rather than a checkmark. */
+  radio?: boolean;
   commandId?: string;
   /** Plain-letter activation, without splitting the visible label (#79). */
   accessKey?: string;
@@ -275,8 +277,16 @@ export function SharedMenu({
               <button
                 key={item.id}
                 type="button"
-                role={item.checkbox ? "menuitemcheckbox" : "menuitem"}
-                aria-checked={item.checkbox ? !!item.checked : undefined}
+                role={
+                  item.radio
+                    ? "menuitemradio"
+                    : item.checkbox
+                      ? "menuitemcheckbox"
+                      : "menuitem"
+                }
+                aria-checked={
+                  item.checkbox || item.radio ? !!item.checked : undefined
+                }
                 className={item.className}
                 tabIndex={-1}
                 data-shared-overflow={item.commandId}
@@ -295,7 +305,7 @@ export function SharedMenu({
               >
                 {item.content ?? (
                   <>
-                    {item.checked ? "✓ " : ""}
+                    {item.checked ? (item.radio ? "• " : "✓ ") : ""}
                     {item.label}
                   </>
                 )}

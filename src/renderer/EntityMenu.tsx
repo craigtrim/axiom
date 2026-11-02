@@ -7,6 +7,7 @@ import { showInstances } from "./instance-report";
 import { editEntity } from "./authoring";
 import { startInlineRename } from "./InlineRename";
 import { ContextMenu, type ContextAction } from "./ContextMenu";
+import { keyLabel } from "./keyboard";
 import { useSnapshot, request, command, report } from "./client";
 import { THING } from "../domain/model";
 import {
@@ -82,6 +83,7 @@ export function EntityMenu({
         {
           label: "Current graph",
           key: "C",
+          accelerator: keyLabel("entity.showGraph"),
           run: async () => {
             if (!multiple) return command("entity.showGraph");
             await request("seed", { iris, expand: false });
@@ -108,7 +110,7 @@ export function EntityMenu({
       run: () => branch?.toggle(),
     },
     {
-      label: "Add neighbours to graph",
+      label: "Add neighbors to graph",
       key: "E",
       run: async () => {
         await request("seed", { iris, replace: false });
@@ -131,12 +133,16 @@ export function EntityMenu({
     {
       label: "Details",
       key: "T",
+      // Enter in Hierarchy opens Details, so it is this menu's default.
+      default: true,
+      accelerator: keyLabel("entity.edit"),
       enabled: !multiple && !!entity,
       run: () => editEntity(iri),
     },
     {
       label: "Rename",
       key: "R",
+      accelerator: keyLabel("entity.rename"),
       enabled: !multiple && !!entity && iri !== THING,
       run: () => startInlineRename(iri, { document: doc, panel: "hierarchy" }),
     },
@@ -144,6 +150,7 @@ export function EntityMenu({
       label: "New subclass",
       enabled: !multiple,
       key: "N",
+      accelerator: keyLabel("entity.createClass"),
       visible: isClass,
       run: () => command("entity.createClass"),
     },
@@ -151,6 +158,7 @@ export function EntityMenu({
       label: "New instance",
       enabled: !multiple,
       key: "I",
+      accelerator: keyLabel("entity.createIndividual"),
       visible: isClass,
       run: () => command("entity.createIndividual"),
     },
@@ -210,19 +218,19 @@ export function EntityMenu({
       run: () => {},
       children: [
         {
-          label: "Add Children",
+          label: "Add children",
           enabled: allClass,
           key: "C",
           run: () => suggest("children"),
         },
         {
-          label: "Add Parents",
+          label: "Add parents",
           enabled: allClass,
           key: "P",
           run: () => suggest("parents"),
         },
         {
-          label: "Define New",
+          label: "Define new",
           enabled: !multiple,
           key: "N",
           run: () => openTaxonomy(iri, "define"),
@@ -239,6 +247,7 @@ export function EntityMenu({
     {
       label: "Delete class...",
       key: "D",
+      accelerator: keyLabel("entity.delete"),
       visible: isClass,
       enabled: !multiple && iri !== THING,
       run: () => command("entity.delete"),
