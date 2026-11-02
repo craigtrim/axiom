@@ -187,7 +187,7 @@ test("overflow retains disabled actions, keyboard navigation and the hierarchy s
   await more.click();
   const menu = f.page.getByRole("menu", { name: "More actions" });
   await expect(
-    menu.getByRole("menuitem", { name: "Open in Details", exact: true }),
+    menu.getByRole("menuitem", { name: "Details", exact: true }),
   ).toHaveAttribute("aria-disabled", "true");
   await expect(
     menu.getByRole("menuitem", { name: "Show in graph", exact: true }),
@@ -223,7 +223,7 @@ test("overflow retains disabled actions, keyboard navigation and the hierarchy s
   await f.pane.getByRole("textbox", { name: "Filter hierarchy" }).fill("");
   await f.row("Person").click();
   await f.size(298, 530);
-  await f.more("Open in Details");
+  await f.more("Details");
   await expect(
     f.page.getByRole("region", { name: "Details", exact: true }),
   ).toContainText("Person");

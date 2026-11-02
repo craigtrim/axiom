@@ -87,8 +87,8 @@ async function start(ids: string[], mode: BatchMode = "children") {
   await page
     .getByRole("menuitem", {
       name: {
-        children: "Add Children",
-        parents: "Add Parents",
+        children: "Add children",
+        parents: "Add parents",
         instances: "Instances",
         synonyms: "Synonyms",
       }[mode],
@@ -244,10 +244,10 @@ test("keyboard ranges, Ctrl+Space, Ctrl+A and filtering use visible rows only", 
   await row("PropertyA").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Suggest", exact: true }).click();
   await expect(
-    page.getByRole("menuitem", { name: "Add Children", exact: true }),
+    page.getByRole("menuitem", { name: "Add children", exact: true }),
   ).toHaveAttribute("aria-disabled", "true");
   await expect(
-    page.getByRole("menuitem", { name: "Add Parents", exact: true }),
+    page.getByRole("menuitem", { name: "Add parents", exact: true }),
   ).toHaveAttribute("aria-disabled", "true");
 });
 

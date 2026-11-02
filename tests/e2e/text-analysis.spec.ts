@@ -527,7 +527,7 @@ test("#73 ontology edits wait for Analyze now in manual mode", async () => {
 });
 
 for (const initial of ["canine", "zzzx"]) {
-  test(`#79 manual View in Graph refreshes the text after ${initial}`, async () => {
+  test(`#79 manual Show in graph refreshes the text after ${initial}`, async () => {
     await enter(initial);
     await expect(panel().locator(".text-analysis-status")).toHaveText(
       initial === "canine" ? "1 match" : "0 matches",
@@ -540,7 +540,7 @@ for (const initial of ["canine", "zzzx"]) {
       window.axiom.request<Snapshot>("state"),
     );
     const graphButton = panel().getByRole("button", {
-      name: "View in Graph",
+      name: "Show in graph",
       exact: true,
     });
     await expect(graphButton).toBeEnabled();
@@ -677,10 +677,10 @@ test("#79 toolbar roves, overflows in order and retains editing through recovery
   await expect(liveSwitch()).toHaveAttribute("aria-checked", "true");
   await resize(418);
   await expect(
-    bar.getByRole("button", { name: "View in Graph" }),
+    bar.getByRole("button", { name: "Show in graph" }),
   ).toBeVisible();
   await resize(358);
-  await expect(bar.getByRole("button", { name: "View in Graph" })).toBeHidden();
+  await expect(bar.getByRole("button", { name: "Show in graph" })).toBeHidden();
   await expect(
     bar.getByRole("button", { name: "Summary", exact: true }),
   ).toBeVisible();
@@ -705,7 +705,7 @@ test("#79 toolbar roves, overflows in order and retains editing through recovery
   await expect(panel().locator(".sheet")).toHaveCount(0);
   await resize(758);
   await expect(
-    bar.getByRole("button", { name: "View in Graph" }),
+    bar.getByRole("button", { name: "Show in graph" }),
   ).toBeVisible();
   await editor().focus();
   await page.keyboard.press("Control+End");
@@ -848,7 +848,7 @@ test("background analysis retains moved highlights, status and legend until one 
   await expect.poll(() => highlighted("dog")).toBe("canine");
   await expect(status).toHaveText("1 match");
   await expect(
-    panel().getByRole("button", { name: "View in Graph", exact: true }),
+    panel().getByRole("button", { name: "Show in graph", exact: true }),
   ).toBeEnabled();
   await expect(chip("dog")).toBeAttached();
   await expect(
@@ -872,7 +872,7 @@ test("background analysis retains moved highlights, status and legend until one 
   await expect(status).toHaveText("2 matches");
 });
 
-test("View in Graph waits for current text instead of using retained matches", async () => {
+test("Show in graph waits for current text instead of using retained matches", async () => {
   await enter("canine");
   await expect(chip("dog")).toBeAttached({ timeout: 20000 });
   const before = await page.evaluate(() =>
@@ -882,7 +882,7 @@ test("View in Graph waits for current text instead of using retained matches", a
   await enter("Cat");
   await waitForHeld(app);
   const button = panel().getByRole("button", {
-    name: "View in Graph",
+    name: "Show in graph",
     exact: true,
   });
   await expect(button).toBeEnabled();
@@ -995,7 +995,7 @@ for (const add of [true, false]) {
     await expect.poll(() => highlighted("dog")).toBe(add ? "Dog" : "canine");
     await expect(panel().locator(".text-analysis-status")).toHaveText(count);
     await expect(
-      panel().getByRole("button", { name: "View in Graph", exact: true }),
+      panel().getByRole("button", { name: "Show in graph", exact: true }),
     ).toBeEnabled();
     if (add) await expect(chip("cat")).toHaveCount(0);
     expect(
@@ -1064,7 +1064,7 @@ for (const action of ["highlight", "Alt+Enter", "Summary"] as const) {
 }
 
 for (const remains of [true, false]) {
-  test(`#54 View in Graph waits for ontology edits${remains ? " and uses fresh matches" : " and cancels when no matches remain"}`, async () => {
+  test(`#54 Show in graph waits for ontology edits${remains ? " and uses fresh matches" : " and cancels when no matches remain"}`, async () => {
     await enter("canine and kitty");
     await expect(chip("dog")).toBeAttached({ timeout: 20000 });
     await holdRequests(app, ["textAnalysis:parse"], "textAnalysis:parse");
@@ -1078,7 +1078,7 @@ for (const remains of [true, false]) {
       window.axiom.request<Snapshot>("state"),
     );
     await panel()
-      .getByRole("button", { name: "View in Graph", exact: true })
+      .getByRole("button", { name: "Show in graph", exact: true })
       .click();
     expect(
       Object.keys(
@@ -1109,7 +1109,7 @@ for (const remains of [true, false]) {
         "0 matches",
       );
       await expect(
-        panel().getByRole("button", { name: "View in Graph", exact: true }),
+        panel().getByRole("button", { name: "Show in graph", exact: true }),
       ).toBeEnabled();
       expect(
         Object.keys(
@@ -1155,13 +1155,13 @@ test("editing again cancels a queued graph action and deleted highlights cannot 
       .selected,
   ).toBe(before.selected);
   await panel()
-    .getByRole("button", { name: "View in Graph", exact: true })
+    .getByRole("button", { name: "Show in graph", exact: true })
     .click();
   await enter("Lion");
   await releaseRequests(app);
   await expect(chip("lion")).toBeAttached();
   await expect(
-    panel().getByRole("button", { name: "View in Graph", exact: true }),
+    panel().getByRole("button", { name: "Show in graph", exact: true }),
   ).toBeEnabled();
   expect(
     Object.keys(
@@ -1645,7 +1645,7 @@ test("keyboard ontology matches reuse Details and unmatched names have no inferr
   );
   await expect(chip("Place")).toHaveCount(0);
   await expect(
-    panel().getByRole("button", { name: "View in Graph", exact: true }),
+    panel().getByRole("button", { name: "Show in graph", exact: true }),
   ).toBeEnabled();
 });
 
@@ -1717,14 +1717,14 @@ test("text entity clicks reuse a detached Details view", async () => {
   await expect(details()).toHaveAttribute("data-entity-iri", base + "Cat");
 });
 
-test("View in Graph opens unique matches and every parent path in a new graph and preserves the old graph", async () => {
+test("Show in graph opens unique matches and every parent path in a new graph and preserves the old graph", async () => {
   await enter("canine and canine, big cat and alpha blah beta");
   await expect(chip("pair")).toBeAttached({ timeout: 20000 });
   const before = await page.evaluate(() =>
     window.axiom.request<Snapshot>("state"),
   );
   await panel()
-    .getByRole("button", { name: "View in Graph", exact: true })
+    .getByRole("button", { name: "Show in graph", exact: true })
     .click();
   await expect
     .poll(
@@ -1845,7 +1845,7 @@ test("long pasted text retains every match as its beginning and end change", asy
   await expect(chip("cat").locator(".n")).toHaveText("80");
   await expect(panel().getByRole("alert")).toHaveCount(0);
   await expect(
-    panel().getByRole("button", { name: "View in Graph", exact: true }),
+    panel().getByRole("button", { name: "Show in graph", exact: true }),
   ).toBeEnabled();
 });
 

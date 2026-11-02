@@ -96,9 +96,9 @@ async function suggest(name: string, action: string) {
       exact: true,
     }),
   ).toHaveValue(
-    action === "Add Children"
+    action === "Add children"
       ? "children"
-      : action === "Add Parents"
+      : action === "Add parents"
         ? "parents"
         : "define",
   );
@@ -180,7 +180,7 @@ for (const [mode, empty] of [
     test(`empty ${mode} reply completes with ${raw ? "an explanation" : "no text"}`, async () => {
       await writeFile(path.join(profile, "empty-reply.txt"), raw);
       const before = await state();
-      await suggest("Basic English", "Add Children");
+      await suggest("Basic English", "Add children");
       await expect(view()).toContainText("No new direct children suggested.");
       if (mode !== "children")
         await view()
@@ -233,7 +233,7 @@ test("uses the document pill with the absolute folder and keeps palette shortcut
   ).toContain("Axiom | " + file);
   for (const name of [
     "New class",
-    "New individual",
+    "New instance",
     "Undo",
     "Redo",
     "Save",
@@ -340,7 +340,7 @@ test("orders current predicates first, excludes rdf:type and saves seeAlso text 
   await expect.poll(async () => (await state()).dirty).toBe(false);
 });
 test("uses the local assistant for parents in the shared view, keeps histories and opens another view", async () => {
-  await suggest("Alpha Beta Gamma", "Add Parents");
+  await suggest("Alpha Beta Gamma", "Add parents");
   await expect(
     view().getByRole("checkbox", { name: "Select Alpha Gamma", exact: true }),
   ).toBeVisible();
@@ -542,7 +542,7 @@ test("uses the local assistant for parents in the shared view, keeps histories a
   ).toHaveValue("children");
 });
 test("saves custom suggestions globally, reviews values and confines child progress to Suggestions", async () => {
-  await suggest("Basic English", "Define New");
+  await suggest("Basic English", "Define new");
   const form = view().locator("form");
   await form.getByLabel("Name", { exact: true }).fill("Alternative names");
   await form

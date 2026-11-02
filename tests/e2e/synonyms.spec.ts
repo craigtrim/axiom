@@ -93,13 +93,13 @@ async function suggest(name: string, action: string) {
   ).toHaveCount(0);
   await page
     .getByRole("menuitem", {
-      name: action === "Find Synonyms" ? "Find" : "Suggest",
+      name: action === "Find synonyms" ? "Find" : "Suggest",
       exact: true,
     })
     .click();
   await page
     .getByRole("menuitem", {
-      name: action === "Find Synonyms" ? "Synonyms" : action,
+      name: action === "Find synonyms" ? "Synonyms" : action,
       exact: true,
     })
     .click();
@@ -110,11 +110,11 @@ async function suggest(name: string, action: string) {
       exact: true,
     }),
   ).toHaveValue(
-    action === "Add Children"
+    action === "Add children"
       ? "children"
-      : action === "Add Parents"
+      : action === "Add parents"
         ? "parents"
-        : action === "Find Synonyms"
+        : action === "Find synonyms"
           ? "synonyms"
           : "define",
   );
@@ -177,7 +177,7 @@ test.afterEach(async ({}, info) => {
 });
 
 test("cached synonym review survives restart and Run again explicitly bypasses it", async () => {
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect(
     view().getByRole("button", { name: "New run", exact: true }),
   ).toBeEnabled();
@@ -198,7 +198,7 @@ test("cached synonym review survives restart and Run again explicitly bypasses i
   await menu("file.save");
   await app.close();
   await launch();
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect(view()).toContainText("Cached result");
   await view().getByRole("button", { name: "Run again", exact: true }).click();
   await expect(view().locator(".assistant-activity")).toBeVisible();
@@ -212,12 +212,12 @@ test("cached synonym review survives restart and Run again explicitly bypasses i
 });
 
 test("finds synonyms from hierarchy context, reviews literal edits, leaves synonym decisions to the user and supports undo", async () => {
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect(
     view().getByRole("button", { name: "Edit definition", exact: true }),
   ).toHaveCount(0);
   await expect(view().locator(".assistant-activity")).toContainText(
-    "Find Synonyms",
+    "Find synonyms",
   );
   await expect(
     page.locator('[data-pane-id="hierarchy"] .assistant-activity'),
@@ -307,7 +307,7 @@ test("finds synonyms from hierarchy context, reviews literal edits, leaves synon
     .toEqual(before.statements);
 });
 test("retains synonym runs, independent views and mode through closing and reopening Axiom", async () => {
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect(
     view().getByRole("checkbox", {
       name: "Select English Basics",
@@ -403,7 +403,7 @@ test("retains synonym runs, independent views and mode through closing and reope
     .toBe(true);
 });
 test("allows a user-selected synonym even when a sibling acquires it after the run", async () => {
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect(
     view().getByRole("checkbox", {
       name: "Select English Basics",
@@ -451,7 +451,7 @@ test("allows a user-selected synonym even when a sibling acquires it after the r
 });
 
 test("restores formerly rejected Systems Administration synonyms and sorts distance without blocking additions", async () => {
-  await suggest("Systems Administration", "Find Synonyms");
+  await suggest("Systems Administration", "Find synonyms");
   await expect(
     view().getByRole("button", { name: "Available 3", exact: true }),
   ).toBeVisible();
@@ -585,7 +585,7 @@ test("restores formerly rejected Systems Administration synonyms and sorts dista
 });
 
 test("shows local full-precision cosine distances and sorts meanings without rejecting candidates", async () => {
-  await suggest("Systems Administration", "Find Synonyms");
+  await suggest("Systems Administration", "Find synonyms");
   await expect(
     view().getByRole("button", { name: "Available 3", exact: true }),
   ).toBeVisible();
@@ -625,7 +625,7 @@ test("shows local full-precision cosine distances and sorts meanings without rej
 });
 
 test("omits case variants and zero distances from new and retained synonym runs", async () => {
-  await suggest("American History To 1877", "Find Synonyms");
+  await suggest("American History To 1877", "Find synonyms");
   await expect(
     view().getByRole("button", { name: "All 3", exact: true }),
   ).toBeVisible();
@@ -752,14 +752,14 @@ test("opens Find Synonyms from the graph node menu and offers a separate new run
 });
 
 test("reuses active synonyms and starts a queued parent search without a second click", async () => {
-  await suggest("Basic English", "Find Synonyms");
+  await suggest("Basic English", "Find synonyms");
   await expect
     .poll(
       async () => await page.evaluate(() => window.axiom.suggestions.status()),
     )
     .toMatchObject({ mode: "synonyms" });
-  await suggest("Basic English", "Find Synonyms");
-  await suggest("Alpha Beta Gamma", "Add Parents");
+  await suggest("Basic English", "Find synonyms");
+  await suggest("Alpha Beta Gamma", "Add parents");
   await expect(view()).toContainText(
     "Waiting for the current suggestions to finish",
   );
@@ -816,7 +816,7 @@ for (const mode of ["parents", "synonyms"] as const) {
     const name = parents ? "Alpha Gamma" : "English Basics";
     await suggest(
       parents ? "Alpha Beta Gamma" : "Basic English",
-      parents ? "Add Parents" : "Find Synonyms",
+      parents ? "Add parents" : "Find synonyms",
     );
     await view()
       .getByRole("button", { name: "Show details for " + name, exact: true })
@@ -899,7 +899,7 @@ for (const mode of ["parents", "synonyms"] as const) {
 }
 
 test("assistant parent suggestions expose the exact prompt and can add parents with no shared words", async () => {
-  await suggest("Multiculturalism at Work", "Add Parents");
+  await suggest("Multiculturalism at Work", "Add parents");
   await expect(
     view().getByRole("checkbox", { name: "Select Sociology", exact: true }),
   ).toBeVisible();

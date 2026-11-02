@@ -436,11 +436,9 @@ test("entity drafts survive closing a tab, save atomically and reject conflictin
   expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
     "An intervening change",
   );
+  // More stays in the Details header at every width, so it needs no maximised pane.
   const more = editor.getByRole("button", { name: "More" });
-  if (!(await more.isVisible())) {
-    await editor.locator(".phead .name").click();
-    await menu("pane.maximise");
-  }
+  await expect(more).toBeVisible();
   await more.click();
   await editor.getByRole("menuitem", { name: "Reload", exact: true }).click();
   await expect(
