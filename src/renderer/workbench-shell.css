@@ -226,6 +226,15 @@
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
+/* The active graph names its selection; a long edge name truncates, its full text in the tooltip. */
+.shell-surface.statusbar .status-graph-selection {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 48ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
 
 /* -------------------------------------------------------------- palette ---- */
 .shell-surface .palette {
