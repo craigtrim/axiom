@@ -138,6 +138,8 @@ test("stale worker guards preserve messages and mark replies", async () => {
     ["findCreate", {}, "Review the draft before adding it."],
     ["addEntityCheck", {}, "Review the draft before creating it."],
     ["addEntityCreate", {}, "Review the draft before creating it."],
+    // craigtrim/axiom#203: Apply refuses an outdated store the same quiet way.
+    ["addEntityApply", {}, "Review the draft before applying it."],
     ["textAnalysisDraft", {}, "Refresh the selected phrase before adding it."],
     [
       "textAnalysisCreatePreview",

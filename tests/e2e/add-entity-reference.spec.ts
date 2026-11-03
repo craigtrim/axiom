@@ -695,22 +695,170 @@ test("Add entity edited Name choice follows creation Undo and Redo", async () =>
   await expect(createAction("Create")).toBeDisabled();
 });
 
-test("Add entity non-Name edits release the created root identity", async () => {
+// craigtrim/axiom#203: after Create, every field edits the created root.
+const comment = () =>
+  f.pane().getByRole("textbox", { name: "Comment", exact: true });
+const literal = (predicate: string, value: string) =>
+  expect.objectContaining({
+    predicate,
+    object: expect.objectContaining({ value }),
+  });
+async function expectApply() {
+  await expect(draftStatus()).toHaveText("Ready to apply");
+  await expect(createAction("Apply")).toBeEnabled();
+  await expect(createAction("Create")).toHaveCount(0);
+  await expect(f.pane().locator(".validation-band .vmsg")).toHaveCount(0);
+}
+async function applied(label = "Speed Reading") {
+  await createAction("Apply").click();
+  await expect(draftStatus()).toHaveText("Created");
+  await expect(createAction("Create")).toBeDisabled();
+  await expect(f.pane().locator(".toast")).toContainText(
+    `Applied changes to ${label}.`,
+  );
+  await expect(f.pane().locator(".validation-band .vmsg")).toHaveCount(0);
+}
+test("Add entity applies a statement added after Create to the created class", async () => {
   f = await launchAddEntity("light", "Speed Reading");
   const iri = await createTracked();
-  const before = await rootDocument(iri);
-  await f.setName("Speed Readings");
-  await expectRenameChoice();
+  const before = await rootDocument(iri),
+    version = (await f.state()).version;
   await f
     .pane()
-    .getByRole("textbox", { name: "Comment", exact: true })
-    .fill("Another description");
-  await expect(createAction("Rename")).toHaveCount(0);
-  await expect(createAction("Create")).toBeEnabled();
+    .getByRole("combobox", { name: "Predicate", exact: true })
+    .selectOption(NS.rdfs + "seeAlso");
+  await f
+    .pane()
+    .getByRole("textbox", { name: "Value", exact: true })
+    .fill("Ethics in Accounting");
+  await expectApply();
+  await applied();
+  const after = await f.state();
+  expect(after.version).toBe(version + 1);
+  expect(
+    after.entities.filter((e) => e.label === "Speed Reading").map((e) => e.iri),
+  ).toEqual([iri]);
+  expect(after.selected).toBe(iri);
+  const changed = await rootDocument(iri);
+  expect(changed).toContainEqual(
+    literal(NS.rdfs + "seeAlso", "Ethics in Accounting"),
+  );
+  expect(changed).toEqual(expect.arrayContaining(before));
+  // Native Undo belongs to a focused text field; target ontology history here.
+  await createAction("Find existing").focus();
+  await addEntityMenu(f.app, "edit.undo");
+  await expect.poll(() => rootDocument(iri)).toEqual(before);
+  await expect(draftStatus()).toHaveText("Created");
+  await addEntityMenu(f.app, "edit.redo");
+  await expect.poll(() => rootDocument(iri)).toEqual(changed);
+});
+
+test("Add entity applies Comment and parent edits, creating a drafted parent in one step", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  const before = await rootDocument(iri),
+    version = (await f.state()).version;
+  await comment().fill("Reading at speed.");
+  await expectApply();
+  await f.choose("Writing Skills");
+  await expect(createAction("Apply")).toBeEnabled();
+  await applied();
+  const after = await f.state(),
+    parent = after.entities.find((e) => e.label === "Writing Skills")!;
+  expect(after.version).toBe(version + 1);
+  expect(
+    after.entities.filter((e) => e.label === "Speed Reading"),
+  ).toHaveLength(1);
+  expect(after.entities.find((e) => e.iri === iri)?.parents).toContain(
+    parent.iri,
+  );
+  expect(await rootDocument(iri)).toContainEqual(
+    literal(NS.rdfs + "comment", "Reading at speed."),
+  );
+  await expect(
+    f.pane().locator(".pchip.draft", { hasText: "Writing Skills" }),
+  ).toHaveCount(0);
+  await createAction("Find existing").focus();
+  await addEntityMenu(f.app, "edit.undo");
+  await expect.poll(() => rootDocument(iri)).toEqual(before);
+  expect(
+    (await f.state()).entities.some((e) => e.label === "Writing Skills"),
+  ).toBe(false);
+});
+
+test("Add entity Rename carries the draft's other edits in one step", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  const before = await rootDocument(iri),
+    version = (await f.state()).version;
+  await f.setName("Speed Readings");
+  await expectRenameChoice();
+  await comment().fill("Another description");
+  await expectRenameChoice();
+  await createAction("Rename").click();
+  await expect(draftStatus()).toHaveText("Created");
+  await expect(f.pane().locator(".toast")).toContainText(
+    "Renamed Speed Reading to Speed Readings.",
+  );
+  await expect(f.pane().locator(".toast")).toContainText(
+    "the draft's other edits",
+  );
+  const after = await f.state();
+  expect(after.version).toBe(version + 1);
+  expect(after.entities.find((e) => e.iri === iri)?.label).toBe(
+    "Speed Readings",
+  );
+  expect(await rootDocument(iri)).toContainEqual(
+    literal(NS.rdfs + "comment", "Another description"),
+  );
   await f.setName("Speed Reading");
-  await expect(draftStatus()).toHaveText("1 problem");
-  await expect(f.pane().locator(".vmsg.bad2")).toContainText("already exists");
-  expect(await rootDocument(iri)).toEqual(before);
+  await expectRenameChoice("Speed Readings", "Speed Reading");
+  await createAction("Find existing").focus();
+  await addEntityMenu(f.app, "edit.undo");
+  await expect.poll(() => rootDocument(iri)).toEqual(before);
+});
+
+test("Add entity keeps a Details edit made between Create and Apply", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  const definition = {
+    subject: iri,
+    predicate: NS.skos + "definition",
+    object: { literal: true, value: "Reading at speed" },
+  };
+  await f.page.evaluate(
+    async ({ iri, definition }) => {
+      const state = await window.axiom.request<{
+        version: number;
+        datasetEpoch: number;
+      }>("state");
+      const statements = (
+        await window.axiom.request<{ statements: unknown[] }>(
+          "entityDocument",
+          { iri },
+        )
+      ).statements;
+      await window.axiom.request("updateEntity", {
+        iri,
+        statements: [...statements, definition],
+        version: state.version,
+        datasetEpoch: state.datasetEpoch,
+        preserveSelection: true,
+      });
+    },
+    { iri, definition },
+  );
+  await expect(draftStatus()).toHaveText("Created");
+  await comment().fill("Applied after Details.");
+  await expectApply();
+  await applied();
+  const document = await rootDocument(iri);
+  expect(document).toContainEqual(
+    literal(NS.skos + "definition", "Reading at speed"),
+  );
+  expect(document).toContainEqual(
+    literal(NS.rdfs + "comment", "Applied after Details."),
+  );
 });
 
 test("Add entity rename choice survives saving and restart", async () => {
@@ -779,7 +927,8 @@ test("Add entity pending rename preserves newer Name edits and the root identity
   const iri = await createTracked();
   await f.setName("Speed Readings");
   await expectRenameChoice();
-  await holdRequests(f.app, ["rename"]);
+  // #203: Rename writes through addEntityApply, with or without other edits.
+  await holdRequests(f.app, ["addEntityApply"]);
   try {
     await createAction("Rename").click();
     await waitForHeld(f.app);
@@ -794,7 +943,7 @@ test("Add entity pending rename preserves newer Name edits and the root identity
     await f.setName("Speed Reading Skills");
     await expect(createAction("Rename")).toBeDisabled();
     await expect(createAction("Create new")).toBeDisabled();
-    expect(await requestCount(f.app, "rename")).toBe(1);
+    expect(await requestCount(f.app, "addEntityApply")).toBe(1);
     await releaseRequests(f.app);
     await expect
       .poll(
