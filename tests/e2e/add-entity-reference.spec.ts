@@ -818,6 +818,42 @@ test("Add entity Rename carries the draft's other edits in one step", async () =
   await expect.poll(() => rootDocument(iri)).toEqual(before);
 });
 
+test("Add entity resolves new parents and rechecks when edits continue during Apply", async () => {
+  f = await launchAddEntity("light", "Speed Reading");
+  const iri = await createTracked();
+  await f.choose("Writing Skills");
+  await comment().fill("First description.");
+  await expectApply();
+  await holdRequests(f.app, ["addEntityApply"]);
+  try {
+    await createAction("Apply").click();
+    await waitForHeld(f.app);
+    await comment().fill("Second description.");
+    await releaseRequests(f.app);
+    await expect(f.pane().locator(".toast")).toContainText(
+      "Applied changes to Speed Reading.",
+    );
+    await expectApply();
+    await expect(
+      f.pane().locator(".pchip.draft", { hasText: "Writing Skills" }),
+    ).toHaveCount(0);
+    await applied();
+  } finally {
+    await releaseRequests(f.app);
+  }
+  const after = await f.state(),
+    parent = after.entities.find((e) => e.label === "Writing Skills")!;
+  expect(
+    after.entities.filter((e) => e.label === "Writing Skills"),
+  ).toHaveLength(1);
+  expect(after.entities.find((e) => e.iri === iri)?.parents).toContain(
+    parent.iri,
+  );
+  expect(await rootDocument(iri)).toContainEqual(
+    literal(NS.rdfs + "comment", "Second description."),
+  );
+});
+
 test("Add entity keeps a Details edit made between Create and Apply", async () => {
   f = await launchAddEntity("light", "Speed Reading");
   const iri = await createTracked();

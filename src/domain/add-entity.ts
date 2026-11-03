@@ -1,4 +1,4 @@
-import { NS, THING, TYPE, type Triple } from "./model";
+import { NS, SUBCLASS, THING, TYPE, type Triple } from "./model";
 import { displayName, statementKey } from "./rdf-model";
 import { mergeEntityStatements } from "./entity-merge";
 import { textAnalysisDraft } from "./text-analysis-authoring";
@@ -195,6 +195,21 @@ function planApply(
     });
   if (!entity || findings.some((f) => f.kind === "bad2"))
     return { findings, changed: true };
+  const base = applied?.statements.map((t) => retarget(t, applied.iri, iri));
+  // A parent the last write created and Undo then removed stays in the plan
+  // as written, so the merge keeps the Undo instead of refusing the parent.
+  const parentPredicate = classes[0].kind === "individual" ? TYPE : SUBCLASS;
+  const undone = (base ?? []).filter(
+    (t) =>
+      t.predicate === parentPredicate &&
+      !t.object.literal &&
+      !store.entities.has(t.object.value) &&
+      classes[0].parents.some((p) => "iri" in p && p.iri === t.object.value),
+  );
+  const parents = classes[0].parents.filter(
+      (p) => !("iri" in p && undone.some((t) => t.object.value === p.iri)),
+    ),
+    placeholder = !parents.length && classes[0].kind !== "individual";
   try {
     const { ids, statements } = store.planClassHierarchy(
       // The root keeps its IRI, so plan it under a fresh one and retarget.
@@ -205,15 +220,28 @@ function planApply(
               ...c,
               iri: undefined,
               name: keepName ? displayName(entity) : c.name,
+              parents: placeholder ? [{ iri: THING }] : parents,
             },
       ),
     );
     const planned = statements.map((t) => retarget(t, ids.get("0")!, iri));
-    const root = planned.filter((t) => t.subject === iri),
+    const root = [
+        ...planned.filter(
+          (t) =>
+            t.subject === iri &&
+            !(
+              placeholder &&
+              undone.length &&
+              t.predicate === SUBCLASS &&
+              t.object.value === THING
+            ),
+        ),
+        ...undone,
+      ],
       created = planned.filter((t) => t.subject !== iri),
       current = store.entityStatements(iri);
     const merged = mergeEntityStatements(
-      applied?.statements.map((t) => retarget(t, applied.iri, iri)) ?? root,
+      base ?? root,
       root,
       current,
       new Set(

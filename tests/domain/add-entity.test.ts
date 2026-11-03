@@ -499,6 +499,26 @@ describe("Add entity edits after Create", () => {
       base + "Engineering",
     ]);
   });
+  it("keeps the Undo of a parent the last Apply created", async () => {
+    const { store, draft, result, target } = await created();
+    draft.root.parents.push({ create: node("Study Skills") });
+    const first = applyAddEntity(store, draft, 4, target, false);
+    draft.root.parents = first.parents.map((iri) => ({ iri }));
+    const next = { iri: result.iri, applied: first.applied };
+    store.undo();
+    expect(store.entities.has(base + "StudySkills")).toBe(false);
+    expect(checkAddEntity(store, draft, 4, next).apply).toEqual({
+      changed: false,
+      findings: [],
+    });
+    draft.root.comment = "Reading at speed";
+    applyAddEntity(store, draft, 4, next, false);
+    expect(store.entities.has(base + "StudySkills")).toBe(false);
+    expect(store.entities.get(result.iri)?.parents).toEqual([
+      base + "Engineering",
+    ]);
+    expect(store.entities.get(result.iri)?.comment).toBe("Reading at speed");
+  });
   it("renames with the draft's other edits in one undo step", async () => {
     const { store, draft, result, target } = await created();
     const version = store.version;

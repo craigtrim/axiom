@@ -156,7 +156,8 @@ export function TextEntityCreate({
     creation,
     snapshot.datasetEpoch,
     snapshot.version,
-    target?.iri,
+    // A new last write must recheck even when the draft and version are unchanged.
+    target,
   ]);
   const latest = useRef(key);
   latest.current = key;
@@ -453,6 +454,14 @@ export function TextEntityCreate({
       )
         return;
       setState(next);
+      // Drafted parents now exist, so their chips name what was written, even
+      // when another field changed while the write was pending.
+      const written = new Map(
+        submittedDraft.frames[0].value.parents.map((p, i) => [
+          p,
+          result.parents[i],
+        ]),
+      );
       setValue((v) =>
         v.createdRootIris !== rootIris
           ? v
@@ -467,20 +476,18 @@ export function TextEntityCreate({
                 ...(rootIris ?? []).filter((old) => old !== iri),
               ],
               error: undefined,
-              // Drafted parents now exist, so the chips name what was written.
-              frames:
-                v === submittedDraft
-                  ? [
-                      {
-                        value: {
-                          ...v.frames[0].value,
-                          manualParents: true,
-                          pickerText: "",
-                          parents: result.parents.map((p) => ({ iri: p })),
-                        },
-                      },
-                    ]
-                  : v.frames,
+              frames: [
+                {
+                  value: {
+                    ...v.frames[0].value,
+                    manualParents: true,
+                    parents: v.frames[0].value.parents.map((p) => {
+                      const iri = "create" in p && written.get(p);
+                      return iri ? { iri } : p;
+                    }),
+                  },
+                },
+              ],
             },
       );
       revealInOpenTaxonomy(iri);
