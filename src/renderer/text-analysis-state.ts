@@ -144,6 +144,8 @@ export function captureAddEntityDraft(): SavedAddEntity | undefined {
     created: draft?.created,
     // #177: keep the rename/create choice through workspace saves and remounts.
     createdRootIris: draft?.createdRootIris,
+    // #203: Apply merges against the last write after saves and restarts too.
+    applied: draft?.applied,
     error: draft?.error,
   });
 }
@@ -163,6 +165,7 @@ export function restoreAddEntityDraft(value: SavedAddEntity) {
     phrase: saved.phrase,
     created: saved.created,
     createdRootIris: saved.createdRootIris,
+    applied: saved.applied,
     error: saved.error,
     frames: [{ value: node(saved.root) }],
   });
