@@ -648,6 +648,8 @@ export class Store {
     statements: Triple[],
     nextIri = iri,
     related?: { subjects: Set<string>; statements: Triple[] },
+    // craigtrim/axiom#203: Add entity's Apply writes new parents in the same step.
+    created: Triple[] = [],
   ) {
     if (!this.entities.has(iri))
       throw Error("The entity is no longer available.");
@@ -680,6 +682,16 @@ export class Store {
       if (!t.subject.startsWith("_:"))
         throw Error("Related statements must describe anonymous resources.");
     }
+    for (const t of created) {
+      validateStatement(t);
+      if (
+        t.subject === iri ||
+        t.subject.startsWith("_:") ||
+        this.exists(t.subject) ||
+        this.bySubject.has(t.subject)
+      )
+        throw Error("New entities need an unused IRI.");
+    }
     const before = this.schemaState();
     this.record(
       "Edit " + this.label(iri),
@@ -687,7 +699,11 @@ export class Store {
         const triples = this.tbox
           .filter((t) => t.subject !== iri && !related?.subjects.has(t.subject))
           .concat(
-            structuredClone([...statements, ...(related?.statements ?? [])]),
+            structuredClone([
+              ...statements,
+              ...(related?.statements ?? []),
+              ...created,
+            ]),
           )
           .map((t) => ({
             ...t,

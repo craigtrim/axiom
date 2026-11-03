@@ -1,4 +1,6 @@
-import { NS, THING } from "./model";
+import { NS, THING, TYPE, type Triple } from "./model";
+import { displayName, statementKey } from "./rdf-model";
+import { mergeEntityStatements } from "./entity-merge";
 import { textAnalysisDraft } from "./text-analysis-authoring";
 import { entityNameKey } from "../shared/entity-names";
 import {
@@ -6,7 +8,9 @@ import {
   addEntityPredicates,
   cleanEntityName,
   readAddEntityInput,
+  readAddEntityTarget,
   type AddEntityCheck,
+  type AddEntityTarget,
   type AddEntityNode,
   type AddEntityFinding,
 } from "../shared/add-entity";
@@ -31,8 +35,17 @@ function inspect(
     const node = queue[i],
       name = cleanEntityName(node.label),
       iri = addEntityIri(name, store.ontology.namespace);
-    const bad = (message: string, reveal?: AddEntityFinding["reveal"]) =>
-      findings.push({ kind: "bad2", message, reveal });
+    const bad = (
+      message: string,
+      reveal?: AddEntityFinding["reveal"],
+      createOnly = false,
+    ) =>
+      findings.push({
+        kind: "bad2",
+        message,
+        reveal,
+        ...(createOnly && { createOnly }),
+      });
     let duplicate = false;
     if (!name) {
       if (i || requireRootName)
@@ -52,6 +65,7 @@ function inspect(
             ? `${name} now exists, so it cannot also be drafted.`
             : `A class named ${existing.label} already exists.`,
           i ? undefined : existing,
+          !i,
         );
       }
       if (
@@ -75,7 +89,11 @@ function inspect(
               AnnotationProperty: "an annotation property",
             } as Record<string, string>
           )[kind];
-        bad(`${iri} is already occupied by ${noun || "an existing resource"}.`);
+        bad(
+          `${iri} is already occupied by ${noun || "an existing resource"}.`,
+          undefined,
+          !i,
+        );
       }
       if (names.has(entityNameKey(name)) || iris.has(iri))
         bad(`${name} appears more than once in this draft.`);
@@ -140,13 +158,167 @@ function inspect(
     } satisfies AddEntityCheck,
   };
 }
-export function checkAddEntity(store: Store, value: unknown, epoch: number) {
-  return inspect(store, value, epoch, false).check;
+const retarget = (t: Triple, from: string, to: string): Triple => ({
+  ...t,
+  subject: t.subject === from ? to : t.subject,
+  object:
+    !t.object.literal && t.object.value === from
+      ? { ...t.object, value: to }
+      : t.object,
+});
+const sameStatements = (a: Triple[], b: Triple[]) => {
+  const keys = new Set(a.map(statementKey));
+  return (
+    keys.size === new Set(b.map(statementKey)).size &&
+    b.every((t) => keys.has(statementKey(t)))
+  );
+};
+// craigtrim/axiom#203: after Create, the draft edits the entity it created. The
+// base is the root plan the form last wrote, so edits made in Details survive.
+function planApply(
+  store: Store,
+  { classes, check }: ReturnType<typeof inspect>,
+  { iri, applied }: AddEntityTarget,
+  keepName: boolean,
+) {
+  const findings = check.findings.filter((f) => !f.createOnly);
+  const entity = store.entities.get(iri);
+  if (!entity)
+    findings.push({
+      kind: "bad2",
+      message: "The entity is no longer available.",
+    });
+  else if (classes[0].parents.some((p) => "iri" in p && p.iri === iri))
+    findings.push({
+      kind: "bad2",
+      message: "A class cannot be its own ancestor.",
+    });
+  if (!entity || findings.some((f) => f.kind === "bad2"))
+    return { findings, changed: true };
+  try {
+    const { ids, statements } = store.planClassHierarchy(
+      // The root keeps its IRI, so plan it under a fresh one and retarget.
+      classes.map((c, i) =>
+        i
+          ? c
+          : {
+              ...c,
+              iri: undefined,
+              name: keepName ? displayName(entity) : c.name,
+            },
+      ),
+    );
+    const planned = statements.map((t) => retarget(t, ids.get("0")!, iri));
+    const root = planned.filter((t) => t.subject === iri),
+      created = planned.filter((t) => t.subject !== iri),
+      current = store.entityStatements(iri);
+    const merged = mergeEntityStatements(
+      applied?.statements.map((t) => retarget(t, applied.iri, iri)) ?? root,
+      root,
+      current,
+      new Set(
+        store.tbox
+          .filter(
+            (t) =>
+              t.predicate === TYPE &&
+              !t.object.literal &&
+              t.object.value === NS.owl + "FunctionalProperty",
+          )
+          .map((t) => t.subject),
+      ),
+    );
+    return {
+      findings,
+      changed: !!created.length || !sameStatements(merged, current),
+      root,
+      merged,
+      created,
+      ids,
+      adopted: applied ? undefined : { iri, statements: root },
+    };
+  } catch (e) {
+    findings.push({ kind: "bad2", message: (e as Error).message });
+    return { findings, changed: true };
+  }
+}
+export function checkAddEntity(
+  store: Store,
+  value: unknown,
+  epoch: number,
+  target?: unknown,
+): AddEntityCheck {
+  const inspected = inspect(store, value, epoch, false);
+  if (target === undefined) return inspected.check;
+  const { changed, findings, adopted } = planApply(
+    store,
+    inspected,
+    readAddEntityTarget(target),
+    true,
+  );
+  return {
+    ...inspected.check,
+    apply: { changed, findings, ...(adopted && { adopted }) },
+  };
+}
+// The root's parents as written, with each drafted parent's minted IRI.
+function rootParents(
+  value: unknown,
+  ids: Map<string, string>,
+  classes: ClassCreation[],
+) {
+  return readAddEntityInput(value).root.parents.length
+    ? classes[0].parents.map((p) => ("iri" in p ? p.iri : ids.get(p.id)!))
+    : [];
 }
 export function createAddEntity(store: Store, value: unknown, epoch: number) {
   const { classes, check } = inspect(store, value, epoch, true);
   const first = check.findings.find((f) => f.kind === "bad2");
   if (first) throw Error(first.message);
   const ids = store.createClassHierarchy(classes);
-  return { iri: ids.get("0")!, created: [...ids.values()] };
+  const iri = ids.get("0")!;
+  return {
+    iri,
+    created: [...ids.values()],
+    parents: rootParents(value, ids, classes),
+    applied: { iri, statements: store.entityStatements(iri) },
+  };
+}
+/** Write the draft to the entity it created: Apply, or Rename with any other edits. */
+export function applyAddEntity(
+  store: Store,
+  value: unknown,
+  epoch: number,
+  targetValue: unknown,
+  rename: boolean,
+) {
+  const target = readAddEntityTarget(targetValue),
+    inspected = inspect(store, value, epoch, true);
+  const other = planApply(store, inspected, target, true),
+    plan = rename ? planApply(store, inspected, target, false) : other;
+  const first = plan.findings.find((f) => f.kind === "bad2");
+  if (first) throw Error(first.message);
+  if (!plan.root || !plan.merged || !plan.created || !plan.ids)
+    throw Error("Review the draft before applying it.");
+  if (!rename && !plan.changed)
+    throw Error("The entity already matches this draft.");
+  const edited = !rename || other.changed;
+  const iri = !edited
+    ? store.rename(target.iri, inspected.classes[0].name)
+    : store.updateEntity(
+        target.iri,
+        plan.merged,
+        target.iri,
+        undefined,
+        plan.created,
+      );
+  return {
+    iri,
+    created: [...plan.ids].filter(([id]) => id !== "0").map(([, v]) => v),
+    parents: rootParents(value, plan.ids, inspected.classes),
+    edited,
+    applied: {
+      iri,
+      statements: plan.root.map((t) => retarget(t, target.iri, iri)),
+    },
+  };
 }

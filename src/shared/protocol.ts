@@ -116,6 +116,7 @@ export type DomainMethod =
   // craigtrim/axiom#93: Add entity validates and commits a complete nested draft.
   | "addEntityCheck"
   | "addEntityCreate"
+  | "addEntityApply"
   | "qualityCensus"
   | "qualityStart"
   | "qualityStatus"

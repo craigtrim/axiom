@@ -2,7 +2,11 @@ import { StateUpdates } from "./state-updates";
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
-import { checkAddEntity, createAddEntity } from "../domain/add-entity";
+import {
+  applyAddEntity,
+  checkAddEntity,
+  createAddEntity,
+} from "../domain/add-entity";
 import {
   individualGridPage,
   individualGridFindOptions,
@@ -544,6 +548,7 @@ function runLayout(fresh = true) {
 }
 const tracked = new Set<DomainMethod>([
   "addEntityCreate",
+  "addEntityApply",
   "findCreate",
   "textAnalysisCreate",
   "seed",
@@ -1128,12 +1133,32 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
           "The ontology changed. Review the draft before creating it.",
         );
       if (method === "addEntityCheck")
-        return checkAddEntity(store, a.creation, datasetEpoch);
+        return checkAddEntity(store, a.creation, datasetEpoch, a.target);
       const result = createAddEntity(store, a.creation, datasetEpoch);
       selected = result.iri;
       mutate(
         "Entity and drafted parents created. Undo removes the transaction.",
       );
+      return result;
+    }
+    // craigtrim/axiom#203: later edits in the draft change the entity it created.
+    case "addEntityApply": {
+      if (a.datasetEpoch !== datasetEpoch || a.version !== store.version)
+        throw staleError(
+          "The ontology changed. Review the draft before applying it.",
+        );
+      const target = a.target as { iri?: unknown } | undefined,
+        result = applyAddEntity(
+          store,
+          a.creation,
+          datasetEpoch,
+          a.target,
+          a.rename === true,
+        );
+      if (typeof target?.iri === "string")
+        retargetGraph(target.iri, result.iri);
+      selected = result.iri;
+      mutate("Entity updated from Add entity. Undo restores it.");
       return result;
     }
     case "textAnalysisDraft":
