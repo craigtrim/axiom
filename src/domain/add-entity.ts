@@ -1,5 +1,5 @@
 import { NS, SUBCLASS, THING, TYPE, type Triple } from "./model";
-import { displayName, statementKey } from "./rdf-model";
+import { LABEL, displayName, statementKey } from "./rdf-model";
 import { mergeEntityStatements } from "./entity-merge";
 import { textAnalysisDraft } from "./text-analysis-authoring";
 import { entityNameKey } from "../shared/entity-names";
@@ -144,7 +144,12 @@ function inspect(
     try {
       store.planClassHierarchy(classes);
     } catch (e) {
-      findings.push({ kind: "bad2", message: (e as Error).message });
+      // #203: Apply plans the existing root separately, under its own rules.
+      findings.push({
+        kind: "bad2",
+        message: (e as Error).message,
+        createOnly: true,
+      });
     }
   }
   return {
@@ -188,14 +193,28 @@ function planApply(
       kind: "bad2",
       message: "The entity is no longer available.",
     });
-  else if (classes[0].parents.some((p) => "iri" in p && p.iri === iri))
-    findings.push({
-      kind: "bad2",
-      message: "A class cannot be its own ancestor.",
-    });
   if (!entity || findings.some((f) => f.kind === "bad2"))
     return { findings, changed: true };
-  const base = applied?.statements.map((t) => retarget(t, applied.iri, iri));
+  const current = store.entityStatements(iri);
+  // Rename sets the label outright, so its base is the label the entity has
+  // now, in each language the last write labelled. An undone Rename is no conflict.
+  const languages = new Set(
+    (applied?.statements ?? [])
+      .filter((t) => t.predicate === LABEL)
+      .map((t) => (t.object.language ?? "").toLowerCase()),
+  );
+  const base = applied?.statements
+    .map((t) => retarget(t, applied.iri, iri))
+    .filter((t) => keepName || t.predicate !== LABEL)
+    .concat(
+      keepName
+        ? []
+        : current.filter(
+            (t) =>
+              t.predicate === LABEL &&
+              languages.has((t.object.language ?? "").toLowerCase()),
+          ),
+    );
   // A parent the last write created and Undo then removed stays in the plan
   // as written, so the merge keeps the Undo instead of refusing the parent.
   const parentPredicate = classes[0].kind === "individual" ? TYPE : SUBCLASS;
@@ -238,8 +257,7 @@ function planApply(
         ),
         ...undone,
       ],
-      created = planned.filter((t) => t.subject !== iri),
-      current = store.entityStatements(iri);
+      created = planned.filter((t) => t.subject !== iri);
     const merged = mergeEntityStatements(
       base ?? root,
       root,
@@ -255,6 +273,25 @@ function planApply(
           .map((t) => t.subject),
       ),
     );
+    // The root keeps its IRI, so check the ancestry the write would leave,
+    // through drafted parents and existing descendants alike.
+    if (classes[0].kind !== "individual") {
+      const up = new Map<string, string[]>();
+      for (const t of [...merged, ...created])
+        if (t.predicate === SUBCLASS && !t.object.literal)
+          up.set(t.subject, [...(up.get(t.subject) ?? []), t.object.value]);
+      const parentsOf = (x: string) =>
+        up.get(x) ?? store.entities.get(x)?.parents ?? [];
+      const seen = new Set<string>(),
+        queue = [...parentsOf(iri)];
+      while (queue.length) {
+        const next = queue.pop()!;
+        if (next === iri) throw Error("A class cannot be its own ancestor.");
+        if (seen.has(next)) continue;
+        seen.add(next);
+        queue.push(...parentsOf(next));
+      }
+    }
     return {
       findings,
       changed: !!created.length || !sameStatements(merged, current),

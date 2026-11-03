@@ -519,6 +519,66 @@ describe("Add entity edits after Create", () => {
     ]);
     expect(store.entities.get(result.iri)?.comment).toBe("Reading at speed");
   });
+  it("renames after the Undo of a parent the last Apply created", async () => {
+    const { store, draft, result, target } = await created();
+    draft.root.parents.push({ create: node("Study Skills") });
+    const first = applyAddEntity(store, draft, 4, target, false);
+    draft.root.parents = first.parents.map((iri) => ({ iri }));
+    store.undo();
+    draft.root.label = "Speed Readings";
+    applyAddEntity(
+      store,
+      draft,
+      4,
+      { iri: result.iri, applied: first.applied },
+      true,
+    );
+    expect(store.entities.get(result.iri)?.label).toBe("Speed Readings");
+    expect(store.entities.has(base + "StudySkills")).toBe(false);
+  });
+  it("renames again after an undone Rename", async () => {
+    const { store, draft, result, target } = await created();
+    draft.root.label = "Speed Readings";
+    const renamed = applyAddEntity(store, draft, 4, target, true);
+    store.undo();
+    draft.root.label = "Speed Reading Skills";
+    const next = { iri: result.iri, applied: renamed.applied };
+    expect(checkAddEntity(store, draft, 4, next).apply?.findings).toEqual([]);
+    applyAddEntity(store, draft, 4, next, true);
+    expect(store.entities.get(result.iri)?.label).toBe("Speed Reading Skills");
+    draft.root.label = "Speed Reading Drills";
+    draft.root.comment = "Timed passages";
+    applyAddEntity(store, draft, 4, next, true);
+    expect(store.entities.get(result.iri)).toMatchObject({
+      label: "Speed Reading Drills",
+      comment: "Timed passages",
+    });
+  });
+  it.each([
+    ["a drafted parent", "drafted"],
+    ["an existing descendant", "descendant"],
+  ])("refuses a cycle through %s", async (_, via) => {
+    const { store, draft, result, target } = await created();
+    if (via === "drafted")
+      draft.root.parents.push({
+        create: node("Study Skills", [{ iri: result.iri }]),
+      });
+    else {
+      createAddEntity(store, input(node("Skimming", [{ iri: result.iri }])), 4);
+      draft.root.parents.push({ iri: base + "Skimming" });
+    }
+    const version = store.version;
+    expect(checkAddEntity(store, draft, 4, target).apply).toEqual({
+      changed: true,
+      findings: [
+        { kind: "bad2", message: "A class cannot be its own ancestor." },
+      ],
+    });
+    expect(() => applyAddEntity(store, draft, 4, target, false)).toThrow(
+      "own ancestor",
+    );
+    expect(store.version).toBe(version);
+  });
   it("renames with the draft's other edits in one undo step", async () => {
     const { store, draft, result, target } = await created();
     const version = store.version;
