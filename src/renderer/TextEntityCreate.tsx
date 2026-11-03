@@ -12,7 +12,10 @@ import { isDefaultIdentifier } from "../domain/rdf-model";
 import { entityRetargeted } from "./editor-drafts";
 import {
   addEntityIri,
+  cleanEntityName,
   plannedEntitySource,
+  type AddEntityApplied,
+  type AddEntityFinding,
   type AddEntityInput,
   type AddEntityCheck,
   type AddEntityNode,
@@ -34,6 +37,14 @@ import type {
 } from "./text-analysis-session";
 import type { Snapshot } from "../shared/protocol";
 
+// craigtrim/axiom#203: Create, Rename and Apply report the root triples they wrote.
+interface AddEntityWrite {
+  iri: string;
+  created: string[];
+  parents: string[];
+  applied: AddEntityApplied;
+  edited?: boolean;
+}
 export const emptyEntityDraft = (label = ""): TextEntityClassDraft => ({
   label,
   comment: "",
@@ -133,10 +144,20 @@ export function TextEntityCreate({
     "shared",
   );
   const creation: AddEntityInput = { kind, root: inputNode(root) };
+  // #177: Name edits retain the root identity; Undo/Redo can restore either rename IRI.
+  const createdRoot = value.createdRootIris
+    ?.map((iri) => snapshot.entities.find((entity) => entity.iri === iri))
+    .find((entity) => !!entity);
+  // craigtrim/axiom#203: every field then edits that entity, merged against the last write.
+  const target = createdRoot
+    ? { iri: createdRoot.iri, applied: value.applied }
+    : undefined;
   const key = JSON.stringify([
     creation,
     snapshot.datasetEpoch,
     snapshot.version,
+    // A new last write must recheck even when the draft and version are unchanged.
+    target,
   ]);
   const latest = useRef(key);
   latest.current = key;
@@ -150,17 +171,25 @@ export function TextEntityCreate({
         creation,
         datasetEpoch,
         version: snapshot.version,
+        target,
       }),
   );
-  // #177: Name edits retain the root identity; Undo/Redo can restore either rename IRI.
-  const createdRoot = value.createdRootIris
-    ?.map((iri) => snapshot.entities.find((entity) => entity.iri === iri))
-    .find((entity) => !!entity);
+  // #203: compare the name as creation writes it, so "&" does not read as a rename.
   const renameChoice =
     !!createdRoot &&
-    root.label.trim() !== (createdRoot.label ?? createdRoot.name);
+    cleanEntityName(root.label) !== (createdRoot.label ?? createdRoot.name);
+  // A check from before the last write would offer Apply for edits already written.
+  const applyCheck =
+      target && check.value?.version === snapshot.version
+        ? check.value.apply
+        : undefined,
+    applyFindings = applyCheck?.findings ?? [],
+    applyErrors = applyFindings.filter((f) => f.kind === "bad2");
+  const applyChoice = !!createdRoot && !renameChoice && !!applyCheck?.changed;
+  const renameBlocked =
+    renameChoice && !!applyCheck?.changed && !!applyErrors.length;
   // #177: completed-result state must not depend on delayed creation feedback.
-  const alreadyCreated = !!createdRoot && !renameChoice;
+  const alreadyCreated = !!createdRoot && !renameChoice && !applyChoice;
   const newIri = addEntityIri(root.label, snapshot.ontology.namespace);
   const replacesPlaceholder =
     !!createdRoot &&
@@ -169,42 +198,74 @@ export function TextEntityCreate({
   const findings = check.value?.findings ?? [],
     errors = findings.filter((f) => f.kind === "bad2");
   // #119/#177: hide the completed result, but explain blocked creation during a rename choice.
-  const shown = findings.filter(
-      (f) =>
-        !f.reveal ||
-        (renameChoice ||
-          (!value.created?.includes(f.reveal.iri) && !createdRoot)),
-    ),
-    problems = shown.filter((f) => f.kind === "bad2").length,
+  // #203: after Create, the band reports what blocks Apply, never the entity itself.
+  const shown: { finding: AddEntityFinding; prefix?: string }[] =
+      createdRoot && !renameChoice
+        ? applyFindings.map((finding) => ({ finding }))
+        : [
+            ...findings
+              .filter(
+                (f) =>
+                  !f.reveal ||
+                  renameChoice ||
+                  (!value.created?.includes(f.reveal.iri) && !createdRoot),
+              )
+              .map((finding) => ({
+                finding,
+                prefix: renameChoice ? "Create new: " : undefined,
+              })),
+            ...(renameBlocked
+              ? applyErrors
+                  .filter((f) => !errors.some((e) => e.message === f.message))
+                  .map((finding) => ({ finding, prefix: "Rename: " }))
+              : []),
+          ],
+    problems = shown.filter((s) => s.finding.kind === "bad2").length,
     warnings = shown.length - problems;
   const drafts = countDrafts(root),
     source = plannedEntitySource(creation, snapshot.ontology.namespace);
+  const problemText = (n: number) => `${n} problem${n === 1 ? "" : "s"}`;
   const stateText =
     renameChoice && root.label.trim()
-      ? errors.length
-        ? "Ready to rename"
-        : "Ready to rename or create"
-      : createdRoot && !renameChoice
-        ? "Created"
-        : problems
-          ? `${problems} problem${problems === 1 ? "" : "s"}`
-          : warnings
-            ? `${warnings} note${warnings === 1 ? "" : "s"}`
-            : shown.length < findings.length
-              ? "Created"
-              : root.label.trim()
-                ? "Ready to create"
-                : "Draft";
+      ? renameBlocked
+        ? problemText(applyErrors.length)
+        : errors.length
+          ? "Ready to rename"
+          : "Ready to rename or create"
+      : applyChoice
+        ? problems
+          ? problemText(problems)
+          : "Ready to apply"
+        : createdRoot && !renameChoice
+          ? "Created"
+          : problems
+            ? problemText(problems)
+            : warnings
+              ? `${warnings} note${warnings === 1 ? "" : "s"}`
+              : shown.length < findings.length
+                ? "Created"
+                : root.label.trim()
+                  ? "Ready to create"
+                  : "Draft";
+  // #203: a draft saved before Apply existed has no last write to merge against.
   const changeRoot = (next: TextEntityClassDraft, nameOnly = false) =>
     setValue((v) => ({
       ...v,
-      created: nameOnly ? v.created : undefined,
-      createdRootIris: nameOnly ? v.createdRootIris : undefined,
+      created: nameOnly || v.applied ? v.created : undefined,
+      createdRootIris: nameOnly || v.applied ? v.createdRootIris : undefined,
       frames: [{ value: next }],
     }));
   useEffect(() => {
     changeDraft(value);
   }, [value, changeDraft]);
+  // #203: a draft saved before Apply adopts its unedited plan as the last write.
+  useEffect(() => {
+    const adopted = check.fresh ? check.value?.apply?.adopted : undefined;
+    if (adopted)
+      setValue((v) =>
+        v.applied || !v.createdRootIris ? v : { ...v, applied: adopted },
+      );
+  }, [check.fresh, check.value]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -305,10 +366,11 @@ export function TextEntityCreate({
           };
       setBusy(true);
       const submittedDraft = currentDraft.current;
-      const result = await request<{ iri: string; created: string[] }>(
-        "addEntityCreate",
-        { creation: actual, datasetEpoch, version: fresh.version },
-      );
+      const result = await request<AddEntityWrite>("addEntityCreate", {
+        creation: actual,
+        datasetEpoch,
+        version: fresh.version,
+      });
       const next = await request<Snapshot>("state");
       if (
         !mounted.current ||
@@ -324,6 +386,7 @@ export function TextEntityCreate({
               ...v,
               created: result.created,
               createdRootIris: [result.iri],
+              applied: result.applied,
               error: undefined,
               frames: [
                 {
@@ -331,16 +394,7 @@ export function TextEntityCreate({
                     ...root,
                     manualParents: true,
                     pickerText: "",
-                    parents: actual.root.parents.map((p) =>
-                      "iri" in p
-                        ? p
-                        : {
-                            iri: addEntityIri(
-                              p.create.label,
-                              next.ontology.namespace,
-                            ),
-                          },
-                    ),
+                    parents: result.parents.map((iri) => ({ iri })),
                   },
                 },
               ],
@@ -360,11 +414,15 @@ export function TextEntityCreate({
       if (mounted.current) setBusy(false);
     }
   };
-  const renameCreated = async () => {
+  // #177/#203: Rename and Apply write the draft to the entity it created. The
+  // worker plans and validates the write itself, so neither waits for a check.
+  const writeCreated = async (rename: boolean) => {
     if (
       pending.current ||
       !createdRoot ||
-      !renameChoice ||
+      !target?.applied ||
+      !(rename ? renameChoice && !renameBlocked : applyChoice) ||
+      (!rename && applyErrors.length) ||
       !root.label.trim() ||
       state?.datasetEpoch !== datasetEpoch
     )
@@ -372,15 +430,19 @@ export function TextEntityCreate({
     pending.current = true;
     setBusy(true);
     const original = createdRoot,
-      name = root.label.trim(),
+      name = cleanEntityName(root.label),
       rootIris = value.createdRootIris;
     try {
-      const iri = await request<string>("rename", {
-        iri: original.iri,
-        name,
+      const submittedDraft = currentDraft.current;
+      const result = await request<AddEntityWrite>("addEntityApply", {
+        creation,
+        target,
+        rename,
         datasetEpoch,
+        version: snapshot.version,
       });
       if (!mounted.current || state?.datasetEpoch !== datasetEpoch) return;
+      const iri = result.iri;
       if (iri !== original.iri)
         entityRetargeted(original.iri, iri, datasetEpoch);
       await request("select", { iri, datasetEpoch });
@@ -392,24 +454,57 @@ export function TextEntityCreate({
       )
         return;
       setState(next);
+      // Drafted parents now exist, so their chips name what was written, even
+      // when another field changed while the write was pending.
+      const written = new Map(
+        submittedDraft.frames[0].value.parents.map((p, i) => [
+          p,
+          result.parents[i],
+        ]),
+      );
       setValue((v) =>
         v.createdRootIris !== rootIris
           ? v
           : {
               ...v,
-              created: [...new Set([...(v.created ?? []), iri])],
+              applied: result.applied,
+              created: [
+                ...new Set([...(v.created ?? []), iri, ...result.created]),
+              ],
               createdRootIris: [
                 iri,
                 ...(rootIris ?? []).filter((old) => old !== iri),
               ],
               error: undefined,
+              frames: [
+                {
+                  value: {
+                    ...v.frames[0].value,
+                    manualParents: true,
+                    parents: v.frames[0].value.parents.map((p) => {
+                      const iri = "create" in p && written.get(p);
+                      return iri ? { iri } : p;
+                    }),
+                  },
+                },
+              ],
             },
       );
       revealInOpenTaxonomy(iri);
-      notify(
-        `Renamed ${original.label ?? original.name} to ${name}.`,
-        `${iri === original.iri ? "The IRI did not change: " : "The placeholder IRI changed to "}${iri}. One Undo restores the old name${iri === original.iri ? "." : " and IRI."}`,
-      );
+      const label = original.label ?? original.name,
+        parents = result.created.length;
+      if (rename)
+        notify(
+          `Renamed ${label} to ${name}.`,
+          `${iri === original.iri ? "The IRI did not change: " : "The placeholder IRI changed to "}${iri}. One Undo restores the old name${iri === original.iri ? "" : " and IRI"}${result.edited ? " and the draft's other edits" : ""}.`,
+        );
+      else
+        notify(
+          `Applied changes to ${label}.`,
+          parents
+            ? `${parents} new parent${parents === 1 ? " was" : "s were"} created in the same step, and one Undo removes all of it.`
+            : "One Undo restores the previous values.",
+        );
     } catch (e) {
       if (mounted.current)
         setValue((v) => ({ ...v, error: (e as Error).message }));
@@ -438,8 +533,8 @@ export function TextEntityCreate({
           };
     setValue((v) => ({
       ...v,
-      created: undefined,
-      createdRootIris: undefined,
+      created: v.applied ? v.created : undefined,
+      createdRootIris: v.applied ? v.createdRootIris : undefined,
       frames: [{ value: walk(v.frames[0].value, 0) }],
     }));
   };
@@ -595,6 +690,7 @@ export function TextEntityCreate({
                   ...v,
                   created: undefined,
                   createdRootIris: undefined,
+                  applied: undefined,
                   kind: k,
                 }))
               }
@@ -604,7 +700,7 @@ export function TextEntityCreate({
           ))}
         </span>
         <span
-          className={`state shared-command ${renameChoice && root.label.trim() ? "okink" : problems ? "badink" : warnings ? "warnink" : root.label.trim() ? "okink" : ""}`}
+          className={`state shared-command ${renameChoice && root.label.trim() && !renameBlocked ? "okink" : problems ? "badink" : warnings ? "warnink" : root.label.trim() ? "okink" : ""}`}
           data-shared-command="state"
           data-overflowed={hidden.has("state")}
           aria-hidden={hidden.has("state") || undefined}
@@ -617,8 +713,8 @@ export function TextEntityCreate({
             type="button"
             className="btn primary"
             data-fixed-action
-            disabled={busy || !root.label.trim()}
-            onClick={() => void renameCreated()}
+            disabled={busy || !root.label.trim() || renameBlocked}
+            onClick={() => void writeCreated(true)}
           >
             Rename
           </button>
@@ -630,20 +726,22 @@ export function TextEntityCreate({
           disabled={
             alreadyCreated ||
             busy ||
-            !!errors.length ||
+            !!(applyChoice ? applyErrors : errors).length ||
             !!check.error ||
             !!value.error ||
             !root.label.trim()
           }
-          onClick={() => void submit()}
+          onClick={() => void (applyChoice ? writeCreated(false) : submit())}
         >
           {renameChoice
             ? "Create new"
-            : drafts === 0
-              ? "Create"
-              : drafts === 1
-                ? "Create both"
-                : "Create all"}
+            : applyChoice
+              ? "Apply"
+              : drafts === 0
+                ? "Create"
+                : drafts === 1
+                  ? "Create both"
+                  : "Create all"}
         </button>
         <span
           className="shared-command"
@@ -688,7 +786,7 @@ export function TextEntityCreate({
                   {`${createdRoot!.label ?? createdRoot!.name} was created from this draft. Rename changes its name; Create new adds ${root.label.trim() || "a new entity"} beside it.`}
                 </div>
               )}
-              {shown.map((f, i) => (
+              {shown.map(({ finding: f, prefix }, i) => (
                 <div className={`vmsg ${f.kind}`} key={i}>
                   <span
                     className={`tag ${f.kind === "bad2" ? "err" : "wrn"}`}
@@ -696,7 +794,7 @@ export function TextEntityCreate({
                   >
                     <span className="gl" />
                   </span>
-                  {renameChoice ? `Create new: ${f.message}` : f.message}
+                  {(prefix ?? "") + f.message}
                   {f.reveal && (
                     <>
                       {" "}

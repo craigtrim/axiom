@@ -12,6 +12,7 @@ import type {
   TextAnalysisClassInput,
 } from "../shared/text-analysis";
 import type { FindCreationDraft } from "../shared/find-create";
+import type { AddEntityApplied } from "../shared/add-entity";
 
 export interface TextEntityClassDraft {
   // craigtrim/axiom#93: each nested row retains its picker through remounts.
@@ -33,6 +34,8 @@ export interface TextEntityDraft {
   created?: string[];
   // #177: root identifiers remain distinct from parents, including rename Undo aliases.
   createdRootIris?: string[];
+  // craigtrim/axiom#203: the root triples last written, the base for Apply.
+  applied?: AddEntityApplied;
   error?: string;
   frames: { value: TextEntityClassDraft; editIndex?: number }[];
 }

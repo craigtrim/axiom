@@ -240,6 +240,7 @@ const methods = new Set<DomainMethod>([
   // craigtrim/axiom#93: authorized Add entity calls use the domain worker.
   "addEntityCheck",
   "addEntityCreate",
+  "addEntityApply",
   "qualityCensus",
   "qualityStart",
   "qualityStatus",

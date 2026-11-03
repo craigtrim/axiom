@@ -1,4 +1,4 @@
-import { NS, THING, shorten, type Term } from "../domain/model";
+import { NS, THING, shorten, type Term, type Triple } from "../domain/model";
 import { entityIdentifier, normalizeEntityName } from "./entity-names";
 import { nameSynonymStatements } from "../domain/entity-creation-names";
 
@@ -19,7 +19,61 @@ export interface SavedAddEntity {
   created?: string[];
   // #177: persist the root separately so reopening the draft cannot rename a parent.
   createdRootIris?: string[];
+  applied?: AddEntityApplied;
   error?: string;
+}
+// craigtrim/axiom#203: the root triples the form last wrote are the base for Apply.
+export interface AddEntityApplied {
+  iri: string;
+  statements: Triple[];
+}
+export interface AddEntityTarget {
+  iri: string;
+  // Missing for a draft saved before #203; the current plan becomes its base.
+  applied?: AddEntityApplied;
+}
+const term = (o: Term | undefined) =>
+  !!o &&
+  typeof o.literal === "boolean" &&
+  typeof o.value === "string" &&
+  o.value.length <= 10000 &&
+  (o.language === undefined ||
+    (typeof o.language === "string" && o.language.length <= 1000)) &&
+  (o.datatype === undefined ||
+    (typeof o.datatype === "string" && o.datatype.length <= 10000));
+export function readAddEntityTarget(value: unknown): AddEntityTarget {
+  const target = value as AddEntityTarget;
+  if (
+    !target ||
+    typeof target.iri !== "string" ||
+    !target.iri ||
+    target.iri.length > 10000 ||
+    (target.applied !== undefined && !readAddEntityApplied(target.applied))
+  )
+    throw Error("Invalid Add entity target.");
+  return target;
+}
+function readAddEntityApplied(value: unknown) {
+  const applied = value as AddEntityApplied;
+  return (
+    !!applied &&
+    typeof applied.iri === "string" &&
+    !!applied.iri &&
+    applied.iri.length <= 10000 &&
+    Array.isArray(applied.statements) &&
+    applied.statements.length <= 10000 &&
+    applied.statements.every(
+      (t) =>
+        !!t &&
+        typeof t.subject === "string" &&
+        t.subject.length <= 10000 &&
+        typeof t.predicate === "string" &&
+        t.predicate.length <= 10000 &&
+        term(t.object) &&
+        (t.graph === undefined ||
+          (typeof t.graph === "string" && t.graph.length <= 10000)),
+    )
+  );
 }
 export function readSavedAddEntity(value: unknown): SavedAddEntity {
   const saved = value as SavedAddEntity;
@@ -39,7 +93,10 @@ export function readSavedAddEntity(value: unknown): SavedAddEntity {
     (saved.created !== undefined &&
       (!Array.isArray(saved.created) ||
         saved.created.length > 1000 ||
-        saved.created.some((i) => typeof i !== "string" || i.length > 10000)))
+        saved.created.some(
+          (i) => typeof i !== "string" || i.length > 10000,
+        ))) ||
+    (saved.applied !== undefined && !readAddEntityApplied(saved.applied))
   )
     throw Error("Invalid saved Add entity draft.");
   readAddEntityInput(saved);
@@ -53,6 +110,8 @@ export interface AddEntityFinding {
   kind: "bad2" | "wrn2";
   message: string;
   reveal?: { iri: string; label: string };
+  // #203: a root name or IRI collision only blocks creating a new entity.
+  createOnly?: boolean;
 }
 export interface AddEntityCheck {
   findings: AddEntityFinding[];
@@ -60,6 +119,12 @@ export interface AddEntityCheck {
   entityCount: number;
   version: number;
   datasetEpoch: number;
+  // #203: whether Apply would change the created entity, name aside.
+  apply?: {
+    changed: boolean;
+    findings: AddEntityFinding[];
+    adopted?: AddEntityApplied;
+  };
 }
 export const addEntityPredicates = [
   NS.skos + "altLabel",
