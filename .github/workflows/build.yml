@@ -35,6 +35,7 @@ jobs:
             artifacts/quiet-qualification/**
             artifacts/quiet/results.json
             artifacts/test-results/**
+            artifacts/**/error-logs/*.json
   # Build and packaged checks run alongside the full UI suite, without delaying it.
   package:
     runs-on: windows-latest
@@ -76,6 +77,9 @@ jobs:
       - run: npm run package
         env:
           AXIOM_LOCAL_BUILD: "1"
+      # #207: allocate real JS heap in the bundled plain-Node runtime, away from local work.
+      - name: Verify ontology runtime heap
+        run: node scripts/check-node-runtime.mjs --packaged
       - name: Verify packaged executable
         run: node --import tsx scripts/check-ci-package.mjs
       - uses: actions/upload-artifact@v4
@@ -100,6 +104,8 @@ jobs:
             artifacts/test-results/**
             artifacts/native/**
             artifacts/packaged/**
+            artifacts/node-runtime/**
+            artifacts/**/error-logs/*.json
   windows:
     runs-on: windows-latest
     timeout-minutes: 60
@@ -141,3 +147,4 @@ jobs:
             artifacts/playwright-report/**
             artifacts/test-results/**
             artifacts/native/**
+            artifacts/**/error-logs/*.json

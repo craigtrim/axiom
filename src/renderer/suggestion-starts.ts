@@ -6,7 +6,10 @@ export interface SuggestionStartTarget {
 /** Click intents live only in memory. Restoring a pane never replays a run. */
 export class SuggestionStarts<T extends SuggestionStartTarget> {
   private pending = new Map<string, { target: T; epoch: number }>();
-  private active = new Map<string, { target: T; epoch: number }>();
+  private active = new Map<
+    string,
+    { target: T; epoch: number; runId?: string }
+  >();
   private listeners = new Set<() => void>();
   private revision = 0;
   private engine(mode: string) {
@@ -25,6 +28,17 @@ export class SuggestionStarts<T extends SuggestionStartTarget> {
   }
   get(pane: string) {
     return this.pending.get(pane);
+  }
+  // craigtrim/axiom#207: preparation belongs to its target before history is written.
+  running(target: T | null | undefined, epoch: number) {
+    if (!target) return undefined;
+    const job = this.active.get(this.engine(target.mode));
+    return job?.epoch === epoch &&
+      job.target.iri === target.iri &&
+      job.target.mode === target.mode &&
+      (!target.runId || target.runId === job.runId)
+      ? job
+      : undefined;
   }
   request(pane: string, target: T, epoch: number, start = true) {
     this.pending.delete(pane);
@@ -58,10 +72,10 @@ export class SuggestionStarts<T extends SuggestionStartTarget> {
     this.notify();
     return true;
   }
-  reserve(target: T, epoch: number) {
+  reserve(target: T, epoch: number, runId?: string) {
     const engine = this.engine(target.mode);
     if (this.active.has(engine)) return undefined;
-    const job = { target, epoch };
+    const job = { target, epoch, runId };
     this.active.set(engine, job);
     // Different views of this same request reuse the running result.
     for (const [pane, intent] of this.pending)

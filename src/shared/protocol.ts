@@ -113,6 +113,16 @@ export interface QuerySummary {
   id: number;
 }
 export type DomainMethod =
+  // craigtrim/axiom#207: these file and runtime operations are private to main.
+  | "configureDataService"
+  | "checkpointPrepare"
+  | "checkpointSession"
+  | "checkpointWorkspace"
+  | "checkpointRelease"
+  | "restoreSession"
+  | "loadWorkspaceFile"
+  | "textAnalysisParse"
+  | "runtimeInfo"
   // craigtrim/axiom#93: Add entity validates and commits a complete nested draft.
   | "addEntityCheck"
   | "addEntityCreate"
@@ -453,4 +463,19 @@ export interface SerializedCheckpoint {
   workspaceRevision: number;
   datasetEpoch: number;
   sessionRevision: number;
+}
+
+export interface CheckpointSummary extends Omit<
+  SerializedCheckpoint,
+  "text" | "draftsText"
+> {
+  id: string;
+  hasDrafts: boolean;
+}
+
+export interface DataRuntimeInfo {
+  pid: number;
+  pointerCompression: boolean;
+  heapSizeLimit: number;
+  totalMemory: number;
 }

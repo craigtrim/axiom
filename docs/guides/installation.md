@@ -34,6 +34,21 @@ Source packaging uses the complete Mutatoc 0.7.0 Windows runtime. CI installs it
 verified package before building; see [runtime setup](text-analysis.md#runtime)
 for development setup.
 
+Axiom also bundles Node.js 22.23.4 for the ontology service. Its heap ceiling
+follows the computer's physical memory, and its data stays outside Electron's
+JavaScript heap. No separate Node installation is needed to run an installed
+build. The runtime and its license ship under `resources/node`.
+
+A small Electron utility process launches the Node service and relays its messages.
+This isolates Windows process handles from the browser. The launcher holds no
+ontology store; imports, analysis and persistence run in the plain Node process.
+
+Source builds run `setup:node` automatically. That step downloads the pinned
+Windows x64 runtime from Node.js, verifies its release checksum and retains a
+verified copy in `vendor/node`. Run `npm run setup:node` to prepare it separately.
+The worker bundles and their dependencies are unpacked beside `app.asar` so the
+plain Node process can read them. See the [Node release files](https://nodejs.org/download/release/v22.23.4/).
+
 ## What the installer does
 
 It installs into `%LOCALAPPDATA%\Programs\Axiom`, with the destination offered on an

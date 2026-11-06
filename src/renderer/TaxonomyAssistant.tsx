@@ -80,8 +80,17 @@ export function TaxonomyAssistant({
   const nodeHistory = relevantHistory.filter(
     (h) => h.iri === target?.iri && h.mode === target.mode,
   );
+  // craigtrim/axiom#207: show this run while context/history are still being prepared.
+  const reservation = suggestionStarts.running(target, snapshot.datasetEpoch);
+  const preparing =
+    !!activity &&
+    !entry &&
+    !!reservation?.runId &&
+    (!runId || runId === reservation.runId);
   const activeForTarget =
-    busy || (!!activity && nodeHistory.some((h) => h.state === "running"));
+    busy ||
+    preparing ||
+    (!!activity && nodeHistory.some((h) => h.state === "running"));
   const otherHistory = relevantHistory.filter(
     (h) => h.iri !== target?.iri || h.mode !== target.mode,
   );
@@ -114,7 +123,9 @@ export function TaxonomyAssistant({
         setRunId(
           items.some((h) => h.id === target?.runId)
             ? target!.runId!
-            : (latest?.id ?? ""),
+            : (suggestionStarts.running(target, snapshot.datasetEpoch)?.runId ??
+                latest?.id ??
+                ""),
         );
       })
       .catch((e) => live && setError(e.message))
@@ -215,10 +226,10 @@ export function TaxonomyAssistant({
       applying
     )
       return;
-    const release = suggestionStarts.reserve(target, snapshot.datasetEpoch);
+    const id = crypto.randomUUID();
+    const release = suggestionStarts.reserve(target, snapshot.datasetEpoch, id);
     if (!release) return;
     const origin = target;
-    const id = crypto.randomUUID();
     setRunId(id);
     setEntry(undefined);
     setSelected(new Set());
@@ -329,6 +340,7 @@ export function TaxonomyAssistant({
         loading={loading}
         applying={applying}
         activity={!!activity}
+        preparing={preparing}
         selectionActivity={activeForTarget}
         waiting={!!start && !!activity}
         targetExists={!!targetExists}
@@ -366,7 +378,9 @@ export function TaxonomyAssistant({
       data-panel="taxonomy"
       aria-label="Taxonomy suggestions"
     >
-      {entry?.state === "running" && <AssistantActivity kind="taxonomy" />}
+      {(preparing || entry?.state === "running") && (
+        <AssistantActivity kind="taxonomy" />
+      )}
       {start && activity && (
         <p role="status" className="panel-note">
           Waiting for the current suggestions to finish. This run will start

@@ -20,47 +20,74 @@ export function textAnalysisCanonical(iri: string) {
   );
 }
 export function textAnalysisConcepts(store: Store, triples: Triple[]) {
-  const subjects = new Set(
-    triples
-      .filter(
-        (t) =>
-          [
-            NS.rdfs + "label",
-            NS.rdfs + "seeAlso",
-            NS.skos + "altLabel",
-          ].includes(t.predicate) ||
-          t.predicate.slice(t.predicate.lastIndexOf("#") + 1) === "inflection",
-      )
-      .map((t) => t.subject),
-  );
+  const subjects = new Set<string>();
+  for (const triple of triples)
+    if (namesConcept(triple)) subjects.add(triple.subject);
   const index = new Map<string, TextAnalysisConcept[]>();
+  for (const iri of subjects) addConcept(store, index, iri);
+  return Object.fromEntries(index);
+}
+
+// craigtrim/axiom#207: large context indexes yield without changing synchronous callers.
+export async function textAnalysisConceptsAsync(
+  store: Store,
+  triples: Triple[],
+  yieldControl: () => Promise<void>,
+) {
+  const subjects = new Set<string>();
+  let count = 0;
+  for (const triple of triples) {
+    if (namesConcept(triple)) subjects.add(triple.subject);
+    if (++count % 2048 === 0) await yieldControl();
+  }
+  const index = new Map<string, TextAnalysisConcept[]>();
+  count = 0;
   for (const iri of subjects) {
-    if (iri.startsWith("_:")) continue;
-    const entity = store.resolve(iri);
-    if (!entity) continue;
-    const canonical = textAnalysisCanonical(iri);
-    const targets = index.get(canonical) ?? [];
-    targets.push({
-      iri,
-      label: store.label(iri),
-      kind: entity.kind,
-      comment: entity.comment,
-      parents: [
-        ...new Set(
-          entity.kind === "Individual" ? entity.types : taxonomyParents(entity),
-        ),
-      ]
-        .filter((parent) => !parent.startsWith("_:"))
-        .map((parent) => ({ iri: parent, label: store.label(parent) })),
-      taxonomy: [
-        "Class",
-        "Defined",
-        "ObjectProperty",
-        "DataProperty",
-        "AnnotationProperty",
-      ].includes(entity.kind),
-    });
-    index.set(canonical, targets);
+    addConcept(store, index, iri);
+    if (++count % 1024 === 0) await yieldControl();
   }
   return Object.fromEntries(index);
+}
+
+const namePredicates = new Set([
+  NS.rdfs + "label",
+  NS.rdfs + "seeAlso",
+  NS.skos + "altLabel",
+]);
+const namesConcept = (triple: Triple) =>
+  namePredicates.has(triple.predicate) ||
+  triple.predicate.slice(triple.predicate.lastIndexOf("#") + 1) ===
+    "inflection";
+
+function addConcept(
+  store: Store,
+  index: Map<string, TextAnalysisConcept[]>,
+  iri: string,
+) {
+  if (iri.startsWith("_:")) return;
+  const entity = store.resolve(iri);
+  if (!entity) return;
+  const canonical = textAnalysisCanonical(iri);
+  const targets = index.get(canonical) ?? [];
+  targets.push({
+    iri,
+    label: store.label(iri),
+    kind: entity.kind,
+    comment: entity.comment,
+    parents: [
+      ...new Set(
+        entity.kind === "Individual" ? entity.types : taxonomyParents(entity),
+      ),
+    ]
+      .filter((parent) => !parent.startsWith("_:"))
+      .map((parent) => ({ iri: parent, label: store.label(parent) })),
+    taxonomy: [
+      "Class",
+      "Defined",
+      "ObjectProperty",
+      "DataProperty",
+      "AnnotationProperty",
+    ].includes(entity.kind),
+  });
+  index.set(canonical, targets);
 }

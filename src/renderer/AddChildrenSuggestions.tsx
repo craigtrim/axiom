@@ -35,6 +35,7 @@ type Props = {
   loading: boolean;
   applying: boolean;
   activity: boolean;
+  preparing?: boolean;
   selectionActivity?: boolean;
   waiting: boolean;
   targetExists: boolean;
@@ -58,7 +59,10 @@ export function AddChildrenSuggestions(p: Props) {
       items={childSuggestions(entry)}
       summary={entry?.response?.result.summary ?? ""}
       progress={
-        entry?.state === "running" && <AssistantActivity kind="taxonomy" />
+        // craigtrim/axiom#207: the owned context request precedes its history entry.
+        (p.preparing || entry?.state === "running") && (
+          <AssistantActivity kind="taxonomy" />
+        )
       }
       context={
         p.context && (

@@ -2,16 +2,13 @@
 import { mergeState } from "../shared/state-update";
 // #165: all application windows share the opt-in quiet test policy.
 import { installQuietTesting, testWindowOptions } from "./quiet-testing";
-import { TextAnalysisService } from "./text-analysis-service";
-import { mutatocExecutable } from "./mutatoc-client";
-import type { TextAnalysisContext } from "../shared/text-analysis";
+// craigtrim/axiom#207: ontology state and native analysis live outside Electron's heap.
+import { DomainService } from "./domain-service";
+import { domainRuntimePaths } from "./node-runtime";
+import type { SessionRestore, WorkspaceMetadata } from "./checkpoint-store";
 import { randomUUID } from "node:crypto";
 import type { ChromeMenuItem } from "../shared/window-chrome";
-import {
-  MissingWorkspaceError,
-  WorkspaceFiles,
-  workspaceExists,
-} from "./workspace-files";
+import { MissingWorkspaceError, workspaceExists } from "./workspace-files";
 import { selectInstanceProfile, isSlotProbe } from "./instance-profile";
 import { InstanceRegistry } from "./instance-registry";
 import { WorkspaceOwnership, type WorkspaceLease } from "./workspace-ownership";
@@ -36,13 +33,9 @@ import {
 } from "./crash-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
-import { SessionStore, SessionSizeError } from "./session-store";
-import {
-  AutosaveCheckpoint,
-  sessionJson,
-  workspaceJson,
-} from "./autosave-checkpoint";
-import type { SerializedCheckpoint } from "../shared/protocol";
+import { SessionSizeError } from "./session-store";
+import { AutosaveCheckpoint } from "./autosave-checkpoint";
+import type { CheckpointSummary } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import { startUpdates } from "./updates";
 import { instanceAction } from "../shared/action-state";
@@ -100,9 +93,9 @@ import {
   nativeImage,
   screen,
   crashReporter,
+  utilityProcess,
   type MenuItemConstructorOptions,
 } from "electron";
-import { Worker } from "node:worker_threads";
 import {
   readFile,
   writeFile,
@@ -163,7 +156,7 @@ try {
   app.exit(1);
 }
 let mainWindow: BrowserWindow | null = null,
-  worker: Worker,
+  worker: DomainService,
   sequence = 0,
   preferences: Preferences = readPreferences({ version: 1, theme: "light" }),
   lastState: Snapshot | undefined,
@@ -574,14 +567,19 @@ function request<T = unknown>(
         reject(error);
       },
     });
-    worker.postMessage({ id, method, args });
+    const failed = (error: Error) => {
+      const waiting = pending.get(id);
+      if (!waiting) return;
+      pending.delete(id);
+      waiting.reject(error);
+    };
+    try {
+      worker.postMessage({ id, method, args }, failed);
+    } catch (error) {
+      failed(error instanceof Error ? error : Error(String(error)));
+    }
   });
 }
-const textAnalysis = new TextAnalysisService(
-  () =>
-    mutatocExecutable(app.getAppPath(), process.resourcesPath, app.isPackaged),
-  () => request<TextAnalysisContext>("textAnalysisContext"),
-);
 const wikipedia = new WikipediaClient({
   fetch: (input, init) =>
     net.fetch(input instanceof URL ? input.href : input, init),
@@ -750,7 +748,6 @@ async function resolveLinkedFile(iri: unknown) {
   if (!file) throw Error("This entity does not link to a filesystem file.");
   return file;
 }
-const sessions = new SessionStore(app.getPath("userData"));
 const recentFiles = new RecentFiles(app.getPath("userData"));
 async function rememberFile(file: string) {
   try {
@@ -760,7 +757,6 @@ async function rememberFile(file: string) {
   }
   installMenu();
 }
-const workspaceFiles = new WorkspaceFiles();
 // #123: only successful checkpoints or oversized content suppress an idle tick.
 const autosaveCheckpoint = new AutosaveCheckpoint();
 let capturedDraftRevision = "",
@@ -792,18 +788,23 @@ async function checkpointSession(capture = true) {
   if (capture) await capturePreferences();
   const workbench = preferences,
     draftsRevision = capturedDraftRevision;
-  const document = await request<SerializedCheckpoint>("serializeJson", {
+  const document = await request<CheckpointSummary>("checkpointPrepare", {
     editorDrafts: capturedDrafts,
   });
   const key = checkpointKey(document, workbench, draftsRevision);
   try {
-    await sessions.saveJson(
-      sessionJson(document, workbench, workspacePath, recoveryPath),
-    );
+    await request("checkpointSession", {
+      id: document.id,
+      workbench,
+      workspacePath,
+      recoveryPath,
+    });
     autosaveCheckpoint.complete(key);
   } catch (error) {
     if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
     throw error;
+  } finally {
+    await request("checkpointRelease", { id: document.id }).catch(() => {});
   }
 }
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
@@ -995,15 +996,19 @@ async function writeWorkspace(
   }
   let committed = false;
   let key = checkpointKey(revision, workbench, draftsRevision);
+  let checkpoint: CheckpointSummary | undefined;
   try {
-    const document = await request<SerializedCheckpoint>("serializeJson", {
-      editorDrafts: capturedDrafts,
-    });
+    const document = (checkpoint = await request<CheckpointSummary>(
+      "checkpointPrepare",
+      {
+        editorDrafts: capturedDrafts,
+      },
+    ));
     if (
       !file &&
       archive &&
       (lastState?.dirty ||
-        document.draftsText ||
+        document.hasDrafts ||
         lastState?.ontology.source ||
         lastState?.ontology.example ||
         lastState?.graph.nodes.length)
@@ -1030,21 +1035,28 @@ async function writeWorkspace(
     key = checkpointKey(document, workbench, draftsRevision);
     const destination = file ?? recoveryPath;
     // Recovery precedes the named file so a failed file write still retains edits.
-    await sessions.saveJson(
-      sessionJson(document, workbench, workspacePath, recoveryPath),
-    );
+    await request("checkpointSession", {
+      id: document.id,
+      workbench,
+      workspacePath,
+      recoveryPath,
+    });
     if (destination) {
-      await workspaceFiles.write(
-        destination,
-        workspaceJson(document, workbench),
-        { createDirectory: !file, allowCreate: !file || allowCreate },
-      );
+      await request("checkpointWorkspace", {
+        id: document.id,
+        file: destination,
+        workbench,
+        options: { createDirectory: !file, allowCreate: !file || allowCreate },
+      });
       if (file && workspacePath !== file) {
         setWorkspacePath(file, lease);
         committed = true;
-        await sessions.saveJson(
-          sessionJson(document, workbench, file, recoveryPath),
-        );
+        await request("checkpointSession", {
+          id: document.id,
+          workbench,
+          workspacePath: file,
+          recoveryPath,
+        });
         key = checkpointKey(document, workbench, draftsRevision);
       }
       await request("markSaved", {
@@ -1065,6 +1077,8 @@ async function writeWorkspace(
     if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
     throw error;
   } finally {
+    if (checkpoint)
+      await request("checkpointRelease", { id: checkpoint.id }).catch(() => {});
     if (!committed) lease?.release();
   }
 }
@@ -1114,28 +1128,15 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
   let committed = false;
   try {
     if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
-    if ((await stat(file)).size > 256 * 1024 * 1024)
-      throw Error("Workspace exceeds the 256 MB limit.");
-    const data = JSON.parse(await readFile(file, "utf8"));
-    const restored = readPreferences({
-      ...preferences,
-      ...data.workbench,
-      version: 1,
-      layout: data.workbench?.layout,
-      panelState: {
-        ...data.workbench?.panelState,
-        "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
-        "find.extendActions": preferences.panelState?.["find.extendActions"],
-      },
-      tabHistory: data.workbench?.tabHistory,
-      keyboard: preferences.keyboard,
-      tabSavePolicy: preferences.tabSavePolicy,
+    const data = await request<WorkspaceMetadata>("loadWorkspaceFile", {
+      file,
+      preferences,
     });
-    await request("load", { document: data });
+    const restored = data.workbench;
     setWorkspacePath(file, lease);
     committed = true;
     recoveryPath = undefined;
-    restoredDrafts = readEditorDrafts(data.editorDrafts);
+    restoredDrafts = data.editorDrafts;
     send("workspace.drafts");
     updateWindowTitle();
     if (restored) {
@@ -1604,7 +1605,16 @@ app.whenReady().then(async () => {
       return new Response("Not found", { status: 404 });
     return net.fetch(pathToFileURL(target).toString());
   });
-  worker = new Worker(path.join(__dirname, "domain-worker.cjs"));
+  const dataRuntime = domainRuntimePaths(
+    app.getAppPath(),
+    process.resourcesPath,
+    app.isPackaged,
+  );
+  worker = new DomainService(dataRuntime.entrypoint, {
+    execPath: dataRuntime.executable,
+    launcher: dataRuntime.launcher,
+    fork: utilityProcess.fork,
+  });
   worker.on("message", (packet) => {
     if (packet.event) {
       if (packet.event.type === "query-state") {
@@ -1643,33 +1653,29 @@ app.whenReady().then(async () => {
     // #67: a stale reply that the renderer leaves unhandled is still not a failure.
     if (packet.error && packet.stale === true && staleMessages.size < 100)
       staleMessages.add(String(packet.error));
-    if (packet.error)
+    if (packet.error) {
+      const error =
+        packet.code === "AXIOM_SESSION_SIZE"
+          ? new SessionSizeError()
+          : packet.code === "AXIOM_WORKSPACE_MISSING"
+            ? new MissingWorkspaceError(String(packet.file))
+            : new Error(packet.error + (packet.hint ? " " + packet.hint : ""));
       p.reject(
-        Object.assign(
-          new Error(packet.error + (packet.hint ? " " + packet.hint : "")),
-          { stale: packet.stale === true },
-        ),
+        Object.assign(error, {
+          stale: packet.stale === true,
+          ...(packet.code ? { code: packet.code } : {}),
+        }),
       );
-    else p.resolve(packet.value);
+    } else p.resolve(packet.value);
   });
   let workerFailed = false;
-  worker.on("error", (e) => {
-    workerFailed = true;
-    // Capture the requests in flight before they are rejected.
-    const recorded = recordCrash(
-      "The data service stopped: " + cleanErrorMessage(e),
-      "Domain worker error",
-      { process: "domain worker" },
-      e.stack,
-    );
-    for (const p of pending.values()) p.reject(e);
-    pending.clear();
-    if (mainWindow)
+  const showDataServiceFailure = (error: Error, recorded: Promise<string>) => {
+    if (mainWindow && !mainWindow.isDestroyed())
       void dialog
         .showMessageBox(mainWindow, {
           type: "error",
           message: "The data service stopped.",
-          detail: e.message,
+          detail: cleanErrorMessage(error),
           buttons: ["Close", "Error details"],
           defaultId: 0,
           cancelId: 0,
@@ -1677,20 +1683,55 @@ app.whenReady().then(async () => {
         .then(async (r) => {
           if (r.response === 1) send("audit.open:" + (await recorded));
         });
+  };
+  worker.on("error", (e) => {
+    workerFailed = true;
+    // A failed spawn can have no exit event; a live IPC channel can still recover.
+    if (!worker.connected) workerStopped = e;
+    // Capture the requests in flight before they are rejected.
+    const recorded = recordCrash(
+      "The data service stopped: " + cleanErrorMessage(e),
+      "Domain worker error",
+      { process: "domain worker", pid: worker.pid ?? null },
+      e.stack,
+    );
+    for (const p of pending.values()) p.reject(e);
+    pending.clear();
+    showDataServiceFailure(e, recorded);
   });
   // An exit without an error event would otherwise leave every pending request waiting.
-  worker.on("exit", (code) => {
+  worker.on("exit", (code, signal) => {
     if (closing || quitting) return;
-    const error = Error(`The data service exited with code ${code}.`);
+    const exitCode = code ?? (signal ? 1 : 0);
+    const error = Error(
+      `The data service exited with code ${exitCode}.` +
+        (signal ? " Signal: " + signal + "." : "") +
+        (worker.diagnostics ? "\n" + worker.diagnostics : ""),
+    );
     workerStopped = error;
     // After an error event the worker's failure is already recorded.
-    if (!workerFailed)
-      void recordCrash(error.message, "Domain worker exit", {
-        process: "domain worker",
-        exitCode: code,
-      });
+    if (!workerFailed) {
+      const recorded = recordCrash(
+        error.message,
+        "Domain worker exit",
+        {
+          process: "domain worker",
+          pid: worker.pid ?? null,
+          exitCode,
+          ...(signal ? { signal } : {}),
+        },
+        worker.diagnostics || error.stack,
+      );
+      showDataServiceFailure(error, recorded);
+    }
     for (const p of pending.values()) p.reject(error);
     pending.clear();
+  });
+  await request("configureDataService", {
+    directory: app.getPath("userData"),
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+    packaged: app.isPackaged,
   });
   app.on("render-process-gone", (_event, contents, details) => {
     if (details.reason === "clean-exit" || quitting) return;
@@ -1720,39 +1761,23 @@ app.whenReady().then(async () => {
     );
   });
   await recentFiles.load();
-  const restoredSession = await sessions.restore(async (session) => {
-    if (
-      session.workspacePath &&
-      !(await workspaceExists(session.workspacePath))
-    ) {
-      await errorLog.record(
-        "The workspace could not be opened because its file no longer exists.",
-        "Restore workspace",
-        { ...errorContext(), file: session.workspacePath },
-      );
-      return false;
-    }
+  const restoredSession = await request<SessionRestore>("restoreSession", {
+    preferences,
+  });
+  if (restoredSession.missingWorkspacePath)
+    await errorLog.record(
+      "The workspace could not be opened because its file no longer exists.",
+      "Restore workspace",
+      { ...errorContext(), file: restoredSession.missingWorkspacePath },
+    );
+  if (restoredSession.session) {
+    const session = restoredSession.session;
     // A different slot may have opened this session's named workspace since its
     // last run. Restore its snapshot as an unnamed recovery, never a second writer.
     const lease = session.workspacePath
       ? await workspaceOwnership.claim(session.workspacePath, false)
       : undefined;
-    try {
-      await request("load", { document: session.workspace });
-    } catch (error) {
-      lease?.release();
-      throw error;
-    }
-    preferences = readPreferences({
-      ...session.workbench,
-      panelState: {
-        ...session.workbench.panelState,
-        "warnings.seeAlso": preferences.panelState?.["warnings.seeAlso"],
-        "find.extendActions": preferences.panelState?.["find.extendActions"],
-      },
-      keyboard: preferences.keyboard,
-      tabSavePolicy: preferences.tabSavePolicy,
-    });
+    preferences = session.workbench;
     setWorkspacePath(lease ? session.workspacePath : undefined, lease);
     recoveryPath =
       session.recoveryPath &&
@@ -1761,10 +1786,10 @@ app.whenReady().then(async () => {
         ? session.recoveryPath
         : undefined;
     restoredDrafts = session.editorDrafts;
-  });
+  }
   if (!recentFiles.list().length && restoredSession.session) {
     // Carry a known file from the last session into newly introduced history.
-    const source = restoredSession.session.workspace.ontology?.source?.baseIRI;
+    const source = restoredSession.session.sourceBaseIRI;
     let previousFile = workspacePath;
     try {
       if (!previousFile && source?.startsWith("file:"))
@@ -1889,7 +1914,9 @@ app.whenReady().then(async () => {
   };
   secure(mainWindow);
   installMenu();
-  handle("textAnalysis:parse", (_event, input) => textAnalysis.parse(input));
+  handle("textAnalysis:parse", (_event, input) =>
+    request("textAnalysisParse", { input }),
+  );
   handle(
     "domain:request",
     (event, method: DomainMethod, args: Record<string, unknown>) => {
@@ -2633,7 +2660,6 @@ process.on("exit", () => runLog?.close());
 app.on("before-quit", () => {
   quitting = true;
   suggestionBatches.close();
-  textAnalysis.close();
   const suggestion = suggestions.status();
   if (suggestion) suggestions.cancel(suggestion.id);
   taxonomyAssistant.cancel();

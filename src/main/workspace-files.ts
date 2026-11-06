@@ -11,6 +11,8 @@ import path from "node:path";
 import { workspaceFilePath } from "./workspace-ownership";
 // #162: only an explicit Save destination or recovery archive may create a file.
 export class MissingWorkspaceError extends Error {
+  // craigtrim/axiom#207: main must retain missing-file handling after IPC.
+  readonly code = "AXIOM_WORKSPACE_MISSING";
   constructor(readonly file: string) {
     super("The workspace file no longer exists: " + file);
   }

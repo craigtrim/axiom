@@ -29,11 +29,22 @@ module.exports = {
     { from: "licenses/THIRD-PARTY-NOTICES.txt", to: "THIRD-PARTY-NOTICES.txt" },
     { from: "licenses/LICENSES.md", to: "LICENSES.md" },
     { from: "vendor/mutatoc", to: "mutatoc" },
+    // craigtrim/axiom#207: the ontology service runs on its own verified Node build.
+    { from: "vendor/node", to: "node" },
     // craigtrim/axiom#206: the installer edits PATH without NSIS string limits.
     { from: "build/update-user-path.ps1", to: "update-user-path.ps1" },
   ],
   extraFiles: [{ from: "build/bin", to: "bin" }],
-  asarUnpack: ["**/metadata/**", "node_modules/onnxruntime-node/bin/**/*"],
+  asarUnpack: [
+    "**/metadata/**",
+    "node_modules/onnxruntime-node/bin/**/*",
+    "dist/main/domain-worker.cjs",
+    "dist/main/domain-launcher.cjs",
+    "dist/main/layout-worker.cjs",
+    "dist/main/embedding-worker.cjs",
+    "dist/main/query-worker.cjs",
+    "node_modules/**/*",
+  ],
   directories: { output: "artifacts/installer", buildResources: "build" },
   electronVersion: require("../package.json").devDependencies.electron,
   buildVersion: version,

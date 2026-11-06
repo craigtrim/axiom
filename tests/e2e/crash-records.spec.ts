@@ -5,12 +5,14 @@ import {
   _electron as electron,
   type ElectronApplication,
   type Page,
+  type CDPSession,
 } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { AuditRecord } from "../../src/shared/audit";
 import type { Snapshot } from "../../src/shared/protocol";
+import { observeDomainService } from "./domain-service-observer";
 
 let app: ElectronApplication | undefined, page: Page, profile: string;
 async function launch() {
@@ -30,30 +32,21 @@ async function launch() {
     await (
       await app.browserWindow(page)
     ).evaluate((w) => w.setFocusable(false));
-  await app.evaluate(({ dialog }) => {
+  await app.evaluate(({ app, dialog }) => {
+    (globalThis as any).__beforeQuit = [];
+    app.on("before-quit", () =>
+      (globalThis as any).__beforeQuit.push(new Date().toISOString()),
+    );
     (globalThis as any).__dialogs = [];
     dialog.showMessageBox = (async (_window: unknown, options: any) => {
       (globalThis as any).__dialogs.push(options.message);
       return { response: 0, checkboxChecked: false };
     }) as never;
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
-    Worker.prototype.postMessage = function (message, ...rest) {
-      if (message?.method === "state")
-        (globalThis as any).__domainWorker ??= this;
-      // A held method never reaches the worker, so its request stays pending.
-      if (message?.method && message.method === (globalThis as any).__hold) {
-        (globalThis as any).__held = true;
-        return;
-      }
-      return original.call(this, message, ...rest);
-    };
   });
   await expect(
     page.getByRole("contentinfo", { name: "Workbench status" }),
   ).toBeVisible();
+  await observeDomainService(app, page);
   // Requests before a failure must appear in its timeline.
   await page.evaluate(() => window.axiom.request("state"));
 }
@@ -123,7 +116,7 @@ test.afterEach(async () => {
   app = undefined;
 });
 
-test("main, worker and window failures each leave one detailed record", async () => {
+test("main, worker and window failures each leave one detailed record", async ({}, info) => {
   await app!.evaluate(() => {
     setTimeout(() => {
       throw Error("crash-records main uncaught");
@@ -153,7 +146,7 @@ test("main, worker and window failures each leave one detailed record", async ()
   );
 
   await app!.evaluate(() => {
-    (globalThis as any).__domainWorker.emit(
+    (globalThis as any).__domainServiceObserver.utility.emit(
       "error",
       Error("crash-records worker"),
     );
@@ -218,33 +211,221 @@ test("main, worker and window failures each leave one detailed record", async ()
   detailed(display, "renderer");
   expect(display.details["Component stack"]).toBeTruthy();
 
-  await app!.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer(),
-  );
-  const gone = await recorded("Renderer process stopped", "renderer process");
-  expect(gone.metadata).toMatchObject({ process: "renderer" });
-  expect(gone.metadata.reason).toBeTruthy();
-  expect(typeof gone.metadata.exitCode).toBe("number");
-  expect(gone.details["Axiom processes"]).toBeTruthy();
-
-  // Closing needs a live renderer to capture the open views, so restore one first.
-  // Playwright's page does not follow a crashed renderer, so main checks the new one.
-  await app!.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].webContents.reload(),
-  );
-  await expect
-    .poll(
-      () =>
-        app!.evaluate(({ BrowserWindow }) =>
-          BrowserWindow.getAllWindows()[0]
-            .webContents.executeJavaScript(
-              `!!document.querySelector('[aria-label="Workbench status"]')`,
-            )
-            .catch(() => false),
-        ),
-      { timeout: 30000 },
-    )
-    .toBe(true);
+  const target = await app!.evaluate(({ app, BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0],
+      contents = window.webContents;
+    const observation = {
+      windowId: window.id,
+      contentsId: contents.id,
+      pid: contents.getOSProcessId(),
+      appListeners: app.listenerCount("render-process-gone"),
+      contentsListeners: contents.listenerCount("render-process-gone"),
+      contentsGone: [] as { reason: string; exitCode: number }[],
+      appGone: [] as { contentsId: number; reason: string; exitCode: number }[],
+      beforeQuit: (globalThis as any).__beforeQuit as string[],
+    };
+    (globalThis as any).__rendererCrash = observation;
+    contents.on("render-process-gone", (_event, details) => {
+      observation.contentsGone.push({
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+    });
+    app.on("render-process-gone", (_event, gone, details) => {
+      observation.appGone.push({
+        contentsId: gone.id,
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+    });
+    return { contentsId: contents.id, pid: observation.pid };
+  });
+  const observeCrash = () =>
+    app!.evaluate(({ webContents }, target) => {
+      const contents = webContents.fromId(target.contentsId);
+      let originalProcess = "running";
+      try {
+        process.kill(target.pid, 0);
+      } catch (error) {
+        originalProcess =
+          (error as NodeJS.ErrnoException).code === "ESRCH"
+            ? "gone"
+            : String((error as NodeJS.ErrnoException).code);
+      }
+      const observation = (globalThis as any).__rendererCrash;
+      return {
+        ...observation,
+        originalProcess,
+        destroyed: !contents || contents.isDestroyed(),
+        crashed: !!contents && !contents.isDestroyed() && contents.isCrashed(),
+        currentPid:
+          contents && !contents.isDestroyed()
+            ? contents.getOSProcessId()
+            : null,
+        contentsEventCount: observation.contentsGone.length,
+        appEventCount: observation.appGone.filter(
+          (event: { contentsId: number }) =>
+            event.contentsId === target.contentsId,
+        ).length,
+      };
+    }, target);
+  let crashFailure: unknown;
+  let diagnosticStoppedDomain = false;
+  let crashSession: CDPSession | undefined;
+  let crashCommand: { state: string; message?: string } = { state: "not sent" };
+  try {
+    expect(target.pid).toBeGreaterThan(0);
+    // CDP crashes the native renderer directly, bypassing Electron's shutdown helper.
+    crashSession = await page.context().newCDPSession(page);
+    crashCommand = { state: "pending" };
+    void crashSession.send("Page.crash").then(
+      () => {
+        crashCommand = { state: "resolved" };
+      },
+      (error: Error) => {
+        crashCommand = { state: "rejected", message: error.message };
+      },
+    );
+    await expect.poll(observeCrash, { timeout: 10000 }).toMatchObject({
+      crashed: true,
+      contentsEventCount: 1,
+    });
+    const observed = await observeCrash();
+    expect(
+      observed,
+      "the app must receive the target renderer's native exit event",
+    ).toMatchObject({
+      appEventCount: 1,
+      beforeQuit: [],
+    });
+    const gone = await recorded("Renderer process stopped", "renderer process");
+    expect(gone.metadata).toMatchObject({ process: "renderer" });
+    expect(gone.metadata.reason).toBeTruthy();
+    expect(typeof gone.metadata.exitCode).toBe("number");
+    expect(gone.details["Axiom processes"]).toBeTruthy();
+  } catch (error) {
+    crashFailure = error;
+    // A failure remains a failure. Stopping the utility relay only distinguishes
+    // native channel retention from a renderer notification/recovery defect.
+    const diagnostic: Record<string, unknown> = {};
+    try {
+      diagnostic.before = await observeCrash();
+      diagnostic.launcher = await app!.evaluate(() => {
+        const observation = (globalThis as any).__domainServiceObserver;
+        const utility = observation?.utility;
+        if (
+          observation.exit ||
+          typeof utility?.postMessage !== "function" ||
+          typeof utility.kill !== "function" ||
+          !Number.isSafeInteger(utility.pid) ||
+          utility.pid <= 0
+        )
+          throw Error("The captured ontology utility relay is not running.");
+        return { pid: utility.pid, killAccepted: utility.kill() };
+      });
+      diagnosticStoppedDomain = true;
+      await expect
+        .poll(
+          () =>
+            app!.evaluate(() => {
+              const observation = (globalThis as any).__domainServiceObserver;
+              return {
+                stopped: !!observation.exit,
+                exitCode: observation.exit?.code,
+              };
+            }),
+          { timeout: 3000 },
+        )
+        .toMatchObject({ stopped: true });
+      // This is a bounded observation window after a diagnostic intervention.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      diagnostic.after = await observeCrash();
+    } catch (diagnosticFailure) {
+      diagnostic.error = String(diagnosticFailure);
+    }
+    await info
+      .attach("renderer-crash-after-domain-exit", {
+        body: JSON.stringify(diagnostic, null, 2),
+        contentType: "application/json",
+      })
+      .catch(() => {});
+  } finally {
+    await observeCrash()
+      .then((observation) =>
+        info.attach("renderer-crash-observations", {
+          body: JSON.stringify(
+            {
+              ...observation,
+              trigger: "CDP Page.crash",
+              command: crashCommand,
+            },
+            null,
+            2,
+          ),
+          contentType: "application/json",
+        }),
+      )
+      .catch(() => {});
+    void crashSession?.detach().catch(() => {});
+    // Capture on close needs a renderer even when one of the crash assertions fails.
+    // The old Playwright page is unusable, so main checks the recovered renderer.
+    try {
+      if (diagnosticStoppedDomain)
+        throw Error(
+          "The fixture stopped its ontology utility relay while diagnosing the renderer failure.",
+        );
+      await app!.evaluate(
+        ({ webContents }, id) => webContents.fromId(id)!.reload(),
+        target.contentsId,
+      );
+      await expect
+        .poll(
+          () =>
+            app!.evaluate(
+              ({ webContents }, id) =>
+                new Promise<boolean>((resolve) => {
+                  const timeout = setTimeout(() => resolve(false), 1000);
+                  const contents = webContents.fromId(id);
+                  if (!contents || contents.isDestroyed()) {
+                    clearTimeout(timeout);
+                    resolve(false);
+                    return;
+                  }
+                  void contents
+                    .executeJavaScript(
+                      `!!document.querySelector('[aria-label="Workbench status"]')`,
+                    )
+                    .then(
+                      (ready) => {
+                        clearTimeout(timeout);
+                        resolve(!!ready);
+                      },
+                      () => {
+                        clearTimeout(timeout);
+                        resolve(false);
+                      },
+                    );
+                }),
+              target.contentsId,
+            ),
+          { timeout: 20000 },
+        )
+        .toBe(true);
+    } catch (recoveryFailure) {
+      await info
+        .attach("renderer-recovery-failure", {
+          body: String(recoveryFailure),
+          contentType: "text/plain",
+        })
+        .catch(() => {});
+      crashFailure ??= recoveryFailure;
+      const pid = app!.process().pid!;
+      app!.process().kill();
+      stopOrphans(pid);
+      app = undefined;
+    }
+  }
+  if (crashFailure) throw crashFailure;
   // Every record is listed by the Error Log after a clean restart, with no unexpected-exit record.
   await app!.close();
   await launch();
@@ -303,8 +484,70 @@ test("a native crash of main is reported at the next start with its dump and las
 });
 
 test("an unexpected worker exit rejects waiting requests and leaves one record", async () => {
+  const nodePid = await app!.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const observation = (globalThis as any).__domainServiceObserver;
+        const utility = observation.utility;
+        // Runtime metadata is private to main. Both identifiers stay outside
+        // the positive counters used by the real DomainService requests.
+        const id = (observation.metadataId =
+          (observation.metadataId ?? -207000000) - 1);
+        const cleanup = () => {
+          clearTimeout(timer);
+          utility.off("message", receive);
+          utility.off("exit", stopped);
+        };
+        const failed = (message: string) => {
+          cleanup();
+          reject(Error(message));
+        };
+        const stopped = () =>
+          failed("The ontology utility relay exited before runtime metadata.");
+        const receive = (message: any) => {
+          if (message?.channel !== "axiom-domain-v1") return;
+          if (
+            message.type === "sent" &&
+            message.serial === id &&
+            message.error
+          ) {
+            failed("The private runtime metadata request could not be sent.");
+            return;
+          }
+          if (message.type !== "packet" || message.packet?.id !== id) return;
+          const reply = message.packet;
+          if (
+            reply.error ||
+            !Number.isSafeInteger(reply.value?.pid) ||
+            reply.value.pid <= 0
+          ) {
+            failed("The private runtime metadata request failed.");
+            return;
+          }
+          cleanup();
+          resolve(reply.value.pid);
+        };
+        const timer = setTimeout(
+          () => failed("The private runtime metadata request timed out."),
+          5000,
+        );
+        utility.on("message", receive);
+        utility.once("exit", stopped);
+        try {
+          utility.postMessage({
+            channel: "axiom-domain-v1",
+            type: "request",
+            serial: id,
+            packet: { id, method: "runtimeInfo", args: {} },
+          });
+        } catch {
+          failed("The private runtime metadata request could not be sent.");
+        }
+      }),
+  );
+  expect(nodePid).toBeGreaterThan(0);
   await app!.evaluate(() => {
-    (globalThis as any).__hold = "inspector";
+    (globalThis as any).__domainServiceObserver.hold = "inspector";
   });
   const waiting = page.evaluate(() =>
     window.axiom
@@ -315,11 +558,33 @@ test("an unexpected worker exit rejects waiting requests and leaves one record",
       ),
   );
   await expect
-    .poll(() => app!.evaluate(() => (globalThis as any).__held === true))
+    .poll(() =>
+      app!.evaluate(() => (globalThis as any).__domainServiceObserver.held),
+    )
     .toBe(true);
-  await app!.evaluate(() =>
-    (globalThis as any).__domainWorker.terminate().then(() => undefined),
+  await app!.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const utility = (globalThis as any).__domainServiceObserver.utility;
+        utility.once("exit", () => resolve());
+        if (!utility.kill())
+          reject(Error("The ontology utility relay could not be stopped."));
+      }),
   );
+  await expect
+    .poll(
+      () =>
+        app!.evaluate((_, pid) => {
+          try {
+            process.kill(pid, 0);
+            return false;
+          } catch (error) {
+            return (error as NodeJS.ErrnoException).code === "ESRCH";
+          }
+        }, nodePid),
+      { timeout: 5000 },
+    )
+    .toBe(true);
   expect(await waiting).toContain("The data service exited with code 1.");
   const r = await recorded("Domain worker exit", "exited with code 1");
   detailed(r, "domain worker");

@@ -3,9 +3,12 @@ import { build, Platform } from "electron-builder";
 import { readFile, writeFile, stat, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+// craigtrim/axiom#207: direct packaging also verifies the runtime it ships.
+import { ensureNodeRuntime } from "./setup-node-runtime.mjs";
 const require = createRequire(import.meta.url);
 const config = require("../config/electron-builder.config.cjs");
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
+await ensureNodeRuntime();
 await import("./notices.mjs");
 await import("./setup-mutatoc.mjs");
 const outputs = await build({

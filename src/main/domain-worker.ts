@@ -1,4 +1,12 @@
+// craigtrim/axiom#207: keep ontology work and large payloads in the data process.
 import { StateUpdates } from "./state-updates";
+import { CheckpointStore } from "./checkpoint-store";
+import { DomainTextAnalysis } from "./domain-text-analysis";
+import { encodeDomainPacket } from "./domain-wire";
+import { totalmem } from "node:os";
+import { getHeapStatistics } from "node:v8";
+import type { Serializable } from "node:child_process";
+import type { TextAnalysisInput } from "../shared/text-analysis";
 import { mergeEntityStatements } from "../domain/entity-merge";
 import { previewFindCreation, createFindEntity } from "../domain/find-creation";
 import { entityNameCollisions } from "../domain/entity-name-index";
@@ -115,6 +123,9 @@ import type {
   DomainMethod,
   InspectorData,
   QuerySummary,
+  SerializedCheckpoint,
+  Preferences,
+  DataRuntimeInfo,
 } from "../shared/protocol";
 let store = buildEmptyStore(),
   view = new Viewport(store),
@@ -127,11 +138,81 @@ let store = buildEmptyStore(),
   queryId = 0,
   resultId = 0;
 let datasetEpoch = 0;
+let checkpoints: CheckpointStore | undefined;
+const textAnalysis = new DomainTextAnalysis(() => {
+  const current = store,
+    epoch = datasetEpoch;
+  return textAnalysisContext(
+    current,
+    epoch,
+    () => store === current && datasetEpoch === epoch,
+  );
+});
+function checkpointStore() {
+  if (!checkpoints) throw Error("The data service has not been configured.");
+  return checkpoints;
+}
+function runtimeInfo(): DataRuntimeInfo {
+  return {
+    pid: process.pid,
+    pointerCompression:
+      Number(
+        (process.config.variables as Record<string, unknown>)
+          .v8_enable_pointer_compression,
+      ) !== 0,
+    heapSizeLimit: getHeapStatistics().heap_size_limit,
+    totalMemory: totalmem(),
+  };
+}
+if (
+  !parentPort &&
+  (process.versions.electron || runtimeInfo().pointerCompression)
+)
+  throw Error(
+    "The data service requires plain Node without pointer compression.",
+  );
+let shuttingDown = false;
+function shutdown(code = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try {
+    textAnalysis.close();
+    activeQuery?.abort();
+    stopExternal();
+  } finally {
+    // Mutatoc has a 1.5-second fallback kill after its input closes.
+    setTimeout(() => process.exit(code), 1600);
+  }
+}
+function postMessage(packet: unknown) {
+  if (shuttingDown) return;
+  if (parentPort) parentPort.postMessage(packet);
+  else if (process.connected)
+    process.send!(
+      encodeDomainPacket(packet) as Serializable,
+      (error: Error | null) => {
+        if (error) shutdown();
+      },
+    );
+}
+if (!parentPort) {
+  process.on("disconnect", () => shutdown());
+  const fatal = (error: unknown) => {
+    process.stderr.write(
+      (error instanceof Error
+        ? (error.stack ?? error.message)
+        : String(error)) + "\n",
+    );
+    shutdown(1);
+  };
+  process.on("uncaughtException", fatal);
+  process.on("unhandledRejection", fatal);
+}
 let activeQuery: AbortController | undefined,
   result: QueryResult | undefined,
   tableCache: { key: string; rows: Individual[] } | undefined;
 const emit = (type: string, data: unknown) =>
-  parentPort!.postMessage({ event: { type, data } });
+  postMessage({ event: { type, data } });
 // #124: retain requested corpora across edits; only workspace replacement resets them.
 let searchRevision = "",
   searchEpoch = -1;
@@ -597,7 +678,10 @@ const tracked = new Set<DomainMethod>([
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
-async function operate(method: DomainMethod, args: Record<string, unknown>) {
+async function operate(
+  method: DomainMethod,
+  args: Record<string, unknown>,
+): Promise<unknown> {
   // Ending a drawing in another graph view must not change the active graph.
   if (typeof args.graphId === "string" && method !== "graphInteraction")
     activateGraph(args.graphId);
@@ -888,8 +972,59 @@ function retargetGraph(iri: string, next: string) {
       if (view.selected === iri) view.selected = next;
     }
 }
-async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
+async function dispatch(
+  method: DomainMethod,
+  a: Record<string, unknown>,
+): Promise<unknown> {
   switch (method) {
+    case "configureDataService":
+      checkpoints = new CheckpointStore(string(a, "directory", 32768));
+      textAnalysis.configure({
+        appPath: string(a, "appPath", 32768),
+        resourcesPath: string(a, "resourcesPath", 32768),
+        packaged: a.packaged === true,
+      });
+      return runtimeInfo();
+    case "runtimeInfo":
+      return runtimeInfo();
+    case "checkpointPrepare":
+      return checkpointStore().register(
+        (await operate("serializeJson", a)) as SerializedCheckpoint,
+      );
+    case "checkpointSession":
+      return checkpointStore().saveSession(
+        string(a, "id", 200),
+        a.workbench as Preferences,
+        a.workspacePath as string | undefined,
+        a.recoveryPath as string | undefined,
+      );
+    case "checkpointWorkspace":
+      return checkpointStore().writeWorkspace(
+        string(a, "id", 200),
+        string(a, "file", 32768),
+        a.workbench as Preferences,
+        a.options as { createDirectory?: boolean; allowCreate?: boolean },
+      );
+    case "checkpointRelease":
+      checkpointStore().release(string(a, "id", 200));
+      return true;
+    case "restoreSession":
+      return checkpointStore().restore(
+        async (document) => {
+          await operate("load", { document });
+        },
+        a.preferences as Preferences | undefined,
+      );
+    case "loadWorkspaceFile":
+      return checkpointStore().openWorkspace(
+        string(a, "file", 32768),
+        async (document) => {
+          await operate("load", { document });
+        },
+        a.preferences as Preferences | undefined,
+      );
+    case "textAnalysisParse":
+      return textAnalysis.parse(a.input as TextAnalysisInput);
     case "resourceSuggestions":
       beginSearch(a);
       return resourceSuggestions(
@@ -2552,30 +2687,37 @@ async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
       throw Error("Unknown operation.");
   }
 }
-parentPort!.on(
-  "message",
-  async ({
-    id,
-    method,
-    args,
-  }: {
-    id: number;
-    method: DomainMethod;
-    args?: Record<string, unknown>;
-  }) => {
-    try {
-      const value = await operate(method, args ?? {});
-      parentPort!.postMessage({ id, value });
-    } catch (e) {
-      parentPort!.postMessage({
-        id,
-        error: e instanceof Error ? e.message : String(e),
-        hint: (e as { hint?: string }).hint,
-        stale: (e as { stale?: boolean }).stale,
-      });
-    }
-  },
-);
+const receive = async (packet: {
+  id: number;
+  method: DomainMethod;
+  args?: Record<string, unknown>;
+  control?: string;
+}) => {
+  if (packet.control === "shutdown") {
+    shutdown();
+    return;
+  }
+  if (shuttingDown) return;
+  const { id, method, args } = packet;
+  try {
+    const value = await operate(method, args ?? {});
+    postMessage({ id, value });
+  } catch (e) {
+    postMessage({
+      id,
+      error: e instanceof Error ? e.message : String(e),
+      hint: (e as { hint?: string }).hint,
+      stale: (e as { stale?: boolean }).stale,
+      code: (e as { code?: string }).code,
+      file: (e as { file?: string }).file,
+    });
+  }
+};
+if (parentPort) parentPort.on("message", receive);
+else
+  process.on("message", (packet) => {
+    void receive(packet as Parameters<typeof receive>[0]);
+  });
 let lastPositions = 0;
 function simulate() {
   if (

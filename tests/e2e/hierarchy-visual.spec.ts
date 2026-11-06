@@ -258,6 +258,21 @@ async function compare(
     [actual.toString("base64"), expected.toString("base64")],
   );
   await writeFile(`artifacts/issue-91/${name}.json`, JSON.stringify(diff));
+  // craigtrim/axiom#207: keep both rasters when a hosted desktop comparison fails.
+  if (diff.pixels !== 0) {
+    await test.info().attach(`${name}-actual`, {
+      body: actual,
+      contentType: "image/png",
+    });
+    await test.info().attach(`${name}-expected`, {
+      body: expected,
+      contentType: "image/png",
+    });
+    await test.info().attach(`${name}-styles`, {
+      body: JSON.stringify({ actual: actualStyles, expected: expectedStyles }),
+      contentType: "application/json",
+    });
+  }
   expect(diff.expected).toEqual(diff.size);
   expect(diff.pixels, name).toBe(0);
 }
@@ -324,10 +339,15 @@ for (const theme of ["light", "dark"])
         await f.drag("Agent", "Software Agent", frame === 19);
       if (frame === 14) await f.drag("Software Agent", "Agent");
       if (frame === 15) await f.drag("Software Agent", "", false, true);
-      if (frame === 18)
+      if (frame === 18) {
         await f.pane
           .getByRole("button", { name: "Undo move", exact: true })
           .click();
+        await expect(f.pane.locator(".toast b")).toHaveText("Move reversed.");
+        await expect(
+          f.pane.getByRole("button", { name: "Undo move", exact: true }),
+        ).toHaveCount(0);
+      }
       if (frame === 20)
         await f.row("owl:Thing").dispatchEvent("dragstart", {
           dataTransfer: await f.page.evaluateHandle(() => new DataTransfer()),

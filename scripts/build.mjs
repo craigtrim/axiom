@@ -2,6 +2,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { mkdir, copyFile, writeFile, rm, cp } from "node:fs/promises";
+// craigtrim/axiom#207: prepare the separate ontology runtime before changing dist.
+import { ensureNodeRuntime } from "./setup-node-runtime.mjs";
+await ensureNodeRuntime();
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const outputRoot = path.resolve(projectRoot, "dist");
 if (path.dirname(outputRoot) !== path.resolve(projectRoot))
@@ -44,6 +47,14 @@ await Promise.all([
     ...base,
     entryPoints: ["src/main/domain-worker.ts"],
     outfile: "dist/main/domain-worker.cjs",
+    platform: "node",
+    external: ["electron"],
+    format: "cjs",
+  }),
+  build({
+    ...base,
+    entryPoints: ["src/main/domain-launcher.ts"],
+    outfile: "dist/main/domain-launcher.cjs",
     platform: "node",
     external: ["electron"],
     format: "cjs",

@@ -14,6 +14,7 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
     await original<typeof import("../../src/main/mutatoc-client")>();
   return {
     ...actual,
+    mutatocExecutable: vi.fn(() => "mutatoc.exe"),
     MutatocClient: class {
       request = vi.fn(
         async (input: Record<string, unknown>): Promise<unknown> => {
@@ -50,8 +51,10 @@ vi.mock("../../src/main/mutatoc-client", async (original) => {
     },
   };
 });
-import { MutatocError } from "../../src/main/mutatoc-client";
+import { MutatocError, mutatocExecutable } from "../../src/main/mutatoc-client";
 import { TextAnalysisService } from "../../src/main/text-analysis-service";
+import { DomainTextAnalysis } from "../../src/main/domain-text-analysis";
+import { StaleTextAnalysisContext } from "../../src/domain/text-analysis-context";
 const input = (
   text = "Dog",
   version = 1,
@@ -64,16 +67,83 @@ const graph = (version = 1, datasetEpoch = 1): TextAnalysisContext => ({
   datasetEpoch,
 });
 let service: TextAnalysisService;
-let context: ReturnType<typeof vi.fn<() => Promise<TextAnalysisContext>>>;
+let context: ReturnType<
+  typeof vi.fn<() => Promise<TextAnalysisContext | undefined>>
+>;
 let executable: ReturnType<typeof vi.fn<() => string>>;
 beforeEach(() => {
   native.instances.length = 0;
-  context = vi.fn(async () => graph());
+  context = vi.fn<() => Promise<TextAnalysisContext | undefined>>(async () =>
+    graph(),
+  );
+  vi.mocked(mutatocExecutable).mockClear();
   executable = vi.fn(() => "mutatoc.exe");
   service = new TextAnalysisService(executable, context);
 });
 afterEach(() => service.close());
 const current = () => native.instances.at(-1)!;
+
+// craigtrim/axiom#207: the child keeps native loading lazy and drops invalid captures.
+describe("domain process analysis adapter", () => {
+  const locations = {
+    appPath: "application",
+    resourcesPath: "resources",
+    packaged: true,
+  };
+
+  it("configures runtime locations without requiring native files for blank text", async () => {
+    const capture = vi.fn(async () => graph());
+    const domain = new DomainTextAnalysis(capture);
+    domain.configure(locations);
+    try {
+      expect(mutatocExecutable).not.toHaveBeenCalled();
+      expect(await domain.parse(input(" "))).toMatchObject({ entities: [] });
+      expect(mutatocExecutable).not.toHaveBeenCalled();
+      expect(capture).not.toHaveBeenCalled();
+      await domain.parse(input());
+      expect(mutatocExecutable).toHaveBeenCalledExactlyOnceWith(
+        "application",
+        "resources",
+        true,
+      );
+    } finally {
+      domain.close();
+    }
+  });
+
+  it("supersedes captures changed by concurrent requests and loads the next revision", async () => {
+    const capture = vi.fn(async () => graph());
+    capture.mockRejectedValueOnce(new StaleTextAnalysisContext());
+    const domain = new DomainTextAnalysis(capture);
+    domain.configure(locations);
+    try {
+      expect(await domain.parse(input())).toMatchObject({ superseded: true });
+      expect(current().request).not.toHaveBeenCalled();
+      expect((await domain.parse(input())).canonical).toBe("dog");
+      expect(
+        current().request.mock.calls.map(([request]) => request.op),
+      ).toEqual(["version", "load", "query", "parse"]);
+    } finally {
+      domain.close();
+    }
+    expect(current().close).toHaveBeenCalledOnce();
+    await expect(domain.parse(input())).rejects.toThrow("closed");
+  });
+
+  it("keeps unexpected capture failures visible", async () => {
+    const domain = new DomainTextAnalysis(async () => {
+      throw Error("The ontology is unreadable.");
+    });
+    domain.configure(locations);
+    try {
+      await expect(domain.parse(input())).rejects.toThrow(
+        "ontology is unreadable",
+      );
+    } finally {
+      domain.close();
+    }
+  });
+});
 
 describe("analysis service scheduling and failures", () => {
   // craigtrim/axiom#135: one native request retains full-document context and source offsets.

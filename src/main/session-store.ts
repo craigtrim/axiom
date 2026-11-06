@@ -20,6 +20,8 @@ export interface SavedSession {
 const limit = 256 * 1024 * 1024;
 // #123: an oversized revision is terminal until the saved content changes.
 export class SessionSizeError extends Error {
+  // craigtrim/axiom#207: preserve the error's meaning across the data-process IPC.
+  readonly code = "AXIOM_SESSION_SIZE";
   constructor() {
     super("Saved session exceeds 256 MB.");
   }

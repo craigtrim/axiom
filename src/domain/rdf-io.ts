@@ -234,6 +234,8 @@ export async function writeRdf(
   options: {
     prefixes?: Record<string, string>;
     preserveBlankNodes?: boolean;
+    // craigtrim/axiom#207: analysis serialization must leave time for selections.
+    yieldControl?: () => Promise<void>;
   } = {},
 ) {
   if (
@@ -284,6 +286,7 @@ export async function writeRdf(
       "",
       new Set(),
       format,
+      options.yieldControl,
     );
   const writer = new Writer({
     ...(["turtle", "trig"].includes(format)

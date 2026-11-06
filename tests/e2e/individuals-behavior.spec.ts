@@ -50,7 +50,7 @@ async function columns(d: Desktop) {
 }
 test("column visibility, order and widths persist per class through close and workspace reopen", async ({
   desktop: d,
-}) => {
+}, info) => {
   await prepare(d);
   let chooser = await columns(d);
   await chooser.getByRole("button", { name: "None", exact: true }).click();
@@ -121,9 +121,39 @@ test("column visibility, order and widths persist per class through close and wo
     });
   }, file);
   await d.menu("file.save");
-  await expect
-    .poll(async () => (await d.request<Snapshot>("state")).dirty)
-    .toBe(false);
+  try {
+    await expect
+      .poll(async () => (await d.request<Snapshot>("state")).dirty)
+      .toBe(false);
+  } catch (error) {
+    // craigtrim/axiom#207: diagnose a stalled save without another renderer RPC.
+    await Promise.allSettled([
+      (async () => {
+        await info.attach("save-checkpoint-activity", {
+          body: await readFile(path.join(d.profile, "crash-activity.json")),
+          contentType: "application/json",
+        });
+      })(),
+      (async () => {
+        const saved = JSON.parse(await readFile(file, "utf8"));
+        await info.attach("saved-individual-column-layouts", {
+          body: Buffer.from(
+            JSON.stringify(
+              {
+                columnLayouts:
+                  saved.workbench?.panelState?.["table.individuals.layouts"] ??
+                  null,
+              },
+              null,
+              2,
+            ),
+          ),
+          contentType: "application/json",
+        });
+      })(),
+    ]);
+    throw error;
+  }
   expect(
     JSON.parse(await readFile(file, "utf8")).workbench.panelState[
       "table.individuals.layouts"

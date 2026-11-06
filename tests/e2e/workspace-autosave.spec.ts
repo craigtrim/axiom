@@ -2,6 +2,7 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
+import { observeDomainService } from "./domain-service-observer";
 import {
   test,
   expect,
@@ -505,24 +506,26 @@ test("honours closing while a workspace is still opening and saves the completed
 // #123: observe actual timer ticks and disk metadata with the large fixture.
 test("#123 unchanged large workspaces skip serialization and disk writes across idle ticks", async ({}, info) => {
   test.setTimeout(390000);
+  await observeDomainService(app!, page);
   await app!.evaluate(() => {
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
-    (globalThis as any).__checkpointCalls = {
+    // craigtrim/axiom#207: main requests checkpoint metadata, never workspace JSON.
+    (globalThis as any).__domainServiceObserver.counts = {
       serialize: 0,
       serializeJson: 0,
+      checkpointPrepare: 0,
       sessionState: 0,
-    };
-    Worker.prototype.postMessage = function (message, ...rest) {
-      const counts = (globalThis as any).__checkpointCalls;
-      if (message?.method in counts) counts[message.method]++;
-      return original.call(this, message, ...rest);
     };
   });
   const calls = () =>
-    app!.evaluate(() => ({ ...(globalThis as any).__checkpointCalls }));
+    app!.evaluate(() => {
+      const counts = (globalThis as any).__domainServiceObserver.counts;
+      return {
+        serialize: counts.serialize,
+        serializeJson: counts.serializeJson,
+        checkpointPrepare: counts.checkpointPrepare,
+        sessionState: counts.sessionState,
+      };
+    });
   const imported = path.join(profile, "schools.ttl");
   await writeFile(imported, schoolOntology());
   await app!.evaluate(({ dialog }, file) => {
@@ -584,6 +587,7 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
       expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
       if (file) expect((await stat(file)).mtimeMs).toBe(fileTime);
       expect((await calls()).serializeJson).toBe(before.serializeJson);
+      expect((await calls()).checkpointPrepare).toBe(before.checkpointPrepare);
       expect((await calls()).serialize).toBe(before.serialize);
     }
     expect((await calls()).sessionState).toBeGreaterThanOrEqual(
@@ -607,7 +611,8 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   await expect
     .poll(async () => (await stored()).workspace.selected, { timeout: 35000 })
     .toBe(schoolBase + "school42");
-  expect((await calls()).serializeJson).toBe(before.serializeJson + 1);
+  expect((await calls()).checkpointPrepare).toBe(before.checkpointPrepare + 1);
+  expect((await calls()).serializeJson).toBe(0);
   await close();
   await launch();
   expect((await state()).selected).toBe(schoolBase + "school42");

@@ -16,6 +16,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
+import { observeDomainService } from "./domain-service-observer";
 
 let app: ElectronApplication | undefined,
   page: Page,
@@ -50,20 +51,11 @@ async function launch() {
     dialog.showMessageBox = async () => {
       throw Error("Unexpected message box");
     };
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
-    (globalThis as any).__sessionTicks = 0;
-    Worker.prototype.postMessage = function (message, ...rest) {
-      if (message?.method === "sessionState")
-        (globalThis as any).__sessionTicks++;
-      return original.call(this, message, ...rest);
-    };
   });
   await expect(
     page.getByRole("contentinfo", { name: "Workbench status" }),
   ).toBeVisible();
+  await observeDomainService(app, page);
 }
 async function menu(id: string) {
   await app!.evaluate(({ Menu, BrowserWindow }, id) => {
@@ -84,9 +76,14 @@ async function edit() {
   );
 }
 async function waitForTicks(count: number) {
-  const initial = await app!.evaluate(() => (globalThis as any).__sessionTicks);
+  const ticks = () =>
+    app!.evaluate(
+      () =>
+        (globalThis as any).__domainServiceObserver.counts.sessionState ?? 0,
+    );
+  const initial = await ticks();
   await expect
-    .poll(() => app!.evaluate(() => (globalThis as any).__sessionTicks), {
+    .poll(ticks, {
       timeout: count * 30000 + 15000,
     })
     .toBeGreaterThanOrEqual(initial + count);
@@ -181,20 +178,17 @@ test("autosave and close retain edits after a move without recreating the file",
 test("close retains edits when the workspace is deleted during serialization", async () => {
   await edit();
   await app!.evaluate((_, file) => {
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
     const { unlinkSync } = process.getBuiltinModule(
       "fs",
     ) as typeof import("node:fs");
-    const original = Worker.prototype.postMessage;
     let deleted = false;
-    Worker.prototype.postMessage = function (message, ...rest) {
-      if (!deleted && message?.method === "serializeJson") {
+    (globalThis as any).__domainServiceObserver.beforeRequest = (
+      message: any,
+    ) => {
+      if (!deleted && message?.method === "checkpointPrepare") {
         deleted = true;
         unlinkSync(file);
       }
-      return original.call(this, message, ...rest);
     };
   }, file);
   await close();

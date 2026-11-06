@@ -6,6 +6,8 @@ import { mkdir, open, readFile, readdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// craigtrim/axiom#207: candidate verification includes the independent Node runtime.
+import { verifyNodeRuntime } from "./setup-node-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const require = createRequire(import.meta.url);
@@ -97,10 +99,15 @@ async function verifyPackage(metadata) {
       (await fileDigest(path.join(metadata.directory, "resources", file)))
     )
       throw Error(`Packaged license differs from the source: ${file}`);
+  const nodeRuntime = await verifyNodeRuntime(
+    path.join(metadata.directory, "resources", "node"),
+  );
   return {
     checkedBuildFiles: buildFiles,
     runtimeVersion: manifest.version,
     checkedRuntimeFiles: Object.keys(manifest.files).length,
+    nodeRuntimeVersion: nodeRuntime.version,
+    checkedNodeRuntimeFiles: Object.keys(nodeRuntime.files).length,
     executableSha256: await fileDigest(metadata.executable),
     installerSha256: await fileDigest(metadata.installer),
   };
