@@ -10,7 +10,7 @@ import {
   storeFromRdf,
   type RdfFormat,
 } from "../../src/domain/rdf-io";
-import { rdfTextChunks } from "../../src/domain/rdf-stream";
+import { rdfTextChunks, rdfXmlChunks } from "../../src/domain/rdf-stream";
 import { NS } from "../../src/domain/model";
 
 const base = "https://example.org/";
@@ -259,6 +259,20 @@ describe("streamed RDF imports", () => {
 });
 
 describe("incremental RDF/XML security and EOF validation", () => {
+  it("keeps scanner output safe to encode as separate UTF-8 chunks", async () => {
+    const text =
+      `<?example ${unicode}?><!-- ${unicode} -->` +
+      xml(`${unicode}<![CDATA[${unicode}]]><!-- ${unicode} -->`);
+    const chunks: string[] = [];
+    for await (const chunk of rdfXmlChunks(rdfTextChunks(bytes(text))))
+      chunks.push(chunk);
+    expect(chunks.every((chunk) => !/[\ud800-\udbff]$/.test(chunk))).toBe(true);
+    const encoded = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+    expect(encoded.toString("utf8")).toBe(text);
+    const result = await parseRdfStream([encoded], "input.rdf", base, "rdfxml");
+    expect(result.triples[0].object.value).toBe(unicode + unicode);
+  });
+
   it("expands guarded local entities across declaration and reference boundaries", async () => {
     const dtd = `<!DOCTYPE rdf:RDF [
       <!-- A comment containing ] > does not end the subset. -->

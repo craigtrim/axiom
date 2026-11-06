@@ -116,6 +116,7 @@ export async function* rdfXmlChunks(input: AsyncIterable<string>) {
     rootSeen = false,
     rootCarry = "",
     literalEnd = "",
+    outputSurrogate = "",
     entityCarry = "",
     expandedBytes = 0;
   let entityValue: (key: string) => string | undefined = () => undefined;
@@ -143,7 +144,15 @@ export async function* rdfXmlChunks(input: AsyncIterable<string>) {
       return value;
     });
   };
-  const validated = (text: string) => {
+  const validated = (text: string, final = false) => {
+    // Scanner carries can split a pair even when the decoded input did not.
+    // Keep every yielded string safe for the parser stream's UTF-8 encoding.
+    text = outputSurrogate + text;
+    outputSurrogate = "";
+    if (!final && /[\ud800-\udbff]$/.test(text)) {
+      outputSurrogate = text.slice(-1);
+      text = text.slice(0, -1);
+    }
     if (text) xml.write(text);
     return text;
   };
@@ -211,7 +220,7 @@ export async function* rdfXmlChunks(input: AsyncIterable<string>) {
   }
   if (inDoctype)
     throw Error("RDF/XML parse failed: unfinished XML document type.");
-  const tail = validated(literalEnd ? pending : expand(pending, true));
+  const tail = validated(literalEnd ? pending : expand(pending, true), true);
   if (tail) yield tail;
   // rdfxml-streaming-parser does not close its SAX parser when its input ends.
   xml.close();
