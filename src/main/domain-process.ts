@@ -111,7 +111,8 @@ export class DomainProcess extends EventEmitter {
     if (this.exited) return Promise.resolve(this.exitCode);
     if (this.stopping) return this.stopping;
     this.stopping = new Promise((resolve) => {
-      const force = setTimeout(() => this.child.kill(), 2500);
+      // craigtrim/axiom#208: large healthy heaps can take four seconds to exit.
+      const force = setTimeout(() => this.child.kill(), 10000);
       force.unref();
       this.once("exit", () => {
         clearTimeout(force);

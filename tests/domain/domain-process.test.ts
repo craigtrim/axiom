@@ -1,6 +1,6 @@
 // craigtrim/axiom#207: exercise the actual Node child, its wire format and lifetime.
 // craigtrim/axiom#208: file import and immutable checkpoints stay within that child.
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { build } from "esbuild";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir, totalmem } from "node:os";
@@ -43,9 +43,20 @@ beforeAll(async () => {
       }});
     });`,
   );
+  await writeFile(
+    path.join(directory, "slow-shutdown.cjs"),
+    `process.on('message', packet => {
+      if (packet.control === 'shutdown') {
+        setTimeout(() => process.exit(0), 3200);
+        return;
+      }
+      process.send({ id: packet.id, value: { ready: true } });
+    });`,
+  );
 });
 afterEach(async () => {
   await Promise.all(processes.splice(0).map((child) => child.terminate()));
+  vi.restoreAllMocks();
 });
 afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
@@ -260,6 +271,25 @@ it("reports a spawn failure and stops the child lifecycle", async () => {
   expect(error.code).toBe("ENOENT");
   await stopped;
   await expect(child.terminate()).resolves.toBeTypeOf("number");
+});
+
+// craigtrim/axiom#208: a healthy shutdown can exceed the former 2.5-second deadline.
+it("allows a child that needs 3.2 seconds to shut down without killing it", async () => {
+  const child = start("slow-shutdown.cjs"),
+    kill = vi.spyOn(child.child, "kill");
+  const request = requests(child);
+  await expect(request("runtimeInfo")).resolves.toEqual({ ready: true });
+  const rawExit = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) => {
+    child.child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  const stopping = child.terminate();
+  expect(child.terminate()).toBe(stopping);
+  await expect(stopping).resolves.toBe(0);
+  await expect(rawExit).resolves.toEqual({ code: 0, signal: null });
+  expect(kill).not.toHaveBeenCalled();
 });
 
 it("ends the domain process when its parent IPC channel disconnects", async () => {
