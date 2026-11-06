@@ -1,18 +1,19 @@
 // craigtrim/axiom#207: whole workspace documents stay in the plain-Node process.
+// craigtrim/axiom#208: retain immutable JSON chunks while files stream to and from disk.
 import { randomUUID } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
 import type { Workspace } from "../domain/workspace";
 import {
   readEditorDrafts,
   type SavedEditorDrafts,
 } from "../shared/editor-state";
 import { readPreferences } from "../shared/preferences";
-import type {
-  CheckpointSummary,
-  Preferences,
-  SerializedCheckpoint,
-} from "../shared/protocol";
-import { sessionJson, workspaceJson } from "./autosave-checkpoint";
+import type { CheckpointSummary, Preferences } from "../shared/protocol";
+import {
+  sessionJson,
+  workspaceJson,
+  type ChunkedCheckpoint,
+} from "./autosave-checkpoint";
+import { readJsonFile } from "./json-io";
 import { SessionStore, type SavedSession } from "./session-store";
 import { WorkspaceFiles, workspaceExists } from "./workspace-files";
 
@@ -38,18 +39,27 @@ export interface WorkspaceMetadata {
 }
 
 export class CheckpointStore {
-  private checkpoints = new Map<string, SerializedCheckpoint>();
+  private checkpoints = new Map<string, ChunkedCheckpoint>();
   private sessions: SessionStore;
   private files = new WorkspaceFiles();
   constructor(directory: string) {
     this.sessions = new SessionStore(directory);
   }
-  register(document: SerializedCheckpoint): CheckpointSummary {
+  register(document: ChunkedCheckpoint): CheckpointSummary {
     const id = randomUUID();
-    this.checkpoints.set(id, document);
+    this.checkpoints.set(
+      id,
+      Object.freeze({
+        ...document,
+        chunks: Object.freeze([...document.chunks]),
+        draftsChunks: document.draftsChunks
+          ? Object.freeze([...document.draftsChunks])
+          : undefined,
+      }),
+    );
     return {
       id,
-      hasDrafts: !!document.draftsText,
+      hasDrafts: !!document.draftsChunks,
       storeVersion: document.storeVersion,
       workspaceRevision: document.workspaceRevision,
       datasetEpoch: document.datasetEpoch,
@@ -71,7 +81,7 @@ export class CheckpointStore {
     workspacePath?: string,
     recoveryPath?: string,
   ) {
-    return this.sessions.saveJson(
+    return this.sessions.saveChunks(
       sessionJson(this.document(id), workbench, workspacePath, recoveryPath),
     );
   }
@@ -138,10 +148,7 @@ export class CheckpointStore {
     apply: (workspace: Workspace) => Promise<unknown>,
     preferences: Preferences = { version: 1, theme: "light" },
   ): Promise<WorkspaceMetadata> {
-    // #208 owns streaming and removal of the existing file-size policy.
-    if ((await stat(file)).size > 256 * 1024 * 1024)
-      throw Error("Workspace exceeds the 256 MB limit.");
-    const document = JSON.parse(await readFile(file, "utf8")) as Workspace & {
+    const document = (await readJsonFile(file)) as Workspace & {
       workbench?: unknown;
       editorDrafts?: unknown;
     };

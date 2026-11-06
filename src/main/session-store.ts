@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+// craigtrim/axiom#208: session reads and atomic writes never join the document.
+import { mkdir, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import {
   readEditorDrafts,
@@ -7,6 +8,12 @@ import {
 import type { Workspace } from "../domain/workspace";
 import { readPreferences } from "../shared/preferences";
 import type { Preferences } from "../shared/protocol";
+import {
+  encodeJson,
+  readJsonFile,
+  writeJsonFile,
+  type JsonChunks,
+} from "./json-io";
 
 export interface SavedSession {
   format: "axiom-session";
@@ -16,15 +23,6 @@ export interface SavedSession {
   recoveryPath?: string;
   editorDrafts?: SavedEditorDrafts;
   workbench: Preferences;
-}
-const limit = 256 * 1024 * 1024;
-// #123: an oversized revision is terminal until the saved content changes.
-export class SessionSizeError extends Error {
-  // craigtrim/axiom#207: preserve the error's meaning across the data-process IPC.
-  readonly code = "AXIOM_SESSION_SIZE";
-  constructor() {
-    super("Saved session exceeds 256 MB.");
-  }
 }
 function readSession(value: unknown): SavedSession {
   const s = value as SavedSession;
@@ -53,25 +51,22 @@ function readSession(value: unknown): SavedSession {
 export class SessionStore {
   readonly file: string;
   private queue = Promise.resolve();
-  private previous: string | undefined;
-  constructor(
-    directory: string,
-    private maxBytes = limit,
-  ) {
+  private previous: JsonChunks | undefined;
+  constructor(directory: string) {
     this.file = path.join(directory, "last-session.json");
   }
   async restore(apply: (session: SavedSession) => Promise<void | false>) {
     const errors: string[] = [];
     for (const file of [this.file, this.file + ".bak"]) {
       try {
-        if ((await stat(file)).size > this.maxBytes)
-          throw new SessionSizeError();
-        const text = await readFile(file, "utf8");
-        const session = readSession(JSON.parse(text));
+        const chunks: string[] = [];
+        const session = readSession(
+          await readJsonFile(file, { onChunk: (chunk) => chunks.push(chunk) }),
+        );
         // #162: a deliberately skipped session must not revive an older workspace.
         if ((await apply(session)) === false)
           return { session: undefined, recovered: false, errors: [] };
-        this.previous = text;
+        this.previous = Object.freeze(chunks);
         return { session, recovered: file !== this.file, errors };
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "ENOENT")
@@ -81,41 +76,46 @@ export class SessionStore {
     return { session: undefined, recovered: false, errors };
   }
   save(session: SavedSession) {
-    const text = JSON.stringify(readSession(session));
-    return this.saveJson(text);
+    return this.saveChunks(encodeJson(readSession(session)));
   }
-  /** Trusted worker output; avoid parsing and stringifying the whole document again. */
-  saveJson(text: string) {
-    if (Buffer.byteLength(text) > this.maxBytes) throw new SessionSizeError();
+  /** Trusted, already captured worker output, frozen before entering the write queue. */
+  saveChunks(chunks: JsonChunks) {
+    const captured = Object.freeze([...chunks]);
     const operation = this.queue
       .catch(() => {})
       .then(async () => {
         await mkdir(path.dirname(this.file), { recursive: true });
         if (this.previous)
           await this.replace(this.file + ".bak", this.previous);
-        await this.replace(this.file, text);
-        this.previous = text;
+        await this.replace(this.file, captured);
+        this.previous = captured;
       });
     this.queue = operation;
     return operation;
   }
-  private async replace(file: string, text: string) {
+  private async replace(file: string, chunks: JsonChunks) {
     const temp = file + ".tmp";
-    await writeFile(temp, text, "utf8");
-    for (let attempt = 0; ; attempt++) {
-      try {
-        await rename(temp, file);
-        return;
-      } catch (e) {
-        if (
-          attempt >= 4 ||
-          !["EPERM", "EBUSY", "EACCES"].includes(
-            (e as NodeJS.ErrnoException).code ?? "",
+    try {
+      await writeJsonFile(temp, chunks);
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await rename(temp, file);
+          return;
+        } catch (e) {
+          if (
+            attempt >= 4 ||
+            !["EPERM", "EBUSY", "EACCES"].includes(
+              (e as NodeJS.ErrnoException).code ?? "",
+            )
           )
-        )
-          throw e;
-        await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+            throw e;
+          await new Promise((resolve) =>
+            setTimeout(resolve, 25 * (attempt + 1)),
+          );
+        }
       }
+    } finally {
+      await unlink(temp).catch(() => {});
     }
   }
 }

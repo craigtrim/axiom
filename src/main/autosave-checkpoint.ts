@@ -1,45 +1,62 @@
-// #123: failed size checks retry only after a content revision changes.
+// craigtrim/axiom#208: checkpoints retain bounded JSON chunks without a size quota.
+import type { Preferences, SerializedCheckpoint } from "../shared/protocol";
+import { encodeJson, type JsonChunks } from "./json-io";
+
 export class AutosaveCheckpoint {
   private saved?: string;
-  private oversized?: string;
   needsSave(key: string) {
-    return key !== this.saved && key !== this.oversized;
+    return key !== this.saved;
   }
   complete(key: string) {
     this.saved = key;
-    this.oversized = undefined;
-  }
-  rejectSize(key: string) {
-    this.oversized = key;
   }
 }
 
-import type { Preferences, SerializedCheckpoint } from "../shared/protocol";
+export interface ChunkedCheckpoint extends Omit<
+  SerializedCheckpoint,
+  "text" | "draftsText"
+> {
+  chunks: JsonChunks;
+  draftsChunks?: JsonChunks;
+}
+
+function objectPrefix(chunks: JsonChunks): string[] {
+  const prefix = [...chunks];
+  while (prefix.length && !prefix[prefix.length - 1]) prefix.pop();
+  const last = prefix.length - 1;
+  if (last < 0 || !prefix[last].endsWith("}"))
+    throw Error("Invalid workspace checkpoint JSON.");
+  prefix[last] = prefix[last].slice(0, -1);
+  return prefix;
+}
+
 export function sessionJson(
-  document: SerializedCheckpoint,
+  document: ChunkedCheckpoint,
   workbench: Preferences,
   workspacePath?: string,
   recoveryPath?: string,
-) {
-  const metadata = JSON.stringify({
+): JsonChunks {
+  const metadata = encodeJson({
     format: "axiom-session",
     version: 1,
     workspacePath,
     recoveryPath,
     workbench,
   });
-  return (
-    metadata.slice(0, -1) +
-    ',"workspace":' +
-    document.text +
-    (document.draftsText ? ',"editorDrafts":' + document.draftsText : "") +
-    "}"
-  );
+  return Object.freeze([
+    ...objectPrefix(metadata),
+    ',"workspace":',
+    ...document.chunks,
+    ...(document.draftsChunks
+      ? [',"editorDrafts":', ...document.draftsChunks]
+      : []),
+    "}",
+  ]);
 }
 export function workspaceJson(
-  document: SerializedCheckpoint,
+  document: ChunkedCheckpoint,
   preferences: Preferences,
-) {
+): JsonChunks {
   const workbench = {
     ...preferences,
     keyboard: undefined,
@@ -49,11 +66,13 @@ export function workspaceJson(
       "find.extendActions": undefined,
     },
   };
-  return (
-    document.text.slice(0, -1) +
-    ',"workbench":' +
-    JSON.stringify(workbench) +
-    (document.draftsText ? ',"editorDrafts":' + document.draftsText : "") +
-    "}"
-  );
+  return Object.freeze([
+    ...objectPrefix(document.chunks),
+    ',"workbench":',
+    ...encodeJson(workbench),
+    ...(document.draftsChunks
+      ? [',"editorDrafts":', ...document.draftsChunks]
+      : []),
+    "}",
+  ]);
 }

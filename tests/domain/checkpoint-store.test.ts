@@ -1,4 +1,5 @@
 // craigtrim/axiom#207: persistence returns metadata while backup recovery stays intact.
+// craigtrim/axiom#208: captured chunks preserve tokens, validation and file compatibility.
 import { afterEach, expect, it } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,7 +10,8 @@ import {
   readWorkspace,
   type Workspace,
 } from "../../src/domain/workspace";
-import type { SerializedCheckpoint } from "../../src/shared/protocol";
+import type { ChunkedCheckpoint } from "../../src/main/autosave-checkpoint";
+import { encodeJson, readJsonFile } from "../../src/main/json-io";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -21,7 +23,7 @@ async function fixture() {
   directories.push(directory);
   return { directory, store: new CheckpointStore(directory) };
 }
-function document(name: string): SerializedCheckpoint {
+function document(name: string): ChunkedCheckpoint {
   const store = buildEmptyStore();
   store.ontology.name = name;
   const workspace: Workspace = {
@@ -36,7 +38,7 @@ function document(name: string): SerializedCheckpoint {
     graph: { iris: [], focus: [], pins: [], budget: 1000, layout: "auto" },
   };
   return {
-    text: JSON.stringify(workspace),
+    chunks: encodeJson(workspace),
     storeVersion: store.version,
     workspaceRevision: 0,
     datasetEpoch: 1,
@@ -66,6 +68,7 @@ it("recovers the preceding valid session and keeps it as backup on the next save
   expect(result.session).not.toHaveProperty("workspace");
   const summary = reopened.register(document("Recovered"));
   expect(summary).not.toHaveProperty("text");
+  expect(summary).not.toHaveProperty("chunks");
   await reopened.saveSession(summary.id, workbench);
   expect(
     JSON.parse(await readFile(file + ".bak", "utf8")).workspace.ontology.name,
@@ -100,7 +103,7 @@ it("rejects invalid workbench settings before replacing the active domain worksp
   await writeFile(
     file,
     JSON.stringify({
-      ...JSON.parse(document("Invalid").text),
+      ...JSON.parse(document("Invalid").chunks.join("")),
       workbench: { panelState: { "graph.stylesheet": "not valid graph CSS" } },
     }),
   );
@@ -119,7 +122,7 @@ it("rejects invalid drafts before replacing the active domain workspace", async 
   await writeFile(
     file,
     JSON.stringify({
-      ...JSON.parse(document("Invalid drafts").text),
+      ...JSON.parse(document("Invalid drafts").chunks.join("")),
       editorDrafts: { version: 99, entities: [] },
     }),
   );
@@ -130,4 +133,57 @@ it("rejects invalid drafts before replacing the active domain workspace", async 
     }),
   ).rejects.toThrow();
   expect(applied).toBe(false);
+});
+
+it("pins a registered snapshot and its revisions until its token is released", async () => {
+  const { directory, store } = await fixture();
+  const captured = document("Captured"),
+    chunks = [...captured.chunks];
+  const summary = store.register({ ...captured, chunks });
+  chunks.splice(0, chunks.length, ...document("Changed later").chunks);
+  captured.workspaceRevision++;
+  const file = path.join(directory, "captured.axiom");
+  await store.writeWorkspace(summary.id, file, workbench, {
+    allowCreate: true,
+  });
+  await store.saveSession(summary.id, workbench);
+  const saved = (await readJsonFile(file)) as Workspace;
+  expect(saved.ontology?.name).toBe("Captured");
+  expect(summary).toMatchObject({
+    storeVersion: captured.storeVersion,
+    workspaceRevision: 0,
+    datasetEpoch: 1,
+    sessionRevision: 1,
+  });
+  expect(summary).not.toHaveProperty("chunks");
+  expect(summary).not.toHaveProperty("draftsChunks");
+  store.release(summary.id);
+  expect(() => store.saveSession(summary.id, workbench)).toThrow(
+    /no longer available/,
+  );
+});
+
+it("opens legacy JSON and validates complete syntax before applying a workspace", async () => {
+  const { directory, store } = await fixture();
+  const file = path.join(directory, "legacy.axiom");
+  const legacy = {
+    ...JSON.parse(document("Legacy").chunks.join("")),
+    workbench,
+  };
+  const text = JSON.stringify(legacy, null, 2);
+  await writeFile(file, text);
+  const applied: string[] = [];
+  const result = await store.openWorkspace(file, async (saved) => {
+    readWorkspace(saved);
+    applied.push(saved.ontology!.name);
+  });
+  expect(applied).toEqual(["Legacy"]);
+  expect(result.workbench.theme).toBe("dark");
+  await writeFile(file, text + ' {"trailing":true}');
+  await expect(
+    store.openWorkspace(file, async () => {
+      applied.push("Invalid");
+    }),
+  ).rejects.toThrow();
+  expect(applied).toEqual(["Legacy"]);
 });

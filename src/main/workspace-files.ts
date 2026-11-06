@@ -1,14 +1,9 @@
+// craigtrim/axiom#208: hash and save bounded chunks with the same file protections.
 import { createHash } from "node:crypto";
-import {
-  copyFile,
-  mkdir,
-  rename,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdir, rename, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { workspaceFilePath } from "./workspace-ownership";
+import { writeJsonFile, type JsonChunks } from "./json-io";
 // #162: only an explicit Save destination or recovery archive may create a file.
 export class MissingWorkspaceError extends Error {
   // craigtrim/axiom#207: main must retain missing-file handling after IPC.
@@ -35,9 +30,10 @@ export class WorkspaceFiles {
   private previous = new Map<string, { digest: string; modified: number }>();
   async write(
     file: string,
-    text: string,
+    chunks: JsonChunks,
     { createDirectory = false, allowCreate = false } = {},
   ) {
+    chunks = Object.freeze([...chunks]);
     // Keep writes and ownership on the same target when a workspace is opened
     // through a filesystem alias. Replacing the alias would change its identity.
     file = workspaceFilePath(file);
@@ -46,7 +42,9 @@ export class WorkspaceFiles {
         throw new MissingWorkspaceError(file);
     };
     await requireDestination();
-    const digest = createHash("sha256").update(text).digest("hex");
+    const hash = createHash("sha256");
+    for (const chunk of chunks) hash.update(chunk, "utf8");
+    const digest = hash.digest("hex");
     const previous = this.previous.get(file);
     if (previous?.digest === digest) {
       try {
@@ -56,7 +54,7 @@ export class WorkspaceFiles {
     if (createDirectory) await mkdir(path.dirname(file), { recursive: true });
     const temp = file + ".tmp";
     try {
-      await writeFile(temp, text, "utf8");
+      await writeJsonFile(temp, chunks);
       try {
         await copyFile(file, file + ".bak");
       } catch (e) {
