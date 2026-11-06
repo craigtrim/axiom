@@ -1674,7 +1674,7 @@ app.whenReady().then(async () => {
     const recorded = recordCrash(
       "The data service stopped: " + cleanErrorMessage(e),
       "Domain worker error",
-      { process: "domain worker", pid: worker.pid },
+      { process: "domain worker", pid: worker.pid ?? null },
       e.stack,
     );
     for (const p of pending.values()) p.reject(e);
@@ -1707,7 +1707,7 @@ app.whenReady().then(async () => {
     if (!workerFailed)
       void recordCrash(error.message, "Domain worker exit", {
         process: "domain worker",
-        pid: worker.pid,
+        pid: worker.pid ?? null,
         exitCode,
         ...(signal ? { signal } : {}),
       });

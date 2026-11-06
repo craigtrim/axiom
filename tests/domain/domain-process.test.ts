@@ -96,23 +96,28 @@ it("sets the heap ceiling from installed memory without a fixed GiB cap", () => 
   expect(() => heapCeilingMiB(Number.NaN)).toThrow(RangeError);
 });
 
-it("retains typed arrays, maps and nonfinite numbers across the actual child IPC", async () => {
+it("exchanges application JSON values across the actual child IPC", async () => {
   const child = start("transport.cjs");
   child.on("error", () => {});
   const reply = once(child, "message");
   child.postMessage({
     id: 1,
     data: {
-      positions: new Float64Array([1.25, -9.5]),
-      scores: new Map([["entity", 0.75]]),
-      missing: Number.NaN,
+      method: "select",
+      args: { iri: "https://example.org/entity", origin: "hierarchy" },
+      rows: [{ label: 'A quoted "label"', value: 0.75 }],
+      enabled: true,
+      selected: null,
     },
   });
   const [packet] = await reply;
-  expect(packet.value.received.positions).toBeInstanceOf(Float64Array);
-  expect([...packet.value.received.positions]).toEqual([1.25, -9.5]);
-  expect(packet.value.received.scores).toEqual(new Map([["entity", 0.75]]));
-  expect(Number.isNaN(packet.value.received.missing)).toBe(true);
+  expect(packet.value.received).toEqual({
+    method: "select",
+    args: { iri: "https://example.org/entity", origin: "hierarchy" },
+    rows: [{ label: 'A quoted "label"', value: 0.75 }],
+    enabled: true,
+    selected: null,
+  });
   expect(packet.value.pid).not.toBe(process.pid);
   expect(packet.value.pointerCompression).toBe(0);
   expect(packet.value.args).toEqual([

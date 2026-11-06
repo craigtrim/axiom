@@ -2,6 +2,7 @@
 import { StateUpdates } from "./state-updates";
 import { CheckpointStore } from "./checkpoint-store";
 import { DomainTextAnalysis } from "./domain-text-analysis";
+import { encodeDomainPacket } from "./domain-wire";
 import { totalmem } from "node:os";
 import { getHeapStatistics } from "node:v8";
 import type { Serializable } from "node:child_process";
@@ -155,7 +156,10 @@ function runtimeInfo(): DataRuntimeInfo {
   return {
     pid: process.pid,
     pointerCompression:
-      Number(process.config.variables.v8_enable_pointer_compression) !== 0,
+      Number(
+        (process.config.variables as Record<string, unknown>)
+          .v8_enable_pointer_compression,
+      ) !== 0,
     heapSizeLimit: getHeapStatistics().heap_size_limit,
     totalMemory: totalmem(),
   };
@@ -184,9 +188,12 @@ function postMessage(packet: unknown) {
   if (shuttingDown) return;
   if (parentPort) parentPort.postMessage(packet);
   else if (process.connected)
-    process.send!(packet as Serializable, (error: Error | null) => {
-      if (error) shutdown();
-    });
+    process.send!(
+      encodeDomainPacket(packet) as Serializable,
+      (error: Error | null) => {
+        if (error) shutdown();
+      },
+    );
 }
 if (!parentPort) {
   process.on("disconnect", () => shutdown());
@@ -671,7 +678,10 @@ const tracked = new Set<DomainMethod>([
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
-async function operate(method: DomainMethod, args: Record<string, unknown>) {
+async function operate(
+  method: DomainMethod,
+  args: Record<string, unknown>,
+): Promise<unknown> {
   // Ending a drawing in another graph view must not change the active graph.
   if (typeof args.graphId === "string" && method !== "graphInteraction")
     activateGraph(args.graphId);
@@ -962,7 +972,10 @@ function retargetGraph(iri: string, next: string) {
       if (view.selected === iri) view.selected = next;
     }
 }
-async function dispatch(method: DomainMethod, a: Record<string, unknown>) {
+async function dispatch(
+  method: DomainMethod,
+  a: Record<string, unknown>,
+): Promise<unknown> {
   switch (method) {
     case "configureDataService":
       checkpoints = new CheckpointStore(string(a, "directory", 32768));

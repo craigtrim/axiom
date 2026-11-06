@@ -1,7 +1,13 @@
 // craigtrim/axiom#207: ontology data lives in plain Node outside Electron's heap cage.
-import { fork, type ChildProcess, type Serializable } from "node:child_process";
+import {
+  fork,
+  type ChildProcess,
+  type ForkOptions,
+  type Serializable,
+} from "node:child_process";
 import { EventEmitter } from "node:events";
 import { totalmem } from "node:os";
+import { decodeDomainPacket } from "./domain-wire";
 
 export function heapCeilingMiB(totalBytes: number) {
   if (!Number.isFinite(totalBytes) || totalBytes < 1024 * 1024)
@@ -22,19 +28,32 @@ export class DomainProcess extends EventEmitter {
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
     delete env.NODE_OPTIONS;
-    this.child = fork(entryFile, [], {
+    const childOptions: ForkOptions & { windowsHide: boolean } = {
       execPath: options.execPath,
       execArgv: ["--max-old-space-size=" + heapCeilingMiB(totalmem())],
-      serialization: "advanced",
+      serialization: "json",
       stdio: ["ignore", "ignore", "pipe", "ipc"],
       windowsHide: true,
       env,
-    });
+    };
+    this.child = fork(entryFile, [], childOptions);
     this.child.stderr?.setEncoding("utf8");
     this.child.stderr?.on("data", (chunk: string) => {
       this.stderrText = (this.stderrText + chunk).slice(-65536);
     });
-    this.child.on("message", (packet) => this.emit("message", packet));
+    this.child.on("message", (packet) => {
+      let decoded: unknown;
+      try {
+        decoded = decodeDomainPacket(packet);
+      } catch (error) {
+        this.emit(
+          "error",
+          error instanceof Error ? error : Error(String(error)),
+        );
+        return;
+      }
+      this.emit("message", decoded);
+    });
     this.child.on("error", (error) => this.emit("error", error));
     this.child.on("exit", (code, signal) => {
       this.exited = true;
