@@ -37,11 +37,22 @@ async function launch() {
       return { response: 0, checkboxChecked: false };
     }) as never;
     // craigtrim/axiom#207: observe the actual data process, including abrupt exits.
-    const { ChildProcess } = process.getBuiltinModule(
-      "child_process",
-    ) as typeof import("node:child_process");
-    const original = ChildProcess.prototype.send;
-    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
+    const child = (process as any)
+      ._getActiveHandles()
+      .find(
+        (handle: any) =>
+          typeof handle?.send === "function" &&
+          Array.isArray(handle.spawnargs) &&
+          handle.spawnargs.some(
+            (arg: unknown) =>
+              typeof arg === "string" &&
+              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
+          ),
+      );
+    if (!child) throw Error("The domain child is not running.");
+    (globalThis as any).__domainWorker = child;
+    const original = child.send;
+    child.send = function (message: any, ...rest: any[]) {
       if (message?.method === "state")
         (globalThis as any).__domainWorker ??= this;
       // A held method never reaches the worker, so its request stays pending.

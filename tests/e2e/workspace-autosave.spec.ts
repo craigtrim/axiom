@@ -507,17 +507,27 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   test.setTimeout(390000);
   await app!.evaluate(() => {
     // craigtrim/axiom#207: main requests checkpoint metadata, never workspace JSON.
-    const { ChildProcess } = process.getBuiltinModule(
-      "child_process",
-    ) as typeof import("node:child_process");
-    const original = ChildProcess.prototype.send;
+    const child = (process as any)
+      ._getActiveHandles()
+      .find(
+        (handle: any) =>
+          typeof handle?.send === "function" &&
+          Array.isArray(handle.spawnargs) &&
+          handle.spawnargs.some(
+            (arg: unknown) =>
+              typeof arg === "string" &&
+              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
+          ),
+      );
+    if (!child) throw Error("The domain child is not running.");
+    const original = child.send;
     (globalThis as any).__checkpointCalls = {
       serialize: 0,
       serializeJson: 0,
       checkpointPrepare: 0,
       sessionState: 0,
     };
-    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
+    child.send = function (message: any, ...rest: any[]) {
       const counts = (globalThis as any).__checkpointCalls;
       if (message?.method in counts) counts[message.method]++;
       return (original as Function).call(this, message, ...rest);

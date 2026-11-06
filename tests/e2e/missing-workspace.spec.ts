@@ -51,12 +51,22 @@ async function launch() {
       throw Error("Unexpected message box");
     };
     // craigtrim/axiom#207: ownership remains in main while checkpoints run in Node.
-    const { ChildProcess } = process.getBuiltinModule(
-      "child_process",
-    ) as typeof import("node:child_process");
-    const original = ChildProcess.prototype.send;
+    const child = (process as any)
+      ._getActiveHandles()
+      .find(
+        (handle: any) =>
+          typeof handle?.send === "function" &&
+          Array.isArray(handle.spawnargs) &&
+          handle.spawnargs.some(
+            (arg: unknown) =>
+              typeof arg === "string" &&
+              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
+          ),
+      );
+    if (!child) throw Error("The domain child is not running.");
+    const original = child.send;
     (globalThis as any).__sessionTicks = 0;
-    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
+    child.send = function (message: any, ...rest: any[]) {
       if (message?.method === "sessionState")
         (globalThis as any).__sessionTicks++;
       return (original as Function).call(this, message, ...rest);
@@ -182,15 +192,25 @@ test("autosave and close retain edits after a move without recreating the file",
 test("close retains edits when the workspace is deleted during serialization", async () => {
   await edit();
   await app!.evaluate((_, file) => {
-    const { ChildProcess } = process.getBuiltinModule(
-      "child_process",
-    ) as typeof import("node:child_process");
+    const child = (process as any)
+      ._getActiveHandles()
+      .find(
+        (handle: any) =>
+          typeof handle?.send === "function" &&
+          Array.isArray(handle.spawnargs) &&
+          handle.spawnargs.some(
+            (arg: unknown) =>
+              typeof arg === "string" &&
+              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
+          ),
+      );
+    if (!child) throw Error("The domain child is not running.");
     const { unlinkSync } = process.getBuiltinModule(
       "fs",
     ) as typeof import("node:fs");
-    const original = ChildProcess.prototype.send;
+    const original = child.send;
     let deleted = false;
-    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
+    child.send = function (message: any, ...rest: any[]) {
       if (!deleted && message?.method === "checkpointPrepare") {
         deleted = true;
         unlinkSync(file);
