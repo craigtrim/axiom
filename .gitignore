@@ -12,6 +12,9 @@ things-i-need
 archive/*.zip
 
 vendor/mutatoc/
+# craigtrim/axiom#207: downloaded runtime files and owned staging directories.
+vendor/node/
+vendor/.node-*/
 
 # Removed on purpose; GitHub issues hold requirements.
 specs/
