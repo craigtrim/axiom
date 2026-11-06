@@ -16,6 +16,7 @@ export function domainRuntimePaths(
     "main",
     "domain-worker.cjs",
   );
+  const launcher = path.join(path.dirname(entrypoint), "domain-launcher.cjs");
   if (!existsSync(executable))
     throw Error(
       packaged
@@ -28,5 +29,11 @@ export function domainRuntimePaths(
         ? "The ontology service files are missing. Reinstall the complete Axiom application."
         : "The ontology service has not been built. Run npm run build.",
     );
-  return { executable, entrypoint };
+  if (!existsSync(launcher))
+    throw Error(
+      packaged
+        ? "The ontology launcher files are missing. Reinstall the complete Axiom application."
+        : "The ontology launcher has not been built. Run npm run build.",
+    );
+  return { executable, entrypoint, launcher };
 }

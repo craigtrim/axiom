@@ -39,6 +39,10 @@ follows the computer's physical memory, and its data stays outside Electron's
 JavaScript heap. No separate Node installation is needed to run an installed
 build. The runtime and its license ship under `resources/node`.
 
+A small Electron utility process launches the Node service and relays its messages.
+This isolates Windows process handles from the browser. The launcher holds no
+ontology store; imports, analysis and persistence run in the plain Node process.
+
 Source builds run `setup:node` automatically. That step downloads the pinned
 Windows x64 runtime from Node.js, verifies its release checksum and retains a
 verified copy in `vendor/node`. Run `npm run setup:node` to prepare it separately.

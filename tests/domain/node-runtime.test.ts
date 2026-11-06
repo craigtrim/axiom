@@ -37,11 +37,14 @@ it("uses the bundled executable and unpacked service in an installed application
     "main",
     "domain-worker.cjs",
   );
+  const launcher = path.join(path.dirname(entrypoint), "domain-launcher.cjs");
   await file(executable);
   await file(entrypoint);
+  await file(launcher);
   expect(domainRuntimePaths(app, resources, true)).toEqual({
     executable,
     entrypoint,
+    launcher,
   });
 });
 
@@ -49,11 +52,14 @@ it("uses the verified vendor runtime and built service in a source checkout", as
   const root = await directory();
   const executable = path.join(root, "vendor", "node", "node.exe");
   const entrypoint = path.join(root, "dist", "main", "domain-worker.cjs");
+  const launcher = path.join(root, "dist", "main", "domain-launcher.cjs");
   await file(executable);
   await file(entrypoint);
+  await file(launcher);
   expect(domainRuntimePaths(root, "unused", false)).toEqual({
     executable,
     entrypoint,
+    launcher,
   });
 });
 
@@ -76,6 +82,33 @@ it("refuses a worker held only inside the application archive", async () => {
   ).toThrow(/service files are missing/);
 });
 
+it.each([false, true])(
+  "refuses a missing launcher even when the runtime and domain entrypoint exist (packaged=%s)",
+  async (packaged) => {
+    const root = await directory();
+    const resources = path.join(root, "resources");
+    const app = packaged ? path.join(resources, "app.asar") : root;
+    await file(
+      packaged
+        ? path.join(resources, "node", "node.exe")
+        : path.join(root, "vendor", "node", "node.exe"),
+    );
+    await file(
+      path.join(
+        packaged ? app + ".unpacked" : app,
+        "dist",
+        "main",
+        "domain-worker.cjs",
+      ),
+    );
+    expect(() => domainRuntimePaths(app, resources, packaged)).toThrow(
+      packaged
+        ? /launcher files are missing.*Reinstall/
+        : /launcher has not been built.*npm run build/,
+    );
+  },
+);
+
 it("ships the runtime and unpacks every child bundle and its external dependencies", () => {
   const require = createRequire(import.meta.url);
   const config = require("../../config/electron-builder.config.cjs");
@@ -85,6 +118,7 @@ it("ships the runtime and unpacks every child bundle and its external dependenci
   });
   for (const name of ["domain", "layout", "embedding", "query"])
     expect(config.asarUnpack).toContain(`dist/main/${name}-worker.cjs`);
+  expect(config.asarUnpack).toContain("dist/main/domain-launcher.cjs");
   expect(config.asarUnpack).toContain("node_modules/**/*");
   expect(config.asarUnpack).not.toContain("dist/main/main.cjs");
   expect(config.asarUnpack).not.toContain("dist/main/preload.cjs");

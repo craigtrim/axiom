@@ -3,7 +3,7 @@ import { mergeState } from "../shared/state-update";
 // #165: all application windows share the opt-in quiet test policy.
 import { installQuietTesting, testWindowOptions } from "./quiet-testing";
 // craigtrim/axiom#207: ontology state and native analysis live outside Electron's heap.
-import { DomainProcess } from "./domain-process";
+import { DomainService } from "./domain-service";
 import { domainRuntimePaths } from "./node-runtime";
 import type { SessionRestore, WorkspaceMetadata } from "./checkpoint-store";
 import { randomUUID } from "node:crypto";
@@ -93,6 +93,7 @@ import {
   nativeImage,
   screen,
   crashReporter,
+  utilityProcess,
   type MenuItemConstructorOptions,
 } from "electron";
 import {
@@ -155,7 +156,7 @@ try {
   app.exit(1);
 }
 let mainWindow: BrowserWindow | null = null,
-  worker: DomainProcess,
+  worker: DomainService,
   sequence = 0,
   preferences: Preferences = readPreferences({ version: 1, theme: "light" }),
   lastState: Snapshot | undefined,
@@ -1609,8 +1610,10 @@ app.whenReady().then(async () => {
     process.resourcesPath,
     app.isPackaged,
   );
-  worker = new DomainProcess(dataRuntime.entrypoint, {
+  worker = new DomainService(dataRuntime.entrypoint, {
     execPath: dataRuntime.executable,
+    launcher: dataRuntime.launcher,
+    fork: utilityProcess.fork,
   });
   worker.on("message", (packet) => {
     if (packet.event) {
@@ -1684,7 +1687,7 @@ app.whenReady().then(async () => {
   worker.on("error", (e) => {
     workerFailed = true;
     // A failed spawn can have no exit event; a live IPC channel can still recover.
-    if (!worker.child.connected) workerStopped = e;
+    if (!worker.connected) workerStopped = e;
     // Capture the requests in flight before they are rejected.
     const recorded = recordCrash(
       "The data service stopped: " + cleanErrorMessage(e),

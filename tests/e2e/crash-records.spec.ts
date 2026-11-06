@@ -12,6 +12,7 @@ import { mkdir, mkdtemp, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { AuditRecord } from "../../src/shared/audit";
 import type { Snapshot } from "../../src/shared/protocol";
+import { observeDomainService } from "./domain-service-observer";
 
 let app: ElectronApplication | undefined, page: Page, profile: string;
 async function launch() {
@@ -41,36 +42,11 @@ async function launch() {
       (globalThis as any).__dialogs.push(options.message);
       return { response: 0, checkboxChecked: false };
     }) as never;
-    // craigtrim/axiom#207: observe the actual data process, including abrupt exits.
-    const child = (process as any)
-      ._getActiveHandles()
-      .find(
-        (handle: any) =>
-          typeof handle?.send === "function" &&
-          Array.isArray(handle.spawnargs) &&
-          handle.spawnargs.some(
-            (arg: unknown) =>
-              typeof arg === "string" &&
-              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
-          ),
-      );
-    if (!child) throw Error("The domain child is not running.");
-    (globalThis as any).__domainWorker = child;
-    const original = child.send;
-    child.send = function (message: any, ...rest: any[]) {
-      if (message?.method === "state")
-        (globalThis as any).__domainWorker ??= this;
-      // A held method never reaches the worker, so its request stays pending.
-      if (message?.method && message.method === (globalThis as any).__hold) {
-        (globalThis as any).__held = true;
-        return true;
-      }
-      return (original as Function).call(this, message, ...rest);
-    };
   });
   await expect(
     page.getByRole("contentinfo", { name: "Workbench status" }),
   ).toBeVisible();
+  await observeDomainService(app, page);
   // Requests before a failure must appear in its timeline.
   await page.evaluate(() => window.axiom.request("state"));
 }
@@ -170,7 +146,7 @@ test("main, worker and window failures each leave one detailed record", async ({
   );
 
   await app!.evaluate(() => {
-    (globalThis as any).__domainWorker.emit(
+    (globalThis as any).__domainServiceObserver.utility.emit(
       "error",
       Error("crash-records worker"),
     );
@@ -329,33 +305,33 @@ test("main, worker and window failures each leave one detailed record", async ({
     expect(gone.details["Axiom processes"]).toBeTruthy();
   } catch (error) {
     crashFailure = error;
-    // A failure remains a failure. Stopping the data child only distinguishes
+    // A failure remains a failure. Stopping the utility relay only distinguishes
     // native channel retention from a renderer notification/recovery defect.
     const diagnostic: Record<string, unknown> = {};
     try {
       diagnostic.before = await observeCrash();
-      diagnostic.child = await app!.evaluate(() => {
-        const child = (globalThis as any).__domainWorker;
+      diagnostic.launcher = await app!.evaluate(() => {
+        const observation = (globalThis as any).__domainServiceObserver;
+        const utility = observation?.utility;
         if (
-          !child?.spawnargs?.some(
-            (argument: unknown) =>
-              typeof argument === "string" &&
-              argument.split(/[\\/]/).at(-1) === "domain-worker.cjs",
-          )
+          observation.exit ||
+          typeof utility?.postMessage !== "function" ||
+          typeof utility.kill !== "function" ||
+          !Number.isSafeInteger(utility.pid) ||
+          utility.pid <= 0
         )
-          throw Error("The captured process is not the ontology child.");
-        return { pid: child.pid, killAccepted: child.kill() };
+          throw Error("The captured ontology utility relay is not running.");
+        return { pid: utility.pid, killAccepted: utility.kill() };
       });
       diagnosticStoppedDomain = true;
       await expect
         .poll(
           () =>
             app!.evaluate(() => {
-              const child = (globalThis as any).__domainWorker;
+              const observation = (globalThis as any).__domainServiceObserver;
               return {
-                stopped: child.exitCode !== null || child.signalCode !== null,
-                exitCode: child.exitCode,
-                signalCode: child.signalCode,
+                stopped: !!observation.exit,
+                exitCode: observation.exit?.code,
               };
             }),
           { timeout: 3000 },
@@ -396,7 +372,7 @@ test("main, worker and window failures each leave one detailed record", async ({
     try {
       if (diagnosticStoppedDomain)
         throw Error(
-          "The fixture stopped its ontology child while diagnosing the renderer failure.",
+          "The fixture stopped its ontology utility relay while diagnosing the renderer failure.",
         );
       await app!.evaluate(
         ({ webContents }, id) => webContents.fromId(id)!.reload(),
@@ -508,8 +484,13 @@ test("a native crash of main is reported at the next start with its dump and las
 });
 
 test("an unexpected worker exit rejects waiting requests and leaves one record", async () => {
+  const nodePid = await page.evaluate(
+    async () =>
+      (await window.axiom.request<{ pid: number }>("runtimeInfo")).pid,
+  );
+  expect(nodePid).toBeGreaterThan(0);
   await app!.evaluate(() => {
-    (globalThis as any).__hold = "inspector";
+    (globalThis as any).__domainServiceObserver.hold = "inspector";
   });
   const waiting = page.evaluate(() =>
     window.axiom
@@ -520,16 +501,33 @@ test("an unexpected worker exit rejects waiting requests and leaves one record",
       ),
   );
   await expect
-    .poll(() => app!.evaluate(() => (globalThis as any).__held === true))
+    .poll(() =>
+      app!.evaluate(() => (globalThis as any).__domainServiceObserver.held),
+    )
     .toBe(true);
   await app!.evaluate(
     () =>
-      new Promise<void>((resolve) => {
-        const child = (globalThis as any).__domainWorker;
-        child.once("close", () => resolve());
-        child.kill();
+      new Promise<void>((resolve, reject) => {
+        const utility = (globalThis as any).__domainServiceObserver.utility;
+        utility.once("exit", () => resolve());
+        if (!utility.kill())
+          reject(Error("The ontology utility relay could not be stopped."));
       }),
   );
+  await expect
+    .poll(
+      () =>
+        app!.evaluate((_, pid) => {
+          try {
+            process.kill(pid, 0);
+            return false;
+          } catch (error) {
+            return (error as NodeJS.ErrnoException).code === "ESRCH";
+          }
+        }, nodePid),
+      { timeout: 5000 },
+    )
+    .toBe(true);
   expect(await waiting).toContain("The data service exited with code 1.");
   const r = await recorded("Domain worker exit", "exited with code 1");
   detailed(r, "domain worker");

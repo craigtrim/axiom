@@ -53,6 +53,14 @@ await Promise.all([
   }),
   build({
     ...base,
+    entryPoints: ["src/main/domain-launcher.ts"],
+    outfile: "dist/main/domain-launcher.cjs",
+    platform: "node",
+    external: ["electron"],
+    format: "cjs",
+  }),
+  build({
+    ...base,
     entryPoints: ["src/main/query-worker.ts"],
     outfile: "dist/main/query-worker.cjs",
     platform: "node",

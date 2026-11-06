@@ -39,6 +39,7 @@ module.exports = {
     "**/metadata/**",
     "node_modules/onnxruntime-node/bin/**/*",
     "dist/main/domain-worker.cjs",
+    "dist/main/domain-launcher.cjs",
     "dist/main/layout-worker.cjs",
     "dist/main/embedding-worker.cjs",
     "dist/main/query-worker.cjs",

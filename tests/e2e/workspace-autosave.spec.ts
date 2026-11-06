@@ -2,6 +2,7 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
+import { observeDomainService } from "./domain-service-observer";
 import {
   test,
   expect,
@@ -505,36 +506,26 @@ test("honours closing while a workspace is still opening and saves the completed
 // #123: observe actual timer ticks and disk metadata with the large fixture.
 test("#123 unchanged large workspaces skip serialization and disk writes across idle ticks", async ({}, info) => {
   test.setTimeout(390000);
+  await observeDomainService(app!, page);
   await app!.evaluate(() => {
     // craigtrim/axiom#207: main requests checkpoint metadata, never workspace JSON.
-    const child = (process as any)
-      ._getActiveHandles()
-      .find(
-        (handle: any) =>
-          typeof handle?.send === "function" &&
-          Array.isArray(handle.spawnargs) &&
-          handle.spawnargs.some(
-            (arg: unknown) =>
-              typeof arg === "string" &&
-              arg.split(/[\\/]/).at(-1) === "domain-worker.cjs",
-          ),
-      );
-    if (!child) throw Error("The domain child is not running.");
-    const original = child.send;
-    (globalThis as any).__checkpointCalls = {
+    (globalThis as any).__domainServiceObserver.counts = {
       serialize: 0,
       serializeJson: 0,
       checkpointPrepare: 0,
       sessionState: 0,
     };
-    child.send = function (message: any, ...rest: any[]) {
-      const counts = (globalThis as any).__checkpointCalls;
-      if (message?.method in counts) counts[message.method]++;
-      return (original as Function).call(this, message, ...rest);
-    };
   });
   const calls = () =>
-    app!.evaluate(() => ({ ...(globalThis as any).__checkpointCalls }));
+    app!.evaluate(() => {
+      const counts = (globalThis as any).__domainServiceObserver.counts;
+      return {
+        serialize: counts.serialize,
+        serializeJson: counts.serializeJson,
+        checkpointPrepare: counts.checkpointPrepare,
+        sessionState: counts.sessionState,
+      };
+    });
   const imported = path.join(profile, "schools.ttl");
   await writeFile(imported, schoolOntology());
   await app!.evaluate(({ dialog }, file) => {
