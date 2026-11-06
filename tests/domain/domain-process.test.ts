@@ -53,6 +53,17 @@ beforeAll(async () => {
       process.send({ id: packet.id, value: { ready: true } });
     });`,
   );
+  await writeFile(
+    path.join(directory, "malformed-frame.cjs"),
+    `process.on('message', packet => {
+      if (packet.control === 'shutdown') return process.exit(0);
+      process.send({
+        $axiomJson: 'axiom-json-frame-v1',
+        id: '00000000-0000-4000-8000-000000000000',
+        index: 1, last: true, text: '{}'
+      });
+    });`,
+  );
 });
 afterEach(async () => {
   await Promise.all(processes.splice(0).map((child) => child.terminate()));
@@ -290,6 +301,28 @@ it("allows a child that needs 3.2 seconds to shut down without killing it", asyn
   await expect(stopping).resolves.toBe(0);
   await expect(rawExit).resolves.toEqual({ code: 0, signal: null });
   expect(kill).not.toHaveBeenCalled();
+});
+
+it("makes a malformed frame terminal instead of accepting requests whose replies would be discarded", async () => {
+  const child = start("malformed-frame.cjs"),
+    errors: Error[] = [];
+  child.on("error", (error) => errors.push(error));
+  const stopped = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) => {
+    child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  child.postMessage({ id: 1, method: "runtimeInfo" }, () => {});
+  const exit = await stopped;
+  expect(errors).toHaveLength(1);
+  expect(errors[0].message).toContain("Out-of-order JSON pipe frame");
+  expect(exit.code ?? (exit.signal ? 1 : 0)).not.toBe(0);
+  expect(child.child.connected).toBe(false);
+  const later = vi.fn();
+  child.postMessage({ id: 2, method: "runtimeInfo" }, later);
+  expect(later).toHaveBeenCalledOnce();
+  expect(later.mock.calls[0][0].message).toContain("no longer connected");
 });
 
 it("ends the domain process when its parent IPC channel disconnects", async () => {

@@ -48,7 +48,15 @@ export class DomainProcess extends EventEmitter {
       (packet) => {
         this.emit("message", decodeDomainPacket(packet));
       },
-      (error) => this.emit("error", error),
+      (error) => {
+        // A closed decoder cannot recover; terminate rather than accepting lost replies.
+        this.sender.suspend();
+        try {
+          this.emit("error", error);
+        } finally {
+          this.child.kill();
+        }
+      },
     );
     this.child.stderr?.setEncoding("utf8");
     this.child.stderr?.on("data", (chunk: string) => {
