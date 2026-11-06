@@ -1,5 +1,6 @@
 // craigtrim/axiom#88: Query keeps generation in Describe and activity on its tab.
 import { launchExample } from "./example-fixture";
+import { observeDomainService } from "./domain-service-observer";
 import {
   test,
   expect,
@@ -37,6 +38,40 @@ async function count() {
   } catch {
     return 0;
   }
+}
+// craigtrim/axiom#207: hold real context RPCs before any persisted run can exist.
+async function deferTaxonomyContext() {
+  await observeDomainService(app, page);
+  await app.evaluate(() => {
+    const utility = (globalThis as any).__domainServiceObserver.utility;
+    const postMessage = utility.postMessage;
+    const queued: { message: any; rest: any[] }[] = [];
+    let holding = true;
+    utility.postMessage = function (message: any, ...rest: any[]) {
+      if (
+        holding &&
+        message?.channel === "axiom-domain-v1" &&
+        message.type === "request" &&
+        message.packet?.method === "taxonomyContext"
+      ) {
+        queued.push({ message, rest });
+        return;
+      }
+      return Reflect.apply(postMessage, this, [message, ...rest]);
+    };
+    (globalThis as any).__taxonomyPreparation = {
+      queued,
+      release() {
+        if (!holding) return;
+        holding = false;
+        utility.postMessage = postMessage;
+        for (const { message, rest } of queued.splice(0))
+          Reflect.apply(postMessage, utility, [message, ...rest]);
+      },
+    };
+  });
+  return () =>
+    app.evaluate(() => (globalThis as any).__taxonomyPreparation.release());
 }
 async function click100(button: Locator) {
   await expect(button).toBeEnabled();
@@ -210,27 +245,65 @@ for (const mode of ["children", "instances"])
       mode +
       " shares pane activity, blocks repeated retry and continues after closing its view",
     async () => {
-      await menu("view.hierarchy");
-      await page
-        .locator(".tree-row")
-        .filter({ has: page.locator(".tree-name", { hasText: /^Thing$/ }) })
-        .click({ button: "right" });
-      await page
-        .getByRole("menuitem", {
-          name: mode === "children" ? "Suggest" : "Find",
-          exact: true,
-        })
-        .click();
-      await page
-        .getByRole("menuitem", {
-          name: mode === "children" ? "Add children" : "Instances",
-          exact: true,
-        })
-        .click();
+      const releaseContext = await deferTaxonomyContext();
       const dialog = pane("taxonomy");
-      await expect(dialog.locator(".assistant-activity")).toContainText(
-        mode === "children" ? "Finding child classes" : "Finding instances",
-      );
+      const label =
+        mode === "children" ? "Finding child classes" : "Finding instances";
+      try {
+        await menu("view.hierarchy");
+        await page
+          .locator(".tree-row")
+          .filter({ has: page.locator(".tree-name", { hasText: /^Thing$/ }) })
+          .click({ button: "right" });
+        await page
+          .getByRole("menuitem", {
+            name: mode === "children" ? "Suggest" : "Find",
+            exact: true,
+          })
+          .click();
+        await page
+          .getByRole("menuitem", {
+            name: mode === "children" ? "Add children" : "Instances",
+            exact: true,
+          })
+          .click();
+        await expect(activity("taxonomy")).toContainText(label);
+        await expect
+          .poll(() =>
+            app.evaluate(
+              () => (globalThis as any).__taxonomyPreparation.queued.length,
+            ),
+          )
+          .toBeGreaterThan(0);
+        expect(
+          await page.evaluate(() => window.axiom.taxonomyAssistant.history()),
+        ).toEqual([]);
+        expect(await count()).toBe(0);
+        // Preparation survives remounting before the history service has a run.
+        await menu("pane.close");
+        await expect(dialog).toHaveCount(0);
+        await menu("view.taxonomy");
+        await expect(activity("taxonomy")).toContainText(label);
+        expect(
+          await page.evaluate(() => window.axiom.taxonomyAssistant.history()),
+        ).toEqual([]);
+        expect(await count()).toBe(0);
+      } finally {
+        await releaseContext();
+      }
+      await expect
+        .poll(
+          async () =>
+            (
+              await page.evaluate(() =>
+                window.axiom.taxonomyAssistant.history(),
+              )
+            ).filter((run) => run.mode === mode && run.state === "running")
+              .length,
+        )
+        .toBe(1);
+      await expect(activity("taxonomy")).toHaveCount(1);
+      await expect(activity("taxonomy")).toContainText(label);
       await expect(activity("hierarchy")).toHaveCount(0);
       await expect.poll(count).toBe(1);
       expect(

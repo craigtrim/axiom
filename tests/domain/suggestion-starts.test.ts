@@ -8,6 +8,21 @@ const target = (mode = "children", iri = "urn:one"): SuggestionStartTarget => ({
   mode,
 });
 describe("explicit suggestion starts", () => {
+  // craigtrim/axiom#207: progress can identify its owner before persisted history exists.
+  it("retains the preparing run identity across views without lending it to another target or epoch", () => {
+    const starts = new SuggestionStarts();
+    const request = target();
+    starts.request("pane", request, 3);
+    const release = starts.reserve(request, 3, "preparing-run")!;
+    expect(starts.get("pane")).toBeUndefined();
+    expect(starts.running({ ...request }, 3)?.runId).toBe("preparing-run");
+    expect(starts.running(target("children", "urn:two"), 3)).toBeUndefined();
+    expect(starts.running(target("instances"), 3)).toBeUndefined();
+    expect(starts.running(request, 4)).toBeUndefined();
+    expect(starts.running(undefined, 3)).toBeUndefined();
+    release();
+    expect(starts.running(request, 3)).toBeUndefined();
+  });
   it.each(["children", "instances", "parents", "synonyms", "custom:saved"])(
     "starts a ready %s action exactly once",
     (mode) => {
