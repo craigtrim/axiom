@@ -36,19 +36,20 @@ async function launch() {
       (globalThis as any).__dialogs.push(options.message);
       return { response: 0, checkboxChecked: false };
     }) as never;
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
-    Worker.prototype.postMessage = function (message, ...rest) {
+    // craigtrim/axiom#207: observe the actual data process, including abrupt exits.
+    const { ChildProcess } = process.getBuiltinModule(
+      "child_process",
+    ) as typeof import("node:child_process");
+    const original = ChildProcess.prototype.send;
+    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
       if (message?.method === "state")
         (globalThis as any).__domainWorker ??= this;
       // A held method never reaches the worker, so its request stays pending.
       if (message?.method && message.method === (globalThis as any).__hold) {
         (globalThis as any).__held = true;
-        return;
+        return true;
       }
-      return original.call(this, message, ...rest);
+      return (original as Function).call(this, message, ...rest);
     };
   });
   await expect(
@@ -317,8 +318,13 @@ test("an unexpected worker exit rejects waiting requests and leaves one record",
   await expect
     .poll(() => app!.evaluate(() => (globalThis as any).__held === true))
     .toBe(true);
-  await app!.evaluate(() =>
-    (globalThis as any).__domainWorker.terminate().then(() => undefined),
+  await app!.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const child = (globalThis as any).__domainWorker;
+        child.once("close", () => resolve());
+        child.kill();
+      }),
   );
   expect(await waiting).toContain("The data service exited with code 1.");
   const r = await recorded("Domain worker exit", "exited with code 1");

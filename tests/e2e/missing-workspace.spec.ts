@@ -50,15 +50,16 @@ async function launch() {
     dialog.showMessageBox = async () => {
       throw Error("Unexpected message box");
     };
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
+    // craigtrim/axiom#207: ownership remains in main while checkpoints run in Node.
+    const { ChildProcess } = process.getBuiltinModule(
+      "child_process",
+    ) as typeof import("node:child_process");
+    const original = ChildProcess.prototype.send;
     (globalThis as any).__sessionTicks = 0;
-    Worker.prototype.postMessage = function (message, ...rest) {
+    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
       if (message?.method === "sessionState")
         (globalThis as any).__sessionTicks++;
-      return original.call(this, message, ...rest);
+      return (original as Function).call(this, message, ...rest);
     };
   });
   await expect(
@@ -181,20 +182,20 @@ test("autosave and close retain edits after a move without recreating the file",
 test("close retains edits when the workspace is deleted during serialization", async () => {
   await edit();
   await app!.evaluate((_, file) => {
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
+    const { ChildProcess } = process.getBuiltinModule(
+      "child_process",
+    ) as typeof import("node:child_process");
     const { unlinkSync } = process.getBuiltinModule(
       "fs",
     ) as typeof import("node:fs");
-    const original = Worker.prototype.postMessage;
+    const original = ChildProcess.prototype.send;
     let deleted = false;
-    Worker.prototype.postMessage = function (message, ...rest) {
-      if (!deleted && message?.method === "serializeJson") {
+    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
+      if (!deleted && message?.method === "checkpointPrepare") {
         deleted = true;
         unlinkSync(file);
       }
-      return original.call(this, message, ...rest);
+      return (original as Function).call(this, message, ...rest);
     };
   }, file);
   await close();

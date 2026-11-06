@@ -506,19 +506,21 @@ test("honours closing while a workspace is still opening and saves the completed
 test("#123 unchanged large workspaces skip serialization and disk writes across idle ticks", async ({}, info) => {
   test.setTimeout(390000);
   await app!.evaluate(() => {
-    const { Worker } = process.getBuiltinModule(
-      "worker_threads",
-    ) as typeof import("node:worker_threads");
-    const original = Worker.prototype.postMessage;
+    // craigtrim/axiom#207: main requests checkpoint metadata, never workspace JSON.
+    const { ChildProcess } = process.getBuiltinModule(
+      "child_process",
+    ) as typeof import("node:child_process");
+    const original = ChildProcess.prototype.send;
     (globalThis as any).__checkpointCalls = {
       serialize: 0,
       serializeJson: 0,
+      checkpointPrepare: 0,
       sessionState: 0,
     };
-    Worker.prototype.postMessage = function (message, ...rest) {
+    ChildProcess.prototype.send = function (message: any, ...rest: any[]) {
       const counts = (globalThis as any).__checkpointCalls;
       if (message?.method in counts) counts[message.method]++;
-      return original.call(this, message, ...rest);
+      return (original as Function).call(this, message, ...rest);
     };
   });
   const calls = () =>
@@ -584,6 +586,7 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
       expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
       if (file) expect((await stat(file)).mtimeMs).toBe(fileTime);
       expect((await calls()).serializeJson).toBe(before.serializeJson);
+      expect((await calls()).checkpointPrepare).toBe(before.checkpointPrepare);
       expect((await calls()).serialize).toBe(before.serialize);
     }
     expect((await calls()).sessionState).toBeGreaterThanOrEqual(
@@ -607,7 +610,8 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   await expect
     .poll(async () => (await stored()).workspace.selected, { timeout: 35000 })
     .toBe(schoolBase + "school42");
-  expect((await calls()).serializeJson).toBe(before.serializeJson + 1);
+  expect((await calls()).checkpointPrepare).toBe(before.checkpointPrepare + 1);
+  expect((await calls()).serializeJson).toBe(0);
   await close();
   await launch();
   expect((await state()).selected).toBe(schoolBase + "school42");
