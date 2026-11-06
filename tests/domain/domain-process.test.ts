@@ -1,4 +1,5 @@
 // craigtrim/axiom#207: exercise the actual Node child, its wire format and lifetime.
+// craigtrim/axiom#208: file import and immutable checkpoints stay within that child.
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { build } from "esbuild";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -185,8 +186,13 @@ it("saves and restores checkpoints through metadata without sending the workspac
     resourcesPath: directory,
     packaged: false,
   });
-  await request("importRdf", {
-    text: "@prefix : <https://example.org/saved#> . @prefix owl: <http://www.w3.org/2002/07/owl#> . :Saved a owl:Class .",
+  const ontologyFile = path.join(directory, "saved.ttl");
+  await writeFile(
+    ontologyFile,
+    "@prefix : <https://example.org/saved#> . @prefix owl: <http://www.w3.org/2002/07/owl#> . :Saved a owl:Class .",
+  );
+  await request("importRdfFile", {
+    file: ontologyFile,
     fileName: "saved.ttl",
     baseIRI: "https://example.org/saved#",
   });
@@ -194,6 +200,9 @@ it("saves and restores checkpoints through metadata without sending the workspac
   expect(checkpoint.id).toBeTypeOf("string");
   expect(checkpoint).not.toHaveProperty("text");
   expect(checkpoint).not.toHaveProperty("workspace");
+  expect(checkpoint).not.toHaveProperty("chunks");
+  // A later dataset must not change bytes owned by the earlier checkpoint.
+  await request("new", { blank: true });
   const workbench = { version: 1, theme: "light" };
   await request("checkpointSession", { id: checkpoint.id, workbench });
   const saved = JSON.parse(

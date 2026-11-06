@@ -151,6 +151,8 @@ export type DomainMethod =
   | "graphActivate"
   | "new"
   | "importRdf"
+  // craigtrim/axiom#208: only main may select a path for streamed import.
+  | "importRdfFile"
   | "rdfExport"
   | "rdfExportSnapshot"
   | "sourceDocument"

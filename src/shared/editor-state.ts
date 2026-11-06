@@ -1,4 +1,5 @@
 import type { Entity, Triple } from "../domain/model";
+// craigtrim/axiom#208: validate drafts without encoding their aggregate contents.
 import { readSavedAddEntity, type SavedAddEntity } from "./add-entity";
 import { editorStatements } from "./statement-values";
 import {
@@ -95,8 +96,7 @@ export function readEditorDrafts(
         triples(e.loaded.original) &&
         (e.error === undefined || text(e.error)) &&
         (e.stale === undefined || typeof e.stale === "boolean"),
-    ) ||
-    JSON.stringify(d).length > 128 * 1024 * 1024
+    )
   )
     throw Error("Invalid saved editor drafts.");
   if (d.addEntity !== undefined) readSavedAddEntity(d.addEntity);

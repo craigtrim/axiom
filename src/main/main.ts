@@ -3,6 +3,7 @@ import { mergeState } from "../shared/state-update";
 // #165: all application windows share the opt-in quiet test policy.
 import { installQuietTesting, testWindowOptions } from "./quiet-testing";
 // craigtrim/axiom#207: ontology state and native analysis live outside Electron's heap.
+// craigtrim/axiom#208: import paths and checkpoint metadata cross main, not file contents.
 import { DomainService } from "./domain-service";
 import { domainRuntimePaths } from "./node-runtime";
 import type { SessionRestore, WorkspaceMetadata } from "./checkpoint-store";
@@ -33,7 +34,6 @@ import {
 } from "./crash-log";
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
-import { SessionSizeError } from "./session-store";
 import { AutosaveCheckpoint } from "./autosave-checkpoint";
 import type { CheckpointSummary } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
@@ -800,9 +800,6 @@ async function checkpointSession(capture = true) {
       recoveryPath,
     });
     autosaveCheckpoint.complete(key);
-  } catch (error) {
-    if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
-    throw error;
   } finally {
     await request("checkpointRelease", { id: document.id }).catch(() => {});
   }
@@ -1074,7 +1071,6 @@ async function writeWorkspace(
       // The file may disappear while editors or serialization are in flight.
       return writeWorkspace(as, automatic, archive, false);
     }
-    if (error instanceof SessionSizeError) autosaveCheckpoint.rejectSize(key);
     throw error;
   } finally {
     if (checkpoint)
@@ -1655,11 +1651,9 @@ app.whenReady().then(async () => {
       staleMessages.add(String(packet.error));
     if (packet.error) {
       const error =
-        packet.code === "AXIOM_SESSION_SIZE"
-          ? new SessionSizeError()
-          : packet.code === "AXIOM_WORKSPACE_MISSING"
-            ? new MissingWorkspaceError(String(packet.file))
-            : new Error(packet.error + (packet.hint ? " " + packet.hint : ""));
+        packet.code === "AXIOM_WORKSPACE_MISSING"
+          ? new MissingWorkspaceError(String(packet.file))
+          : new Error(packet.error + (packet.hint ? " " + packet.hint : ""));
       p.reject(
         Object.assign(error, {
           stale: packet.stale === true,
@@ -1932,6 +1926,7 @@ app.whenReady().then(async () => {
           "new",
           "example",
           "importRdf",
+          "importRdfFile",
           "rdfExport",
           "rdfExportSnapshot",
           "reportData",
@@ -2669,10 +2664,8 @@ app.on("before-quit", () => {
 });
 
 async function importOntologyFile(file: string) {
-  if ((await stat(file)).size > 128 * 1024 * 1024)
-    throw Error("Ontology exceeds the 128 MB import limit.");
-  const result = await request("importRdf", {
-    text: await readFile(file, "utf8"),
+  const result = await request("importRdfFile", {
+    file,
     fileName: path.basename(file),
     baseIRI: pathToFileURL(file).href,
   });
