@@ -11,6 +11,29 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  # #208: one real-data stress journey per workflow, isolated from UI and heap probes.
+  large-ontology:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify large streamed ontology persistence
+        run: node --expose-gc --import tsx scripts/check-large-ontology.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: large-ontology
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            artifacts/large-ontology/result.json
+            artifacts/large-ontology/*.stderr.log
   # #165: qualify hidden rendering against unchanged native tests and a real bug.
   quiet-qualification:
     runs-on: windows-latest
