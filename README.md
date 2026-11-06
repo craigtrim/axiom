@@ -14,7 +14,7 @@ The previous WinUI implementation is recorded in [archive/](archive/README.md); 
 
 ## Install a build
 
-Run `Axiom-Setup-<version>.exe` from artifacts/installer/. It installs for the current account with no administrator prompt, adds Start menu and uninstall entries, and registers the .axiom file type so double-clicking a workspace opens it. See [docs/guides/installation.md](docs/guides/installation.md).
+Run `Axiom-Setup-<version>.exe` from artifacts/installer/. It installs for the current account with no administrator prompt, adds Start menu and uninstall entries, registers the .axiom file type and adds the `axiom` terminal command. In a new terminal, `axiom "D:\work\schools.ttl"` opens the ontology and returns the prompt immediately. See [docs/guides/installation.md](docs/guides/installation.md).
 
 The unpacked application is also written to artifacts/installer/win-unpacked, and its absolute path is recorded in [artifacts/latest-electron.json](artifacts/latest-electron.json) for desktop tests. That folder is portable and needs no separate Node.js or .NET installation.
 

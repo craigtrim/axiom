@@ -41,6 +41,25 @@ installation page you can change. It adds a Start menu shortcut, a desktop short
 an entry in Apps and features, and it registers the `.axiom` file type so double-clicking
 a workspace opens it.
 
+The installer also adds its `bin` directory to your user PATH. In a new PowerShell,
+cmd or Git Bash terminal, run `axiom` to start Axiom, or give it a file:
+
+```powershell
+axiom D:\work\schools.ttl
+axiom "D:\work\School names.ttl"
+axiom .\schools.ttl
+```
+
+The command opens the file without a dialog and returns the prompt immediately.
+Relative paths use your terminal's current directory. Existing terminals retain
+their old PATH. If your terminal is hosted by an application that was already
+running during installation, restart that application too.
+
+Updates keep one PATH entry, and reinstalling in a different directory replaces
+the previous installation's entry. Uninstalling removes it. Other entries and
+environment references are preserved. A PATH registration failure leaves the
+installation usable through its shortcuts.
+
 Registration writes an `Axiom.Workspace` ProgID under `HKEY_CURRENT_USER\Software\Classes`,
 carrying the icon and a `shell\open\command` that passes the file path to `Axiom.exe`,
 and points `.axiom` at that ProgID. Microsoft documents this per-user branch as the

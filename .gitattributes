@@ -1,4 +1,6 @@
 tests/conformance/w3c/** -text
+# craigtrim/axiom#206: Git Bash must receive a Unix shebang on Windows checkouts.
+build/bin/axiom text eol=lf
 # Preserve the downloaded ontology hashes during Windows validation (craigtrim/axiom#72).
 tests/fixtures/ontologies/** -text
 tests/fixtures/find-visual/visual-reference.html -text
