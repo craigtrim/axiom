@@ -85,7 +85,6 @@ export function TaxonomyAssistant({
   const preparing =
     !!activity &&
     !entry &&
-    !target?.runId &&
     !!reservation?.runId &&
     (!runId || runId === reservation.runId);
   const activeForTarget =

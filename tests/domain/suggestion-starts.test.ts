@@ -16,6 +16,12 @@ describe("explicit suggestion starts", () => {
     const release = starts.reserve(request, 3, "preparing-run")!;
     expect(starts.get("pane")).toBeUndefined();
     expect(starts.running({ ...request }, 3)?.runId).toBe("preparing-run");
+    expect(
+      starts.running({ ...request, runId: "preparing-run" }, 3)?.runId,
+    ).toBe("preparing-run");
+    expect(
+      starts.running({ ...request, runId: "saved-terminal-run" }, 3),
+    ).toBeUndefined();
     expect(starts.running(target("children", "urn:two"), 3)).toBeUndefined();
     expect(starts.running(target("instances"), 3)).toBeUndefined();
     expect(starts.running(request, 4)).toBeUndefined();

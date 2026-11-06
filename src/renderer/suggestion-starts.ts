@@ -35,7 +35,8 @@ export class SuggestionStarts<T extends SuggestionStartTarget> {
     const job = this.active.get(this.engine(target.mode));
     return job?.epoch === epoch &&
       job.target.iri === target.iri &&
-      job.target.mode === target.mode
+      job.target.mode === target.mode &&
+      (!target.runId || target.runId === job.runId)
       ? job
       : undefined;
   }
