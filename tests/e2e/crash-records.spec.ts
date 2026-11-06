@@ -30,7 +30,11 @@ async function launch() {
     await (
       await app.browserWindow(page)
     ).evaluate((w) => w.setFocusable(false));
-  await app.evaluate(({ dialog }) => {
+  await app.evaluate(({ app, dialog }) => {
+    (globalThis as any).__beforeQuit = [];
+    app.on("before-quit", () =>
+      (globalThis as any).__beforeQuit.push(new Date().toISOString()),
+    );
     (globalThis as any).__dialogs = [];
     dialog.showMessageBox = (async (_window: unknown, options: any) => {
       (globalThis as any).__dialogs.push(options.message);
@@ -135,7 +139,7 @@ test.afterEach(async () => {
   app = undefined;
 });
 
-test("main, worker and window failures each leave one detailed record", async () => {
+test("main, worker and window failures each leave one detailed record", async ({}, info) => {
   await app!.evaluate(() => {
     setTimeout(() => {
       throw Error("crash-records main uncaught");
@@ -230,33 +234,153 @@ test("main, worker and window failures each leave one detailed record", async ()
   detailed(display, "renderer");
   expect(display.details["Component stack"]).toBeTruthy();
 
-  await app!.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer(),
-  );
-  const gone = await recorded("Renderer process stopped", "renderer process");
-  expect(gone.metadata).toMatchObject({ process: "renderer" });
-  expect(gone.metadata.reason).toBeTruthy();
-  expect(typeof gone.metadata.exitCode).toBe("number");
-  expect(gone.details["Axiom processes"]).toBeTruthy();
-
-  // Closing needs a live renderer to capture the open views, so restore one first.
-  // Playwright's page does not follow a crashed renderer, so main checks the new one.
-  await app!.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].webContents.reload(),
-  );
-  await expect
-    .poll(
-      () =>
-        app!.evaluate(({ BrowserWindow }) =>
-          BrowserWindow.getAllWindows()[0]
-            .webContents.executeJavaScript(
-              `!!document.querySelector('[aria-label="Workbench status"]')`,
-            )
-            .catch(() => false),
-        ),
-      { timeout: 30000 },
-    )
-    .toBe(true);
+  const target = await app!.evaluate(({ app, BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0],
+      contents = window.webContents;
+    const observation = {
+      windowId: window.id,
+      contentsId: contents.id,
+      pid: contents.getOSProcessId(),
+      appListeners: app.listenerCount("render-process-gone"),
+      contentsListeners: contents.listenerCount("render-process-gone"),
+      contentsGone: [] as { reason: string; exitCode: number }[],
+      appGone: [] as { contentsId: number; reason: string; exitCode: number }[],
+      beforeQuit: (globalThis as any).__beforeQuit as string[],
+    };
+    (globalThis as any).__rendererCrash = observation;
+    contents.on("render-process-gone", (_event, details) => {
+      observation.contentsGone.push({
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+    });
+    app.on("render-process-gone", (_event, gone, details) => {
+      observation.appGone.push({
+        contentsId: gone.id,
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+    });
+    return { contentsId: contents.id, pid: observation.pid };
+  });
+  const observeCrash = () =>
+    app!.evaluate(({ webContents }, target) => {
+      const contents = webContents.fromId(target.contentsId);
+      let originalProcess = "running";
+      try {
+        process.kill(target.pid, 0);
+      } catch (error) {
+        originalProcess =
+          (error as NodeJS.ErrnoException).code === "ESRCH"
+            ? "gone"
+            : String((error as NodeJS.ErrnoException).code);
+      }
+      const observation = (globalThis as any).__rendererCrash;
+      return {
+        ...observation,
+        originalProcess,
+        destroyed: !contents || contents.isDestroyed(),
+        crashed: !!contents && !contents.isDestroyed() && contents.isCrashed(),
+        currentPid:
+          contents && !contents.isDestroyed()
+            ? contents.getOSProcessId()
+            : null,
+        contentsEventCount: observation.contentsGone.length,
+        appEventCount: observation.appGone.filter(
+          (event: { contentsId: number }) =>
+            event.contentsId === target.contentsId,
+        ).length,
+      };
+    }, target);
+  let crashFailure: unknown;
+  try {
+    expect(target.pid).toBeGreaterThan(0);
+    await app!.evaluate(
+      ({ webContents }, id) =>
+        webContents.fromId(id)!.forcefullyCrashRenderer(),
+      target.contentsId,
+    );
+    await expect.poll(observeCrash, { timeout: 10000 }).toMatchObject({
+      crashed: true,
+      contentsEventCount: 1,
+    });
+    const observed = await observeCrash();
+    expect(
+      observed,
+      "the app must receive the target renderer's native exit event",
+    ).toMatchObject({
+      appEventCount: 1,
+      beforeQuit: [],
+    });
+    const gone = await recorded("Renderer process stopped", "renderer process");
+    expect(gone.metadata).toMatchObject({ process: "renderer" });
+    expect(gone.metadata.reason).toBeTruthy();
+    expect(typeof gone.metadata.exitCode).toBe("number");
+    expect(gone.details["Axiom processes"]).toBeTruthy();
+  } catch (error) {
+    crashFailure = error;
+  } finally {
+    await observeCrash()
+      .then((observation) =>
+        info.attach("renderer-crash-observations", {
+          body: JSON.stringify(observation, null, 2),
+          contentType: "application/json",
+        }),
+      )
+      .catch(() => {});
+    // Capture on close needs a renderer even when one of the crash assertions fails.
+    // The old Playwright page is unusable, so main checks the recovered renderer.
+    try {
+      await app!.evaluate(
+        ({ webContents }, id) => webContents.fromId(id)!.reload(),
+        target.contentsId,
+      );
+      await expect
+        .poll(
+          () =>
+            app!.evaluate(
+              ({ webContents }, id) =>
+                new Promise<boolean>((resolve) => {
+                  const timeout = setTimeout(() => resolve(false), 1000);
+                  const contents = webContents.fromId(id);
+                  if (!contents || contents.isDestroyed()) {
+                    clearTimeout(timeout);
+                    resolve(false);
+                    return;
+                  }
+                  void contents
+                    .executeJavaScript(
+                      `!!document.querySelector('[aria-label="Workbench status"]')`,
+                    )
+                    .then(
+                      (ready) => {
+                        clearTimeout(timeout);
+                        resolve(!!ready);
+                      },
+                      () => {
+                        clearTimeout(timeout);
+                        resolve(false);
+                      },
+                    );
+                }),
+              target.contentsId,
+            ),
+          { timeout: 20000 },
+        )
+        .toBe(true);
+    } catch (recoveryFailure) {
+      await info.attach("renderer-recovery-failure", {
+        body: String(recoveryFailure),
+        contentType: "text/plain",
+      });
+      crashFailure ??= recoveryFailure;
+      const pid = app!.process().pid!;
+      app!.process().kill();
+      stopOrphans(pid);
+      app = undefined;
+    }
+  }
+  if (crashFailure) throw crashFailure;
   // Every record is listed by the Error Log after a clean restart, with no unexpected-exit record.
   await app!.close();
   await launch();
