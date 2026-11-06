@@ -119,13 +119,9 @@ async function launch() {
       )) &&
       (await page.locator("main.workbench").isVisible())
     ) {
-      // A fast mount may have published before observation. Real focus changes
-      // republish pane state through App without activating either control.
-      await page.getByRole("menuitem", { name: "File", exact: true }).focus();
-      await page
-        .getByRole("tablist", { name: "Open documents" })
-        .getByRole("tab", { selected: true })
-        .focus();
+      // A fast mount may have published before observation. This real command
+      // requires App's command effect, then focuses a pane to republish state.
+      await menu("pane.next");
     }
     await app.evaluate(() => (globalThis as any).__autosaveBootstrap.ready);
     await expect(page.locator(".docking-workspace")).toBeVisible();
