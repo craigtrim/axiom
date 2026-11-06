@@ -99,8 +99,24 @@ async function scan(p = page) {
     .getByRole("button", { name: /^(Run scan|Rerun scan|Rerun)$/ })
     .locator("visible=true")
     .first();
-  await run.click();
-  await expect(summary(p)).toContainText("scanned");
+  // craigtrim/axiom#208: completion includes transfer of the real findings report.
+  const completion = await observeDomainReply(
+    app,
+    p,
+    "qualityStart",
+    {},
+    { jobCompletion: true },
+  );
+  try {
+    await run.click();
+    const receipt = await completion.wait();
+    expect(receipt.jobId).toEqual(expect.any(Number));
+    expect(receipt.jobId).toBe(receipt.startedJobId);
+    expect(receipt.state).toBe("complete");
+    await expect(summary(p)).toContainText("scanned");
+  } finally {
+    await completion.dispose();
+  }
 }
 // Trigger the real Cancel button in the same renderer turn that publishes
 // partial progress. A protocol round trip can otherwise let this short scan

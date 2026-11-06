@@ -7,6 +7,7 @@ export interface DomainReplyReceipt {
   method: string;
   args: Record<string, Scalar>;
   jobId?: number;
+  startedJobId?: number;
   state?: string;
   scanned?: number;
   total?: number;
@@ -18,17 +19,27 @@ export async function observeDomainReply(
   page: Page,
   method: string,
   matchArgs: Record<string, Scalar> = {},
+  options: { jobCompletion?: boolean } = {},
 ) {
+  if (options.jobCompletion && method !== "qualityStart")
+    throw Error("Job completion observation requires qualityStart.");
   const observed = await app.evaluate(
     () => !!(globalThis as any).__domainServiceObserver?.utility,
   );
   if (!observed) await observeDomainService(app, page);
   const observation = await app.evaluateHandle(
-    (_, { method, matchArgs }) => {
+    (_, { method, matchArgs, jobCompletion }) => {
       const owner = (globalThis as any).__domainServiceObserver,
         utility = owner.utility;
       let requestId: number | undefined;
-      let selected: Record<string, string | number | boolean | null> = {};
+      let startedJobId: number | undefined;
+      const pending = new Map<
+        number,
+        {
+          method: string;
+          args: Record<string, string | number | boolean | null>;
+        }
+      >();
       let finished = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let resolve!: (receipt: DomainReplyReceipt) => void;
@@ -41,16 +52,22 @@ export async function observeDomainReply(
       void done.catch(() => {});
       const beforeRequest: any = (packet: any) => {
         beforeRequest.previous?.(packet);
-        if (requestId !== undefined || packet.method !== method) return;
+        if (!Number.isSafeInteger(packet.id)) return;
         const args = packet.args ?? {};
-        if (
-          !Object.entries(matchArgs).every(([key, value]) =>
+        const start =
+          requestId === undefined &&
+          packet.method === method &&
+          Object.entries(matchArgs).every(([key, value]) =>
             Object.is(args[key], value),
-          )
-        )
-          return;
-        requestId = packet.id;
-        selected = {};
+          );
+        const status =
+          jobCompletion &&
+          startedJobId !== undefined &&
+          packet.method === "qualityStatus" &&
+          args.id === startedJobId;
+        if (!start && !status) return;
+        if (start) requestId = packet.id;
+        const selected: Record<string, string | number | boolean | null> = {};
         for (const key of new Set(["id", ...Object.keys(matchArgs)])) {
           const value = args[key];
           if (
@@ -59,10 +76,12 @@ export async function observeDomainReply(
           )
             selected[key] = value;
         }
+        pending.set(packet.id, { method: packet.method, args: selected });
       };
       beforeRequest.previous = owner.beforeRequest;
       beforeRequest.replyObserver = true;
       const cleanup = () => {
+        pending.clear();
         if (timer) clearTimeout(timer);
         utility.off("message", onMessage);
         utility.off("exit", onExit);
@@ -91,25 +110,53 @@ export async function observeDomainReply(
         if (
           message?.channel !== "axiom-domain-v1" ||
           message.type !== "packet" ||
-          requestId === undefined ||
-          message.packet?.id !== requestId
+          !pending.has(message.packet?.id)
         )
           return;
         const packet = message.packet;
+        const request = pending.get(packet.id)!;
+        pending.delete(packet.id);
         if (packet.error) {
           settle(Error(String(packet.error)));
           return;
         }
         const value = packet.value;
         const receipt: DomainReplyReceipt = {
-          id: requestId,
-          method,
-          args: selected,
+          id: packet.id,
+          method: request.method,
+          args: request.args,
         };
         if (typeof value?.id === "number") receipt.jobId = value.id;
         if (typeof value?.state === "string") receipt.state = value.state;
         if (typeof value?.scanned === "number") receipt.scanned = value.scanned;
         if (typeof value?.total === "number") receipt.total = value.total;
+        if (jobCompletion) {
+          if (request.method === "qualityStart") {
+            if (!Number.isSafeInteger(receipt.jobId) || receipt.jobId! <= 0) {
+              settle(
+                Error("The observed quality scan did not return a job ID."),
+              );
+              return;
+            }
+            startedJobId = receipt.jobId;
+          }
+          if (receipt.jobId !== startedJobId) {
+            settle(
+              Error("The observed quality reply belongs to a different job."),
+            );
+            return;
+          }
+          if (receipt.state === "running") return;
+          if (
+            !["complete", "failed", "canceled"].includes(receipt.state ?? "")
+          ) {
+            settle(
+              Error("The observed quality reply has an invalid job state."),
+            );
+            return;
+          }
+          receipt.startedJobId = startedJobId;
+        }
         settle(undefined, receipt);
       };
       const onExit = () =>
@@ -138,7 +185,7 @@ export async function observeDomainReply(
         dispose: () => settle(Error("The domain reply observer was disposed.")),
       };
     },
-    { method, matchArgs },
+    { method, matchArgs, jobCompletion: options.jobCompletion === true },
   );
   let disposed = false;
   const dispose = async () => {
