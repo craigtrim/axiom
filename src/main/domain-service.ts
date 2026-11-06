@@ -113,6 +113,8 @@ export class DomainService extends EventEmitter {
           this.emit("message", message.packet);
           break;
         case "sent": {
+          // craigtrim/axiom#208: retain pending RPCs until the terminal crash snapshot.
+          if (this.nodeExit) break;
           const failed = this.sends.get(message.serial);
           this.sends.delete(message.serial);
           if (message.error) failed?.(restoreError(message.error));

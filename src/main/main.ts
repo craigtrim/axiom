@@ -1093,7 +1093,7 @@ async function autosave() {
       saveWorkspace(false, true),
     );
   } catch (error) {
-    // Size failures wait for a new revision; transient I/O failures retry next tick.
+    // Failed writes remain eligible for the next autosave tick.
     console.warn("Workspace autosave failed:", cleanErrorMessage(error));
   }
 }
