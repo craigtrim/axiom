@@ -262,7 +262,10 @@ describe("incremental RDF/XML security and EOF validation", () => {
   it("keeps scanner output safe to encode as separate UTF-8 chunks", async () => {
     const text =
       `<?example ${unicode}?><!-- ${unicode} -->` +
-      xml(`${unicode}<![CDATA[${unicode}]]><!-- ${unicode} -->`);
+      xml(`<![CDATA[CDATA ${unicode}]]><!-- ${unicode} -->`).replace(
+        "</rdf:Description>",
+        `<ex:plain>ordinary ${unicode}</ex:plain></rdf:Description>`,
+      );
     const chunks: string[] = [];
     for await (const chunk of rdfXmlChunks(rdfTextChunks(bytes(text))))
       chunks.push(chunk);
@@ -270,7 +273,15 @@ describe("incremental RDF/XML security and EOF validation", () => {
     const encoded = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
     expect(encoded.toString("utf8")).toBe(text);
     const result = await parseRdfStream([encoded], "input.rdf", base, "rdfxml");
-    expect(result.triples[0].object.value).toBe(unicode + unicode);
+    expect(
+      result.triples.map((statement) => [
+        statement.predicate,
+        statement.object.value,
+      ]),
+    ).toEqual([
+      [base + "label", "CDATA " + unicode],
+      [base + "plain", "ordinary " + unicode],
+    ]);
   });
 
   it("expands guarded local entities across declaration and reference boundaries", async () => {
