@@ -1198,16 +1198,90 @@ test("Find filters, sorts and pages every match with useful result actions", asy
       ["serious", "critical"].includes(v.impact ?? ""),
     ),
   ).toEqual([]);
-  await resultAction("New graph");
-  await expect
-    .poll(async () => Object.keys((await state()).graphs ?? {}).length)
-    .toBe(2);
-  // #165: graph registration precedes the asynchronous active-view switch.
-  await expect
-    .poll(async () =>
-      (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
-    )
-    .toBe(true);
+  // craigtrim/axiom#207: the action must read its new graph before a broadcast arrives.
+  await app.evaluate(({ BrowserWindow, ipcMain }) => {
+    const contents = BrowserWindow.getAllWindows()[0].webContents;
+    const channel = "domain:request";
+    const originalHandler = (ipcMain as any)._invokeHandlers.get(channel);
+    if (typeof originalHandler !== "function")
+      throw Error("The real domain request handler is unavailable.");
+    const originalSend = contents.send;
+    const gate = {
+      holding: false,
+      graphId: undefined as string | undefined,
+      heldCount: 0,
+      stateRequests: 0,
+      held: [] as any[][],
+      restore: () => {
+        contents.send = originalSend;
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, originalHandler);
+        gate.holding = false;
+        for (const args of gate.held.splice(0))
+          Reflect.apply(originalSend, contents, args);
+      },
+    };
+    (globalThis as any).__findGraphCreateStateGate = gate;
+    contents.send = function (eventChannel, ...args) {
+      if (
+        gate.holding &&
+        eventChannel === "domain:event" &&
+        args[0]?.type === "state"
+      ) {
+        gate.heldCount++;
+        gate.held.push([eventChannel, ...args]);
+        return;
+      }
+      return Reflect.apply(originalSend, this, [eventChannel, ...args]);
+    };
+    ipcMain.removeHandler(channel);
+    ipcMain.handle(channel, async (event, method, ...args) => {
+      if (method === "graphCreate") {
+        gate.holding = true;
+        const id = await originalHandler(event, method, ...args);
+        gate.graphId = id;
+        return id;
+      }
+      if (gate.holding && gate.graphId && method === "state")
+        gate.stateRequests++;
+      return originalHandler(event, method, ...args);
+    });
+  });
+  try {
+    await resultAction("New graph");
+    // Assert the actual UI first: a test-side state() poll would supply the
+    // missing read and could conceal the action's ordering defect.
+    await expect(
+      page.getByRole("tab", { name: "Graph_2", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    const observed = await app.evaluate(() => {
+      const gate = (globalThis as any).__findGraphCreateStateGate;
+      return {
+        graphId: gate.graphId as string,
+        heldCount: gate.heldCount as number,
+        stateRequests: gate.stateRequests as number,
+      };
+    });
+    await expect(
+      page.locator(
+        `[data-graph-id=${JSON.stringify(observed.graphId)}] canvas`,
+      ),
+    ).toBeVisible();
+    expect(observed.heldCount).toBeGreaterThan(0);
+    expect(observed.stateRequests).toBeGreaterThan(0);
+    await expect
+      .poll(async () => Object.keys((await state()).graphs ?? {}).length)
+      .toBe(2);
+    await expect
+      .poll(async () =>
+        (await state()).graph.nodes.some((n) => n.iri === base + "Basic"),
+      )
+      .toBe(true);
+  } finally {
+    await app.evaluate(() =>
+      (globalThis as any).__findGraphCreateStateGate.restore(),
+    );
+  }
 });
 test("Ctrl+F, Escape and remapped Find preserve the previous results", async () => {
   await find("Basic");

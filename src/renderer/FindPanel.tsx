@@ -762,12 +762,14 @@ export function FindPanel() {
     run(async () => {
       if (fresh) {
         const id = await request<string>("graphCreate", { iris: [active.iri] });
+        // craigtrim/axiom#207: register the new graph before opening its canvas.
+        setState(await request<Snapshot>("state"));
         command("view." + id);
       } else {
         await request("seed", { iris: [active.iri] });
         command("view.graph");
+        command("graph.fit");
       }
-      command("graph.fit");
     });
   };
   const graphResults = () => {
