@@ -6,6 +6,7 @@ import { tmpdir, totalmem } from "node:os";
 import path from "node:path";
 import { once } from "node:events";
 import { DomainProcess, heapCeilingMiB } from "../../src/main/domain-process";
+import { workspaceFilePath } from "../../src/main/workspace-ownership";
 import type {
   CheckpointSummary,
   DataRuntimeInfo,
@@ -207,7 +208,10 @@ it("saves and restores checkpoints through metadata without sending the workspac
   const file = path.join(directory, "missing.axiom");
   await expect(
     request("checkpointWorkspace", { id: checkpoint.id, file, workbench }),
-  ).rejects.toMatchObject({ code: "AXIOM_WORKSPACE_MISSING", file });
+  ).rejects.toMatchObject({
+    code: "AXIOM_WORKSPACE_MISSING",
+    file: workspaceFilePath(file),
+  });
   await request("checkpointWorkspace", {
     id: checkpoint.id,
     file,
@@ -253,8 +257,21 @@ it("ends the domain process when its parent IPC channel disconnects", async () =
   const child = start();
   const request = requests(child);
   await request("runtimeInfo");
-  const stopped = once(child, "exit");
+  let stopped: unknown[] | undefined;
+  child.once("exit", (...details) => {
+    stopped = details;
+  });
   child.child.disconnect();
-  const [code] = await stopped;
-  expect(code).toBe(0);
+  await expect
+    .poll(
+      () => ({
+        exitCode: child.child.exitCode,
+        signal: child.child.signalCode,
+        connected: child.child.connected,
+        diagnostics: child.diagnostics,
+      }),
+      { timeout: 5000 },
+    )
+    .toMatchObject({ exitCode: 0, connected: false });
+  await expect.poll(() => stopped, { timeout: 1000 }).toEqual([0, null]);
 });

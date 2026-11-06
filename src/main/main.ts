@@ -1666,6 +1666,21 @@ app.whenReady().then(async () => {
     } else p.resolve(packet.value);
   });
   let workerFailed = false;
+  const showDataServiceFailure = (error: Error, recorded: Promise<string>) => {
+    if (mainWindow && !mainWindow.isDestroyed())
+      void dialog
+        .showMessageBox(mainWindow, {
+          type: "error",
+          message: "The data service stopped.",
+          detail: cleanErrorMessage(error),
+          buttons: ["Close", "Error details"],
+          defaultId: 0,
+          cancelId: 0,
+        })
+        .then(async (r) => {
+          if (r.response === 1) send("audit.open:" + (await recorded));
+        });
+  };
   worker.on("error", (e) => {
     workerFailed = true;
     // A failed spawn can have no exit event; a live IPC channel can still recover.
@@ -1679,19 +1694,7 @@ app.whenReady().then(async () => {
     );
     for (const p of pending.values()) p.reject(e);
     pending.clear();
-    if (mainWindow)
-      void dialog
-        .showMessageBox(mainWindow, {
-          type: "error",
-          message: "The data service stopped.",
-          detail: e.message,
-          buttons: ["Close", "Error details"],
-          defaultId: 0,
-          cancelId: 0,
-        })
-        .then(async (r) => {
-          if (r.response === 1) send("audit.open:" + (await recorded));
-        });
+    showDataServiceFailure(e, recorded);
   });
   // An exit without an error event would otherwise leave every pending request waiting.
   worker.on("exit", (code, signal) => {
@@ -1704,13 +1707,20 @@ app.whenReady().then(async () => {
     );
     workerStopped = error;
     // After an error event the worker's failure is already recorded.
-    if (!workerFailed)
-      void recordCrash(error.message, "Domain worker exit", {
-        process: "domain worker",
-        pid: worker.pid ?? null,
-        exitCode,
-        ...(signal ? { signal } : {}),
-      });
+    if (!workerFailed) {
+      const recorded = recordCrash(
+        error.message,
+        "Domain worker exit",
+        {
+          process: "domain worker",
+          pid: worker.pid ?? null,
+          exitCode,
+          ...(signal ? { signal } : {}),
+        },
+        worker.diagnostics || error.stack,
+      );
+      showDataServiceFailure(error, recorded);
+    }
     for (const p of pending.values()) p.reject(error);
     pending.clear();
   });

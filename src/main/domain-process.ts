@@ -55,18 +55,27 @@ export class DomainProcess extends EventEmitter {
       this.emit("message", decoded);
     });
     this.child.on("error", (error) => this.emit("error", error));
-    this.child.on("exit", (code, signal) => {
-      this.exited = true;
-      this.exitCode = code ?? (signal ? 1 : 0);
-    });
-    // Spawn failure emits close without exit; consumers must still stop waiting.
-    // Wait for close so the final stderr bytes are present in crash diagnostics.
-    this.child.on("close", (code, signal) => {
+    const finish = (code: number | null, signal: NodeJS.Signals | null) => {
       if (this.finished) return;
       this.finished = this.exited = true;
       this.exitCode = code ?? (signal ? 1 : 0);
       this.emit("exit", code, signal);
+    };
+    this.child.on("exit", (code, signal) => {
+      this.exited = true;
+      this.exitCode = code ?? (signal ? 1 : 0);
+      const stderr = this.child.stderr;
+      if (!stderr || stderr.readableEnded || stderr.destroyed)
+        finish(code, signal);
+      else {
+        // A locally disconnected IPC pipe can prevent Node's aggregate close event.
+        // The process exit and drained stderr are sufficient, including its final error.
+        stderr.once("end", () => finish(code, signal));
+        stderr.once("close", () => finish(code, signal));
+      }
     });
+    // Spawn failure can emit close without a process exit event.
+    this.child.on("close", finish);
   }
 
   get pid() {
