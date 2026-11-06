@@ -29,7 +29,10 @@ module.exports = {
     { from: "licenses/THIRD-PARTY-NOTICES.txt", to: "THIRD-PARTY-NOTICES.txt" },
     { from: "licenses/LICENSES.md", to: "LICENSES.md" },
     { from: "vendor/mutatoc", to: "mutatoc" },
+    // craigtrim/axiom#206: the installer edits PATH without NSIS string limits.
+    { from: "build/update-user-path.ps1", to: "update-user-path.ps1" },
   ],
+  extraFiles: [{ from: "build/bin", to: "bin" }],
   asarUnpack: ["**/metadata/**", "node_modules/onnxruntime-node/bin/**/*"],
   directories: { output: "artifacts/installer", buildResources: "build" },
   electronVersion: require("../package.json").devDependencies.electron,

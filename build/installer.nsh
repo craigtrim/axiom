@@ -4,6 +4,12 @@
 # documents for HKEY_CURRENT_USER\Software\Classes.
 
 !macro customInstall
+  # craigtrim/axiom#206: pass paths as arguments, including custom destinations.
+  nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\update-user-path.ps1" -Operation Add -BinPath "$INSTDIR\bin"'
+  Pop $0
+  ${If} $0 == 0
+    System::Call 'user32::SendMessageTimeoutW(p 0xffff, i 0x001A, p 0, w "Environment", i 2, i 5000, *p .r1)'
+  ${EndIf}
   WriteRegStr HKCU "Software\Classes\Axiom.Workspace" "" "Axiom Workspace"
   WriteRegStr HKCU "Software\Classes\Axiom.Workspace\DefaultIcon" "" "$INSTDIR\Axiom.exe,0"
   WriteRegStr HKCU "Software\Classes\Axiom.Workspace\shell\open\command" "" '"$INSTDIR\Axiom.exe" "%1"'
@@ -15,6 +21,13 @@
 !macroend
 
 !macro customUnInstall
+  ${ifNot} ${isUpdated}
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\update-user-path.ps1" -Operation Remove -BinPath "$INSTDIR\bin"'
+    Pop $0
+    ${If} $0 == 0
+      System::Call 'user32::SendMessageTimeoutW(p 0xffff, i 0x001A, p 0, w "Environment", i 2, i 5000, *p .r1)'
+    ${EndIf}
+  ${endIf}
   DeleteRegKey HKCU "Software\Classes\Axiom.Workspace"
   DeleteRegValue HKCU "Software\Classes\.axiom" "PerceivedType"
   DeleteRegValue HKCU "Software\Classes\.axiom" "Content Type"
