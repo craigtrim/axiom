@@ -12,6 +12,8 @@ export async function writeTurtleSnippet(
   root: string,
   protectedIds: Set<string>,
   format: "turtle" | "trig",
+  // craigtrim/axiom#207: analysis yields between batches without changing RDF bytes.
+  yieldControl?: () => Promise<void>,
 ) {
   const writer = new Writer({
     prefixes,
@@ -19,6 +21,7 @@ export async function writeTurtleSnippet(
   });
   const subjects = new Map<string, Triple[]>(),
     incoming = new Map<string, number>();
+  let work = 0;
   for (const t of triples) {
     const list = subjects.get(t.subject) ?? [];
     list.push(t);
@@ -26,6 +29,7 @@ export async function writeTurtleSnippet(
     if (!t.object.literal)
       incoming.set(t.object.value, (incoming.get(t.object.value) ?? 0) + 1);
     if (t.graph) protectedIds.add(t.graph);
+    if (yieldControl && ++work % 2048 === 0) await yieldControl();
   }
   const consumed = new Set<string>();
   const inline = (id: string, graph: string) =>
@@ -112,7 +116,8 @@ export async function writeTurtleSnippet(
     const rows = [...triples].sort(
       (a, b) => Number(b.predicate === TYPE) - Number(a.predicate === TYPE),
     );
-    const lines = rows.map((t, i) => {
+    const lines: string[] = [];
+    for (const [i, t] of rows.entries()) {
       const quad = writer.quadToString(
         node(t.subject),
         DataFactory.namedNode(t.predicate),
@@ -121,12 +126,13 @@ export async function writeTurtleSnippet(
       const boundary = quad.indexOf(" ");
       let tail = quad.slice(boundary + 1, -3);
       if (t.predicate === TYPE) tail = "a" + tail.slice(tail.indexOf(" "));
-      return (
+      lines.push(
         (i ? "    " : quad.slice(0, boundary + 1)) +
-        tail +
-        (i === rows.length - 1 ? " ." : " ;")
+          tail +
+          (i === rows.length - 1 ? " ." : " ;"),
       );
-    });
+      if (yieldControl && ++work % 2048 === 0) await yieldControl();
+    }
     const header = await new Promise<string>((resolve, reject) =>
       writer.end((error, text) => (error ? reject(error) : resolve(text))),
     );
@@ -145,45 +151,49 @@ export async function writeTurtleSnippet(
         Number(b.predicate === TYPE) - Number(a.predicate === TYPE) ||
         a.predicate.localeCompare(b.predicate),
     );
-    for (const t of rows)
+    for (const t of rows) {
       writer.addQuad(
         node(t.subject),
         DataFactory.namedNode(t.predicate),
         value(t, new Set([t.subject])),
         t.graph ? node(t.graph) : DataFactory.defaultGraph(),
       );
+      if (yieldControl && ++work % 2048 === 0) await yieldControl();
+    }
   }
   const text = await new Promise<string>((resolve, reject) =>
     writer.end((error, text) => (error ? reject(error) : resolve(text))),
   );
   let depth = 0,
     graphDepth = 0;
-  return text
-    .split("\n")
-    .map((line) => {
-      // N3 emits single-line escaped literals. Ignore their brackets, and brackets
-      // inside IRIs, when indenting the generated anonymous property lists.
-      const syntax = line.replace(/"(?:\\.|[^"\\])*"|<[^>]*>/g, "");
-      const closing = syntax.trimStart().startsWith("]");
-      const graphClosing = syntax.trimStart().startsWith("}");
-      const indent = closing
-        ? Math.max(0, depth) * 4
-        : depth > 0
-          ? (depth + 1) * 4
-          : /^\s+\S/.test(line)
-            ? 4
-            : 0;
-      depth +=
-        (syntax.match(/\[/g)?.length ?? 0) - (syntax.match(/\]/g)?.length ?? 0);
-      const extra = Math.max(0, graphDepth - Number(graphClosing)) * 4;
-      graphDepth +=
-        (syntax.match(/\{/g)?.length ?? 0) - (syntax.match(/\}/g)?.length ?? 0);
-      const formatted = " ".repeat(indent + extra) + line.trimStart();
-      return /[.}]\s*$/.test(syntax) &&
+  const lines: string[] = [];
+  for (const line of text.split("\n")) {
+    // N3 emits single-line escaped literals. Ignore their brackets, and brackets
+    // inside IRIs, when indenting the generated anonymous property lists.
+    const syntax = line.replace(/"(?:\\.|[^"\\])*"|<[^>]*>/g, "");
+    const closing = syntax.trimStart().startsWith("]");
+    const graphClosing = syntax.trimStart().startsWith("}");
+    const indent = closing
+      ? Math.max(0, depth) * 4
+      : depth > 0
+        ? (depth + 1) * 4
+        : /^\s+\S/.test(line)
+          ? 4
+          : 0;
+    depth +=
+      (syntax.match(/\[/g)?.length ?? 0) - (syntax.match(/\]/g)?.length ?? 0);
+    const extra = Math.max(0, graphDepth - Number(graphClosing)) * 4;
+    graphDepth +=
+      (syntax.match(/\{/g)?.length ?? 0) - (syntax.match(/\}/g)?.length ?? 0);
+    const formatted = " ".repeat(indent + extra) + line.trimStart();
+    lines.push(
+      /[.}]\s*$/.test(syntax) &&
         depth === 0 &&
         !syntax.trimStart().startsWith("@")
         ? formatted + "\n"
-        : formatted;
-    })
-    .join("\n");
+        : formatted,
+    );
+    if (yieldControl && ++work % 2048 === 0) await yieldControl();
+  }
+  return lines.join("\n");
 }

@@ -38,7 +38,8 @@ export class TextAnalysisService {
   private closed = false;
   constructor(
     private executable: () => string,
-    private context: () => Promise<TextAnalysisContext>,
+    // craigtrim/axiom#207: cooperative capture can be superseded by a dataset edit.
+    private context: () => Promise<TextAnalysisContext | undefined>,
   ) {}
   parse(input: TextAnalysisInput): Promise<TextAnalysisResult> {
     if (
@@ -100,7 +101,7 @@ export class TextAnalysisService {
     this.client ??= new MutatocClient(this.executable());
     if (this.loaded !== key) {
       const context = await this.context();
-      if (this.closed) return this.superseded(input);
+      if (!context || this.closed) return this.superseded(input);
       if (
         context.datasetEpoch !== input.datasetEpoch ||
         context.version !== input.version
