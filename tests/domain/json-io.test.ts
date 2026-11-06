@@ -77,6 +77,7 @@ it.each([
   "[1e]",
   '{"x":NaN}',
   '"a" junk',
+  '\uFEFF{"x":1}',
 ])("rejects incomplete or malformed JSON: %s", async (text) => {
   const destination = await file();
   await writeFile(destination, text);

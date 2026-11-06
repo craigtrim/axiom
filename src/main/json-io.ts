@@ -119,7 +119,12 @@ export async function readJsonFile(
   options: { onChunk?: (chunk: string) => void } = {},
 ): Promise<unknown> {
   const input = createReadStream(file, { encoding: "utf8" });
-  if (options.onChunk) input.on("data", options.onChunk);
+  if (options.onChunk)
+    input.on("data", (chunk: string | Buffer) =>
+      options.onChunk!(
+        typeof chunk === "string" ? chunk : chunk.toString("utf8"),
+      ),
+    );
   return readJsonSource(input);
 }
 
@@ -135,10 +140,15 @@ export function readJsonChunks(
 async function readJsonSource(input: Readable): Promise<unknown> {
   const assembler = new Assembler();
   let roots = 0;
+  input.once("data", (chunk: string | Buffer) => {
+    const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    // JSON.parse rejected BOM-prefixed workspace/session documents as well.
+    if (text.charCodeAt(0) === 0xfeff)
+      input.destroy(SyntaxError("Unexpected byte-order mark in JSON."));
+  });
   await pipeline(
     input,
     parser.asStream({
-      ignoreBOM: true,
       streamKeys: false,
       streamStrings: false,
       streamNumbers: false,
