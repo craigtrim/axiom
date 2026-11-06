@@ -1,5 +1,13 @@
+// craigtrim/axiom#208: chunked sessions retain legacy bytes and recoverable atomic writes.
 import { afterEach, expect, it } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { SessionStore, type SavedSession } from "../../src/main/session-store";
@@ -130,4 +138,55 @@ it("rejects a relative save path before writing", async () => {
   expect(() =>
     s.save({ ...session(), workspacePath: "relative.axiom" }),
   ).toThrow(/Invalid saved session/);
+});
+
+it("captures queued session contents before the caller can mutate them", async () => {
+  const s = await storage();
+  const original = session("Before mutation");
+  const pending = s.save(original);
+  original.workspace.ontology!.name = "After mutation";
+  original.workspace.tbox[0].object.value = "urn:changed";
+  await pending;
+  const saved = JSON.parse(await readFile(s.file, "utf8")) as SavedSession;
+  expect(saved.workspace.ontology?.name).toBe("Before mutation");
+  expect(saved.workspace.tbox[0].object.value).toBe(
+    session().workspace.tbox[0].object.value,
+  );
+});
+
+it("keeps the exact accepted legacy bytes as backup after recovery", async () => {
+  const s = await storage();
+  const raw =
+    " \n" + JSON.stringify(session("Legacy \uD83D\uDE00"), null, 2) + "\n";
+  await writeFile(s.file, '{"format":"axiom-session"');
+  await writeFile(s.file + ".bak", raw);
+  const reopened = new SessionStore(path.dirname(s.file));
+  const result = await reopened.restore(async (saved) => {
+    readWorkspace(saved.workspace);
+  });
+  expect(result.recovered).toBe(true);
+  await reopened.save(session("Recovered"));
+  expect(await readFile(s.file + ".bak", "utf8")).toBe(raw);
+});
+
+it("retains the last complete session through a failed write and retries in order", async () => {
+  const s = await storage();
+  await s.save(session("Accepted"));
+  await mkdir(s.file + ".tmp");
+  await expect(s.save(session("Failed"))).rejects.toThrow();
+  expect(
+    JSON.parse(await readFile(s.file, "utf8")).workspace.ontology.name,
+  ).toBe("Accepted");
+  await rm(s.file + ".tmp", { recursive: true });
+  await s.save(session("Retry"));
+  expect(
+    JSON.parse(await readFile(s.file, "utf8")).workspace.ontology.name,
+  ).toBe("Retry");
+  expect(
+    JSON.parse(await readFile(s.file + ".bak", "utf8")).workspace.ontology.name,
+  ).toBe("Accepted");
+  await expect(stat(s.file + ".tmp")).rejects.toMatchObject({ code: "ENOENT" });
+  await expect(stat(s.file + ".bak.tmp")).rejects.toMatchObject({
+    code: "ENOENT",
+  });
 });

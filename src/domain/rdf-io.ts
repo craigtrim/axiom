@@ -1,9 +1,13 @@
 import { writeTurtleSnippet } from "./turtle-snippet";
-import { Parser, Writer, DataFactory } from "n3";
+// craigtrim/axiom#208: files enter the plain Node service as streams, not strings.
+import { StreamParser, Writer, DataFactory } from "n3";
+import { createReadStream } from "node:fs";
+import { Readable, Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { rdfTextChunks, rdfXmlChunks, type RdfChunks } from "./rdf-stream";
 import { sourcePrefixes } from "../shared/source";
 import { RdfXmlParser } from "rdfxml-streaming-parser";
 import { JsonLdParser } from "jsonld-streaming-parser";
-import { SaxesParser } from "saxes";
 import type { Quad, Term as RdfTerm } from "@rdfjs/types";
 import { Store } from "./store";
 import { NS, type Triple, type Term } from "./model";
@@ -34,46 +38,6 @@ export function detectFormat(text: string, fileName: string): RdfFormat {
           : ext === "rdf" || ext === "xml" || ext === "owl"
             ? "rdfxml"
             : "turtle";
-}
-function xmlEntities(text: string) {
-  const match = text.match(/<!DOCTYPE\s+[^\[>]*(?:\[[\s\S]*?\]\s*)?>/i);
-  if (!match) return text;
-  const dtd = match[0];
-  if (/\b(?:SYSTEM|PUBLIC)\b|<!ENTITY\s+%/i.test(dtd))
-    throw Error(
-      "External XML entities are not loaded. Use a self-contained RDF/XML file.",
-    );
-  const defs = new Map(
-    [...dtd.matchAll(/<!ENTITY\s+([\w.-]+)\s+["']([^"'<>]*)["']\s*>/g)].map(
-      (m) => [m[1], m[2]],
-    ),
-  );
-  if (defs.size > 100 || dtd.length > 65536)
-    throw Error("The XML entity declarations exceed supported limits.");
-  function resolve(key: string, seen = new Set<string>()): string {
-    if (seen.has(key) || seen.size > 10)
-      throw Error("Circular or deeply nested XML entities are not supported.");
-    const value = defs.get(key);
-    if (value === undefined) return "&" + key + ";";
-    seen.add(key);
-    let size = 0;
-    const result = value.replace(/&([\w.-]+);/g, (_, child) => {
-      const next = resolve(child, new Set(seen));
-      size += next.length;
-      if (size > 65536) throw Error("An XML entity is too large.");
-      return next;
-    });
-    if (result.length > 65536) throw Error("An XML entity is too large.");
-    return result;
-  }
-  let size = 0;
-  return text.replace(dtd, "").replace(/&([\w.-]+);/g, (_, key) => {
-    const value = resolve(key);
-    size += value.length;
-    if (size + text.length > 128 * 1024 * 1024)
-      throw Error("The expanded XML file exceeds the import limit.");
-    return value;
-  });
 }
 const resource = (t: RdfTerm) =>
   t.termType === "BlankNode" ? "_:" + t.value : t.value;
@@ -106,8 +70,37 @@ export async function parseRdf(
   format = detectFormat(text, fileName),
   options: { allowEmpty?: boolean; preserveBlankNodes?: boolean } = {},
 ) {
-  if (Buffer.byteLength(text) > 128 * 1024 * 1024)
-    throw Error("Ontology files must be 128 MB or smaller.");
+  return parseRdfStream([text], fileName, baseIRI, format, options);
+}
+
+export async function parseRdfFile(
+  file: string,
+  fileName: string,
+  baseIRI: string,
+) {
+  let head = "";
+  // A separate bounded sniff preserves content detection even after arbitrary
+  // leading whitespace. Reopen the file so parser positions retain that prefix.
+  for await (const chunk of createReadStream(file, { encoding: "utf8" })) {
+    const text = head ? chunk : chunk.trimStart();
+    head = (head + text).slice(0, 2000);
+    if (head.length === 2000) break;
+  }
+  return parseRdfStream(
+    createReadStream(file),
+    fileName,
+    baseIRI,
+    detectFormat(head, fileName),
+  );
+}
+
+export async function parseRdfStream(
+  input: RdfChunks,
+  fileName: string,
+  baseIRI: string,
+  format: RdfFormat,
+  options: { allowEmpty?: boolean; preserveBlankNodes?: boolean } = {},
+) {
   const triples: Triple[] = [],
     seen = new Set<string>();
   const add = (q: Quad) => {
@@ -118,26 +111,12 @@ export async function parseRdf(
       seen.add(key);
       triples.push(t);
     }
-    if (triples.length > 1000000)
-      throw Error("The ontology exceeds one million statements.");
   };
-  if (format === "rdfxml" || format === "jsonld") {
-    const input = format === "rdfxml" ? xmlEntities(text) : text;
-    if (format === "rdfxml") {
-      // craigtrim/axiom#94: the RDF stream parser does not finalize XML syntax at EOF.
-      // Reject unfinished documents before any source edit can replace the store.
-      const xml = new SaxesParser({ xmlns: true });
-      xml.on("error", (error) => {
-        throw Error(
-          `RDF/XML parse failed on line ${xml.line}: ${error.message}`,
-        );
-      });
-      xml.write(input).close();
-    }
-    const parser =
-      format === "rdfxml"
-        ? new RdfXmlParser({ baseIRI, trackPosition: true })
-        : new JsonLdParser({
+  const parser =
+    format === "rdfxml"
+      ? new RdfXmlParser({ baseIRI, trackPosition: true })
+      : format === "jsonld"
+        ? new JsonLdParser({
             baseIRI,
             documentLoader: {
               load: async () => {
@@ -146,45 +125,38 @@ export async function parseRdf(
                 );
               },
             },
+          })
+        : new StreamParser({
+            baseIRI,
+            format: (
+              {
+                turtle: "Turtle",
+                ntriples: "N-Triples",
+                nquads: "N-Quads",
+                trig: "TriG",
+              } as Record<string, string>
+            )[format],
+            blankNodePrefix: options.preserveBlankNodes ? "" : "import",
           });
-    await new Promise<void>((resolve, reject) => {
-      parser.on("data", (q: Quad) => {
+  const text = rdfTextChunks(input);
+  await pipeline(
+    Readable.from(format === "rdfxml" ? rdfXmlChunks(text) : text, {
+      objectMode: false,
+      encoding: "utf8",
+    }),
+    parser,
+    new Writable({
+      objectMode: true,
+      write(quad: Quad, _encoding, callback) {
         try {
-          add(q);
+          add(quad);
+          callback();
         } catch (e) {
-          parser.destroy(e as Error);
+          callback(e instanceof Error ? e : Error(String(e)));
         }
-      });
-      parser.on("error", reject);
-      parser.on("end", resolve);
-      parser.end(input);
-    });
-  } else {
-    const parser = new Parser({
-      baseIRI,
-      format: (
-        {
-          turtle: "Turtle",
-          ntriples: "N-Triples",
-          nquads: "N-Quads",
-          trig: "TriG",
-        } as Record<string, string>
-      )[format],
-      blankNodePrefix: options.preserveBlankNodes ? "" : "import",
-    });
-    await new Promise<void>((resolve, reject) =>
-      parser.parse(text, (error, quad) => {
-        if (error) reject(error);
-        else if (quad) {
-          try {
-            add(quad);
-          } catch (e) {
-            reject(e);
-          }
-        } else resolve();
-      }),
-    );
-  }
+      },
+    }),
+  );
   if (!triples.length && !options.allowEmpty)
     throw Error(
       "No RDF statements were found. OWL files must use an RDF serialization.",
@@ -200,10 +172,11 @@ export function storeFromRdf(
     baseIRI: string;
     importedAt: string;
   },
+  options: { takeOwnership?: boolean } = {},
 ) {
   const store = new Store();
   store.entities = projectEntities(triples);
-  store.tbox = structuredClone(triples);
+  store.tbox = options.takeOwnership ? triples : structuredClone(triples);
   const declared = triples.find(
     (t) =>
       t.predicate === NS.rdf + "type" && t.object.value === NS.owl + "Ontology",

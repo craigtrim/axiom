@@ -1,6 +1,5 @@
 // craigtrim/axiom#207: only this Chromium-launched relay forks the plain Node owner.
 import path from "node:path";
-import type { Serializable } from "node:child_process";
 import { DomainProcess } from "./domain-process";
 import type {
   DomainLauncherMessage,
@@ -97,7 +96,8 @@ parent.on("message", ({ data }: { data: DomainLauncherRequest }) => {
   }
   try {
     // ChildProcess.send's completion callback reports asynchronous write failures.
-    child.child.send(packet as Serializable, acknowledged);
+    // craigtrim/axiom#208: acknowledgments include every frame of a large request.
+    child.send(packet, acknowledged);
   } catch (error) {
     acknowledged(error instanceof Error ? error : Error(String(error)));
   }

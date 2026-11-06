@@ -60,7 +60,8 @@
     "rdfxml-streaming-parser": "^3.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "saxes": "6.0.0"
+    "saxes": "6.0.0",
+    "stream-json": "3.7.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

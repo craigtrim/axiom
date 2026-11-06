@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+// craigtrim/axiom#208: large relationship lists restore without duplicating owned data.
 import { buildStore } from "../../src/domain/fixture";
 import { readWorkspace, type Workspace } from "../../src/domain/workspace";
 import { Viewport, hidden, edgeKey } from "../../src/domain/viewport";
@@ -24,6 +25,29 @@ function document(): Workspace {
   };
 }
 describe("workspace integrity", () => {
+  it("restores a relationship list larger than the old ten-thousand-entry cap", () => {
+    const d = document();
+    const pizza = d.entities.find((e) => e.iri === NS.pizza + "Pizza")!;
+    pizza.children = Array.from({ length: 10001 }, (_, i) => "urn:child:" + i);
+    expect(readWorkspace(d).store.entities.has(pizza.iri)).toBe(true);
+  });
+  it("copies caller-owned documents and reuses privately owned data across graph views", () => {
+    const d = document();
+    const copied = readWorkspace(d);
+    expect(copied.store.tbox).not.toBe(d.tbox);
+    expect(copied.store.entities.get(d.entities[0].iri)).not.toBe(
+      d.entities[0],
+    );
+    const owned = readWorkspace(d, { takeOwnership: true });
+    expect(owned.store.tbox).toBe(d.tbox);
+    const anotherView = readWorkspace(d, { store: owned.store });
+    expect(anotherView.store).toBe(owned.store);
+    expect(anotherView.view).not.toBe(owned.view);
+    expect(anotherView.view.nodes.get(NS.pizza + "Pizza")).toMatchObject({
+      x: 123,
+      y: 456,
+    });
+  });
   it("retains graph decorations, unpinned positions and the node eviction policy", () => {
     const d = document();
     d.graph.evictionMode = "refuse";

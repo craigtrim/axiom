@@ -1,4 +1,5 @@
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
+// craigtrim/axiom#208: ontology size follows memory; graph display limits still apply.
 import {
   DEFAULT_GRAPH_SPACING,
   validGraphSpacing,
@@ -64,7 +65,7 @@ export interface Workspace {
 }
 const text = (v: unknown, max = 10000): v is string =>
   typeof v === "string" && v.length <= max;
-const strings = (v: unknown, max = 10000): v is string[] =>
+const strings = (v: unknown, max = Infinity): v is string[] =>
   Array.isArray(v) && v.length <= max && v.every((s) => text(s));
 const restriction = (r: Restriction) =>
   r &&
@@ -80,94 +81,98 @@ const restriction = (r: Restriction) =>
   (r.shape === "restriction"
     ? !!r.property && !!r.quantifier
     : r.fillers.length === 1);
-export function readWorkspace(input: unknown) {
+export function readWorkspace(
+  input: unknown,
+  options: { takeOwnership?: boolean; store?: Store } = {},
+) {
   const doc = input as Workspace;
   if (!doc || doc.format !== "axiom-workspace" || doc.version !== 1)
     throw Error("Choose an Axiom workspace file.");
   const { entities, tbox, individuals, customers } = doc;
   if (
     !Array.isArray(entities) ||
-    entities.length > 200000 ||
     !Array.isArray(tbox) ||
-    tbox.length > 1000000 ||
     !Array.isArray(individuals) ||
-    individuals.length > 1000000 ||
-    !Array.isArray(customers) ||
-    customers.length > 20000
+    !Array.isArray(customers)
   )
-    throw Error("Workspace data is invalid or exceeds supported limits.");
-  for (const e of entities)
-    if (
-      !e ||
-      !text(e.iri) ||
-      !text(e.name, 1000000) ||
-      (e.label !== undefined && !text(e.label, 1000000)) ||
-      (e.labelLanguage !== undefined && !text(e.labelLanguage, 100)) ||
-      ![
-        "Class",
-        "Defined",
-        "Intersection",
-        "Individual",
-        "ObjectProperty",
-        "DataProperty",
-        "AnnotationProperty",
-        "Resource",
-        "Datatype",
-      ].includes(e.kind) ||
-      !strings(e.parents) ||
-      !strings(e.children) ||
-      !strings(e.disjoint) ||
-      !strings(e.types) ||
-      !strings(e.characteristics) ||
-      !text(e.comment, 1000000) ||
-      !Array.isArray(e.restrictions) ||
-      !e.restrictions.every(restriction) ||
-      !Array.isArray(e.equivalents) ||
-      !e.equivalents.every(restriction) ||
-      [e.domain, e.range, e.inverse].some((v) => v !== undefined && !text(v))
-    )
-      throw Error("Invalid ontology entity.");
-  if (!entities.some((e) => e.iri === THING))
-    throw Error("The ontology root is missing.");
-  for (const c of customers)
-    if (!c || !text(c.iri) || !text(c.name, 256))
-      throw Error("Invalid customer.");
-  for (const i of individuals)
-    if (
-      !i ||
-      !text(i.iri) ||
-      !text(i.type) ||
-      !text(i.reference, 256) ||
-      !branches.includes(i.branch) ||
-      !Number.isFinite(i.price) ||
-      i.price < 0 ||
-      i.price > 500 ||
-      !Number.isInteger(i.rating) ||
-      i.rating < 1 ||
-      i.rating > 5 ||
-      !Number.isFinite(i.timestamp) ||
-      Math.abs(i.timestamp) > 8.64e15 ||
-      !Number.isInteger(i.customerIndex) ||
-      i.customerIndex < 0 ||
-      i.customerIndex >= customers.length
-    )
-      throw Error("Invalid individual.");
-  for (const t of tbox)
-    if (
-      !t ||
-      !text(t.subject) ||
-      !text(t.predicate) ||
-      !t.object ||
-      !text(t.object.value, 1000000) ||
-      typeof t.object.literal !== "boolean" ||
-      (t.object.datatype !== undefined && !text(t.object.datatype)) ||
-      (t.object.language !== undefined && !text(t.object.language, 100)) ||
-      (t.graph !== undefined && !text(t.graph))
-    )
-      throw Error("Invalid triple.");
-  const all = [...entities, ...individuals, ...customers];
-  if (new Set(all.map((e) => e.iri)).size !== all.length)
-    throw Error("Duplicate entity IRI.");
+    throw Error("Workspace data is invalid.");
+  if (!options.store) {
+    for (const e of entities)
+      if (
+        !e ||
+        !text(e.iri) ||
+        !text(e.name, 1000000) ||
+        (e.label !== undefined && !text(e.label, 1000000)) ||
+        (e.labelLanguage !== undefined && !text(e.labelLanguage, 100)) ||
+        ![
+          "Class",
+          "Defined",
+          "Intersection",
+          "Individual",
+          "ObjectProperty",
+          "DataProperty",
+          "AnnotationProperty",
+          "Resource",
+          "Datatype",
+        ].includes(e.kind) ||
+        !strings(e.parents) ||
+        !strings(e.children) ||
+        !strings(e.disjoint) ||
+        !strings(e.types) ||
+        !strings(e.characteristics) ||
+        !text(e.comment, 1000000) ||
+        !Array.isArray(e.restrictions) ||
+        !e.restrictions.every(restriction) ||
+        !Array.isArray(e.equivalents) ||
+        !e.equivalents.every(restriction) ||
+        [e.domain, e.range, e.inverse].some((v) => v !== undefined && !text(v))
+      )
+        throw Error("Invalid ontology entity.");
+    if (!entities.some((e) => e.iri === THING))
+      throw Error("The ontology root is missing.");
+    for (const c of customers)
+      if (!c || !text(c.iri) || !text(c.name, 256))
+        throw Error("Invalid customer.");
+    for (const i of individuals)
+      if (
+        !i ||
+        !text(i.iri) ||
+        !text(i.type) ||
+        !text(i.reference, 256) ||
+        !branches.includes(i.branch) ||
+        !Number.isFinite(i.price) ||
+        i.price < 0 ||
+        i.price > 500 ||
+        !Number.isInteger(i.rating) ||
+        i.rating < 1 ||
+        i.rating > 5 ||
+        !Number.isFinite(i.timestamp) ||
+        Math.abs(i.timestamp) > 8.64e15 ||
+        !Number.isInteger(i.customerIndex) ||
+        i.customerIndex < 0 ||
+        i.customerIndex >= customers.length
+      )
+        throw Error("Invalid individual.");
+    for (const t of tbox)
+      if (
+        !t ||
+        !text(t.subject) ||
+        !text(t.predicate) ||
+        !t.object ||
+        !text(t.object.value, 1000000) ||
+        typeof t.object.literal !== "boolean" ||
+        (t.object.datatype !== undefined && !text(t.object.datatype)) ||
+        (t.object.language !== undefined && !text(t.object.language, 100)) ||
+        (t.graph !== undefined && !text(t.graph))
+      )
+        throw Error("Invalid triple.");
+    const iris = new Set<string>();
+    for (const group of [entities, individuals, customers])
+      for (const e of group) {
+        if (iris.has(e.iri)) throw Error("Duplicate entity IRI.");
+        iris.add(e.iri);
+      }
+  }
   if (
     doc.graphs &&
     (typeof doc.graphs !== "object" ||
@@ -264,8 +269,8 @@ export function readWorkspace(input: unknown) {
   )
     throw Error("Invalid edge route.");
   if (g.stylesheet !== undefined) parseGraphStyle(g.stylesheet);
-  const store = new Store();
-  if (doc.ontology) {
+  const store = options.store ?? new Store();
+  if (!options.store && doc.ontology) {
     const o = doc.ontology;
     if (
       !text(o.name, 256) ||
@@ -284,13 +289,18 @@ export function readWorkspace(input: unknown) {
       throw Error("Invalid ontology metadata.");
     store.ontology = { ...o };
   }
-  store.entities = new Map(structuredClone(entities).map((e) => [e.iri, e]));
-  store.tbox = structuredClone(tbox);
-  store.rebuildSchema();
-  store.loadGenerated(
-    individuals.map((i, index) => ({ ...i, index })),
-    customers.map((c) => ({ ...c })),
-  );
+  if (!options.store) {
+    const owned = options.takeOwnership === true;
+    store.entities = new Map(
+      (owned ? entities : structuredClone(entities)).map((e) => [e.iri, e]),
+    );
+    store.tbox = owned ? tbox : structuredClone(tbox);
+    store.rebuildSchema();
+    store.loadGenerated(
+      individuals.map((i, index) => ({ ...i, index })),
+      owned ? customers : customers.map((c) => ({ ...c })),
+    );
+  }
   const view = new Viewport(store),
     layouts = new Layouts(view, store);
   view.routes = new Map(

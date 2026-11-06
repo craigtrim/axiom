@@ -2,7 +2,10 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
-import { observeDomainService } from "./domain-service-observer";
+import {
+  observeDomainReply,
+  observeDomainService,
+} from "./domain-service-observer";
 import {
   test,
   expect,
@@ -48,22 +51,106 @@ async function launch() {
     args: process.env.AXIOM_TEST_EXE ? [] : ["."],
     env,
   });
-  page = await app.firstWindow();
-  if (process.env.AXIOM_TEST_BACKGROUND === "1")
-    await (
-      await app.browserWindow(page)
-    ).evaluate((w) => w.setFocusable(false));
-  page.on("pageerror", (e) => errors.push(e.message));
-  await app.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 0,
-      checkboxChecked: false,
+  try {
+    // craigtrim/axiom#208: App publishes pane menus after its bootstrap and
+    // capture-handler installation; BrowserWindow creation precedes both.
+    await app.evaluate(({ ipcMain }) => {
+      let published = false;
+      let resolve!: (receipt: { sender: number; at: number }) => void;
+      let reject!: (error: Error) => void;
+      const ready = new Promise<{ sender: number; at: number }>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      // firstWindow can fail before the caller starts awaiting this observation.
+      void ready.catch(() => {});
+      const dispose = () => {
+        clearTimeout(timer);
+        ipcMain.off("menu:state", observed);
+      };
+      const observed = (
+        event: Electron.IpcMainEvent,
+        state: Record<string, unknown>,
+      ) => {
+        if (
+          event.sender.getURL() !== "app://axiom/index.html" ||
+          !state ||
+          !Object.hasOwn(state, "pane.next") ||
+          !Object.hasOwn(state, "pane.reattach")
+        )
+          return;
+        published = true;
+        dispose();
+        resolve({ sender: event.sender.id, at: Date.now() });
+      };
+      const timer = setTimeout(() => {
+        dispose();
+        reject(
+          Error(
+            "Renderer bootstrap did not publish its pane-menu state within 30 seconds.",
+          ),
+        );
+      }, 30000);
+      ipcMain.on("menu:state", observed);
+      (globalThis as any).__autosaveBootstrap = {
+        ready,
+        dispose,
+        published: () => published,
+      };
     });
-    dialog.showSaveDialog = async () => {
-      throw Error("An automatic save must not open a file chooser");
-    };
-  });
-  await expect(page.locator(".docking-workspace")).toBeVisible();
+    page = await app.firstWindow();
+    if (process.env.AXIOM_TEST_BACKGROUND === "1")
+      await (
+        await app.browserWindow(page)
+      ).evaluate((w) => w.setFocusable(false));
+    page.on("pageerror", (e) => errors.push(e.message));
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 0,
+        checkboxChecked: false,
+      });
+      dialog.showSaveDialog = async () => {
+        throw Error("An automatic save must not open a file chooser");
+      };
+    });
+    if (
+      !(await app.evaluate(() =>
+        (globalThis as any).__autosaveBootstrap.published(),
+      )) &&
+      (await page.locator("main.workbench").isVisible())
+    ) {
+      // A fast mount may have published before observation. This real command
+      // requires App's command effect, then focuses a pane to republish state.
+      await menu("pane.next");
+    }
+    await app.evaluate(() => (globalThis as any).__autosaveBootstrap.ready);
+    await expect(page.locator(".docking-workspace")).toBeVisible();
+  } catch (error) {
+    // A failed startup has no capture handler to answer a graceful close.
+    // Stop only the Electron child owned by this fixture, preserving the cause.
+    const owned = app.process();
+    void app
+      .evaluate(() => (globalThis as any).__autosaveBootstrap?.dispose())
+      .catch(() => {});
+    app = undefined;
+    if (owned.exitCode === null && owned.signalCode === null) {
+      await new Promise<void>((resolve) => {
+        const finished = () => {
+          clearTimeout(timer);
+          owned.off("exit", finished);
+          resolve();
+        };
+        const timer = setTimeout(finished, 5000);
+        owned.once("exit", finished);
+        owned.kill();
+      });
+    }
+    throw error;
+  } finally {
+    await app
+      ?.evaluate(() => (globalThis as any).__autosaveBootstrap?.dispose())
+      .catch(() => {});
+  }
 }
 async function menu(id: string) {
   await app!.evaluate(({ Menu, BrowserWindow }, id) => {
@@ -78,16 +165,25 @@ async function close() {
   app = undefined;
 }
 async function save(file: string) {
-  await app!.evaluate(({ dialog }, file) => {
-    dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
-  }, file);
-  await menu("file.saveAs");
-  await expect
-    .poll(async () => (await stored().catch(() => ({}))).workspacePath)
-    .toBe(file);
-  await expect
-    .poll(async () => (await state()).dirty, { timeout: 30000 })
-    .toBe(false);
+  // craigtrim/axiom#208: the native menu returns before streamed Save As finishes.
+  const completion = await observeDomainReply(app!, page, "checkpointSession", {
+    workspacePath: file,
+  });
+  try {
+    await app!.evaluate(({ dialog }, file) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+    }, file);
+    await menu("file.saveAs");
+    await completion.wait();
+    await expect
+      .poll(async () => (await stored().catch(() => ({}))).workspacePath)
+      .toBe(file);
+    await expect
+      .poll(async () => (await state()).dirty, { timeout: 30000 })
+      .toBe(false);
+  } finally {
+    await completion.dispose();
+  }
 }
 async function create(name = "Alpha") {
   return request<string>("createClass", {

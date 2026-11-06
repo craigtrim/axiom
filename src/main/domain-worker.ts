@@ -1,4 +1,7 @@
 // craigtrim/axiom#207: keep ontology work and large payloads in the data process.
+// craigtrim/axiom#208: stream imports and capture immutable, bounded checkpoints.
+import { encodeJson } from "./json-io";
+import { DomainJsonReceiver, DomainJsonSender } from "./domain-json-transport";
 import { StateUpdates } from "./state-updates";
 import { CheckpointStore } from "./checkpoint-store";
 import { DomainTextAnalysis } from "./domain-text-analysis";
@@ -60,7 +63,12 @@ import { intersectionSuggestions } from "../domain/intersection-suggestions";
 import { updateIntersectionRoutes } from "../domain/intersection-routing";
 import { namedClass, taxonomyParents } from "../domain/class-expressions";
 import { instancePage, instanceFindOptions } from "../domain/instances";
-import { parseRdf, storeFromRdf, writeRdf } from "../domain/rdf-io";
+import {
+  parseRdf,
+  parseRdfFile,
+  storeFromRdf,
+  writeRdf,
+} from "../domain/rdf-io";
 import { sourceDocument, applySource, linkedFile } from "../domain/source";
 import type { SourceDocument } from "../shared/source";
 import { validateStatement } from "../domain/rdf-model";
@@ -123,7 +131,6 @@ import type {
   DomainMethod,
   InspectorData,
   QuerySummary,
-  SerializedCheckpoint,
   Preferences,
   DataRuntimeInfo,
 } from "../shared/protocol";
@@ -172,9 +179,19 @@ if (
     "The data service requires plain Node without pointer compression.",
   );
 let shuttingDown = false;
+const jsonSender = parentPort
+  ? undefined
+  : new DomainJsonSender((packet, complete) => {
+      if (!process.connected)
+        complete(Error("The data service is no longer connected."));
+      else process.send!(packet as Serializable, complete);
+    });
+let jsonReceiver: DomainJsonReceiver | undefined;
 function shutdown(code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
+  jsonReceiver?.close();
+  jsonSender?.close();
   try {
     textAnalysis.close();
     activeQuery?.abort();
@@ -188,12 +205,9 @@ function postMessage(packet: unknown) {
   if (shuttingDown) return;
   if (parentPort) parentPort.postMessage(packet);
   else if (process.connected)
-    process.send!(
-      encodeDomainPacket(packet) as Serializable,
-      (error: Error | null) => {
-        if (error) shutdown();
-      },
-    );
+    jsonSender!.send(encodeDomainPacket(packet), (error: Error | null) => {
+      if (error) shutdown();
+    });
 }
 if (!parentPort) {
   process.on("disconnect", () => shutdown());
@@ -685,7 +699,9 @@ async function operate(
   // Ending a drawing in another graph view must not change the active graph.
   if (typeof args.graphId === "string" && method !== "graphInteraction")
     activateGraph(args.graphId);
-  if (["new", "example", "load", "importRdf"].includes(method)) {
+  if (
+    ["new", "example", "load", "importRdf", "importRdfFile"].includes(method)
+  ) {
     if (method !== "load") stopExternal();
     const value = await dispatch(method, args);
     history.clear();
@@ -987,10 +1003,20 @@ async function dispatch(
       return runtimeInfo();
     case "runtimeInfo":
       return runtimeInfo();
-    case "checkpointPrepare":
-      return checkpointStore().register(
-        (await operate("serializeJson", a)) as SerializedCheckpoint,
-      );
+    case "checkpointPrepare": {
+      const document = serializeWorkspace();
+      const drafts = a.editorDrafts as
+        import("../shared/editor-state").SavedEditorDrafts | undefined;
+      return checkpointStore().register({
+        ...sessionState(),
+        storeVersion: document.storeVersion,
+        workspaceRevision: document.workspaceRevision,
+        chunks: encodeJson(document),
+        draftsChunks: drafts
+          ? encodeJson({ ...drafts, storeVersion: document.storeVersion })
+          : undefined,
+      });
+    }
     case "checkpointSession":
       return checkpointStore().saveSession(
         string(a, "id", 200),
@@ -1011,18 +1037,32 @@ async function dispatch(
     case "restoreSession":
       return checkpointStore().restore(
         async (document) => {
-          await operate("load", { document });
+          await operate("load", { document, takeOwnership: true });
         },
         a.preferences as Preferences | undefined,
       );
-    case "loadWorkspaceFile":
+    case "loadWorkspaceFile": {
+      const initialStore = store,
+        initialEpoch = datasetEpoch,
+        initialVersion = store.version,
+        initialRevision = documentRevision;
       return checkpointStore().openWorkspace(
         string(a, "file", 32768),
         async (document) => {
-          await operate("load", { document });
+          if (
+            store !== initialStore ||
+            datasetEpoch !== initialEpoch ||
+            store.version !== initialVersion ||
+            documentRevision !== initialRevision
+          )
+            throw Error(
+              "The workspace changed while opening this file. Open it again.",
+            );
+          await operate("load", { document, takeOwnership: true });
         },
         a.preferences as Preferences | undefined,
       );
+    }
     case "textAnalysisParse":
       return textAnalysis.parse(a.input as TextAnalysisInput);
     case "resourceSuggestions":
@@ -1161,24 +1201,38 @@ async function dispatch(
       placeCreated(a);
       return selected;
     }
+    case "importRdfFile":
     case "importRdf": {
       const initialEpoch = datasetEpoch,
-        initialVersion = store.version;
-      const parsed = await parseRdf(
-        string(a, "text", 134217728),
-        string(a, "fileName", 10000),
-        string(a, "baseIRI", 10000),
-      );
-      if (datasetEpoch !== initialEpoch || store.version !== initialVersion)
+        initialVersion = store.version,
+        initialRevision = documentRevision,
+        initialStore = store;
+      const fileName = string(a, "fileName", 10000),
+        baseIRI = string(a, "baseIRI", 10000);
+      const parsed =
+        method === "importRdfFile"
+          ? await parseRdfFile(string(a, "file", 32768), fileName, baseIRI)
+          : await parseRdf(string(a, "text", Infinity), fileName, baseIRI);
+      if (
+        store !== initialStore ||
+        datasetEpoch !== initialEpoch ||
+        store.version !== initialVersion ||
+        documentRevision !== initialRevision
+      )
         throw Error(
           "The workspace changed during import. Import the file again.",
         );
-      const next = storeFromRdf(parsed.triples, string(a, "fileName", 10000), {
-        fileName: string(a, "fileName", 10000),
-        format: parsed.format,
-        baseIRI: string(a, "baseIRI", 10000),
-        importedAt: new Date().toISOString(),
-      });
+      const next = storeFromRdf(
+        parsed.triples,
+        fileName,
+        {
+          fileName,
+          format: parsed.format,
+          baseIRI,
+          importedAt: new Date().toISOString(),
+        },
+        { takeOwnership: true },
+      );
       stopExternal();
       activeQuery?.abort();
       activeQuery = undefined;
@@ -2628,17 +2682,22 @@ async function dispatch(
       publish();
       return true;
     case "load": {
-      const next = readWorkspace(a.document);
+      const next = readWorkspace(a.document, {
+        takeOwnership: a.takeOwnership === true,
+      });
       const saved = a.document as import("../domain/workspace").Workspace;
       const loadedGraphs = Object.entries(saved.graphs ?? {}).map(
         ([id, g]) => ({
           id,
           g,
-          loaded: readWorkspace({
-            ...(a.document as object),
-            graph: g,
-            graphs: undefined,
-          }),
+          loaded: readWorkspace(
+            {
+              ...(a.document as object),
+              graph: g,
+              graphs: undefined,
+            },
+            { store: next.store },
+          ),
         }),
       );
       stopExternal();
@@ -2714,10 +2773,26 @@ const receive = async (packet: {
   }
 };
 if (parentPort) parentPort.on("message", receive);
-else
+else {
+  // craigtrim/axiom#208: reassemble large drafts before dispatching their RPC.
+  jsonReceiver = new DomainJsonReceiver(
+    (packet) => {
+      void receive(packet as Parameters<typeof receive>[0]);
+    },
+    () => shutdown(1),
+  );
   process.on("message", (packet) => {
-    void receive(packet as Parameters<typeof receive>[0]);
+    // Shutdown must interrupt a partial large packet instead of waiting for its tail.
+    if (
+      packet &&
+      typeof packet === "object" &&
+      "control" in packet &&
+      packet.control === "shutdown"
+    )
+      shutdown();
+    else jsonReceiver!.receive(packet);
   });
+}
 let lastPositions = 0;
 function simulate() {
   if (

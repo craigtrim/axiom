@@ -1,4 +1,5 @@
 // craigtrim/axiom#207: ontology data lives in plain Node outside Electron's heap cage.
+// craigtrim/axiom#208: frame large JSON packets before Node's IPC serializer sees them.
 import {
   fork,
   type ChildProcess,
@@ -8,6 +9,7 @@ import {
 import { EventEmitter } from "node:events";
 import { totalmem } from "node:os";
 import { decodeDomainPacket } from "./domain-wire";
+import { DomainJsonReceiver, DomainJsonSender } from "./domain-json-transport";
 
 export function heapCeilingMiB(totalBytes: number) {
   if (!Number.isFinite(totalBytes) || totalBytes < 1024 * 1024)
@@ -22,6 +24,8 @@ export class DomainProcess extends EventEmitter {
   private finished = false;
   private exitCode = 0;
   private stopping?: Promise<number>;
+  private sender: DomainJsonSender;
+  private receiver: DomainJsonReceiver;
 
   constructor(entryFile: string, options: { execPath: string }) {
     super();
@@ -37,32 +41,41 @@ export class DomainProcess extends EventEmitter {
       env,
     };
     this.child = fork(entryFile, [], childOptions);
+    this.sender = new DomainJsonSender((packet, complete) => {
+      this.child.send(packet as Serializable, complete);
+    });
+    this.receiver = new DomainJsonReceiver(
+      (packet) => {
+        this.emit("message", decodeDomainPacket(packet));
+      },
+      (error) => {
+        // A closed decoder cannot recover; terminate rather than accepting lost replies.
+        this.sender.suspend();
+        try {
+          this.emit("error", error);
+        } finally {
+          this.child.kill();
+        }
+      },
+    );
     this.child.stderr?.setEncoding("utf8");
     this.child.stderr?.on("data", (chunk: string) => {
       this.stderrText = (this.stderrText + chunk).slice(-65536);
     });
-    this.child.on("message", (packet) => {
-      let decoded: unknown;
-      try {
-        decoded = decodeDomainPacket(packet);
-      } catch (error) {
-        this.emit(
-          "error",
-          error instanceof Error ? error : Error(String(error)),
-        );
-        return;
-      }
-      this.emit("message", decoded);
-    });
+    this.child.on("message", (packet) => this.receiver.receive(packet));
     this.child.on("error", (error) => this.emit("error", error));
     const finish = (code: number | null, signal: NodeJS.Signals | null) => {
       if (this.finished) return;
       this.finished = this.exited = true;
       this.exitCode = code ?? (signal ? 1 : 0);
       this.emit("exit", code, signal);
+      this.receiver.close();
+      this.sender.close(Error("The data service is no longer connected."));
     };
     this.child.on("exit", (code, signal) => {
       this.exited = true;
+      this.sender.suspend();
+      this.receiver.close();
       this.exitCode = code ?? (signal ? 1 : 0);
       const stderr = this.child.stderr;
       if (!stderr || stderr.readableEnded || stderr.destroyed)
@@ -91,31 +104,33 @@ export class DomainProcess extends EventEmitter {
       if (onError) onError(error);
       else this.emit("error", error);
     };
-    if (this.exited || this.stopping || !this.child.connected) {
-      failed(Error("The data service is no longer connected."));
-      return;
-    }
-    try {
-      this.child.send(packet as Serializable, (error) => {
-        if (error) failed(error);
-      });
-    } catch (error) {
-      failed(error instanceof Error ? error : Error(String(error)));
-    }
+    this.send(packet, (error) => {
+      if (error) failed(error);
+    });
+  }
+
+  send(packet: unknown, complete: (error: Error | null) => void) {
+    if (this.exited || this.stopping || !this.child.connected)
+      complete(Error("The data service is no longer connected."));
+    else this.sender.send(packet, complete);
   }
 
   terminate(): Promise<number> {
     if (this.exited) return Promise.resolve(this.exitCode);
     if (this.stopping) return this.stopping;
     this.stopping = new Promise((resolve) => {
-      const force = setTimeout(() => this.child.kill(), 2500);
+      // craigtrim/axiom#208: large healthy heaps can take four seconds to exit.
+      const force = setTimeout(() => this.child.kill(), 10000);
       force.unref();
       this.once("exit", () => {
         clearTimeout(force);
         resolve(this.exitCode);
       });
       try {
+        this.receiver.close();
+        this.sender.close(Error("The data service is stopping."));
         if (!this.child.connected) this.child.kill();
+        // Shutdown is a small control packet, independent of an abandoned assembly.
         else
           this.child.send({ control: "shutdown" }, (error) => {
             if (error) this.child.kill();

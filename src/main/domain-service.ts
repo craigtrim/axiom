@@ -113,6 +113,8 @@ export class DomainService extends EventEmitter {
           this.emit("message", message.packet);
           break;
         case "sent": {
+          // craigtrim/axiom#208: retain pending RPCs until the terminal crash snapshot.
+          if (this.nodeExit) break;
           const failed = this.sends.get(message.serial);
           this.sends.delete(message.serial);
           if (message.error) failed?.(restoreError(message.error));
@@ -232,8 +234,8 @@ export class DomainService extends EventEmitter {
     if (this.exited) return Promise.resolve(this.exitCode);
     if (this.stopping) return this.stopping;
     this.stopping = new Promise((resolve) => {
-      // DomainProcess gives its owned Node child 2.5 seconds before forcing it down.
-      const force = setTimeout(() => this.launcher.kill(), 4000);
+      // craigtrim/axiom#208: allow Node's ten-second grace plus relay exit delivery.
+      const force = setTimeout(() => this.launcher.kill(), 12000);
       force.unref();
       this.once("exit", () => {
         clearTimeout(force);

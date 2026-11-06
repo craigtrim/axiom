@@ -1,5 +1,6 @@
 // craigtrim/axiom#207: exercise the actual Node child, its wire format and lifetime.
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+// craigtrim/axiom#208: file import and immutable checkpoints stay within that child.
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { build } from "esbuild";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir, totalmem } from "node:os";
@@ -42,9 +43,31 @@ beforeAll(async () => {
       }});
     });`,
   );
+  await writeFile(
+    path.join(directory, "slow-shutdown.cjs"),
+    `process.on('message', packet => {
+      if (packet.control === 'shutdown') {
+        setTimeout(() => process.exit(0), 3200);
+        return;
+      }
+      process.send({ id: packet.id, value: { ready: true } });
+    });`,
+  );
+  await writeFile(
+    path.join(directory, "malformed-frame.cjs"),
+    `process.on('message', packet => {
+      if (packet.control === 'shutdown') return process.exit(0);
+      process.send({
+        $axiomJson: 'axiom-json-frame-v1',
+        id: '00000000-0000-4000-8000-000000000000',
+        index: 1, last: true, text: '{}'
+      });
+    });`,
+  );
 });
 afterEach(async () => {
   await Promise.all(processes.splice(0).map((child) => child.terminate()));
+  vi.restoreAllMocks();
 });
 afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
@@ -185,8 +208,13 @@ it("saves and restores checkpoints through metadata without sending the workspac
     resourcesPath: directory,
     packaged: false,
   });
-  await request("importRdf", {
-    text: "@prefix : <https://example.org/saved#> . @prefix owl: <http://www.w3.org/2002/07/owl#> . :Saved a owl:Class .",
+  const ontologyFile = path.join(directory, "saved.ttl");
+  await writeFile(
+    ontologyFile,
+    "@prefix : <https://example.org/saved#> . @prefix owl: <http://www.w3.org/2002/07/owl#> . :Saved a owl:Class .",
+  );
+  await request("importRdfFile", {
+    file: ontologyFile,
     fileName: "saved.ttl",
     baseIRI: "https://example.org/saved#",
   });
@@ -194,6 +222,9 @@ it("saves and restores checkpoints through metadata without sending the workspac
   expect(checkpoint.id).toBeTypeOf("string");
   expect(checkpoint).not.toHaveProperty("text");
   expect(checkpoint).not.toHaveProperty("workspace");
+  expect(checkpoint).not.toHaveProperty("chunks");
+  // A later dataset must not change bytes owned by the earlier checkpoint.
+  await request("new", { blank: true });
   const workbench = { version: 1, theme: "light" };
   await request("checkpointSession", { id: checkpoint.id, workbench });
   const saved = JSON.parse(
@@ -251,6 +282,47 @@ it("reports a spawn failure and stops the child lifecycle", async () => {
   expect(error.code).toBe("ENOENT");
   await stopped;
   await expect(child.terminate()).resolves.toBeTypeOf("number");
+});
+
+// craigtrim/axiom#208: a healthy shutdown can exceed the former 2.5-second deadline.
+it("allows a child that needs 3.2 seconds to shut down without killing it", async () => {
+  const child = start("slow-shutdown.cjs"),
+    kill = vi.spyOn(child.child, "kill");
+  const request = requests(child);
+  await expect(request("runtimeInfo")).resolves.toEqual({ ready: true });
+  const rawExit = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) => {
+    child.child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  const stopping = child.terminate();
+  expect(child.terminate()).toBe(stopping);
+  await expect(stopping).resolves.toBe(0);
+  await expect(rawExit).resolves.toEqual({ code: 0, signal: null });
+  expect(kill).not.toHaveBeenCalled();
+});
+
+it("makes a malformed frame terminal instead of accepting requests whose replies would be discarded", async () => {
+  const child = start("malformed-frame.cjs"),
+    errors: Error[] = [];
+  child.on("error", (error) => errors.push(error));
+  const stopped = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) => {
+    child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  child.postMessage({ id: 1, method: "runtimeInfo" }, () => {});
+  const exit = await stopped;
+  expect(errors).toHaveLength(1);
+  expect(errors[0].message).toContain("Out-of-order JSON pipe frame");
+  expect(exit.code ?? (exit.signal ? 1 : 0)).not.toBe(0);
+  expect(child.child.connected).toBe(false);
+  const later = vi.fn();
+  child.postMessage({ id: 2, method: "runtimeInfo" }, later);
+  expect(later).toHaveBeenCalledOnce();
+  expect(later.mock.calls[0][0].message).toContain("no longer connected");
 });
 
 it("ends the domain process when its parent IPC channel disconnects", async () => {

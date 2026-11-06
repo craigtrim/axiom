@@ -301,20 +301,45 @@ it("queues shutdown until a starting helper can receive it", async () => {
   expect(f.utility.kill).not.toHaveBeenCalled();
 });
 
-it("forces an unresponsive helper at the deadline and still waits for its exit event", async () => {
+it("forces an unresponsive helper after twelve seconds and still waits for its exit event", async () => {
   vi.useFakeTimers();
   const f = fixture();
   f.ready();
   const stopped = vi.fn();
   const termination = f.service.terminate();
   void termination.then(stopped);
-  await vi.advanceTimersByTimeAsync(3999);
+  await vi.advanceTimersByTimeAsync(11999);
   expect(f.utility.kill).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1);
   expect(f.utility.kill).toHaveBeenCalledOnce();
   expect(stopped).not.toHaveBeenCalled();
   f.utility.emit("exit", 0);
   await expect(termination).resolves.toBe(1);
-  await vi.advanceTimersByTimeAsync(4000);
+  await vi.advanceTimersByTimeAsync(12000);
   expect(f.utility.kill).toHaveBeenCalledOnce();
+});
+
+// craigtrim/axiom#208: abandoned framed sends must remain visible in the crash timeline.
+it("retains late send failures after Node exit until the helper's terminal snapshot", () => {
+  const f = fixture();
+  f.ready();
+  const order: string[] = [];
+  f.service.on("exit", () => order.push("exit"));
+  f.service.postMessage({ id: 1 }, () => order.push("pending rejected"));
+  const serial = f.requests()[0].serial;
+  f.utility.message({
+    type: "exit",
+    code: 7,
+    signal: null,
+    diagnostics: "Node failed",
+  });
+  f.utility.message({
+    type: "sent",
+    serial,
+    error: { message: "The data service is no longer connected." },
+  });
+  expect(order).toEqual([]);
+  f.utility.emit("exit", 0);
+  expect(order).toEqual(["exit", "pending rejected"]);
+  expect(f.exits).toHaveBeenCalledExactlyOnceWith(7, null);
 });

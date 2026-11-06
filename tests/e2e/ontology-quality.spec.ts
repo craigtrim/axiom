@@ -5,12 +5,14 @@ import {
   expect,
   _electron,
   type ElectronApplication,
+  type JSHandle,
   type Page,
 } from "@playwright/test";
 import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import type { Snapshot } from "../../src/shared/protocol";
+import { observeDomainReply } from "./domain-service-observer";
 const base = "https://quality.test/#";
 const prefix = `@prefix : <${base}>. @prefix owl: <http://www.w3.org/2002/07/owl#>. @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>. @prefix skos: <http://www.w3.org/2004/02/skos/core#>. `;
 const body = `:Shop_Class a owl:Class; rdfs:label "Shop Class"; rdfs:comment "Courses in the shop".
@@ -97,38 +99,97 @@ async function scan(p = page) {
     .getByRole("button", { name: /^(Run scan|Rerun scan|Rerun)$/ })
     .locator("visible=true")
     .first();
-  await run.click();
-  await expect(summary(p)).toContainText("scanned");
+  // craigtrim/axiom#208: completion includes transfer of the real findings report.
+  const completion = await observeDomainReply(
+    app,
+    p,
+    "qualityStart",
+    {},
+    { jobCompletion: true },
+  );
+  try {
+    await run.click();
+    const receipt = await completion.wait();
+    expect(receipt.jobId).toEqual(expect.any(Number));
+    expect(receipt.jobId).toBe(receipt.startedJobId);
+    expect(receipt.state).toBe("complete");
+    await expect(summary(p)).toContainText("scanned");
+  } finally {
+    await completion.dispose();
+  }
 }
 // Trigger the real Cancel button in the same renderer turn that publishes
 // partial progress. A protocol round trip can otherwise let this short scan
 // finish between observing its progress and sending the click.
 async function cancelAfterProgress() {
-  return pane().evaluateHandle((element) => ({
-    done: new Promise<void>((resolve) => {
-      const observer = new MutationObserver(() => {
-        const scanned = Number(
-          element
-            .querySelector(".bar .sum")
-            ?.textContent?.match(/^([\d,]+) of/)?.[1]
-            .replaceAll(",", "") ?? 0,
-        );
-        const button = [
-          ...element.querySelectorAll<HTMLButtonElement>("button"),
-        ].find((button) => button.textContent?.trim() === "Cancel");
-        if (scanned >= 128 && button && !button.disabled) {
-          observer.disconnect();
-          button.click();
-          resolve();
+  // craigtrim/axiom#208: the click precedes transfer of the real partial report.
+  const completion = await observeDomainReply(app, page, "qualityCancel");
+  let click: JSHandle<{ done: Promise<void>; dispose: () => void }>;
+  try {
+    click = await pane().evaluateHandle((element) => {
+      let observer: MutationObserver;
+      const done = new Promise<void>((resolve) => {
+        observer = new MutationObserver(() => {
+          const scanned = Number(
+            element
+              .querySelector(".bar .sum")
+              ?.textContent?.match(/^([\d,]+) of/)?.[1]
+              .replaceAll(",", "") ?? 0,
+          );
+          const button = [
+            ...element.querySelectorAll<HTMLButtonElement>("button"),
+          ].find((button) => button.textContent?.trim() === "Cancel");
+          if (scanned >= 128 && button && !button.disabled) {
+            observer.disconnect();
+            button.click();
+            resolve();
+          }
+        });
+        observer.observe(element, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
+      });
+      return { done, dispose: () => observer.disconnect() };
+    });
+  } catch (error) {
+    await completion.dispose();
+    throw error;
+  }
+  let disposed = false;
+  const dispose = async () => {
+    if (disposed) return;
+    disposed = true;
+    await Promise.allSettled([
+      completion.dispose(),
+      (async () => {
+        try {
+          await click.evaluate((value) => value.dispose());
+        } finally {
+          await click.dispose();
         }
-      });
-      observer.observe(element, {
-        subtree: true,
-        childList: true,
-        characterData: true,
-      });
-    }),
-  }));
+      })(),
+    ]);
+  };
+  return {
+    async wait() {
+      try {
+        const [, receipt] = await Promise.all([
+          click.evaluate((value) => value.done),
+          completion.wait(),
+        ]);
+        expect(receipt.args.id).toEqual(expect.any(Number));
+        expect(receipt.jobId).toBe(receipt.args.id);
+        expect(receipt.state).toBe("canceled");
+        expect(receipt.scanned).toBeGreaterThanOrEqual(128);
+        return receipt;
+      } finally {
+        await dispose();
+      }
+    },
+    dispose,
+  };
 }
 test.beforeEach(async () => {
   errors.length = 0;
@@ -603,12 +664,15 @@ test("failure and cancellation cannot be mistaken for a completed clean scan", a
     .fill("http://www.w3.org/2000/01/rdf-schema#label");
   await pane().getByRole("button", { name: "Done" }).click();
   const cancellation = await cancelAfterProgress();
-  await pane()
-    .locator(".quality-settings")
-    .getByRole("button", { name: "Run scan", exact: true })
-    .click();
-  await cancellation.evaluate((value) => value.done);
-  await cancellation.dispose();
+  try {
+    await pane()
+      .locator(".quality-settings")
+      .getByRole("button", { name: "Run scan", exact: true })
+      .click();
+    await cancellation.wait();
+  } finally {
+    await cancellation.dispose();
+  }
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
   );
@@ -707,9 +771,12 @@ test("a canceled report pages its findings from any view and goes stale like a c
     .fill("no such entity");
   await pane().getByRole("button", { name: "Coverage", exact: true }).click();
   const cancellation = await cancelAfterProgress();
-  await pane().getByRole("button", { name: "Rerun" }).click();
-  await cancellation.evaluate((value) => value.done);
-  await cancellation.dispose();
+  try {
+    await pane().getByRole("button", { name: "Rerun" }).click();
+    await cancellation.wait();
+  } finally {
+    await cancellation.dispose();
+  }
   await expect(pane().locator(".bar.alert-warn")).toContainText(
     "Stopped after",
   );
