@@ -55,7 +55,8 @@ Relative paths use your terminal's current directory. Existing terminals retain
 their old PATH. If your terminal is hosted by an application that was already
 running during installation, restart that application too.
 
-Updates keep one PATH entry, and uninstalling removes it. Other entries and
+Updates keep one PATH entry, and reinstalling in a different directory replaces
+the previous installation's entry. Uninstalling removes it. Other entries and
 environment references are preserved. A PATH registration failure leaves the
 installation usable through its shortcuts.
 

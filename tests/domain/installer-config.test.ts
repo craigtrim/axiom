@@ -109,6 +109,10 @@ it("edits PATH in both installer macros without removing it during an update", (
   expect(uninstall).toMatch(
     /\$\{ifNot\}\s+\$\{isUpdated\}[\s\S]*-Operation Remove[\s\S]*\$\{endIf\}/i,
   );
+  expect(install).toMatch(
+    /\$\{If\}\s+\$installationDir != ""[\s\S]*\$\{AndIf\}\s+\$installationDir != \$INSTDIR[\s\S]*-PreviousBinPath "\$installationDir\\bin"[\s\S]*\$\{EndIf\}/i,
+  );
+  expect(install).toMatch(/-Operation Add[^\n]*\$1/);
   expect(nsh).not.toMatch(/(?:ReadRegStr|WriteReg(?:Str|ExpandStr))[^\n]*"Environment"/i);
 });
 
@@ -145,7 +149,11 @@ function withRegistryPath(
   initial: string | number | undefined,
   kind: RegistryKind,
   check: (fixture: {
-    update: (operation: "Add" | "Remove", bin: string) => number | null;
+    update: (
+      operation: "Add" | "Remove",
+      bin: string,
+      previousBinPath?: string,
+    ) => number | null;
     read: () => RegistryPath;
   }) => void,
 ) {
@@ -161,7 +169,7 @@ function withRegistryPath(
   `);
   try {
     check({
-      update(operation, bin) {
+      update(operation, bin, previousBinPath) {
         const result = spawnSync(
           "powershell.exe",
           [
@@ -177,6 +185,7 @@ function withRegistryPath(
             bin,
             "-EnvironmentKey",
             key,
+            ...(previousBinPath ? ["-PreviousBinPath", previousBinPath] : []),
           ],
           { encoding: "utf8", windowsHide: true },
         );
@@ -245,6 +254,71 @@ windowsTest("recognizes quoted case variants and removes only matching PATH entr
       value: "C:\\before;C:\\middle;C:\\after",
       kind: "ExpandString",
     });
+  });
+});
+
+windowsTest("replaces the old installation's PATH entry when the destination changes", () => {
+  const oldBin = "C:\\Old Axiom\\bin";
+  const newBin = "D:\\New Axiom\\bin";
+  withRegistryPath(
+    `C:\\before;${oldBin};C:\\after`,
+    "ExpandString",
+    ({ update, read }) => {
+      expect(update("Add", newBin, oldBin)).toBe(0);
+      expect(read()).toEqual({
+        exists: true,
+        value: `C:\\before;C:\\after;${newBin}`,
+        kind: "ExpandString",
+      });
+      expect(update("Remove", newBin)).toBe(0);
+      expect(read().value).toBe("C:\\before;C:\\after");
+    },
+  );
+});
+
+windowsTest("removes an old installation without moving an existing new PATH entry", () => {
+  const oldBin = "C:\\Old Axiom\\bin";
+  const newBin = "D:\\New Axiom\\bin";
+  withRegistryPath(
+    `C:\\before;${newBin};"c:\\old axiom\\BIN\\";C:\\after`,
+    "ExpandString",
+    ({ update, read }) => {
+      expect(update("Add", newBin, oldBin)).toBe(0);
+      expect(read()).toEqual({
+        exists: true,
+        value: `C:\\before;${newBin};C:\\after`,
+        kind: "ExpandString",
+      });
+    },
+  );
+});
+
+windowsTest("preserves a trailing empty PATH entry when relocating an installation", () => {
+  const oldBin = "C:\\Old Axiom\\bin";
+  const newBin = "D:\\New Axiom\\bin";
+  withRegistryPath(oldBin + ";", "ExpandString", ({ update, read }) => {
+    expect(update("Add", newBin, oldBin)).toBe(0);
+    expect(read()).toEqual({
+      exists: true,
+      value: ";" + newBin,
+      kind: "ExpandString",
+    });
+    expect(update("Remove", newBin)).toBe(0);
+    expect(read()).toEqual({ exists: true, value: "", kind: "ExpandString" });
+  });
+});
+
+windowsTest("restores an existing empty PATH value after removing the command", () => {
+  const bin = "C:\\Axiom\\bin";
+  withRegistryPath("", "ExpandString", ({ update, read }) => {
+    expect(update("Add", bin)).toBe(0);
+    expect(read()).toEqual({
+      exists: true,
+      value: ";" + bin,
+      kind: "ExpandString",
+    });
+    expect(update("Remove", bin)).toBe(0);
+    expect(read()).toEqual({ exists: true, value: "", kind: "ExpandString" });
   });
 });
 

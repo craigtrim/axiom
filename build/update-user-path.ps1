@@ -6,6 +6,7 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string] $BinPath,
+    [string] $PreviousBinPath = '',
     [string] $EnvironmentKey = 'Environment'
 )
 
@@ -34,8 +35,17 @@ try {
     })
     $matches = $entries.Count - $kept.Count
     if ($Operation -eq 'Add') {
-        if ($matches -gt 0) { exit 0 }
-        $updated = if ([string]::IsNullOrEmpty($original)) { $BinPath } else { $original + ';' + $BinPath }
+        # An installer relocation also runs the old uninstaller with --updated.
+        $retained = @($entries | Where-Object {
+            [string]::IsNullOrEmpty($PreviousBinPath) -or
+            [string]::Equals($PreviousBinPath.TrimEnd('\'), $target, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals($_.Trim().Trim('"').TrimEnd('\'), $PreviousBinPath.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($matches -gt 0 -and $retained.Count -eq $entries.Count) { exit 0 }
+        $updated = $retained -join ';'
+        if ($matches -eq 0) {
+            $updated = ($retained + @($BinPath)) -join ';'
+        }
         $key.SetValue('Path', $updated, $kind)
     } else {
         if ($matches -eq 0) { exit 0 }

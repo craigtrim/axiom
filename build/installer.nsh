@@ -5,7 +5,12 @@
 
 !macro customInstall
   # craigtrim/axiom#206: pass paths as arguments, including custom destinations.
-  nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\update-user-path.ps1" -Operation Add -BinPath "$INSTDIR\bin"'
+  StrCpy $1 ""
+  ${If} $installationDir != ""
+  ${AndIf} $installationDir != $INSTDIR
+    StrCpy $1 ' -PreviousBinPath "$installationDir\bin"'
+  ${EndIf}
+  nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\update-user-path.ps1" -Operation Add -BinPath "$INSTDIR\bin"$1'
   Pop $0
   ${If} $0 == 0
     System::Call 'user32::SendMessageTimeoutW(p 0xffff, i 0x001A, p 0, w "Environment", i 2, i 5000, *p .r1)'
