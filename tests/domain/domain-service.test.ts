@@ -71,8 +71,8 @@ it("starts the trusted helper with runtime paths and removes inherited Node flag
     "C:\\application\\node.exe",
     String(process.pid),
   ]);
-  expect(options.env?.ELECTRON_RUN_AS_NODE).toBeUndefined();
-  expect(options.env?.NODE_OPTIONS).toBeUndefined();
+  expect(options.env).not.toHaveProperty("ELECTRON_RUN_AS_NODE");
+  expect(options.env).not.toHaveProperty("NODE_OPTIONS");
   expect(options.stdio).toEqual(["ignore", "ignore", "pipe"]);
   expect(f.service.pid).toBeUndefined();
   f.ready();

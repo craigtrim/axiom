@@ -25,7 +25,8 @@ export async function observeDomainService(
     };
     (globalThis as any).__domainServiceObserver = observation;
     EventEmitter.prototype.emit = function (event, ...args) {
-      const envelope = args[0];
+      const envelope = (args as unknown[])[0] as
+        { channel?: string } | undefined;
       if (
         !observation.utility &&
         event === "message" &&
