@@ -5,6 +5,7 @@ import {
   _electron as electron,
   type ElectronApplication,
   type Page,
+  type CDPSession,
 } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir } from "node:fs/promises";
@@ -293,12 +294,21 @@ test("main, worker and window failures each leave one detailed record", async ({
       };
     }, target);
   let crashFailure: unknown;
+  let diagnosticStoppedDomain = false;
+  let crashSession: CDPSession | undefined;
+  let crashCommand: { state: string; message?: string } = { state: "not sent" };
   try {
     expect(target.pid).toBeGreaterThan(0);
-    await app!.evaluate(
-      ({ webContents }, id) =>
-        webContents.fromId(id)!.forcefullyCrashRenderer(),
-      target.contentsId,
+    // CDP crashes the native renderer directly, bypassing Electron's shutdown helper.
+    crashSession = await page.context().newCDPSession(page);
+    crashCommand = { state: "pending" };
+    void crashSession.send("Page.crash").then(
+      () => {
+        crashCommand = { state: "resolved" };
+      },
+      (error: Error) => {
+        crashCommand = { state: "rejected", message: error.message };
+      },
     );
     await expect.poll(observeCrash, { timeout: 10000 }).toMatchObject({
       crashed: true,
@@ -319,18 +329,75 @@ test("main, worker and window failures each leave one detailed record", async ({
     expect(gone.details["Axiom processes"]).toBeTruthy();
   } catch (error) {
     crashFailure = error;
+    // A failure remains a failure. Stopping the data child only distinguishes
+    // native channel retention from a renderer notification/recovery defect.
+    const diagnostic: Record<string, unknown> = {};
+    try {
+      diagnostic.before = await observeCrash();
+      diagnostic.child = await app!.evaluate(() => {
+        const child = (globalThis as any).__domainWorker;
+        if (
+          !child?.spawnargs?.some(
+            (argument: unknown) =>
+              typeof argument === "string" &&
+              argument.split(/[\\/]/).at(-1) === "domain-worker.cjs",
+          )
+        )
+          throw Error("The captured process is not the ontology child.");
+        return { pid: child.pid, killAccepted: child.kill() };
+      });
+      diagnosticStoppedDomain = true;
+      await expect
+        .poll(
+          () =>
+            app!.evaluate(() => {
+              const child = (globalThis as any).__domainWorker;
+              return {
+                stopped: child.exitCode !== null || child.signalCode !== null,
+                exitCode: child.exitCode,
+                signalCode: child.signalCode,
+              };
+            }),
+          { timeout: 3000 },
+        )
+        .toMatchObject({ stopped: true });
+      // This is a bounded observation window after a diagnostic intervention.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      diagnostic.after = await observeCrash();
+    } catch (diagnosticFailure) {
+      diagnostic.error = String(diagnosticFailure);
+    }
+    await info
+      .attach("renderer-crash-after-domain-exit", {
+        body: JSON.stringify(diagnostic, null, 2),
+        contentType: "application/json",
+      })
+      .catch(() => {});
   } finally {
     await observeCrash()
       .then((observation) =>
         info.attach("renderer-crash-observations", {
-          body: JSON.stringify(observation, null, 2),
+          body: JSON.stringify(
+            {
+              ...observation,
+              trigger: "CDP Page.crash",
+              command: crashCommand,
+            },
+            null,
+            2,
+          ),
           contentType: "application/json",
         }),
       )
       .catch(() => {});
+    void crashSession?.detach().catch(() => {});
     // Capture on close needs a renderer even when one of the crash assertions fails.
     // The old Playwright page is unusable, so main checks the recovered renderer.
     try {
+      if (diagnosticStoppedDomain)
+        throw Error(
+          "The fixture stopped its ontology child while diagnosing the renderer failure.",
+        );
       await app!.evaluate(
         ({ webContents }, id) => webContents.fromId(id)!.reload(),
         target.contentsId,
@@ -369,10 +436,12 @@ test("main, worker and window failures each leave one detailed record", async ({
         )
         .toBe(true);
     } catch (recoveryFailure) {
-      await info.attach("renderer-recovery-failure", {
-        body: String(recoveryFailure),
-        contentType: "text/plain",
-      });
+      await info
+        .attach("renderer-recovery-failure", {
+          body: String(recoveryFailure),
+          contentType: "text/plain",
+        })
+        .catch(() => {});
       crashFailure ??= recoveryFailure;
       const pid = app!.process().pid!;
       app!.process().kill();
