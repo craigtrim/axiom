@@ -48,6 +48,7 @@ const rowBytes = 555;
 const workbench = { version: 1 as const, theme: "light" as const };
 const phases: Record<string, unknown>[] = [];
 const processes: Record<string, unknown>[] = [];
+const shutdowns: Record<string, unknown>[] = [];
 const report: Record<string, unknown> = {
   issue: 208,
   commit: process.env.GITHUB_SHA,
@@ -58,6 +59,7 @@ const report: Record<string, unknown> = {
   schools,
   phases,
   processes,
+  shutdowns,
   passed: false,
 };
 
@@ -203,12 +205,61 @@ class Probe {
     });
   }
   async stop() {
-    const code = await this.process.terminate();
-    await writeFile(
-      path.join(output, this.name + ".stderr.log"),
-      this.process.diagnostics,
-    );
-    assert.equal(code, 0, "The data process must shut down cleanly.");
+    const child = this.process.child;
+    const started = performance.now();
+    const killCalls: Record<string, unknown>[] = [];
+    const shutdown: Record<string, unknown> = {
+      name: this.name,
+      pid: child.pid,
+      startedAt: new Date().toISOString(),
+      exitCodeAtStart: child.exitCode,
+      signalAtStart: child.signalCode,
+      killCalls,
+    };
+    const exited = (code: number | null, signal: NodeJS.Signals | null) => {
+      shutdown.rawExit = {
+        code,
+        signal,
+        at: new Date().toISOString(),
+        milliseconds: performance.now() - started,
+      };
+    };
+    child.once("exit", exited);
+    const originalKill = child.kill;
+    child.kill = (signal?: NodeJS.Signals | number) => {
+      const call: Record<string, unknown> = {
+        at: new Date().toISOString(),
+        milliseconds: performance.now() - started,
+        signal: signal ?? "SIGTERM",
+      };
+      killCalls.push(call);
+      try {
+        const result = Reflect.apply(originalKill, child, [signal]);
+        call.result = result;
+        return result;
+      } catch (error) {
+        call.error = String(error);
+        throw error;
+      }
+    };
+    try {
+      const code = await this.process.terminate();
+      shutdown.terminateMilliseconds = performance.now() - started;
+      shutdown.returnedCode = code;
+      await writeFile(
+        path.join(output, this.name + ".stderr.log"),
+        this.process.diagnostics,
+      );
+      assert.equal(code, 0, "The data process must shut down cleanly.");
+    } finally {
+      child.kill = originalKill;
+      child.off("exit", exited);
+      shutdown.exitCode = child.exitCode;
+      shutdown.signal = child.signalCode;
+      shutdown.connected = child.connected;
+      shutdown.diagnostics = this.process.diagnostics;
+      shutdowns.push(shutdown);
+    }
   }
 }
 
@@ -513,6 +564,9 @@ try {
       }
     },
   );
+  report.workspaceCommittedBeforeShutdown = {
+    bytes: (await stat(workspace)).size,
+  };
   await restored.stop();
   active = undefined;
   report.workspace = await phase(
