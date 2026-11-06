@@ -354,7 +354,8 @@ test("Export offers real image formats, configurable scale and multi-page report
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
     }, file);
     await d.getByRole("button", { name: "Export", exact: true }).click();
-    await expect(d).toHaveCount(0);
+    // craigtrim/axiom#207: allow Chromium's asynchronous PDF export to finish.
+    await expect(d).toHaveCount(0, { timeout: 30000 });
     expect(checks[format](await readFile(file))).toBe(true);
     await menu("graph.export");
   }
