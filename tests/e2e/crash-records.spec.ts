@@ -484,9 +484,66 @@ test("a native crash of main is reported at the next start with its dump and las
 });
 
 test("an unexpected worker exit rejects waiting requests and leaves one record", async () => {
-  const nodePid = await page.evaluate(
-    async () =>
-      (await window.axiom.request<{ pid: number }>("runtimeInfo")).pid,
+  const nodePid = await app!.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const observation = (globalThis as any).__domainServiceObserver;
+        const utility = observation.utility;
+        // Runtime metadata is private to main. Both identifiers stay outside
+        // the positive counters used by the real DomainService requests.
+        const id = (observation.metadataId =
+          (observation.metadataId ?? -207000000) - 1);
+        const cleanup = () => {
+          clearTimeout(timer);
+          utility.off("message", receive);
+          utility.off("exit", stopped);
+        };
+        const failed = (message: string) => {
+          cleanup();
+          reject(Error(message));
+        };
+        const stopped = () =>
+          failed("The ontology utility relay exited before runtime metadata.");
+        const receive = (message: any) => {
+          if (message?.channel !== "axiom-domain-v1") return;
+          if (
+            message.type === "sent" &&
+            message.serial === id &&
+            message.error
+          ) {
+            failed("The private runtime metadata request could not be sent.");
+            return;
+          }
+          if (message.type !== "packet" || message.packet?.id !== id) return;
+          const reply = message.packet;
+          if (
+            reply.error ||
+            !Number.isSafeInteger(reply.value?.pid) ||
+            reply.value.pid <= 0
+          ) {
+            failed("The private runtime metadata request failed.");
+            return;
+          }
+          cleanup();
+          resolve(reply.value.pid);
+        };
+        const timer = setTimeout(
+          () => failed("The private runtime metadata request timed out."),
+          5000,
+        );
+        utility.on("message", receive);
+        utility.once("exit", stopped);
+        try {
+          utility.postMessage({
+            channel: "axiom-domain-v1",
+            type: "request",
+            serial: id,
+            packet: { id, method: "runtimeInfo", args: {} },
+          });
+        } catch {
+          failed("The private runtime metadata request could not be sent.");
+        }
+      }),
   );
   expect(nodePid).toBeGreaterThan(0);
   await app!.evaluate(() => {
