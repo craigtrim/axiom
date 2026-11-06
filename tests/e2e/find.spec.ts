@@ -1263,9 +1263,9 @@ test("Find filters, sorts and pages every match with useful result actions", asy
       };
     });
     await expect(
-      page.locator(
-        `[data-graph-id=${JSON.stringify(observed.graphId)}] canvas`,
-      ),
+      page
+        .locator(`[data-graph-id=${JSON.stringify(observed.graphId)}]`)
+        .getByTestId("graph-canvas"),
     ).toBeVisible();
     expect(observed.heldCount).toBeGreaterThan(0);
     expect(observed.stateRequests).toBeGreaterThan(0);
