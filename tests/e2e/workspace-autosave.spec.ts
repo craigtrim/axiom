@@ -2,7 +2,10 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
-import { observeDomainService } from "./domain-service-observer";
+import {
+  observeDomainReply,
+  observeDomainService,
+} from "./domain-service-observer";
 import {
   test,
   expect,
@@ -78,16 +81,25 @@ async function close() {
   app = undefined;
 }
 async function save(file: string) {
-  await app!.evaluate(({ dialog }, file) => {
-    dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
-  }, file);
-  await menu("file.saveAs");
-  await expect
-    .poll(async () => (await stored().catch(() => ({}))).workspacePath)
-    .toBe(file);
-  await expect
-    .poll(async () => (await state()).dirty, { timeout: 30000 })
-    .toBe(false);
+  // craigtrim/axiom#208: the native menu returns before streamed Save As finishes.
+  const completion = await observeDomainReply(app!, page, "checkpointSession", {
+    workspacePath: file,
+  });
+  try {
+    await app!.evaluate(({ dialog }, file) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
+    }, file);
+    await menu("file.saveAs");
+    await completion.wait();
+    await expect
+      .poll(async () => (await stored().catch(() => ({}))).workspacePath)
+      .toBe(file);
+    await expect
+      .poll(async () => (await state()).dirty, { timeout: 30000 })
+      .toBe(false);
+  } finally {
+    await completion.dispose();
+  }
 }
 async function create(name = "Alpha") {
   return request<string>("createClass", {

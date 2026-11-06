@@ -1,6 +1,167 @@
 // craigtrim/axiom#207: observe the real utility relay without a production test hook.
 import type { ElectronApplication, Page } from "@playwright/test";
 
+type Scalar = string | number | boolean | null;
+export interface DomainReplyReceipt {
+  id: number;
+  method: string;
+  args: Record<string, Scalar>;
+  jobId?: number;
+  state?: string;
+  scanned?: number;
+  total?: number;
+}
+
+/** craigtrim/axiom#208: synchronize with one real reply without copying its payload. */
+export async function observeDomainReply(
+  app: ElectronApplication,
+  page: Page,
+  method: string,
+  matchArgs: Record<string, Scalar> = {},
+) {
+  const observed = await app.evaluate(
+    () => !!(globalThis as any).__domainServiceObserver?.utility,
+  );
+  if (!observed) await observeDomainService(app, page);
+  const observation = await app.evaluateHandle(
+    (_, { method, matchArgs }) => {
+      const owner = (globalThis as any).__domainServiceObserver,
+        utility = owner.utility;
+      let requestId: number | undefined;
+      let selected: Record<string, string | number | boolean | null> = {};
+      let finished = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let resolve!: (receipt: DomainReplyReceipt) => void;
+      let reject!: (error: Error) => void;
+      const done = new Promise<DomainReplyReceipt>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      // The operation may finish before the test reaches wait(). Keep its rejection.
+      void done.catch(() => {});
+      const beforeRequest: any = (packet: any) => {
+        beforeRequest.previous?.(packet);
+        if (requestId !== undefined || packet.method !== method) return;
+        const args = packet.args ?? {};
+        if (
+          !Object.entries(matchArgs).every(([key, value]) =>
+            Object.is(args[key], value),
+          )
+        )
+          return;
+        requestId = packet.id;
+        selected = {};
+        for (const key of new Set(["id", ...Object.keys(matchArgs)])) {
+          const value = args[key];
+          if (
+            value === null ||
+            ["string", "number", "boolean"].includes(typeof value)
+          )
+            selected[key] = value;
+        }
+      };
+      beforeRequest.previous = owner.beforeRequest;
+      beforeRequest.replyObserver = true;
+      const cleanup = () => {
+        if (timer) clearTimeout(timer);
+        utility.off("message", onMessage);
+        utility.off("exit", onExit);
+        if (owner.beforeRequest === beforeRequest)
+          owner.beforeRequest = beforeRequest.previous;
+        else {
+          // Remove this hook without disturbing a later, overlapping observer.
+          let current = owner.beforeRequest;
+          while (current?.replyObserver) {
+            if (current.previous === beforeRequest) {
+              current.previous = beforeRequest.previous;
+              break;
+            }
+            current = current.previous;
+          }
+        }
+      };
+      const settle = (error?: Error, receipt?: DomainReplyReceipt) => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve(receipt!);
+      };
+      const onMessage = (message: any) => {
+        if (
+          message?.channel !== "axiom-domain-v1" ||
+          message.type !== "packet" ||
+          requestId === undefined ||
+          message.packet?.id !== requestId
+        )
+          return;
+        const packet = message.packet;
+        if (packet.error) {
+          settle(Error(String(packet.error)));
+          return;
+        }
+        const value = packet.value;
+        const receipt: DomainReplyReceipt = {
+          id: requestId,
+          method,
+          args: selected,
+        };
+        if (typeof value?.id === "number") receipt.jobId = value.id;
+        if (typeof value?.state === "string") receipt.state = value.state;
+        if (typeof value?.scanned === "number") receipt.scanned = value.scanned;
+        if (typeof value?.total === "number") receipt.total = value.total;
+        settle(undefined, receipt);
+      };
+      const onExit = () =>
+        settle(
+          Error(
+            "The data service exited before the observed " + method + " reply.",
+          ),
+        );
+      owner.beforeRequest = beforeRequest;
+      utility.on("message", onMessage);
+      utility.once("exit", onExit);
+      timer = setTimeout(
+        () =>
+          settle(
+            Error(
+              "The observed " +
+                method +
+                " operation did not finish within 30 seconds.",
+            ),
+          ),
+        30000,
+      );
+      timer.unref();
+      return {
+        done,
+        dispose: () => settle(Error("The domain reply observer was disposed.")),
+      };
+    },
+    { method, matchArgs },
+  );
+  let disposed = false;
+  const dispose = async () => {
+    if (disposed) return;
+    disposed = true;
+    try {
+      await observation.evaluate((value) => value.dispose());
+    } finally {
+      await observation.dispose();
+    }
+  };
+  return {
+    async wait(): Promise<DomainReplyReceipt> {
+      try {
+        return await observation.evaluate((value) => value.done);
+      } finally {
+        await dispose();
+      }
+    },
+    dispose,
+  };
+}
+
 export async function observeDomainService(
   app: ElectronApplication,
   page: Page,
