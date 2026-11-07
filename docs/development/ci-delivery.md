@@ -2,10 +2,11 @@
 
 Issue #166 moves packaged-application testing to GitHub-hosted Windows. Local
 `npm run build:exe` and Craig's ignored PowerShell launcher use the same helper.
-They download the executable that CI tested, verify its files, and run the 237
-required local desktop cases before delivery. Those cases may display windows and
-take focus. The [test allocation](quiet-testing.md) assigns every native case to
-CI or the local desktop; all required coverage must pass.
+By default they download the executable that CI tested, verify its files, and run
+the 241 required local desktop cases before delivery. Those cases may display
+windows and take focus. The [test allocation](quiet-testing.md) assigns every
+native case to CI or the local desktop. The optional `--Skip-Test` override omits
+the local desktop stage for that delivery and records it as skipped.
 
 ## Deliver an executable
 
@@ -23,8 +24,21 @@ npm run build:exe
 
 Craig can also run D:\git\axiom\Build-Axiom-EXE.ps1. Close an Axiom instance running
 from the output folder before replacing its files. The helper does not close it,
-run the installer or publish a release. It rebuilds the current source and opens
-test windows for the required local desktop group before replacing output files.
+run the installer or publish a release. By default it rebuilds the current source
+and opens test windows for the required local desktop group before replacing
+output files.
+
+To skip the local desktop stage for one delivery, use either command:
+
+```powershell
+.\Build-Axiom-EXE.ps1 --Skip-Test
+npm run build:exe -- --Skip-Test
+```
+
+The exact optional flag `--Skip-Test` bypasses only that local stage. Hosted CI
+for the exact HEAD, candidate file and hash verification, clean-source checks,
+and promotion with rollback remain required. The default command still runs
+fresh local tests; a failed test does not automatically select the override.
 
 A successful delivery prints `BUILD VERIFIED` and the absolute paths. The usual
 application is D:\git\axiom\artifacts\installer\win-unpacked\Axiom.exe, and the
@@ -50,8 +64,9 @@ CI runs its assigned native cases across eight separate Windows runners, with on
 test at a time per runner and no prerequisite package job. An independent job runs
 unit, type, documentation and delivery-gate checks, the early native regression
 batch, packaging and the audit. Quiet qualification remains a separate required
-job. Every job and all 237 local desktop cases must pass. The two native selections
-are complementary; splitting the work does not reduce required coverage.
+job. Every CI job must pass. Default delivery also requires all 241 local desktop
+cases to pass; `--Skip-Test` explicitly records that stage as skipped. The two
+native selections are complementary.
 
 CI builds the package and runs all eight existing packaged checks, including both
 MPNet semantic-search journeys. The other checks cover literal Find synonyms,
@@ -69,9 +84,16 @@ instead of recompiling different bytes on the local machine.
 
 The current receipt is `artifacts/build-exe/receipt.json`. It records source and
 checkout commits, tree, workflow path, run URL/ID/attempt/conclusion, packaged
-checks, local desktop validation and file hashes. Local evidence includes the
-source commit/tree, a fresh validation ID, all 237 passing cases and the result-file
-hash. Missing, stale, skipped, retried or failed local results block delivery.
+checks, local desktop validation and file hashes. Default local evidence includes
+the source commit/tree, a fresh validation ID, all 241 passing cases and the
+result-file hash. Missing, stale, retried, failed or unexpectedly skipped local
+results block default delivery.
+
+With `--Skip-Test`, the receipt's `localDesktopValidation` instead records
+`schema: 1`, `status: "skipped"`, `reason: "--Skip-Test"`, the same `source`
+commit/tree, and an ISO timestamp in `skippedAt`. This records the explicit
+override without claiming passing local tests.
+
 `artifacts/latest-electron.json` retains local output paths.
 Gate, download or verification failures leave the previous executable and receipt
 intact. File replacement uses backups and rollback; a locked file stops delivery.
@@ -117,7 +139,8 @@ npm run build:exe
 
 A partial rerun may leave only the previous attempt's package. That artifact is
 rejected, even if the workflow later turns green. Rerun all jobs to produce and
-verify a candidate for the current attempt. The helper runs the assigned local desktop group once for each delivery attempt.
+verify a candidate for the current attempt. Unless `--Skip-Test` is supplied,
+the helper runs the assigned local desktop group once for each delivery attempt.
 It does not retry failures or fall back to an older successful run.
 
 ## Notifications and runner usage
@@ -142,6 +165,7 @@ identity, artifact corruption, missing files and rollback using controlled API
 responses and temporary files. It also verifies rejection of incomplete or stale
 local results without opening application windows. Hosted CI supplies packaged
 and assigned native evidence; the local desktop runner supplies the remaining
-required native evidence.
+native evidence for default delivery. The explicit skip receipt identifies a
+delivery that omitted the local desktop stage.
 
 The same command checks the dependency audit rule against reports and lockfile trees shaped like npm's own. The accepted advisories pass when they arrive through the packaging tools. A new advisory fails, as does a production advisory, an accepted advisory reached through any other dependency, a copy the lockfile cannot trace and an npm error. A stale entry only warns.

@@ -1,4 +1,4 @@
-// Hybrid delivery requires current CI evidence plus every assigned local desktop test.
+// Hybrid delivery requires current CI evidence; --Skip-Test explicitly waives local testing.
 import { open, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,11 @@ import {
   promoteCandidate,
 } from "./ci-artifact.mjs";
 import { validateLocalDesktop } from "./local-desktop-gate.mjs";
-export async function deliver(root, runCommand = command) {
+export async function deliver(
+  root,
+  runCommand = command,
+  { skipTest = false } = {},
+) {
   const api = async (endpoint) => {
     try {
       return JSON.parse(await runCommand("gh", ["api", endpoint], root));
@@ -60,11 +64,22 @@ export async function deliver(root, runCommand = command) {
       root,
     );
     const candidate = await verifyCandidate(stage, source, run);
-    candidate.localDesktopValidation = await validateLocalDesktop(
-      root,
-      source,
-      runCommand,
-    );
+    if (skipTest === true) {
+      console.warn("Local desktop tests skipped (--Skip-Test).");
+      candidate.localDesktopValidation = {
+        schema: 1,
+        status: "skipped",
+        reason: "--Skip-Test",
+        source,
+        skippedAt: new Date().toISOString(),
+      };
+    } else {
+      candidate.localDesktopValidation = await validateLocalDesktop(
+        root,
+        source,
+        runCommand,
+      );
+    }
     const current = await latestSuccessfulRun(source, api);
     sameEvidence(run, current);
     const currentSource = await readSource(root, runCommand);
@@ -91,11 +106,12 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     console.log(
-      "Deliver the Windows executable tested by GitHub CI.\nRequires Node.js 22.12+, Git, authenticated gh, and a clean craigtrim/axiom checkout.\nThe latest Electron desktop run for HEAD must succeed with a verified candidate artifact.\nRequired desktop-sensitive tests run locally and may take focus. Outputs: artifacts/installer; receipt: artifacts/build-exe/receipt.json.\nSee docs/development/ci-delivery.md for failures, retries and notification settings.",
+      "Deliver the Windows executable tested by GitHub CI.\nUsage: npm run build:exe -- [--Skip-Test]\nRequires Node.js 22.12+, Git, authenticated gh, and a clean craigtrim/axiom checkout.\nThe latest Electron desktop run for HEAD must succeed with a verified candidate artifact.\nDesktop-sensitive tests run locally by default and may take focus.\n--Skip-Test skips only local desktop testing and records the skip in the delivery receipt.\nOutputs: artifacts/installer; receipt: artifacts/build-exe/receipt.json.\nSee docs/development/ci-delivery.md for failures, retries and notification settings.",
     );
     return;
   }
-  if (args.length)
+  const skipTest = args.length === 1 && args[0] === "--Skip-Test";
+  if (args.length && !skipTest)
     throw Error("Unknown argument. Use --help for instructions.");
   if (process.platform !== "win32")
     throw Error("Run this Windows delivery helper on Windows.");
@@ -103,7 +119,7 @@ async function main() {
   if (major < 22 || (major === 22 && minor < 12))
     throw Error("Node.js 22.12 or later is required.");
   const root = fileURLToPath(new URL("../", import.meta.url));
-  const result = await deliver(root);
+  const result = await deliver(root, command, { skipTest });
   console.log(
     `\nBUILD VERIFIED: downloaded and checked the CI-tested executable.\n\nRun directly:\n${result.executable}\n\nInstaller:\n${result.installer}\n\nReceipt:\n${result.receipt}`,
   );
