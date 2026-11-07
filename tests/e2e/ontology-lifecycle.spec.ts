@@ -259,6 +259,8 @@ test("Windows metadata produces auditable PROV and retains source content", asyn
   await source(workspace);
   await menu("file.open");
   await expect.poll(async () => (await state()).tripleCount).toBe(count);
+  // craigtrim/axiom#205: finish restoring the saved layout before opening another pane.
+  await waitWorkspaceCheckpoint(app, page);
   await menu("file.provenance");
   await expect(panel).toBeVisible();
   const reset = panel.getByRole("button", { name: "Start over", exact: true });
