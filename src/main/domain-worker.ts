@@ -383,7 +383,38 @@ function sessionState() {
     sessionSignature = signature;
     sessionRevision++;
   }
-  return { sessionRevision, datasetEpoch };
+  return { sessionRevision, datasetEpoch, storeVersion: store.version };
+}
+// #217: ontology autosaves reuse the layout from the last saved or loaded checkpoint.
+interface CheckpointLayout {
+  datasetEpoch: number;
+  workspaceRevision: number;
+  layout: Pick<
+    import("../domain/workspace").Workspace,
+    "graph" | "graphs" | "archivedGraphs" | "activeGraphId" | "selected"
+  >;
+}
+let savedCheckpointLayout: CheckpointLayout = captureCheckpointLayout(
+  serializeWorkspace(),
+);
+const checkpointLayouts = new Map<string, CheckpointLayout>();
+function captureCheckpointLayout(
+  document: CheckpointLayout["layout"] & {
+    datasetEpoch: number;
+    workspaceRevision: number;
+  },
+): CheckpointLayout {
+  return {
+    datasetEpoch: document.datasetEpoch,
+    workspaceRevision: document.workspaceRevision,
+    layout: structuredClone({
+      graph: document.graph,
+      graphs: document.graphs,
+      archivedGraphs: document.archivedGraphs,
+      activeGraphId: document.activeGraphId,
+      selected: document.selected,
+    }),
+  };
 }
 function serializeWorkspace() {
   keepGraph();
@@ -745,6 +776,7 @@ async function operate(
     spacingBefore.clear();
     clusterLoosenessBefore.clear();
     documentRevision = savedRevision = 0;
+    savedCheckpointLayout = captureCheckpointLayout(serializeWorkspace());
     publish();
     return value;
   }
@@ -1097,10 +1129,22 @@ async function dispatch(
     case "runtimeInfo":
       return runtimeInfo();
     case "checkpointPrepare": {
-      const document = serializeWorkspace();
+      const current = serializeWorkspace();
+      const baseline =
+        savedCheckpointLayout?.datasetEpoch === datasetEpoch
+          ? savedCheckpointLayout
+          : undefined;
+      const document =
+        a.ontologyOnly === true && baseline
+          ? {
+              ...current,
+              ...baseline.layout,
+              workspaceRevision: baseline.workspaceRevision,
+            }
+          : current;
       const drafts = a.editorDrafts as
         import("../shared/editor-state").SavedEditorDrafts | undefined;
-      return checkpointStore().register({
+      const checkpoint = checkpointStore().register({
         ...sessionState(),
         storeVersion: document.storeVersion,
         workspaceRevision: document.workspaceRevision,
@@ -1109,14 +1153,22 @@ async function dispatch(
           ? encodeJson({ ...drafts, storeVersion: document.storeVersion })
           : undefined,
       });
+      if (a.ontologyOnly !== true)
+        checkpointLayouts.set(checkpoint.id, captureCheckpointLayout(document));
+      return checkpoint;
     }
-    case "checkpointSession":
-      return checkpointStore().saveSession(
-        string(a, "id", 200),
+    case "checkpointSession": {
+      const id = string(a, "id", 200);
+      const result = await checkpointStore().saveSession(
+        id,
         a.workbench as Preferences,
         a.workspacePath as string | undefined,
         a.recoveryPath as string | undefined,
       );
+      const layout = checkpointLayouts.get(id);
+      if (layout?.datasetEpoch === datasetEpoch) savedCheckpointLayout = layout;
+      return result;
+    }
     case "checkpointWorkspace":
       return checkpointStore().writeWorkspace(
         string(a, "id", 200),
@@ -1124,9 +1176,12 @@ async function dispatch(
         a.workbench as Preferences,
         a.options as { createDirectory?: boolean; allowCreate?: boolean },
       );
-    case "checkpointRelease":
-      checkpointStore().release(string(a, "id", 200));
+    case "checkpointRelease": {
+      const id = string(a, "id", 200);
+      checkpointStore().release(id);
+      checkpointLayouts.delete(id);
       return true;
+    }
     case "restoreSession":
       return checkpointStore().restore(
         async (document) => {

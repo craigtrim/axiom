@@ -1,4 +1,5 @@
 // #166: packaged application validation runs only on GitHub-hosted Windows.
+// #217: packaged recovery checks require autosave to retain the last saved layout.
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
@@ -192,7 +193,7 @@ async function main() {
     "#128 plain highlight clicks keep the caret and focus with Auto off",
     "a label delta refreshes Hierarchy, Find, Individuals and Details",
     "Find and resource inputs keep lexical results when the local model is absent",
-    "periodic autosave retains ontology, all graph settings, cameras and panes after a forced exit",
+    "periodic autosave retains ontology with the last saved layout after a forced exit",
     "MPNet Find recognizes synonyms without spelling overlap and opens the same results in a graph",
     "automatic Find enriches an unseen query and preserves field and type facets",
   ];
