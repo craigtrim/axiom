@@ -1,10 +1,12 @@
 // craigtrim/axiom#208: chunking preserves JSON bytes, snapshots and strict parsing.
+// craigtrim/axiom#218: sliced encoding preserves bytes while admitting event-loop work.
 import { afterEach, expect, it } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   encodeJson,
+  encodeJsonAsync,
   readJsonFile,
   writeJsonFile,
 } from "../../src/main/json-io";
@@ -26,12 +28,18 @@ it("matches JSON encoding across escaped characters and UTF-16 boundaries", asyn
       100,
     ),
     omitted: undefined,
+    omittedFunction: () => {},
+    omittedSymbol: Symbol("omitted"),
     array: [undefined, , NaN, Infinity, -0, true, null],
     date: new Date("2026-11-06T00:00:00Z"),
     nested: { constructor: "own value", toString: "own value" },
+    keyed: { toJSON: (key: string) => ({ key }) },
   };
   for (const size of [8, 9, 16, 31, 64]) {
     const chunks = encodeJson(value, size);
+    const sliced = await encodeJsonAsync(value, size);
+    expect(sliced).toEqual(chunks);
+    expect(Object.isFrozen(sliced)).toBe(true);
     expect(chunks.every((chunk) => chunk.length <= size)).toBe(true);
     expect(chunks.join("")).toBe(JSON.stringify(value));
     const destination = await file();
@@ -41,6 +49,50 @@ it("matches JSON encoding across escaped characters and UTF-16 boundaries", asyn
       JSON.parse(JSON.stringify(value)),
     );
   }
+});
+
+it("lets macrotasks run before string and omitted-property encodings finish", async () => {
+  for (const value of [
+    { text: "x".repeat(64 * 1024 * 4) },
+    Object.fromEntries(
+      Array.from({ length: 4096 }, (_, index) => [
+        "omitted" + index,
+        undefined,
+      ]),
+    ),
+  ]) {
+    let finished = false;
+    const encoding = encodeJsonAsync(value).then((chunks) => {
+      finished = true;
+      return chunks;
+    });
+    const heartbeatObservedPending = await new Promise<boolean>((resolve) =>
+      setImmediate(() => resolve(!finished)),
+    );
+    const chunks = await encoding;
+    expect(heartbeatObservedPending).toBe(true);
+    expect(chunks.join("")).toBe(JSON.stringify(value));
+  }
+});
+
+it("rejects sliced encoding errors without contaminating the next snapshot", async () => {
+  const cyclic: any = { prefix: "x".repeat(64 * 1024 * 2) };
+  cyclic.self = cyclic;
+  await expect(encodeJsonAsync(cyclic)).rejects.toThrow(/Circular/);
+  await expect(
+    encodeJsonAsync({ prefix: "x".repeat(64 * 1024 * 2), number: 1n }),
+  ).rejects.toThrow(/BigInt/);
+  await expect(encodeJsonAsync(undefined)).rejects.toThrow(/document/);
+  for (const size of [0, 7, 8.5, Infinity])
+    await expect(encodeJsonAsync({}, size)).rejects.toThrow(/chunk size/);
+  const value = { rows: [{ name: "Original", children: ["one"] }] };
+  const chunks = await encodeJsonAsync(value, 8);
+  value.rows[0].name = "Changed";
+  value.rows[0].children.push("two");
+  expect(chunks.join("")).toBe(
+    '{"rows":[{"name":"Original","children":["one"]}]}',
+  );
+  expect(Object.isFrozen(chunks)).toBe(true);
 });
 
 it("captures an immutable checkpoint before later edits", async () => {

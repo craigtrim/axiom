@@ -41,6 +41,8 @@ const listen = (channel: string, fn: (value: any) => void) => {
   return () => ipcRenderer.removeListener(channel, handler);
 };
 const bridge: AxiomBridge = {
+  // #218: late-mounted status bars can read an already running checkpoint.
+  workspace: { saving: () => invoke("workspace:saving") },
   textAnalysis: { parse: (input) => invoke("textAnalysis:parse", input) },
   chrome: {
     info: () => invoke("chrome:info"),

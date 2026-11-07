@@ -774,6 +774,24 @@ let closeAfterWorkspaceChange = false;
 let autosaveTimer: ReturnType<typeof setInterval> | undefined;
 let updates: ReturnType<typeof startUpdates> | undefined;
 const AUTOSAVE_INTERVAL = 30_000;
+// #218: saving spans encoding and disk writes, including overlapping checkpoints.
+let activeCheckpoints = 0;
+function beginCheckpoint() {
+  const publishSaving = () => {
+    for (const window of BrowserWindow.getAllWindows())
+      if (!window.isDestroyed())
+        window.webContents.send("domain:event", {
+          type: "workspace-saving",
+          data: activeCheckpoints > 0,
+        });
+  };
+  activeCheckpoints++;
+  publishSaving();
+  return () => {
+    activeCheckpoints--;
+    publishSaving();
+  };
+}
 function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
   return JSON.stringify([
     state.datasetEpoch,
@@ -786,11 +804,13 @@ async function checkpointSession(capture = true) {
   if (capture) await capturePreferences();
   const workbench = structuredClone(preferences),
     editorDrafts = capturedDrafts;
-  const document = await request<CheckpointSummary>("checkpointPrepare", {
-    editorDrafts,
-  });
-  const key = checkpointKey(document);
+  const finishSaving = beginCheckpoint();
+  let document: CheckpointSummary | undefined;
   try {
+    document = await request<CheckpointSummary>("checkpointPrepare", {
+      editorDrafts,
+    });
+    const key = checkpointKey(document);
     await request("checkpointSession", {
       id: document.id,
       workbench,
@@ -801,7 +821,9 @@ async function checkpointSession(capture = true) {
     savedEditorDrafts = editorDrafts;
     autosaveCheckpoint.complete(key);
   } finally {
-    await request("checkpointRelease", { id: document.id }).catch(() => {});
+    if (document)
+      await request("checkpointRelease", { id: document.id }).catch(() => {});
+    finishSaving();
   }
 }
 const settingsPath = () => path.join(app.getPath("userData"), "workbench.json");
@@ -991,6 +1013,7 @@ async function writeWorkspace(
   let committed = false;
   let key = checkpointKey(revision);
   let checkpoint: CheckpointSummary | undefined;
+  const finishSaving = beginCheckpoint();
   try {
     const document = (checkpoint = await request<CheckpointSummary>(
       "checkpointPrepare",
@@ -1079,6 +1102,7 @@ async function writeWorkspace(
     if (checkpoint)
       await request("checkpointRelease", { id: checkpoint.id }).catch(() => {});
     if (!committed) lease?.release();
+    finishSaving();
   }
 }
 async function autosave() {
@@ -2103,6 +2127,10 @@ app.whenReady().then(async () => {
     if (job) job.cancelled = true;
     queryAssistant.cancel();
     await job?.finished;
+  });
+  handle("workspace:saving", (event) => {
+    authorised(event);
+    return activeCheckpoints > 0;
   });
   handle("chrome:info", (event) => {
     authorised(event);
