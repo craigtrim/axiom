@@ -118,6 +118,45 @@ it("sorts numeric values and keeps blanks last in both directions", () => {
     Number(b.rows[0].values[base + "establishedYear"][0]),
   );
 });
+// craigtrim/axiom#215: a page turn slices a cached order instead of sorting the whole scope again.
+it("turns warm pages within the worker's warm query budget", () => {
+  const scope = base + "School";
+  for (const query of ["", "university"]) {
+    individualGridPage(store, { scope, query, page: 1 });
+    const ms: number[] = [];
+    for (let page = 2; page <= 101; page++) {
+      const start = performance.now();
+      individualGridPage(store, { scope, query, page });
+      ms.push(performance.now() - start);
+    }
+    ms.sort((a, b) => a - b);
+    // The same 30 ms p95 bound as warm worker queries (docs/development/search-testing.md).
+    expect(ms[94]).toBeLessThan(30);
+  }
+});
+it("orders pages again after the store changes", async () => {
+  const school = base + "School";
+  const small = storeFromRdf(
+    (
+      await parseRdf(
+        `@prefix : <${base}> . @prefix owl: <http://www.w3.org/2002/07/owl#> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+:School a owl:Class . :A a :School; rdfs:label "Beta" . :B a :School; rdfs:label "Delta" .`,
+        "small.ttl",
+        base,
+      )
+    ).triples,
+    "Small",
+  );
+  const names = (query = "") =>
+    individualGridPage(small, { scope: school, query }).rows.map(
+      (r) => r.values.subject[0],
+    );
+  expect(names()).toEqual(["Beta", "Delta"]);
+  expect(names("Charlie")).toEqual([]);
+  small.createNamedIndividual("Charlie", school);
+  expect(names()).toEqual(["Beta", "Charlie", "Delta"]);
+  expect(names("Charlie")).toEqual(["Charlie"]);
+});
 it("restores valid layout settings while retiring missing columns", () => {
   const { columns, rows } = individualCensus(store);
   const saved = {
