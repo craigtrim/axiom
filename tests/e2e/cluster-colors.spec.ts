@@ -417,7 +417,9 @@ test("Clusters defaults to Loose, previews a connected graph's visual groups and
   await expect(control.getByText("Loose", { exact: true })).toBeVisible();
   await expect(colorClusters()).toBeEnabled();
   await expect(colorClusters()).not.toBeChecked();
-  await colorClusters().check();
+  await colorClusters().click();
+  await expect.poll(async () => (await state()).graph.clusterColors).toBe(true);
+  await expect(colorClusters()).toBeChecked();
   await clusterSlider().focus();
   await page.keyboard.press("Home");
   await expect.poll(async () => (await state()).graph.clusterLooseness).toBe(0);
