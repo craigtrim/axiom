@@ -11,7 +11,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 import {
@@ -386,8 +386,24 @@ function visualWorkspace(): Workspace {
 }
 
 test("Clusters defaults to Loose, previews a connected graph's visual groups and records one undo step per drag", async () => {
-  expect((await state()).graph.clusterLooseness).toBe(1);
-  await request("load", { document: visualWorkspace() });
+  const initial = await state();
+  expect(initial.graph.clusterLooseness).toBe(1);
+  const document = visualWorkspace();
+  const file = path.join(profile, "Visual clusters.axiom");
+  await writeFile(file, JSON.stringify(document));
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, file);
+  await menu("file.open");
+  await expect
+    .poll(async () => (await state()).datasetEpoch)
+    .toBeGreaterThan(initial.datasetEpoch);
+  await expect
+    .poll(async () => (await state()).graph.nodes.map((node) => node.iri))
+    .toEqual(document.graph.iris);
   await expect.poll(async () => (await state()).graph.clusterLooseness).toBe(1);
   await expect.poll(async () => (await state()).graph.clusterCount).toBe(2);
   expect(clusters((await state()).graph).groups).toHaveLength(1);
