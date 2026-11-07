@@ -738,8 +738,8 @@ const tracked = new Set<DomainMethod>([
   "applySubclassSuggestions",
   "applyTaxonomySuggestions",
 ]);
-// #218: complete writes and checkpoint capture in order while reads keep serving.
-const exclusiveMethods = new Set<DomainMethod>([
+// #218: checkpoint barriers wait for active writes while reads keep serving.
+const checkpointMethods = new Set<DomainMethod>([
   ...tracked,
   "checkpointPrepare",
   "configureDataService",
@@ -761,12 +761,46 @@ const exclusiveMethods = new Set<DomainMethod>([
   "undo",
   "redo",
 ]);
-let exclusiveQueue: Promise<unknown> = Promise.resolve();
+const checkpointQueue: { checkpoint: boolean; start: () => void }[] = [];
+let activeMutations = 0;
+let checkpointRunning = false;
 let encodingOntologyOnly = false;
-function exclusive<T>(operation: () => Promise<T>) {
-  const queued = exclusiveQueue.catch(() => {}).then(operation);
-  exclusiveQueue = queued;
-  return queued;
+function runCheckpointQueue() {
+  if (checkpointRunning) return;
+  while (checkpointQueue.length) {
+    const next = checkpointQueue[0];
+    if (next.checkpoint) {
+      if (activeMutations) return;
+      checkpointQueue.shift();
+      checkpointRunning = true;
+      next.start();
+      return;
+    }
+    checkpointQueue.shift();
+    activeMutations++;
+    next.start();
+  }
+}
+function scheduleCheckpoint<T>(
+  operation: () => Promise<T>,
+  checkpoint: boolean,
+) {
+  return new Promise<T>((resolve, reject) => {
+    checkpointQueue.push({
+      checkpoint,
+      start: () => {
+        void Promise.resolve()
+          .then(operation)
+          .then(resolve, reject)
+          .finally(() => {
+            if (checkpoint) checkpointRunning = false;
+            else activeMutations--;
+            runCheckpointQueue();
+          });
+      },
+    });
+    runCheckpointQueue();
+  });
 }
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
@@ -2957,9 +2991,11 @@ const receive = async (packet: {
   try {
     const operation = () => operate(method, args ?? {});
     const queued =
-      exclusiveMethods.has(method) &&
+      checkpointMethods.has(method) &&
       !(method === "select" && encodingOntologyOnly);
-    const value = await (queued ? exclusive(operation) : operation());
+    const value = await (queued
+      ? scheduleCheckpoint(operation, method === "checkpointPrepare")
+      : operation());
     postMessage({ id, value });
   } catch (e) {
     postMessage({

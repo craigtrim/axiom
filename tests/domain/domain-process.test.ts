@@ -378,7 +378,7 @@ for (const ontologyOnly of [false, true])
     await request("checkpointRelease", { id: next.id });
   }, 20000);
 
-it("continues the exclusive request queue after checkpoint and mutation errors", async () => {
+it("continues the checkpoint queue after checkpoint and mutation errors", async () => {
   const child = start(),
     request = requests(child);
   await expect(
