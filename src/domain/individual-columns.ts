@@ -35,12 +35,14 @@ const cache = new WeakMap<
   {
     version: number;
     scopes: Map<string, { rows: IndividualRow[]; columns: IndividualColumn[] }>;
+    // craigtrim/axiom#215: ordered rows per scope, filter and sort, so a page turn is a slice.
+    orders: Map<string, IndividualRow[]>;
   }
 >();
 export function individualCensus(store: Store, scope = "") {
   let entry = cache.get(store);
   if (!entry || entry.version !== store.version) {
-    entry = { version: store.version, scopes: new Map() };
+    entry = { version: store.version, scopes: new Map(), orders: new Map() };
     cache.set(store, entry);
   }
   const saved = entry.scopes.get(scope);
@@ -180,31 +182,30 @@ export function individualGridPage(
   scores?: SemanticScores,
 ): IndividualGridPage {
   const { rows, columns } = individualCensus(store, input.scope);
-  const matches = input.query?.trim()
-    ? findEntityIris(store, individualGridFindOptions(store, input), scores)
+  const options = input.query?.trim()
+    ? individualGridFindOptions(store, input)
     : null;
   const sort = columns.find((c) => c.key === input.sort) ?? columns[0],
-    direction = input.direction === -1 ? -1 : 1;
-  const byIri = new Map(rows.map((r) => [r.iri, r]));
-  const result = matches
-    ? matches.flatMap((iri) => {
-        const row = byIri.get(iri);
-        return row ? [row] : [];
-      })
-    : [...rows];
-  if (!matches || input.sort)
-    result.sort((a, b) => {
-      const x = a.values[sort.key]?.[0] ?? "",
-        y = b.values[sort.key]?.[0] ?? "";
-      if (!x || !y)
-        return (!x && !y ? 0 : !x ? 1 : -1) || a.local.localeCompare(b.local);
-      return (
-        (sort.kind === "num"
-          ? Number(x) - Number(y)
-          : x.toLowerCase().localeCompare(y.toLowerCase())) * direction ||
-        a.local.localeCompare(b.local)
-      );
-    });
+    direction = input.direction === -1 ? -1 : 1,
+    sorted = !options || !!input.sort;
+  // Lexical orders depend only on the store version and these inputs; semantic scores vary.
+  const orders = cache.get(store)!.orders,
+    key = JSON.stringify([
+      options ?? input.scope ?? "",
+      sorted ? sort.key : null,
+      sorted ? direction : 0,
+    ]);
+  let result = scores ? undefined : orders.get(key);
+  if (result) {
+    orders.delete(key);
+    orders.set(key, result);
+  } else {
+    result = orderedRows(rows, sort, direction, sorted, options, store, scores);
+    if (!scores) {
+      orders.set(key, result);
+      if (orders.size > 8) orders.delete(orders.keys().next().value!);
+    }
+  }
   const revealIndex = input.reveal
     ? result.findIndex((r) => r.iri === input.reveal)
     : -1;
@@ -224,4 +225,35 @@ export function individualGridPage(
     page,
     rows: result.slice((page - 1) * 100, page * 100),
   };
+}
+function orderedRows(
+  rows: IndividualRow[],
+  sort: IndividualColumn,
+  direction: number,
+  sorted: boolean,
+  options: ReturnType<typeof individualGridFindOptions> | null,
+  store: Store,
+  scores?: SemanticScores,
+) {
+  const byIri = options ? new Map(rows.map((r) => [r.iri, r])) : null;
+  const result = options
+    ? findEntityIris(store, options, scores).flatMap((iri) => {
+        const row = byIri!.get(iri);
+        return row ? [row] : [];
+      })
+    : [...rows];
+  if (sorted)
+    result.sort((a, b) => {
+      const x = a.values[sort.key]?.[0] ?? "",
+        y = b.values[sort.key]?.[0] ?? "";
+      if (!x || !y)
+        return (!x && !y ? 0 : !x ? 1 : -1) || a.local.localeCompare(b.local);
+      return (
+        (sort.kind === "num"
+          ? Number(x) - Number(y)
+          : x.toLowerCase().localeCompare(y.toLowerCase())) * direction ||
+        a.local.localeCompare(b.local)
+      );
+    });
+  return result;
 }

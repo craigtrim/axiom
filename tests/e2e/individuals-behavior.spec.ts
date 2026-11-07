@@ -239,6 +239,41 @@ test("rapid arrow keys retain every step before selection replies arrive", async
   await expect(grid(d).locator(`tr[data-iri="${base}S2"]`)).toBeFocused();
 });
 
+// craigtrim/axiom#215: every rapid page turn counts, and the footer describes the rows on screen.
+test("rapid page turns land on the last requested page while the footer tracks the shown rows", async ({
+  desktop: d,
+}) => {
+  const extra = Array.from(
+    { length: 900 },
+    (_, i) =>
+      `:Z${i} a :School; rdfs:label "Zeta ${String(i).padStart(4, "0")}" .`,
+  ).join("\n");
+  await prepare(d, fixture + "\n" + extra);
+  const body = grid(d).locator(".gwrap"),
+    footer = grid(d).locator(".gfoot"),
+    pageBox = grid(d).getByRole("textbox", { name: "Page number" }),
+    next = grid(d).getByRole("button", { name: "Next page" }),
+    row = (local: string) => grid(d).locator(`tr[data-iri="${base}${local}"]`);
+  await expect(footer).toContainText("Rows 1 to 100");
+  await expect(footer).toContainText("of 12");
+  await body.evaluate((el) => (el.scrollTop = 600));
+  await holdRequests(d.app, ["individualGrid"]);
+  for (let i = 0; i < 10; i++) await next.click();
+  await waitForHeld(d.app, 10);
+  await expect(pageBox).toHaveValue("11");
+  await expect(footer).toContainText("Rows 1 to 100");
+  // Row 21 sits inside the virtual window at this scroll position.
+  await expect(row("S20")).toHaveCount(1);
+  await expect(body).toHaveAttribute("aria-busy", "true");
+  expect(await body.evaluate((el) => el.scrollTop)).toBe(600);
+  await releaseRequests(d.app);
+  await expect(footer).toContainText("Rows 1,001 to 1,100");
+  await expect(grid(d).getByRole("row").nth(1)).toContainText("Zeta 0795");
+  await expect(row("S20")).toHaveCount(0);
+  await expect(body).not.toHaveAttribute("aria-busy");
+  expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
+});
+
 test("pager clamps input and the narrow toolbar keeps every retained control inside the pane", async ({
   desktop: d,
 }) => {
