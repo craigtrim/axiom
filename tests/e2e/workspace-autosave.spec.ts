@@ -1,6 +1,7 @@
 // craigtrim/axiom#94: the Source action row reports draft state directly.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
+// #217: ontology autosaves retain the last saved layout until Save or close.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   observeDomainReply,
@@ -202,18 +203,18 @@ test.afterEach(async () => {
   if (app) await close();
   expect(errors).toEqual([]);
 });
-test("periodic autosave retains ontology, all graph settings, cameras and panes after a forced exit", async () => {
-  test.setTimeout(80000);
+test("periodic autosave retains ontology with the last saved layout after a forced exit", async () => {
+  test.setTimeout(120000);
   const iri = await create(),
     child = await request<string>("createClass", {
       name: "Child",
       parent: iri,
     });
   await request("seed", { iris: [iri, child], expand: false });
+  await request("freeze");
   const file = path.join(profile, "graph.axiom");
   await save(file);
-  await request("rename", { iri, name: "Autosaved Alpha" });
-  await request("freeze");
+  const baseline = JSON.parse(await readFile(file, "utf8"));
   await request("layout", { mode: "grid" });
   await request("spacing", { value: 2.5 });
   await request("eviction", { mode: "refuse" });
@@ -226,42 +227,73 @@ test("periodic autosave retains ontology, all graph settings, cameras and panes 
   await menu("view.graph");
   await menu("view.details");
   await menu("view.find");
-  const before = await state();
+  await request("select", { iri: child });
+  await request("rename", { iri, name: "Autosaved Alpha" });
   await expect
     .poll(
       async () => {
         const saved = JSON.parse(await readFile(file, "utf8"));
-        return (
-          saved.graphs?.[second]?.spacing === 1.75 &&
-          saved.entities.some((e: any) => e.label === "Autosaved Alpha") &&
-          JSON.stringify(saved.workbench.layout).includes('"find"')
-        );
+        return saved.entities.some((e: any) => e.label === "Autosaved Alpha");
       },
       { timeout: 40000, intervals: [250, 500] },
     )
     .toBe(true);
   const saved = JSON.parse(await readFile(file, "utf8"));
-  expect(saved.graphs.graph.edgesVisible).toBe(false);
-  expect(saved.graphs.graph.countsVisible).toBe(false);
-  expect(
-    saved.graphs.graph.positions.find((n: any) => n.iri === iri),
-  ).toMatchObject({ x: 567, y: 234 });
-  expect(saved.workbench.panelState["graph.camera"]).toBeDefined();
+  for (const key of [
+    "graph",
+    "graphs",
+    "archivedGraphs",
+    "activeGraphId",
+    "selected",
+  ])
+    expect(saved[key]).toEqual(baseline[key]);
+  expect(saved.workbench.layout).toEqual(baseline.workbench.layout);
+  expect(saved.workbench.panelState).toEqual(baseline.workbench.panelState);
+  const recovery = await stored();
+  expect(recovery.workspace.graphs).toEqual(baseline.graphs);
+  expect(recovery.workbench.layout).toEqual(baseline.workbench.layout);
+  expect(recovery.workbench.panelState).toEqual(baseline.workbench.panelState);
   await app!.evaluate(({ app }) => app.exit(0)).catch(() => {});
   app = undefined;
   await launch();
   const after = await state();
   expect(after.entities.some((e) => e.label === "Autosaved Alpha")).toBe(true);
-  expect(after.graphs!.graph.spacing).toBe(2.5);
-  expect(after.graphs!.graph.evictionMode).toBe("refuse");
-  expect(after.graphs!.graph.groups).toEqual(before.graphs!.graph.groups);
-  expect(after.graphs![second].rings).toEqual(before.graphs![second].rings);
-  expect(after.graphs!.graph.edgesVisible).toBe(false);
-  expect(after.graphs!.graph.countsVisible).toBe(false);
-  expect(after.graphs![second].spacing).toBe(1.75);
-  expect(after.graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y])).toEqual(
-    before.graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y]),
+  expect(after.selected).toBe(baseline.selected);
+  expect(after.activeGraphId).toBe(baseline.activeGraphId);
+  expect(after.graphs![second]).toBeUndefined();
+  expect(after.graphs!.graph.spacing).toBe(baseline.graphs.graph.spacing);
+  expect(after.graphs!.graph.evictionMode).toBe(
+    baseline.graphs.graph.evictionMode,
   );
+  expect(after.graphs!.graph.edgesVisible).toBe(
+    baseline.graphs.graph.edgesVisible,
+  );
+  expect(after.graphs!.graph.countsVisible).toBe(
+    baseline.graphs.graph.countsVisible,
+  );
+  expect(after.graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y])).toEqual(
+    baseline.graphs.graph.positions.map((n: any) => [n.iri, n.x, n.y]),
+  );
+  const restored = await page.evaluate(() => window.axiom.preferences.load());
+  expect(restored.layout).toEqual(baseline.workbench.layout);
+  // Explicit and closing saves still retain the current graph and pane settings.
+  await request("spacing", { value: 2.5 });
+  await request("drag", { iri, x: 567, y: 234 });
+  await menu("view.find");
+  await save(file);
+  const explicit = JSON.parse(await readFile(file, "utf8"));
+  expect(explicit.graphs.graph.spacing).toBe(2.5);
+  expect(
+    explicit.graphs.graph.positions.find((n: any) => n.iri === iri),
+  ).toMatchObject({ x: 567, y: 234 });
+  expect(JSON.stringify(explicit.workbench.layout)).toContain('"find"');
+  await request("spacing", { value: 1.75 });
+  await close();
+  expect(JSON.parse(await readFile(file, "utf8")).graphs.graph.spacing).toBe(
+    1.75,
+  );
+  await launch();
+  expect((await state()).graphs!.graph.spacing).toBe(1.75);
   await expect(
     page.getByRole("tab", { name: "Find", exact: true }),
   ).toBeVisible();
@@ -616,10 +648,10 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
     app!.evaluate(() => {
       const counts = (globalThis as any).__domainServiceObserver.counts;
       return {
-        serialize: counts.serialize,
-        serializeJson: counts.serializeJson,
-        checkpointPrepare: counts.checkpointPrepare,
-        sessionState: counts.sessionState,
+        serialize: counts.serialize ?? 0,
+        serializeJson: counts.serializeJson ?? 0,
+        checkpointPrepare: counts.checkpointPrepare ?? 0,
+        sessionState: counts.sessionState ?? 0,
       };
     });
   const imported = path.join(profile, "schools.ttl");
@@ -642,7 +674,7 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   ).toHaveLength(21461);
   const sessionFile = path.join(profile, "last-session.json");
   const samples: { named: boolean; workingSetKB: number }[] = [];
-  const idle = async (file?: string) => {
+  const idle = async (file?: string, browse = false) => {
     const before = await calls(),
       sessionTime = (await stat(sessionFile)).mtimeMs;
     const fileTime = file ? (await stat(file)).mtimeMs : undefined;
@@ -657,7 +689,28 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
       },
     });
     const initial = summary(await stored());
+    if (browse) await menu("view.individuals");
     for (let tick = 0; tick < 4; tick++) {
+      if (browse) {
+        await request("select", { iri: schoolBase + "school" + (tick + 1) });
+        await request("drag", {
+          iri: schoolBase + "school0",
+          x: 400 + tick * 20,
+          y: 250 + tick * 20,
+        });
+        const individuals = page.getByRole("region", {
+          name: "Individuals",
+          exact: true,
+        });
+        await individuals
+          .getByRole("button", { name: "Next page", exact: true })
+          .click();
+        await individuals
+          .getByRole("region", { name: "Individuals table, scrollable" })
+          .evaluate((element) => {
+            element.scrollTop = 200;
+          });
+      }
       // This is the observation window, not a synchronization delay.
       await new Promise((resolve) => setTimeout(resolve, 30500));
       samples.push(
@@ -692,8 +745,12 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   };
   await idle();
   const file = path.join(profile, "schools.axiom");
+  await request("seed", { iris: [schoolBase + "school0"], expand: false });
+  await request("freeze");
+  await request("select", { iri: schoolBase + "School" });
   await save(file);
-  await idle(file);
+  const baseline = await stored();
+  await idle(file, true);
   await writeFile(
     info.outputPath("main-process-memory.json"),
     JSON.stringify(samples),
@@ -702,11 +759,41 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
     body: JSON.stringify(samples),
     contentType: "application/json",
   });
+  // View-only changes never reached disk, including after a forced exit.
+  await app!.evaluate(({ app }) => app.exit(0)).catch(() => {});
+  app = undefined;
+  await launch();
+  expect((await state()).selected).toBe(baseline.workspace.selected);
+  expect(
+    (await state()).graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y]),
+  ).toEqual(
+    baseline.workspace.graphs.graph.positions.map((n: any) => [
+      n.iri,
+      n.x,
+      n.y,
+    ]),
+  );
+  const restored = await page.evaluate(() => window.axiom.preferences.load());
+  expect(restored.panelState?.["table.individuals.page"] ?? 1).toEqual(
+    baseline.workbench.panelState?.["table.individuals.page"] ?? 1,
+  );
+  await observeDomainService(app!, page);
   const before = await calls();
   await request("select", { iri: schoolBase + "school42" });
+  await request("rename", {
+    iri: schoolBase + "school42",
+    name: "Autosaved school 42",
+  });
   await expect
-    .poll(async () => (await stored()).workspace.selected, { timeout: 35000 })
-    .toBe(schoolBase + "school42");
+    .poll(
+      async () =>
+        (await stored()).workspace.entities.find(
+          (e: any) => e.iri === schoolBase + "school42",
+        )?.label,
+      { timeout: 35000 },
+    )
+    .toBe("Autosaved school 42");
+  expect((await stored()).workspace.selected).toBe(baseline.workspace.selected);
   expect((await calls()).checkpointPrepare).toBe(before.checkpointPrepare + 1);
   expect((await calls()).serializeJson).toBe(0);
   await close();
