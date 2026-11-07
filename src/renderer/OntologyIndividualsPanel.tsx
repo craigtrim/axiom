@@ -319,7 +319,9 @@ export function OntologyIndividualsPanel() {
     previousSnapshot = useRef(s),
     pendingSelection = useRef<"first" | "last">(null),
     generation = useRef(0),
-    restored = useRef(false);
+    restored = useRef(false),
+    // craigtrim/axiom#215: the grid scrolls to the top when the turned page arrives, not on click.
+    scrollReset = useRef(false);
   const consumer = useRef(crypto.randomUUID()).current;
   const columnSorted =
     !query.trim() ||
@@ -431,6 +433,8 @@ export function OntologyIndividualsPanel() {
       },
       (value) => {
         if (ticket !== generation.current) return;
+        if (scrollReset.current && wrap.current) wrap.current.scrollTop = 0;
+        scrollReset.current = false;
         const next = restoreIndividualColumns(
           value.columns,
           value.scopeTotal,
@@ -610,9 +614,13 @@ export function OntologyIndividualsPanel() {
   const go = (n: number) => {
     setPage(n);
     savePanel("table.individuals.page", n);
-    if (wrap.current) wrap.current.scrollTop = 0;
+    if (n !== page) scrollReset.current = true;
+    else if (wrap.current) wrap.current.scrollTop = 0;
   };
-  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 100));
+  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 100)),
+    // The footer describes the rows on screen while a requested page is pending.
+    shownPage = data?.page ?? page,
+    turning = !!data && data.page !== page;
   const start = Math.max(0, Math.floor((scroll.top - 29) / 30) - 4),
     end = Math.min(
       data?.rows.length ?? 0,
@@ -727,6 +735,7 @@ export function OntologyIndividualsPanel() {
         tabIndex={0}
         role="region"
         aria-label="Individuals table, scrollable"
+        aria-busy={turning || undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           setScroll({ top: el.scrollTop, height: el.clientHeight });
@@ -993,8 +1002,8 @@ export function OntologyIndividualsPanel() {
       {pages > 1 && (
         <div className="gfoot">
           <span>
-            Rows {nf((page - 1) * 100 + 1)} to{" "}
-            {nf(Math.min(page * 100, data!.total))}
+            Rows {nf((shownPage - 1) * 100 + 1)} to{" "}
+            {nf(Math.min(shownPage * 100, data!.total))}
           </span>
           <span className="pg">
             <button
