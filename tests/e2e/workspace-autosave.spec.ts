@@ -3,6 +3,7 @@
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 // #217: ontology autosaves retain the last saved layout until Save or close.
 // #218: the shell reports saving until checkpoint writes and release finish.
+// #221: windows hide synchronously while final persistence continues in the background.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   observeDomainReply,
@@ -253,6 +254,33 @@ async function holdCheckpointPhases() {
       app!.evaluate(() => (globalThis as any).__checkpointPhases.restore()),
   };
 }
+async function beginExit(route: "X" | "File Exit") {
+  return app!.evaluate(({ BrowserWindow, Menu }, route) => {
+    const windows = BrowserWindow.getAllWindows();
+    const main = windows.find(
+      (win) => win.webContents.getURL() === "app://axiom/index.html",
+    )!;
+    (globalThis as any).__closingShows = 0;
+    for (const win of windows)
+      win.on("show", () => (globalThis as any).__closingShows++);
+    const before = windows.map((win) => win.isVisible());
+    if (route === "X") main.close();
+    else
+      Menu.getApplicationMenu()!
+        .getMenuItemById("app.quit")!
+        .click({} as never, main, main.webContents as never);
+    return { before, after: windows.map((win) => win.isVisible()) };
+  }, route);
+}
+async function expectHiddenInBackground(count: number) {
+  expect(app!.process().exitCode).toBeNull();
+  expect(
+    await app!.evaluate(({ BrowserWindow }) => ({
+      visible: BrowserWindow.getAllWindows().map((win) => win.isVisible()),
+      shows: (globalThis as any).__closingShows,
+    })),
+  ).toEqual({ visible: Array(count).fill(false), shows: 0 });
+}
 test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
@@ -263,6 +291,119 @@ test.afterEach(async () => {
   if (app) await close();
   expect(errors).toEqual([]);
 });
+for (const route of ["X", "File Exit"] as const)
+  test(
+    route +
+      " hides every window before a background close saves drafts and layout",
+    async () => {
+      test.setTimeout(90000);
+      const iri = await create("Before closing");
+      await request("freeze");
+      const file = path.join(profile, "background-close.axiom");
+      await save(file);
+      await request("rename", { iri, name: "Saved after hiding" });
+      await request("spacing", { value: 2.5 });
+      await request("drag", { iri, x: 567, y: 234 });
+      await menu("view.details");
+      await page.locator('[data-pane-id="details"]').evaluate((element) => {
+        element.setAttribute("tabindex", "-1");
+        (element as HTMLElement).focus();
+      });
+      const detached = app!.waitForEvent("window");
+      await menu("pane.detach");
+      const child = await detached;
+      child.on("pageerror", (error) => errors.push(error.message));
+      await expect(
+        child.getByRole("region", { name: "Details", exact: true }),
+      ).toBeVisible();
+      await menu("view.source");
+      const source = page.getByRole("region", {
+        name: "Ontology source editor",
+      });
+      await expect(source.getByRole("status")).toContainText("Clean");
+      const editor = source.getByRole("textbox", {
+        name: "Ontology source",
+        exact: true,
+      });
+      const draft =
+        `<${iri}> a <http://www.w3.org/2002/07/owl#Class>; ` +
+        '<http://www.w3.org/2000/01/rdf-schema#label> "Unapplied background draft" .\n' +
+        "# Pending draft retained on background close\n";
+      await editor.focus();
+      await editor.press("Control+a");
+      await page.keyboard.insertText(draft);
+      await expect(editor).toHaveValue(draft);
+      await expect(source.getByRole("status")).toContainText("Draft pending");
+      const phases = await holdCheckpointPhases();
+      for (const view of [page, child])
+        await view.evaluate(() => {
+          (globalThis as any).__suppressedFrames = 0;
+          window.requestAnimationFrame = () => {
+            (globalThis as any).__suppressedFrames++;
+            return 0;
+          };
+        });
+      // File Exit also upgrades a normal capture that is already waiting on a frame.
+      if (route === "File Exit") {
+        await menu("file.save");
+        await expect
+          .poll(() =>
+            page.evaluate(() => (globalThis as any).__suppressedFrames),
+          )
+          .toBeGreaterThan(0);
+      }
+      const ownedProcess = app!.process();
+      let completed = false;
+      try {
+        const hidden = await beginExit(route);
+        expect(hidden.before).toContain(true);
+        expect(hidden.after).toEqual([false, false]);
+        for (let cycle = 0; cycle < (route === "File Exit" ? 2 : 1); cycle++) {
+          for (const method of [
+            "checkpointPrepare",
+            "checkpointSession",
+            "checkpointWorkspace",
+            "checkpointRelease",
+          ]) {
+            await phases.wait(method);
+            await expectHiddenInBackground(2);
+            await phases.release();
+          }
+        }
+        await expect
+          .poll(() => ownedProcess.exitCode, { timeout: 15000 })
+          .not.toBeNull();
+        expect(ownedProcess.exitCode).toBe(0);
+        completed = true;
+        app = undefined;
+        const saved = JSON.parse(await readFile(file, "utf8"));
+        expect(
+          saved.entities.find((entity: any) => entity.iri === iri)?.label,
+        ).toBe("Saved after hiding");
+        expect(saved.graphs.graph.spacing).toBe(2.5);
+        expect(
+          saved.graphs.graph.positions.find((node: any) => node.iri === iri),
+        ).toMatchObject({ x: 567, y: 234 });
+        expect(saved.editorDrafts.source.text).toBe(draft);
+        expect(
+          Object.keys(saved.workbench.layout.subLayouts ?? {}),
+        ).toHaveLength(1);
+        await launch();
+        expect(
+          (await state()).entities.find((entity) => entity.iri === iri)?.label,
+        ).toBe("Saved after hiding");
+        expect((await state()).graph.spacing).toBe(2.5);
+        await menu("view.source");
+        await expect(
+          page.getByRole("textbox", { name: "Ontology source", exact: true }),
+        ).toHaveValue(draft);
+        await expect.poll(() => app!.windows().length).toBe(2);
+      } finally {
+        if (!completed && ownedProcess.exitCode === null)
+          await phases.dispose();
+      }
+    },
+  );
 for (const fails of [false, true])
   test(
     "saving status covers every checkpoint phase and clears after " +
@@ -558,7 +699,7 @@ for (const draftState of ["invalid", "stale"] as const)
     await expect(pane().locator(".state.clean")).toHaveText("Saved");
   });
 
-test("a failed final save keeps the window open, preserves recovery and exposes an audit log", async () => {
+test("a failed final save stays hidden, preserves recovery and retries after recording an audit log", async () => {
   const iri = await create();
   const folder = path.join(profile, "destination");
   await mkdir(folder);
@@ -567,29 +708,157 @@ test("a failed final save keeps the window open, preserves recovery and exposes 
   await request("rename", { iri, name: "Retained despite failure" });
   // #162: missing destinations now recover normally; fail a write to an existing file.
   await mkdir(file + ".bak");
-  await app!.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].close(),
-  );
+  await app!.evaluate(({ dialog }) => {
+    (globalThis as any).__closeDialogCalls = 0;
+    dialog.showMessageBox = async () => {
+      (globalThis as any).__closeDialogCalls++;
+      return { response: 0, checkboxChecked: false };
+    };
+  });
+  const ownedProcess = app!.process();
+  try {
+    expect((await beginExit("X")).after).toEqual([false]);
+    await expect
+      .poll(async () => {
+        const directory = path.join(profile, "error-logs");
+        const files = await readdir(directory).catch(
+          (error: NodeJS.ErrnoException) => {
+            if (error.code === "ENOENT") return [];
+            throw error;
+          },
+        );
+        const logs = await Promise.all(
+          files
+            .filter((name) => name.endsWith(".json"))
+            .map(async (name) =>
+              JSON.parse(await readFile(path.join(directory, name), "utf8")),
+            ),
+        );
+        return logs.some(
+          (entry) => entry.record.operation === "Save workspace on close",
+        );
+      })
+      .toBe(true);
+    await expectHiddenInBackground(1);
+    expect(
+      await app!.evaluate(() => (globalThis as any).__closeDialogCalls),
+    ).toBe(0);
+    expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
+      "Retained despite failure",
+    );
+    expect(
+      (await stored()).workspace.entities.find((e: any) => e.iri === iri).label,
+    ).toBe("Retained despite failure");
+    expect(
+      JSON.parse(await readFile(file, "utf8")).entities.find(
+        (e: any) => e.iri === iri,
+      ).label,
+    ).toBe("Alpha");
+  } finally {
+    // Removing the owned failure lets the background retry finish without another close request.
+    await rm(file + ".bak", { recursive: true, force: true });
+  }
   await expect
-    .poll(async () =>
-      (await page.evaluate(() => window.axiom.audit.list())).some(
-        (e) => e.operation === "Save workspace on close",
-      ),
-    )
-    .toBe(true);
-  expect((await state()).entities.find((e) => e.iri === iri)?.label).toBe(
-    "Retained despite failure",
-  );
-  expect(
-    (await stored()).workspace.entities.find((e: any) => e.iri === iri).label,
-  ).toBe("Retained despite failure");
-  await rm(file + ".bak", { recursive: true });
-  await close();
+    .poll(() => ownedProcess.exitCode, { timeout: 15000 })
+    .not.toBeNull();
+  expect(ownedProcess.exitCode).toBe(0);
+  app = undefined;
   expect(
     JSON.parse(
       await readFile(path.join(folder, "saved.axiom"), "utf8"),
     ).entities.find((e: any) => e.iri === iri).label,
   ).toBe("Retained despite failure");
+  await launch();
+  expect(
+    (await state()).entities.find((entity) => entity.iri === iri)?.label,
+  ).toBe("Retained despite failure");
+});
+
+test("closing after the data service exits releases the hidden process and preserves its last checkpoint", async () => {
+  await create("Last completed checkpoint");
+  const file = path.join(profile, "worker-stopped.axiom");
+  await save(file);
+  await expect
+    .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+    .toBe(false);
+  const workspaceText = await readFile(file, "utf8");
+  const sessionText = await readFile(
+    path.join(profile, "last-session.json"),
+    "utf8",
+  );
+  await observeDomainService(app!, page);
+  await app!.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const utility = (globalThis as any).__domainServiceObserver.utility;
+        utility.once("exit", () => resolve());
+        if (!utility.kill())
+          reject(Error("The owned data utility could not be stopped."));
+      }),
+  );
+  await expect
+    .poll(async () =>
+      (await page.evaluate(() => window.axiom.audit.list())).some(
+        (entry) => entry.operation === "Domain worker exit",
+      ),
+    )
+    .toBe(true);
+  expect(
+    await page.evaluate(() =>
+      window.axiom.request("state").then(
+        () => "resolved",
+        (error: Error) => error.message,
+      ),
+    ),
+  ).toContain("The data service exited");
+  const receipt = path.join(profile, "stopped-worker-close.json");
+  await app!.evaluate(({ app, dialog }, receipt) => {
+    (globalThis as any).__closingDialogs = 0;
+    dialog.showMessageBox = async () => {
+      (globalThis as any).__closingDialogs++;
+      return { response: 0, checkboxChecked: false };
+    };
+    app.once("will-quit", () => {
+      const { writeFileSync } = process.getBuiltinModule("fs");
+      writeFileSync(
+        receipt,
+        JSON.stringify({
+          dialogs: (globalThis as any).__closingDialogs,
+          shows: (globalThis as any).__closingShows,
+        }),
+      );
+    });
+  }, receipt);
+  const ownedProcess = app!.process();
+  expect((await beginExit("X")).after).toEqual([false]);
+  await expect
+    .poll(() => ownedProcess.exitCode, { timeout: 15000 })
+    .not.toBeNull();
+  expect(ownedProcess.exitCode).toBe(0);
+  app = undefined;
+  expect(JSON.parse(await readFile(receipt, "utf8"))).toEqual({
+    dialogs: 0,
+    shows: 0,
+  });
+  expect(await readFile(file, "utf8")).toBe(workspaceText);
+  expect(await readFile(path.join(profile, "last-session.json"), "utf8")).toBe(
+    sessionText,
+  );
+  const auditFiles = await readdir(path.join(profile, "error-logs"));
+  const entries = await Promise.all(
+    auditFiles
+      .filter((name) => name.endsWith(".json"))
+      .map(async (name) =>
+        JSON.parse(
+          await readFile(path.join(profile, "error-logs", name), "utf8"),
+        ),
+      ),
+  );
+  expect(
+    entries.some(
+      (entry) => entry.record.operation === "Save workspace on close",
+    ),
+  ).toBe(true);
 });
 
 for (const stale of [false, true])
@@ -763,11 +1032,29 @@ test("honours closing while a workspace is still opening and saves the completed
   await app!.evaluate(({ dialog, BrowserWindow }, file) => {
     dialog.showOpenDialog = async () => {
       BrowserWindow.getAllWindows()[0].close();
+      (globalThis as any).__hiddenDuringOpen =
+        BrowserWindow.getAllWindows().every((win) => !win.isVisible());
+      await new Promise<void>((resolve) => {
+        (globalThis as any).__releaseClosingOpen = resolve;
+      });
       return { canceled: false, filePaths: [file] };
     };
   }, file);
   const process = app!.process();
   await menu("file.open");
+  try {
+    await expect
+      .poll(() => app!.evaluate(() => (globalThis as any).__hiddenDuringOpen))
+      .toBe(true);
+    expect(process.exitCode).toBeNull();
+    expect(
+      await app!.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().every((win) => !win.isVisible()),
+      ),
+    ).toBe(true);
+  } finally {
+    await app!.evaluate(() => (globalThis as any).__releaseClosingOpen?.());
+  }
   await expect.poll(() => process.exitCode, { timeout: 15000 }).not.toBeNull();
   app = undefined;
   expect((await stored()).workspacePath).toBe(file);

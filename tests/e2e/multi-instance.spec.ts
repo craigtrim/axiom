@@ -1,4 +1,6 @@
 // Issue 87 checks each window through its live shell status.
+// #221: a hidden closing owner keeps its leases until background persistence completes.
+import { observeDomainService } from "./domain-service-observer";
 import {
   test,
   expect,
@@ -257,6 +259,126 @@ test("launching an owned file raises only its owner and exits without another wi
   ).toBe(true);
   const third = await launch();
   expect(third.profile).toBe(path.join(root, "instances", "3"));
+});
+
+test("a closing workspace owner stays hidden and retains ownership until its final save exits", async () => {
+  const first = await launch();
+  const iri = await create(first, "Before background close");
+  const file = path.join(root, "Closing-owner.axiom");
+  await save(first, file);
+  await first.page.evaluate(
+    (iri) =>
+      window.axiom.request("rename", {
+        iri,
+        name: "Final background edit",
+      }),
+    iri,
+  );
+  await expect
+    .poll(() => first.page.evaluate(() => window.axiom.workspace.saving()))
+    .toBe(false);
+  await observeDomainService(first.app, first.page);
+  await first.app.evaluate(() => {
+    const utility = (globalThis as any).__domainServiceObserver.utility;
+    const original = utility.postMessage;
+    let held: (() => void) | undefined;
+    const intercept = function (this: unknown, message: any, ...rest: any[]) {
+      if (
+        message?.channel === "axiom-domain-v1" &&
+        message.type === "request" &&
+        message.packet?.method === "checkpointPrepare"
+      ) {
+        held = () => Reflect.apply(original, utility, [message, ...rest]);
+        return;
+      }
+      return Reflect.apply(original, this, [message, ...rest]);
+    };
+    utility.postMessage = intercept;
+    (globalThis as any).__closingOwner = {
+      pending: () => !!held,
+      release: () => {
+        utility.postMessage = original;
+        const forward = held;
+        held = undefined;
+        forward?.();
+      },
+    };
+  });
+  const ownedProcess = first.app.process();
+  const focusBefore = await focusCalls(first);
+  let released = false;
+  try {
+    expect(
+      await first.app.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        (globalThis as any).__closingShows = 0;
+        win.on("show", () => (globalThis as any).__closingShows++);
+        win.close();
+        return win.isVisible();
+      }),
+    ).toBe(false);
+    await expect
+      .poll(() =>
+        first.app.evaluate(() => (globalThis as any).__closingOwner.pending()),
+      )
+      .toBe(true);
+    expect(ownedProcess.exitCode).toBeNull();
+    const ownership = new WorkspaceOwnership(() => {});
+    const competingLease = await ownership.claim(file);
+    try {
+      expect(competingLease).toBeUndefined();
+    } finally {
+      competingLease?.release();
+    }
+    const duplicate = spawn(executable, args(file.toUpperCase()), {
+      env: environment(),
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    children.add(duplicate);
+    await expect.poll(() => duplicate.exitCode).toBe(0);
+    expect(await focusCalls(first)).toBe(focusBefore);
+    expect(
+      await first.app.evaluate(({ BrowserWindow }) => ({
+        visible: BrowserWindow.getAllWindows().some((win) => win.isVisible()),
+        shows: (globalThis as any).__closingShows,
+      })),
+    ).toEqual({ visible: false, shows: 0 });
+    const peer = await launch();
+    expect(peer.profile).toBe(path.join(root, "instances", "2"));
+    expect((await state(peer)).classCount).toBe(1);
+    await first.app.evaluate(() =>
+      (globalThis as any).__closingOwner.release(),
+    );
+    released = true;
+    await expect
+      .poll(() => ownedProcess.exitCode, { timeout: 15000 })
+      .not.toBeNull();
+    expect(ownedProcess.exitCode).toBe(0);
+    apps.delete(first.app);
+    expect(
+      (await stored(first)).workspace.entities.find(
+        (entity: any) => entity.iri === iri,
+      )?.label,
+    ).toBe("Final background edit");
+    const lease = await ownership.claim(file, false);
+    expect(lease).toBeDefined();
+    lease?.release();
+    const reopened = await launch(file);
+    expect(reopened.profile).toBe(root);
+    await expect
+      .poll(
+        async () =>
+          (await state(reopened)).entities.find((entity) => entity.iri === iri)
+            ?.label,
+      )
+      .toBe("Final background edit");
+  } finally {
+    if (!released && ownedProcess.exitCode === null)
+      await first.app.evaluate(() =>
+        (globalThis as any).__closingOwner.release(),
+      );
+  }
 });
 
 test("Open, Recent and Save As refuse another instance's file without changing either workspace", async () => {

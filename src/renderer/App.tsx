@@ -44,6 +44,8 @@ import { requestQualitySettings } from "./quality-view";
 import { WarningSettings } from "./SeeAlsoWarning";
 // #123: autosave sends drafts only when their revision changes.
 import { captureDraftCheckpoint } from "./workspace-drafts";
+// #221: a pending visible capture can finish after background close hides the window.
+import { WorkspaceCaptureFrames } from "./workspace-capture-frames";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
 import { WindowChrome } from "./WindowChrome";
@@ -478,6 +480,13 @@ export function App() {
       y: number;
     } | null>(null),
     tabOperations = useRef(new Set<Promise<unknown>>()),
+    [captureFrames] = useState(
+      () =>
+        new WorkspaceCaptureFrames({
+          request: (callback) => window.requestAnimationFrame(callback),
+          cancel: (frame) => window.cancelAnimationFrame(frame),
+        }),
+    ),
     [regenerate, setRegenerate] = useState<number | null>(null),
     [themeVersion, setThemeVersion] = useState(0),
     [shellPane, setShellPane] = useState("graph"),
@@ -1186,21 +1195,23 @@ export function App() {
         setSearch(false);
         setRegenerate(null);
       }
-      if (id === "workspace.capture") {
+      if (id === "workspace.closing") {
+        captureFrames.beginClosing();
+        return;
+      }
+      if (id === "workspace.capture" || id === "workspace.captureClosing") {
+        if (id === "workspace.captureClosing") {
+          captureFrames.beginClosing();
+          // The normal capture command also flushes this through text-analysis-state.
+          flushAnalysisText();
+        }
         void Promise.all([
           ...tabOperations.current,
           flushQueryHistory(),
           flushUiHistory(),
         ])
-          .then(
-            () =>
-              new Promise<void>((resolve) => {
-                // #123: capture the committed layout and its initial graph camera.
-                window.requestAnimationFrame(() =>
-                  window.requestAnimationFrame(() => resolve()),
-                );
-              }),
-          )
+          // #123: visible captures wait for committed layout and initial graph camera.
+          .then(() => captureFrames.waitForLayout())
           .then(() => {
             command("workspace.captureViews");
             syncTabHistory(modelRef.current);
