@@ -23,7 +23,9 @@ The graph pane follows the rule the other views already follow: one 28 px action
 | | Export | Graph > Export... (Ctrl+Shift+E) |
 | | More actions | Select edge..., Graph appearance..., Graph stylesheet..., Clear graph |
 
-Display options holds what the footer held: Show edges, Show labels, Show counts, Color clusters, Node spacing, Visible node limit and Eviction policy. The same settings appear in Graph > Show and Graph > Eviction policy, so all of them are reachable from the menu bar and the palette. Select edge... replaces the toolbar's edge list, which listed every edge in view; it opens a filterable list instead.
+Display options holds Show edges, Show labels, Show counts, Color clusters, Clusters, Node spacing, Visible node limit and Eviction policy. The Clusters slider sits directly under Color clusters, from Strict (0%) connected islands to Loose (100%) groups that sit together in the layout (craigtrim/axiom#205). It defaults to Loose, saves separately for each graph view, previews during a drag and creates one Undo step per gesture. It stays enabled while the graph shows nodes, including when Color clusters is off or disabled. Color clusters remains visible and explains why it is disabled below two clusters at the selected setting.
+
+The visibility and color toggles also appear in Graph > Show, and the eviction choices in Graph > Eviction policy. Graph > Display options opens the sliders and other settings from the menu bar or palette. Select edge... replaces the toolbar's edge list, which listed every edge in view; it opens a filterable list instead.
 
 A toggle keeps its label and shows its state as a pressed button in the row and a checkmark in menus. Freeze no longer becomes Resume, and Pin no longer becomes Unpin.
 

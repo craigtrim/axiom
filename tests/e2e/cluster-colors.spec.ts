@@ -1,6 +1,8 @@
 // craigtrim/axiom#185: Color clusters colors each cluster once hiding splits the graph.
 // craigtrim/axiom#200: the box always shows and says why while it is disabled.
+// craigtrim/axiom#205: visual clustering, its live slider and saved per-view setting.
 import { launchExample } from "./example-fixture";
+import { observeDomainService } from "./domain-service-observer";
 import {
   test,
   expect,
@@ -12,6 +14,15 @@ import {
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
+import {
+  entity,
+  iriTerm,
+  NS,
+  SUBCLASS,
+  THING,
+  TYPE,
+} from "../../src/domain/model";
+import type { Workspace } from "../../src/domain/workspace";
 let app: ElectronApplication, page: Page, profile: string;
 const errors: string[] = [];
 const state = () =>
@@ -108,10 +119,14 @@ const colorClusters = () =>
     .getByRole("checkbox", { name: "Color clusters", exact: true });
 const clusterLabel = () =>
   page.locator(".graph-panel:visible .graph-cluster-colors");
+const clusterSlider = () =>
+  page
+    .locator(".graph-panel:visible")
+    .getByRole("slider", { name: "Clusters", exact: true });
 const reasons = {
-  enabled: "Give each group of connected nodes its own color.",
-  one: "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it.",
-  none: "Needs two or more clusters. No displayed nodes are connected to each other.",
+  enabled: "Give each cluster at this Clusters setting its own color.",
+  one: "Needs two or more clusters. At this Clusters setting the displayed nodes form one cluster; move the Clusters slider or hide nodes to split it.",
+  none: "Needs two or more clusters. At this Clusters setting no displayed nodes group together.",
   empty: "Needs two or more clusters. The graph shows no nodes.",
 };
 // The reason shows on hover over the box or its name, and screen readers read it.
@@ -159,6 +174,7 @@ async function split() {
 test("Color clusters is disabled with its reason until a split, colors each cluster and keeps other clusters' colors when a node is hidden", async () => {
   await request("freeze");
   await request("layout", { mode: "circle" });
+  await request("clusterLooseness", { value: 0 });
   await menu("graph.fit");
   const initial = await state();
   expect(initial.graph.clusterCount).toBe(
@@ -171,6 +187,7 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   await openDisplay();
   await expect(colorClusters()).toBeVisible();
   await expect(colorClusters()).toBeDisabled();
+  await expect(clusterSlider()).toBeEnabled();
   await reason(reasons.one);
   const cut = await split();
   await expect(colorClusters()).toBeEnabled();
@@ -267,19 +284,32 @@ test("Color clusters is disabled with its reason until a split, colors each clus
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(0);
   await expect(colorClusters()).toBeDisabled();
   await reason(reasons.empty);
+  await expect(clusterSlider()).toBeDisabled();
   // One node on its own is displayed but belongs to no cluster.
   await request("seed", { iris: [cut], replace: false, expand: false });
   await expect.poll(async () => (await state()).graph.nodes.length).toBe(1);
   expect((await state()).graph.clusterCount).toBe(0);
   await expect(colorClusters()).toBeDisabled();
   await reason(reasons.none);
+  await expect(clusterSlider()).toBeEnabled();
 });
 
 test("Color clusters is saved with the workspace and restored on reopen", async () => {
+  await request("freeze");
+  await request("clusterLooseness", { value: 0 });
   await split();
   await openDisplay();
   await colorClusters().click();
   await expect.poll(async () => (await state()).graph.clusterColors).toBe(true);
+  const second = await request("graphCreate", {
+    iris: (await state()).graph.nodes.map((node) => node.iri),
+    expand: false,
+  });
+  expect(typeof second).toBe("string");
+  expect((await state()).graphs![second as string].clusterLooseness).toBe(1);
+  await request("freeze", { graphId: second });
+  await request("clusterLooseness", { value: 0.65, graphId: second });
+  await request("graphActivate", { id: "graph" });
   const file = path.join(profile, "Clusters.axiom");
   await app.evaluate(({ dialog }, file) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
@@ -288,13 +318,201 @@ test("Color clusters is saved with the workspace and restored on reopen", async 
   await expect.poll(async () => (await state()).dirty).toBe(false);
   const doc = JSON.parse(await readFile(file, "utf8"));
   expect(doc.graphs.graph.clusterColors).toBe(true);
+  expect(doc.graphs.graph.clusterLooseness).toBe(0);
+  expect(doc.graphs[second as string].clusterLooseness).toBe(0.65);
+  await expect
+    .poll(async () => {
+      try {
+        return JSON.parse(
+          await readFile(path.join(profile, "last-session.json"), "utf8"),
+        ).workspace.graphs[second as string].clusterLooseness;
+      } catch {
+        return undefined;
+      }
+    })
+    .toBe(0.65);
   await app.close();
   app = await electron.launch(options());
   await attach();
   const restored = await state();
   expect(restored.graphs!.graph.clusterColors).toBe(true);
+  expect(restored.graphs!.graph.clusterLooseness).toBe(0);
+  expect(restored.graphs![second as string].clusterLooseness).toBe(0.65);
   expect(restored.graph.clusterCount).toBeGreaterThan(1);
   await page.getByRole("tab", { name: "Graph", exact: true }).click();
   await openDisplay();
   await expect(colorClusters()).toBeChecked();
+  await expect(clusterSlider()).toHaveAttribute("aria-valuetext", "0%");
+});
+
+// Two packed squares joined by one long relationship: one island, two visual groups.
+function visualWorkspace(): Workspace {
+  const iris = Array.from({ length: 8 }, (_, i) => "urn:clusters:node" + i);
+  const members = iris.map((iri, i) => {
+    const node = entity(iri, "Class");
+    node.parents = [i ? iris[i - 1] : THING];
+    return node;
+  });
+  return {
+    format: "axiom-workspace",
+    version: 1,
+    entities: [entity(THING, "Class"), ...members],
+    tbox: members.flatMap((node) => [
+      { subject: node.iri, predicate: TYPE, object: iriTerm(NS.owl + "Class") },
+      {
+        subject: node.iri,
+        predicate: SUBCLASS,
+        object: iriTerm(node.parents[0]),
+      },
+    ]),
+    individuals: [],
+    customers: [],
+    selected: null,
+    graph: {
+      iris,
+      focus: [],
+      pins: [],
+      budget: 1000,
+      layout: "circle",
+      frozen: true,
+      positions: iris.map((iri, i) => ({
+        iri,
+        x: (i < 4 ? -336 : 300) + (i % 2) * 36,
+        y: Math.floor((i % 4) / 2) * 36 - 18,
+      })),
+      // An older workspace has no clusterLooseness and must open at Loose.
+    },
+  };
+}
+
+test("Clusters defaults to Loose, previews a connected graph's visual groups and records one undo step per drag", async () => {
+  expect((await state()).graph.clusterLooseness).toBe(1);
+  await request("load", { document: visualWorkspace() });
+  await expect.poll(async () => (await state()).graph.clusterLooseness).toBe(1);
+  await expect.poll(async () => (await state()).graph.clusterCount).toBe(2);
+  expect(clusters((await state()).graph).groups).toHaveLength(1);
+  await openDisplay();
+  await expect(clusterSlider()).toHaveAttribute("min", "0");
+  await expect(clusterSlider()).toHaveAttribute("max", "100");
+  await expect(clusterSlider()).toHaveAttribute("step", "5");
+  await expect(clusterSlider()).toHaveAttribute("aria-valuetext", "100%");
+  const control = page.locator(".graph-panel:visible .graph-clusters");
+  await expect(control.getByText("Strict", { exact: true })).toBeVisible();
+  await expect(control.getByText("Loose", { exact: true })).toBeVisible();
+  await expect(colorClusters()).toBeEnabled();
+  await expect(colorClusters()).not.toBeChecked();
+  await colorClusters().check();
+  await clusterSlider().focus();
+  await page.keyboard.press("Home");
+  await expect.poll(async () => (await state()).graph.clusterLooseness).toBe(0);
+  await expect.poll(async () => (await state()).graph.clusterCount).toBe(1);
+  await expect(colorClusters()).toBeChecked();
+  await expect(colorClusters()).toBeDisabled();
+  await expect(clusterSlider()).toBeEnabled();
+  await reason(reasons.one);
+
+  // Give the drag a distinct predecessor; Undo must remove every preview together.
+  await request("edgeVisibility", { visible: false });
+  const before = await state();
+  expect(before.undoLabel).not.toBe("Change clusters");
+  const coordinates = (snapshot: Snapshot) =>
+    snapshot.graph.nodes.map((node) => [node.iri, node.x, node.y]);
+  await observeDomainService(app, page);
+  const observation = await app.evaluateHandle(() => {
+    const owner = (globalThis as any).__domainServiceObserver;
+    const previous = owner.beforeRequest;
+    const requests: {
+      at: number;
+      value: number;
+      preview: boolean;
+      graphId: string;
+      datasetEpoch: number;
+    }[] = [];
+    const started = performance.now();
+    const beforeRequest = (packet: {
+      method: string;
+      args: Record<string, unknown>;
+    }) => {
+      previous?.(packet);
+      if (packet.method === "clusterLooseness")
+        requests.push({
+          at: performance.now(),
+          ...packet.args,
+        } as (typeof requests)[number]);
+    };
+    owner.beforeRequest = beforeRequest;
+    return {
+      requests,
+      started,
+      dispose: () => {
+        if (owner.beforeRequest === beforeRequest)
+          owner.beforeRequest = previous;
+      },
+    };
+  });
+  try {
+    const box = (await clusterSlider().boundingBox())!;
+    const x = (percent: number) =>
+      box.x + 8 + ((box.width - 16) * percent) / 100;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x(0), y);
+    await page.mouse.down();
+    await page.mouse.move(x(45), y, { steps: 12 });
+    await expect
+      .poll(async () => (await state()).graph.clusterLooseness)
+      .toBeGreaterThan(0.3);
+    await expect.poll(async () => (await state()).graph.clusterCount).toBe(2);
+    await expect(colorClusters()).toBeEnabled();
+    expect(
+      (await observation.evaluate((value) => value.requests)).some(
+        (entry) => entry.preview,
+      ),
+    ).toBe(true);
+    await page.mouse.move(x(100), y, { steps: 14 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await state()).graph.clusterLooseness)
+      .toBe(1);
+    await expect
+      .poll(() =>
+        observation.evaluate(
+          (value) => value.requests.filter((entry) => !entry.preview).length,
+        ),
+      )
+      .toBe(1);
+    const sent = await observation.evaluate((value) => value.requests);
+    expect(sent.at(-1)).toMatchObject({ value: 1, preview: false });
+    const previews = sent.filter((entry) => entry.preview);
+    expect(previews.length).toBeGreaterThan(0);
+    // A timer coalesces input events; native delivery must not forward every pointer step.
+    expect(previews.length).toBeLessThan(26);
+    const elapsed =
+      sent.at(-1)!.at - (await observation.evaluate((value) => value.started));
+    expect(previews.length).toBeLessThanOrEqual(Math.ceil(elapsed / 80) + 1);
+    for (const entry of sent) {
+      expect(entry.graphId).toBe("graph");
+      expect(entry.datasetEpoch).toBe(before.datasetEpoch);
+      expect(Math.round(entry.value * 100) % 5).toBe(0);
+    }
+    await expect(clusterSlider()).toHaveAttribute("aria-valuetext", "100%");
+    const after = await state();
+    expect(after.undoLabel).toBe("Change clusters");
+    expect(coordinates(after)).toEqual(coordinates(before));
+    await menu("edit.undo");
+    await expect
+      .poll(async () => (await state()).graph.clusterLooseness)
+      .toBe(0);
+    expect((await state()).undoLabel).toBe(before.undoLabel);
+    expect((await state()).graph.clusterCount).toBe(1);
+    await menu("edit.redo");
+    await expect
+      .poll(async () => (await state()).graph.clusterLooseness)
+      .toBe(1);
+    expect((await state()).graph.clusterCount).toBe(2);
+    expect(coordinates(await state())).toEqual(coordinates(before));
+  } finally {
+    await page.mouse.up();
+    await observation.evaluate((value) => value.dispose());
+    await observation.dispose();
+  }
 });
