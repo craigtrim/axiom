@@ -311,6 +311,77 @@ describe("cluster fills", () => {
 
 describe("cluster rendering", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it.each([0, 1])(
+    "keeps newly added nodes grey while %i prior clusters wait for layout",
+    (clusterCount) => {
+      const store = buildEmptyStore(),
+        a = store.createClass("Existing", THING),
+        b = store.createClass("New", THING),
+        view = new Viewport(store);
+      view.seed([a, b], true, false);
+      const nodes = [...view.nodes.values()];
+      nodes.forEach((n, i) => {
+        n.x = i * 80;
+        n.y = 0;
+      });
+      if (clusterCount === 1) {
+        nodes[0].cluster = 0;
+        nodes[0].clusterColor = [0, 0];
+      }
+      const graph: GraphSnapshot = {
+        nodes,
+        edges: [],
+        focus: [],
+        budget: 1000,
+        hidden: 0,
+        revision: 0,
+        mode: "circle",
+        choice: "circle",
+        groups: [],
+        rings: [],
+        ringOrigin: { x: 0, y: 0 },
+        frozen: false,
+        clusterColors: true,
+        clustersPending: true,
+        clusterCount,
+      };
+      vi.stubGlobal("document", {
+        createElement: () => ({
+          getContext: () => ({
+            measureText: (text: string) => ({ width: text.length * 7 }),
+          }),
+        }),
+      });
+      for (const dark of [false, true]) {
+        const palette = dark ? tokens.dark : tokens.light,
+          svg = (g: GraphSnapshot) =>
+            exportScene(g, dark, "svg", null, { caption: false }).data,
+          nodeFills = (image: string, color: string) =>
+            [...image.matchAll(new RegExp('fill="' + color + 'ff"', "gi"))]
+              .length,
+          pending = svg(graph);
+        expect(nodeFills(pending, palette["e-literal"])).toBe(2 - clusterCount);
+        expect(nodeFills(pending, palette["e-class"])).toBe(clusterCount);
+        if (clusterCount === 1)
+          expect(pending).toContain("Class (varied styles)");
+        else {
+          expect(pending).not.toContain("(varied styles)");
+          expect(pending).toMatch(
+            new RegExp('<rect[^>]*fill="' + palette["e-literal"] + '"', "i"),
+          );
+        }
+        for (const ordinary of [
+          svg({ ...graph, clustersPending: false }),
+          svg({ ...graph, clusterColors: false }),
+        ]) {
+          expect(nodeFills(ordinary, palette["e-literal"])).toBe(0);
+          expect(nodeFills(ordinary, palette["e-class"])).toBe(2);
+          expect(ordinary).not.toContain("(varied styles)");
+        }
+      }
+    },
+  );
+
   it("draws each cluster in its own color in an exported image", () => {
     const store = buildEmptyStore(),
       a = store.createClass("Alpha", THING),

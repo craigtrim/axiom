@@ -534,15 +534,19 @@ function shape(
 }
 // craigtrim/axiom#185: while clusters are colored, the cluster color replaces
 // every other fill and nodes outside a cluster turn neutral.
+// craigtrim/axiom#205: new nodes wait in grey for their first settled membership.
 const nodeFill = (
   n: GraphNode,
   style: { fill?: string },
   clustered: Map<string, string> | undefined,
   palette: Record<string, string>,
+  pendingClusters = false,
 ) =>
   clustered
     ? (clustered.get(n.iri) ?? palette["e-literal"])
-    : (style.fill ?? palette[kindToken[n.kind]]);
+    : pendingClusters && n.cluster === undefined
+      ? palette["e-literal"]
+      : (style.fill ?? palette[kindToken[n.kind]]);
 const alpha = (hex: string, a: number) =>
   hex +
   Math.round(a * 255)
@@ -767,7 +771,13 @@ export function render(
       p,
       r,
       alpha(
-        nodeFill(n, style, clustered, palette),
+        nodeFill(
+          n,
+          style,
+          clustered,
+          palette,
+          !!(g.clusterColors && g.clustersPending),
+        ),
         (style.opacity ?? 1) * (hover && !near.has(n.iri) ? 0.25 : 1),
       ),
     );
@@ -1097,6 +1107,7 @@ function drawExport(
               style,
               legendClusters,
               p as Record<string, string>,
+              !!(g.clusterColors && g.clustersPending),
             ),
             kind: style.shape
               ? (
