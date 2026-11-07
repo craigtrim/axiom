@@ -814,9 +814,11 @@ journey(
     await expect.poll(() => enabled("query.cancel")).toBe(false);
     await queryText("SELECT ?s WHERE { ?s a <" + NS.owl + "Class> . } LIMIT 5");
     await menu("query.run");
+    // Cancel discards the worker; preparing 100,000 orders is a cold run again.
+    // Allow the same preparation budget as the initial run above.
     await expect(
       page.locator(".query-results-panel:visible .state"),
-    ).toContainText("5 rows");
+    ).toContainText("5 rows", { timeout: 30000 });
     await menu("query.graph");
     expect((await state()).graph.nodes.length).toBeLessThanOrEqual(
       (await state()).graph.budget,
