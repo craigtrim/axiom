@@ -1,8 +1,10 @@
 // craigtrim/axiom#185: cluster detection, stable numbering and the palette's rules.
+// craigtrim/axiom#205: Strict retains topology and palette contracts at the new default.
 // craigtrim/axiom#200: when Color clusters is available, and the reason it is not.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clusterColorsAction } from "../../src/shared/action-state";
 import {
+  assignClusterGroups,
   assignClusters,
   clusterFills,
   clusterPalette,
@@ -47,11 +49,11 @@ const without = (
 describe("clusters", () => {
   it("joins nodes across edges in either direction and leaves lone nodes out", () => {
     const nodes = ["a", "b", "c", "d", "e", "f"].map((iri) => node(iri));
-    const clusters = graphClusters(nodes, [
-      edge("a", "b"),
-      edge("c", "b"),
-      edge("e", "d"),
-    ]);
+    const clusters = graphClusters(
+      nodes,
+      [edge("a", "b"), edge("c", "b"), edge("e", "d")],
+      0,
+    );
     expect(clusters.map((c) => c.map((n) => n.iri).sort())).toEqual([
       ["a", "b", "c"],
       ["d", "e"],
@@ -67,10 +69,10 @@ describe("clusters", () => {
       ],
       ["x"],
     );
-    expect(assignClusters(g.nodes, g.edges, true)).toBe(3);
+    expect(assignClusters(g.nodes, g.edges, true, 0)).toBe(3);
     expect(positions(g.nodes)).toMatchObject({ b1: 0, m1: 1, s1: 2 });
     expect(g.nodes.find((n) => n.iri === "x")!.cluster).toBeUndefined();
-    expect(assignClusters(g.nodes, g.edges, false)).toBe(3);
+    expect(assignClusters(g.nodes, g.edges, false, 0)).toBe(3);
     expect(g.nodes.every((n) => n.cluster === undefined)).toBe(true);
   });
 
@@ -80,10 +82,10 @@ describe("clusters", () => {
       ["b1", "b2", "b3"],
       ["c1", "c2"],
     ]);
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     const before = positions(g.nodes);
     g = without(g, "b3");
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     const after = positions(g.nodes);
     for (const iri of Object.keys(after)) expect(after[iri]).toBe(before[iri]);
   });
@@ -93,10 +95,10 @@ describe("clusters", () => {
       ["a1", "a2", "a3", "a4", "a5", "a6"],
       ["b1", "b2", "b3"],
     ]);
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     expect(positions(g.nodes)).toMatchObject({ a1: 0, b1: 1 });
     g = without(g, "a3");
-    expect(assignClusters(g.nodes, g.edges, true)).toBe(3);
+    expect(assignClusters(g.nodes, g.edges, true, 0)).toBe(3);
     expect(positions(g.nodes)).toMatchObject({
       a4: 0,
       a5: 0,
@@ -113,15 +115,45 @@ describe("clusters", () => {
       ["b1", "b2"],
       ["c1", "c2"],
     ]);
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     expect(positions(g.nodes)).toMatchObject({ a1: 0, b1: 1, c1: 2 });
     g.edges.push(edge("b2", "a1"));
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     expect(positions(g.nodes)).toMatchObject({ a1: 0, b1: 0, c1: 2 });
     g.nodes.push(node("d1"), node("d2"));
     g.edges.push(edge("d1", "d2"));
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     expect(positions(g.nodes)).toMatchObject({ a1: 0, c1: 2, d1: 1 });
+  });
+
+  it("repaints cached membership after positions move without regrouping nodes", () => {
+    const g = graph(
+        [
+          ["a1", "a2"],
+          ["b1", "b2"],
+        ],
+        ["x"],
+      ),
+      groups = graphClusters(g.nodes, g.edges, 0);
+    expect(assignClusterGroups(g.nodes, groups, true)).toBe(2);
+    const before = positions(g.nodes),
+      colors = g.nodes.map((n) => n.clusterColor);
+    // These current positions would form one visual group. A cache repaint
+    // must retain the two settled groups until its owner invalidates them.
+    g.nodes.forEach((n) => {
+      n.x = 4;
+      n.y = 7;
+    });
+    expect(graphClusters(g.nodes, g.edges)).toHaveLength(1);
+    expect(assignClusterGroups(g.nodes, groups.reverse(), true)).toBe(2);
+    expect(positions(g.nodes)).toEqual(before);
+    expect(g.nodes.map((n) => n.clusterColor)).toEqual(colors);
+    expect(assignClusterGroups(g.nodes, groups, false)).toBe(2);
+    expect(
+      g.nodes.every(
+        (n) => n.cluster === undefined && n.clusterColor === undefined,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -134,7 +166,7 @@ describe("cluster fills", () => {
       ],
       ["x"],
     );
-    const clusterCount = assignClusters(g.nodes, g.edges, true);
+    const clusterCount = assignClusters(g.nodes, g.edges, true, 0);
     expect(
       clusterFills({ nodes: g.nodes, clusterCount }, false),
     ).toBeUndefined();
@@ -175,7 +207,7 @@ describe("cluster fills", () => {
   it("reuses the color whose clusters are farthest away once the sequence runs out", () => {
     const length = clusterPalette.light.length,
       g = spread(length + 1),
-      clusterCount = assignClusters(g.nodes, g.edges, true),
+      clusterCount = assignClusters(g.nodes, g.edges, true, 0),
       last = "c" + length + "a";
     const light = clusterFills(
       { nodes: g.nodes, clusterColors: true, clusterCount },
@@ -192,12 +224,12 @@ describe("cluster fills", () => {
 
   it("keeps a repeated color when another cluster is hidden", () => {
     let g = spread(clusterPalette.light.length + 2);
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     const before = Object.fromEntries(
       g.nodes.map((n) => [n.iri, n.clusterColor]),
     );
     g = without(g, "c07a");
-    assignClusters(g.nodes, g.edges, true);
+    assignClusters(g.nodes, g.edges, true, 0);
     for (const n of g.nodes)
       if (!n.iri.startsWith("c07"))
         expect(n.clusterColor).toEqual(before[n.iri]);
@@ -206,7 +238,7 @@ describe("cluster fills", () => {
   it("numbers 15,000 nodes in one cluster quickly", () => {
     const chain = graph([Array.from({ length: 15000 }, (_, i) => "n" + i)]);
     const started = performance.now();
-    expect(assignClusters(chain.nodes, chain.edges, true)).toBe(1);
+    expect(assignClusters(chain.nodes, chain.edges, true, 0)).toBe(1);
     // Measured near 30 ms; the quadratic grouping this replaced took 0.5 s.
     expect(performance.now() - started).toBeLessThan(300);
   });
@@ -267,7 +299,7 @@ describe("cluster fills", () => {
         edges.push(edge("a" + k, "b" + k));
       }
       const started = performance.now();
-      const clusterCount = assignClusters(nodes, edges, true);
+      const clusterCount = assignClusters(nodes, edges, true, 0);
       clusterFills({ nodes, clusterColors: true, clusterCount }, false);
       const elapsed = performance.now() - started;
       expect(clusterCount).toBe(7500);
@@ -303,7 +335,7 @@ describe("cluster rendering", () => {
       ringOrigin: { x: 0, y: 0 },
       frozen: true,
       clusterColors: true,
-      clusterCount: assignClusters(nodes, edges, true),
+      clusterCount: assignClusters(nodes, edges, true, 0),
     };
     nodes.forEach((n, i) => {
       n.x = i * 80;
@@ -353,8 +385,20 @@ describe("workspace", () => {
       },
     };
     expect(readWorkspace(doc).view.clusterColors).toBe(false);
+    expect(readWorkspace(doc).view.clusterLooseness).toBe(1);
     doc.graph.clusterColors = true;
     expect(readWorkspace(doc).view.clusterColors).toBe(true);
+    expect(readWorkspace(doc).view.clusterLooseness).toBe(1);
+    for (const looseness of [0, 0.45, 1]) {
+      doc.graph.clusterLooseness = looseness;
+      expect(readWorkspace(doc).view.clusterLooseness).toBe(looseness);
+    }
+    for (const invalid of [-0.01, 1.01, NaN, Infinity, null, "0.5", true]) {
+      doc.graph.clusterLooseness = invalid as number;
+      expect(() => readWorkspace(doc)).toThrow("Invalid graph settings");
+    }
+    doc.graph.clusterLooseness = undefined;
+    expect(readWorkspace(doc).view.clusterLooseness).toBe(1);
     doc.graph.clusterColors = "true" as unknown as boolean;
     expect(() => readWorkspace(doc)).toThrow("Invalid graph settings");
   });
@@ -610,17 +654,17 @@ describe("Color clusters availability", () => {
     [
       { nodes: nodes(3), clusterCount: 0 },
       false,
-      "Needs two or more clusters. No displayed nodes are connected to each other.",
+      "Needs two or more clusters. At this Clusters setting no displayed nodes group together.",
     ],
     [
       { nodes: nodes(3), clusterCount: 1 },
       false,
-      "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it.",
+      "Needs two or more clusters. At this Clusters setting the displayed nodes form one cluster; move the Clusters slider or hide nodes to split it.",
     ],
     [
       { nodes: nodes(4), clusterCount: 2 },
       true,
-      "Give each group of connected nodes its own color.",
+      "Give each cluster at this Clusters setting its own color.",
     ],
   ])("%o is enabled %s with the title %s", (graph, enabled, title) => {
     expect(clusterColorsAction(graph)).toEqual({ enabled, title });

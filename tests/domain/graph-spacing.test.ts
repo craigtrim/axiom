@@ -8,6 +8,7 @@ import { THING } from "../../src/domain/model";
 import { Viewport, edgeKey } from "../../src/domain/viewport";
 import { Layouts } from "../../src/domain/layouts";
 import { layoutOptions } from "../../src/shared/layout-options";
+import { graphClusters } from "../../src/domain/graph-clusters";
 
 function fixture() {
   const store = buildEmptyStore(),
@@ -99,6 +100,72 @@ it("expands grid cells and their frames together, including inside the same clus
   expect(next.width).toBe(frame.width * 3);
   expect(next.height).toBe(frame.height * 3);
 });
+// craigtrim/axiom#205: guard actual node distances, including wrapped block rows.
+it.each([0.5, 1, 3])(
+  "keeps populated grid blocks farther apart than the Loose radius at %sx spacing",
+  (spacing) => {
+    const store = buildEmptyStore();
+    const blocks = [12, 11, 10, 9, 8, 7, 6, 5].map((count, group) => {
+      const parent = store.createClass("Group " + group, THING);
+      return Array.from({ length: count }, (_, i) =>
+        store.createClass("Member " + group + " " + i, parent),
+      );
+    });
+    const membership = new Map(
+      blocks.flatMap((members, group) =>
+        members.map((iri) => [iri, group] as const),
+      ),
+    );
+    const view = new Viewport(store);
+    view.seed(blocks.flat(), true, false);
+    const layouts = new Layouts(view, store);
+    layouts.choice = "grid";
+    layouts.spacing = spacing;
+    layouts.run();
+    const rows = layouts.groups.map((block) => block.y);
+    expect(
+      new Set(rows).size,
+      "the fixture includes wrapped rows",
+    ).toBeGreaterThan(1);
+    expect(
+      new Set(rows).size,
+      "the fixture includes side-by-side blocks",
+    ).toBeLessThan(blocks.length);
+
+    const nodes = [...view.nodes.values()];
+    const nearest = nodes
+      .map((node) =>
+        Math.min(
+          ...nodes
+            .filter((other) => other !== node)
+            .map((other) => distance(node, other)),
+        ),
+      )
+      .sort((a, b) => a - b);
+    const middle = Math.floor(nearest.length / 2);
+    const u =
+      nearest.length % 2
+        ? nearest[middle]
+        : (nearest[middle - 1] + nearest[middle]) / 2;
+    let minimumBetweenBlocks = Infinity;
+    for (let i = 0; i < nodes.length; i++)
+      for (let j = i + 1; j < nodes.length; j++)
+        if (membership.get(nodes[i].iri) !== membership.get(nodes[j].iri))
+          minimumBetweenBlocks = Math.min(
+            minimumBetweenBlocks,
+            distance(nodes[i], nodes[j]),
+          );
+    expect(minimumBetweenBlocks).toBeGreaterThan(3 * u);
+    const grouped = graphClusters(nodes, [...view.edges.values()], 1)
+      .map((members) => members.map((node) => node.iri).sort())
+      .sort((a, b) => a[0].localeCompare(b[0]));
+    expect(grouped).toEqual(
+      blocks
+        .map((members) => [...members].sort())
+        .sort((a, b) => a[0].localeCompare(b[0])),
+    );
+  },
+);
 it("retains wider force spacing after the simulation settles", () => {
   function settled(spacing: number) {
     const { view, layouts } = fixture();

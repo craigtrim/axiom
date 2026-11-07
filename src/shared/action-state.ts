@@ -2,7 +2,7 @@
 export const countLabel = (label: string, count: number) =>
   label + " (" + count.toLocaleString("en-GB") + ")";
 
-// craigtrim/axiom#200: Color clusters stays visible and says why it is unavailable below two clusters.
+// craigtrim/axiom#205: availability follows the graph's Strict-to-Loose setting.
 export function clusterColorsAction(graph?: {
   nodes: unknown[];
   clusterCount?: number;
@@ -12,12 +12,12 @@ export function clusterColorsAction(graph?: {
     enabled: clusters > 1,
     title:
       clusters > 1
-        ? "Give each group of connected nodes its own color."
+        ? "Give each cluster at this Clusters setting its own color."
         : !graph?.nodes.length
           ? "Needs two or more clusters. The graph shows no nodes."
           : clusters === 1
-            ? "Needs two or more clusters. The displayed nodes form one connected cluster; hide nodes to split it."
-            : "Needs two or more clusters. No displayed nodes are connected to each other.",
+            ? "Needs two or more clusters. At this Clusters setting the displayed nodes form one cluster; move the Clusters slider or hide nodes to split it."
+            : "Needs two or more clusters. At this Clusters setting no displayed nodes group together.",
   };
 }
 
