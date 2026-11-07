@@ -1,4 +1,6 @@
 // craigtrim/axiom#90: preserve the original domain workflows through the grouped reference UI.
+// craigtrim/axiom#205: wait for native Open's checkpoint before another workspace command.
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -121,6 +123,7 @@ async function replace(text: string) {
   await expect
     .poll(async () => (await state()).datasetEpoch)
     .toBeGreaterThan(before);
+  await waitWorkspaceCheckpoint(app, page);
 }
 test.beforeEach(async () => {
   errors.length = 0;
@@ -135,6 +138,7 @@ test.beforeEach(async () => {
       (await state()).entities.some((e) => e.iri === base + "Root"),
     )
     .toBe(true);
+  await waitWorkspaceCheckpoint(app, page);
 });
 test.afterEach(async ({}, info) => {
   if (info.status !== info.expectedStatus && page && !page.isClosed())

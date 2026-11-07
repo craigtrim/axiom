@@ -3,6 +3,8 @@ import { openSparsity } from "./sparsity-view";
 import { openTaxonomy } from "./taxonomy-view";
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
 import { GraphSpacing } from "./GraphSpacing";
+import { GraphClusters } from "./GraphClusters";
+import { DEFAULT_CLUSTER_LOOSENESS } from "../shared/graph-clusters";
 import { GraphScope, useGraphScope } from "./GraphScope";
 import { revealInTaxonomy } from "./taxonomy-navigation";
 import { clusterColorsAction, instanceAction } from "../shared/action-state";
@@ -1904,6 +1906,12 @@ function GraphContent() {
           />
           Color clusters
         </label>
+        {/* craigtrim/axiom#205: the setting remains available while colors are off. */}
+        <GraphClusters
+          value={info?.clusterLooseness ?? DEFAULT_CLUSTER_LOOSENESS}
+          epoch={snapshot.datasetEpoch}
+          disabled={!info?.nodes.length}
+        />
         <div className="graph-flyout-sep" role="separator" />
         <GraphSpacing
           value={info?.spacing ?? 1}

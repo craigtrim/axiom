@@ -1,4 +1,8 @@
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
+import {
+  DEFAULT_CLUSTER_LOOSENESS,
+  validClusterLooseness,
+} from "../shared/graph-clusters";
 // craigtrim/axiom#208: ontology size follows memory; graph display limits still apply.
 import {
   DEFAULT_GRAPH_SPACING,
@@ -54,6 +58,8 @@ export interface Workspace {
     labelsVisible?: boolean;
     // craigtrim/axiom#185: Color clusters, off unless saved on.
     clusterColors?: boolean;
+    // craigtrim/axiom#205: missing values in older workspaces open at Loose.
+    clusterLooseness?: number;
     expanded?: string[];
     stylesheet?: string;
     routes?: (EdgeBend & { key: string })[];
@@ -224,6 +230,8 @@ export function readWorkspace(
     (g.countsVisible !== undefined && typeof g.countsVisible !== "boolean") ||
     (g.labelsVisible !== undefined && typeof g.labelsVisible !== "boolean") ||
     (g.clusterColors !== undefined && typeof g.clusterColors !== "boolean") ||
+    (g.clusterLooseness !== undefined &&
+      !validClusterLooseness(g.clusterLooseness)) ||
     (g.expanded !== undefined && !strings(g.expanded, MAX_VISIBLE_NODES))
   )
     throw Error("Invalid graph settings.");
@@ -313,6 +321,7 @@ export function readWorkspace(
   view.countsVisible = g.countsVisible !== false;
   view.labelsVisible = g.labelsVisible !== false;
   view.clusterColors = g.clusterColors === true;
+  view.clusterLooseness = g.clusterLooseness ?? DEFAULT_CLUSTER_LOOSENESS;
   if (
     g.evictionMode !== undefined &&
     !["degree", "lru", "refuse"].includes(g.evictionMode)

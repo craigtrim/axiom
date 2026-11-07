@@ -1,4 +1,5 @@
 import { MAX_VISIBLE_NODES } from "../shared/graph-limits";
+import { DEFAULT_CLUSTER_LOOSENESS } from "../shared/graph-clusters";
 import { Store } from "./store";
 import { type Kind, compare } from "./model";
 export interface GraphNode {
@@ -78,6 +79,8 @@ export class Viewport {
   // craigtrim/axiom#187: Show labels, on unless switched off.
   labelsVisible = true;
   clusterColors = false;
+  // craigtrim/axiom#205: visual grouping is the default for every graph view.
+  clusterLooseness = DEFAULT_CLUSTER_LOOSENESS;
   routes = new Map<string, EdgeBend>();
   selectedEdge: string | null = null;
   focus = new Set<string>();

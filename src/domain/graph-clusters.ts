@@ -1,4 +1,5 @@
 // craigtrim/axiom#185: color each connected cluster of the displayed graph.
+// craigtrim/axiom#205: move from relationship islands to dense visual groups.
 import type { GraphEdge, GraphNode } from "./viewport";
 
 // Ordered per-theme sequences derived in #185 from Petroff's ten-color
@@ -141,30 +142,226 @@ export const clusterPalette = {
   ],
 };
 
-/** Connected components of two or more nodes, ignoring edge direction. */
-export function graphClusters(nodes: GraphNode[], edges: GraphEdge[]) {
-  const parent = new Map(nodes.map((n) => [n.iri, n.iri]));
-  const root = (iri: string): string => {
-    let r = iri;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    while (parent.get(iri) !== r) {
-      const next = parent.get(iri)!;
-      parent.set(iri, r);
-      iri = next;
+/** Groups of two or more nodes at an exact, normalized Strict-to-Loose value. */
+export function graphClusters(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  looseness = 1,
+): GraphNode[][] {
+  if (!Number.isFinite(looseness) || looseness < 0 || looseness > 1)
+    throw new RangeError("Cluster looseness must be between 0 and 1.");
+  if (nodes.length < 2) return [];
+  const parent = Int32Array.from(nodes, (_, i) => i),
+    sizes = new Uint32Array(nodes.length).fill(1);
+  const root = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
     }
-    return r;
+    return i;
   };
-  for (const e of edges)
-    if (parent.has(e.source) && parent.has(e.target))
-      parent.set(root(e.source), root(e.target));
-  const groups = new Map<string, GraphNode[]>();
-  for (const n of nodes) {
-    const r = root(n.iri),
+  const join = (a: number, b: number) => {
+    a = root(a);
+    b = root(b);
+    if (a === b) return;
+    if (sizes[a] < sizes[b]) [a, b] = [b, a];
+    parent[b] = a;
+    sizes[a] += sizes[b];
+  };
+  const indexes = new Map(nodes.map((n, i) => [n.iri, i]));
+  if (looseness === 0) {
+    // Strict has no proximity branch, even for coincident unlinked nodes.
+    for (const e of edges) {
+      const a = indexes.get(e.source),
+        b = indexes.get(e.target);
+      if (a !== undefined && b !== undefined) join(a, b);
+    }
+  } else {
+    const ids = nodes.map((_, i) => i),
+      tree = spatialTree(nodes, ids),
+      nearest: number[] = [],
+      core = new Float64Array(nodes.length),
+      k = Math.min(3, nodes.length - 1);
+    for (let i = 0; i < nodes.length; i++) {
+      const distances = nearestDistances(nodes, tree, i, k);
+      nearest.push(distances[0]);
+      core[i] = distances[k - 1];
+    }
+    nearest.sort((a, b) => a - b);
+    const middle = nearest.length >> 1,
+      unit =
+        nearest.length % 2
+          ? nearest[middle]
+          : nearest[middle - 1] + (nearest[middle] - nearest[middle - 1]) / 2,
+      looseRadius = 3 * unit,
+      radius = looseness * looseRadius;
+    if (looseness < 1) {
+      let longest = 0;
+      for (const e of edges) {
+        const a = indexes.get(e.source),
+          b = indexes.get(e.target);
+        if (a !== undefined && b !== undefined)
+          longest = Math.max(longest, distance(nodes[a], nodes[b]));
+      }
+      // This is the geometric mean's limit when either scale is zero.
+      const cutoff =
+        longest === 0 || looseRadius === 0
+          ? 0
+          : longest === looseRadius
+            ? longest
+            : Math.exp(
+                (1 - looseness) * Math.log(longest) +
+                  looseness * Math.log(looseRadius),
+              );
+      for (const e of edges) {
+        const a = indexes.get(e.source),
+          b = indexes.get(e.target);
+        if (
+          a !== undefined &&
+          b !== undefined &&
+          Math.max(
+            distance(nodes[a], nodes[b]),
+            looseness * core[a],
+            looseness * core[b],
+          ) <= cutoff
+        )
+          join(a, b);
+      }
+    }
+    // At Loose, relationships have no influence on membership.
+    const eligible = ids.filter((i) => core[i] <= radius);
+    if (eligible.length > 1) {
+      const proximity =
+        eligible.length === nodes.length ? tree : spatialTree(nodes, eligible);
+      const joinBranch = (branch: SpatialBranch, point: number) => {
+        if (branch.component !== undefined) join(point, branch.component);
+        else {
+          for (const child of branch.children!) joinBranch(child, point);
+          branch.component = point;
+        }
+      };
+      const connect = (branch: SpatialBranch, point: number) => {
+        if (
+          (branch.component !== undefined &&
+            root(branch.component) === root(point)) ||
+          boxDistance(branch, nodes[point]) > radius
+        )
+          return;
+        if (boxFarthest(branch, nodes[point]) <= radius) {
+          // A contained branch needs one union per existing component, not
+          // every pair of points in a dense or coincident cloud.
+          joinBranch(branch, point);
+          return;
+        }
+        const [a, b] = branch.children!;
+        connect(a, point);
+        connect(b, point);
+        if (
+          a.component !== undefined &&
+          b.component !== undefined &&
+          root(a.component) === root(b.component)
+        )
+          branch.component = a.component;
+      };
+      for (const point of eligible) connect(proximity, point);
+    }
+  }
+  const groups = new Map<number, GraphNode[]>();
+  for (const [i, n] of nodes.entries()) {
+    const r = root(i),
       group = groups.get(r);
     if (group) group.push(n);
     else groups.set(r, [n]);
   }
   return [...groups.values()].filter((g) => g.length > 1);
+}
+
+interface SpatialBranch {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  point?: number;
+  children?: [SpatialBranch, SpatialBranch];
+  // Once homogeneous, a branch stays homogeneous as components merge.
+  component?: number;
+}
+
+function spatialTree(nodes: GraphNode[], ids: number[]): SpatialBranch {
+  const branch: SpatialBranch = {
+    x0: Infinity,
+    y0: Infinity,
+    x1: -Infinity,
+    y1: -Infinity,
+  };
+  for (const i of ids) {
+    const { x, y } = nodes[i];
+    branch.x0 = Math.min(branch.x0, x);
+    branch.y0 = Math.min(branch.y0, y);
+    branch.x1 = Math.max(branch.x1, x);
+    branch.y1 = Math.max(branch.y1, y);
+  }
+  if (ids.length === 1) {
+    branch.point = branch.component = ids[0];
+  } else {
+    const axis = branch.x1 - branch.x0 >= branch.y1 - branch.y0 ? "x" : "y";
+    ids.sort((a, b) => nodes[a][axis] - nodes[b][axis] || a - b);
+    const middle = ids.length >> 1;
+    branch.children = [
+      spatialTree(nodes, ids.slice(0, middle)),
+      spatialTree(nodes, ids.slice(middle)),
+    ];
+  }
+  return branch;
+}
+
+const distance = (a: GraphNode, b: GraphNode) =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+const boxDistance = (b: SpatialBranch, n: GraphNode) =>
+  Math.hypot(
+    Math.max(b.x0 - n.x, 0, n.x - b.x1),
+    Math.max(b.y0 - n.y, 0, n.y - b.y1),
+  );
+const boxFarthest = (b: SpatialBranch, n: GraphNode) =>
+  Math.hypot(
+    Math.max(Math.abs(b.x0 - n.x), Math.abs(b.x1 - n.x)),
+    Math.max(Math.abs(b.y0 - n.y), Math.abs(b.y1 - n.y)),
+  );
+
+function nearestDistances(
+  nodes: GraphNode[],
+  tree: SpatialBranch,
+  point: number,
+  k: number,
+) {
+  const nearest: number[] = [];
+  const visit = (branch: SpatialBranch) => {
+    // Equal-distance neighbours are interchangeable: only distances matter.
+    if (
+      nearest.length === k &&
+      boxDistance(branch, nodes[point]) >= nearest[k - 1]
+    )
+      return;
+    if (branch.point !== undefined) {
+      if (branch.point === point) return;
+      const d = distance(nodes[point], nodes[branch.point]);
+      let at = 0;
+      while (at < nearest.length && nearest[at] <= d) at++;
+      nearest.splice(at, 0, d);
+      if (nearest.length > k) nearest.pop();
+    } else {
+      const [a, b] = branch.children!;
+      if (boxDistance(a, nodes[point]) <= boxDistance(b, nodes[point])) {
+        visit(a);
+        visit(b);
+      } else {
+        visit(b);
+        visit(a);
+      }
+    }
+  };
+  visit(tree);
+  return nearest;
 }
 
 /**
@@ -178,8 +375,21 @@ export function assignClusters(
   nodes: GraphNode[],
   edges: GraphEdge[],
   enabled: boolean,
+  looseness = 1,
 ) {
-  const clusters = graphClusters(nodes, edges);
+  return assignClusterGroups(
+    nodes,
+    graphClusters(nodes, edges, looseness),
+    enabled,
+  );
+}
+
+/** Repaints previously computed membership without repeating the geometry search. */
+export function assignClusterGroups(
+  nodes: GraphNode[],
+  clusters: GraphNode[][],
+  enabled: boolean,
+) {
   const previous = new Map(
     nodes.map((n) => [n.iri, [n.cluster, n.clusterColor] as const]),
   );

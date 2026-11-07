@@ -3,6 +3,8 @@ export interface HistoryEntry {
   undo: () => void;
   redo: () => void;
   bytes?: number;
+  // craigtrim/axiom#205: a setting-only command leaves an in-flight layout intact.
+  preservesLayout?: boolean;
 }
 export class History {
   undoStack: HistoryEntry[] = [];

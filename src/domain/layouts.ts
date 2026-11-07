@@ -433,7 +433,8 @@ export class Layouts {
         width: b.width,
         height: b.height,
       });
-      x += b.width + 40;
+      // craigtrim/axiom#205: populated blocks remain apart at Loose's 3u radius.
+      x += b.width + 60;
       rowH = Math.max(rowH, b.height);
     }
     const dx =

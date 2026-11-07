@@ -1982,6 +1982,8 @@ journey(
       ).toBeChecked();
     await page.keyboard.press("Escape");
     await expect(display).toBeHidden();
+    // craigtrim/axiom#205: this legacy cut-vertex proof uses Strict connectivity.
+    await request("clusterLooseness", { value: 0 });
     // Hiding a node that joins two groups gives Color clusters two clusters.
     const clusterCount = (g: Snapshot["graph"], skip: string) => {
       const iris = g.nodes.map((n) => n.iri).filter((iri) => iri !== skip);

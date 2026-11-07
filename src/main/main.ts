@@ -283,6 +283,8 @@ const methods = new Set<DomainMethod>([
   // craigtrim/axiom#187: show or hide every node label.
   "labelVisibility",
   "clusterColors",
+  // craigtrim/axiom#205: per-view Strict to Loose cluster membership.
+  "clusterLooseness",
   "freeze",
   "clear",
   "rename",

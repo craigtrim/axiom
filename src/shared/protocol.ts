@@ -22,6 +22,10 @@ export interface GraphSnapshot {
   // craigtrim/axiom#185: cluster colors and the number of displayed clusters.
   clusterColors?: boolean;
   clusterCount?: number;
+  // craigtrim/axiom#205: retain settled colors while the current layout moves.
+  clustersPending?: boolean;
+  // craigtrim/axiom#205: per-view Strict (0) to Loose (1) cluster setting.
+  clusterLooseness?: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
   focus: string[];
@@ -204,6 +208,7 @@ export type DomainMethod =
   | "countVisibility"
   | "labelVisibility"
   | "clusterColors"
+  | "clusterLooseness"
   | "freeze"
   | "clear"
   | "rename"
