@@ -1,13 +1,15 @@
 // #123: exercise the actual worker protocol, including selection and settled motion.
+// #217: only ontology versions trigger autosave, and checkpoints retain saved layouts.
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
 import { Worker } from "node:worker_threads";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { build } from "esbuild";
 import { schoolBase, schoolOntology } from "../fixtures/large-ontology";
 import type {
   DomainMethod,
+  CheckpointSummary,
   SerializedCheckpoint,
 } from "../../src/shared/protocol";
 let directory: string,
@@ -71,6 +73,145 @@ async function load() {
   });
   await request("layout", { mode: "grid" });
 }
+const checkpointWorkbench = { version: 1 as const, theme: "light" as const };
+async function checkpointProfile() {
+  const profile = await mkdtemp(path.join(directory, "profile-"));
+  await request("configureDataService", {
+    directory: profile,
+    appPath: directory,
+    resourcesPath: directory,
+    packaged: false,
+  });
+  await load();
+  await request("freeze");
+  await request("seed", {
+    iris: [schoolBase + "school1", schoolBase + "school2"],
+    expand: false,
+  });
+  await request("select", { iri: schoolBase + "school1" });
+  await request("drag", { iri: schoolBase + "school1", x: 120, y: 180 });
+  return profile;
+}
+async function saveCheckpoint(profile: string, ontologyOnly = false) {
+  const checkpoint = await request<CheckpointSummary>("checkpointPrepare", {
+    ontologyOnly,
+  });
+  try {
+    await request("checkpointSession", {
+      id: checkpoint.id,
+      workbench: checkpointWorkbench,
+    });
+    return JSON.parse(
+      await readFile(path.join(profile, "last-session.json"), "utf8"),
+    ).workspace;
+  } finally {
+    await request("checkpointRelease", { id: checkpoint.id });
+  }
+}
+it("keeps the ontology version unchanged for views and advances it for edits, Undo and Redo", async () => {
+  await load();
+  await request("freeze");
+  await request("seed", {
+    iris: [schoolBase + "School", schoolBase + "school1"],
+    expand: false,
+  });
+  const initial = await request("sessionState");
+  for (const [method, args] of [
+    ["select", { iri: schoolBase + "school1" }],
+    ["drag", { iri: schoolBase + "school1", x: 310, y: 220 }],
+    ["spacing", { value: 2 }],
+  ] as [DomainMethod, Record<string, unknown>][]) {
+    await request(method, args);
+    const after = await request("sessionState");
+    expect(after.storeVersion).toBe(initial.storeVersion);
+    expect(after.datasetEpoch).toBe(initial.datasetEpoch);
+  }
+  let before = initial;
+  for (const [method, args] of [
+    ["rename", { iri: schoolBase + "School", name: "Renamed school" }],
+    ["undo", {}],
+    ["redo", {}],
+  ] as [DomainMethod, Record<string, unknown>][]) {
+    await request(method, args);
+    const after = await request("sessionState");
+    expect(after.storeVersion).toBeGreaterThan(before.storeVersion);
+    expect(after.datasetEpoch).toBe(initial.datasetEpoch);
+    before = after;
+  }
+});
+it("autosaves newer ontology with the saved graph selection, positions and settings", async () => {
+  const profile = await checkpointProfile();
+  const baseline = await saveCheckpoint(profile);
+  await request("select", { iri: schoolBase + "school2" });
+  await request("drag", { iri: schoolBase + "school1", x: 567, y: 234 });
+  await request("spacing", { value: 2.5 });
+  await request("graphCreate", { iris: [schoolBase + "School"] });
+  await request("rename", {
+    iri: schoolBase + "school1",
+    name: "Autosaved school",
+  });
+  const saved = await saveCheckpoint(profile, true);
+  expect(
+    saved.entities.find((entity: { iri: string }) =>
+      entity.iri === schoolBase + "school1",
+    ).label,
+  ).toBe("Autosaved school");
+  expect(saved.storeVersion).toBeGreaterThan(baseline.storeVersion);
+  expect(saved.selected).toBe(baseline.selected);
+  expect(saved.graph).toEqual(baseline.graph);
+  expect(saved.graphs).toEqual(baseline.graphs);
+  expect(saved.activeGraphId).toBe(baseline.activeGraphId);
+  expect(saved.archivedGraphs).toEqual(baseline.archivedGraphs);
+});
+it("advances the saved layout after writing a checkpoint rather than preparing it", async () => {
+  const profile = await checkpointProfile();
+  const baseline = await saveCheckpoint(profile);
+  await request("select", { iri: schoolBase + "school2" });
+  await request("drag", { iri: schoolBase + "school1", x: 350, y: 260 });
+  const next = await request("serialize");
+  const pending = await request<CheckpointSummary>("checkpointPrepare");
+  try {
+    const beforeWrite = await saveCheckpoint(profile, true);
+    expect(beforeWrite.selected).toBe(baseline.selected);
+    expect(beforeWrite.graph).toEqual(baseline.graph);
+    await request("checkpointSession", {
+      id: pending.id,
+      workbench: checkpointWorkbench,
+    });
+    await request("select", { iri: schoolBase + "School" });
+    await request("drag", { iri: schoolBase + "school1", x: 700, y: 500 });
+    const afterWrite = await saveCheckpoint(profile, true);
+    expect(afterWrite.selected).toBe(next.selected);
+    expect(afterWrite.graph).toEqual(next.graph);
+    expect(afterWrite.graphs).toEqual(next.graphs);
+  } finally {
+    await request("checkpointRelease", { id: pending.id });
+  }
+});
+it("retains the preceding layout when writing the next session fails", async () => {
+  const profile = await checkpointProfile();
+  const baseline = await saveCheckpoint(profile);
+  await request("select", { iri: schoolBase + "school2" });
+  await request("drag", { iri: schoolBase + "school1", x: 350, y: 260 });
+  const pending = await request<CheckpointSummary>("checkpointPrepare");
+  const blocked = path.join(profile, "last-session.json.tmp");
+  await mkdir(blocked);
+  try {
+    await expect(
+      request("checkpointSession", {
+        id: pending.id,
+        workbench: checkpointWorkbench,
+      }),
+    ).rejects.toThrow();
+  } finally {
+    await rm(blocked, { recursive: true, force: true });
+    await request("checkpointRelease", { id: pending.id });
+  }
+  const saved = await saveCheckpoint(profile, true);
+  expect(saved.selected).toBe(baseline.selected);
+  expect(saved.graph).toEqual(baseline.graph);
+  expect(saved.graphs).toEqual(baseline.graphs);
+});
 it("changes session revision for selection, graph state, Undo, Redo and workspace replacement", async () => {
   await load();
   const initial = await request("sessionState");
