@@ -1,5 +1,7 @@
 // craigtrim/axiom#207: keep ontology work and large payloads in the data process.
 // craigtrim/axiom#208: stream imports and capture immutable, bounded checkpoints.
+// craigtrim/axiom#205: per-view cluster controls and settled geometry membership.
+import { GraphClusterState } from "./graph-cluster-state";
 import { encodeJson } from "./json-io";
 import { DomainJsonReceiver, DomainJsonSender } from "./domain-json-transport";
 import { StateUpdates } from "./state-updates";
@@ -95,7 +97,6 @@ import { isLayoutMode, isExternalLayout } from "../shared/layout-options";
 import { buildStore, generate } from "../domain/fixture";
 import { Store } from "../domain/store";
 import { Viewport, admissionText, edgeKey } from "../domain/viewport";
-import { assignClusters } from "../domain/graph-clusters";
 import { Layouts, type LayoutMode } from "../domain/layouts";
 import {
   NS,
@@ -302,6 +303,16 @@ type GraphSession = {
   version: number;
 };
 const graphSessions = new Map<string, GraphSession>();
+const clusterStates = new WeakMap<Viewport, GraphClusterState>();
+const draggingViews = new WeakSet<Viewport>();
+function clusterState(v: Viewport) {
+  let state = clusterStates.get(v);
+  if (!state) {
+    state = new GraphClusterState();
+    clusterStates.set(v, state);
+  }
+  return state;
+}
 const graphArchives = new Map<
   string,
   import("../domain/workspace").Workspace["graph"]
@@ -362,6 +373,7 @@ function sessionState() {
       s.view.countsVisible,
       s.view.labelsVisible,
       s.view.clusterColors,
+      s.view.clusterLooseness,
       s.layouts.choice,
       s.layouts.spacing,
       s.frozen,
@@ -417,6 +429,7 @@ function serializeWorkspace() {
           countsVisible: session.view.countsVisible,
           labelsVisible: session.view.labelsVisible,
           clusterColors: session.view.clusterColors,
+          clusterLooseness: session.view.clusterLooseness,
           expanded: [...session.view.nodes.values()]
             .filter((n) => n.expanded)
             .map((n) => n.iri),
@@ -456,6 +469,7 @@ function serializeWorkspace() {
       countsVisible: view.countsVisible,
       labelsVisible: view.labelsVisible,
       clusterColors: view.clusterColors,
+      clusterLooseness: view.clusterLooseness,
       expanded: [...view.nodes.values()]
         .filter((n) => n.expanded)
         .map((n) => n.iri),
@@ -475,6 +489,7 @@ function captureView(v: Viewport, l: Layouts, isFrozen: boolean) {
     countsVisible: v.countsVisible,
     labelsVisible: v.labelsVisible,
     clusterColors: v.clusterColors,
+    clusterLooseness: v.clusterLooseness,
     focus: [...v.focus],
     budget: v.budget,
     eviction: v.evictionMode,
@@ -527,6 +542,8 @@ function restoreFrame(frame: Frame) {
     v.countsVisible = saved.countsVisible;
     v.labelsVisible = saved.labelsVisible;
     v.clusterColors = saved.clusterColors;
+    v.clusterLooseness = saved.clusterLooseness;
+    draggingViews.delete(v);
     v.focus = new Set(saved.focus);
     v.budget = saved.budget;
     v.evictionMode = saved.eviction;
@@ -572,6 +589,7 @@ function stopExternal() {
   }
 }
 function runLayout(fresh = true) {
+  clusterState(view).invalidate();
   applyGraphAppearance(view, stylesheet);
   layouts.run(fresh);
   if (!isExternalLayout(layouts.choice) || !view.nodes.size) return;
@@ -661,6 +679,7 @@ const tracked = new Set<DomainMethod>([
   "countVisibility",
   "labelVisibility",
   "clusterColors",
+  "clusterLooseness",
   "freeze",
   "clear",
   "rename",
@@ -692,10 +711,18 @@ const tracked = new Set<DomainMethod>([
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
+const clusterLoosenessBefore = new Map<string, Frame>();
 async function operate(
   method: DomainMethod,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  // An old control may finish after its graph or dataset has been replaced.
+  if (
+    method === "clusterLooseness" &&
+    args.datasetEpoch !== undefined &&
+    args.datasetEpoch !== datasetEpoch
+  )
+    return false;
   // Ending a drawing in another graph view must not change the active graph.
   if (typeof args.graphId === "string" && method !== "graphInteraction")
     activateGraph(args.graphId);
@@ -708,6 +735,7 @@ async function operate(
     graphInteractions.clear();
     dragBefore = undefined;
     spacingBefore.clear();
+    clusterLoosenessBefore.clear();
     documentRevision = savedRevision = 0;
     publish();
     return value;
@@ -730,6 +758,7 @@ async function operate(
       "countVisibility",
       "labelVisibility",
       "clusterColors",
+      "clusterLooseness",
     ].includes(method) &&
     (method !== "drag" || !args.dragging)
   )
@@ -739,7 +768,9 @@ async function operate(
         ? (dragBefore ?? captureFrame())
         : method === "spacing"
           ? (spacingBefore.get(activeGraphId) ?? captureFrame())
-          : captureFrame(),
+          : method === "clusterLooseness"
+            ? (clusterLoosenessBefore.get(activeGraphId) ?? captureFrame())
+            : captureFrame(),
     initialVersion = store.version,
     oldCommands = store.undoStack.length;
   const generated =
@@ -757,6 +788,20 @@ async function operate(
     return value;
   }
   if (method === "spacing") spacingBefore.delete(activeGraphId);
+  if (method === "clusterLooseness" && args.preview === true) {
+    clusterLoosenessBefore.set(activeGraphId, before);
+    return value;
+  }
+  if (method === "clusterLooseness") {
+    clusterLoosenessBefore.delete(activeGraphId);
+    if (
+      before.views.find((entry) => entry.id === activeGraphId)
+        ?.clusterLooseness === view.clusterLooseness
+    ) {
+      publish();
+      return value;
+    }
+  }
   const commands = store.undoStack.splice(oldCommands);
   store.redoStack = [];
   let after = captureFrame();
@@ -793,6 +838,7 @@ async function operate(
                 countVisibility: "Show or hide counts",
                 labelVisibility: "Show or hide labels",
                 clusterColors: "Color clusters",
+                clusterLooseness: "Change clusters",
                 freeze: "Freeze or resume layout",
                 clear: "Clear graph",
                 tableGraph: "Show filtered individuals",
@@ -841,6 +887,12 @@ async function operate(
 function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
   applyGraphAppearance(v, stylesheet);
   updateIntersectionRoutes([...v.nodes.values()], [...v.edges.values()]);
+  const clusters = clusterState(v).update(
+    v,
+    draggingViews.has(v) ||
+      (id === activeGraphId && !!external) ||
+      (!isFrozen && l.resolved === "force" && v.alpha >= 0.004),
+  );
   return {
     id,
     selected: v.selected,
@@ -862,11 +914,9 @@ function graph(v = view, l = layouts, isFrozen = frozen, id = activeGraphId) {
     countsVisible: v.countsVisible,
     labelsVisible: v.labelsVisible,
     clusterColors: v.clusterColors,
-    clusterCount: assignClusters(
-      [...v.nodes.values()],
-      [...v.edges.values()],
-      v.clusterColors,
-    ),
+    clusterLooseness: v.clusterLooseness,
+    clusterCount: clusters.count,
+    clustersPending: clusters.pending,
     groups: l.groups,
     rings: l.rings,
     ringOrigin: l.ringOrigin,
@@ -887,6 +937,7 @@ function snapshot(): Snapshot {
     }
   }
   keepGraph();
+  const active = graph();
   return {
     ontology: store.ontology,
     datasetEpoch,
@@ -896,16 +947,19 @@ function snapshot(): Snapshot {
     canRedo: !!history.redoStack.length,
     undoLabel: history.undoStack.at(-1)?.label,
     redoLabel: history.redoStack.at(-1)?.label,
-    graph: graph(),
+    graph: active,
     activeGraphId,
     graphs: Object.fromEntries(
       [...graphSessions].map(([id, s]) => [
         id,
-        graph(s.view, s.layouts, s.frozen, id),
+        id === activeGraphId ? active : graph(s.view, s.layouts, s.frozen, id),
       ]),
     ),
     selected,
-    message,
+    message:
+      active.clusterColors && active.clustersPending
+        ? "Clusters update when the layout settles."
+        : message,
     dirty,
   };
 }
@@ -2306,6 +2360,9 @@ async function dispatch(
         n.x = number(a, "x", -1e8, 1e8);
         n.y = number(a, "y", -1e8, 1e8);
         n.dragging = !!a.dragging;
+        clusterState(view).invalidate();
+        if (n.dragging) draggingViews.add(view);
+        else draggingViews.delete(view);
         n.vx = n.vy = 0;
         view.alpha = Math.max(view.alpha, 0.2);
         emit("positions", {
@@ -2359,7 +2416,12 @@ async function dispatch(
       view.clusterColors = a.enabled;
       // craigtrim/axiom#185: turning colors on numbers clusters afresh, largest first.
       for (const n of view.nodes.values()) delete n.cluster;
+      clusterState(view).repaint();
       changed(view.clusterColors ? "Clusters colored." : "Cluster colors off.");
+      return true;
+    case "clusterLooseness":
+      view.clusterLooseness = number(a, "value", 0, 1);
+      changed("Clusters: " + Math.round(view.clusterLooseness * 100) + "%.");
       return true;
     case "edgeVisibility":
       if (typeof a.visible !== "boolean")
@@ -2369,6 +2431,7 @@ async function dispatch(
       changed(view.edgesVisible ? "Edges shown." : "Edges hidden.");
       return true;
     case "spacing":
+      clusterState(view).invalidate();
       layouts.setSpacing(
         number(a, "value", MIN_GRAPH_SPACING, MAX_GRAPH_SPACING),
       );
@@ -2821,6 +2884,7 @@ function simulate() {
       alpha: view.alpha,
     });
   }
+  if (view.alpha < 0.004) publish();
   setImmediate(simulate);
 }
 simulate();

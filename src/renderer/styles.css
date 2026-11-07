@@ -3260,19 +3260,29 @@ a {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.graph-flyout .graph-spacing {
+/* craigtrim/axiom#205: Clusters shares the graph slider readout and endpoint labels. */
+.graph-flyout .graph-spacing,
+.graph-flyout .graph-clusters {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--sp-1) var(--sp-2);
   align-items: center;
 }
-.graph-flyout .graph-spacing input[type="range"] {
+.graph-flyout .graph-spacing input[type="range"],
+.graph-flyout .graph-clusters input[type="range"] {
   grid-column: 1 / -1;
 }
-.graph-spacing output {
+.graph-spacing output,
+.graph-clusters output {
   min-width: 4ch;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+.graph-clusters-ends {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
 }
 .graph-edge-picker {
   width: 360px;
