@@ -1,21 +1,46 @@
 // craigtrim/axiom#208: documents cross disk in bounded chunks, never one JSON string.
+// craigtrim/axiom#218: checkpoints yield between bounded encoding steps so reads can run.
 import { createReadStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { Readable, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import { parser } from "stream-json/parser.js";
 import Assembler from "stream-json/assembler.js";
 
 export type JsonChunks = readonly string[];
 
-/** Capture before yielding so edits cannot change an in-flight checkpoint. */
+/** Capture synchronously before later edits can change the document. */
 export function encodeJson(value: unknown, chunkSize = 64 * 1024): JsonChunks {
+  const chunks: string[] = [];
+  for (const chunk of encodeJsonChunks(value, chunkSize))
+    if (chunk !== undefined) chunks.push(chunk);
+  return Object.freeze(chunks);
+}
+
+/** The caller must keep the source stable until the returned snapshot completes. */
+export async function encodeJsonAsync(
+  value: unknown,
+  chunkSize = 64 * 1024,
+): Promise<JsonChunks> {
+  const chunks: string[] = [];
+  for (const chunk of encodeJsonChunks(value, chunkSize)) {
+    if (chunk !== undefined) chunks.push(chunk);
+    await yieldToEventLoop();
+  }
+  return Object.freeze(chunks);
+}
+
+function* encodeJsonChunks(
+  value: unknown,
+  chunkSize: number,
+): Generator<string | undefined> {
   if (!Number.isInteger(chunkSize) || chunkSize < 8)
     throw Error("Invalid JSON chunk size.");
-  const chunks: string[] = [];
   let pending = "";
+  let visited = 0;
   const ancestors = new Set<object>();
-  const append = (text: string) => {
+  function* append(text: string): Generator<string> {
     let start = 0;
     while (start < text.length) {
       let end = Math.min(text.length, start + chunkSize - pending.length);
@@ -29,20 +54,20 @@ export function encodeJson(value: unknown, chunkSize = 64 * 1024): JsonChunks {
       )
         end--;
       if (end === start) {
-        chunks.push(pending);
+        yield pending;
         pending = "";
         continue;
       }
       pending += text.slice(start, end);
       start = end;
       if (pending.length === chunkSize) {
-        chunks.push(pending);
+        yield pending;
         pending = "";
       }
     }
-  };
-  const quoted = (text: string) => {
-    append('"');
+  }
+  function* quoted(text: string): Generator<string> {
+    yield* append('"');
     for (let start = 0; start < text.length;) {
       let end = Math.min(text.length, start + chunkSize);
       if (
@@ -53,11 +78,11 @@ export function encodeJson(value: unknown, chunkSize = 64 * 1024): JsonChunks {
         text.charCodeAt(end) <= 0xdfff
       )
         end--;
-      append(JSON.stringify(text.slice(start, end)).slice(1, -1));
+      yield* append(JSON.stringify(text.slice(start, end)).slice(1, -1));
       start = end;
     }
-    append('"');
-  };
+    yield* append('"');
+  }
   const prepare = (item: unknown, key: string): unknown => {
     if (item && typeof item === "object" && "toJSON" in item) {
       const toJSON = (item as { toJSON?: unknown }).toJSON;
@@ -69,13 +94,16 @@ export function encodeJson(value: unknown, chunkSize = 64 * 1024): JsonChunks {
     item === undefined ||
     typeof item === "function" ||
     typeof item === "symbol";
-  const visit = (item: unknown) => {
+  function* visit(item: unknown): Generator<string | undefined> {
+    // Omitted properties and tiny values must not hide unbounded work from the
+    // asynchronous driver simply because they have not filled a chunk yet.
+    if (++visited % 256 === 0) yield undefined;
     if (item === null || omitted(item)) {
-      append("null");
+      yield* append("null");
     } else if (typeof item === "string") {
-      quoted(item);
+      yield* quoted(item);
     } else if (typeof item === "number" || typeof item === "boolean") {
-      append(JSON.stringify(item));
+      yield* append(JSON.stringify(item));
     } else if (typeof item === "bigint") {
       throw TypeError("Cannot serialize a BigInt as JSON.");
     } else {
@@ -83,35 +111,35 @@ export function encodeJson(value: unknown, chunkSize = 64 * 1024): JsonChunks {
       if (ancestors.has(object)) throw TypeError("Circular JSON document.");
       ancestors.add(object);
       if (Array.isArray(object)) {
-        append("[");
+        yield* append("[");
         const length = object.length;
         for (let i = 0; i < length; i++) {
-          if (i) append(",");
-          visit(prepare(object[i], String(i)));
+          if (i) yield* append(",");
+          yield* visit(prepare(object[i], String(i)));
         }
-        append("]");
+        yield* append("]");
       } else {
-        append("{");
+        yield* append("{");
         let first = true;
         for (const key of Object.keys(object)) {
+          if (++visited % 256 === 0) yield undefined;
           const child = prepare(object[key], key);
           if (omitted(child)) continue;
-          if (!first) append(",");
+          if (!first) yield* append(",");
           first = false;
-          quoted(key);
-          append(":");
-          visit(child);
+          yield* quoted(key);
+          yield* append(":");
+          yield* visit(child);
         }
-        append("}");
+        yield* append("}");
       }
       ancestors.delete(object);
     }
-  };
+  }
   const document = prepare(value, "");
   if (omitted(document)) throw TypeError("A JSON document is required.");
-  visit(document);
-  if (pending) chunks.push(pending);
-  return Object.freeze(chunks);
+  yield* visit(document);
+  if (pending) yield pending;
 }
 
 export async function readJsonFile(

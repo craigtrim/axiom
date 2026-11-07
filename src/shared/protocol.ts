@@ -263,6 +263,8 @@ export interface Preferences {
   arrangement?: "auto" | "standard" | "wide" | "custom";
 }
 export interface AxiomBridge {
+  // #218: checkpoint status remains available independently of data-process reads.
+  workspace: { saving(): Promise<boolean> };
   qualityExport(input: {
     id: number;
     format: "csv" | "json";

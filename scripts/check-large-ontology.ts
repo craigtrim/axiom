@@ -1,4 +1,5 @@
 // craigtrim/axiom#208: one hosted journey crosses both old quotas and V8's string ceiling.
+// #218: warm Individuals page turns stay responsive while the same worker encodes a checkpoint.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -16,6 +17,7 @@ import { domainRuntimePaths } from "../src/main/node-runtime";
 import type { Triple } from "../src/domain/model";
 import type { SavedEditorDrafts } from "../src/shared/editor-state";
 import type { SourceDocument } from "../src/shared/source";
+import type { IndividualGridPage } from "../src/shared/individual-columns";
 import type {
   CheckpointSummary,
   DataRuntimeInfo,
@@ -354,8 +356,70 @@ async function assertSentinels(probe: Probe) {
   }
   return sentinels;
 }
-async function checkpoint(probe: Probe) {
-  const saved = await probe.request<CheckpointSummary>("checkpointPrepare");
+async function checkpoint(probe: Probe, measureReads = false) {
+  const grid = { scope: base + "School", sort: "subject", direction: 1 };
+  let warmMilliseconds = 0;
+  if (measureReads) {
+    const started = performance.now();
+    const warm = await probe.request<IndividualGridPage>("individualGrid", {
+      ...grid,
+      page: 1,
+    });
+    warmMilliseconds = performance.now() - started;
+    assert.equal(warm.total, schools);
+    assert.equal(warm.rows[0].iri, base + "S000000");
+  }
+  let finished = false;
+  const preparing = probe
+    .request<CheckpointSummary>("checkpointPrepare")
+    .finally(() => {
+      finished = true;
+    });
+  // Keep a preparation failure observable while the read loop is still awaiting IPC.
+  void preparing.catch(() => {});
+  if (measureReads) {
+    const milliseconds: number[] = [];
+    for (let turn = 0; turn < 100; turn++) {
+      assert(
+        !finished,
+        "Every page turn must begin during checkpoint preparation.",
+      );
+      const started = performance.now();
+      const page = turn + 2;
+      const result = await probe.request<IndividualGridPage>("individualGrid", {
+        ...grid,
+        page,
+      });
+      milliseconds.push(performance.now() - started);
+      assert(
+        !finished,
+        "Every page turn must finish before checkpoint preparation completes.",
+      );
+      assert.equal(result.page, page);
+      assert.equal(result.total, schools);
+      assert.equal(result.rows.length, 100);
+      assert.equal(
+        result.rows[0].iri,
+        base + "S" + String((page - 1) * 100).padStart(6, "0"),
+      );
+    }
+    const ordered = [...milliseconds].sort((a, b) => a - b);
+    report.checkpointReads = {
+      scope: grid.scope,
+      schools,
+      samples: milliseconds.length,
+      allDuringPreparation: true,
+      warmMilliseconds,
+      milliseconds,
+      p95Milliseconds: ordered[94],
+      maxMilliseconds: ordered.at(-1),
+    };
+    assert(
+      ordered[94] <= 30,
+      "Warm page turns during checkpoint preparation must have p95 at most 30 ms.",
+    );
+  }
+  const saved = await preparing;
   assert.equal(typeof saved.id, "string");
   assert.equal(saved.hasDrafts, false);
   assert(
@@ -515,7 +579,7 @@ try {
   );
   report.sentinels = sentinels;
   await phase("write the autosave checkpoint session", async () => {
-    const saved = await checkpoint(imported);
+    const saved = await checkpoint(imported, true);
     try {
       await imported.request("checkpointSession", { id: saved.id, workbench });
     } finally {

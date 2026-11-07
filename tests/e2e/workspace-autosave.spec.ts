@@ -2,6 +2,7 @@
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #166: reopening a recovered workspace waits for Close to finish its checkpoint.
 // #217: ontology autosaves retain the last saved layout until Save or close.
+// #218: the shell reports saving until checkpoint writes and release finish.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   observeDomainReply,
@@ -193,6 +194,65 @@ async function create(name = "Alpha") {
     position: { x: 120, y: 180 },
   });
 }
+async function holdCheckpointPhases() {
+  await expect
+    .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+    .toBe(false);
+  await observeDomainService(app!, page);
+  await app!.evaluate(() => {
+    const utility = (globalThis as any).__domainServiceObserver.utility;
+    const original = utility.postMessage;
+    const methods = new Set([
+      "checkpointPrepare",
+      "checkpointSession",
+      "checkpointWorkspace",
+      "checkpointRelease",
+    ]);
+    const pending: { method: string; forward: () => void }[] = [];
+    const intercept = function (this: unknown, message: any, ...rest: any[]) {
+      if (
+        message?.channel === "axiom-domain-v1" &&
+        message.type === "request" &&
+        methods.has(message.packet?.method)
+      ) {
+        pending.push({
+          method: message.packet.method,
+          forward: () => Reflect.apply(original, utility, [message, ...rest]),
+        });
+        return;
+      }
+      return Reflect.apply(original, this, [message, ...rest]);
+    };
+    utility.postMessage = intercept;
+    (globalThis as any).__checkpointPhases = {
+      pending,
+      release: () => {
+        const next = pending.shift();
+        if (!next) throw Error("There is no held checkpoint phase.");
+        next.forward();
+      },
+      restore: () => {
+        if (utility.postMessage === intercept) utility.postMessage = original;
+        for (const next of pending.splice(0)) next.forward();
+      },
+    };
+  });
+  return {
+    async wait(method: string) {
+      await expect
+        .poll(() =>
+          app!.evaluate(
+            () => (globalThis as any).__checkpointPhases.pending[0]?.method,
+          ),
+        )
+        .toBe(method);
+    },
+    release: () =>
+      app!.evaluate(() => (globalThis as any).__checkpointPhases.release()),
+    dispose: () =>
+      app!.evaluate(() => (globalThis as any).__checkpointPhases.restore()),
+  };
+}
 test.beforeEach(async () => {
   errors.length = 0;
   await mkdir("artifacts/testing", { recursive: true });
@@ -203,6 +263,94 @@ test.afterEach(async () => {
   if (app) await close();
   expect(errors).toEqual([]);
 });
+for (const fails of [false, true])
+  test(
+    "saving status covers every checkpoint phase and clears after " +
+      (fails ? "a write failure" : "a successful save"),
+    async () => {
+      const iri = await create();
+      const file = path.join(profile, "saving-state.axiom");
+      if (fails) {
+        await save(file);
+        await request("rename", {
+          iri,
+          name: "Edit retained after failed save",
+        });
+        await mkdir(file + ".bak");
+      } else {
+        await app!.evaluate(({ dialog }, file) => {
+          dialog.showSaveDialog = async () => ({
+            canceled: false,
+            filePath: file,
+          });
+        }, file);
+      }
+      const status = page.getByRole("contentinfo", {
+        name: "Workbench status",
+      });
+      const phases = await holdCheckpointPhases();
+      await page.evaluate(() => {
+        (globalThis as any).__savingEvents = [];
+        window.axiom.onEvent((event) => {
+          if (event.type === "workspace-saving")
+            (globalThis as any).__savingEvents.push(event.data);
+        });
+      });
+      try {
+        await menu(fails ? "file.save" : "file.saveAs");
+        for (const method of [
+          "checkpointPrepare",
+          "checkpointSession",
+          "checkpointWorkspace",
+          ...(!fails ? ["checkpointSession"] : []),
+          "checkpointRelease",
+        ]) {
+          await phases.wait(method);
+          await expect(status).toContainText("Saving…");
+          expect(
+            await page.evaluate(() => window.axiom.workspace.saving()),
+          ).toBe(true);
+          expect(
+            await page.evaluate(() => (globalThis as any).__savingEvents),
+          ).toEqual([true]);
+          // The shell and ordinary reads remain responsive throughout the save.
+          expect(
+            (await state()).entities.some((entity) => entity.iri === iri),
+          ).toBe(true);
+          await phases.release();
+        }
+        await expect
+          .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+          .toBe(false);
+        await expect(status).not.toContainText("Saving…");
+        await expect(status).toContainText(fails ? "Unsaved changes" : "Saved");
+        expect(
+          await page.evaluate(() => (globalThis as any).__savingEvents),
+        ).toEqual([true, false]);
+        if (fails) {
+          expect(
+            (await stored()).workspace.entities.find(
+              (entity: any) => entity.iri === iri,
+            )?.label,
+          ).toBe("Edit retained after failed save");
+          expect(
+            JSON.parse(await readFile(file, "utf8")).entities.find(
+              (entity: any) => entity.iri === iri,
+            )?.label,
+          ).toBe("Alpha");
+        } else {
+          expect(
+            JSON.parse(await readFile(file, "utf8")).entities.some(
+              (entity: any) => entity.iri === iri,
+            ),
+          ).toBe(true);
+        }
+      } finally {
+        await phases.dispose();
+        if (fails) await rm(file + ".bak", { recursive: true });
+      }
+    },
+  );
 test("periodic autosave retains ontology with the last saved layout after a forced exit", async () => {
   test.setTimeout(120000);
   const iri = await create(),

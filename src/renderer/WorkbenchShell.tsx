@@ -79,6 +79,32 @@ export function useWindowDocument() {
   return info;
 }
 
+// #218: subscribe before reading so a late reply cannot overwrite newer save state.
+function useWorkspaceSaving() {
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let live = true;
+    let receivedEvent = false;
+    const off = window.axiom.onEvent(({ type, data }) => {
+      if (type === "workspace-saving") {
+        receivedEvent = true;
+        setSaving(data === true);
+      }
+    });
+    void window.axiom.workspace
+      .saving()
+      .then((value) => {
+        if (live && !receivedEvent) setSaving(value);
+      })
+      .catch((error) => report(error.message, true));
+    return () => {
+      live = false;
+      off();
+    };
+  }, []);
+  return saving;
+}
+
 export function useShellBadges(snapshot: Snapshot) {
   const errors = useAuditErrors();
   const quality = useQualityStatus();
@@ -440,6 +466,7 @@ export function WorkbenchStatus({
 }) {
   const pane = paneInfo(active);
   const info = useWindowDocument();
+  const saving = useWorkspaceSaving();
   const quality = useQualityStatus();
   const staleSettings = useQualityStale();
   const applying = useQualityApplying();
@@ -516,7 +543,9 @@ export function WorkbenchStatus({
       )}
       <span className={"si" + (dirty ? " warnink" : "")}>
         <ChromeGlyph name="save" />
-        <span>{dirty ? "Unsaved changes" : "Saved"}</span>
+        <span aria-live="polite">
+          {saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
+        </span>
       </span>
       {notice.error && (
         <button

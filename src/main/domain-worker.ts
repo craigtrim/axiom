@@ -2,7 +2,7 @@
 // craigtrim/axiom#208: stream imports and capture immutable, bounded checkpoints.
 // craigtrim/axiom#205: per-view cluster controls and settled geometry membership.
 import { GraphClusterState } from "./graph-cluster-state";
-import { encodeJson } from "./json-io";
+import { encodeJsonAsync } from "./json-io";
 import { DomainJsonReceiver, DomainJsonSender } from "./domain-json-transport";
 import { StateUpdates } from "./state-updates";
 import { CheckpointStore } from "./checkpoint-store";
@@ -394,9 +394,8 @@ interface CheckpointLayout {
     "graph" | "graphs" | "archivedGraphs" | "activeGraphId" | "selected"
   >;
 }
-let savedCheckpointLayout: CheckpointLayout = captureCheckpointLayout(
-  serializeWorkspace(),
-);
+let savedCheckpointLayout: CheckpointLayout =
+  captureCheckpointLayout(serializeWorkspace());
 const checkpointLayouts = new Map<string, CheckpointLayout>();
 function captureCheckpointLayout(
   document: CheckpointLayout["layout"] & {
@@ -739,6 +738,70 @@ const tracked = new Set<DomainMethod>([
   "applySubclassSuggestions",
   "applyTaxonomySuggestions",
 ]);
+// #218: checkpoint barriers wait for active writes while reads keep serving.
+const checkpointMethods = new Set<DomainMethod>([
+  ...tracked,
+  "checkpointPrepare",
+  "configureDataService",
+  "restoreSession",
+  "loadWorkspaceFile",
+  "importRdf",
+  "importRdfFile",
+  "new",
+  "example",
+  "load",
+  "graphCreate",
+  "graphArchive",
+  "graphRestore",
+  "graphActivate",
+  "select",
+  "selectEdge",
+  "cancelLayout",
+  "uiHistory",
+  "undo",
+  "redo",
+]);
+const checkpointQueue: { checkpoint: boolean; start: () => void }[] = [];
+let activeMutations = 0;
+let checkpointRunning = false;
+let encodingOntologyOnly = false;
+function runCheckpointQueue() {
+  if (checkpointRunning) return;
+  while (checkpointQueue.length) {
+    const next = checkpointQueue[0];
+    if (next.checkpoint) {
+      if (activeMutations) return;
+      checkpointQueue.shift();
+      checkpointRunning = true;
+      next.start();
+      return;
+    }
+    checkpointQueue.shift();
+    activeMutations++;
+    next.start();
+  }
+}
+function scheduleCheckpoint<T>(
+  operation: () => Promise<T>,
+  checkpoint: boolean,
+) {
+  return new Promise<T>((resolve, reject) => {
+    checkpointQueue.push({
+      checkpoint,
+      start: () => {
+        void Promise.resolve()
+          .then(operation)
+          .then(resolve, reject)
+          .finally(() => {
+            if (checkpoint) checkpointRunning = false;
+            else activeMutations--;
+            runCheckpointQueue();
+          });
+      },
+    });
+    runCheckpointQueue();
+  });
+}
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
@@ -1129,33 +1192,42 @@ async function dispatch(
     case "runtimeInfo":
       return runtimeInfo();
     case "checkpointPrepare": {
-      const current = serializeWorkspace();
-      const baseline =
-        savedCheckpointLayout?.datasetEpoch === datasetEpoch
-          ? savedCheckpointLayout
+      encodingOntologyOnly = a.ontologyOnly === true;
+      try {
+        const current = serializeWorkspace();
+        const layout = captureCheckpointLayout(current);
+        const baseline =
+          encodingOntologyOnly &&
+          savedCheckpointLayout.datasetEpoch === datasetEpoch
+            ? savedCheckpointLayout
+            : layout;
+        const document = {
+          ...current,
+          ...baseline.layout,
+          workspaceRevision: baseline.workspaceRevision,
+        };
+        const revision = sessionState();
+        const drafts = a.editorDrafts as
+          import("../shared/editor-state").SavedEditorDrafts | undefined;
+        const chunks = await encodeJsonAsync(document);
+        const draftsChunks = drafts
+          ? await encodeJsonAsync({
+              ...drafts,
+              storeVersion: document.storeVersion,
+            })
           : undefined;
-      const document =
-        a.ontologyOnly === true && baseline
-          ? {
-              ...current,
-              ...baseline.layout,
-              workspaceRevision: baseline.workspaceRevision,
-            }
-          : current;
-      const drafts = a.editorDrafts as
-        import("../shared/editor-state").SavedEditorDrafts | undefined;
-      const checkpoint = checkpointStore().register({
-        ...sessionState(),
-        storeVersion: document.storeVersion,
-        workspaceRevision: document.workspaceRevision,
-        chunks: encodeJson(document),
-        draftsChunks: drafts
-          ? encodeJson({ ...drafts, storeVersion: document.storeVersion })
-          : undefined,
-      });
-      if (a.ontologyOnly !== true)
-        checkpointLayouts.set(checkpoint.id, captureCheckpointLayout(document));
-      return checkpoint;
+        const checkpoint = checkpointStore().register({
+          ...revision,
+          storeVersion: document.storeVersion,
+          workspaceRevision: document.workspaceRevision,
+          chunks,
+          draftsChunks,
+        });
+        if (!encodingOntologyOnly) checkpointLayouts.set(checkpoint.id, layout);
+        return checkpoint;
+      } finally {
+        encodingOntologyOnly = false;
+      }
     }
     case "checkpointSession": {
       const id = string(a, "id", 200);
@@ -2917,7 +2989,13 @@ const receive = async (packet: {
   if (shuttingDown) return;
   const { id, method, args } = packet;
   try {
-    const value = await operate(method, args ?? {});
+    const operation = () => operate(method, args ?? {});
+    const queued =
+      checkpointMethods.has(method) &&
+      !(method === "select" && encodingOntologyOnly);
+    const value = await (queued
+      ? scheduleCheckpoint(operation, method === "checkpointPrepare")
+      : operation());
     postMessage({ id, value });
   } catch (e) {
     postMessage({

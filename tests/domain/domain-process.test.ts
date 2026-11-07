@@ -1,5 +1,6 @@
 // craigtrim/axiom#207: exercise the actual Node child, its wire format and lifetime.
 // craigtrim/axiom#208: file import and immutable checkpoints stay within that child.
+// #218: checkpoint encoding yields to real IPC reads and queues later mutations.
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { build } from "esbuild";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -8,6 +9,7 @@ import path from "node:path";
 import { once } from "node:events";
 import { DomainProcess, heapCeilingMiB } from "../../src/main/domain-process";
 import { workspaceFilePath } from "../../src/main/workspace-ownership";
+import { schoolBase, schoolOntology } from "../fixtures/large-ontology";
 import type {
   CheckpointSummary,
   DataRuntimeInfo,
@@ -262,7 +264,9 @@ it("saves and restores checkpoints through metadata without sending the workspac
     ),
   ).toBe(true);
   await request("new", { blank: true });
-  const reopened = await request("loadWorkspaceFile", { file });
+  const opening = request("loadWorkspaceFile", { file });
+  const capturing = request<CheckpointSummary>("checkpointPrepare");
+  const reopened = await opening;
   expect(reopened).not.toHaveProperty("workspace");
   expect(reopened).not.toHaveProperty("entities");
   expect(
@@ -270,6 +274,145 @@ it("saves and restores checkpoints through metadata without sending the workspac
       (entity) => entity.iri === "https://example.org/saved#Saved",
     ),
   ).toBe(true);
+  const afterOpen = await capturing;
+  await request("checkpointSession", { id: afterOpen.id, workbench });
+  const openedCheckpoint = JSON.parse(
+    await readFile(path.join(profile, "last-session.json"), "utf8"),
+  );
+  expect(
+    openedCheckpoint.workspace.entities.some(
+      (entity: { iri: string }) =>
+        entity.iri === "https://example.org/saved#Saved",
+    ),
+  ).toBe(true);
+  await request("checkpointRelease", { id: afterOpen.id });
+});
+
+for (const ontologyOnly of [false, true])
+  it(`serves reads during ${ontologyOnly ? "ontology" : "full"} checkpoint encoding and applies later writes to the next snapshot`, async () => {
+    const child = start(),
+      request = requests(child),
+      profile = await mkdtemp(path.join(directory, "responsive-"));
+    await request("configureDataService", {
+      directory: profile,
+      appPath: directory,
+      resourcesPath: directory,
+      packaged: false,
+    });
+    await request("importRdf", {
+      text: schoolOntology(2000),
+      fileName: "schools.ttl",
+      baseIRI: schoolBase,
+    });
+    await request("freeze");
+    await request("select", { iri: schoolBase + "school0" });
+    const workbench = { version: 1, theme: "light" };
+    const baseline = await request<CheckpointSummary>("checkpointPrepare");
+    await request("checkpointSession", { id: baseline.id, workbench });
+    await request("checkpointRelease", { id: baseline.id });
+    await request("individualGrid", { scope: schoolBase + "School", page: 1 });
+
+    const order: string[] = [];
+    const preparing = request<CheckpointSummary>("checkpointPrepare", {
+      ontologyOnly,
+    }).then((checkpoint) => {
+      order.push("checkpoint");
+      return checkpoint;
+    });
+    await request("runtimeInfo");
+    expect(order).toEqual([]);
+    const selecting = request("select", {
+      iri: schoolBase + "school1",
+    }).then(() => order.push("selection"));
+    const editing = request("rename", {
+      iri: schoolBase + "school1999",
+      name: "Edited during encoding",
+    }).then(() => order.push("edit"));
+    const page = await request("individualGrid", {
+      scope: schoolBase + "School",
+      page: 2,
+    });
+    expect(page.page).toBe(2);
+    expect(page.rows).toHaveLength(100);
+    expect(order).not.toContain("checkpoint");
+    expect(order).not.toContain("edit");
+    const checkpoint = await preparing;
+    await Promise.all([selecting, editing]);
+    expect(order.indexOf("checkpoint")).toBeLessThan(order.indexOf("edit"));
+    if (ontologyOnly)
+      expect(order.indexOf("selection")).toBeLessThan(
+        order.indexOf("checkpoint"),
+      );
+    else
+      expect(order.indexOf("checkpoint")).toBeLessThan(
+        order.indexOf("selection"),
+      );
+    await request("checkpointSession", { id: checkpoint.id, workbench });
+    const current = JSON.parse(
+      await readFile(path.join(profile, "last-session.json"), "utf8"),
+    ).workspace;
+    expect(
+      current.entities.find(
+        (entity: { iri: string }) => entity.iri === schoolBase + "school1999",
+      ).label,
+    ).not.toBe("Edited during encoding");
+    expect(current.selected).toBe(schoolBase + "school0");
+    await request("checkpointRelease", { id: checkpoint.id });
+
+    const next = await request<CheckpointSummary>("checkpointPrepare", {
+      ontologyOnly,
+    });
+    await request("checkpointSession", { id: next.id, workbench });
+    const saved = JSON.parse(
+      await readFile(path.join(profile, "last-session.json"), "utf8"),
+    ).workspace;
+    expect(
+      saved.entities.find(
+        (entity: { iri: string }) => entity.iri === schoolBase + "school1999",
+      ).label,
+    ).toBe("Edited during encoding");
+    expect(saved.storeVersion).toBeGreaterThan(current.storeVersion);
+    expect(saved.selected).toBe(
+      schoolBase + (ontologyOnly ? "school0" : "school1"),
+    );
+    await request("checkpointRelease", { id: next.id });
+  }, 20000);
+
+it("continues the checkpoint queue after checkpoint and mutation errors", async () => {
+  const child = start(),
+    request = requests(child);
+  await expect(
+    request("checkpointPrepare", { ontologyOnly: true }),
+  ).rejects.toThrow("The data service has not been configured.");
+  await expect(
+    request("rename", { iri: "missing", name: null }),
+  ).rejects.toThrow();
+  const profile = await mkdtemp(path.join(directory, "queue-errors-"));
+  await request("configureDataService", {
+    directory: profile,
+    appPath: directory,
+    resourcesPath: directory,
+    packaged: false,
+  });
+  await request("new", { blank: true });
+  const iri = await request("createClass", {
+    name: "After failure",
+    parent: "http://www.w3.org/2002/07/owl#Thing",
+  });
+  const checkpoint = await request<CheckpointSummary>("checkpointPrepare");
+  await request("checkpointSession", {
+    id: checkpoint.id,
+    workbench: { version: 1, theme: "light" },
+  });
+  const saved = JSON.parse(
+    await readFile(path.join(profile, "last-session.json"), "utf8"),
+  );
+  expect(
+    saved.workspace.entities.some(
+      (entity: { iri: string }) => entity.iri === iri,
+    ),
+  ).toBe(true);
+  await request("checkpointRelease", { id: checkpoint.id });
 });
 
 it("reports a spawn failure and stops the child lifecycle", async () => {
