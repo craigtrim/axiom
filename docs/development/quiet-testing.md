@@ -120,19 +120,21 @@ shortcut or responsive-overflow behavior; the existing 11 visual/input cases; an
 the large-import Quality cancellation journey. Query pixel comparisons run as a
 complete local family in both themes. Functional Query coverage remains on CI.
 
-All 232 assigned cases run locally with their existing assertions and may display
-or focus windows. The remaining 1,221 listed native cases run on GitHub, including
+All 241 assigned cases run locally with their existing assertions and may display
+or focus windows. The remaining 1,257 listed native cases run on GitHub, including
 the one existing opt-in benchmark exemption. The CI selection is the exact inverse
 of the local selection. New focus or overflow scenarios belong in this local
 assignment; moving a case changes its execution location without removing it.
 
 Run `npm run test:desktop:local` from a clean checkout to validate the local group.
-The command rebuilds that revision, runs one test at a time, and requires all 232
+The command rebuilds that revision, runs one test at a time, and requires all 241
 to pass without retries or skips. Reports are in `artifacts/local-desktop`.
-`npm run build:exe` runs this group itself after verifying the CI candidate.
-Delivery requires fresh local evidence for the same source commit and tree, and
-retains that evidence in its receipt. A passing GitHub run alone cannot authorize
-an EXE. The two-case quiet allowlist remains unchanged.
+By default, `npm run build:exe` runs this group after verifying the CI candidate.
+Default delivery requires fresh local evidence for the same source commit and
+tree, and retains that evidence in its receipt. The explicit `--Skip-Test`
+override omits this local stage and records it as skipped in the receipt. All
+other delivery gates remain required. The two-case quiet allowlist remains
+unchanged.
 
 Individuals captures must settle to the same bitmap across fresh paint-layer
 setups before comparison with the independent reference. Stability is decided

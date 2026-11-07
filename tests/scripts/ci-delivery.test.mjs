@@ -160,7 +160,8 @@ async function assertPrevious(root) {
 function runner(options = {}) {
   let sourceReads = 0,
     queries = 0,
-    downloads = 0;
+    downloads = 0,
+    localRuns = 0;
   const run = async (file, args, root) => {
     if (file === "git") {
       if (options.nonGit) throw Error("not a repository");
@@ -199,6 +200,7 @@ function runner(options = {}) {
       file === process.execPath &&
       args[0] === "scripts/test-local-desktop.mjs"
     ) {
+      localRuns++;
       if (options.localFailure) throw Error("Local desktop test failed");
       const output = path.join(root, "artifacts/local-desktop");
       await mkdir(output, { recursive: true });
@@ -245,7 +247,11 @@ function runner(options = {}) {
     }
     throw Error(`Unexpected command: ${file} ${args.join(" ")}`);
   };
-  return { run, downloads: () => downloads };
+  return {
+    run,
+    downloads: () => downloads,
+    localRuns: () => localRuns,
+  };
 }
 test("accepts the current successful attempt and reads fresh run details", async () => {
   const result = await latestSuccessfulRun(
@@ -396,7 +402,9 @@ for (const [label, options] of Object.entries({
 test("delivers verified bytes and records source, workflow URL, attempt and conclusion", async (t) => {
   const fixture = await candidate(t);
   const root = await previousDelivery(t);
-  const result = await deliver(root, runner({ candidate: fixture.dir }).run);
+  const commands = runner({ candidate: fixture.dir });
+  const result = await deliver(root, commands.run);
+  assert.equal(commands.localRuns(), 1);
   assert.equal(
     await readFile(result.executable, "utf8"),
     "tested application bytes",
@@ -413,6 +421,62 @@ test("delivers verified bytes and records source, workflow URL, attempt and conc
   assert.deepEqual(receipt.localDesktopValidation.source, source);
   assert.match(receipt.localDesktopValidation.resultsSha256, /^[a-f0-9]{64}$/);
   assert.equal(receipt.package.executable, result.executable);
+});
+
+test("--Skip-Test delivers CI-verified bytes without invoking local tests or claiming a pass", async (t) => {
+  const fixture = await candidate(t);
+  const root = await previousDelivery(t);
+  const commands = runner({ candidate: fixture.dir, localFailure: true });
+  const result = await deliver(root, commands.run, { skipTest: true });
+  assert.equal(commands.localRuns(), 0);
+  assert.equal(
+    await readFile(result.executable, "utf8"),
+    "tested application bytes",
+  );
+  const receipt = JSON.parse(await readFile(result.receipt, "utf8"));
+  assert.deepEqual(receipt.source, fixture.receipt.source);
+  assert.equal(receipt.run.conclusion, "success");
+  assert.equal(receipt.packagedDesktopChecksPassed, 8);
+  const local = receipt.localDesktopValidation;
+  assert.equal(local.schema, 1);
+  assert.equal(local.status, "skipped");
+  assert.equal(local.reason, "--Skip-Test");
+  assert.deepEqual(local.source, source);
+  assert.ok(Number.isFinite(Date.parse(local.skippedAt)));
+  assert.equal(local.passed, undefined);
+  assert.equal(local.resultsSha256, undefined);
+});
+
+for (const [label, options] of Object.entries({
+  failedCI: { runs: [{ ...good, conclusion: "failure" }] },
+  dirtySource: { dirty: " M src/main/main.ts" },
+  missingArtifact: { downloadError: "artifact not found" },
+  changedSource: { changedSource: true },
+  newAttempt: { finalRuns: [{ ...good, run_attempt: 2 }] },
+}))
+  test(`--Skip-Test still rejects ${label} and preserves the existing delivery`, async (t) => {
+    const fixture = await candidate(t);
+    const root = await previousDelivery(t);
+    const commands = runner({ candidate: fixture.dir, ...options });
+    await assert.rejects(deliver(root, commands.run, { skipTest: true }));
+    assert.equal(commands.localRuns(), 0);
+    await assertPrevious(root);
+  });
+
+test("--Skip-Test still rejects corrupted artifact bytes", async (t) => {
+  const fixture = await candidate(t);
+  const root = await previousDelivery(t);
+  await writeFile(
+    path.join(fixture.dir, "installer", "win-unpacked", "Axiom.exe"),
+    "tampered",
+  );
+  const commands = runner({ candidate: fixture.dir });
+  await assert.rejects(
+    deliver(root, commands.run, { skipTest: true }),
+    /checksum mismatch/,
+  );
+  assert.equal(commands.localRuns(), 0);
+  await assertPrevious(root);
 });
 test("a promotion failure restores the previous executable and metadata", async (t) => {
   const fixture = await candidate(t);
