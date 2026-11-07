@@ -711,7 +711,7 @@ const tracked = new Set<DomainMethod>([
 const graphInteractions = new Set<string>();
 let dragBefore: Frame | undefined;
 const spacingBefore = new Map<string, Frame>();
-const clusterLoosenessBefore = new Map<string, Frame>();
+const clusterLoosenessBefore = new Map<string, number>();
 async function operate(
   method: DomainMethod,
   args: Record<string, unknown>,
@@ -723,6 +723,14 @@ async function operate(
     args.datasetEpoch !== datasetEpoch
   )
     return false;
+  if (
+    method === "clusterLooseness" &&
+    typeof args.graphId === "string" &&
+    !graphSessions.has(args.graphId)
+  ) {
+    clusterLoosenessBefore.delete(args.graphId);
+    return false;
+  }
   // Ending a drawing in another graph view must not change the active graph.
   if (typeof args.graphId === "string" && method !== "graphInteraction")
     activateGraph(args.graphId);
@@ -737,6 +745,47 @@ async function operate(
     spacingBefore.clear();
     clusterLoosenessBefore.clear();
     documentRevision = savedRevision = 0;
+    publish();
+    return value;
+  }
+  if (method === "clusterLooseness") {
+    const id = activeGraphId,
+      target = view,
+      epoch = datasetEpoch,
+      before = clusterLoosenessBefore.get(id) ?? target.clusterLooseness;
+    const value = await dispatch(method, args);
+    if (datasetEpoch !== epoch || graphSessions.get(id)?.view !== target)
+      return value;
+    if (args.preview === true) {
+      clusterLoosenessBefore.set(id, before);
+      return value;
+    }
+    clusterLoosenessBefore.delete(id);
+    const after = target.clusterLooseness;
+    if (before !== after) {
+      const beforeRevision = documentRevision,
+        afterRevision = ++nextRevision;
+      documentRevision = afterRevision;
+      dirty = documentRevision !== savedRevision;
+      store.redoStack = [];
+      const restore = (setting: number, revision: number) => {
+        const session = graphSessions.get(id);
+        if (session) session.view.clusterLooseness = setting;
+        else {
+          const archived = graphArchives.get(id);
+          if (archived) archived.clusterLooseness = setting;
+        }
+        documentRevision = revision;
+        dirty = documentRevision !== savedRevision;
+      };
+      history.push({
+        label: "Change clusters",
+        bytes: 128,
+        preservesLayout: true,
+        undo: () => restore(before, beforeRevision),
+        redo: () => restore(after, afterRevision),
+      });
+    }
     publish();
     return value;
   }
@@ -768,9 +817,7 @@ async function operate(
         ? (dragBefore ?? captureFrame())
         : method === "spacing"
           ? (spacingBefore.get(activeGraphId) ?? captureFrame())
-          : method === "clusterLooseness"
-            ? (clusterLoosenessBefore.get(activeGraphId) ?? captureFrame())
-            : captureFrame(),
+          : captureFrame(),
     initialVersion = store.version,
     oldCommands = store.undoStack.length;
   const generated =
@@ -788,20 +835,6 @@ async function operate(
     return value;
   }
   if (method === "spacing") spacingBefore.delete(activeGraphId);
-  if (method === "clusterLooseness" && args.preview === true) {
-    clusterLoosenessBefore.set(activeGraphId, before);
-    return value;
-  }
-  if (method === "clusterLooseness") {
-    clusterLoosenessBefore.delete(activeGraphId);
-    if (
-      before.views.find((entry) => entry.id === activeGraphId)
-        ?.clusterLooseness === view.clusterLooseness
-    ) {
-      publish();
-      return value;
-    }
-  }
   const commands = store.undoStack.splice(oldCommands);
   store.redoStack = [];
   let after = captureFrame();
@@ -838,7 +871,6 @@ async function operate(
                 countVisibility: "Show or hide counts",
                 labelVisibility: "Show or hide labels",
                 clusterColors: "Color clusters",
-                clusterLooseness: "Change clusters",
                 freeze: "Freeze or resume layout",
                 clear: "Clear graph",
                 tableGraph: "Show filtered individuals",
@@ -877,7 +909,14 @@ async function operate(
     });
     if (external)
       external.capture = () => {
-        after = captureFrame();
+        const completed = captureFrame();
+        // Finishing a layout must not absorb a later setting-only command.
+        completed.documentRevision = after.documentRevision;
+        for (const entry of completed.views) {
+          const original = after.views.find((saved) => saved.id === entry.id);
+          if (original) entry.clusterLooseness = original.clusterLooseness;
+        }
+        after = completed;
       };
   }
   publish();
@@ -1715,6 +1754,7 @@ async function dispatch(
     case "graphArchive": {
       if (a.datasetEpoch !== datasetEpoch) return false;
       const id = string(a, "id", 100);
+      clusterLoosenessBefore.delete(id);
       keepGraph();
       if (!graphSessions.has(id)) return true;
       if (a.retain === true) {
@@ -2587,11 +2627,11 @@ async function dispatch(
       placeCreated(a);
       return selected;
     case "undo":
-      stopExternal();
+      if (!history.undoStack.at(-1)?.preservesLayout) stopExternal();
       if (history.undo()) changed("Change undone.");
       return true;
     case "redo":
-      stopExternal();
+      if (!history.redoStack.at(-1)?.preservesLayout) stopExternal();
       if (history.redo()) changed("Change redone.");
       return true;
     case "query": {
