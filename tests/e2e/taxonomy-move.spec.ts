@@ -249,9 +249,19 @@ test("self and descendant drops are rejected and stale drag data cannot edit a n
 });
 test("dragging from the taxonomy into Details still opens the entity without moving it", async () => {
   const before = await parents();
-  await row("Child").dragTo(
-    page.getByRole("region", { name: "Entity inspector", exact: true }),
-  );
+  const inspector = page.getByRole("region", {
+    name: "Entity inspector",
+    exact: true,
+  });
+  // #205: wait for the Inspector drop receiver before testing the native drop.
+  await row("Child").click();
+  await expect(
+    inspector.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Child");
+  await expect(
+    page.getByRole("region", { name: "Details", exact: true }),
+  ).toHaveCount(0);
+  await row("Child").dragTo(inspector);
   await expect(
     page.getByRole("region", { name: "Details", exact: true }),
   ).toContainText("Child");
