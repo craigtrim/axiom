@@ -1806,13 +1806,15 @@ app.whenReady().then(async () => {
   }
   savedWorkbench = structuredClone(preferences);
   savedEditorDrafts = restoredDrafts;
-  autosaveCheckpoint.complete(
-    checkpointKey(
-      await request<{ storeVersion: number; datasetEpoch: number }>(
-        "sessionState",
+  // A missing workspace needs one recovery write to clear its obsolete file path.
+  if (!restoredSession.missingWorkspacePath)
+    autosaveCheckpoint.complete(
+      checkpointKey(
+        await request<{ storeVersion: number; datasetEpoch: number }>(
+          "sessionState",
+        ),
       ),
-    ),
-  );
+    );
   nativeTheme.themeSource = preferences.theme;
   const bounds = preferences.bounds;
   const validBounds =
