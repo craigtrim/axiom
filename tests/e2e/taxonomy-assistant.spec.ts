@@ -238,9 +238,14 @@ test("reviews child classes, shows scoped prompt, adds normalized names and undo
   ).toBeVisible();
   expect(after.undoLabel).toBe("Add child classes");
   await menu("edit.undo");
-  expect((await state()).classCount).toBe(before.classCount);
+  // #221: native menu dispatch returns before the renderer's history request commits.
+  await expect
+    .poll(async () => (await state()).classCount)
+    .toBe(before.classCount);
   await menu("edit.redo");
-  expect((await state()).classCount).toBe(before.classCount + 2);
+  await expect
+    .poll(async () => (await state()).classCount)
+    .toBe(before.classCount + 2);
 });
 test("finds instances through a separate prompt and applies rdf:type without subclass assertions", async () => {
   const dialog = await ready("instances", true);
