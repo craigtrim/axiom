@@ -1308,8 +1308,11 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
     )
     .toBe("schools.ttl");
   expect(
-    (await state()).entities.filter((e) => e.kind === "Individual"),
-  ).toHaveLength(21461);
+    await page.evaluate(async () => {
+      const snapshot = await window.axiom.request<Snapshot>("state");
+      return snapshot.entities.filter((e) => e.kind === "Individual").length;
+    }),
+  ).toBe(21461);
   const sessionFile = path.join(profile, "last-session.json");
   const samples: { named: boolean; workingSetKB: number }[] = [];
   const idle = async (file?: string, browse = false) => {
@@ -1401,10 +1404,16 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   await app!.evaluate(({ app }) => app.exit(0)).catch(() => {});
   app = undefined;
   await launch();
-  expect((await state()).selected).toBe(baseline.workspace.selected);
-  expect(
-    (await state()).graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y]),
-  ).toEqual(
+  // #221: retain the exact assertions without transferring the full large snapshot.
+  const recovered = await page.evaluate(async () => {
+    const snapshot = await window.axiom.request<Snapshot>("state");
+    return {
+      selected: snapshot.selected,
+      positions: snapshot.graphs!.graph.nodes.map((n) => [n.iri, n.x, n.y]),
+    };
+  });
+  expect(recovered.selected).toBe(baseline.workspace.selected);
+  expect(recovered.positions).toEqual(
     baseline.workspace.graphs.graph.positions.map((n: any) => [
       n.iri,
       n.x,
@@ -1436,5 +1445,9 @@ test("#123 unchanged large workspaces skip serialization and disk writes across 
   expect((await calls()).serializeJson).toBe(0);
   await close();
   await launch();
-  expect((await state()).selected).toBe(schoolBase + "school42");
+  expect(
+    await page.evaluate(
+      async () => (await window.axiom.request<Snapshot>("state")).selected,
+    ),
+  ).toBe(schoolBase + "school42");
 });

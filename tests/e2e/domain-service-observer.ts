@@ -272,8 +272,10 @@ export async function observeDomainService(
     };
   });
   try {
-    // The real reply identifies the relay even after its initial ready event.
-    await page.evaluate(() => window.axiom.request("state"));
+    // #221: observe the real reply without copying the unused ontology into Playwright.
+    await page.evaluate(async () => {
+      await window.axiom.request("state");
+    });
     await app.evaluate(() => {
       if (!(globalThis as any).__domainServiceObserver.utility)
         throw Error("The ontology utility relay was not observed.");
