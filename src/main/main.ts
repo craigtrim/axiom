@@ -161,13 +161,15 @@ let mainWindow: BrowserWindow | null = null,
   preferences: Preferences = readPreferences({ version: 1, theme: "light" }),
   lastState: Snapshot | undefined,
   workspacePath: string | undefined,
-  closing = false;
+  closing = false,
+  closePending = false;
 let launchFile: string | undefined,
   launchReady = false;
 let workspaceLease: WorkspaceLease | undefined;
 let launchLease: WorkspaceLease | undefined;
 let focusRequested = false;
 function focusInstance() {
+  if (closePending || closing) return;
   if (!mainWindow || mainWindow.isDestroyed()) {
     focusRequested = true;
     return;
@@ -196,6 +198,7 @@ function resolveLaunchPath(argv: readonly string[], cwd: string) {
   return shaped < 0 ? undefined : resolved[shaped];
 }
 async function openLaunchFile(file: string, atStartup = false) {
+  if (closePending || closing) return;
   launchFile = undefined;
   try {
     await stat(file);
@@ -212,7 +215,7 @@ async function openLaunchFile(file: string, atStartup = false) {
 }
 launchFile = resolveLaunchPath(process.argv, process.cwd());
 app.on("second-instance", (_event, argv, cwd, data) => {
-  if (isSlotProbe(data)) return;
+  if (isSlotProbe(data) || closePending || closing) return;
   focusInstance();
   const file = resolveLaunchPath(argv, cwd);
   if (!file) return;
@@ -222,6 +225,7 @@ app.on("second-instance", (_event, argv, cwd, data) => {
 // macOS never carries the path in argv, and this can arrive before the window exists.
 app.on("open-file", (event, file) => {
   event.preventDefault();
+  if (closePending || closing) return;
   if (launchReady) void openLaunchFile(file);
   else launchFile = file;
 });
@@ -455,7 +459,7 @@ function mainFailure(operation: string, error: unknown, notify: boolean) {
   if (!failures.admit(message, stack)) return;
   void recordCrash(message, operation, { process: "main" }, stack).then(
     (id) => {
-      if (!notify) return;
+      if (!notify || closePending) return;
       if (mainWindow && !mainWindow.isDestroyed())
         void dialog
           .showMessageBox(mainWindow, {
@@ -768,9 +772,19 @@ let capturedDraftRevision = "",
 let capturedDrafts: SavedEditorDrafts | undefined;
 let restoredDrafts: SavedEditorDrafts | undefined;
 let recoveryPath: string | undefined;
-let closePending = false;
 let workspaceSwitching = false;
 let closeAfterWorkspaceChange = false;
+let backgroundClose: Promise<void> | undefined;
+let closeRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let closeFailures = 0;
+// A destination closed before its first rendered checkpoint keeps its file metadata.
+let openingWorkspace: WorkspaceMetadata | undefined;
+let closingWorkspace: WorkspaceMetadata | undefined;
+function closingDestinationMetadata() {
+  if (!closePending) return undefined;
+  closingWorkspace ??= openingWorkspace;
+  return closingWorkspace;
+}
 let autosaveTimer: ReturnType<typeof setInterval> | undefined;
 let updates: ReturnType<typeof startUpdates> | undefined;
 const AUTOSAVE_INTERVAL = 30_000;
@@ -800,15 +814,21 @@ function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
     recoveryPath,
   ]);
 }
-async function checkpointSession(capture = true) {
-  if (capture) await capturePreferences();
-  const workbench = structuredClone(preferences),
-    editorDrafts = capturedDrafts;
+async function checkpointSession(
+  capture = true,
+  loadedDestination?: WorkspaceMetadata,
+) {
+  if (capture && !loadedDestination && !closingDestinationMetadata())
+    await capturePreferences();
+  const destination = loadedDestination ?? closingDestinationMetadata();
+  const workbench = structuredClone(destination?.workbench ?? preferences),
+    editorDrafts = destination ? destination.editorDrafts : capturedDrafts;
   const finishSaving = beginCheckpoint();
   let document: CheckpointSummary | undefined;
   try {
     document = await request<CheckpointSummary>("checkpointPrepare", {
       editorDrafts,
+      ontologyOnly: !!destination,
     });
     const key = checkpointKey(document);
     await request("checkpointSession", {
@@ -951,10 +971,14 @@ function capturePreferences() {
       );
     }, 10000);
     captureResolve = done;
-    send("workspace.capture");
-  }).finally(() => {
-    capturing = undefined;
-  });
+    send(closePending ? "workspace.captureClosing" : "workspace.capture");
+  })
+    .then(() => {
+      if (!closePending) openingWorkspace = undefined;
+    })
+    .finally(() => {
+      capturing = undefined;
+    });
   return capturing;
 }
 async function releaseMissingWorkspace(file: string) {
@@ -991,11 +1015,17 @@ async function writeWorkspace(
     allowCreate = true;
   }
   if (!automatic) await flushEditors();
-  if (capture && !ontologyOnly) await capturePreferences();
+  if (capture && !ontologyOnly && !closingDestinationMetadata())
+    await capturePreferences();
+  const destinationMetadata = closingDestinationMetadata();
   const workbench = ontologyOnly
       ? savedWorkbench
-      : structuredClone(preferences),
-    editorDrafts = ontologyOnly ? savedEditorDrafts : capturedDrafts;
+      : structuredClone(destinationMetadata?.workbench ?? preferences),
+    editorDrafts = ontologyOnly
+      ? savedEditorDrafts
+      : destinationMetadata
+        ? destinationMetadata.editorDrafts
+        : capturedDrafts;
   const revision = await request<{
     storeVersion: number;
     datasetEpoch: number;
@@ -1019,7 +1049,7 @@ async function writeWorkspace(
       "checkpointPrepare",
       {
         editorDrafts,
-        ontologyOnly,
+        ontologyOnly: ontologyOnly || !!destinationMetadata,
       },
     ));
     if (
@@ -1124,6 +1154,62 @@ async function autosave() {
     console.warn("Workspace autosave failed:", cleanErrorMessage(error));
   }
 }
+// #221: remove every window immediately while its final save retains the live session.
+function requestBackgroundClose() {
+  if (closing) return;
+  if (!closePending) {
+    closePending = true;
+    closingDestinationMetadata();
+    clearInterval(autosaveTimer);
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isDestroyed()) continue;
+      window.webContents.send("command", "workspace.closing");
+      window.hide();
+    }
+  }
+  if (workspaceSwitching) {
+    closeAfterWorkspaceChange = true;
+    return;
+  }
+  finishBackgroundClose();
+}
+function quitAfterBackgroundClose() {
+  closing = true;
+  quitting = true;
+  for (const window of BrowserWindow.getAllWindows())
+    if (!window.isDestroyed()) window.destroy();
+  app.quit();
+}
+function finishBackgroundClose() {
+  if (backgroundClose || closeRetryTimer || closing) return;
+  backgroundClose = errorLog
+    .run("Save workspace on close", errorContext(), async () => {
+      if (workerStopped) throw workerStopped;
+      if (saving) await saving.catch(() => false);
+      await saveWorkspace(false, true, true);
+      await updates?.prepareForQuit();
+      quitAfterBackgroundClose();
+    })
+    .catch((error) => {
+      console.warn(
+        "Workspace save on close failed; the hidden session is retained:",
+        cleanErrorMessage(error),
+      );
+      if (workerStopped) {
+        // A terminated data store cannot be recovered by keeping a hidden owner alive.
+        quitAfterBackgroundClose();
+        return;
+      }
+      const delay = Math.min(1000 * 2 ** Math.min(closeFailures++, 5), 30000);
+      closeRetryTimer = setTimeout(() => {
+        closeRetryTimer = undefined;
+        finishBackgroundClose();
+      }, delay);
+    })
+    .finally(() => {
+      backgroundClose = undefined;
+    });
+}
 async function openWorkspace(recentFile?: string, atStartup = false) {
   // A launch path arrives before the workbench mounts, so there is no view state to
   // capture and no listener to answer the request. The archive still runs, so an
@@ -1149,28 +1235,53 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
   const lease = await workspaceOwnership.claim(file);
   if (!lease) return;
   let committed = false;
+  let destination: WorkspaceMetadata | undefined;
   try {
     if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
     const data = await request<WorkspaceMetadata>("loadWorkspaceFile", {
       file,
       preferences,
     });
-    const restored = data.workbench;
+    destination = openingWorkspace = structuredClone(data);
+    closingDestinationMetadata();
+    if (destination.editorDrafts) {
+      const revision = await request<{
+        storeVersion: number;
+        datasetEpoch: number;
+      }>("sessionState");
+      const drafts = destination.editorDrafts;
+      const savedVersion = drafts.storeVersion;
+      const rebase = (loaded: { version: number; datasetEpoch: number }) => {
+        loaded.datasetEpoch = revision.datasetEpoch;
+        loaded.version =
+          loaded.version === savedVersion ? revision.storeVersion : -1;
+      };
+      for (const draft of drafts.entities) rebase(draft.loaded);
+      if (drafts.source) rebase(drafts.source.loaded);
+      for (const draft of drafts.entitySources) rebase(draft.loaded);
+      drafts.storeVersion = revision.storeVersion;
+    }
+    const restored = destination.workbench;
     setWorkspacePath(file, lease);
     committed = true;
     recoveryPath = undefined;
-    restoredDrafts = data.editorDrafts;
-    send("workspace.drafts");
+    restoredDrafts = destination.editorDrafts;
+    if (!closePending) send("workspace.drafts");
     updateWindowTitle();
     if (restored) {
       await savePreferences(restored);
       nativeTheme.themeSource = preferences.theme;
       installMenu();
-      send("workspace.preferences");
+      if (!closePending) send("workspace.preferences");
     }
-    await checkpointSession();
+    await checkpointSession(false, destination);
+    if (!closePending) await capturePreferences();
     await rememberFile(file);
   } finally {
+    if (closePending && openingWorkspace === destination) {
+      closingDestinationMetadata();
+      openingWorkspace = undefined;
+    }
     if (!committed) lease.release();
   }
 }
@@ -1284,7 +1395,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
             }
             break;
           case "app.quit":
-            app.quit();
+            mainWindow?.close();
             break;
           case "help.about":
             await dialog.showMessageBox(mainWindow!, {
@@ -1303,6 +1414,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
       },
     );
   } catch (e) {
+    if (closePending) return;
     const result = await dialog.showMessageBox(mainWindow!, {
       buttons: ["Close", "Error details"],
       defaultId: 0,
@@ -1316,7 +1428,7 @@ async function command(id: string, recentFile?: string, atStartup = false) {
       workspaceSwitching = false;
       if (closeAfterWorkspaceChange) {
         closeAfterWorkspaceChange = false;
-        mainWindow?.close();
+        finishBackgroundClose();
       }
     }
   }
@@ -1691,6 +1803,7 @@ app.whenReady().then(async () => {
   });
   let workerFailed = false;
   const showDataServiceFailure = (error: Error, recorded: Promise<string>) => {
+    if (closePending) return;
     if (mainWindow && !mainWindow.isDestroyed())
       void dialog
         .showMessageBox(mainWindow, {
@@ -1880,6 +1993,9 @@ app.whenReady().then(async () => {
     }),
   );
   const secure = (w: BrowserWindow) => {
+    w.on("show", () => {
+      if (closePending) w.hide();
+    });
     w.webContents.on("before-input-event", (event, input) => {
       if (
         process.platform === "win32" &&
@@ -1923,6 +2039,7 @@ app.whenReady().then(async () => {
       if (!url.startsWith("app://axiom/")) event.preventDefault();
     });
     w.webContents.setWindowOpenHandler(({ url }) =>
+      !closePending &&
       /^app:\/\/axiom\/popout\.html(?:\?id=[a-f0-9-]{36})?$/.test(url)
         ? {
             action: "allow",
@@ -1939,7 +2056,13 @@ app.whenReady().then(async () => {
           }
         : { action: "deny" },
     );
-    w.webContents.on("did-create-window", (child) => secure(child));
+    w.webContents.on("did-create-window", (child) => {
+      secure(child);
+      if (closePending) {
+        child.webContents.send("command", "workspace.closing");
+        child.hide();
+      }
+    });
     w.webContents.session.setPermissionRequestHandler(
       (_wc, _permission, callback) => callback(false),
     );
@@ -2373,7 +2496,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.on("keyboard:menu", (event, ownerUrl) => {
     authorised(event);
-    if (modalWindows.size) return;
+    if (modalWindows.size || closePending) return;
     // FlexLayout popouts share the main renderer's bridge. Preserve the
     // invoking document rather than mistaking that IPC sender for the owner.
     const detached =
@@ -2395,7 +2518,7 @@ app.whenReady().then(async () => {
       y: 0,
       sourceType: "keyboard",
       callback: () => {
-        if (!owner.isDestroyed()) owner.webContents.focus();
+        if (!closePending && !owner.isDestroyed()) owner.webContents.focus();
       },
     });
   });
@@ -2465,7 +2588,7 @@ app.whenReady().then(async () => {
   handle("editors:load", () => restoredDrafts);
   handle("preferences:load", (event) => {
     authorised(event);
-    return preferences;
+    return openingWorkspace?.workbench ?? preferences;
   });
   handle(
     "preferences:save",
@@ -2516,6 +2639,7 @@ app.whenReady().then(async () => {
   });
   handle("pane:maximizeWindow", (event, url: string) => {
     authorised(event);
+    if (closePending) return;
     if (
       typeof url !== "string" ||
       !/^app:\/\/axiom\/popout\.html(?:\?id=[a-f0-9-]{36})?$/.test(url)
@@ -2625,41 +2749,16 @@ app.whenReady().then(async () => {
   mainWindow.on("close", (event) => {
     if (closing) return;
     event.preventDefault();
-    if (closePending) return;
-    if (workspaceSwitching) {
-      closeAfterWorkspaceChange = true;
-      return;
-    }
-    closePending = true;
-    void errorLog
-      .run("Save workspace on close", errorContext(), async () => {
-        if (saving) await saving;
-        await saveWorkspace(false, true, true);
-        await updates?.prepareForQuit();
-        closing = true;
-        clearInterval(autosaveTimer);
-        mainWindow?.close();
-      })
-      .catch(async (e) => {
-        closePending = false;
-        closing = false;
-        // The quit was abandoned, so later crashes are recorded again.
-        quitting = false;
-        const result = await dialog.showMessageBox(mainWindow!, {
-          type: "error",
-          message: "Axiom could not save the workspace. It has been kept open.",
-          detail: cleanErrorMessage(e),
-          buttons: ["Keep open", "Error details"],
-          defaultId: 0,
-          cancelId: 0,
-        });
-        if (result.response === 1) send("view.errorlog");
-      });
+    requestBackgroundClose();
   });
   await mainWindow.loadURL("app://axiom/index.html");
   lastState = await request<Snapshot>("state");
   updateWindowTitle();
-  if (!restoredSession.session && restoredSession.errors.length)
+  if (
+    !closePending &&
+    !restoredSession.session &&
+    restoredSession.errors.length
+  )
     void dialog.showMessageBox(mainWindow, {
       type: "warning",
       message:
@@ -2674,14 +2773,19 @@ app.whenReady().then(async () => {
     launchLease?.release();
     launchLease = undefined;
   }
-  if (preferences.maximized) mainWindow.maximize();
+  if (!closePending && preferences.maximized) mainWindow.maximize();
   if (focusRequested) {
     focusRequested = false;
     focusInstance();
   }
-  updates = startUpdates((message) => console.warn(message), instanceRegistry);
-  autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
-  autosaveTimer.unref();
+  if (!closePending) {
+    updates = startUpdates(
+      (message) => console.warn(message),
+      instanceRegistry,
+    );
+    autosaveTimer = setInterval(() => void autosave(), AUTOSAVE_INTERVAL);
+    autosaveTimer.unref();
+  }
 });
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
@@ -2694,7 +2798,12 @@ app.on("will-quit", () => {
 });
 // The closed marker is written synchronously, because asynchronous work at exit is abandoned.
 process.on("exit", () => runLog?.close());
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (!closing && mainWindow && !mainWindow.isDestroyed()) {
+    event.preventDefault();
+    requestBackgroundClose();
+    return;
+  }
   quitting = true;
   suggestionBatches.close();
   const suggestion = suggestions.status();

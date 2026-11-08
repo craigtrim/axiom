@@ -44,6 +44,8 @@ import { requestQualitySettings } from "./quality-view";
 import { WarningSettings } from "./SeeAlsoWarning";
 // #123: autosave sends drafts only when their revision changes.
 import { captureDraftCheckpoint } from "./workspace-drafts";
+// #221: a pending visible capture can finish after background close hides the window.
+import { WorkspaceCaptureFrames } from "./workspace-capture-frames";
 import { syncFindEpoch } from "./find-state";
 import { FindDialog, FindPanel } from "./FindPanel";
 import { WindowChrome } from "./WindowChrome";
@@ -478,6 +480,14 @@ export function App() {
       y: number;
     } | null>(null),
     tabOperations = useRef(new Set<Promise<unknown>>()),
+    workspaceRestoration = useRef<Promise<void> | undefined>(undefined),
+    [captureFrames] = useState(
+      () =>
+        new WorkspaceCaptureFrames({
+          request: (callback) => window.requestAnimationFrame(callback),
+          cancel: (frame) => window.cancelAnimationFrame(frame),
+        }),
+    ),
     [regenerate, setRegenerate] = useState<number | null>(null),
     [themeVersion, setThemeVersion] = useState(0),
     [shellPane, setShellPane] = useState("graph"),
@@ -1186,21 +1196,24 @@ export function App() {
         setSearch(false);
         setRegenerate(null);
       }
-      if (id === "workspace.capture") {
+      if (id === "workspace.closing") {
+        captureFrames.beginClosing();
+        return;
+      }
+      if (id === "workspace.capture" || id === "workspace.captureClosing") {
+        if (id === "workspace.captureClosing") {
+          captureFrames.beginClosing();
+          // The normal capture command also flushes this through text-analysis-state.
+          flushAnalysisText();
+        }
         void Promise.all([
           ...tabOperations.current,
+          workspaceRestoration.current,
           flushQueryHistory(),
           flushUiHistory(),
         ])
-          .then(
-            () =>
-              new Promise<void>((resolve) => {
-                // #123: capture the committed layout and its initial graph camera.
-                window.requestAnimationFrame(() =>
-                  window.requestAnimationFrame(() => resolve()),
-                );
-              }),
-          )
+          // #123: visible captures wait for committed layout and initial graph camera.
+          .then(() => captureFrames.waitForLayout())
           .then(() => {
             command("workspace.captureViews");
             syncTabHistory(modelRef.current);
@@ -1218,18 +1231,38 @@ export function App() {
           })
           .catch((e) => report(e.message, true));
       }
-      if (id === "workspace.preferences")
-        void window.axiom.preferences.load().then((p) => {
-          setPreferences(p);
-          command("warnings.seeAlso");
-          command("find.extendActions");
-          command("textanalysis.reset");
-          notifyTabHistory();
-          command("query.reset");
-          setModel(restoreLayout(p.layout));
-          for (const d of documents) applyTheme(d);
-          setThemeVersion((n) => n + 1);
-        });
+      if (id === "workspace.preferences") {
+        const restoration: Promise<void> = window.axiom.preferences
+          .load()
+          .then((p) => {
+            if (workspaceRestoration.current !== restoration) return;
+            setPreferences(p);
+            command("warnings.seeAlso");
+            command("find.extendActions");
+            command("textanalysis.reset");
+            notifyTabHistory();
+            command("query.reset");
+            const restoredModel = restoreLayout(p.layout);
+            modelRef.current = restoredModel;
+            setModel(restoredModel);
+            for (const d of documents) applyTheme(d);
+            setThemeVersion((n) => n + 1);
+          });
+        // #221: capture cannot acknowledge the old model while a loaded view is pending.
+        workspaceRestoration.current = restoration;
+        tabOperations.current.add(restoration);
+        void restoration.then(
+          () => {
+            tabOperations.current.delete(restoration);
+            if (workspaceRestoration.current === restoration)
+              workspaceRestoration.current = undefined;
+          },
+          (error) => {
+            tabOperations.current.delete(restoration);
+            report(error.message, true);
+          },
+        );
+      }
       if (id === "subclasses.suggest" && state?.selected)
         openTaxonomy(state.selected, "parents");
       if (id === "file.provenance") show("provenance");

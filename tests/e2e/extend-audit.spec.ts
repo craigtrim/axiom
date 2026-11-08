@@ -788,10 +788,26 @@ test("remembered actions survive restart and are personal preferences outside sa
   main = page = await app.firstWindow();
   await expect(page.locator(".docking-workspace")).toBeVisible();
   await menu("view.find");
-  const detached = app.waitForEvent("window");
-  await query().focus();
-  await menu("pane.detach");
-  page = await detached;
+  // #221: closing retains detached panes, so resume in the restored Find owner.
+  let restoredFind: Page | undefined;
+  await expect
+    .poll(async () => {
+      for (const candidate of app.windows()) {
+        if (await candidate.locator('[data-panel="find"]').isVisible()) {
+          restoredFind = candidate;
+          return true;
+        }
+      }
+      return false;
+    })
+    .toBe(true);
+  page = restoredFind!;
+  if (page === main) {
+    const detached = app.waitForEvent("window");
+    await query().focus();
+    await menu("pane.detach");
+    page = await detached;
+  }
   await size(760, 558);
   await query().fill("Psy");
   await expect(primary()).toHaveText("+ Instance");
