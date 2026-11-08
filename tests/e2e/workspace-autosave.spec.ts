@@ -1025,46 +1025,249 @@ test("switching workspaces archives source drafts with their own ontology and le
   );
 });
 
-test("honours closing while a workspace is still opening and saves the completed view", async () => {
-  await create("Close after opening");
-  const file = path.join(profile, "close-during-open.axiom");
-  await save(file);
-  await app!.evaluate(({ dialog, BrowserWindow }, file) => {
-    dialog.showOpenDialog = async () => {
-      BrowserWindow.getAllWindows()[0].close();
-      (globalThis as any).__hiddenDuringOpen =
-        BrowserWindow.getAllWindows().every((win) => !win.isVisible());
-      await new Promise<void>((resolve) => {
-        (globalThis as any).__releaseClosingOpen = resolve;
+for (const boundary of ["data load", "preferences reply"] as const)
+  test(
+    "honours closing while a workspace is still opening and saves the completed view" +
+      (boundary === "preferences reply"
+        ? " with restored preferences still pending"
+        : ""),
+    async () => {
+      test.setTimeout(90000);
+      const iri = await create("Source before opening");
+      await request("freeze");
+      const sourceFile = path.join(profile, "source-before-open.axiom");
+      const destination = path.join(profile, "destination-being-opened.axiom");
+      await save(sourceFile);
+      const setSourceDraft = async (text: string) => {
+        await menu("view.source");
+        const pane = page.getByRole("region", {
+          name: "Ontology source editor",
+        });
+        const editor = pane.getByRole("textbox", {
+          name: "Ontology source",
+          exact: true,
+        });
+        await expect(editor).toBeVisible();
+        if (
+          (await pane.getByRole("status").textContent())?.startsWith("Draft")
+        ) {
+          const discard = pane.getByRole("button", {
+            name: "Discard draft and reload",
+            exact: true,
+          });
+          if (await discard.isVisible()) await discard.click();
+          else {
+            await pane
+              .getByRole("button", { name: "More actions", exact: true })
+              .click();
+            await page
+              .getByRole("menuitem", {
+                name: "Discard draft and reload",
+                exact: true,
+              })
+              .click();
+          }
+        }
+        await expect(pane.getByRole("status")).toHaveText("Clean");
+        await editor.focus();
+        await editor.press("Control+a");
+        await page.keyboard.insertText(text);
+        await expect(editor).toHaveValue(text);
+        await expect(pane.getByRole("status")).toContainText("Draft pending");
+      };
+      const destinationDraft =
+        `<${iri}> a <http://www.w3.org/2002/07/owl#Class>; ` +
+        '<http://www.w3.org/2000/01/rdf-schema#label> "Unapplied destination draft" .\n';
+      await request("rename", {
+        iri,
+        name: "Destination loaded before quitting",
       });
-      return { canceled: false, filePaths: [file] };
-    };
-  }, file);
-  const process = app!.process();
-  await menu("file.open");
-  try {
-    await expect
-      .poll(() => app!.evaluate(() => (globalThis as any).__hiddenDuringOpen))
-      .toBe(true);
-    expect(process.exitCode).toBeNull();
-    expect(
-      await app!.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows().every((win) => !win.isVisible()),
-      ),
-    ).toBe(true);
-  } finally {
-    await app!.evaluate(() => (globalThis as any).__releaseClosingOpen?.());
-  }
-  await expect.poll(() => process.exitCode, { timeout: 15000 }).not.toBeNull();
-  app = undefined;
-  expect((await stored()).workspacePath).toBe(file);
-  await launch();
-  await expect
-    .poll(async () =>
-      (await state()).entities.some((e) => e.name === "Close after opening"),
-    )
-    .toBe(true);
-});
+      await request("spacing", { value: 2.5 });
+      await menu("view.graph");
+      await menu("graph.zoom.in");
+      await setSourceDraft(destinationDraft);
+      await save(destination);
+      const expected = JSON.parse(await readFile(destination, "utf8"));
+      const renameGraph = (node: any): boolean => {
+        if (node?.type === "tab" && node.id === "graph") {
+          node.name = "Destination graph";
+          node.config.axiomTab.named = true;
+          return true;
+        }
+        return Array.isArray(node?.children) && node.children.some(renameGraph);
+      };
+      expect(renameGraph(expected.workbench.layout.layout)).toBe(true);
+      expect(expected.workbench.panelState["graph.camera"]).toBeDefined();
+      expect(expected.editorDrafts.source.text).toBe(destinationDraft);
+      // This is a valid FlexLayout tab name, so the destination layout differs even if pane geometry coincides.
+      await writeFile(destination, JSON.stringify(expected));
+      await request("rename", { iri, name: "Source before opening" });
+      await request("spacing", { value: 1.25 });
+      await menu("view.graph");
+      await menu("graph.zoom.out");
+      const sourceDraft =
+        `<${iri}> a <http://www.w3.org/2002/07/owl#Class>; ` +
+        '<http://www.w3.org/2000/01/rdf-schema#label> "Unapplied source draft" .\n';
+      await setSourceDraft(sourceDraft);
+      await save(sourceFile);
+      const old = JSON.parse(await readFile(sourceFile, "utf8"));
+      expect(old.workbench.layout).not.toEqual(expected.workbench.layout);
+      expect(old.editorDrafts.source.text).toBe(sourceDraft);
+      await expect
+        .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+        .toBe(false);
+      await observeDomainService(app!, page);
+      await app!.evaluate(
+        ({ dialog, ipcMain }, { destination, boundary }) => {
+          dialog.showOpenDialog = async () => ({
+            canceled: false,
+            filePaths: [destination],
+          });
+          let forward: (() => void) | undefined;
+          let restore: () => void;
+          if (boundary === "data load") {
+            const utility = (globalThis as any).__domainServiceObserver.utility;
+            const original = utility.postMessage;
+            const intercept = function (
+              this: unknown,
+              message: any,
+              ...rest: any[]
+            ) {
+              if (
+                message?.channel === "axiom-domain-v1" &&
+                message.type === "request" &&
+                message.packet?.method === "loadWorkspaceFile" &&
+                message.packet.args?.file === destination
+              ) {
+                forward = () =>
+                  Reflect.apply(original, utility, [message, ...rest]);
+                return;
+              }
+              return Reflect.apply(original, this, [message, ...rest]);
+            };
+            utility.postMessage = intercept;
+            restore = () => {
+              utility.postMessage = original;
+            };
+          } else {
+            // Hold the real destination preference result after main has read it.
+            const original = (ipcMain as any)._invokeHandlers.get(
+              "preferences:load",
+            );
+            ipcMain.removeHandler("preferences:load");
+            ipcMain.handle("preferences:load", (event, ...args) => {
+              const response = Promise.resolve(original(event, ...args));
+              void response.catch(() => {});
+              return new Promise((resolve, reject) => {
+                forward = () => {
+                  void response.then(resolve, reject);
+                };
+              });
+            });
+            restore = () => {
+              ipcMain.removeHandler("preferences:load");
+              ipcMain.handle("preferences:load", original);
+            };
+          }
+          (globalThis as any).__closingOpen = {
+            pending: () => !!forward,
+            release: () => {
+              restore();
+              const resume = forward;
+              forward = undefined;
+              resume?.();
+            },
+          };
+        },
+        { destination, boundary },
+      );
+      const ownedProcess = app!.process();
+      await menu("file.open");
+      try {
+        await expect
+          .poll(() =>
+            app!.evaluate(() => (globalThis as any).__closingOpen.pending()),
+          )
+          .toBe(true);
+        if (boundary === "preferences reply") {
+          expect(
+            (await state()).entities.find((entity) => entity.iri === iri)
+              ?.label,
+          ).toBe("Destination loaded before quitting");
+          await expect
+            .poll(async () => (await stored()).workspacePath)
+            .toBe(destination);
+          await expect
+            .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+            .toBe(false);
+        }
+        expect((await beginExit("X")).after).toEqual([false]);
+        await expectHiddenInBackground(1);
+      } finally {
+        await app!.evaluate(() => (globalThis as any).__closingOpen.release());
+      }
+      await expect
+        .poll(() => ownedProcess.exitCode, { timeout: 15000 })
+        .not.toBeNull();
+      expect(ownedProcess.exitCode).toBe(0);
+      app = undefined;
+      const saved = JSON.parse(await readFile(destination, "utf8"));
+      const session = await stored();
+      expect(session.workspacePath).toBe(destination);
+      expect(
+        saved.entities.find((entity: any) => entity.iri === iri)?.label,
+      ).toBe("Destination loaded before quitting");
+      expect(saved.graphs.graph.spacing).toBe(2.5);
+      expect(saved.workbench.layout).toEqual(expected.workbench.layout);
+      expect(saved.workbench.panelState["graph.camera"]).toEqual(
+        expected.workbench.panelState["graph.camera"],
+      );
+      expect(saved.editorDrafts.source.text).toBe(destinationDraft);
+      expect(saved.editorDrafts.source.loaded.text).toBe(
+        expected.editorDrafts.source.loaded.text,
+      );
+      expect(saved.editorDrafts.source.loaded.format).toBe(
+        expected.editorDrafts.source.loaded.format,
+      );
+      expect(saved.editorDrafts.source.loaded.version).toBe(saved.storeVersion);
+      expect(saved.editorDrafts.source.loaded.datasetEpoch).toBe(
+        saved.datasetEpoch,
+      );
+      expect(session.workspace.graphs).toEqual(saved.graphs);
+      expect(session.workbench.layout).toEqual(expected.workbench.layout);
+      expect(session.workbench.panelState["graph.camera"]).toEqual(
+        expected.workbench.panelState["graph.camera"],
+      );
+      expect(session.editorDrafts.source).toEqual(saved.editorDrafts.source);
+      await launch();
+      expect(
+        (await state()).entities.find((entity) => entity.iri === iri)?.label,
+      ).toBe("Destination loaded before quitting");
+      await menu("view.source");
+      await expect(
+        page.getByRole("textbox", { name: "Ontology source", exact: true }),
+      ).toHaveValue(destinationDraft);
+      const reopenedSource = page.getByRole("region", {
+        name: "Ontology source editor",
+      });
+      await expect(reopenedSource.getByRole("status")).toHaveText(
+        "Draft pending",
+      );
+      const apply = reopenedSource.getByRole("button", {
+        name: "Apply changes",
+        exact: true,
+      });
+      await expect(apply).toBeEnabled();
+      await apply.click();
+      await expect
+        .poll(
+          async () =>
+            (await state()).entities.find((entity) => entity.iri === iri)
+              ?.label,
+        )
+        .toBe("Unapplied destination draft");
+    },
+  );
 
 // #123: observe actual timer ticks and disk metadata with the large fixture.
 test("#123 unchanged large workspaces skip serialization and disk writes across idle ticks", async ({}, info) => {

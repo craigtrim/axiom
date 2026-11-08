@@ -4,7 +4,7 @@ Axiom checks for ontology changes every 30 seconds. An edit, undo or redo of ont
 
 An autosave pairs the current ontology with the layout and drafts from the last successful explicit save, closing save or workspace load. File > Save, Save As and closing save the current layout and drafts too. File > Close, New, Open and Import save the current workspace before switching.
 
-File > Exit and the main window X remove this instance's windows from the desktop immediately, including detached panes. Axiom finishes saving in the background before terminating. If a save or workspace change is already running, it finishes before the final closing save. Pending drafts and the current layout are still retained.
+File > Exit and the main window X remove this instance's windows from the desktop immediately, including detached panes. Axiom finishes saving in the background before terminating. If a save or workspace change is already running, it finishes before the final closing save. Pending drafts and the current layout are still retained. Closing during Open preserves the destination workspace's saved layout and drafts.
 
 Saved layout includes every graph's nodes and coordinates, pins, routes, spacing, cluster outlines and radial guides, display settings, node admission settings, styles, selection, cameras, docked panes and window position. Query history continues to use its own persistent store.
 

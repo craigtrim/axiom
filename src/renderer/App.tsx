@@ -480,6 +480,7 @@ export function App() {
       y: number;
     } | null>(null),
     tabOperations = useRef(new Set<Promise<unknown>>()),
+    workspaceRestoration = useRef<Promise<void> | undefined>(undefined),
     [captureFrames] = useState(
       () =>
         new WorkspaceCaptureFrames({
@@ -1207,6 +1208,7 @@ export function App() {
         }
         void Promise.all([
           ...tabOperations.current,
+          workspaceRestoration.current,
           flushQueryHistory(),
           flushUiHistory(),
         ])
@@ -1229,18 +1231,38 @@ export function App() {
           })
           .catch((e) => report(e.message, true));
       }
-      if (id === "workspace.preferences")
-        void window.axiom.preferences.load().then((p) => {
-          setPreferences(p);
-          command("warnings.seeAlso");
-          command("find.extendActions");
-          command("textanalysis.reset");
-          notifyTabHistory();
-          command("query.reset");
-          setModel(restoreLayout(p.layout));
-          for (const d of documents) applyTheme(d);
-          setThemeVersion((n) => n + 1);
-        });
+      if (id === "workspace.preferences") {
+        const restoration: Promise<void> = window.axiom.preferences
+          .load()
+          .then((p) => {
+            if (workspaceRestoration.current !== restoration) return;
+            setPreferences(p);
+            command("warnings.seeAlso");
+            command("find.extendActions");
+            command("textanalysis.reset");
+            notifyTabHistory();
+            command("query.reset");
+            const restoredModel = restoreLayout(p.layout);
+            modelRef.current = restoredModel;
+            setModel(restoredModel);
+            for (const d of documents) applyTheme(d);
+            setThemeVersion((n) => n + 1);
+          });
+        // #221: capture cannot acknowledge the old model while a loaded view is pending.
+        workspaceRestoration.current = restoration;
+        tabOperations.current.add(restoration);
+        void restoration.then(
+          () => {
+            tabOperations.current.delete(restoration);
+            if (workspaceRestoration.current === restoration)
+              workspaceRestoration.current = undefined;
+          },
+          (error) => {
+            tabOperations.current.delete(restoration);
+            report(error.message, true);
+          },
+        );
+      }
       if (id === "subclasses.suggest" && state?.selected)
         openTaxonomy(state.selected, "parents");
       if (id === "file.provenance") show("provenance");

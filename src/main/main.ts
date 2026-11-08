@@ -777,6 +777,14 @@ let closeAfterWorkspaceChange = false;
 let backgroundClose: Promise<void> | undefined;
 let closeRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let closeFailures = 0;
+// A destination closed before its first rendered checkpoint keeps its file metadata.
+let openingWorkspace: WorkspaceMetadata | undefined;
+let closingWorkspace: WorkspaceMetadata | undefined;
+function closingDestinationMetadata() {
+  if (!closePending) return undefined;
+  closingWorkspace ??= openingWorkspace;
+  return closingWorkspace;
+}
 let autosaveTimer: ReturnType<typeof setInterval> | undefined;
 let updates: ReturnType<typeof startUpdates> | undefined;
 const AUTOSAVE_INTERVAL = 30_000;
@@ -806,15 +814,21 @@ function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
     recoveryPath,
   ]);
 }
-async function checkpointSession(capture = true) {
-  if (capture) await capturePreferences();
-  const workbench = structuredClone(preferences),
-    editorDrafts = capturedDrafts;
+async function checkpointSession(
+  capture = true,
+  loadedDestination?: WorkspaceMetadata,
+) {
+  if (capture && !loadedDestination && !closingDestinationMetadata())
+    await capturePreferences();
+  const destination = loadedDestination ?? closingDestinationMetadata();
+  const workbench = structuredClone(destination?.workbench ?? preferences),
+    editorDrafts = destination ? destination.editorDrafts : capturedDrafts;
   const finishSaving = beginCheckpoint();
   let document: CheckpointSummary | undefined;
   try {
     document = await request<CheckpointSummary>("checkpointPrepare", {
       editorDrafts,
+      ontologyOnly: !!destination,
     });
     const key = checkpointKey(document);
     await request("checkpointSession", {
@@ -958,9 +972,13 @@ function capturePreferences() {
     }, 10000);
     captureResolve = done;
     send(closePending ? "workspace.captureClosing" : "workspace.capture");
-  }).finally(() => {
-    capturing = undefined;
-  });
+  })
+    .then(() => {
+      if (!closePending) openingWorkspace = undefined;
+    })
+    .finally(() => {
+      capturing = undefined;
+    });
   return capturing;
 }
 async function releaseMissingWorkspace(file: string) {
@@ -997,11 +1015,17 @@ async function writeWorkspace(
     allowCreate = true;
   }
   if (!automatic) await flushEditors();
-  if (capture && !ontologyOnly) await capturePreferences();
+  if (capture && !ontologyOnly && !closingDestinationMetadata())
+    await capturePreferences();
+  const destinationMetadata = closingDestinationMetadata();
   const workbench = ontologyOnly
       ? savedWorkbench
-      : structuredClone(preferences),
-    editorDrafts = ontologyOnly ? savedEditorDrafts : capturedDrafts;
+      : structuredClone(destinationMetadata?.workbench ?? preferences),
+    editorDrafts = ontologyOnly
+      ? savedEditorDrafts
+      : destinationMetadata
+        ? destinationMetadata.editorDrafts
+        : capturedDrafts;
   const revision = await request<{
     storeVersion: number;
     datasetEpoch: number;
@@ -1025,7 +1049,7 @@ async function writeWorkspace(
       "checkpointPrepare",
       {
         editorDrafts,
-        ontologyOnly,
+        ontologyOnly: ontologyOnly || !!destinationMetadata,
       },
     ));
     if (
@@ -1135,6 +1159,7 @@ function requestBackgroundClose() {
   if (closing) return;
   if (!closePending) {
     closePending = true;
+    closingDestinationMetadata();
     clearInterval(autosaveTimer);
     for (const window of BrowserWindow.getAllWindows()) {
       if (window.isDestroyed()) continue;
@@ -1210,28 +1235,53 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
   const lease = await workspaceOwnership.claim(file);
   if (!lease) return;
   let committed = false;
+  let destination: WorkspaceMetadata | undefined;
   try {
     if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
     const data = await request<WorkspaceMetadata>("loadWorkspaceFile", {
       file,
       preferences,
     });
-    const restored = data.workbench;
+    destination = openingWorkspace = structuredClone(data);
+    closingDestinationMetadata();
+    if (destination.editorDrafts) {
+      const revision = await request<{
+        storeVersion: number;
+        datasetEpoch: number;
+      }>("sessionState");
+      const drafts = destination.editorDrafts;
+      const savedVersion = drafts.storeVersion;
+      const rebase = (loaded: { version: number; datasetEpoch: number }) => {
+        loaded.datasetEpoch = revision.datasetEpoch;
+        loaded.version =
+          loaded.version === savedVersion ? revision.storeVersion : -1;
+      };
+      for (const draft of drafts.entities) rebase(draft.loaded);
+      if (drafts.source) rebase(drafts.source.loaded);
+      for (const draft of drafts.entitySources) rebase(draft.loaded);
+      drafts.storeVersion = revision.storeVersion;
+    }
+    const restored = destination.workbench;
     setWorkspacePath(file, lease);
     committed = true;
     recoveryPath = undefined;
-    restoredDrafts = data.editorDrafts;
-    send("workspace.drafts");
+    restoredDrafts = destination.editorDrafts;
+    if (!closePending) send("workspace.drafts");
     updateWindowTitle();
     if (restored) {
       await savePreferences(restored);
       nativeTheme.themeSource = preferences.theme;
       installMenu();
-      send("workspace.preferences");
+      if (!closePending) send("workspace.preferences");
     }
-    await checkpointSession();
+    await checkpointSession(false, destination);
+    if (!closePending) await capturePreferences();
     await rememberFile(file);
   } finally {
+    if (closePending && openingWorkspace === destination) {
+      closingDestinationMetadata();
+      openingWorkspace = undefined;
+    }
     if (!committed) lease.release();
   }
 }
@@ -2538,7 +2588,7 @@ app.whenReady().then(async () => {
   handle("editors:load", () => restoredDrafts);
   handle("preferences:load", (event) => {
     authorised(event);
-    return preferences;
+    return openingWorkspace?.workbench ?? preferences;
   });
   handle(
     "preferences:save",
