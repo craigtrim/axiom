@@ -202,9 +202,14 @@ async function save(file: string) {
   }
 }
 async function open(file: string) {
-  const completion = await observeDomainReply(app!, page, "checkpointReference", {
-    workspacePath: file,
-  });
+  const completion = await observeDomainReply(
+    app!,
+    page,
+    "checkpointReference",
+    {
+      workspacePath: file,
+    },
+  );
   try {
     await app!.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = async () => ({
@@ -1089,9 +1094,9 @@ test("#223 unchanged Open writes only a session reference and restores the desti
   const session = await rawStored();
   expect(session.workspacePath).toBe(destination);
   expect(session.workspace).toBeUndefined();
-  expect((await stat(path.join(profile, "last-session.json"))).size).toBeLessThan(
-    (await stat(destination)).size,
-  );
+  expect(
+    (await stat(path.join(profile, "last-session.json"))).size,
+  ).toBeLessThan((await stat(destination)).size);
   await app!.evaluate(({ app }) => app.exit(0)).catch(() => {});
   app = undefined;
   await launch();
@@ -1127,7 +1132,9 @@ test("#223 a view-only switch reuses ontology and restores the saved selection a
   await menu("view.find");
   await open(destination);
   expect(
-    await app!.evaluate(() => (globalThis as any).__archivePrepare?.reuseOntology),
+    await app!.evaluate(
+      () => (globalThis as any).__archivePrepare?.reuseOntology,
+    ),
   ).toBe(true);
   const saved = JSON.parse(await readFile(source, "utf8"));
   expect(saved.entities).toEqual(previous.entities);
@@ -1166,35 +1173,59 @@ test("#223 an explicit unchanged Save replaces the file and its backup", async (
   expect(await readFile(file + ".bak", "utf8")).toBe(before);
 });
 
-test("#223 closing an unchanged workspace skips checkpoint preparation and disk writes", async () => {
-  await create("Unchanged at close");
-  await request("freeze");
-  const file = path.join(profile, "unchanged-close.axiom");
-  await save(file);
-  const sessionFile = path.join(profile, "last-session.json");
-  const fileTime = (await stat(file)).mtimeMs;
-  const sessionTime = (await stat(sessionFile)).mtimeMs;
-  const countsFile = path.join(profile, "close-domain-counts.json");
-  const before = await app!.evaluate(() => ({
-    ...(globalThis as any).__domainServiceObserver.counts,
-  }));
-  await app!.evaluate(({ app }, file) => {
-    app.once("will-quit", () => {
-      const fs = process.getBuiltinModule("fs") as typeof import("node:fs");
-      fs.writeFileSync(
-        file,
-        JSON.stringify((globalThis as any).__domainServiceObserver.counts),
+for (const savedBy of ["explicit Save", "ontology autosave"] as const)
+  test(
+    "#223 closing an unchanged workspace skips checkpoint preparation and disk writes after " +
+      savedBy,
+    async () => {
+      test.setTimeout(90000);
+      const iri = await create("Unchanged at close");
+      await request("freeze");
+      const file = path.join(profile, "unchanged-close.axiom");
+      await save(file);
+      if (savedBy === "ontology autosave") {
+        await request("rename", { iri, name: "Saved by the ontology timer" });
+        await expect
+          .poll(
+            async () => {
+              const saved = JSON.parse(await readFile(file, "utf8"));
+              return saved.entities.find((entity: any) => entity.iri === iri)
+                ?.label;
+            },
+            { timeout: 45000 },
+          )
+          .toBe("Saved by the ontology timer");
+        await expect
+          .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+          .toBe(false);
+      }
+      const sessionFile = path.join(profile, "last-session.json");
+      const fileTime = (await stat(file)).mtimeMs;
+      const sessionTime = (await stat(sessionFile)).mtimeMs;
+      const countsFile = path.join(profile, "close-domain-counts.json");
+      const before = await app!.evaluate(() => ({
+        ...(globalThis as any).__domainServiceObserver.counts,
+      }));
+      await app!.evaluate(({ app }, file) => {
+        app.once("will-quit", () => {
+          const fs = process.getBuiltinModule("fs") as typeof import("node:fs");
+          fs.writeFileSync(
+            file,
+            JSON.stringify((globalThis as any).__domainServiceObserver.counts),
+          );
+        });
+      }, countsFile);
+      await close();
+      const after = JSON.parse(await readFile(countsFile, "utf8"));
+      expect(after.checkpointPrepare ?? 0).toBe(before.checkpointPrepare ?? 0);
+      expect(after.checkpointSession ?? 0).toBe(before.checkpointSession ?? 0);
+      expect(after.checkpointWorkspace ?? 0).toBe(
+        before.checkpointWorkspace ?? 0,
       );
-    });
-  }, countsFile);
-  await close();
-  const after = JSON.parse(await readFile(countsFile, "utf8"));
-  expect(after.checkpointPrepare ?? 0).toBe(before.checkpointPrepare ?? 0);
-  expect(after.checkpointSession ?? 0).toBe(before.checkpointSession ?? 0);
-  expect(after.checkpointWorkspace ?? 0).toBe(before.checkpointWorkspace ?? 0);
-  expect((await stat(file)).mtimeMs).toBe(fileTime);
-  expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
-});
+      expect((await stat(file)).mtimeMs).toBe(fileTime);
+      expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
+    },
+  );
 
 for (const boundary of ["data load", "preferences reply"] as const)
   test(

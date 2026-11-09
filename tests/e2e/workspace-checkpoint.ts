@@ -8,6 +8,7 @@ import type { Snapshot } from "../../src/shared/protocol";
 export async function waitWorkspaceCheckpoint(
   app: ElectronApplication,
   page: Page,
+  expectedFile?: string,
 ) {
   const profile = await app.evaluate(({ app }) => app.getPath("userData"));
   const snapshot = await page.evaluate(() =>
@@ -22,6 +23,8 @@ export async function waitWorkspaceCheckpoint(
           const session = JSON.parse(
             await readFile(path.join(profile, "last-session.json"), "utf8"),
           );
+          if (expectedFile && session.workspacePath !== expectedFile)
+            return null;
           const workspace =
             session.workspace ??
             JSON.parse(await readFile(session.workspacePath, "utf8"));

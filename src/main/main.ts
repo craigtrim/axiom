@@ -1059,7 +1059,9 @@ async function writeWorkspace(
       : destinationMetadata
         ? destinationMetadata.editorDrafts
         : capturedDrafts;
-  const revision = await request<CheckpointStatus>("checkpointStatus");
+  const revision = await request<CheckpointStatus>(
+    ontologyOnly ? "sessionState" : "checkpointStatus",
+  );
   if (ontologyOnly && !autosaveCheckpoint.needsSave(checkpointKey(revision)))
     return true;
   if (
@@ -1162,8 +1164,7 @@ async function writeWorkspace(
       if (!automatic || archive) await rememberFile(destination);
     }
     autosaveCheckpoint.complete(key);
-    if (!ontologyOnly)
-      savedArchiveKey = archiveKey(document, workbench, editorDrafts);
+    savedArchiveKey = archiveKey(document, workbench, editorDrafts);
     return true;
   } catch (error) {
     if (error instanceof MissingWorkspaceError && file) {
