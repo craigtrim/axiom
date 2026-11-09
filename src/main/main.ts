@@ -1068,7 +1068,16 @@ async function writeWorkspace(
     automatic &&
     archive &&
     savedArchiveKey === archiveKey(revision, workbench, editorDrafts) &&
-    (file || (recoveryPath && (await workspaceExists(recoveryPath))))
+    (file ||
+      (recoveryPath
+        ? await workspaceExists(recoveryPath)
+        : !(
+            lastState?.dirty ||
+            editorDrafts ||
+            lastState?.ontology.source ||
+            lastState?.ontology.example ||
+            lastState?.graph.nodes.length
+          )))
   )
     return true;
   let lease = file ? await workspaceOwnership.claim(file) : undefined;

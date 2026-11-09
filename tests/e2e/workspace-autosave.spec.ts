@@ -1173,7 +1173,11 @@ test("#223 an explicit unchanged Save replaces the file and its backup", async (
   expect(await readFile(file + ".bak", "utf8")).toBe(before);
 });
 
-for (const savedBy of ["explicit Save", "ontology autosave"] as const)
+for (const savedBy of [
+  "explicit Save",
+  "ontology autosave",
+  "File Close",
+] as const)
   test(
     "#223 closing an unchanged workspace skips checkpoint preparation and disk writes after " +
       savedBy,
@@ -1198,6 +1202,14 @@ for (const savedBy of ["explicit Save", "ontology autosave"] as const)
         await expect
           .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
           .toBe(false);
+      } else if (savedBy === "File Close") {
+        await menu("file.close");
+        await expect
+          .poll(async () =>
+            (await state()).entities.some((entity) => entity.iri === iri),
+          )
+          .toBe(false);
+        await waitWorkspaceCheckpoint(app!, page);
       }
       const sessionFile = path.join(profile, "last-session.json");
       const fileTime = (await stat(file)).mtimeMs;
