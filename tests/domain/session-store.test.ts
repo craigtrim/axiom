@@ -17,6 +17,7 @@ import {
   type StoredSession,
 } from "../../src/main/session-store";
 import { buildEmptyStore, readWorkspace } from "../../src/domain/workspace";
+import { readPreferences } from "../../src/shared/preferences";
 const directories: string[] = [];
 afterEach(async () => {
   for (const d of directories.splice(0))
@@ -210,7 +211,7 @@ it("saves a reference without rewriting the preceding full recovery backup", asy
     format: "axiom-session" as const,
     version: 2 as const,
     workspacePath: path.join(path.dirname(s.file), "opened.axiom"),
-    workbench: { version: 1 as const, theme: "dark" as const },
+    workbench: readPreferences({ version: 1, theme: "dark" }),
   };
   await s.save(reference, { backup: false });
   expect(JSON.parse(await readFile(s.file, "utf8"))).toEqual(reference);
