@@ -567,7 +567,11 @@ for (const route of [
         expect(
           await page.evaluate(() => window.axiom.workspace.opening()),
         ).toBeNull();
-        await expect.poll(nativeTitle).toBe("Axiom | " + file);
+        const dirty = route === "Open Turtle";
+        expect((await state()).dirty).toBe(dirty);
+        await expect
+          .poll(nativeTitle)
+          .toBe("Axiom | " + file + (dirty ? " *" : ""));
         await expect(
           page.getByTestId("window-titlebar").locator(".name"),
         ).toHaveText(fileName);
