@@ -2,10 +2,12 @@
 // craigtrim/axiom#208: stream imports and capture immutable, bounded checkpoints.
 // craigtrim/axiom#205: per-view cluster controls and settled geometry membership.
 import { GraphClusterState } from "./graph-cluster-state";
-import { encodeJsonAsync } from "./json-io";
+import { encodeJsonAsync, type JsonChunks } from "./json-io";
 import { DomainJsonReceiver, DomainJsonSender } from "./domain-json-transport";
 import { StateUpdates } from "./state-updates";
 import { CheckpointStore } from "./checkpoint-store";
+// #223: layout-only checkpoints retain the saved ontology's original JSON bytes.
+import { captureJsonObjectAsync, type CapturedJsonObject } from "./json-fields";
 import { DomainTextAnalysis } from "./domain-text-analysis";
 import { encodeDomainPacket } from "./domain-wire";
 import { totalmem } from "node:os";
@@ -395,8 +397,41 @@ interface CheckpointLayout {
   >;
 }
 let savedCheckpointLayout: CheckpointLayout =
-  captureCheckpointLayout(serializeWorkspace());
+  captureCheckpointLayout(serializeLayout());
 const checkpointLayouts = new Map<string, CheckpointLayout>();
+type EncodedOntology = {
+  datasetEpoch: number;
+  storeVersion: number;
+  chunks: JsonChunks;
+  json?: CapturedJsonObject;
+};
+let savedOntology: EncodedOntology | undefined;
+const checkpointOntologies = new Map<string, EncodedOntology>();
+function checkpointStatus(useSavedLayout = false) {
+  return {
+    ...sessionState(),
+    ...(useSavedLayout && savedOntology
+      ? {
+          datasetEpoch: savedOntology.datasetEpoch,
+          storeVersion: savedOntology.storeVersion,
+        }
+      : {}),
+    layoutKey: JSON.stringify(
+      (useSavedLayout
+        ? savedCheckpointLayout
+        : captureCheckpointLayout(serializeLayout())
+      ).layout,
+    ),
+    reusableOntology:
+      savedOntology?.datasetEpoch === datasetEpoch &&
+      savedOntology.storeVersion === store.version,
+  };
+}
+function rememberLoadedOntology() {
+  const chunks = checkpointStore().takeLoadedWorkspaceChunks();
+  const revision = sessionState();
+  savedOntology = chunks ? { ...revision, chunks } : undefined;
+}
 function captureCheckpointLayout(
   document: CheckpointLayout["layout"] & {
     datasetEpoch: number;
@@ -416,18 +451,23 @@ function captureCheckpointLayout(
   };
 }
 function serializeWorkspace() {
-  keepGraph();
   return {
     format: "axiom-workspace",
     ontology: store.ontology,
     storeVersion: store.version,
-    workspaceRevision: documentRevision,
-    datasetEpoch,
     version: 1,
     entities: [...store.entities.values()],
     tbox: store.tbox,
     individuals: store.individuals,
     customers: store.customers,
+    ...serializeLayout(),
+  };
+}
+function serializeLayout() {
+  keepGraph();
+  return {
+    datasetEpoch,
+    workspaceRevision: documentRevision,
     activeGraphId,
     archivedGraphs: Object.fromEntries(graphArchives),
     graphs: Object.fromEntries(
@@ -742,6 +782,7 @@ const tracked = new Set<DomainMethod>([
 const checkpointMethods = new Set<DomainMethod>([
   ...tracked,
   "checkpointPrepare",
+  "checkpointReference",
   "configureDataService",
   "restoreSession",
   "loadWorkspaceFile",
@@ -839,7 +880,8 @@ async function operate(
     spacingBefore.clear();
     clusterLoosenessBefore.clear();
     documentRevision = savedRevision = 0;
-    savedCheckpointLayout = captureCheckpointLayout(serializeWorkspace());
+    savedCheckpointLayout = captureCheckpointLayout(serializeLayout());
+    savedOntology = undefined;
     publish();
     return value;
   }
@@ -1191,10 +1233,29 @@ async function dispatch(
       return runtimeInfo();
     case "runtimeInfo":
       return runtimeInfo();
+    case "checkpointStatus":
+      return checkpointStatus(a.saved === true);
+    case "checkpointReference": {
+      await checkpointStore().saveReference(
+        a.workbench as Preferences,
+        string(a, "workspacePath", 32768),
+        a.editorDrafts as
+          import("../shared/editor-state").SavedEditorDrafts | undefined,
+      );
+      return checkpointStatus(true);
+    }
     case "checkpointPrepare": {
       encodingOntologyOnly = a.ontologyOnly === true;
       try {
-        const current = serializeWorkspace();
+        const reuse =
+          a.reuseOntology === true &&
+          savedOntology?.datasetEpoch === datasetEpoch &&
+          savedOntology.storeVersion === store.version
+            ? savedOntology
+            : undefined;
+        const current = reuse
+          ? { ...serializeLayout(), storeVersion: store.version }
+          : serializeWorkspace();
         const layout = captureCheckpointLayout(current);
         const baseline =
           encodingOntologyOnly &&
@@ -1209,7 +1270,20 @@ async function dispatch(
         const revision = sessionState();
         const drafts = a.editorDrafts as
           import("../shared/editor-state").SavedEditorDrafts | undefined;
-        const chunks = await encodeJsonAsync(document);
+        // Index retained bytes only when a view save needs them, never during Open.
+        const json = reuse
+          ? (reuse.json ??= await captureJsonObjectAsync(reuse.chunks))
+          : undefined;
+        const chunks = json
+          ? json.replace({
+              ...baseline.layout,
+              storeVersion: document.storeVersion,
+              workspaceRevision: document.workspaceRevision,
+              datasetEpoch,
+              workbench: undefined,
+              editorDrafts: undefined,
+            })
+          : await encodeJsonAsync(document);
         const draftsChunks = drafts
           ? await encodeJsonAsync({
               ...drafts,
@@ -1222,6 +1296,14 @@ async function dispatch(
           workspaceRevision: document.workspaceRevision,
           chunks,
           draftsChunks,
+          layoutKey: JSON.stringify(baseline.layout),
+          reusedOntology: !!reuse,
+        });
+        checkpointOntologies.set(checkpoint.id, {
+          ...revision,
+          storeVersion: document.storeVersion,
+          chunks,
+          json,
         });
         if (!encodingOntologyOnly) checkpointLayouts.set(checkpoint.id, layout);
         return checkpoint;
@@ -1239,6 +1321,8 @@ async function dispatch(
       );
       const layout = checkpointLayouts.get(id);
       if (layout?.datasetEpoch === datasetEpoch) savedCheckpointLayout = layout;
+      const ontology = checkpointOntologies.get(id);
+      if (ontology?.datasetEpoch === datasetEpoch) savedOntology = ontology;
       return result;
     }
     case "checkpointWorkspace":
@@ -1246,27 +1330,35 @@ async function dispatch(
         string(a, "id", 200),
         string(a, "file", 32768),
         a.workbench as Preferences,
-        a.options as { createDirectory?: boolean; allowCreate?: boolean },
+        a.options as {
+          createDirectory?: boolean;
+          allowCreate?: boolean;
+          force?: boolean;
+        },
       );
     case "checkpointRelease": {
       const id = string(a, "id", 200);
       checkpointStore().release(id);
       checkpointLayouts.delete(id);
+      checkpointOntologies.delete(id);
       return true;
     }
-    case "restoreSession":
-      return checkpointStore().restore(
+    case "restoreSession": {
+      const restored = await checkpointStore().restore(
         async (document) => {
           await operate("load", { document, takeOwnership: true });
         },
         a.preferences as Preferences | undefined,
       );
+      rememberLoadedOntology();
+      return restored;
+    }
     case "loadWorkspaceFile": {
       const initialStore = store,
         initialEpoch = datasetEpoch,
         initialVersion = store.version,
         initialRevision = documentRevision;
-      return checkpointStore().openWorkspace(
+      const opened = await checkpointStore().openWorkspace(
         string(a, "file", 32768),
         async (document) => {
           if (
@@ -1282,6 +1374,8 @@ async function dispatch(
         },
         a.preferences as Preferences | undefined,
       );
+      rememberLoadedOntology();
+      return opened;
     }
     case "textAnalysisParse":
       return textAnalysis.parse(a.input as TextAnalysisInput);
@@ -2994,7 +3088,10 @@ const receive = async (packet: {
       checkpointMethods.has(method) &&
       !(method === "select" && encodingOntologyOnly);
     const value = await (queued
-      ? scheduleCheckpoint(operation, method === "checkpointPrepare")
+      ? scheduleCheckpoint(
+          operation,
+          method === "checkpointPrepare" || method === "checkpointReference",
+        )
       : operation());
     postMessage({ id, value });
   } catch (e) {

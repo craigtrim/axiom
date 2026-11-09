@@ -1,8 +1,9 @@
 // #123: exercise the actual worker protocol, including selection and settled motion.
 // #217: only ontology versions trigger autosave, and checkpoints retain saved layouts.
+// #223: archive checks and layout saves reuse immutable ontology bytes.
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
 import { Worker } from "node:worker_threads";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { build } from "esbuild";
@@ -288,4 +289,134 @@ it("captures positions after force layout comes to rest without revising every t
     JSON.parse((await request<SerializedCheckpoint>("serializeJson")).text)
       .graph.positions,
   ).toEqual(JSON.parse(first.text).graph.positions);
+});
+
+it("checks layout changes without changing the ontology revision", async () => {
+  const profile = await checkpointProfile();
+  await saveCheckpoint(profile);
+  const before = await request("checkpointStatus");
+  expect(before.reusableOntology).toBe(true);
+  expect(typeof before.layoutKey).toBe("string");
+  expect(await request("checkpointStatus")).toEqual(before);
+  await request("select", { iri: schoolBase + "school2" });
+  const selected = await request("checkpointStatus");
+  expect(selected.storeVersion).toBe(before.storeVersion);
+  expect(selected.datasetEpoch).toBe(before.datasetEpoch);
+  expect(selected.layoutKey).not.toBe(before.layoutKey);
+  await request("drag", { iri: schoolBase + "school1", x: 611, y: 287 });
+  expect((await request("checkpointStatus")).layoutKey).not.toBe(
+    selected.layoutKey,
+  );
+});
+
+async function loadRawCheckpoint(profile: string) {
+  const file = path.join(profile, "raw-ontology.axiom");
+  const document = await request("serialize");
+  const entity = document.entities.find(
+    (value: { iri: string }) => value.iri === schoolBase + "school1",
+  );
+  // A redundant JSON escape is observable evidence that the original entity bytes survived.
+  const encoded = JSON.stringify(entity.label);
+  const preserved =
+    '"\\u' +
+    entity.label.charCodeAt(0).toString(16).padStart(4, "0") +
+    encoded.slice(1);
+  const raw = JSON.stringify(document, null, 2).replace(encoded, preserved);
+  expect(raw).toContain(preserved);
+  await writeFile(file, raw, "utf8");
+  await request("loadWorkspaceFile", { file });
+  return { file, preserved, label: entity.label };
+}
+
+it("reuses loaded ontology bytes for a layout checkpoint and keeps the snapshot immutable", async () => {
+  const profile = await checkpointProfile();
+  const { preserved, label } = await loadRawCheckpoint(profile);
+  await request("select", { iri: schoolBase + "school2" });
+  await request("spacing", { value: 2.5 });
+  const captured = await request<CheckpointSummary>("checkpointPrepare", {
+    reuseOntology: true,
+  });
+  expect(captured.reusedOntology).toBe(true);
+  await request("rename", {
+    iri: schoolBase + "school1",
+    name: "A later edit",
+  });
+  await request("new", { blank: true });
+  const file = path.join(profile, "immutable-layout.axiom");
+  try {
+    await request("checkpointWorkspace", {
+      id: captured.id,
+      file,
+      workbench: checkpointWorkbench,
+      options: { allowCreate: true },
+    });
+    const raw = await readFile(file, "utf8");
+    expect(raw).toContain(preserved);
+    const saved = JSON.parse(raw);
+    expect(saved.selected).toBe(schoolBase + "school2");
+    expect(saved.graphs.graph.spacing).toBe(2.5);
+    expect(
+      saved.entities.find((value: { iri: string }) =>
+        value.iri === schoolBase + "school1",
+      ).label,
+    ).toBe(label);
+  } finally {
+    await request("checkpointRelease", { id: captured.id });
+  }
+});
+
+it("encodes a changed ontology instead of reusing the loaded bytes", async () => {
+  const profile = await checkpointProfile();
+  await loadRawCheckpoint(profile);
+  await request("rename", {
+    iri: schoolBase + "school1",
+    name: "An edit that must reach recovery",
+  });
+  expect((await request("checkpointStatus")).reusableOntology).toBe(false);
+  const checkpoint = await request<CheckpointSummary>("checkpointPrepare", {
+    reuseOntology: true,
+  });
+  expect(checkpoint.reusedOntology).toBe(false);
+  try {
+    await request("checkpointSession", {
+      id: checkpoint.id,
+      workbench: checkpointWorkbench,
+    });
+    const saved = JSON.parse(
+      await readFile(path.join(profile, "last-session.json"), "utf8"),
+    );
+    expect(
+      saved.workspace.entities.find((value: { iri: string }) =>
+        value.iri === schoolBase + "school1",
+      ).label,
+    ).toBe("An edit that must reach recovery");
+  } finally {
+    await request("checkpointRelease", { id: checkpoint.id });
+  }
+});
+
+it("records an opened file without a checkpoint copy and restores it through the worker", async () => {
+  const profile = await checkpointProfile();
+  const { file } = await loadRawCheckpoint(profile);
+  const before = await readFile(file, "utf8");
+  await request("checkpointReference", {
+    workbench: checkpointWorkbench,
+    workspacePath: file,
+  });
+  const session = JSON.parse(
+    await readFile(path.join(profile, "last-session.json"), "utf8"),
+  );
+  expect(session.workspacePath).toBe(file);
+  expect(session.workspace).toBeUndefined();
+  expect(await readFile(file, "utf8")).toBe(before);
+  await request("new", { blank: true });
+  await request("restoreSession");
+  const restored = await request("serialize");
+  expect(restored.selected).toBe(schoolBase + "school1");
+  expect(
+    restored.entities.some((value: { iri: string }) =>
+      value.iri === schoolBase + "school1",
+    ),
+  ).toBe(true);
+  expect((await request("checkpointStatus")).reusableOntology).toBe(true);
 });

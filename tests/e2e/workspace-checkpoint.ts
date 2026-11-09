@@ -1,4 +1,5 @@
 // #165: a new store is broadcast before its native command finishes saving.
+// #223: opened workspaces keep a file reference rather than a copied ontology.
 import { expect, type ElectronApplication, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,11 +19,22 @@ export async function waitWorkspaceCheckpoint(
     .poll(
       async () => {
         try {
-          const { workspace } = JSON.parse(
+          const session = JSON.parse(
             await readFile(path.join(profile, "last-session.json"), "utf8"),
           );
+          const workspace =
+            session.workspace ??
+            JSON.parse(await readFile(session.workspacePath, "utf8"));
+          // Referenced files retain their saved epoch; the worker assigns a new one on load.
+          if (
+            session.workspace
+              ? workspace.datasetEpoch !== snapshot.datasetEpoch
+              : session.format !== "axiom-session" ||
+                session.version !== 2 ||
+                !path.isAbsolute(session.workspacePath)
+          )
+            return null;
           return {
-            datasetEpoch: workspace.datasetEpoch,
             ontology: workspace.ontology,
             entities: catalog(workspace.entities),
           };
@@ -33,7 +45,6 @@ export async function waitWorkspaceCheckpoint(
       { message: "Workspace command must finish its recovery checkpoint" },
     )
     .toEqual({
-      datasetEpoch: snapshot.datasetEpoch,
       ontology: snapshot.ontology,
       entities: catalog(snapshot.entities),
     });

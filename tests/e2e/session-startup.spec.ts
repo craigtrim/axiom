@@ -1,4 +1,5 @@
 // Issue 87 exposes restored document counts in the shell status.
+// #223: session backup coverage uses an explicit save, since unchanged close skips writes.
 import {
   test,
   expect,
@@ -311,6 +312,7 @@ test("Pizza remains available explicitly and closing it leaves the next launch e
 });
 test("a damaged session restores its last valid backup", async () => {
   await importFixture();
+  await save(path.join(profile, "backup-generation.axiom"));
   await close();
   await writeFile(path.join(profile, "last-session.json"), "{ damaged");
   await launch();

@@ -767,6 +767,14 @@ async function rememberFile(file: string) {
 const autosaveCheckpoint = new AutosaveCheckpoint();
 let savedWorkbench: Preferences;
 let savedEditorDrafts: SavedEditorDrafts | undefined;
+// #223: implicit archive saves compare the complete persisted state before encoding.
+interface CheckpointStatus {
+  storeVersion: number;
+  datasetEpoch: number;
+  layoutKey: string;
+  reusableOntology: boolean;
+}
+let savedArchiveKey: string | undefined;
 let capturedDraftRevision = "",
   legacyDraftRevision = 0;
 let capturedDrafts: SavedEditorDrafts | undefined;
@@ -814,6 +822,18 @@ function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
     recoveryPath,
   ]);
 }
+function archiveKey(
+  state: { storeVersion: number; datasetEpoch: number; layoutKey?: string },
+  workbench: Preferences,
+  editorDrafts?: SavedEditorDrafts,
+) {
+  return JSON.stringify([
+    checkpointKey(state),
+    state.layoutKey,
+    workbench,
+    editorDrafts,
+  ]);
+}
 async function checkpointSession(
   capture = true,
   loadedDestination?: WorkspaceMetadata,
@@ -826,6 +846,18 @@ async function checkpointSession(
   const finishSaving = beginCheckpoint();
   let document: CheckpointSummary | undefined;
   try {
+    if (destination && workspacePath) {
+      const status = await request<CheckpointStatus>("checkpointReference", {
+        workbench,
+        workspacePath,
+        editorDrafts,
+      });
+      savedWorkbench = workbench;
+      savedEditorDrafts = editorDrafts;
+      autosaveCheckpoint.complete(checkpointKey(status));
+      savedArchiveKey = archiveKey(status, workbench, editorDrafts);
+      return;
+    }
     document = await request<CheckpointSummary>("checkpointPrepare", {
       editorDrafts,
       ontologyOnly: !!destination,
@@ -840,6 +872,7 @@ async function checkpointSession(
     savedWorkbench = workbench;
     savedEditorDrafts = editorDrafts;
     autosaveCheckpoint.complete(key);
+    savedArchiveKey = archiveKey(document, workbench, editorDrafts);
   } finally {
     if (document)
       await request("checkpointRelease", { id: document.id }).catch(() => {});
@@ -1026,11 +1059,15 @@ async function writeWorkspace(
       : destinationMetadata
         ? destinationMetadata.editorDrafts
         : capturedDrafts;
-  const revision = await request<{
-    storeVersion: number;
-    datasetEpoch: number;
-  }>("sessionState");
+  const revision = await request<CheckpointStatus>("checkpointStatus");
   if (ontologyOnly && !autosaveCheckpoint.needsSave(checkpointKey(revision)))
+    return true;
+  if (
+    automatic &&
+    archive &&
+    savedArchiveKey === archiveKey(revision, workbench, editorDrafts) &&
+    (file || (recoveryPath && (await workspaceExists(recoveryPath))))
+  )
     return true;
   let lease = file ? await workspaceOwnership.claim(file) : undefined;
   if (file && !lease) {
@@ -1050,6 +1087,7 @@ async function writeWorkspace(
       {
         editorDrafts,
         ontologyOnly: ontologyOnly || !!destinationMetadata,
+        reuseOntology: automatic && archive,
       },
     ));
     if (
@@ -1098,7 +1136,11 @@ async function writeWorkspace(
         id: document.id,
         file: destination,
         workbench,
-        options: { createDirectory: !file, allowCreate: !file || allowCreate },
+        options: {
+          createDirectory: !file,
+          allowCreate: !file || allowCreate,
+          force: !automatic,
+        },
       });
       if (file && workspacePath !== file) {
         setWorkspacePath(file, lease);
@@ -1120,6 +1162,8 @@ async function writeWorkspace(
       if (!automatic || archive) await rememberFile(destination);
     }
     autosaveCheckpoint.complete(key);
+    if (!ontologyOnly)
+      savedArchiveKey = archiveKey(document, workbench, editorDrafts);
     return true;
   } catch (error) {
     if (error instanceof MissingWorkspaceError && file) {
@@ -1944,14 +1988,14 @@ app.whenReady().then(async () => {
   savedWorkbench = structuredClone(preferences);
   savedEditorDrafts = restoredDrafts;
   // A missing workspace needs one recovery write to clear its obsolete file path.
-  if (!restoredSession.missingWorkspacePath)
-    autosaveCheckpoint.complete(
-      checkpointKey(
-        await request<{ storeVersion: number; datasetEpoch: number }>(
-          "sessionState",
-        ),
-      ),
-    );
+  if (!restoredSession.missingWorkspacePath) {
+    const status = await request<CheckpointStatus>("checkpointStatus", {
+      saved: true,
+    });
+    autosaveCheckpoint.complete(checkpointKey(status));
+    if (restoredSession.session)
+      savedArchiveKey = archiveKey(status, savedWorkbench, savedEditorDrafts);
+  }
   nativeTheme.themeSource = preferences.theme;
   const bounds = preferences.bounds;
   const validBounds =
