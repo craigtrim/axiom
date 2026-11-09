@@ -1,5 +1,7 @@
 // craigtrim/axiom#94: the Source action row reports draft state directly.
+// #223: workspace Open finishes with a file reference instead of a copied session.
 import { launchExample } from "./example-fixture";
+import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -48,6 +50,10 @@ async function openFile(file: string, command = "file.import") {
     .toBeGreaterThan(epoch);
   // The worker publishes its new epoch before main finishes the import's
   // session checkpoint. A second import during that interval is ignored.
+  if (file.toLowerCase().endsWith(".axiom")) {
+    await waitWorkspaceCheckpoint(app, page, file);
+    return;
+  }
   const importedEpoch = (await state()).datasetEpoch;
   await expect
     .poll(async () => {

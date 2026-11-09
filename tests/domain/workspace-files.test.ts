@@ -1,4 +1,5 @@
 // craigtrim/axiom#208: chunk boundaries do not change digests or atomic file ownership.
+// craigtrim/axiom#223: an explicit Save writes even when its bytes match.
 import { afterEach, expect, it, vi } from "vitest";
 import * as fs from "node:fs/promises";
 import * as jsonIo from "../../src/main/json-io";
@@ -148,4 +149,16 @@ it("pins the supplied chunks before destination checks can yield", async () => {
   chunks[0] = "changed";
   await pending;
   expect(await readFile(file, "utf8")).toBe("captured");
+});
+
+it("forces an identical explicit save while automatic writes remain unchanged", async () => {
+  const file = await location(),
+    writer = new WorkspaceFiles();
+  await writer.write(file, ["unchanged"], { allowCreate: true });
+  await writer.write(file, ["un", "changed"]);
+  expect(jsonIo.writeJsonFile).toHaveBeenCalledTimes(1);
+  await writer.write(file, ["unchanged"], { force: true });
+  expect(jsonIo.writeJsonFile).toHaveBeenCalledTimes(2);
+  expect(await readFile(file, "utf8")).toBe("unchanged");
+  expect(await readFile(file + ".bak", "utf8")).toBe("unchanged");
 });

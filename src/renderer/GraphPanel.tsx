@@ -581,6 +581,7 @@ function GraphContent() {
         contextLost ||
         !dirty.current ||
         !graph ||
+        (state?.graphs && !state.graphs[graphId]) ||
         canvas.clientWidth < 1 ||
         canvas.clientHeight < 1
       )
@@ -716,9 +717,20 @@ function GraphContent() {
       attributeFilter: ["data-theme"],
     });
     const off = onCommand((id) => {
+      // #223: loading another dataset must not replace its saved camera with Fit.
+      if (id === "workspace.restoreCameras") {
+        const saved = panel<Camera | null>(cameraKey, null);
+        if (saved) {
+          camera.current = { ...saved };
+          needsFit.current = false;
+          toolbarHeight = undefined;
+          dirty.current = true;
+        }
+      }
       // #123: the import checkpoint includes the rendered camera before idle ticks.
       if (
         id === "workspace.captureViews" &&
+        (!state?.graphs || !!state.graphs[graphId]) &&
         canvas.clientWidth > 0 &&
         canvas.clientHeight > 0
       ) {
@@ -848,7 +860,7 @@ function GraphContent() {
       theme.disconnect();
       un();
       off();
-      savePanel(cameraKey, camera.current, false);
+      if (state?.graphs?.[graphId]) savePanel(cameraKey, camera.current, false);
     };
   }, []);
   const point = (e: { clientX: number; clientY: number }) => {

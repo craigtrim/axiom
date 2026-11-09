@@ -1,6 +1,7 @@
 // #165: enumerate each complete shard and fail closed on missing or skipped native coverage.
 // #166: include the completed-close/reopen journey in the early regression batch.
 // #169: check blank-draft behavior and both corrected visual frames early.
+// #223: check unchanged Open before the full native shards finish.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -37,6 +38,7 @@ const args = [
         "tests/e2e/edge-creation.spec.ts",
         "tests/e2e/ontology-lifecycle.spec.ts",
         "tests/e2e/workspace-autosave.spec.ts",
+        "tests/e2e/multi-instance.spec.ts",
         "tests/e2e/touchpoints-visual.spec.ts",
         "tests/e2e/quality-visual.spec.ts",
         "tests/e2e/text-analysis.spec.ts",
@@ -45,7 +47,7 @@ const args = [
         "tests/e2e/ontology-export.spec.ts",
         "tests/e2e/window-chrome.spec.ts",
         "--grep",
-        String.raw`(?:menus share native state and support keyboard navigation, compact folds, scrolling and the palette$|ontology-export\.spec\.ts|individuals-visual\.spec\.ts|edge-visibility\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$|DOAP: import, view, edit, create, save, close and reopen$|an unnamed workspace saves on File Close and remains accessible as a complete recovery workspace$|Discard draft leaves a fresh form while validation is pending$|blank forms enable Discard only for content in the row and overflow menu$|add-entity-visual\.spec\.ts.*(?:light|dark) frame (?:12|19) matches raw reference pixels$|touchpoints-visual\.spec\.ts.*(?:light|dark) frame (?:14|15) matches raw reference pixels$|quality-visual\.spec\.ts.*(?:light|dark) a2-running-bar$|#128 plain highlight clicks keep the caret and focus with Auto (?:on|off)$|hierarchy-visual\.spec\.ts.*(?:light|dark) frame 27 matches raw reference pixels$)`,
+        String.raw`(?:#223 unchanged Open writes only a session reference and restores the destination after restart$|#223 closing an unchanged workspace skips checkpoint preparation and disk writes after saved tab history$|#223 closing an unchanged busy file reference preserves an independent empty-graph recovery$|menus share native state and support keyboard navigation, compact folds, scrolling and the palette$|ontology-export\.spec\.ts|individuals-visual\.spec\.ts|edge-visibility\.spec\.ts|natural labels create in the taxonomy and full entity details open beside the graph$|Find filters, sorts and pages every match with useful result actions$|quick Find focuses type-ahead and sends results to a pane without changing the graph$|a failed check stays visible until a successful check and stale replies cannot commit$|Escape, right-click, stale data and pane closure cancel drawing without edits$|DOAP: import, view, edit, create, save, close and reopen$|an unnamed workspace saves on File Close and remains accessible as a complete recovery workspace$|Discard draft leaves a fresh form while validation is pending$|blank forms enable Discard only for content in the row and overflow menu$|add-entity-visual\.spec\.ts.*(?:light|dark) frame (?:12|19) matches raw reference pixels$|touchpoints-visual\.spec\.ts.*(?:light|dark) frame (?:14|15) matches raw reference pixels$|quality-visual\.spec\.ts.*(?:light|dark) a2-running-bar$|#128 plain highlight clicks keep the caret and focus with Auto (?:on|off)$|hierarchy-visual\.spec\.ts.*(?:light|dark) frame 27 matches raw reference pixels$)`,
       ]
     : [`--shard=${shard}/8`]),
   "--grep-invert",
@@ -94,9 +96,9 @@ const coverage = verifyNativeCoverage(
   JSON.parse(readFileSync(results, "utf8")),
 );
 // craigtrim/axiom#187 added the Show labels journey to edge-visibility.spec.ts, which this shard runs whole.
-if (shard === "regression" && coverage.listed !== 48)
+if (shard === "regression" && coverage.listed !== 51)
   throw Error(
-    "The focused native regression inventory must contain all 48 assigned CI cases.",
+    "The focused native regression inventory must contain all 51 assigned CI cases.",
   );
 writeFileSync(
   path.join(output, `coverage-${shard}.json`),

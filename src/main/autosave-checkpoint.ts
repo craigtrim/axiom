@@ -18,6 +18,9 @@ export interface ChunkedCheckpoint extends Omit<
 > {
   chunks: JsonChunks;
   draftsChunks?: JsonChunks;
+  // #223: distinguish saved view state from reusable ontology bytes.
+  layoutKey?: string;
+  reusedOntology?: boolean;
 }
 
 function objectPrefix(chunks: JsonChunks): string[] {

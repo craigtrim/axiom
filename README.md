@@ -114,9 +114,9 @@ The [verification record](docs/validation/verification.md) distinguishes observe
 
 ### Session restoration
 
-The last-session copy is stored in the application profile, separately from ontology and workspace files. It is updated when a workspace is opened or saved and when Axiom closes. Imported ontologies can be resumed even if their original files move. Save, Discard and Cancel retain their existing meanings: discarded edits are not restored on the next launch. Source drafts still require their explicit Save source action.
+Session recovery is stored in the application profile. Opening a saved workspace records a small reference to its file; restarting reads that file again. Edited sessions and imported ontologies retain a full recovery copy, so imports can be resumed even if their original source files move. Leaving or closing an unchanged workspace skips the save, while explicit Save always writes (#223). Save, Discard and Cancel retain their existing meanings: discarded edits are not restored on the next launch. Source drafts still require their explicit Save source action.
 
-Session writes are atomic and retain the preceding valid copy for recovery. If neither session copy is usable, Axiom starts empty and reports the restoration failure. Keyboard shortcuts remain global preferences.
+Session writes are atomic. Full checkpoints retain the preceding valid copy for recovery; recording an opened workspace reference keeps the existing backup. A missing referenced workspace starts empty without reviving an older workspace. If neither session copy is usable, Axiom starts empty and reports the restoration failure. Keyboard shortcuts remain global preferences.
 
 ## Keyboard commands
 

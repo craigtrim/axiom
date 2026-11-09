@@ -35,6 +35,7 @@ import {
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { AutosaveCheckpoint } from "./autosave-checkpoint";
+import { sameJsonValue } from "../shared/json-equal";
 import type { CheckpointSummary } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import { startUpdates } from "./updates";
@@ -767,6 +768,14 @@ async function rememberFile(file: string) {
 const autosaveCheckpoint = new AutosaveCheckpoint();
 let savedWorkbench: Preferences;
 let savedEditorDrafts: SavedEditorDrafts | undefined;
+// #223: implicit archive saves compare the complete persisted state before encoding.
+interface CheckpointStatus {
+  storeVersion: number;
+  datasetEpoch: number;
+  layoutKey: string;
+  reusableOntology: boolean;
+}
+let savedArchive: ReturnType<typeof archiveState> | undefined;
 let capturedDraftRevision = "",
   legacyDraftRevision = 0;
 let capturedDrafts: SavedEditorDrafts | undefined;
@@ -814,6 +823,18 @@ function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
     recoveryPath,
   ]);
 }
+function archiveState(
+  state: { storeVersion: number; datasetEpoch: number; layoutKey?: string },
+  workbench: Preferences,
+  editorDrafts?: SavedEditorDrafts,
+) {
+  return {
+    ontologyKey: checkpointKey(state),
+    layoutKey: state.layoutKey,
+    workbench,
+    editorDrafts,
+  };
+}
 async function checkpointSession(
   capture = true,
   loadedDestination?: WorkspaceMetadata,
@@ -826,6 +847,18 @@ async function checkpointSession(
   const finishSaving = beginCheckpoint();
   let document: CheckpointSummary | undefined;
   try {
+    if (destination && workspacePath) {
+      const status = await request<CheckpointStatus>("checkpointReference", {
+        workbench,
+        workspacePath,
+        editorDrafts,
+      });
+      savedWorkbench = workbench;
+      savedEditorDrafts = editorDrafts;
+      autosaveCheckpoint.complete(checkpointKey(status));
+      savedArchive = archiveState(status, workbench, editorDrafts);
+      return;
+    }
     document = await request<CheckpointSummary>("checkpointPrepare", {
       editorDrafts,
       ontologyOnly: !!destination,
@@ -840,6 +873,7 @@ async function checkpointSession(
     savedWorkbench = workbench;
     savedEditorDrafts = editorDrafts;
     autosaveCheckpoint.complete(key);
+    savedArchive = archiveState(document, workbench, editorDrafts);
   } finally {
     if (document)
       await request("checkpointRelease", { id: document.id }).catch(() => {});
@@ -1026,11 +1060,29 @@ async function writeWorkspace(
       : destinationMetadata
         ? destinationMetadata.editorDrafts
         : capturedDrafts;
-  const revision = await request<{
-    storeVersion: number;
-    datasetEpoch: number;
-  }>("sessionState");
+  const revision = await request<CheckpointStatus>(
+    ontologyOnly ? "sessionState" : "checkpointStatus",
+  );
   if (ontologyOnly && !autosaveCheckpoint.needsSave(checkpointKey(revision)))
+    return true;
+  if (
+    automatic &&
+    archive &&
+    sameJsonValue(
+      savedArchive,
+      archiveState(revision, workbench, editorDrafts),
+    ) &&
+    (file ||
+      (recoveryPath
+        ? await workspaceExists(recoveryPath)
+        : !(
+            lastState?.dirty ||
+            editorDrafts ||
+            lastState?.ontology.source ||
+            lastState?.ontology.example ||
+            lastState?.graph.nodes.length
+          )))
+  )
     return true;
   let lease = file ? await workspaceOwnership.claim(file) : undefined;
   if (file && !lease) {
@@ -1050,6 +1102,7 @@ async function writeWorkspace(
       {
         editorDrafts,
         ontologyOnly: ontologyOnly || !!destinationMetadata,
+        reuseOntology: automatic && archive,
       },
     ));
     if (
@@ -1098,7 +1151,11 @@ async function writeWorkspace(
         id: document.id,
         file: destination,
         workbench,
-        options: { createDirectory: !file, allowCreate: !file || allowCreate },
+        options: {
+          createDirectory: !file,
+          allowCreate: !file || allowCreate,
+          force: !automatic,
+        },
       });
       if (file && workspacePath !== file) {
         setWorkspacePath(file, lease);
@@ -1120,6 +1177,7 @@ async function writeWorkspace(
       if (!automatic || archive) await rememberFile(destination);
     }
     autosaveCheckpoint.complete(key);
+    savedArchive = archiveState(document, workbench, editorDrafts);
     return true;
   } catch (error) {
     if (error instanceof MissingWorkspaceError && file) {
@@ -1943,15 +2001,20 @@ app.whenReady().then(async () => {
   }
   savedWorkbench = structuredClone(preferences);
   savedEditorDrafts = restoredDrafts;
-  // A missing workspace needs one recovery write to clear its obsolete file path.
-  if (!restoredSession.missingWorkspacePath)
-    autosaveCheckpoint.complete(
-      checkpointKey(
-        await request<{ storeVersion: number; datasetEpoch: number }>(
-          "sessionState",
-        ),
-      ),
-    );
+  // A missing or reassigned destination needs a checkpoint with its actual paths.
+  if (
+    !restoredSession.missingWorkspacePath &&
+    (!restoredSession.session ||
+      (restoredSession.session.workspacePath === workspacePath &&
+        restoredSession.session.recoveryPath === recoveryPath))
+  ) {
+    const status = await request<CheckpointStatus>("checkpointStatus", {
+      saved: true,
+    });
+    autosaveCheckpoint.complete(checkpointKey(status));
+    if (restoredSession.session)
+      savedArchive = archiveState(status, savedWorkbench, savedEditorDrafts);
+  }
   nativeTheme.themeSource = preferences.theme;
   const bounds = preferences.bounds;
   const validBounds =

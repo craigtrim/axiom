@@ -4,6 +4,7 @@
 // #217: ontology autosaves retain the last saved layout until Save or close.
 // #218: the shell reports saving until checkpoint writes and release finish.
 // #221: windows hide synchronously while final persistence continues in the background.
+// #223: implicit saves skip unchanged data and reuse saved ontology for view changes.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   observeDomainReply,
@@ -40,8 +41,17 @@ const request = <T = unknown>(
     method,
     args,
   });
-const stored = async () =>
+const rawStored = async () =>
   JSON.parse(await readFile(path.join(profile, "last-session.json"), "utf8"));
+const stored = async () => {
+  const session = await rawStored();
+  return session.workspace
+    ? session
+    : {
+        ...session,
+        workspace: JSON.parse(await readFile(session.workspacePath, "utf8")),
+      };
+};
 async function launch() {
   const env = {
     ...process.env,
@@ -172,18 +182,52 @@ async function save(file: string) {
   const completion = await observeDomainReply(app!, page, "checkpointSession", {
     workspacePath: file,
   });
+  const release = await observeDomainReply(app!, page, "checkpointRelease");
   try {
     await app!.evaluate(({ dialog }, file) => {
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: file });
     }, file);
     await menu("file.saveAs");
     await completion.wait();
+    await release.wait();
     await expect
       .poll(async () => (await stored().catch(() => ({}))).workspacePath)
       .toBe(file);
     await expect
       .poll(async () => (await state()).dirty, { timeout: 30000 })
       .toBe(false);
+  } finally {
+    await completion.dispose();
+    await release.dispose();
+  }
+}
+async function open(file: string) {
+  const completion = await observeDomainReply(
+    app!,
+    page,
+    "checkpointReference",
+    {
+      workspacePath: file,
+    },
+  );
+  try {
+    await app!.evaluate(({ dialog }, file) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [file],
+      });
+    }, file);
+    await menu("file.open");
+    await completion.wait();
+    // Recent history is written after restoring and capturing the destination panes.
+    await expect
+      .poll(async () => {
+        const recent = JSON.parse(
+          await readFile(path.join(profile, "recent-files.json"), "utf8"),
+        );
+        return recent[0];
+      })
+      .toBe(file);
   } finally {
     await completion.dispose();
   }
@@ -358,17 +402,16 @@ for (const route of ["X", "File Exit"] as const)
         const hidden = await beginExit(route);
         expect(hidden.before).toContain(true);
         expect(hidden.after).toEqual([false, false]);
-        for (let cycle = 0; cycle < (route === "File Exit" ? 2 : 1); cycle++) {
-          for (const method of [
-            "checkpointPrepare",
-            "checkpointSession",
-            "checkpointWorkspace",
-            "checkpointRelease",
-          ]) {
-            await phases.wait(method);
-            await expectHiddenInBackground(2);
-            await phases.release();
-          }
+        // File Exit waits for the held explicit Save; its identical final save is skipped.
+        for (const method of [
+          "checkpointPrepare",
+          "checkpointSession",
+          "checkpointWorkspace",
+          "checkpointRelease",
+        ]) {
+          await phases.wait(method);
+          await expectHiddenInBackground(2);
+          await phases.release();
         }
         await expect
           .poll(() => ownedProcess.exitCode, { timeout: 15000 })
@@ -1025,6 +1068,205 @@ test("switching workspaces archives source drafts with their own ontology and le
   );
 });
 
+test("#223 unchanged Open writes only a session reference and restores the destination after restart", async () => {
+  const iri = await create("Source course");
+  await request("freeze");
+  const source = path.join(profile, "unchanged-source.axiom");
+  const destination = path.join(profile, "unchanged-destination.axiom");
+  await save(source);
+  await request("rename", { iri, name: "Destination course" });
+  const destinationGraph = await request<string>("graphCreate", {
+    iris: [iri],
+  });
+  await request("freeze");
+  await menu("view.graph");
+  await expect(
+    page.locator(`[data-pane-id="${destinationGraph}"]`),
+  ).toBeVisible();
+  await save(destination);
+  await open(source);
+  const sourceText = await readFile(source, "utf8");
+  const sourceTime = (await stat(source)).mtimeMs;
+  const before = await app!.evaluate(() => ({
+    ...(globalThis as any).__domainServiceObserver.counts,
+  }));
+  await open(destination);
+  const after = await app!.evaluate(() => ({
+    ...(globalThis as any).__domainServiceObserver.counts,
+  }));
+  expect(JSON.parse(await readFile(source, "utf8"))).toEqual(
+    JSON.parse(sourceText),
+  );
+  expect(after.checkpointPrepare ?? 0).toBe(before.checkpointPrepare ?? 0);
+  expect(after.checkpointSession ?? 0).toBe(before.checkpointSession ?? 0);
+  expect(after.checkpointReference).toBe((before.checkpointReference ?? 0) + 1);
+  expect(await readFile(source, "utf8")).toBe(sourceText);
+  expect((await stat(source)).mtimeMs).toBe(sourceTime);
+  const session = await rawStored();
+  expect(session.workspacePath).toBe(destination);
+  expect(session.workspace).toBeUndefined();
+  expect(
+    (await stat(path.join(profile, "last-session.json"))).size,
+  ).toBeLessThan((await stat(destination)).size);
+  await app!.evaluate(({ app }) => app.exit(0)).catch(() => {});
+  app = undefined;
+  await launch();
+  expect(
+    (await state()).entities.find((entity) => entity.iri === iri)?.label,
+  ).toBe("Destination course");
+});
+
+test("#223 a view-only switch reuses ontology and restores the saved selection and panes", async () => {
+  const first = await create("First course");
+  const second = await create("Second course");
+  await request("freeze");
+  await request("select", { iri: first });
+  const source = path.join(profile, "view-source.axiom");
+  const destination = path.join(profile, "view-destination.axiom");
+  await save(source);
+  await request("rename", { iri: first, name: "Another ontology" });
+  await save(destination);
+  await open(source);
+  const previous = JSON.parse(await readFile(source, "utf8"));
+  await app!.evaluate(() => {
+    const owner = (globalThis as any).__domainServiceObserver;
+    const previous = owner.beforeRequest;
+    owner.beforeRequest = (packet: any) => {
+      previous?.(packet);
+      if (packet.method === "checkpointPrepare")
+        (globalThis as any).__archivePrepare = packet.args;
+    };
+  });
+  await request("select", { iri: second });
+  await request("spacing", { value: 2.5 });
+  await request("drag", { iri: first, x: 611, y: 287 });
+  await menu("view.find");
+  await open(destination);
+  expect(
+    await app!.evaluate(
+      () => (globalThis as any).__archivePrepare?.reuseOntology,
+    ),
+  ).toBe(true);
+  const saved = JSON.parse(await readFile(source, "utf8"));
+  expect(saved.entities).toEqual(previous.entities);
+  expect(saved.tbox).toEqual(previous.tbox);
+  expect(saved.selected).toBe(second);
+  expect(saved.graphs.graph.spacing).toBe(2.5);
+  expect(
+    saved.graphs.graph.positions.find((node: any) => node.iri === first),
+  ).toMatchObject({ x: 611, y: 287 });
+  expect(JSON.stringify(saved.workbench.layout)).toContain('"find"');
+  await open(source);
+  expect((await state()).selected).toBe(second);
+  expect((await state()).graph.spacing).toBe(2.5);
+  await expect(
+    page.getByRole("tab", { name: "Find", exact: true }),
+  ).toBeVisible();
+});
+
+test("#223 an explicit unchanged Save replaces the file and its backup", async () => {
+  await create("Explicit save");
+  await request("freeze");
+  const file = path.join(profile, "explicit-unchanged.axiom");
+  await save(file);
+  // Stabilize the captured workbench before checking the identical save contract.
+  await save(file);
+  const before = await readFile(file, "utf8");
+  await writeFile(file + ".bak", "The explicit Save must replace this backup.");
+  const complete = await observeDomainReply(app!, page, "checkpointRelease");
+  try {
+    await menu("file.save");
+    await complete.wait();
+  } finally {
+    await complete.dispose();
+  }
+  expect(await readFile(file, "utf8")).toBe(before);
+  expect(await readFile(file + ".bak", "utf8")).toBe(before);
+});
+
+for (const savedBy of [
+  "explicit Save",
+  "ontology autosave",
+  "File Close",
+  "saved tab history",
+] as const)
+  test(
+    "#223 closing an unchanged workspace skips checkpoint preparation and disk writes after " +
+      savedBy,
+    async () => {
+      test.setTimeout(90000);
+      const iri = await create("Unchanged at close");
+      await request("freeze");
+      const file = path.join(profile, "unchanged-close.axiom");
+      if (savedBy === "saved tab history") {
+        await menu("tabs.settings");
+        const settings = page.getByRole("dialog", {
+          name: "Tab history settings",
+        });
+        await settings
+          .getByRole("radio", { name: "All tabs", exact: true })
+          .check();
+        await settings
+          .getByRole("button", { name: "Close", exact: true })
+          .click();
+      }
+      await save(file);
+      if (savedBy === "saved tab history") {
+        const saved = JSON.parse(await readFile(file, "utf8"));
+        expect(saved.workbench.tabHistory.entries.length).toBeGreaterThan(0);
+      }
+      if (savedBy === "ontology autosave") {
+        await request("rename", { iri, name: "Saved by the ontology timer" });
+        await expect
+          .poll(
+            async () => {
+              const saved = JSON.parse(await readFile(file, "utf8"));
+              return saved.entities.find((entity: any) => entity.iri === iri)
+                ?.label;
+            },
+            { timeout: 45000 },
+          )
+          .toBe("Saved by the ontology timer");
+        await expect
+          .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+          .toBe(false);
+      } else if (savedBy === "File Close") {
+        await menu("file.close");
+        await expect
+          .poll(async () =>
+            (await state()).entities.some((entity) => entity.iri === iri),
+          )
+          .toBe(false);
+        await waitWorkspaceCheckpoint(app!, page);
+      }
+      const sessionFile = path.join(profile, "last-session.json");
+      const fileTime = (await stat(file)).mtimeMs;
+      const sessionTime = (await stat(sessionFile)).mtimeMs;
+      const countsFile = path.join(profile, "close-domain-counts.json");
+      const before = await app!.evaluate(() => ({
+        ...(globalThis as any).__domainServiceObserver.counts,
+      }));
+      await app!.evaluate(({ app }, file) => {
+        app.once("will-quit", () => {
+          const fs = process.getBuiltinModule("fs") as typeof import("node:fs");
+          fs.writeFileSync(
+            file,
+            JSON.stringify((globalThis as any).__domainServiceObserver.counts),
+          );
+        });
+      }, countsFile);
+      await close();
+      const after = JSON.parse(await readFile(countsFile, "utf8"));
+      expect(after.checkpointPrepare ?? 0).toBe(before.checkpointPrepare ?? 0);
+      expect(after.checkpointSession ?? 0).toBe(before.checkpointSession ?? 0);
+      expect(after.checkpointWorkspace ?? 0).toBe(
+        before.checkpointWorkspace ?? 0,
+      );
+      expect((await stat(file)).mtimeMs).toBe(fileTime);
+      expect((await stat(sessionFile)).mtimeMs).toBe(sessionTime);
+    },
+  );
+
 for (const boundary of ["data load", "preferences reply"] as const)
   test(
     "honours closing while a workspace is still opening and saves the completed view" +
@@ -1238,7 +1480,10 @@ for (const boundary of ["data load", "preferences reply"] as const)
       expect(session.workbench.panelState["graph.camera"]).toEqual(
         expected.workbench.panelState["graph.camera"],
       );
-      expect(session.editorDrafts.source).toEqual(saved.editorDrafts.source);
+      expect(session.editorDrafts.source.text).toBe(destinationDraft);
+      expect(session.editorDrafts.source.loaded.text).toBe(
+        saved.editorDrafts.source.loaded.text,
+      );
       await launch();
       expect(
         (await state()).entities.find((entity) => entity.iri === iri)?.label,
