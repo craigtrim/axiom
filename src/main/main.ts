@@ -2001,8 +2001,13 @@ app.whenReady().then(async () => {
   }
   savedWorkbench = structuredClone(preferences);
   savedEditorDrafts = restoredDrafts;
-  // A missing workspace needs one recovery write to clear its obsolete file path.
-  if (!restoredSession.missingWorkspacePath) {
+  // A missing or reassigned destination needs a checkpoint with its actual paths.
+  if (
+    !restoredSession.missingWorkspacePath &&
+    (!restoredSession.session ||
+      (restoredSession.session.workspacePath === workspacePath &&
+        restoredSession.session.recoveryPath === recoveryPath))
+  ) {
     const status = await request<CheckpointStatus>("checkpointStatus", {
       saved: true,
     });

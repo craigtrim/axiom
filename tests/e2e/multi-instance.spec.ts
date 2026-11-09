@@ -1,5 +1,6 @@
 // Issue 87 checks each window through its live shell status.
 // #221: a hidden closing owner keeps its leases until background persistence completes.
+// #223: a busy referenced workspace becomes durable recovery even without edits on close.
 import { observeDomainService } from "./domain-service-observer";
 import {
   test,
@@ -455,6 +456,66 @@ test("a busy restored workspace becomes an independent recovery copy without ove
   expect(document.entities.some((e: any) => e.name === "Recovery edit")).toBe(
     false,
   );
+});
+
+test("#223 closing an unchanged busy file reference preserves an independent empty-graph recovery", async () => {
+  const first = await launch();
+  const original = await create(first, "Original session");
+  expect((await state(first)).graph.nodes).toHaveLength(0);
+  const file = path.join(root, "Referenced shared.axiom");
+  await save(first, file);
+  const previous = await stored(first);
+  await close(first);
+  const secondProfile = path.join(root, "instances", "2");
+  await mkdir(secondProfile, { recursive: true });
+  await writeFile(
+    path.join(secondProfile, "last-session.json"),
+    JSON.stringify({
+      format: "axiom-session",
+      version: 2,
+      workspacePath: file,
+      workbench: previous.workbench,
+    }),
+  );
+  const owner = await launch();
+  expect(owner.profile).toBe(root);
+  const restored = await launch();
+  expect(restored.profile).toBe(secondProfile);
+  const before = await state(restored);
+  expect(before.entities.find((entity) => entity.iri === original)?.name).toBe(
+    "Original session",
+  );
+  expect(before.graph.nodes).toHaveLength(0);
+  expect(before.ontology.source).toBeUndefined();
+  expect(before.ontology.example ?? false).toBe(false);
+  expect(before.dirty).toBe(false);
+  // Closing makes no edit; only reassignment away from the owner's path requires this write.
+  await close(restored);
+  const session = await stored(restored);
+  expect(session.workspacePath).toBeUndefined();
+  expect(session.workspace?.format).toBe("axiom-workspace");
+  expect(session.workspace.graph.iris).toHaveLength(0);
+  expect(
+    session.workspace.entities.find((entity: any) => entity.iri === original)
+      ?.name,
+  ).toBe("Original session");
+  const ownerEdit = await create(owner, "Owner edit");
+  await menu(owner, "file.save");
+  await expect.poll(async () => (await state(owner)).dirty).toBe(false);
+  await expect
+    .poll(async () => {
+      const saved = JSON.parse(await readFile(file, "utf8"));
+      return saved.entities.some((entity: any) => entity.iri === ownerEdit);
+    })
+    .toBe(true);
+  const recovered = await launch();
+  expect(recovered.profile).toBe(secondProfile);
+  const after = await state(recovered);
+  expect(after.entities.find((entity) => entity.iri === original)?.name).toBe(
+    "Original session",
+  );
+  expect(after.entities.some((entity) => entity.iri === ownerEdit)).toBe(false);
+  expect(after.graph.nodes).toHaveLength(0);
 });
 
 test("a launch file starts in a free slot and a crash releases its workspace ownership", async () => {
