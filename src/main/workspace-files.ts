@@ -1,4 +1,5 @@
 // craigtrim/axiom#208: hash and save bounded chunks with the same file protections.
+// craigtrim/axiom#223: explicit Save can force a write of unchanged bytes.
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -31,7 +32,7 @@ export class WorkspaceFiles {
   async write(
     file: string,
     chunks: JsonChunks,
-    { createDirectory = false, allowCreate = false } = {},
+    { createDirectory = false, allowCreate = false, force = false } = {},
   ) {
     chunks = Object.freeze([...chunks]);
     // Keep writes and ownership on the same target when a workspace is opened
@@ -46,7 +47,7 @@ export class WorkspaceFiles {
     for (const chunk of chunks) hash.update(chunk, "utf8");
     const digest = hash.digest("hex");
     const previous = this.previous.get(file);
-    if (previous?.digest === digest) {
+    if (!force && previous?.digest === digest) {
       try {
         if ((await stat(file)).mtimeMs === previous.modified) return;
       } catch {}

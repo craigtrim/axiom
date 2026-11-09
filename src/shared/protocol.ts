@@ -120,6 +120,9 @@ export type DomainMethod =
   // craigtrim/axiom#207: these file and runtime operations are private to main.
   | "configureDataService"
   | "checkpointPrepare"
+  // #223: inspect view changes and remember opened files without encoding ontology.
+  | "checkpointStatus"
+  | "checkpointReference"
   | "checkpointSession"
   | "checkpointWorkspace"
   | "checkpointRelease"
@@ -480,6 +483,8 @@ export interface CheckpointSummary extends Omit<
 > {
   id: string;
   hasDrafts: boolean;
+  layoutKey?: string;
+  reusedOntology?: boolean;
 }
 
 export interface DataRuntimeInfo {

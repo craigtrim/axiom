@@ -1,4 +1,5 @@
 // craigtrim/axiom#208: chunked sessions retain legacy bytes and recoverable atomic writes.
+// craigtrim/axiom#223: reference sessions remain small and accept legacy recovery copies.
 import { afterEach, expect, it } from "vitest";
 import {
   mkdir,
@@ -10,7 +11,11 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { SessionStore, type SavedSession } from "../../src/main/session-store";
+import {
+  SessionStore,
+  type SavedSession,
+  type StoredSession,
+} from "../../src/main/session-store";
 import { buildEmptyStore, readWorkspace } from "../../src/domain/workspace";
 const directories: string[] = [];
 afterEach(async () => {
@@ -42,6 +47,10 @@ function session(name = "Untitled ontology"): SavedSession {
     },
   };
 }
+function embedded(saved: StoredSession): SavedSession {
+  if (saved.version !== 1) throw Error("Expected an embedded session.");
+  return saved;
+}
 it("has no default demo or saved session in a fresh profile", async () => {
   const s = await storage();
   const r = await s.restore(async () => {
@@ -56,7 +65,7 @@ it("restores a serialized workspace and its empty selection", async () => {
   let applied = false;
   const r = await new SessionStore(path.dirname(s.file)).restore(
     async (saved) => {
-      const w = readWorkspace(saved.workspace);
+      const w = readWorkspace(embedded(saved).workspace);
       expect(w.selected).toBeNull();
       expect(w.view.nodes.size).toBe(0);
       applied = true;
@@ -93,10 +102,10 @@ it.each(["json", "workspace"])(
     );
     const reopened = new SessionStore(path.dirname(s.file));
     const r = await reopened.restore(async (saved) => {
-      readWorkspace(saved.workspace);
+      readWorkspace(embedded(saved).workspace);
     });
     expect(r.recovered).toBe(true);
-    expect(r.session?.workspace.ontology?.name).toBe("First");
+    expect(r.session?.workspace?.ontology?.name).toBe("First");
     await reopened.save(session("Recovered"));
     expect(
       JSON.parse(await readFile(s.file + ".bak", "utf8")).workspace.ontology
@@ -119,7 +128,7 @@ it("opens empty when the current session is skipped even if a valid backup exist
   await s.save(session("Missing workspace"));
   const applied: string[] = [];
   const result = await s.restore(async (saved) => {
-    applied.push(saved.workspace.ontology!.name);
+    applied.push(embedded(saved).workspace.ontology!.name);
     return false;
   });
   expect(applied).toEqual(["Missing workspace"]);
@@ -162,7 +171,7 @@ it("keeps the exact accepted legacy bytes as backup after recovery", async () =>
   await writeFile(s.file + ".bak", raw);
   const reopened = new SessionStore(path.dirname(s.file));
   const result = await reopened.restore(async (saved) => {
-    readWorkspace(saved.workspace);
+    readWorkspace(embedded(saved).workspace);
   });
   expect(result.recovered).toBe(true);
   await reopened.save(session("Recovered"));
@@ -190,3 +199,74 @@ it("retains the last complete session through a failed write and retries in orde
     code: "ENOENT",
   });
 });
+
+it("saves a reference without rewriting the preceding full recovery backup", async () => {
+  const s = await storage();
+  await s.save(session("Older backup"));
+  await s.save(session("Preceding workspace"));
+  const backup = await readFile(s.file + ".bak", "utf8");
+  const modified = (await stat(s.file + ".bak")).mtimeMs;
+  const reference = {
+    format: "axiom-session" as const,
+    version: 2 as const,
+    workspacePath: path.join(path.dirname(s.file), "opened.axiom"),
+    workbench: { version: 1 as const, theme: "dark" as const },
+  };
+  await s.save(reference, { backup: false });
+  expect(JSON.parse(await readFile(s.file, "utf8"))).toEqual(reference);
+  expect(await readFile(s.file + ".bak", "utf8")).toBe(backup);
+  expect((await stat(s.file + ".bak")).mtimeMs).toBe(modified);
+  const restored = await new SessionStore(path.dirname(s.file)).restore(
+    async (saved, chunks) => {
+      expect(saved).toEqual(reference);
+      expect(JSON.parse(chunks.join(""))).toEqual(reference);
+    },
+  );
+  expect(restored.session).toEqual(reference);
+  expect(restored.recovered).toBe(false);
+});
+
+it("keeps the prior embedded recovery session when a reference write fails", async () => {
+  const s = await storage();
+  await s.save(session("Accepted"));
+  await mkdir(s.file + ".tmp");
+  await expect(
+    s.save(
+      {
+        format: "axiom-session",
+        version: 2,
+        workspacePath: path.join(path.dirname(s.file), "opened.axiom"),
+        workbench: { version: 1, theme: "light" },
+      },
+      { backup: false },
+    ),
+  ).rejects.toThrow();
+  expect(
+    JSON.parse(await readFile(s.file, "utf8")).workspace.ontology.name,
+  ).toBe("Accepted");
+  await rm(s.file + ".tmp", { recursive: true });
+  await s.save(session("After failure"));
+  expect(
+    JSON.parse(await readFile(s.file + ".bak", "utf8")).workspace.ontology.name,
+  ).toBe("Accepted");
+});
+
+it.each([
+  { version: 2, workspacePath: "relative.axiom" },
+  { version: 2 },
+  { version: 2, workspacePath: 123 },
+  { version: 3 },
+])(
+  "rejects an invalid reference session before writing: %j",
+  async (invalid) => {
+    const s = await storage();
+    expect(() =>
+      s.save({
+        format: "axiom-session",
+        workbench: { version: 1, theme: "light" },
+        ...invalid,
+      } as StoredSession),
+    ).toThrow("Invalid saved session.");
+    await expect(stat(s.file)).rejects.toMatchObject({ code: "ENOENT" });
+  },
+);

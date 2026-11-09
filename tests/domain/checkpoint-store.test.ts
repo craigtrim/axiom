@@ -1,5 +1,6 @@
 // craigtrim/axiom#207: persistence returns metadata while backup recovery stays intact.
 // craigtrim/axiom#208: captured chunks preserve tokens, validation and file compatibility.
+// craigtrim/axiom#223: references restore saved files without duplicating their ontology.
 import { afterEach, expect, it } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -186,4 +187,121 @@ it("opens legacy JSON and validates complete syntax before applying a workspace"
     }),
   ).rejects.toThrow();
   expect(applied).toEqual(["Legacy"]);
+});
+
+it("records an opened file as a small reference and restores its saved ontology", async () => {
+  const { directory, store } = await fixture();
+  const file = path.join(directory, "opened.axiom");
+  const workspace = JSON.parse(document("Referenced").chunks.join(""));
+  const raw =
+    " \n" + JSON.stringify({ ...workspace, workbench }, null, 2) + "\n";
+  await writeFile(file, raw);
+  const opened = await store.openWorkspace(file, async (saved) => {
+    readWorkspace(saved);
+  });
+  expect(store.takeLoadedWorkspaceChunks()?.join("")).toBe(raw);
+  expect(store.takeLoadedWorkspaceChunks()).toBeUndefined();
+  await store.saveSession(store.register(document("Preceding")).id, workbench);
+  await store.saveReference(opened.workbench, file, opened.editorDrafts);
+  const saved = JSON.parse(
+    await readFile(path.join(directory, "last-session.json"), "utf8"),
+  );
+  expect(saved).toEqual({
+    format: "axiom-session",
+    version: 2,
+    workspacePath: file,
+    workbench: opened.workbench,
+  });
+  await expect(
+    readFile(path.join(directory, "last-session.json.bak"), "utf8"),
+  ).rejects.toMatchObject({ code: "ENOENT" });
+  const reopened = new CheckpointStore(directory);
+  const applied: string[] = [];
+  const restored = await reopened.restore(async (savedWorkspace) => {
+    readWorkspace(savedWorkspace);
+    applied.push(savedWorkspace.ontology!.name);
+  });
+  expect(applied).toEqual(["Referenced"]);
+  expect(restored.recovered).toBe(false);
+  expect(restored.session?.workspacePath).toBe(file);
+  expect(restored.session?.workbench.theme).toBe("dark");
+  expect(restored.session).not.toHaveProperty("workspace");
+  expect(reopened.takeLoadedWorkspaceChunks()?.join("")).toBe(raw);
+});
+
+it("retains reference drafts and current operator preferences during restore", async () => {
+  const { directory, store } = await fixture();
+  const file = path.join(directory, "drafts.axiom");
+  await writeFile(file, document("With drafts").chunks.join(""));
+  const editorDrafts = {
+    version: 1 as const,
+    storeVersion: 4,
+    entities: [],
+    entitySources: [],
+  };
+  await store.saveReference(workbench, file, editorDrafts);
+  const restored = await new CheckpointStore(directory).restore(
+    async (saved) => {
+      readWorkspace(saved);
+    },
+    { version: 1, theme: "light", tabSavePolicy: "all" },
+  );
+  expect(restored.session?.editorDrafts).toEqual(editorDrafts);
+  expect(restored.session?.workbench.theme).toBe("dark");
+  expect(restored.session?.workbench.tabSavePolicy).toBe("all");
+});
+
+it("does not revive an older backup when a referenced workspace is missing", async () => {
+  const { directory, store } = await fixture();
+  await store.saveSession(store.register(document("Older")).id, workbench);
+  await store.saveSession(store.register(document("Preceding")).id, workbench);
+  const missing = path.join(directory, "removed-reference.axiom");
+  await store.saveReference(workbench, missing);
+  const reopened = new CheckpointStore(directory);
+  const applied: string[] = [];
+  const restored = await reopened.restore(async (saved) => {
+    applied.push(saved.ontology!.name);
+  });
+  expect(applied).toEqual([]);
+  expect(restored).toEqual({
+    session: undefined,
+    recovered: false,
+    errors: [],
+    missingWorkspacePath: missing,
+  });
+  expect(reopened.takeLoadedWorkspaceChunks()).toBeUndefined();
+});
+
+it("recovers a valid embedded backup after a referenced file becomes corrupt", async () => {
+  const { directory, store } = await fixture();
+  await store.saveSession(store.register(document("Older")).id, workbench);
+  await store.saveSession(store.register(document("Preceding")).id, workbench);
+  const file = path.join(directory, "corrupt-reference.axiom");
+  await writeFile(file, '{"format":"axiom-workspace"');
+  await store.saveReference(workbench, file);
+  const reopened = new CheckpointStore(directory);
+  const applied: string[] = [];
+  const restored = await reopened.restore(async (saved) => {
+    readWorkspace(saved);
+    applied.push(saved.ontology!.name);
+  });
+  expect(applied).toEqual(["Older"]);
+  expect(restored.recovered).toBe(true);
+  expect(restored.errors).toHaveLength(1);
+  expect(
+    JSON.parse(reopened.takeLoadedWorkspaceChunks()!.join("")).ontology.name,
+  ).toBe("Older");
+});
+
+it("retains the embedded workspace bytes when restoring a legacy session", async () => {
+  const { directory, store } = await fixture();
+  const captured = document("Legacy bytes");
+  await store.saveSession(store.register(captured).id, workbench);
+  const reopened = new CheckpointStore(directory);
+  await reopened.restore(async (saved) => {
+    readWorkspace(saved);
+  });
+  expect(reopened.takeLoadedWorkspaceChunks()?.join("")).toBe(
+    captured.chunks.join(""),
+  );
 });

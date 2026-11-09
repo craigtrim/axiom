@@ -1,5 +1,6 @@
 // craigtrim/axiom#207: whole workspace documents stay in the plain-Node process.
 // craigtrim/axiom#208: retain immutable JSON chunks while files stream to and from disk.
+// craigtrim/axiom#223: reference sessions and retained bytes avoid encoding unchanged data.
 import { randomUUID } from "node:crypto";
 import type { Workspace } from "../domain/workspace";
 import {
@@ -13,8 +14,9 @@ import {
   workspaceJson,
   type ChunkedCheckpoint,
 } from "./autosave-checkpoint";
-import { readJsonFile } from "./json-io";
-import { SessionStore, type SavedSession } from "./session-store";
+import { extractJsonFieldAsync } from "./json-fields";
+import { readJsonFile, type JsonChunks } from "./json-io";
+import { SessionStore, type StoredSession } from "./session-store";
 import { WorkspaceFiles, workspaceExists } from "./workspace-files";
 
 export interface SessionMetadata {
@@ -42,6 +44,7 @@ export class CheckpointStore {
   private checkpoints = new Map<string, ChunkedCheckpoint>();
   private sessions: SessionStore;
   private files = new WorkspaceFiles();
+  private loadedWorkspaceChunks?: JsonChunks;
   constructor(directory: string) {
     this.sessions = new SessionStore(directory);
   }
@@ -64,6 +67,8 @@ export class CheckpointStore {
       workspaceRevision: document.workspaceRevision,
       datasetEpoch: document.datasetEpoch,
       sessionRevision: document.sessionRevision,
+      layoutKey: document.layoutKey,
+      reusedOntology: document.reusedOntology,
     };
   }
   release(id: string) {
@@ -85,11 +90,37 @@ export class CheckpointStore {
       sessionJson(this.document(id), workbench, workspacePath, recoveryPath),
     );
   }
+  saveReference(
+    workbench: Preferences,
+    workspacePath: string,
+    editorDrafts?: SavedEditorDrafts,
+  ) {
+    return this.sessions.save(
+      {
+        format: "axiom-session",
+        version: 2,
+        workbench,
+        workspacePath,
+        editorDrafts,
+      },
+      // The file being referenced already preserves the complete workspace.
+      { backup: false },
+    );
+  }
+  takeLoadedWorkspaceChunks(): JsonChunks | undefined {
+    const chunks = this.loadedWorkspaceChunks;
+    this.loadedWorkspaceChunks = undefined;
+    return chunks;
+  }
   writeWorkspace(
     id: string,
     file: string,
     workbench: Preferences,
-    options: { createDirectory?: boolean; allowCreate?: boolean } = {},
+    options: {
+      createDirectory?: boolean;
+      allowCreate?: boolean;
+      force?: boolean;
+    } = {},
   ) {
     return this.files.write(
       file,
@@ -102,13 +133,39 @@ export class CheckpointStore {
     preferences?: Preferences,
   ): Promise<SessionRestore> {
     let missingWorkspacePath: string | undefined;
-    const restored = await this.sessions.restore(async (session) => {
+    let sourceBaseIRI: string | undefined;
+    this.loadedWorkspaceChunks = undefined;
+    const restored = await this.sessions.restore(async (session, chunks) => {
       if (
         session.workspacePath &&
         !(await workspaceExists(session.workspacePath))
       ) {
         missingWorkspacePath = session.workspacePath;
         return false;
+      }
+      let document: Workspace;
+      let workspaceChunks: JsonChunks | undefined;
+      if (session.version === 2) {
+        const raw: string[] = [];
+        try {
+          document = (await readJsonFile(session.workspacePath, {
+            onChunk: (chunk) => raw.push(chunk),
+          })) as Workspace;
+        } catch (error) {
+          if (
+            ["ENOENT", "ENOTDIR"].includes(
+              (error as NodeJS.ErrnoException).code ?? "",
+            )
+          ) {
+            missingWorkspacePath = session.workspacePath;
+            return false;
+          }
+          throw error;
+        }
+        workspaceChunks = Object.freeze(raw);
+      } else {
+        document = session.workspace;
+        workspaceChunks = await extractJsonFieldAsync(chunks, "workspace");
       }
       if (preferences)
         session.workbench = readPreferences({
@@ -122,25 +179,30 @@ export class CheckpointStore {
           keyboard: preferences.keyboard,
           tabSavePolicy: preferences.tabSavePolicy,
         });
-      await apply(session.workspace);
+      await apply(document);
+      sourceBaseIRI = document.ontology?.source?.baseIRI;
+      this.loadedWorkspaceChunks = workspaceChunks;
     });
     const saved = restored.session;
     return {
       recovered: restored.recovered,
       errors: restored.errors,
       ...(missingWorkspacePath ? { missingWorkspacePath } : {}),
-      session: saved ? this.metadata(saved) : undefined,
+      session: saved ? this.metadata(saved, sourceBaseIRI) : undefined,
     };
   }
-  private metadata(saved: SavedSession): SessionMetadata {
+  private metadata(
+    saved: StoredSession,
+    sourceBaseIRI?: string,
+  ): SessionMetadata {
     return {
       format: saved.format,
-      version: saved.version,
+      version: 1,
       workbench: saved.workbench,
       editorDrafts: saved.editorDrafts,
       workspacePath: saved.workspacePath,
       recoveryPath: saved.recoveryPath,
-      sourceBaseIRI: saved.workspace.ontology?.source?.baseIRI,
+      sourceBaseIRI,
     };
   }
   async openWorkspace(
@@ -148,7 +210,11 @@ export class CheckpointStore {
     apply: (workspace: Workspace) => Promise<unknown>,
     preferences: Preferences = { version: 1, theme: "light" },
   ): Promise<WorkspaceMetadata> {
-    const document = (await readJsonFile(file)) as Workspace & {
+    this.loadedWorkspaceChunks = undefined;
+    const chunks: string[] = [];
+    const document = (await readJsonFile(file, {
+      onChunk: (chunk) => chunks.push(chunk),
+    })) as Workspace & {
       workbench?: unknown;
       editorDrafts?: unknown;
     };
@@ -169,6 +235,7 @@ export class CheckpointStore {
     });
     const editorDrafts = readEditorDrafts(document.editorDrafts);
     await apply(document);
+    this.loadedWorkspaceChunks = Object.freeze(chunks);
     return {
       workbench,
       editorDrafts,
