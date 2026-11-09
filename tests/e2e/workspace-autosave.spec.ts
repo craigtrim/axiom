@@ -1086,6 +1086,9 @@ test("#223 unchanged Open writes only a session reference and restores the desti
   const after = await app!.evaluate(() => ({
     ...(globalThis as any).__domainServiceObserver.counts,
   }));
+  expect(JSON.parse(await readFile(source, "utf8"))).toEqual(
+    JSON.parse(sourceText),
+  );
   expect(after.checkpointPrepare ?? 0).toBe(before.checkpointPrepare ?? 0);
   expect(after.checkpointSession ?? 0).toBe(before.checkpointSession ?? 0);
   expect(after.checkpointReference).toBe((before.checkpointReference ?? 0) + 1);
