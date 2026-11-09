@@ -5,6 +5,7 @@
 // #218: the shell reports saving until checkpoint writes and release finish.
 // #221: windows hide synchronously while final persistence continues in the background.
 // #223: implicit saves skip unchanged data and reuse saved ontology for view changes.
+// #224: opening feedback covers saving, loading, restored views and failed requests.
 import { waitWorkspaceCheckpoint } from "./workspace-checkpoint";
 import {
   observeDomainReply,
@@ -29,10 +30,19 @@ import {
 import path from "node:path";
 import type { Snapshot, DomainMethod } from "../../src/shared/protocol";
 import { schoolBase, schoolOntology } from "../fixtures/large-ontology";
+import { WorkspaceOwnership } from "../../src/main/workspace-ownership";
 let app: ElectronApplication | undefined, page: Page, profile: string;
 const errors: string[] = [];
 const state = () =>
   page.evaluate(() => window.axiom.request<Snapshot>("state"));
+const nativeTitle = () =>
+  app!.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()
+      .find(
+        (window) => window.webContents.getURL() === "app://axiom/index.html",
+      )!
+      .getTitle(),
+  );
 const request = <T = unknown>(
   method: DomainMethod,
   args: Record<string, unknown> = {},
@@ -298,6 +308,110 @@ async function holdCheckpointPhases() {
       app!.evaluate(() => (globalThis as any).__checkpointPhases.restore()),
   };
 }
+async function holdOpeningPhases() {
+  await expect
+    .poll(() => page.evaluate(() => window.axiom.workspace.saving()))
+    .toBe(false);
+  await observeDomainService(app!, page);
+  await app!.evaluate(({ BrowserWindow, ipcMain }) => {
+    const utility = (globalThis as any).__domainServiceObserver.utility;
+    const originalPost = utility.postMessage;
+    const originalSave = (ipcMain as any)._invokeHandlers.get(
+      "preferences:save",
+    );
+    const methods = new Set([
+      "checkpointPrepare",
+      "checkpointSession",
+      "checkpointWorkspace",
+      "checkpointRelease",
+      "loadWorkspaceFile",
+      "importRdfFile",
+      "checkpointReference",
+    ]);
+    const pending: {
+      method: string;
+      title: string;
+      forward: () => void;
+    }[] = [];
+    const title = () => BrowserWindow.getAllWindows()[0].getTitle();
+    let destinationStarted = false;
+    const interceptPost = function (
+      this: unknown,
+      message: any,
+      ...rest: any[]
+    ) {
+      const packet = message?.packet;
+      if (
+        message?.channel === "axiom-domain-v1" &&
+        message.type === "request" &&
+        methods.has(packet?.method)
+      ) {
+        pending.push({
+          method: packet.method,
+          title: title(),
+          forward: () => {
+            if (["loadWorkspaceFile", "importRdfFile"].includes(packet.method))
+              destinationStarted = true;
+            Reflect.apply(originalPost, utility, [message, ...rest]);
+          },
+        });
+        return;
+      }
+      return Reflect.apply(originalPost, this, [message, ...rest]);
+    };
+    utility.postMessage = interceptPost;
+    ipcMain.removeHandler("preferences:save");
+    ipcMain.handle("preferences:save", (event, ...args) => {
+      if (destinationStarted && args[1] === true)
+        return new Promise((resolve, reject) => {
+          pending.push({
+            method: "destinationCapture",
+            title: title(),
+            forward: () => {
+              void Promise.resolve(originalSave(event, ...args)).then(
+                resolve,
+                reject,
+              );
+            },
+          });
+        });
+      return originalSave(event, ...args);
+    });
+    (globalThis as any).__openingPhases = {
+      pending,
+      release: () => {
+        const next = pending.shift();
+        if (!next) throw Error("There is no held opening phase.");
+        next.forward();
+      },
+      restore: () => {
+        if (utility.postMessage === interceptPost)
+          utility.postMessage = originalPost;
+        ipcMain.removeHandler("preferences:save");
+        ipcMain.handle("preferences:save", originalSave);
+        for (const next of pending.splice(0)) next.forward();
+      },
+    };
+  });
+  return {
+    async wait(method: string) {
+      await expect
+        .poll(() =>
+          app!.evaluate(
+            () => (globalThis as any).__openingPhases.pending[0]?.method,
+          ),
+        )
+        .toBe(method);
+      return app!.evaluate(
+        () => (globalThis as any).__openingPhases.pending[0].title as string,
+      );
+    },
+    release: () =>
+      app!.evaluate(() => (globalThis as any).__openingPhases.release()),
+    dispose: () =>
+      app!.evaluate(() => (globalThis as any).__openingPhases.restore()),
+  };
+}
 async function beginExit(route: "X" | "File Exit") {
   return app!.evaluate(({ BrowserWindow, Menu }, route) => {
     const windows = BrowserWindow.getAllWindows();
@@ -335,6 +449,256 @@ test.afterEach(async () => {
   if (app) await close();
   expect(errors).toEqual([]);
 });
+for (const route of [
+  "Open workspace",
+  "Recent workspace",
+  "Open Turtle",
+] as const)
+  test(
+    "#224 " +
+      route +
+      " keeps opening feedback through save, load and view capture",
+    async () => {
+      const iri = await create("Chosen file course");
+      await request("freeze");
+      const workspace = path.join(profile, "chosen-courses.axiom");
+      await save(workspace);
+      const turtle = path.join(profile, "chosen-courses.ttl");
+      const turtleIri = "https://fixture.example/open#Course";
+      await writeFile(
+        turtle,
+        `<${turtleIri}> a <http://www.w3.org/2002/07/owl#Class>; ` +
+          '<http://www.w3.org/2000/01/rdf-schema#label> "Chosen file course" .',
+      );
+      await request("rename", { iri, name: "Outgoing course" });
+      await save(path.join(profile, "outgoing.axiom"));
+      await request("rename", { iri, name: "Pending outgoing course" });
+      const file = route === "Open Turtle" ? turtle : workspace;
+      const fileName = path.basename(file);
+      let message = `Opening ${fileName}…`;
+      const phases = await holdOpeningPhases();
+      await app!.evaluate(({ dialog }, file) => {
+        (globalThis as any).__openingDialogCalls = 0;
+        dialog.showOpenDialog = async () => {
+          (globalThis as any).__openingDialogCalls++;
+          return { canceled: false, filePaths: [file] };
+        };
+      }, file);
+      const stageBefore = await page
+        .locator(".docking-workspace")
+        .boundingBox();
+      try {
+        await menu(
+          route === "Recent workspace" ? "file.recent.1" : "file.open",
+        );
+        const firstTitle = await phases.wait("checkpointPrepare");
+        // The title is recorded at interception, before outgoing serialization can run.
+        expect(firstTitle).toBe("Axiom | " + message);
+        await expect(page.locator(".workspace-opening")).toHaveText(message);
+        await expect(page.locator(".workbench-stage")).toHaveAttribute(
+          "aria-busy",
+          "true",
+        );
+        await expect(page.locator(".workbench-stage")).toHaveAttribute(
+          "inert",
+          "",
+        );
+        await expect(page.locator("nav[aria-label='Panes']")).toHaveAttribute(
+          "inert",
+          "",
+        );
+        const stageDuring = await page
+          .locator(".docking-workspace")
+          .boundingBox();
+        expect(stageDuring?.width).toBe(stageBefore?.width);
+        expect(stageDuring?.height).toBe(stageBefore?.height);
+        expect(
+          (await state()).entities.find((entity) => entity.iri === iri)?.label,
+        ).toBe("Pending outgoing course");
+        if (route === "Open workspace") {
+          await menu("file.open");
+          message = `Still opening ${fileName}…`;
+          await expect(page.locator(".workspace-opening")).toHaveText(message);
+          expect(
+            await page.evaluate(() => window.axiom.workspace.opening()),
+          ).toEqual({
+            fileName,
+            repeated: true,
+          });
+          expect(
+            await app!.evaluate(() => (globalThis as any).__openingDialogCalls),
+          ).toBe(1);
+        }
+        for (const method of [
+          "checkpointPrepare",
+          "checkpointSession",
+          "checkpointWorkspace",
+          "checkpointRelease",
+          ...(route === "Open Turtle"
+            ? [
+                "importRdfFile",
+                "destinationCapture",
+                "checkpointPrepare",
+                "checkpointSession",
+                "checkpointRelease",
+              ]
+            : [
+                "loadWorkspaceFile",
+                "checkpointReference",
+                "destinationCapture",
+              ]),
+        ]) {
+          await phases.wait(method);
+          await expect(page.locator(".workspace-opening")).toHaveText(message);
+          await expect(
+            page.getByTestId("window-titlebar").locator(".name"),
+          ).toHaveText(message);
+          await expect.poll(nativeTitle).toBe("Axiom | " + message);
+          if (method === "destinationCapture")
+            expect(
+              (await state()).entities.find(
+                (entity) =>
+                  entity.iri === (route === "Open Turtle" ? turtleIri : iri),
+              )?.label,
+            ).toBe("Chosen file course");
+          await phases.release();
+        }
+        await expect(page.locator(".workspace-opening")).toBeHidden();
+        expect(
+          await page.evaluate(() => window.axiom.workspace.opening()),
+        ).toBeNull();
+        const dirty = route === "Open Turtle";
+        expect((await state()).dirty).toBe(dirty);
+        await expect
+          .poll(nativeTitle)
+          .toBe("Axiom | " + file + (dirty ? " *" : ""));
+        await expect(
+          page.getByTestId("window-titlebar").locator(".name"),
+        ).toHaveText(fileName);
+        await expect(page.getByTestId("graph-canvas")).toBeVisible();
+        await expect(page.locator(".workbench-stage")).not.toHaveAttribute(
+          "inert",
+          "",
+        );
+        expect(
+          await app!.evaluate(() => (globalThis as any).__openingDialogCalls),
+        ).toBe(route === "Recent workspace" ? 0 : 1);
+      } finally {
+        await phases.dispose();
+      }
+    },
+  );
+
+test("#224 cancelling Open leaves the workspace visible without opening feedback", async () => {
+  const iri = await create("Keep after cancellation");
+  const title = await nativeTitle();
+  await page.evaluate(() => {
+    (globalThis as any).__openingEvents = [];
+    (globalThis as any).__stopOpeningEvents = window.axiom.onEvent((event) => {
+      if (event.type === "workspace-opening" && event.data)
+        (globalThis as any).__openingEvents.push(event.data);
+    });
+  });
+  await app!.evaluate(({ dialog }) => {
+    (globalThis as any).__openingDialogCalls = 0;
+    dialog.showOpenDialog = async () => {
+      (globalThis as any).__openingDialogCalls++;
+      return { canceled: true, filePaths: [] };
+    };
+  });
+  try {
+    await menu("file.open");
+    await expect
+      .poll(() => app!.evaluate(() => (globalThis as any).__openingDialogCalls))
+      .toBe(1);
+    await expect(page.locator(".workspace-opening")).toBeHidden();
+    expect(
+      await page.evaluate(() => window.axiom.workspace.opening()),
+    ).toBeNull();
+    expect(
+      await page.evaluate(() => (globalThis as any).__openingEvents),
+    ).toEqual([]);
+    await expect.poll(nativeTitle).toBe(title);
+    expect(
+      (await state()).entities.find((entity) => entity.iri === iri)?.label,
+    ).toBe("Keep after cancellation");
+  } finally {
+    await page.evaluate(() => (globalThis as any).__stopOpeningEvents());
+  }
+});
+
+test("#224 failed and refused Open clear feedback and preserve the current workspace", async () => {
+  const iri = await create("Retained current course");
+  const current = path.join(profile, "retained-current.axiom");
+  await save(current);
+  const title = await nativeTitle();
+  const invalid = path.join(profile, "invalid-open.axiom");
+  await writeFile(invalid, "{ invalid workspace");
+  await app!.evaluate(({ dialog }, file) => {
+    (globalThis as any).__openErrors = [];
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+    dialog.showMessageBox = async (
+      _window,
+      options?: Electron.MessageBoxOptions,
+    ) => {
+      (globalThis as any).__openErrors.push(options);
+      return { response: 0, checkboxChecked: false };
+    };
+  }, invalid);
+  await menu("file.open");
+  await expect
+    .poll(() => app!.evaluate(() => (globalThis as any).__openErrors.length))
+    .toBe(1);
+  expect(
+    await app!.evaluate(() => (globalThis as any).__openErrors[0]),
+  ).toMatchObject({
+    type: "error",
+    message: "The operation could not be completed.",
+  });
+  await expect(page.locator(".workspace-opening")).toBeHidden();
+  expect(
+    await page.evaluate(() => window.axiom.workspace.opening()),
+  ).toBeNull();
+  await expect.poll(nativeTitle).toBe(title);
+  expect(
+    (await state()).entities.find((entity) => entity.iri === iri)?.label,
+  ).toBe("Retained current course");
+  const ownedFile = path.join(profile, "owned-open.axiom");
+  const source = await readFile(current, "utf8");
+  await writeFile(ownedFile, source);
+  let focusRequests = 0;
+  const ownership = new WorkspaceOwnership(() => focusRequests++);
+  const lease = await ownership.claim(ownedFile, false);
+  expect(lease).toBeDefined();
+  try {
+    await app!.evaluate(({ dialog }, file) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [file],
+      });
+    }, ownedFile);
+    await menu("file.open");
+    await expect.poll(() => focusRequests).toBe(1);
+    await expect(page.locator(".workspace-opening")).toBeHidden();
+    expect(
+      await page.evaluate(() => window.axiom.workspace.opening()),
+    ).toBeNull();
+    await expect.poll(nativeTitle).toBe(title);
+    expect(
+      (await state()).entities.find((entity) => entity.iri === iri)?.label,
+    ).toBe("Retained current course");
+    expect(
+      await app!.evaluate(() => (globalThis as any).__openErrors.length),
+    ).toBe(1);
+    expect(await readFile(ownedFile, "utf8")).toBe(source);
+  } finally {
+    lease?.release();
+  }
+});
+
 for (const route of ["X", "File Exit"] as const)
   test(
     route +
@@ -1431,6 +1795,11 @@ for (const boundary of ["data load", "preferences reply"] as const)
             app!.evaluate(() => (globalThis as any).__closingOpen.pending()),
           )
           .toBe(true);
+        const openingMessage = `Opening ${path.basename(destination)}…`;
+        await expect(page.locator(".workspace-opening")).toHaveText(
+          openingMessage,
+        );
+        await expect.poll(nativeTitle).toBe("Axiom | " + openingMessage);
         if (boundary === "preferences reply") {
           expect(
             (await state()).entities.find((entity) => entity.iri === iri)

@@ -267,7 +267,11 @@ export interface Preferences {
 }
 export interface AxiomBridge {
   // #218: checkpoint status remains available independently of data-process reads.
-  workspace: { saving(): Promise<boolean> };
+  workspace: {
+    saving(): Promise<boolean>;
+    // #224: late-mounted workbenches can recover the active File > Open message.
+    opening(): Promise<WorkspaceOpening | null>;
+  };
   qualityExport(input: {
     id: number;
     format: "csv" | "json";
@@ -286,6 +290,7 @@ export interface AxiomBridge {
       directory: string;
       fileName: string;
       dirty: boolean;
+      openingMessage?: string;
     }>;
     menus(): Promise<import("./window-chrome").ChromeMenuItem[]>;
     execute(id: string, label: string): Promise<void>;
@@ -458,6 +463,11 @@ export interface AxiomBridge {
     shown: number[];
     sort?: import("./query-grid").QueryGridSort;
   }): Promise<void>;
+}
+
+export interface WorkspaceOpening {
+  fileName: string;
+  repeated: boolean;
 }
 declare global {
   interface Window {

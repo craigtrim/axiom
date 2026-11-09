@@ -42,7 +42,11 @@ const listen = (channel: string, fn: (value: any) => void) => {
 };
 const bridge: AxiomBridge = {
   // #218: late-mounted status bars can read an already running checkpoint.
-  workspace: { saving: () => invoke("workspace:saving") },
+  workspace: {
+    saving: () => invoke("workspace:saving"),
+    // #224: reading opening state also covers renderer mounts after selection.
+    opening: () => invoke("workspace:opening"),
+  },
   textAnalysis: { parse: (input) => invoke("textAnalysis:parse", input) },
   chrome: {
     info: () => invoke("chrome:info"),

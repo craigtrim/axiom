@@ -77,17 +77,22 @@ export function WindowChrome() {
   };
   useEffect(() => {
     let live = true;
+    // #224: a late initial title must not replace active opening feedback.
+    let receivedTitle = false;
+    const off = window.axiom.onEvent((e) => {
+      if (e.type === "window-title" && live) {
+        receivedTitle = true;
+        setInfo(e.data);
+      }
+    });
     void Promise.all([window.axiom.chrome.info(), window.axiom.chrome.menus()])
       .then(([info, items]) => {
         if (live) {
-          setInfo(info);
+          if (!receivedTitle) setInfo(info);
           setItems(items);
         }
       })
       .catch((e) => report(e.message, true));
-    const off = window.axiom.onEvent((e) => {
-      if (e.type === "window-title") setInfo(e.data);
-    });
     return () => {
       live = false;
       off();
@@ -195,7 +200,11 @@ export function WindowChrome() {
           },
     );
   if (!info?.custom) return null;
-  const folder = info.directory.replace(/[\\/]$/, "");
+  const title = info.openingMessage ?? info.fileName;
+  const dirty = !info.openingMessage && info.dirty;
+  const folder = info.openingMessage
+    ? ""
+    : info.directory.replace(/[\\/]$/, "");
   return (
     <div className="window-chrome" ref={root} data-alt={access ? "on" : "off"}>
       <header
@@ -329,15 +338,15 @@ export function WindowChrome() {
             aria-haspopup="dialog"
             title="Open the command palette"
             // Issue 87: unsaved documents have no empty folder sentence or gap.
-            aria-label={`Axiom. ${info.fileName}${info.dirty ? ", unsaved changes" : ""}. ${folder ? folder + ". " : ""}Open the command palette`}
+            aria-label={`Axiom. ${title}${dirty ? ", unsaved changes" : ""}. ${folder ? folder + ". " : ""}Open the command palette`}
             onClick={() => command("palette")}
           >
             <Glyph>
               <circle cx="11" cy="11" r="6.5" />
               <path d="M15.8 15.8 20.5 20.5" />
             </Glyph>
-            <strong className="name">{info.fileName}</strong>
-            {info.dirty && (
+            <strong className="name">{title}</strong>
+            {dirty && (
               <span className="dirty" title="Unsaved changes">
                 *
               </span>

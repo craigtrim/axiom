@@ -5,6 +5,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot } from "../../src/shared/protocol";
 
+// #224: data persistence can finish before the destination's interactive view.
+export async function waitWorkspaceOpen(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => window.axiom.workspace.opening()))
+    .toBeNull();
+  await expect(page.locator(".workspace-opening")).toBeHidden();
+}
+
 export async function waitWorkspaceCheckpoint(
   app: ElectronApplication,
   page: Page,
@@ -51,4 +59,5 @@ export async function waitWorkspaceCheckpoint(
       ontology: snapshot.ontology,
       entities: catalog(snapshot.entities),
     });
+  await waitWorkspaceOpen(page);
 }

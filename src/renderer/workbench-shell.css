@@ -4,6 +4,7 @@
   container-name: workbench-shell;
 }
 .workbench-midrow {
+  position: relative;
   display: grid;
   grid-template-columns: var(--w-rail) minmax(0, 1fr);
   min-height: 0;
@@ -17,6 +18,18 @@
 }
 .workbench-stage > .docking-workspace {
   overflow: clip;
+}
+/* #224: cover the workbench without removing the views needed for capture. */
+.workbench-stage[aria-hidden="true"] {
+  isolation: isolate;
+}
+.workspace-opening {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: auto;
+  background: var(--ground);
+  color: var(--text);
 }
 .chrome-palette-shell .palette input::placeholder {
   color: revert;
