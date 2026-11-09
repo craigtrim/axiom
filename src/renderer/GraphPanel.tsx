@@ -858,7 +858,7 @@ function GraphContent() {
       theme.disconnect();
       un();
       off();
-      savePanel(cameraKey, camera.current, false);
+      if (state?.graphs?.[graphId]) savePanel(cameraKey, camera.current, false);
     };
   }, []);
   const point = (e: { clientX: number; clientY: number }) => {

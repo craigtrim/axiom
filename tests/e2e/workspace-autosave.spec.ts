@@ -1075,6 +1075,14 @@ test("#223 unchanged Open writes only a session reference and restores the desti
   const destination = path.join(profile, "unchanged-destination.axiom");
   await save(source);
   await request("rename", { iri, name: "Destination course" });
+  const destinationGraph = await request<string>("graphCreate", {
+    iris: [iri],
+  });
+  await request("freeze");
+  await menu("view.graph");
+  await expect(
+    page.locator(`[data-pane-id="${destinationGraph}"]`),
+  ).toBeVisible();
   await save(destination);
   await open(source);
   const sourceText = await readFile(source, "utf8");
