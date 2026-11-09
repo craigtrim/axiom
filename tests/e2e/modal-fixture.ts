@@ -1,4 +1,6 @@
 // Issue 87 replaces the obsolete census footer with the full shell.
+// #224: consumers may inspect pane visibility only after the opened view is ready.
+import { waitWorkspaceOpen } from "./workspace-checkpoint";
 import {
   test as baseTest,
   expect,
@@ -84,6 +86,7 @@ export const test = baseTest.extend<{ desktop: Desktop }>({
               (await desktop.request<Snapshot>("state")).ontology.name,
           )
           .toBe(name);
+        await waitWorkspaceOpen(page);
       },
       resize: (width, height, zoom = 1) =>
         app.evaluate(

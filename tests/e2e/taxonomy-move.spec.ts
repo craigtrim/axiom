@@ -1,6 +1,7 @@
 // craigtrim/axiom#91: drag feedback uses the action row and allowed/blocked target tints.
 // Issue 85: Details fields use predicate names and per-group value numbers.
 // #224: wait for completed Open before inspecting the destination's tree expansion.
+import { waitWorkspaceOpen } from "./workspace-checkpoint";
 import {
   test,
   expect,
@@ -283,10 +284,7 @@ test("dragging near the tree edge scrolls a long taxonomy and cancellation stops
       (await state()).entities.some((e) => e.iri === base + "Middle299"),
     )
     .toBe(true);
-  await expect
-    .poll(() => page.evaluate(() => window.axiom.workspace.opening()))
-    .toBeNull();
-  await expect(page.locator(".workspace-opening")).toBeHidden();
+  await waitWorkspaceOpen(page);
   const expand = row("A").getByRole("button", {
     name: "Expand A",
     exact: true,
