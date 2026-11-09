@@ -1,6 +1,6 @@
 // craigtrim/axiom#94: keep the utility title in sentence case.
 import { useEffect, useRef, useState } from "react";
-import type { Snapshot } from "../shared/protocol";
+import type { Snapshot, WorkspaceOpening } from "../shared/protocol";
 import type { ChromeMenuItem } from "../shared/window-chrome";
 import type { SuggestionRun } from "../shared/suggestions";
 import { useAuditErrors } from "./audit-state";
@@ -105,6 +105,32 @@ function useWorkspaceSaving() {
   return saving;
 }
 
+// #224: late-mounted workbenches retain the current open and ignore stale replies.
+export function useWorkspaceOpening() {
+  const [opening, setOpening] = useState<WorkspaceOpening | null>(null);
+  useEffect(() => {
+    let live = true;
+    let receivedEvent = false;
+    const off = window.axiom.onEvent(({ type, data }) => {
+      if (type === "workspace-opening" && live) {
+        receivedEvent = true;
+        setOpening(data ?? null);
+      }
+    });
+    void window.axiom.workspace
+      .opening()
+      .then((value) => {
+        if (live && !receivedEvent) setOpening(value);
+      })
+      .catch((error) => report(error.message, true));
+    return () => {
+      live = false;
+      off();
+    };
+  }, []);
+  return opening;
+}
+
 export function useShellBadges(snapshot: Snapshot) {
   const errors = useAuditErrors();
   const quality = useQualityStatus();
@@ -167,10 +193,12 @@ export function PaneRail({
   active,
   open,
   badges,
+  blocked = false,
 }: {
   active: string;
   open: (id: string) => void;
   badges: ReturnType<typeof useShellBadges>;
+  blocked?: boolean;
 }) {
   const [settings, setSettings] = useState<{
     items: ChromeMenuItem[];
@@ -231,14 +259,19 @@ export function PaneRail({
   };
   return (
     <>
-      <nav className="shell-surface rail" aria-label="Panes">
+      <nav
+        className="shell-surface rail"
+        aria-label="Panes"
+        inert={blocked}
+        aria-hidden={blocked || undefined}
+      >
         <div className="railgroup">{panes.map((pane) => button(pane))}</div>
         <div className="railgroup bottom">
           {button({ id: "errorlog", ...otherPanes.errorlog }, true)}
           {button({ id: "settings", ...otherPanes.settings })}
         </div>
       </nav>
-      {settings && (
+      {settings && !blocked && (
         <ContextMenu
           document={document}
           appearance="chrome"

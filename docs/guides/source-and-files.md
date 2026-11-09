@@ -2,6 +2,10 @@
 
 Axiom streams ontology imports, sessions and workspace files without fixed quotas on ontology size (#208). Available memory and disk space determine what the computer can hold. Axiom checks for ontology edits every 30 seconds. Selection, graph layout, workbench settings and drafts are retained when saving explicitly or leaving the workspace. An unchanged workspace needs no automatic save; File > Save still writes when requested (#223). File I/O failures remain retryable on the next tick. Existing `.axiom` files remain compatible. See [Workspace autosave](workspace-autosave.md) for session references and recovery.
 
+After you choose a file in **File > Open** or **Open > Recent**, the workbench and window title show **Opening filename…** before Axiom saves the outgoing workspace. The message stays while the selected file loads and its panes are restored. This also applies to ontology files, including `.ttl` files selected through Open (#224).
+
+Repeating a workspace command during the open names the file that is still opening. Canceling the file chooser shows no opening message. If the open fails or another instance owns the workspace, the message clears and Axiom uses its existing error or ownership feedback.
+
 Open **View > Source** (Ctrl+7) for the complete asserted RDF document, including filesystem metadata. For the selected entity's source, choose **Details** in the Inspector (issue #89). In the Source pane, **Find selected entity** locates the selected identifier in the current serialization. The editor supports line numbers, monospace text highlighted with the shared syntax palette, search and normal clipboard commands. Ctrl+F searches the focused source editor. Undo and Redo edit the local text draft while its text history is available; after an applied draft is refreshed, they use the shared ontology history.
 
 ## One ontology across views

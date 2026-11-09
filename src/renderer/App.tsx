@@ -54,6 +54,7 @@ import {
   PaneRail,
   WorkbenchStatus,
   useShellBadges,
+  useWorkspaceOpening,
 } from "./WorkbenchShell";
 import { ChromePalette } from "./ChromePalette";
 import { graphCommandsReady, suspendGraphCommands } from "./GraphScope";
@@ -497,6 +498,7 @@ export function App() {
     active = useRef("graph"),
     pendingLayout = useRef<unknown>(null);
   const shellBadges = useShellBadges(s);
+  const opening = useWorkspaceOpening();
   modelRef.current = model;
   useEffect(() => installTextEntitySplitter(model, document), [model]);
   useEffect(() => {
@@ -1480,9 +1482,15 @@ export function App() {
         <PaneRail
           active={shellPane}
           badges={shellBadges}
+          blocked={!!opening}
           open={(id) => show(id, false, true, true)}
         />
-        <div className="workbench-stage">
+        <div
+          className="workbench-stage"
+          aria-busy={!!opening || undefined}
+          inert={!!opening}
+          aria-hidden={!!opening || undefined}
+        >
           <DocumentTabs
             snapshot={s}
             active={shellPane}
@@ -1739,6 +1747,18 @@ export function App() {
             />
           </div>
         </div>
+        {/* #224: keep every pane mounted and sized while the chosen file opens. */}
+        {opening && (
+          <div
+            className="startup workspace-opening"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {opening.repeated ? "Still opening " : "Opening "}
+            {opening.fileName}…
+          </div>
+        )}
       </div>
       <WorkbenchStatus snapshot={s} active={shellPane} />
       {styles && (

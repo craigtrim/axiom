@@ -36,7 +36,7 @@ import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { AutosaveCheckpoint } from "./autosave-checkpoint";
 import { sameJsonValue } from "../shared/json-equal";
-import type { CheckpointSummary } from "../shared/protocol";
+import type { CheckpointSummary, WorkspaceOpening } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import { startUpdates } from "./updates";
 import { instanceAction } from "../shared/action-state";
@@ -782,6 +782,23 @@ let capturedDrafts: SavedEditorDrafts | undefined;
 let restoredDrafts: SavedEditorDrafts | undefined;
 let recoveryPath: string | undefined;
 let workspaceSwitching = false;
+// #224: opening feedback spans ownership, outgoing saving and the final rendered capture.
+let openingFile: WorkspaceOpening | null = null;
+function openingMessage() {
+  return openingFile
+    ? `${openingFile.repeated ? "Still opening" : "Opening"} ${openingFile.fileName}…`
+    : undefined;
+}
+function setOpeningFile(value: WorkspaceOpening | null) {
+  openingFile = value;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    updateWindowTitle();
+    mainWindow.webContents.send("domain:event", {
+      type: "workspace-opening",
+      data: value,
+    });
+  }
+}
 let closeAfterWorkspaceChange = false;
 let backgroundClose: Promise<void> | undefined;
 let closeRetryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1285,6 +1302,14 @@ async function openWorkspace(recentFile?: string, atStartup = false) {
     if (r.canceled || !r.filePaths[0]) return;
     file = r.filePaths[0];
   }
+  setOpeningFile({ fileName: path.basename(file), repeated: false });
+  try {
+    await openSelectedFile(file, atStartup);
+  } finally {
+    setOpeningFile(null);
+  }
+}
+async function openSelectedFile(file: string, atStartup: boolean) {
   if (!file.toLowerCase().endsWith(".axiom")) {
     if (!(await saveBeforeWorkspaceChange(!atStartup))) return;
     await importOntologyFile(file);
@@ -1358,7 +1383,11 @@ async function command(id: string, recentFile?: string, atStartup = false) {
     "file.example",
     "file.close",
   ].includes(id);
-  if (closePending || (changesWorkspace && workspaceSwitching)) return;
+  if (closePending) return;
+  if (changesWorkspace && workspaceSwitching) {
+    if (openingFile) setOpeningFile({ ...openingFile, repeated: true });
+    return;
+  }
   if (changesWorkspace) workspaceSwitching = true;
   try {
     await errorLog.run(
@@ -1653,12 +1682,15 @@ function windowTitleInfo() {
       ? path.basename(file)
       : (lastState?.ontology.name ?? "Untitled ontology"),
     dirty: !!lastState?.dirty,
+    openingMessage: openingMessage(),
   };
 }
 function updateWindowTitle() {
   const info = windowTitleInfo();
   mainWindow?.setTitle(
-    "Axiom | " + info.directory + info.fileName + (info.dirty ? " *" : ""),
+    "Axiom | " +
+      (info.openingMessage ??
+        info.directory + info.fileName + (info.dirty ? " *" : "")),
   );
   mainWindow?.webContents.send("domain:event", {
     type: "window-title",
@@ -2317,6 +2349,10 @@ app.whenReady().then(async () => {
   handle("workspace:saving", (event) => {
     authorised(event);
     return activeCheckpoints > 0;
+  });
+  handle("workspace:opening", (event) => {
+    authorised(event);
+    return openingFile;
   });
   handle("chrome:info", (event) => {
     authorised(event);
