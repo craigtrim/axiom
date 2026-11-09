@@ -581,6 +581,7 @@ function GraphContent() {
         contextLost ||
         !dirty.current ||
         !graph ||
+        (state?.graphs && !state.graphs[graphId]) ||
         canvas.clientWidth < 1 ||
         canvas.clientHeight < 1
       )
@@ -729,6 +730,7 @@ function GraphContent() {
       // #123: the import checkpoint includes the rendered camera before idle ticks.
       if (
         id === "workspace.captureViews" &&
+        (!state?.graphs || !!state.graphs[graphId]) &&
         canvas.clientWidth > 0 &&
         canvas.clientHeight > 0
       ) {
