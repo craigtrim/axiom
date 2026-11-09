@@ -1,5 +1,6 @@
 // craigtrim/axiom#91: drag feedback uses the action row and allowed/blocked target tints.
 // Issue 85: Details fields use predicate names and per-group value numbers.
+// #224: wait for completed Open before inspecting the destination's tree expansion.
 import {
   test,
   expect,
@@ -210,7 +211,9 @@ test("hovering expands a closed destination and dropping on its child reparents 
   await row("Nested").dispatchEvent("drop", { dataTransfer: transfer });
   await expect.poll(() => parents()).toEqual([base + "Nested"]);
   await expect.poll(() => shownParent("Child")).toBe(base + "Nested");
-  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText("Child");
+  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText(
+    "Child",
+  );
 });
 test("self and descendant drops are rejected and stale drag data cannot edit a newer ontology", async () => {
   const transfer = await page.evaluateHandle(() => new DataTransfer());
@@ -280,6 +283,10 @@ test("dragging near the tree edge scrolls a long taxonomy and cancellation stops
       (await state()).entities.some((e) => e.iri === base + "Middle299"),
     )
     .toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => window.axiom.workspace.opening()))
+    .toBeNull();
+  await expect(page.locator(".workspace-opening")).toBeHidden();
   const expand = row("A").getByRole("button", {
     name: "Expand A",
     exact: true,
@@ -308,5 +315,7 @@ test("dragging near the tree edge scrolls a long taxonomy and cancellation stops
   });
   expect(positions[0]).toBe(positions[1]);
   expect(await parents()).toEqual([base + "A"]);
-  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText("Child");
+  await expect(page.locator(".hierarchy-panel .bar .state")).toHaveText(
+    "Child",
+  );
 });
