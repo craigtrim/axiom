@@ -1237,6 +1237,8 @@ export function App() {
           .then((p) => {
             if (workspaceRestoration.current !== restoration) return;
             setPreferences(p);
+            // #223: an opened workspace retains its saved cameras before capture.
+            command("workspace.restoreCameras");
             command("warnings.seeAlso");
             command("find.extendActions");
             command("textanalysis.reset");

@@ -1180,6 +1180,7 @@ for (const savedBy of [
   "explicit Save",
   "ontology autosave",
   "File Close",
+  "saved tab history",
 ] as const)
   test(
     "#223 closing an unchanged workspace skips checkpoint preparation and disk writes after " +
@@ -1189,7 +1190,23 @@ for (const savedBy of [
       const iri = await create("Unchanged at close");
       await request("freeze");
       const file = path.join(profile, "unchanged-close.axiom");
+      if (savedBy === "saved tab history") {
+        await menu("tabs.settings");
+        const settings = page.getByRole("dialog", {
+          name: "Tab history settings",
+        });
+        await settings
+          .getByRole("radio", { name: "All tabs", exact: true })
+          .check();
+        await settings
+          .getByRole("button", { name: "Close", exact: true })
+          .click();
+      }
       await save(file);
+      if (savedBy === "saved tab history") {
+        const saved = JSON.parse(await readFile(file, "utf8"));
+        expect(saved.workbench.tabHistory.entries.length).toBeGreaterThan(0);
+      }
       if (savedBy === "ontology autosave") {
         await request("rename", { iri, name: "Saved by the ontology timer" });
         await expect

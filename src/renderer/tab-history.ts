@@ -8,6 +8,7 @@ import {
   type TabSavePolicy,
 } from "../shared/tab-history";
 import { preferences, state, persist, command } from "./client";
+import { sameJsonValue } from "../shared/json-equal";
 import { findState, updateFind } from "./find-state";
 import { updateSparsity } from "./sparsity-view";
 let revision = 0;
@@ -108,6 +109,8 @@ export function captureTab(n: TabNode) {
   if (!meta || !Object.hasOwn(tabTypes, type)) return;
   const history = tabHistory();
   if (!meta.named && preferences.tabSavePolicy !== "all") return;
+  const old = history.entries.findIndex((t) => t.id === n.getId());
+  const previous = history.entries[old];
   const prefix =
     type === "individuals" ? "table" : type === "taxonomy" ? n.getId() : type;
   const panelState = Object.fromEntries(
@@ -128,12 +131,14 @@ export function captureTab(n: TabNode) {
     name: n.getName(),
     named: meta.named,
     createdAt: meta.createdAt,
-    updatedAt: new Date().toISOString(),
+    updatedAt: previous?.updatedAt ?? new Date().toISOString(),
     config: structuredClone(n.getConfig() ?? {}),
     panelState: structuredClone(panelState),
     selected: type === "find" ? findState().selected : state?.selected,
   };
-  const old = history.entries.findIndex((t) => t.id === record.id);
+  // #223: capturing unchanged tabs must not turn a workspace into a pending save.
+  if (previous && sameJsonValue(previous, record)) return;
+  if (previous) record.updatedAt = new Date().toISOString();
   if (old < 0) history.entries.push(record);
   else history.entries[old] = record;
 }

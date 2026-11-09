@@ -716,6 +716,16 @@ function GraphContent() {
       attributeFilter: ["data-theme"],
     });
     const off = onCommand((id) => {
+      // #223: loading another dataset must not replace its saved camera with Fit.
+      if (id === "workspace.restoreCameras") {
+        const saved = panel<Camera | null>(cameraKey, null);
+        if (saved) {
+          camera.current = { ...saved };
+          needsFit.current = false;
+          toolbarHeight = undefined;
+          dirty.current = true;
+        }
+      }
       // #123: the import checkpoint includes the rendered camera before idle ticks.
       if (
         id === "workspace.captureViews" &&

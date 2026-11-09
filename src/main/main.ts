@@ -35,6 +35,7 @@ import {
 import { cleanErrorMessage } from "../shared/audit";
 import { RecentFiles } from "./recent-files";
 import { AutosaveCheckpoint } from "./autosave-checkpoint";
+import { sameJsonValue } from "../shared/json-equal";
 import type { CheckpointSummary } from "../shared/protocol";
 import { launchCandidates, openableExtensions } from "../shared/launch-file";
 import { startUpdates } from "./updates";
@@ -774,7 +775,7 @@ interface CheckpointStatus {
   layoutKey: string;
   reusableOntology: boolean;
 }
-let savedArchiveKey: string | undefined;
+let savedArchive: ReturnType<typeof archiveState> | undefined;
 let capturedDraftRevision = "",
   legacyDraftRevision = 0;
 let capturedDrafts: SavedEditorDrafts | undefined;
@@ -822,17 +823,17 @@ function checkpointKey(state: { storeVersion: number; datasetEpoch: number }) {
     recoveryPath,
   ]);
 }
-function archiveKey(
+function archiveState(
   state: { storeVersion: number; datasetEpoch: number; layoutKey?: string },
   workbench: Preferences,
   editorDrafts?: SavedEditorDrafts,
 ) {
-  return JSON.stringify([
-    checkpointKey(state),
-    state.layoutKey,
+  return {
+    ontologyKey: checkpointKey(state),
+    layoutKey: state.layoutKey,
     workbench,
     editorDrafts,
-  ]);
+  };
 }
 async function checkpointSession(
   capture = true,
@@ -855,7 +856,7 @@ async function checkpointSession(
       savedWorkbench = workbench;
       savedEditorDrafts = editorDrafts;
       autosaveCheckpoint.complete(checkpointKey(status));
-      savedArchiveKey = archiveKey(status, workbench, editorDrafts);
+      savedArchive = archiveState(status, workbench, editorDrafts);
       return;
     }
     document = await request<CheckpointSummary>("checkpointPrepare", {
@@ -872,7 +873,7 @@ async function checkpointSession(
     savedWorkbench = workbench;
     savedEditorDrafts = editorDrafts;
     autosaveCheckpoint.complete(key);
-    savedArchiveKey = archiveKey(document, workbench, editorDrafts);
+    savedArchive = archiveState(document, workbench, editorDrafts);
   } finally {
     if (document)
       await request("checkpointRelease", { id: document.id }).catch(() => {});
@@ -1067,7 +1068,10 @@ async function writeWorkspace(
   if (
     automatic &&
     archive &&
-    savedArchiveKey === archiveKey(revision, workbench, editorDrafts) &&
+    sameJsonValue(
+      savedArchive,
+      archiveState(revision, workbench, editorDrafts),
+    ) &&
     (file ||
       (recoveryPath
         ? await workspaceExists(recoveryPath)
@@ -1173,7 +1177,7 @@ async function writeWorkspace(
       if (!automatic || archive) await rememberFile(destination);
     }
     autosaveCheckpoint.complete(key);
-    savedArchiveKey = archiveKey(document, workbench, editorDrafts);
+    savedArchive = archiveState(document, workbench, editorDrafts);
     return true;
   } catch (error) {
     if (error instanceof MissingWorkspaceError && file) {
@@ -2004,7 +2008,7 @@ app.whenReady().then(async () => {
     });
     autosaveCheckpoint.complete(checkpointKey(status));
     if (restoredSession.session)
-      savedArchiveKey = archiveKey(status, savedWorkbench, savedEditorDrafts);
+      savedArchive = archiveState(status, savedWorkbench, savedEditorDrafts);
   }
   nativeTheme.themeSource = preferences.theme;
   const bounds = preferences.bounds;
