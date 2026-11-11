@@ -6,6 +6,14 @@ and `v3-light.json` / `v3-dark.json` are its independent source and expected ima
 Current evidence goes to `artifacts/remembered-extend`. The history below describes
 the preserved revision 1 and revision 2 artifacts.
 
+Issue #227 adds Parent before Subclass in the revision 3 class menus. The test
+clones the Subclass item in memory and changes its label before capturing the
+independent specimen. The pinned HTML and its hash remain unchanged. The current
+`v3-light.json` and `v3-dark.json` captures were regenerated from that HTML only.
+Parent opens the shared Add entity pane; its Context field names the row and the
+editable parents. `find.spec.ts` verifies insertion and one-step Undo through
+the menu, editor and worker.
+
 `visual-reference.html` preserves the original issue 49 reference byte for byte.
 Its SHA-256 is `ccf5025880e27b2536c483574d533b5e58d3f2a032c59d84a95963d0ee55a881`.
 
