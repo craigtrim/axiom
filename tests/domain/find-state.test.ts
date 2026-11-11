@@ -106,3 +106,32 @@ it("retains edited Sibling parents separately from Subclass and other rows", () 
   openFindCreation({ door: "subclass", target: iri("Row") });
   expect(findState().draft.label).toBe("Edited subclass");
 });
+
+// #227: Parent shares the prefill policy but retains a distinct row/door draft.
+it.each([
+  [],
+  [THING],
+  [iri("Parent"), "_:restriction"],
+  [iri("Parent"), iri("Other")],
+])(
+  "Parent prefills named parents %j and keeps its edits separate",
+  (...parents) => {
+    const store = fromTriples([
+      ...["Row", "Parent", "Other"].flatMap((n) => declaration(iri(n), n)),
+      ...parents.map((p) => reference(iri("Row"), SUBCLASS, p)),
+    ]);
+    client.state.entities = [...store.entities.values()];
+    openFindCreation({ door: "parent", target: iri("Row") });
+    expect(findState().draft.parents).toEqual(
+      parents.filter((p) => p !== THING && !p.startsWith("_:")),
+    );
+    updateFindDraft({ label: "Edited parent", parents: [], labelEdited: true });
+    openFindCreation({ door: "sibling", target: iri("Row") });
+    expect(findState().draft.label).toBe("New Sibling");
+    openFindCreation({ door: "parent", target: iri("Row") });
+    expect(findState().draft).toMatchObject({
+      label: "Edited parent",
+      parents: [],
+    });
+  },
+);

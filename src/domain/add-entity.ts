@@ -142,7 +142,8 @@ function inspect(
   }
   if (classes[0].name && !findings.some((f) => f.kind === "bad2")) {
     try {
-      store.planClassHierarchy(classes);
+      // #227: preview uses the same insertion validation as the transaction.
+      store.planClassHierarchy(classes, input.root.insertAbove);
     } catch (e) {
       // #203: Apply plans the existing root separately, under its own rules.
       findings.push({
@@ -339,7 +340,10 @@ export function createAddEntity(store: Store, value: unknown, epoch: number) {
   const { classes, check } = inspect(store, value, epoch, true);
   const first = check.findings.find((f) => f.kind === "bad2");
   if (first) throw Error(first.message);
-  const ids = store.createClassHierarchy(classes);
+  const ids = store.createClassHierarchy(
+    classes,
+    readAddEntityInput(value).root.insertAbove,
+  );
   const iri = ids.get("0")!;
   return {
     iri,

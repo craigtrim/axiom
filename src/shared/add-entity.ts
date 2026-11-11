@@ -4,6 +4,8 @@ import { nameSynonymStatements } from "../domain/entity-creation-names";
 
 // craigtrim/axiom#93: the form, preview and transaction share one nested draft.
 export interface AddEntityNode {
+  // #227: the root class is inserted above this existing class in one edit.
+  insertAbove?: string;
   manualParents?: boolean;
   pickerText?: string;
   label: string;
@@ -162,6 +164,15 @@ export function readAddEntityInput(value: unknown): AddEntityInput {
     )
       throw Error("Invalid entity draft.");
     seen.add(node);
+    if (
+      node.insertAbove !== undefined &&
+      (i !== 0 ||
+        input.kind !== "class" ||
+        typeof node.insertAbove !== "string" ||
+        !node.insertAbove ||
+        node.insertAbove.length > 10000)
+    )
+      throw Error("Choose an existing class for the Parent action.");
     if (
       (node.pickerText !== undefined &&
         (typeof node.pickerText !== "string" ||

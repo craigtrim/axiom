@@ -15,6 +15,8 @@ import type { FindCreationDraft } from "../shared/find-create";
 import type { AddEntityApplied } from "../shared/add-entity";
 
 export interface TextEntityClassDraft {
+  // #227: retain the Parent target across editor remounts and workspace saves.
+  insertAbove?: string;
   // craigtrim/axiom#93: each nested row retains its picker through remounts.
   pickerText?: string;
   label: string;

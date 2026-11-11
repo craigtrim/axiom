@@ -108,6 +108,7 @@ export function openAddEntityFromFind(
   phrase: string,
   kind: "class" | "individual" = "class",
   parents: string[] = [],
+  insertAbove?: string,
 ) {
   ensureEntityDraft();
   textAnalysisSession.restoreCreation(phrase, {
@@ -117,10 +118,12 @@ export function openAddEntityFromFind(
     frames: [
       {
         value: {
+          // #227: even an empty inherited parent list is an explicit root choice.
+          insertAbove,
           label: selectedEntityName(phrase),
           comment: "",
           parents: parents.map((iri) => ({ iri })),
-          manualParents: !!parents.length,
+          manualParents: !!parents.length || !!insertAbove,
         },
       },
     ],

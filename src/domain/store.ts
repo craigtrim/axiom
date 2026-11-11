@@ -1362,7 +1362,7 @@ export class Store {
     this.rebuildSchema();
   }
   /** Plan the complete transaction without changing RDF or undo history. */
-  planClassHierarchy(classes: ClassCreation[]) {
+  planClassHierarchy(classes: ClassCreation[], insertAbove?: string) {
     classes = classes.map((item) => ({
       ...item,
       name: normalizeEntityName(item.name).trim(),
@@ -1491,12 +1491,58 @@ export class Store {
         if (parents.delete(id) && !parents.size) ready.push(child);
     }
     if (dependencies.size) throw Error("A class cannot be its own ancestor.");
+    // #227: validate the complete insertion before changing either class.
+    if (insertAbove !== undefined) {
+      const row = this.entities.get(insertAbove);
+      if (
+        !row ||
+        !namedClass(row) ||
+        insertAbove === THING ||
+        classes[0].kind === "individual"
+      )
+        throw Error("Choose an existing non-root class for the Parent action.");
+      const root = ids.get(classes[0].id)!;
+      const up = new Map<string, string[]>();
+      for (const t of statements)
+        if (t.predicate === SUBCLASS && !t.object.literal)
+          up.set(t.subject, [...(up.get(t.subject) ?? []), t.object.value]);
+      const pending = [root],
+        seen = new Set<string>();
+      while (pending.length) {
+        const next = pending.pop()!;
+        if (next === insertAbove)
+          throw Error("A class cannot be its own ancestor.");
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const entity = this.entities.get(next);
+        pending.push(
+          ...(up.get(next) ?? entity?.taxonomyParents ?? entity?.parents ?? []),
+        );
+      }
+      statements.push({
+        subject: insertAbove,
+        predicate: SUBCLASS,
+        object: iriTerm(root),
+      });
+    }
     for (const statement of statements) validateStatement(statement);
     return { ids, statements };
   }
   /** Create a hierarchy as one edit, validating every class before changing RDF. */
-  createClassHierarchy(classes: ClassCreation[]): Map<string, string> {
-    const { ids, statements } = this.planClassHierarchy(classes);
+  createClassHierarchy(
+    classes: ClassCreation[],
+    insertAbove?: string,
+  ): Map<string, string> {
+    const { ids, statements } = this.planClassHierarchy(classes, insertAbove);
+    const root = ids.get(classes[0].id)!;
+    const inherited = new Set(
+      statements
+        .filter(
+          (t) =>
+            t.subject === root && t.predicate === SUBCLASS && !t.object.literal,
+        )
+        .map((t) => t.object.value),
+    );
     const created = projectEntities(statements);
     const before = this.schemaState();
     this.record(
@@ -1504,7 +1550,23 @@ export class Store {
       () => {
         for (const iri of ids.values())
           this.entities.set(iri, structuredClone(created.get(iri)!));
+        if (insertAbove !== undefined)
+          this.tbox = this.tbox.filter(
+            (t) =>
+              !(
+                t.subject === insertAbove &&
+                t.predicate === SUBCLASS &&
+                !t.object.literal &&
+                !t.object.value.startsWith("_:") &&
+                inherited.has(t.object.value)
+              ),
+          );
         this.tbox.push(...structuredClone(statements));
+        if (insertAbove !== undefined)
+          this.entities.set(
+            insertAbove,
+            projectEntities(this.tbox).get(insertAbove)!,
+          );
         this.rebuildSchema();
       },
       () => this.restoreSchema(before),
