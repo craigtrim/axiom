@@ -45,7 +45,8 @@ export function openFindCreation(
           kind,
           origin,
           parents:
-            origin.door === "sibling"
+            // #227: Parent and Sibling inherit the same named hierarchy position.
+            origin.door === "sibling" || origin.door === "parent"
               ? taxonomyParents(
                   state?.entities.find(
                     (entity) => entity.iri === origin.target,

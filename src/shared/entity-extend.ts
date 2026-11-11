@@ -3,7 +3,8 @@ import { findSynonymText, type FindSynonymStatus } from "./find-synonyms";
 import type { FindCreationKind } from "./find-create";
 
 export interface ExtendRelation {
-  door: "subclass" | "sibling" | "instance" | "subproperty";
+  // #227: Parent inserts a new class above the selected row.
+  door: "parent" | "subclass" | "sibling" | "instance" | "subproperty";
   label: string;
   predicate: string;
   kind: FindCreationKind;
@@ -27,7 +28,7 @@ export function readExtendPreferences(input: unknown): ExtendPreferences {
   if (!input || typeof input !== "object" || Array.isArray(input))
     return result;
   const allowed: Record<ExtendGroup, ExtendAction[]> = {
-    classes: ["synonym", "subclass", "sibling", "instance"],
+    classes: ["synonym", "parent", "subclass", "sibling", "instance"],
     properties: ["synonym", "subproperty"],
     individuals: ["synonym"],
     other: ["synonym"],
@@ -41,6 +42,12 @@ export function readExtendPreferences(input: unknown): ExtendPreferences {
 export function extendRelations(kind: Kind): ExtendRelation[] {
   if (kind === "Class" || kind === "Defined")
     return [
+      {
+        door: "parent",
+        label: "Parent",
+        predicate: "rdfs:subClassOf",
+        kind: "Class",
+      },
       {
         door: "subclass",
         label: "Subclass",
@@ -84,7 +91,8 @@ export function extendControl(
 ) {
   const synonym = !!findSynonymText(query) && status !== undefined;
   const relations = extendRelations(kind).filter(
-    (relation) => relation.door !== "sibling" || iri !== THING,
+    (relation) =>
+      !["parent", "sibling"].includes(relation.door) || iri !== THING,
   );
   const actions: ExtendAction[] = [
     ...(synonym ? ["synonym" as const] : []),

@@ -92,6 +92,14 @@ async function referenceControl(
     ({ selector, theme, width, replacements }) => {
       document.body.dataset.theme = theme;
       const control = document.querySelector<HTMLElement>(selector)!;
+      // #227: amend the independent menus in memory; preserve the pinned HTML.
+      for (const item of control.querySelectorAll<HTMLElement>(".mi")) {
+        const label = item.querySelector(".rm-label");
+        if (label?.textContent?.trim() !== "Subclass") continue;
+        const parent = item.cloneNode(true) as HTMLElement;
+        parent.querySelector(".rm-label")!.textContent = "Parent";
+        item.before(parent);
+      }
       const frame = control.closest<HTMLElement>(".pane")!;
       // The surrounding ground follows the shared palette (craigtrim/axiom#83).
       // Specimen dimensions and the surrounding table are explicitly scaffolding
@@ -661,6 +669,7 @@ for (const [theme, narrowOnly] of [
       await expect(draft).toContainText("from your search Psy");
       await returnToFind();
       for (const [target, item, kind, parents] of [
+        ["Psychology", "Parent", "Class", []],
         ["Psychology", "Subclass", "Class", ["Psychology"]],
         ["Psychology", "Sibling", "Class", []],
         [

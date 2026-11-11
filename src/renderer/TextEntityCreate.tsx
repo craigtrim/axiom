@@ -55,6 +55,8 @@ export const emptyEntityDraft = (label = ""): TextEntityClassDraft => ({
   ],
 });
 const inputNode = (n: TextEntityClassDraft): AddEntityNode => ({
+  // #227: Parent's target is part of preview, saved drafts and the write request.
+  insertAbove: n.insertAbove,
   label: n.label,
   comment: n.comment,
   statements: n.statements,
@@ -144,6 +146,14 @@ export function TextEntityCreate({
     "shared",
   );
   const creation: AddEntityInput = { kind, root: inputNode(root) };
+  const entityLabel = (iri: string) => {
+    const entity = snapshot.entities.find((e) => e.iri === iri);
+    return entity?.label || entity?.name || shorten(iri);
+  };
+  const insertionParents =
+    root.parents
+      .map((p) => ("iri" in p ? entityLabel(p.iri) : p.create.label))
+      .join(", ") || "owl:Thing";
   // #177: Name edits retain the root identity; Undo/Redo can restore either rename IRI.
   const createdRoot = value.createdRootIris
     ?.map((iri) => snapshot.entities.find((entity) => entity.iri === iri))
@@ -403,8 +413,12 @@ export function TextEntityCreate({
       // craigtrim/axiom#144: follow only a visible Hierarchy, leaving its layout alone.
       revealInOpenTaxonomy(result.iri);
       notify(
-        `Created ${result.created.length > 1 ? `${result.created.length} ${kind === "class" ? "classes" : "entities"}` : root.label.trim()} in one transaction.`,
-        `The saved parents were reread, the new ${kind === "class" ? "class" : "individual"} is selected in Hierarchy, and one Undo removes all of it.`,
+        root.insertAbove
+          ? `${root.label.trim()} added as a class under ${insertionParents}, with ${entityLabel(root.insertAbove)} moved under it`
+          : `Created ${result.created.length > 1 ? `${result.created.length} ${kind === "class" ? "classes" : "entities"}` : root.label.trim()} in one transaction.`,
+        root.insertAbove
+          ? "One Undo restores the row's original parents and removes the new classes."
+          : `The saved parents were reread, the new ${kind === "class" ? "class" : "individual"} is selected in Hierarchy, and one Undo removes all of it.`,
       );
     } catch (e) {
       if (mounted.current)
@@ -684,7 +698,7 @@ export function TextEntityCreate({
               key={k}
               type="button"
               aria-pressed={kind === k}
-              disabled={busy}
+              disabled={busy || (!!root.insertAbove && k !== "class")}
               onClick={() =>
                 setValue((v) => ({
                   ...v,
@@ -853,7 +867,9 @@ export function TextEntityCreate({
                 <span className="flbl">Context</span>
                 <div className="fctl">
                   <div className="fnote">
-                    {value.origin === "blank" ? (
+                    {root.insertAbove ? (
+                      `New class, parent of ${entityLabel(root.insertAbove)}, under ${insertionParents}, asserted with rdfs:subClassOf`
+                    ) : value.origin === "blank" ? (
                       "nothing, this is a blank form"
                     ) : (
                       <>

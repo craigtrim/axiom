@@ -262,6 +262,8 @@ test("Narrow row controls reveal without moving or resizing any row", async () =
   await pane().screenshot({ path: "artifacts/issue-156-narrow.png" });
   await trigger.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
+  // #227: Parent now precedes Subclass in the class menu.
+  await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
   await page.locator('[data-pane-id="find"]').evaluate((el) => {
     (el as HTMLElement).style.width = "616px";

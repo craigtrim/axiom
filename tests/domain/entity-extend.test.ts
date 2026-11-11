@@ -8,8 +8,9 @@ import {
 } from "../../src/shared/entity-extend";
 import { THING, type Kind } from "../../src/domain/model";
 const matrix: [Kind, string[]][] = [
-  ["Class", ["subclass", "sibling", "instance"]],
-  ["Defined", ["subclass", "sibling", "instance"]],
+  // #227: Parent precedes the existing class doors.
+  ["Class", ["parent", "subclass", "sibling", "instance"]],
+  ["Defined", ["parent", "subclass", "sibling", "instance"]],
   ["ObjectProperty", ["subproperty"]],
   ["DataProperty", ["subproperty"]],
   ["AnnotationProperty", ["subproperty"]],
@@ -60,6 +61,7 @@ for (const [kind, relations] of matrix) {
   });
   it.each([
     "synonym",
+    "parent",
     "subclass",
     "sibling",
     "instance",
@@ -77,34 +79,38 @@ for (const [kind, relations] of matrix) {
     },
   );
 }
-it("falls back on owl:Thing without altering the remembered sibling preference", () => {
-  const preferences = readExtendPreferences({ classes: "sibling" });
-  const control = extendControl(
-    "Class",
-    "Thing",
-    "label",
-    preferences.classes,
-    THING,
-  );
-  expect(control.primary).toBe("synonym");
-  expect(control.relations.map((r) => r.door)).toEqual([
-    "subclass",
-    "instance",
-  ]);
-  expect(
-    extendControl("Class", "", "available", preferences.classes, THING).primary,
-  ).toBe("subclass");
-  expect(preferences.classes).toBe("sibling");
-  expect(
-    extendControl(
-      "Defined",
-      "new term",
-      "available",
+it.each(["sibling", "parent"])(
+  "falls back on owl:Thing without altering the remembered %s preference",
+  (door) => {
+    const preferences = readExtendPreferences({ classes: door });
+    const control = extendControl(
+      "Class",
+      "Thing",
+      "label",
       preferences.classes,
-      "https://example.test/Class",
-    ).primary,
-  ).toBe("sibling");
-});
+      THING,
+    );
+    expect(control.primary).toBe("synonym");
+    expect(control.relations.map((r) => r.door)).toEqual([
+      "subclass",
+      "instance",
+    ]);
+    expect(
+      extendControl("Class", "", "available", preferences.classes, THING)
+        .primary,
+    ).toBe("subclass");
+    expect(preferences.classes).toBe(door);
+    expect(
+      extendControl(
+        "Defined",
+        "new term",
+        "available",
+        preferences.classes,
+        "https://example.test/Class",
+      ).primary,
+    ).toBe(door);
+  },
+);
 it("shares action memory within classes and properties while separating individuals", () => {
   expect(["Class", "Defined"].map((k) => extendGroup(k as Kind))).toEqual([
     "classes",
@@ -119,6 +125,9 @@ it("shares action memory within classes and properties while separating individu
   expect(extendGroup("Resource")).toBe("other");
 });
 it("restores only supported preferences", () => {
+  expect(
+    readExtendPreferences({ classes: "parent", properties: "parent" }),
+  ).toEqual({ classes: "parent" });
   const preferences = {
     classes: "instance",
     properties: "subproperty",

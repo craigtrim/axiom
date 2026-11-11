@@ -436,6 +436,8 @@ export function FindPanel() {
         options.text,
         relation.kind === "Individual" ? "individual" : "class",
         findState().draft.parents.filter(Boolean),
+        // #227: carry the row through the shared editor's atomic insertion.
+        relation.door === "parent" ? row.iri : undefined,
       );
       return;
     }

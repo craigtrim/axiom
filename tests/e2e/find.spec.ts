@@ -484,6 +484,8 @@ test("#49 menus retain selection, close outside or on Escape, and keep independe
     page.getByRole("menu").getByRole("menuitem").first(),
   ).toBeFocused();
   await page.getByRole("menu").getByRole("menuitem").first().press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /^Parent/ })).toBeFocused();
+  await page.getByRole("menuitem", { name: /^Parent/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Subclass/ })).toBeFocused();
   await page.getByRole("menuitem", { name: /^Subclass/ }).press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: /^Sibling/ })).toBeFocused();
@@ -544,6 +546,7 @@ test("the narrow split overlays Entity and lists Synonym before relations", asyn
   await expect(row.locator(".ext-main")).toBeEnabled();
   await expect(page.getByRole("menu").getByRole("menuitem")).toHaveText([
     "Synonymrdfs:seeAlso",
+    "Parentrdfs:subClassOf",
     "Subclassrdfs:subClassOf",
     "Siblingrdfs:subClassOf",
     "Instancerdf:type",
@@ -557,7 +560,7 @@ test("the narrow split overlays Entity and lists Synonym before relations", asyn
     "Psy added to Psychology",
   );
   await extendMenu("Psychology");
-  await expect(page.getByRole("menu").getByRole("menuitem")).toHaveCount(4);
+  await expect(page.getByRole("menu").getByRole("menuitem")).toHaveCount(5);
   await expect(page.getByRole("menu").getByRole("menuitem").first()).toHaveText(
     "Synonymrdfs:seeAlso",
   );
@@ -599,6 +602,56 @@ test("#156 property editor returns to its original button after crossing Narrow"
   await resize(616);
   await pane().locator(".extend-back").click();
   await expect(extendRow("teaches").locator(".ext-main")).toBeFocused();
+});
+
+// #227: the actual menu/editor/worker journey preserves RDF and Undo as one edit.
+test("#227 Parent inserts a class above its row and one Undo restores the row", async () => {
+  await openExtendFixture();
+  const rowIri = extendBase + "ClinicalPsychology";
+  const before = await page.evaluate(
+    (iri) => window.axiom.request<any>("entityDocument", { iri }),
+    rowIri,
+  );
+  await extendMenu("Clinical Psychology");
+  await page.getByRole("menuitem", { name: /^Parent/ }).click();
+  const form = addForm();
+  await expect(form).toContainText(
+    "New class, parent of Clinical Psychology, under Psychology, asserted with rdfs:subClassOf",
+  );
+  await expect(
+    form.getByRole("button", { name: "Individual", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    form.getByRole("button", { name: "Remove Psychology", exact: true }),
+  ).toBeVisible();
+  await form
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Induced parent");
+  await form.getByRole("button", { name: "Create", exact: true }).click();
+  const parentIri = extendBase + "InducedParent";
+  await expect
+    .poll(
+      async () =>
+        (await state()).entities.find((e) => e.iri === rowIri)?.parents,
+    )
+    .toEqual([parentIri]);
+  expect(
+    (await state()).entities.find((e) => e.iri === parentIri)?.parents,
+  ).toEqual([extendBase + "Psychology"]);
+  await page.evaluate((iri) => window.axiom.request("select", { iri }), rowIri);
+  await menu("view.details");
+  const details = page.locator('[data-panel="details"]');
+  await expect(details).toHaveAttribute("data-entity-iri", rowIri);
+  await expect(details).toContainText("Induced parent");
+  await menu("edit.undo");
+  await expect
+    .poll(async () => (await state()).entities.some((e) => e.iri === parentIri))
+    .toBe(false);
+  const after = await page.evaluate(
+    (iri) => window.axiom.request<any>("entityDocument", { iri }),
+    rowIri,
+  );
+  expect(after.statements).toEqual(before.statements);
 });
 
 test("#70 uppercase sibling label previews and saves a PascalCase ID", async () => {
