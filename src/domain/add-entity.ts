@@ -60,11 +60,14 @@ function inspect(
       const existing = draft.existing[0];
       if (existing) {
         duplicate = true;
+        // craigtrim/axiom#230: explain synonym collisions using the stored literal.
         bad(
           i
             ? `${name} now exists, so it cannot also be drafted.`
-            : `A class named ${existing.label} already exists.`,
-          i ? undefined : existing,
+            : existing.synonym !== undefined
+              ? `${existing.label} has the synonym “${existing.synonym}”`
+              : `A class named ${existing.label} already exists.`,
+          i ? undefined : { iri: existing.iri, label: existing.label },
           !i,
         );
       }

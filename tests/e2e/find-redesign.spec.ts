@@ -500,8 +500,9 @@ test("hidden class aliases and occupied properties block creation across Find sc
   const name = create().getByRole("textbox", { name: "Name", exact: true }),
     save = create().getByRole("button", { name: "Create", exact: true });
   await name.fill("Marine Science");
+  // craigtrim/axiom#230: name the synonym while keeping Create blocked and Reveal usable.
   await expect(create().locator(".vmsg")).toContainText(
-    "A class named Ocean Studies already exists.",
+    "Ocean Studies has the synonym “Marine Science”",
   );
   await expect(save).toBeDisabled();
   await create()
