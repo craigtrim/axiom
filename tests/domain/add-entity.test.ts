@@ -209,6 +209,55 @@ describe("Add entity transactions", () => {
       ),
     ).toEqual(["wrn2", "wrn2"]);
   });
+  // craigtrim/axiom#230: preview and transaction report the same stored synonym.
+  it.each(["rdfs:seeAlso", "skos:altLabel", ":inflection"])(
+    "names the matching %s synonym without writing the draft",
+    async (predicate) => {
+      const store = storeFromRdf(
+        (
+          await parseRdf(
+            `@prefix : <${base}> . @prefix owl: <${NS.owl}> .
+@prefix rdfs: <${NS.rdfs}> . @prefix skos: <${NS.skos}> .
+:LocalGovernment a owl:Class; rdfs:label "Local Government";
+  ${predicate} "STATE & Local Government" .`,
+            "synonym.ttl",
+            base,
+          )
+        ).triples,
+        "synonym",
+      );
+      const iri = base + "LocalGovernment",
+        draft = input(node("State and Local Government", [{ iri }])),
+        before = [...store.scan()],
+        version = store.version,
+        message = "Local Government has the synonym “STATE & Local Government”";
+      expect(checkAddEntity(store, draft, 3).findings).toEqual([
+        {
+          kind: "bad2",
+          message,
+          reveal: { iri, label: "Local Government" },
+          createOnly: true,
+        },
+      ]);
+      expect(() => createAddEntity(store, draft, 3)).toThrow(message);
+      expect(store.version).toBe(version);
+      expect([...store.scan()]).toEqual(before);
+    },
+  );
+  it("keeps the existing name-collision message and Reveal target", async () => {
+    const store = await fixture(),
+      draft = input(node("engineering")),
+      message = "A class named Engineering already exists.";
+    expect(checkAddEntity(store, draft, 3).findings).toEqual([
+      {
+        kind: "bad2",
+        message,
+        reveal: { iri: base + "Engineering", label: "Engineering" },
+        createOnly: true,
+      },
+    ]);
+    expect(() => createAddEntity(store, draft, 3)).toThrow(message);
+  });
   it.each(["duplicate", "occupied", "invalid-parent", "invalid-statement"])(
     "rolls back a whole nested hierarchy on %s",
     async (fault) => {

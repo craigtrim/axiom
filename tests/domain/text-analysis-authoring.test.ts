@@ -48,7 +48,15 @@ describe("create classes from selected text", () => {
       }
       expect(
         textAnalysisDraft(store, "Culture, Media Studies", 1).existing,
-      ).toEqual([{ iri, label: store.label(iri) }]);
+      ).toEqual([
+        {
+          iri,
+          label: store.label(iri),
+          ...(predicate !== "rdfs:label" && {
+            synonym: "Culture, Media Studies",
+          }),
+        },
+      ]);
       expect(
         textAnalysisDraft(store, "Advanced Culture, Media Studies", 1).parents,
       ).toEqual([
@@ -56,6 +64,31 @@ describe("create classes from selected text", () => {
       ]);
     },
   );
+  // craigtrim/axiom#230: names win even when a matching synonym is scanned first.
+  it.each([
+    'skos:altLabel "PLATFORMS"; rdfs:label "Platforms"@fr',
+    'rdfs:label "Platforms"@fr; skos:altLabel "PLATFORMS"',
+  ])("prefers name matches with %s", async (statements) => {
+    const store = storeFromRdf(
+      (
+        await parseRdf(
+          turtle +
+            `:Systems skos:altLabel "SYSTEMS"; ${statements} .
+:Bare a owl:Class; skos:altLabel "BARE" .`,
+          "names.ttl",
+          base,
+        )
+      ).triples,
+      "names",
+    );
+    for (const name of ["Systems", "Platforms"])
+      expect(textAnalysisDraft(store, name, 1).existing).toEqual([
+        { iri: base + "Systems", label: "Systems" },
+      ]);
+    expect(textAnalysisDraft(store, "Bare", 1).existing).toEqual([
+      { iri: base + "Bare", label: "Bare" },
+    ]);
+  });
   it.each([
     ["Basic ENGLISH COMPOSITION", "Composition"],
     ["PERSONAL DIMENSIONS OF EDUCATION", "Education"],
@@ -173,7 +206,11 @@ describe("create classes from selected text", () => {
         version = store.version,
         before = store.tripleCount;
       expect(textAnalysisDraft(store, phrase, 1).existing).toEqual([
-        { iri: base + "Systems", label: "Systems" },
+        {
+          iri: base + "Systems",
+          label: "Systems",
+          ...(phrase !== "systems" && { synonym: phrase.toLowerCase() }),
+        },
       ]);
       expect(() => createTextAnalysisClass(store, phrase, THING)).toThrow(
         /existing class/,

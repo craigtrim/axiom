@@ -56,7 +56,13 @@ export interface TextAnalysisParent {
 export interface TextAnalysisDraft {
   label: string;
   parents: TextAnalysisParent[];
-  existing: { iri: string; label: string; openable?: boolean }[];
+  // craigtrim/axiom#230: synonym matches carry the literal as stored.
+  existing: {
+    iri: string;
+    label: string;
+    openable?: boolean;
+    synonym?: string;
+  }[];
   similar?: import("./find-create").FindCollision[];
   defaultParent: string;
   datasetEpoch: number;

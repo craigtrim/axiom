@@ -15,21 +15,25 @@ import type {
   TextAnalysisParent,
 } from "../shared/text-analysis";
 
+// craigtrim/axiom#230: retain the stored synonym behind each class match.
+type AliasMatch = { synonym?: string };
 const cache = new WeakMap<
   Store,
-  { version: number; aliases: Map<string, Set<string>> }
+  { version: number; aliases: Map<string, Map<string, AliasMatch>> }
 >();
 function aliases(store: Store) {
   let entry = cache.get(store);
   if (entry?.version === store.version) return entry.aliases;
-  const values = new Map<string, Set<string>>();
-  const add = (iri: string, label: string) => {
+  const values = new Map<string, Map<string, AliasMatch>>();
+  const add = (iri: string, label: string, synonym?: string) => {
     const entity = store.entities.get(iri);
     if (!entity || !namedClass(entity) || iri.startsWith("_:")) return;
     const normalized = key(label);
     if (!normalized) return;
-    const ids = values.get(normalized) ?? new Set<string>();
-    ids.add(iri);
+    const ids = values.get(normalized) ?? new Map<string, AliasMatch>();
+    // A name match takes precedence regardless of statement order.
+    if (!ids.has(iri) || synonym === undefined)
+      ids.set(iri, synonym === undefined ? {} : { synonym });
     values.set(normalized, ids);
   };
   for (const entity of store.entities.values()) {
@@ -48,7 +52,12 @@ function aliases(store: Store) {
       // craigtrim/axiom#76: each literal is one alias, including its commas.
       // Plus rules describe gapped matches rather than literal class names.
       const alias = triple.object.value;
-      if (!alias.includes("+")) add(triple.subject, alias);
+      if (!alias.includes("+"))
+        add(
+          triple.subject,
+          alias,
+          triple.predicate === NS.rdfs + "label" ? undefined : alias,
+        );
     }
   }
   entry = { version: store.version, aliases: values };
@@ -66,10 +75,9 @@ export function textAnalysisDraft(
   if (error) throw Error(error);
   const terms = words(label),
     index = aliases(store);
-  const existing = [...(index.get(terms.join(" ")) ?? [])].map((iri) => ({
-    iri,
-    label: store.label(iri),
-  }));
+  const existing = [...(index.get(terms.join(" ")) ?? [])].map(
+    ([iri, match]) => ({ iri, label: store.label(iri), ...match }),
+  );
   const candidates = new Map<
     string,
     TextAnalysisParent & { length: number; suffix: boolean }
@@ -78,7 +86,7 @@ export function textAnalysisDraft(
     for (let end = start + 1; end <= terms.length; end++) {
       if (start === 0 && end === terms.length) continue;
       const matchedText = terms.slice(start, end).join(" ");
-      for (const iri of index.get(matchedText) ?? []) {
+      for (const iri of index.get(matchedText)?.keys() ?? []) {
         if (iri === THING || existing.some((entity) => entity.iri === iri))
           continue;
         const candidate = {
